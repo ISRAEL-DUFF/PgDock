@@ -80,14 +80,14 @@ export function NewProjectPage() {
             </div>
           </fieldset>
           {tier === "dedicated" && (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="Node">
                 {(id) => (
                   <Select id={id} value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
                     <option value="">Least loaded</option>
                     {dedicatedNodes.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {n.name}
+                      <option key={n.id} value={n.id} disabled={n.status !== "healthy"}>
+                        {n.status === "healthy" ? n.name : `${n.name} (${n.status})`}
                       </option>
                     ))}
                   </Select>
@@ -121,6 +121,9 @@ export function NewProjectPage() {
           )}
           {tier === "dedicated" && nodes.data && dedicatedNodes.length === 0 && (
             <Alert tone="warn">No node with an agent accepts dedicated instances yet. On the Nodes page, give a node the role "dedicated" or "both", or add one.</Alert>
+          )}
+          {tier === "dedicated" && nodes.data && dedicatedNodes.length > 0 && !dedicatedNodes.some((n) => n.status === "healthy") && (
+            <Alert tone="warn">Every node that takes dedicated instances is unreachable right now, so a new one cannot be placed. Check the agents on the Nodes page.</Alert>
           )}
           {err && <Alert>{err}</Alert>}
           <div>

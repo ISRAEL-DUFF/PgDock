@@ -68,6 +68,9 @@ func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memory
 		if n.AgentCertFp == nil {
 			return fmt.Errorf("%w: node %s has no agent yet", provision.ErrConflict, n.Name)
 		}
+		if n.Status != "healthy" {
+			return fmt.Errorf("%w: node %s is %s; its agent has not answered recently", provision.ErrConflict, n.Name, n.Status)
+		}
 		if _, err := q.SharedInstanceOnNode(ctx, nodeID); err == nil {
 			return fmt.Errorf("%w: node %s already has a shared cluster", provision.ErrConflict, n.Name)
 		} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -164,15 +167,35 @@ func (s *Service) failSharedCluster(ctx context.Context, op store.Operation, log
 	if err := decodeJSON(op.Params, &params); err != nil {
 		return err
 	}
-	q := store.New(s.db)
-	inst, err := q.GetInstance(ctx, params.InstanceID)
+	inst, err := store.New(s.db).GetInstance(ctx, params.InstanceID)
 	if err != nil {
 		return err
 	}
-	if agent, err := s.nodes.ForNode(ctx, inst.NodeID); err == nil {
-		_ = agent.DestroyInstance(ctx, inst.ID.String())
+	if err := s.rollbackSharedCluster(ctx, inst); err != nil {
+		_ = log.Warn(ctx, "rollback", "could not remove the half-created shared cluster: %v; it will be removed automatically once the node is reachable", err)
+		return err
 	}
-	_ = log.Warn(ctx, "rollback", "removed the half-created shared cluster")
+	return log.Warn(ctx, "rollback", "removed the half-created shared cluster")
+}
+
+// rollbackSharedCluster removes a shared cluster whose creation failed. The
+// instance is recorded as deleted only once its node has destroyed it;
+// otherwise a container the node did create would be left running with
+// nothing in the metadata DB pointing at it. A failed removal marks the
+// instance "error", which ReapOrphans retries until the node answers.
+func (s *Service) rollbackSharedCluster(ctx context.Context, inst store.Instance) error {
+	q := store.New(s.db)
+	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
+	if err == nil {
+		err = agent.DestroyInstance(ctx, inst.ID.String())
+	}
+	if err != nil {
+		msg := err.Error()
+		if serr := q.SetInstanceStatus(context.WithoutCancel(ctx), store.SetInstanceStatusParams{ID: inst.ID, Status: "error", Error: &msg}); serr != nil {
+			return errors.Join(err, serr)
+		}
+		return err
+	}
 	return q.MarkInstanceDeleted(ctx, inst.ID)
 }
 

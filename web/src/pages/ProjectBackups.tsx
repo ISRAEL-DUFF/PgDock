@@ -277,7 +277,7 @@ function PITRCard({ p, onCreated }: { p: Project; onCreated: (c: ProjectCredenti
             Any moment from {formatDate(w.from)} until now can be restored into a new dedicated project on the same node. This project is not
             changed.
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Restore to (your local time)" hint="Leave empty for the latest point.">
               {(id) => (
                 <Input
