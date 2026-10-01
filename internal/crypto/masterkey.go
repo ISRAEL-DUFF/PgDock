@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -42,6 +43,7 @@ func (id KeyID) String() string { return fmt.Sprintf("%x", id[:]) }
 type key struct {
 	id   KeyID
 	aead cipher.AEAD
+	raw  []byte
 }
 
 func newKey(raw []byte) (key, error) {
@@ -59,7 +61,7 @@ func newKey(raw []byte) (key, error) {
 	sum := sha256.Sum256(append([]byte("pgdock master key id\x00"), raw...))
 	var id KeyID
 	copy(id[:], sum[:keyIDSize])
-	return key{id: id, aead: aead}, nil
+	return key{id: id, aead: aead, raw: append([]byte(nil), raw...)}, nil
 }
 
 // Keyring encrypts with a primary master key and decrypts with the primary
@@ -161,6 +163,15 @@ func additionalData(header, aad []byte) []byte {
 	out := make([]byte, 0, len(header)+len(aad))
 	out = append(out, header...)
 	return append(out, aad...)
+}
+
+// Derive returns n bytes (at most 32) deterministically derived from the
+// primary key for label, for values that must be stable and secret, such as
+// a SCRAM salt. They change when the primary key is rotated.
+func (k *Keyring) Derive(label string, n int) []byte {
+	h := hmac.New(sha256.New, k.primary.raw)
+	h.Write([]byte("pgdock derive\x00" + label))
+	return h.Sum(nil)[:min(n, sha256.Size)]
 }
 
 // GenerateKey returns a new random master key.

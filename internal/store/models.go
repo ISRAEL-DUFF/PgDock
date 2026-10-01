@@ -51,6 +51,8 @@ type Instance struct {
 	VolumeGb    *int32
 	Status      string
 	CreatedAt   time.Time
+	AdminHost   *string
+	AdminPort   *int32
 }
 
 type MetricPoint struct {
@@ -65,10 +67,10 @@ type MetricPoint struct {
 type Node struct {
 	ID            uuid.UUID
 	Name          string
-	PrivateAddr   netip.Addr
+	PrivateAddr   string
 	AgentPort     int32
 	Role          string
-	AgentCertFp   string
+	AgentCertFp   *string
 	PgAdminSecret []byte
 	Capacity      json.RawMessage
 	Status        string
@@ -114,7 +116,7 @@ type Project struct {
 	InstanceID      uuid.UUID
 	Status          string
 	Settings        json.RawMessage
-	StorageTargetID uuid.UUID
+	StorageTargetID *uuid.UUID
 	Extensions      []string
 	Description     *string
 	CreatedBy       *uuid.UUID

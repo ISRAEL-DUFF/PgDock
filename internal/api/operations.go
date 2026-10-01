@@ -158,6 +158,8 @@ func toAPIOperation(op store.Operation) (gen.Operation, error) {
 			return gen.Operation{}, err
 		}
 	}
+	// Encrypted handoff data never leaves the server.
+	delete(params, "secrets")
 	return gen.Operation{
 		Id:         op.ID,
 		Kind:       op.Kind,

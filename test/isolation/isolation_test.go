@@ -1,0 +1,302 @@
+// Package isolation is the tenant-escape suite (spec §7.1): it creates two
+// throwaway shared-tier projects, A and B, and asserts that A cannot
+// connect to B's database, see B's objects, read B's data through any
+// predefined role, create objects in B, interfere with B's sessions, gain
+// privileges, or read server files. It runs in CI and is meant to run
+// weekly against live nodes.
+package isolation
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/test/testenv"
+)
+
+type tenant struct {
+	creds gen.ProjectCredentials
+	conn  *pgx.Conn // A's own database, through the session pooler
+}
+
+func (tn tenant) db() string   { return tn.creds.Project.DbName }
+func (tn tenant) role() string { return tn.creds.Project.OwnerRole }
+
+func setup(t *testing.T) (*testenv.Env, tenant, tenant) {
+	t.Helper()
+	e := testenv.Start(t, testenv.Options{})
+	a := e.CreateProject("isolation a")
+	b := e.CreateProject("isolation b")
+	ta := tenant{a, e.MustConnect(a.Connection.SessionUrl)}
+	tb := tenant{b, e.MustConnect(b.Connection.SessionUrl)}
+
+	// B keeps a secret A must never reach.
+	ctx := context.Background()
+	for _, q := range []string{
+		`CREATE TABLE secret_b (v text)`,
+		`INSERT INTO secret_b VALUES ('b-only')`,
+		`CREATE SCHEMA private_b`,
+	} {
+		if _, err := tb.conn.Exec(ctx, q); err != nil {
+			t.Fatalf("seed B: %s: %v", q, err)
+		}
+	}
+	return e, ta, tb
+}
+
+// mustFail runs q as A and requires an error mentioning one of wants.
+func mustFail(t *testing.T, conn *pgx.Conn, q string, wants ...string) {
+	t.Helper()
+	_, err := conn.Exec(context.Background(), q)
+	if err == nil {
+		t.Errorf("A succeeded at: %s", q)
+		return
+	}
+	msg := strings.ToLower(err.Error())
+	for _, w := range wants {
+		if strings.Contains(msg, w) {
+			return
+		}
+	}
+	t.Errorf("%s: unexpected error %q (want one of %q)", q, err, wants)
+}
+
+func mustNotConnect(t *testing.T, e *testenv.Env, what, url string) {
+	t.Helper()
+	conn, err := e.Connect(url)
+	if err == nil {
+		_ = conn.Close(context.Background())
+		t.Errorf("%s: A connected (%s)", what, testenv.RedactURL(url))
+	}
+}
+
+func TestTenantIsolation(t *testing.T) {
+	e, a, b := setup(t)
+	ctx := context.Background()
+
+	t.Run("cannot connect to B's database", func(t *testing.T) {
+		pooled := testenv.WithDatabase(t, a.creds.Connection.PooledUrl, b.db())
+		session := testenv.WithDatabase(t, a.creds.Connection.SessionUrl, b.db())
+		mustNotConnect(t, e, "through the transaction pooler", pooled)
+		mustNotConnect(t, e, "through the session pooler", session)
+		mustNotConnect(t, e, "directly on the backend", e.DirectURL(a.creds.Connection.SessionUrl, b.db()))
+	})
+
+	t.Run("cannot connect to maintenance databases", func(t *testing.T) {
+		for _, db := range []string{"postgres", "template1", "template0"} {
+			mustNotConnect(t, e, db+" directly", e.DirectURL(a.creds.Connection.SessionUrl, db))
+			mustNotConnect(t, e, db+" through the pooler", testenv.WithDatabase(t, a.creds.Connection.SessionUrl, db))
+		}
+	})
+
+	t.Run("B's credentials are not A's", func(t *testing.T) {
+		// A's password does not authenticate as B's role.
+		url := strings.Replace(a.creds.Connection.SessionUrl, a.role()+":", b.role()+":", 1)
+		url = testenv.WithDatabase(t, url, b.db())
+		mustNotConnect(t, e, "B's role with A's password", url)
+	})
+
+	t.Run("cannot see B's objects", func(t *testing.T) {
+		var n int
+		if err := a.conn.QueryRow(ctx,
+			`SELECT count(*) FROM pg_class WHERE relname = 'secret_b'`).Scan(&n); err != nil || n != 0 {
+			t.Errorf("A sees B's table: %d %v", n, err)
+		}
+		if err := a.conn.QueryRow(ctx,
+			`SELECT count(*) FROM pg_namespace WHERE nspname = 'private_b'`).Scan(&n); err != nil || n != 0 {
+			t.Errorf("A sees B's schema: %d %v", n, err)
+		}
+		mustFail(t, a.conn, `SELECT * FROM secret_b`, "does not exist")
+		mustFail(t, a.conn, `SELECT * FROM `+pgx.Identifier{b.db(), "public", "secret_b"}.Sanitize(), "cross-database references are not implemented")
+	})
+
+	t.Run("role has no dangerous attributes", func(t *testing.T) {
+		var super, createdb, createrole, repl, bypass bool
+		var connLimit int
+		if err := a.conn.QueryRow(ctx, `SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolconnlimit
+			FROM pg_roles WHERE rolname = current_user`).Scan(&super, &createdb, &createrole, &repl, &bypass, &connLimit); err != nil {
+			t.Fatal(err)
+		}
+		if super || createdb || createrole || repl || bypass {
+			t.Errorf("A has attributes: super=%v createdb=%v createrole=%v replication=%v bypassrls=%v",
+				super, createdb, createrole, repl, bypass)
+		}
+		if connLimit != 20 {
+			t.Errorf("connection limit %d, want 20", connLimit)
+		}
+		mustFail(t, a.conn, `ALTER ROLE CURRENT_USER SUPERUSER`, "permission denied")
+		mustFail(t, a.conn, `ALTER ROLE CURRENT_USER CREATEDB`, "permission denied")
+		mustFail(t, a.conn, `ALTER ROLE CURRENT_USER BYPASSRLS`, "permission denied")
+		mustFail(t, a.conn, `ALTER ROLE CURRENT_USER CONNECTION LIMIT -1`, "permission denied")
+		mustFail(t, a.conn, `CREATE DATABASE escape_attempt`, "permission denied")
+		mustFail(t, a.conn, `CREATE ROLE escape_attempt`, "permission denied")
+	})
+
+	t.Run("not a member of predefined roles", func(t *testing.T) {
+		rows, err := a.conn.Query(ctx, `
+			SELECT r.rolname FROM pg_roles r
+			WHERE r.rolname LIKE 'pg\_%' AND r.rolname <> 'pg_database_owner'
+			  AND pg_has_role(current_user, r.oid, 'MEMBER')`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		member, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(member) > 0 {
+			t.Errorf("A is a member of %v", member)
+		}
+		for _, r := range []string{"pg_read_all_data", "pg_write_all_data", "pg_read_server_files",
+			"pg_write_server_files", "pg_execute_server_program", "pg_signal_backend"} {
+			mustFail(t, a.conn, "GRANT "+r+" TO CURRENT_USER", "permission denied", "must have admin option")
+		}
+	})
+
+	t.Run("cannot act on B's role or database", func(t *testing.T) {
+		mustFail(t, a.conn, "SET ROLE "+pgx.Identifier{b.role()}.Sanitize(), "permission denied")
+		mustFail(t, a.conn, "SET SESSION AUTHORIZATION "+pgx.Identifier{b.role()}.Sanitize(), "permission denied")
+		mustFail(t, a.conn, "ALTER ROLE "+pgx.Identifier{b.role()}.Sanitize()+" PASSWORD 'x'", "permission denied")
+		mustFail(t, a.conn, "DROP ROLE "+pgx.Identifier{b.role()}.Sanitize(), "permission denied")
+		mustFail(t, a.conn, "DROP DATABASE "+pgx.Identifier{b.db()}.Sanitize(), "must be owner", "permission denied")
+		mustFail(t, a.conn, "ALTER DATABASE "+pgx.Identifier{b.db()}.Sanitize()+" CONNECTION LIMIT 0", "must be owner", "permission denied")
+		mustFail(t, a.conn, "GRANT CONNECT ON DATABASE "+pgx.Identifier{b.db()}.Sanitize()+" TO CURRENT_USER", "permission denied", "no privileges")
+	})
+
+	t.Run("cannot see or signal B's sessions", func(t *testing.T) {
+		var bpid int
+		if err := b.conn.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&bpid); err != nil {
+			t.Fatal(err)
+		}
+		var query *string
+		err := a.conn.QueryRow(ctx, `SELECT query FROM pg_stat_activity WHERE pid = $1`, bpid).Scan(&query)
+		if err == nil && query != nil && *query != "<insufficient privilege>" {
+			t.Errorf("A reads B's query text: %q", *query)
+		}
+		mustFail(t, a.conn, "SELECT pg_terminate_backend("+itoa(bpid)+")", "permission denied", "must be a member")
+		mustFail(t, a.conn, "SELECT pg_cancel_backend("+itoa(bpid)+")", "permission denied", "must be a member")
+		if _, err := b.conn.Exec(ctx, "SELECT 1"); err != nil {
+			t.Errorf("B's session was disturbed: %v", err)
+		}
+	})
+
+	t.Run("public has no access to project databases", func(t *testing.T) {
+		for _, db := range []string{a.db(), b.db()} {
+			var connect, temp bool
+			if err := a.conn.QueryRow(ctx, `SELECT has_database_privilege('public', $1, 'CONNECT'),
+				has_database_privilege('public', $1, 'TEMPORARY')`, db).Scan(&connect, &temp); err != nil {
+				t.Fatal(err)
+			}
+			if connect || temp {
+				t.Errorf("PUBLIC has CONNECT=%v TEMPORARY=%v on %s", connect, temp, db)
+			}
+		}
+		var create bool
+		if err := a.conn.QueryRow(ctx, `SELECT has_schema_privilege('public', 'public', 'CREATE')`).Scan(&create); err != nil || create {
+			t.Errorf("PUBLIC can CREATE in schema public: %v %v", create, err)
+		}
+		var owner string
+		if err := a.conn.QueryRow(ctx, `SELECT nspowner::regrole::text FROM pg_namespace WHERE nspname = 'public'`).Scan(&owner); err != nil || owner != a.role() {
+			t.Errorf("schema public owned by %q, want %s (%v)", owner, a.role(), err)
+		}
+	})
+
+	t.Run("cannot read server files or run programs", func(t *testing.T) {
+		if _, err := a.conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS sink (line text)`); err != nil {
+			t.Fatal(err)
+		}
+		mustFail(t, a.conn, `SELECT pg_read_file('/etc/passwd')`, "permission denied")
+		mustFail(t, a.conn, `SELECT pg_read_binary_file('postgresql.conf')`, "permission denied")
+		mustFail(t, a.conn, `SELECT pg_ls_dir('.')`, "permission denied")
+		mustFail(t, a.conn, `SELECT pg_stat_file('postgresql.conf')`, "permission denied")
+		mustFail(t, a.conn, `COPY sink FROM '/etc/passwd'`, "permission denied")
+		mustFail(t, a.conn, `COPY sink TO '/tmp/pgdock_escape'`, "permission denied")
+		mustFail(t, a.conn, `COPY sink FROM PROGRAM 'id'`, "permission denied")
+		mustFail(t, a.conn, `SELECT lo_import('/etc/passwd')`, "permission denied")
+		mustFail(t, a.conn, `SELECT lo_export(0, '/tmp/pgdock_escape')`, "permission denied")
+	})
+
+	t.Run("no escape-prone extensions or untrusted languages", func(t *testing.T) {
+		for _, ext := range []string{"dblink", "postgres_fdw", "file_fdw", "adminpack", "plpython3u", "plperlu", "pageinspect", "pg_buffercache"} {
+			mustFail(t, a.conn, "CREATE EXTENSION "+ext, "permission denied", "not available", "could not open extension control file", "must be superuser", "is not supported")
+		}
+		mustFail(t, a.conn, `CREATE LANGUAGE plpython3u`, "permission denied", "must be superuser", "not available", "could not open", "does not exist")
+		mustFail(t, a.conn, `CREATE FUNCTION evil() RETURNS int AS 'libc.so.6', 'getpid' LANGUAGE c`, "permission denied")
+		var langs []string
+		rows, err := a.conn.Query(ctx, `SELECT lanname FROM pg_language WHERE NOT lanpltrusted AND lanname NOT IN ('internal', 'c')`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		langs, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil || len(langs) > 0 {
+			t.Errorf("untrusted languages installed: %v %v", langs, err)
+		}
+	})
+
+	t.Run("cannot change superuser-only settings", func(t *testing.T) {
+		mustFail(t, a.conn, `SET log_statement = 'none'`, "permission denied")
+		mustFail(t, a.conn, `ALTER SYSTEM SET log_statement = 'all'`, "permission denied", "must be superuser")
+		mustFail(t, a.conn, "ALTER DATABASE "+pgx.Identifier{a.db()}.Sanitize()+" SET session_preload_libraries = 'auto_explain'", "permission denied")
+	})
+
+	t.Run("guardrails apply", func(t *testing.T) {
+		var timeout, idle string
+		if err := a.conn.QueryRow(ctx, `SELECT current_setting('statement_timeout'), current_setting('idle_in_transaction_session_timeout')`).Scan(&timeout, &idle); err != nil {
+			t.Fatal(err)
+		}
+		if timeout != "1min" || idle != "1min" {
+			t.Errorf("timeouts: statement=%s idle_in_transaction=%s", timeout, idle)
+		}
+	})
+}
+
+// TestClusterConfiguration checks the cluster-wide items of spec §7.1 that
+// the operator controls: statement logging and pg_hba.conf.
+func TestClusterConfiguration(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	admin := e.SharedAdmin("postgres")
+	ctx := context.Background()
+
+	var logStatement string
+	if err := admin.QueryRow(ctx, `SHOW log_statement`).Scan(&logStatement); err != nil || logStatement != "none" {
+		t.Errorf("log_statement = %q (%v), want none", logStatement, err)
+	}
+	rows, err := admin.Query(ctx, `SELECT line_number, type, auth_method FROM pg_hba_file_rules
+		WHERE type <> 'local' AND auth_method NOT IN ('scram-sha-256', 'reject', 'cert')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type rule struct {
+		Line         int
+		Type, Method string
+	}
+	bad, err := pgx.CollectRows(rows, pgx.RowToStructByPos[rule])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bad) > 0 {
+		t.Errorf("pg_hba.conf allows network logins without scram-sha-256: %+v", bad)
+	}
+	for _, db := range []string{"postgres", "template1"} {
+		var connect bool
+		if err := admin.QueryRow(ctx, `SELECT has_database_privilege('public', $1, 'CONNECT')`, db).Scan(&connect); err != nil || connect {
+			t.Errorf("PUBLIC can connect to %s (%v)", db, err)
+		}
+	}
+}
+
+func itoa(n int) string {
+	var b [20]byte
+	i := len(b)
+	for {
+		i--
+		b[i] = byte('0' + n%10)
+		n /= 10
+		if n == 0 {
+			return string(b[i:])
+		}
+	}
+}

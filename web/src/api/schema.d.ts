@@ -220,6 +220,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List projects, newest first */
+        get: operations["listProjects"];
+        put?: never;
+        /**
+         * Create a shared-tier project
+         * @description Records the project and queues a `create` operation. The response
+         *     carries the password and full connection URLs exactly once; PGDock
+         *     stores only the SCRAM verifier. The URLs work once the operation
+         *     succeeds (stream it to follow progress).
+         */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project detail and connection info (no password) */
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a project
+         * @description `confirm` must equal the project's name. Queues a `delete`
+         *     operation that removes the pooler route and drops the database and
+         *     role. (Re-authentication is enforced once auth lands in M2.)
+         */
+        delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/rotate-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate the project password
+         * @description Returns the new password once and queues a `rotate` operation. The
+         *     new password works, and the old one stops working, when it succeeds.
+         */
+        post: operations["rotateProjectPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -318,6 +386,73 @@ export interface components {
              */
             fail_attempts: number;
         };
+        /** @enum {string} */
+        ProjectStatus: "provisioning" | "active" | "promoting" | "restoring" | "deleting" | "error";
+        /** @enum {string} */
+        ProjectTier: "shared" | "dedicated";
+        ConnectionInfo: {
+            /** @example db.example.com */
+            host: string;
+            /** @example 5432 */
+            session_port: number;
+            /** @example 6543 */
+            pooled_port: number;
+            /** @example blog_k2f9 */
+            database: string;
+            /** @example blog_k2f9_owner */
+            user: string;
+            /** @example require */
+            sslmode: string;
+            /**
+             * @description Transaction-mode URL (app traffic). Without a password unless returned at creation or rotation.
+             * @example postgresql://blog_k2f9_owner@db.example.com:6543/blog_k2f9?sslmode=require
+             */
+            pooled_url: string;
+            /**
+             * @description Session-mode URL (migrations). Without a password unless returned at creation or rotation.
+             * @example postgresql://blog_k2f9_owner@db.example.com:5432/blog_k2f9?sslmode=require
+             */
+            session_url: string;
+        };
+        Project: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            db_name: string;
+            owner_role: string;
+            tier: components["schemas"]["ProjectTier"];
+            status: components["schemas"]["ProjectStatus"];
+            description?: string | null;
+            settings: components["schemas"]["ProjectSettings"];
+            /** Format: date-time */
+            created_at: string;
+            connection: components["schemas"]["ConnectionInfo"];
+        };
+        ProjectSettings: {
+            connection_limit: number;
+            pool_size: number;
+            statement_timeout: string;
+            idle_in_transaction_session_timeout: string;
+            /** Format: int64 */
+            disk_warn_bytes: number;
+            console_read_only: boolean;
+        };
+        ProjectList: {
+            items: components["schemas"]["Project"][];
+        };
+        CreateProjectRequest: {
+            /** @example My Blog */
+            name: string;
+            description?: string;
+        };
+        /** @description Shown once. PGDock keeps only the SCRAM verifier. */
+        ProjectCredentials: {
+            project: components["schemas"]["Project"];
+            operation: components["schemas"]["Operation"];
+            password: string;
+            connection: components["schemas"]["ConnectionInfo"];
+        };
     };
     responses: {
         /** @description Error response. */
@@ -331,6 +466,7 @@ export interface components {
         };
     };
     parameters: {
+        ProjectID: string;
         OperationID: string;
     };
     requestBodies: never;
@@ -611,6 +747,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjects: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ProjectStatus"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live projects. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project recorded and create operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The project. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteProject: {
+        parameters: {
+            query: {
+                confirm: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delete operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rotateProjectPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rotate operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
                 };
             };
             default: components["responses"]["Error"];

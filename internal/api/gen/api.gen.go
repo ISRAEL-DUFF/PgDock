@@ -59,6 +59,93 @@ func (e OperationStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProjectStatus.
+const (
+	ProjectStatusActive       ProjectStatus = "active"
+	ProjectStatusDeleting     ProjectStatus = "deleting"
+	ProjectStatusError        ProjectStatus = "error"
+	ProjectStatusPromoting    ProjectStatus = "promoting"
+	ProjectStatusProvisioning ProjectStatus = "provisioning"
+	ProjectStatusRestoring    ProjectStatus = "restoring"
+)
+
+// Valid indicates whether the value is a known member of the ProjectStatus enum.
+func (e ProjectStatus) Valid() bool {
+	switch e {
+	case ProjectStatusActive:
+		return true
+	case ProjectStatusDeleting:
+		return true
+	case ProjectStatusError:
+		return true
+	case ProjectStatusPromoting:
+		return true
+	case ProjectStatusProvisioning:
+		return true
+	case ProjectStatusRestoring:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectTier.
+const (
+	Dedicated ProjectTier = "dedicated"
+	Shared    ProjectTier = "shared"
+)
+
+// Valid indicates whether the value is a known member of the ProjectTier enum.
+func (e ProjectTier) Valid() bool {
+	switch e {
+	case Dedicated:
+		return true
+	case Shared:
+		return true
+	default:
+		return false
+	}
+}
+
+// ConnectionInfo defines model for ConnectionInfo.
+type ConnectionInfo struct {
+	// Database Example: blog_k2f9
+	Database string `json:"database"`
+
+	// Host Example: db.example.com
+	Host string `json:"host"`
+
+	// PooledPort Example: 6543
+	PooledPort int `json:"pooled_port"`
+
+	// PooledUrl Transaction-mode URL (app traffic). Without a password unless returned at creation or rotation.
+	//
+	// Example: postgresql://blog_k2f9_owner@db.example.com:6543/blog_k2f9?sslmode=require
+	PooledUrl string `json:"pooled_url"`
+
+	// SessionPort Example: 5432
+	SessionPort int `json:"session_port"`
+
+	// SessionUrl Session-mode URL (migrations). Without a password unless returned at creation or rotation.
+	//
+	// Example: postgresql://blog_k2f9_owner@db.example.com:5432/blog_k2f9?sslmode=require
+	SessionUrl string `json:"session_url"`
+
+	// Sslmode Example: require
+	Sslmode string `json:"sslmode"`
+
+	// User Example: blog_k2f9_owner
+	User string `json:"user"`
+}
+
+// CreateProjectRequest defines model for CreateProjectRequest.
+type CreateProjectRequest struct {
+	Description *string `json:"description,omitempty"`
+
+	// Name Example: My Blog
+	Name string `json:"name"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_implemented
@@ -135,6 +222,50 @@ type Operator struct {
 	Id    string              `json:"id"`
 }
 
+// Project defines model for Project.
+type Project struct {
+	Connection  ConnectionInfo     `json:"connection"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DbName      string             `json:"db_name"`
+	Description *string            `json:"description,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	OwnerRole   string             `json:"owner_role"`
+	Settings    ProjectSettings    `json:"settings"`
+	Slug        string             `json:"slug"`
+	Status      ProjectStatus      `json:"status"`
+	Tier        ProjectTier        `json:"tier"`
+}
+
+// ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
+type ProjectCredentials struct {
+	Connection ConnectionInfo `json:"connection"`
+	Operation  Operation      `json:"operation"`
+	Password   string         `json:"password"`
+	Project    Project        `json:"project"`
+}
+
+// ProjectList defines model for ProjectList.
+type ProjectList struct {
+	Items []Project `json:"items"`
+}
+
+// ProjectSettings defines model for ProjectSettings.
+type ProjectSettings struct {
+	ConnectionLimit                 int    `json:"connection_limit"`
+	ConsoleReadOnly                 bool   `json:"console_read_only"`
+	DiskWarnBytes                   int64  `json:"disk_warn_bytes"`
+	IdleInTransactionSessionTimeout string `json:"idle_in_transaction_session_timeout"`
+	PoolSize                        int    `json:"pool_size"`
+	StatementTimeout                string `json:"statement_timeout"`
+}
+
+// ProjectStatus defines model for ProjectStatus.
+type ProjectStatus string
+
+// ProjectTier defines model for ProjectTier.
+type ProjectTier string
+
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
 	Code     string `json:"code"`
@@ -165,12 +296,26 @@ type Version struct {
 // OperationID defines model for OperationID.
 type OperationID = openapi_types.UUID
 
+// ProjectID defines model for ProjectID.
+type ProjectID = openapi_types.UUID
+
 // ListOperationsParams defines parameters for ListOperations.
 type ListOperationsParams struct {
 	Status    *OperationStatus    `form:"status,omitempty" json:"status,omitempty"`
 	Kind      *string             `form:"kind,omitempty" json:"kind,omitempty"`
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 	Limit     *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListProjectsParams defines parameters for ListProjects.
+type ListProjectsParams struct {
+	Status *ProjectStatus `form:"status,omitempty" json:"status,omitempty"`
+	Limit  *int           `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// DeleteProjectParams defines parameters for DeleteProject.
+type DeleteProjectParams struct {
+	Confirm string `form:"confirm" json:"confirm"`
 }
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
@@ -184,6 +329,9 @@ type PostAuthTotpJSONRequestBody = TotpRequest
 
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
+
+// CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
+type CreateProjectJSONRequestBody = CreateProjectRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -214,6 +362,21 @@ type ServerInterface interface {
 	// StreamOperation Stream an operation's progress as Server-Sent Events
 	// (GET /api/v1/operations/{id}/stream)
 	StreamOperation(w http.ResponseWriter, r *http.Request, id OperationID)
+	// ListProjects List projects, newest first
+	// (GET /api/v1/projects)
+	ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams)
+	// CreateProject Create a shared-tier project
+	// (POST /api/v1/projects)
+	CreateProject(w http.ResponseWriter, r *http.Request)
+	// DeleteProject Delete a project
+	// (DELETE /api/v1/projects/{id})
+	DeleteProject(w http.ResponseWriter, r *http.Request, id ProjectID, params DeleteProjectParams)
+	// GetProject Project detail and connection info (no password)
+	// (GET /api/v1/projects/{id})
+	GetProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// RotateProjectPassword Rotate the project password
+	// (POST /api/v1/projects/{id}/rotate-password)
+	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetVersion Build information for this server
 	// (GET /api/v1/version)
 	GetVersion(w http.ResponseWriter, r *http.Request)
@@ -280,6 +443,36 @@ func (_ Unimplemented) GetOperation(w http.ResponseWriter, r *http.Request, id O
 // StreamOperation Stream an operation's progress as Server-Sent Events
 // (GET /api/v1/operations/{id}/stream)
 func (_ Unimplemented) StreamOperation(w http.ResponseWriter, r *http.Request, id OperationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListProjects List projects, newest first
+// (GET /api/v1/projects)
+func (_ Unimplemented) ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateProject Create a shared-tier project
+// (POST /api/v1/projects)
+func (_ Unimplemented) CreateProject(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteProject Delete a project
+// (DELETE /api/v1/projects/{id})
+func (_ Unimplemented) DeleteProject(w http.ResponseWriter, r *http.Request, id ProjectID, params DeleteProjectParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProject Project detail and connection info (no password)
+// (GET /api/v1/projects/{id})
+func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RotateProjectPassword Rotate the project password
+// (POST /api/v1/projects/{id}/rotate-password)
+func (_ Unimplemented) RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -518,6 +711,160 @@ func (siw *ServerInterfaceWrapper) StreamOperation(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjects operation middleware
+func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProjectsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjects(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProject operation middleware
+func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProject(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProject operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteProjectParams
+
+	// ------------- Required query parameter "confirm" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "confirm", r.URL.Query(), &params.Confirm, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "confirm"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "confirm", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProject(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProject operation middleware
+func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateProjectPassword operation middleware
+func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateProjectPassword(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetVersion operation middleware
 func (siw *ServerInterfaceWrapper) GetVersion(w http.ResponseWriter, r *http.Request) {
 
@@ -708,6 +1055,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/dev/operations", wrapper.CreateDevOperation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects", wrapper.ListProjects)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects", wrapper.CreateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}", wrapper.DeleteProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}", wrapper.GetProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/rotate-password", wrapper.RotateProjectPassword)
 	})
 
 	return r

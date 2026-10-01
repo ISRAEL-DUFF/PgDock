@@ -224,8 +224,124 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects:
+    get:
+      operationId: listProjects
+      summary: List projects, newest first
+      tags: [projects]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ProjectStatus"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Live projects.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createProject
+      summary: Create a shared-tier project
+      description: |
+        Records the project and queues a `create` operation. The response
+        carries the password and full connection URLs exactly once; PGDock
+        stores only the SCRAM verifier. The URLs work once the operation
+        succeeds (stream it to follow progress).
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "202":
+          description: Project recorded and create operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCredentials"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}:
+    get:
+      operationId: getProject
+      summary: Project detail and connection info (no password)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteProject
+      summary: Delete a project
+      description: |
+        `confirm` must equal the project's name. Queues a `delete`
+        operation that removes the pooler route and drops the database and
+        role. (Re-authentication is enforced once auth lands in M2.)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: confirm
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Delete operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/rotate-password:
+    post:
+      operationId: rotateProjectPassword
+      summary: Rotate the project password
+      description: |
+        Returns the new password once and queues a `rotate` operation. The
+        new password works, and the old one stops working, when it succeeds.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Rotate operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCredentials"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
+    ProjectID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     OperationID:
       name: id
       in: path
@@ -411,3 +527,118 @@ components:
           minimum: 0
           default: 0
           description: Fail the first N attempts to exercise retries.
+    ProjectStatus:
+      type: string
+      enum: [provisioning, active, promoting, restoring, deleting, error]
+    ProjectTier:
+      type: string
+      enum: [shared, dedicated]
+    ConnectionInfo:
+      type: object
+      required: [host, session_port, pooled_port, database, user, sslmode, pooled_url, session_url]
+      properties:
+        host:
+          type: string
+          example: db.example.com
+        session_port:
+          type: integer
+          example: 5432
+        pooled_port:
+          type: integer
+          example: 6543
+        database:
+          type: string
+          example: blog_k2f9
+        user:
+          type: string
+          example: blog_k2f9_owner
+        sslmode:
+          type: string
+          example: require
+        pooled_url:
+          type: string
+          description: Transaction-mode URL (app traffic). Without a password unless returned at creation or rotation.
+          example: postgresql://blog_k2f9_owner@db.example.com:6543/blog_k2f9?sslmode=require
+        session_url:
+          type: string
+          description: Session-mode URL (migrations). Without a password unless returned at creation or rotation.
+          example: postgresql://blog_k2f9_owner@db.example.com:5432/blog_k2f9?sslmode=require
+    Project:
+      type: object
+      required: [id, name, slug, db_name, owner_role, tier, status, settings, created_at, connection]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        db_name:
+          type: string
+        owner_role:
+          type: string
+        tier:
+          $ref: "#/components/schemas/ProjectTier"
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        description:
+          type: string
+          nullable: true
+        settings:
+          $ref: "#/components/schemas/ProjectSettings"
+        created_at:
+          type: string
+          format: date-time
+        connection:
+          $ref: "#/components/schemas/ConnectionInfo"
+    ProjectSettings:
+      type: object
+      required: [connection_limit, pool_size, statement_timeout, idle_in_transaction_session_timeout, disk_warn_bytes, console_read_only]
+      properties:
+        connection_limit:
+          type: integer
+        pool_size:
+          type: integer
+        statement_timeout:
+          type: string
+        idle_in_transaction_session_timeout:
+          type: string
+        disk_warn_bytes:
+          type: integer
+          format: int64
+        console_read_only:
+          type: boolean
+    ProjectList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: My Blog
+        description:
+          type: string
+          maxLength: 1000
+    ProjectCredentials:
+      type: object
+      description: Shown once. PGDock keeps only the SCRAM verifier.
+      required: [project, operation, password, connection]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        operation:
+          $ref: "#/components/schemas/Operation"
+        password:
+          type: string
+        connection:
+          $ref: "#/components/schemas/ConnectionInfo"

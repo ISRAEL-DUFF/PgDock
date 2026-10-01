@@ -35,6 +35,13 @@ type Config struct {
 	Workers int
 	// DevEndpoints enables /api/v1/dev/*. Never enable in production.
 	DevEndpoints bool
+
+	// Shared is the shared cluster registered at startup (optional).
+	Shared SharedCluster
+	// Pooler configures the edge poolers; provisioning needs it.
+	Pooler Pooler
+	// Public is the connection info handed to clients.
+	Public Public
 }
 
 // Load reads configuration from PGDOCK_* environment variables, applying
@@ -111,6 +118,8 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 		}
 		cfg.DevEndpoints = b
 	}
+
+	errs = append(errs, loadProvisioning(getenv, readFile, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err

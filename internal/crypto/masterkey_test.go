@@ -126,3 +126,14 @@ func TestParseKey(t *testing.T) {
 		t.Error("short key accepted")
 	}
 }
+
+func TestDerive(t *testing.T) {
+	k1, k2 := mustKey(t), mustKey(t)
+	a := mustRing(t, k1).Derive("salt:pgdock", 16)
+	if len(a) != 16 || !bytes.Equal(a, mustRing(t, k1).Derive("salt:pgdock", 16)) {
+		t.Fatal("derive is not deterministic")
+	}
+	if bytes.Equal(a, mustRing(t, k1).Derive("salt:other", 16)) || bytes.Equal(a, mustRing(t, k2).Derive("salt:pgdock", 16)) {
+		t.Fatal("derive does not depend on label and key")
+	}
+}

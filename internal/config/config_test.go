@@ -108,3 +108,55 @@ func TestErrorsAreCombined(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestProvisioningDefaults(t *testing.T) {
+	cfg, err := load(env(nil), noFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Pooler.ConfigDir != "" || cfg.Shared.AdminURL != "" {
+		t.Fatalf("provisioning should be off by default: %+v %+v", cfg.Pooler, cfg.Shared)
+	}
+	if cfg.Public != (Public{Host: "localhost", SessionPort: 5432, PooledPort: 6543, SSLMode: "require"}) {
+		t.Fatalf("public: %+v", cfg.Public)
+	}
+}
+
+func TestProvisioningConfig(t *testing.T) {
+	cfg, err := load(env(map[string]string{
+		"PGDOCK_DB_HOST":               "db.example.com",
+		"PGDOCK_DB_SESSION_PORT":       "6432",
+		"PGDOCK_DB_SSLMODE":            "disable",
+		"PGDOCK_POOLER_CONFIG_DIR":     "/var/lib/pgdock/pooler",
+		"PGDOCK_POOLER_FILE_MODE":      "644",
+		"PGDOCK_POOLER_ADMIN_PASSWORD": "pw",
+		"PGDOCK_POOLER_POOLED_ADDR":    "10.0.0.2:6543",
+		"PGDOCK_SHARED_ADMIN_URL":      "postgres://pgdock_admin:x@10.0.0.3/postgres",
+		"PGDOCK_SHARED_POOLER_PORT":    "5433",
+	}), noFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := cfg.Pooler
+	if p.FileMode != 0o644 || p.AdminUser != "pgdock" || p.AdminPassword != "pw" ||
+		p.SessionAddr != "db.example.com:6432" || p.PooledAddr != "10.0.0.2:6543" || p.SSLMode != "prefer" {
+		t.Fatalf("pooler: %+v", p)
+	}
+	if cfg.Shared.NodeName != "local" || cfg.Shared.PoolerPort != 5433 {
+		t.Fatalf("shared: %+v", cfg.Shared)
+	}
+}
+
+func TestProvisioningInvalid(t *testing.T) {
+	for _, m := range []map[string]string{
+		{"PGDOCK_POOLER_CONFIG_DIR": "/x"}, // no admin password
+		{"PGDOCK_POOLER_CONFIG_DIR": "/x", "PGDOCK_POOLER_ADMIN_PASSWORD": "p", "PGDOCK_POOLER_FILE_MODE": "9"},
+		{"PGDOCK_POOLER_CONFIG_DIR": "/x", "PGDOCK_POOLER_ADMIN_PASSWORD": "p", "PGDOCK_POOLER_SESSION_ADDR": "nohost"},
+		{"PGDOCK_DB_SSLMODE": "sometimes"},
+		{"PGDOCK_DB_POOLED_PORT": "99999"},
+	} {
+		if _, err := load(env(m), noFiles); err == nil {
+			t.Errorf("expected error for %v", m)
+		}
+	}
+}

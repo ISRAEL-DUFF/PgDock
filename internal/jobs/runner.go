@@ -198,7 +198,7 @@ func (r *Runner) execute(ctx context.Context, op store.Operation) {
 		// Reclaimed after a crash on its last attempt.
 		fctx, cancel := finishCtx()
 		defer cancel()
-		r.fail(fctx, op, steps, fmt.Errorf("gave up after %d attempts", maxAttempts))
+		r.fail(fctx, kind, op, steps, fmt.Errorf("gave up after %d attempts", maxAttempts))
 		return
 	}
 
@@ -237,7 +237,7 @@ func (r *Runner) execute(ctx context.Context, op store.Operation) {
 		_ = steps.Warn(fctx, "queue", "interrupted by worker shutdown; requeued")
 		r.retry(fctx, op, err, time.Now())
 	case IsPermanent(err) || int(op.Attempts) >= maxAttempts:
-		r.fail(fctx, op, steps, err)
+		r.fail(fctx, kind, op, steps, err)
 	default:
 		delay := r.backoff(int(op.Attempts))
 		_ = steps.Warn(fctx, "queue", "attempt %d failed: %v; retrying in %s", op.Attempts, err, delay.Round(time.Millisecond))
@@ -253,6 +253,16 @@ func (r *Runner) safeRun(ctx context.Context, h Handler, op store.Operation, ste
 		}
 	}()
 	return h(ctx, op, steps)
+}
+
+func (r *Runner) safeOnFail(ctx context.Context, kind Kind, op store.Operation, steps *StepLogger, cause error) (err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			r.log.Error("operation rollback panicked", "operation_id", op.ID, "panic", p, "stack", string(debug.Stack()))
+			err = fmt.Errorf("rollback panicked: %v", p)
+		}
+	}()
+	return kind.OnFail(ctx, op, steps, cause)
 }
 
 func (r *Runner) heartbeat(ctx context.Context, op store.Operation, lost chan<- struct{}, cancel context.CancelFunc) {
@@ -279,7 +289,22 @@ func (r *Runner) heartbeat(ctx context.Context, op store.Operation, lost chan<- 
 	}
 }
 
-func (r *Runner) fail(ctx context.Context, op store.Operation, steps *StepLogger, err error) {
+func (r *Runner) fail(parent context.Context, kind Kind, op store.Operation, steps *StepLogger, err error) {
+	base := context.WithoutCancel(parent)
+	if kind.OnFail != nil {
+		// Compensations may take a while; give them their own budget.
+		cctx, cancel := context.WithTimeout(base, 2*time.Minute)
+		_ = steps.Warn(cctx, "rollback", "rolling back: %v", err)
+		if cerr := r.safeOnFail(cctx, kind, op, steps, err); cerr != nil {
+			_ = steps.Error(cctx, "rollback", "rollback incomplete: %v", cerr)
+			r.log.Error("operation rollback failed", "operation_id", op.ID, "err", cerr)
+		} else {
+			_ = steps.Info(cctx, "rollback", "rollback complete")
+		}
+		cancel()
+	}
+	ctx, cancel := context.WithTimeout(base, 10*time.Second)
+	defer cancel()
 	_ = steps.Error(ctx, "queue", "operation failed: %v", err)
 	if _, werr := r.q.FailOperation(ctx, store.FailOperationParams{ID: op.ID, Worker: r.cfg.WorkerID, Error: err.Error()}); werr != nil {
 		r.log.Error("mark operation failed", "operation_id", op.ID, "err", werr)

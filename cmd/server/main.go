@@ -23,6 +23,8 @@ import (
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
+	"github.com/israel-duff/pgdock/internal/pooler"
+	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/version"
 	"github.com/israel-duff/pgdock/web"
@@ -92,10 +94,19 @@ func run() error {
 	defer stopBG()
 	var bg sync.WaitGroup
 
+	kinds := map[string]jobs.Kind{jobs.KindNoop: jobs.Noop()}
+	projects, err := setupProvisioning(ctx, cfg, pool, keyring, log)
+	if err != nil {
+		return err
+	}
+	if projects != nil {
+		for name, k := range projects.Kinds() {
+			kinds[name] = k
+		}
+	}
+
 	notifier := jobs.NewNotifier(pool, log)
-	runner := jobs.NewRunner(pool, notifier, log, jobs.RunnerConfig{Concurrency: cfg.Workers}, map[string]jobs.Kind{
-		jobs.KindNoop: jobs.Noop(),
-	})
+	runner := jobs.NewRunner(pool, notifier, log, jobs.RunnerConfig{Concurrency: cfg.Workers}, kinds)
 	bg.Add(2)
 	go func() { defer bg.Done(); notifier.Run(bgCtx) }()
 	go func() { defer bg.Done(); runner.Run(bgCtx) }()
@@ -117,6 +128,7 @@ func run() error {
 			Notifier:     notifier,
 			DevEndpoints: cfg.DevEndpoints,
 			StreamCtx:    bgCtx,
+			Projects:     projects,
 			UI:           web.Dist(),
 			UIIndex:      index,
 		}),
@@ -157,6 +169,67 @@ func run() error {
 		return serveErr
 	}
 	return nil
+}
+
+// setupProvisioning registers the configured shared cluster and builds the
+// provisioning service. It returns nil when no pooler is configured.
+func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, log *slog.Logger) (*provision.Service, error) {
+	if cfg.Shared.AdminURL != "" {
+		// A cluster that is down at boot should not keep the control plane
+		// down; creates fail until it is back.
+		if err := provision.RegisterSharedCluster(ctx, pool, keyring, provision.SharedCluster{
+			NodeName:   cfg.Shared.NodeName,
+			AdminURL:   cfg.Shared.AdminURL,
+			PoolerHost: cfg.Shared.PoolerHost,
+			PoolerPort: cfg.Shared.PoolerPort,
+		}, log); err != nil {
+			log.Error("could not register shared cluster", "err", err)
+		}
+	}
+	pc := cfg.Pooler
+	if pc.ConfigDir == "" {
+		log.Warn("project provisioning disabled: PGDOCK_POOLER_CONFIG_DIR is not set")
+		return nil, nil
+	}
+
+	// A stable, secret salt keeps the admin entry identical across syncs.
+	adminVerifier, err := crypto.SCRAMVerifierWithSalt(pc.AdminPassword,
+		keyring.Derive("pooler admin scram salt:"+pc.AdminUser, 16), crypto.SCRAMIterations)
+	if err != nil {
+		return nil, fmt.Errorf("pooler admin password: %w", err)
+	}
+	var admins []*pooler.Admin
+	for _, a := range []struct{ name, addr string }{{"session", pc.SessionAddr}, {"transaction", pc.PooledAddr}} {
+		adm, err := pooler.NewAdmin(a.name, a.addr, pc.AdminUser, pc.AdminPassword, pc.SSLMode)
+		if err != nil {
+			return nil, err
+		}
+		admins = append(admins, adm)
+	}
+	pm, err := pooler.NewManager(pc.ConfigDir, pc.FileMode, pool, admins,
+		[]pooler.User{{Name: pc.AdminUser, Secret: adminVerifier}}, log)
+	if err != nil {
+		return nil, err
+	}
+	// Bring the poolers in line with the metadata DB (e.g. after a restore
+	// or a lost reload). Failure is not fatal: every flow syncs again.
+	syncCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	if err := pm.Sync(syncCtx); err != nil {
+		log.Error("initial pooler sync failed", "err", err)
+	} else {
+		log.Info("pooler config synced", "dir", pc.ConfigDir)
+	}
+
+	return provision.NewService(pool, keyring, pm, provision.Config{
+		DBHost:           cfg.Public.Host,
+		SessionPort:      cfg.Public.SessionPort,
+		PooledPort:       cfg.Public.PooledPort,
+		SSLMode:          cfg.Public.SSLMode,
+		SmokeSessionAddr: pc.SessionAddr,
+		SmokePooledAddr:  pc.PooledAddr,
+		SmokeSSLMode:     pc.SSLMode,
+	}, log), nil
 }
 
 func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
