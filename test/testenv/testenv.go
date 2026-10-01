@@ -243,7 +243,7 @@ func Start(t testing.TB, opts Options) *Env {
 	go func() { defer wg.Done(); runner.Run(ctx) }()
 
 	consoleSvc := console.New(db, svc, keyring, false, log)
-	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...)}, log)
+	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond}, log)
 	collector := metrics.NewCollector(db, svc, pm, nodeSvc, time.Second, log)
 
 	clock := &Clock{t: time.Now()}

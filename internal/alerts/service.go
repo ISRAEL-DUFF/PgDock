@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/mail"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,6 +48,9 @@ type Config struct {
 	PublicURL string
 	// Poolers are checked for "pooler down".
 	Poolers []*pooler.Admin
+	// PoolerGrace is how long a pooler must keep failing before it is down
+	// (default 1 min: at startup the poolers come up after the server).
+	PoolerGrace time.Duration
 }
 
 // Service evaluates conditions and delivers notifications.
@@ -56,6 +60,9 @@ type Service struct {
 	cfg     Config
 	http    *http.Client
 	log     *slog.Logger
+
+	mu            sync.Mutex
+	poolerFailing map[string]time.Time // since when each pooler fails
 }
 
 // New returns a Service.
@@ -63,7 +70,11 @@ func New(db *pgxpool.Pool, keyring *crypto.Keyring, cfg Config, log *slog.Logger
 	if cfg.Interval <= 0 {
 		cfg.Interval = defaultInterval
 	}
-	return &Service{db: db, keyring: keyring, cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}, log: log}
+	if cfg.PoolerGrace == 0 {
+		cfg.PoolerGrace = time.Minute
+	}
+	return &Service{db: db, keyring: keyring, cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}, log: log,
+		poolerFailing: map[string]time.Time{}}
 }
 
 // Run evaluates and delivers every interval until ctx ends.
@@ -261,20 +272,38 @@ func (s *Service) conditions(ctx context.Context) ([]condition, error) {
 			map[string]any{"size_bytes": p.SizeBytes, "disk_warn_bytes": set.DiskWarnBytes}})
 	}
 
-	for _, a := range s.cfg.Poolers {
-		pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := a.Ping(pctx)
-		cancel()
-		if err != nil && ctx.Err() == nil {
-			out = append(out, condition{KindPoolerDown, SeverityCritical, "pooler", a.Name, a.Name + " pooler (" + a.Addr() + ")",
-				fmt.Sprintf("The %s pooler at %s is down: %v", a.Name, a.Addr(), err), map[string]any{"address": a.Addr()}})
-		}
-	}
+	out = append(out, s.poolerConditions(ctx)...)
 	// A partial evaluation must not resolve alerts it could not check.
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// poolerConditions reports poolers whose admin console has not answered
+// for the grace period.
+func (s *Service) poolerConditions(ctx context.Context) []condition {
+	var out []condition
+	for _, a := range s.cfg.Poolers {
+		pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := a.Ping(pctx)
+		cancel()
+		s.mu.Lock()
+		since, failing := s.poolerFailing[a.Name]
+		switch {
+		case err == nil:
+			delete(s.poolerFailing, a.Name)
+		case !failing:
+			since = time.Now()
+			s.poolerFailing[a.Name] = since
+		}
+		s.mu.Unlock()
+		if err != nil && ctx.Err() == nil && time.Since(since) >= s.cfg.PoolerGrace {
+			out = append(out, condition{KindPoolerDown, SeverityCritical, "pooler", a.Name, a.Name + " pooler (" + a.Addr() + ")",
+				fmt.Sprintf("The %s pooler at %s is down: %v", a.Name, a.Addr(), err), map[string]any{"address": a.Addr()}})
+		}
+	}
+	return out
 }
 
 // DeliverPending sends notifications not yet delivered (new firings and

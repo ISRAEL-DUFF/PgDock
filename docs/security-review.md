@@ -84,7 +84,7 @@ and `TRUNCATE` (`TestAuditLogIsAppendOnly`). It is filterable at `/audit`.
 CI's `audit` job runs `govulncheck` (Go modules and the standard library
 code actually reachable) and `npm audit --audit-level=high` for the web UI
 and the e2e harness on every push. At the v1.0.0 review: npm reported 0
-vulnerabilities in both; the Go toolchain is 1.25.11.
+vulnerabilities in both; the Go toolchain is 1.25.13.
 
 ## Known limitations (accepted for V1)
 

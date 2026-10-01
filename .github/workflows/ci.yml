@@ -73,7 +73,13 @@ jobs:
       # connect through the poolers -> rotate -> delete, rollback, and the
       # tenant-isolation suite (spec §7.1, §13).
       - name: Integration and isolation suites
-        run: make test-integration
+        run: |
+          set -o pipefail
+          make test-integration 2>&1 | tee "$RUNNER_TEMP/integration.log"
+
+      - name: Failing tests
+        if: failure()
+        run: grep -E -- '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' "$RUNNER_TEMP/integration.log" | head -200 || true
 
       - name: ACME against Pebble (real HTTP-01)
         run: make test-acme
