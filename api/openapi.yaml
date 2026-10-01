@@ -1,0 +1,212 @@
+openapi: 3.0.3
+info:
+  title: PGDock API
+  version: 1.0.0
+  description: |
+    Control-plane API for PGDock. This file is the single source of truth:
+    Go server interfaces (oapi-codegen) and TypeScript client types
+    (openapi-typescript) are generated from it with `make generate`.
+servers:
+  - url: /
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      summary: Liveness probe
+      tags: [system]
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /readyz:
+    get:
+      operationId: getReadyz
+      summary: Readiness probe
+      tags: [system]
+      responses:
+        "200":
+          description: The server is ready to accept traffic.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: The server is not ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/v1/version:
+    get:
+      operationId: getVersion
+      summary: Build information for this server
+      tags: [system]
+      responses:
+        "200":
+          description: Version, commit, and build date of the running server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+  /api/v1/auth/login:
+    post:
+      operationId: postAuthLogin
+      summary: Email + password login; returns a TOTP challenge
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Password accepted; complete login with /auth/totp.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginChallenge"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/totp:
+    post:
+      operationId: postAuthTotp
+      summary: Complete login with a TOTP code
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpRequest"
+      responses:
+        "204":
+          description: Logged in; the session cookie is set.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/reauth:
+    post:
+      operationId: postAuthReauth
+      summary: Step-up authentication for destructive actions
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReauthRequest"
+      responses:
+        "204":
+          description: Step-up authentication granted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/logout:
+    post:
+      operationId: postAuthLogout
+      summary: End the current session
+      tags: [auth]
+      responses:
+        "204":
+          description: Logged out.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: Current operator
+      tags: [auth]
+      responses:
+        "200":
+          description: The logged-in operator.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operator"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  responses:
+    Error:
+      description: Error response.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    Version:
+      type: object
+      required: [version, commit, build_date, go_version]
+      properties:
+        version:
+          type: string
+          example: 0.1.0
+        commit:
+          type: string
+          example: 15506e9
+        build_date:
+          type: string
+          example: "2026-10-01T00:00:00Z"
+        go_version:
+          type: string
+          example: go1.25.0
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    LoginChallenge:
+      type: object
+      required: [challenge_id]
+      properties:
+        challenge_id:
+          type: string
+    TotpRequest:
+      type: object
+      required: [challenge_id, code]
+      properties:
+        challenge_id:
+          type: string
+        code:
+          type: string
+    ReauthRequest:
+      type: object
+      required: [password, code]
+      properties:
+        password:
+          type: string
+          format: password
+        code:
+          type: string
+    Operator:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: not_implemented
+        message:
+          type: string

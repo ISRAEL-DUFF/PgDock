@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Go lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5
+
+      - name: Go tests
+        run: make test-go
+
+      - name: Frontend type-check and tests
+        run: make test-web
+
+      - name: Generated code is up to date
+        run: make check-generated
+
+      - name: Build UI and binaries
+        run: make build
+
+      - name: Binary embeds the real UI
+        run: make release-check
