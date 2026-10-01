@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -142,8 +143,6 @@ func run() error {
 		if certs, err = setupPoolerTLS(cfg, pm, settingsStore, log); err != nil {
 			return err
 		}
-		bg.Add(1)
-		go func() { defer bg.Done(); certs.Run(bgCtx) }()
 	}
 
 	notifier := jobs.NewNotifier(pool, log)
@@ -199,6 +198,11 @@ func run() error {
 	}
 	log.Info("pgdock-server listening",
 		"addr", ln.Addr().String(), "version", v.Version, "commit", v.Commit)
+	if certs != nil {
+		// Only once listening: ACME challenges are answered by this server.
+		bg.Add(1)
+		go func() { defer bg.Done(); certs.Run(bgCtx) }()
+	}
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
@@ -281,6 +285,9 @@ func setupPoolerTLS(cfg config.Config, pm *pooler.Manager, st *settings.Store, l
 		Mode: mode, Dir: pm.Dir(), FileMode: pm.FileMode(), Reload: pm.Reload,
 		DataDir: cfg.PoolerTLS.DataDir, ACMEEmail: cfg.PoolerTLS.ACMEEmail, ACMECA: cfg.PoolerTLS.ACMECA,
 		SourceCert: cfg.PoolerTLS.CertFile, SourceKey: cfg.PoolerTLS.KeyFile, Log: log,
+	}
+	if _, port, err := net.SplitHostPort(cfg.ListenAddr); err == nil {
+		tc.ChallengePort, _ = strconv.Atoi(port)
 	}
 	if path := cfg.PoolerTLS.ACMECARoots; path != "" {
 		pemBytes, err := os.ReadFile(path)

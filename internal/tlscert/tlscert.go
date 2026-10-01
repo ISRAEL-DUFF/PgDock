@@ -74,6 +74,11 @@ type Config struct {
 	ACMEEmail string
 	ACMECA    string
 	ACMERoots *x509.CertPool
+	// ChallengePort is where HTTPChallengeHandler is served (pgdock-server's
+	// own listen port). certmagic finds it in use and leaves solving to that
+	// handler instead of binding :80 itself. Run must start after the
+	// server is listening.
+	ChallengePort int
 
 	// Files mode: operator-supplied PEM paths.
 	SourceCert, SourceKey string
@@ -126,6 +131,9 @@ func New(cfg Config, host string) (*Manager, error) {
 		if cfg.DataDir == "" {
 			return nil, errors.New("pooler TLS mode acme needs a data directory")
 		}
+		if cfg.ChallengePort <= 0 {
+			return nil, errors.New("pooler TLS mode acme needs the port that serves HTTP-01 challenges")
+		}
 		m.setupACME()
 	}
 	return m, nil
@@ -159,6 +167,7 @@ func (m *Manager) setupACME() {
 		CA: ca, Email: m.cfg.ACMEEmail, Agreed: true, TrustedRoots: m.cfg.ACMERoots,
 		// HTTP-01 only: :80 reaches us through Caddy; :443 is Caddy's.
 		DisableTLSALPNChallenge: true,
+		AltHTTPPort:             m.cfg.ChallengePort,
 		Logger:                  zap.NewNop(),
 	})
 	magic.Issuers = []certmagic.Issuer{m.issuer}

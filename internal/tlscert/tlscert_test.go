@@ -84,7 +84,7 @@ func TestFilesMode(t *testing.T) {
 }
 
 func TestACMEFallsBackForIPs(t *testing.T) {
-	m, err := New(Config{Mode: ModeACME, Dir: t.TempDir(), DataDir: t.TempDir(), Log: quiet}, "127.0.0.1")
+	m, err := New(Config{Mode: ModeACME, Dir: t.TempDir(), DataDir: t.TempDir(), ChallengePort: 8080, Log: quiet}, "127.0.0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestACMEWithPebble(t *testing.T) {
 	roots.AppendCertsFromPEM(pemBytes)
 	m, err := New(Config{
 		Mode: ModeACME, Dir: dir, DataDir: t.TempDir(), Log: quiet,
-		ACMECA: "https://127.0.0.1:14000/dir", ACMERoots: roots, ACMEEmail: "ops@example.com",
+		ACMECA: "https://127.0.0.1:14000/dir", ACMERoots: roots, ACMEEmail: "ops@example.com", ChallengePort: 5002,
 		Reload: func(context.Context) error { reloads.Add(1); return nil },
 	}, "db.pgdock.test")
 	if err != nil {
