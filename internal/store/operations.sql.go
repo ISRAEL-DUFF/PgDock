@@ -117,7 +117,7 @@ func (q *Queries) EnqueueOperation(ctx context.Context, arg EnqueueOperationPara
 
 const failOperation = `-- name: FailOperation :execrows
 UPDATE operations
-SET status = 'failed', error = $1::text, finished_at = now(), locked_by = NULL, locked_at = NULL
+SET status = 'failed', error = $1::text, params = params - 'secrets', finished_at = now(), locked_by = NULL, locked_at = NULL
 WHERE id = $2 AND locked_by = $3::text AND status = 'running'
 `
 
@@ -235,6 +235,20 @@ func (q *Queries) ListOperations(ctx context.Context, arg ListOperationsParams) 
 	return items, nil
 }
 
+const projectHasActiveOperation = `-- name: ProjectHasActiveOperation :one
+SELECT EXISTS (
+  SELECT 1 FROM operations
+  WHERE project_id = $1 AND status IN ('queued', 'running')
+)
+`
+
+func (q *Queries) ProjectHasActiveOperation(ctx context.Context, projectID *uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, projectHasActiveOperation, projectID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const reclaimStaleOperations = `-- name: ReclaimStaleOperations :many
 UPDATE operations
 SET status = 'queued', locked_by = NULL, locked_at = NULL,
@@ -295,7 +309,7 @@ func (q *Queries) RetryOperation(ctx context.Context, arg RetryOperationParams) 
 
 const succeedOperation = `-- name: SucceedOperation :execrows
 UPDATE operations
-SET status = 'succeeded', error = NULL, finished_at = now(), locked_by = NULL, locked_at = NULL
+SET status = 'succeeded', error = NULL, params = params - 'secrets', finished_at = now(), locked_by = NULL, locked_at = NULL
 WHERE id = $1 AND locked_by = $2::text AND status = 'running'
 `
 
@@ -304,6 +318,9 @@ type SucceedOperationParams struct {
 	Worker string
 }
 
+// params.secrets carries encrypted, short-lived handoff data (for example
+// a new password for the smoke test). It is scrubbed when an operation
+// finishes either way.
 func (q *Queries) SucceedOperation(ctx context.Context, arg SucceedOperationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, succeedOperation, arg.ID, arg.Worker)
 	if err != nil {

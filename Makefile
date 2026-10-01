@@ -18,8 +18,11 @@ COMPOSE := docker compose -f deploy/dev/compose.yaml
 # Matches deploy/dev/compose.yaml defaults.
 DEV_DATABASE_URL ?= postgres://pgdock:pgdock@127.0.0.1:$${PGDOCK_DEV_METADATA_PORT:-5440}/pgdock?sslmode=disable
 DEV_MASTER_KEY_FILE := tmp/dev-master.key
+POOLER_DIR := tmp/pooler
+TEST_POOLER_DIR := tmp/pooler-test
+DEV_ENV := deploy/dev/server.env
 
-.PHONY: all dev dev-up dev-down dev-key test-db generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
 
 all: build
 
@@ -28,21 +31,33 @@ all: build
 dev: dev-key
 	@command -v air >/dev/null || { echo "air not found: go install github.com/air-verse/air@latest"; exit 1; }
 	@trap 'kill 0' EXIT; \
-	PGDOCK_DATABASE_URL="$(DEV_DATABASE_URL)" \
-	PGDOCK_MASTER_KEY_FILE="$(DEV_MASTER_KEY_FILE)" \
-	PGDOCK_DEV_ENDPOINTS=true \
-	PGDOCK_LOG_FORMAT=text \
+	set -a; . ./$(DEV_ENV); set +a; \
 	air -c .air.toml & \
 	(cd web && npm run dev) & \
 	wait
 
+## run-dev: run the built bin/pgdock-server against the dev environment.
+run-dev: dev-key
+	@set -a; . ./$(DEV_ENV); set +a; exec $(BIN)/pgdock-server
+
 ## dev-up: start the dev environment (metadata PG, shared PG, PgBouncer x2).
-dev-up:
+dev-up: pooler-seed
 	$(COMPOSE) up -d --wait
+
+# The poolers read pgdock-server's generated files from $(POOLER_DIR) (and
+# the test poolers from $(TEST_POOLER_DIR)). Seed missing ones so PgBouncer
+# can start before the server has run; never overwrite what it wrote.
+pooler-seed:
+	@for d in $(POOLER_DIR) $(TEST_POOLER_DIR); do \
+		mkdir -p $$d; \
+		for f in userlist.txt databases.ini; do \
+			[ -f $$d/$$f ] || install -m 644 deploy/dev/pgbouncer/bootstrap/$$f $$d/$$f; \
+		done; \
+	done
 
 ## dev-down: stop the dev environment (data volumes are kept).
 dev-down:
-	$(COMPOSE) down
+	$(COMPOSE) --profile test down
 
 # A throwaway master key for local development, kept out of git in tmp/.
 dev-key: $(DEV_MASTER_KEY_FILE)
@@ -86,6 +101,12 @@ test-go:
 ## test-db: Go tests including the Postgres-backed ones, against `make dev-up`.
 test-db: dev-up
 	PGDOCK_TEST_DATABASE_URL="$(DEV_DATABASE_URL)" go test -race -count=1 ./...
+
+## test-integration: provisioning end to end and the tenant-isolation suite,
+## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
+test-integration: pooler-seed
+	$(COMPOSE) --profile test up -d --wait
+	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
 
 test-web:
 	cd web && npm run typecheck && npm test

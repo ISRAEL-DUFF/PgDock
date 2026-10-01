@@ -1,2 +1,0 @@
-"pgdock" "pgdock"
-"pgdock_admin" "pgdock_admin"

@@ -37,14 +37,17 @@ WHERE id = @id AND locked_by = @worker::text AND status = 'running';
 UPDATE operations SET log = log || jsonb_build_array(@entry::jsonb)
 WHERE id = @id AND locked_by = @worker::text AND status = 'running';
 
+-- params.secrets carries encrypted, short-lived handoff data (for example
+-- a new password for the smoke test). It is scrubbed when an operation
+-- finishes either way.
 -- name: SucceedOperation :execrows
 UPDATE operations
-SET status = 'succeeded', error = NULL, finished_at = now(), locked_by = NULL, locked_at = NULL
+SET status = 'succeeded', error = NULL, params = params - 'secrets', finished_at = now(), locked_by = NULL, locked_at = NULL
 WHERE id = @id AND locked_by = @worker::text AND status = 'running';
 
 -- name: FailOperation :execrows
 UPDATE operations
-SET status = 'failed', error = @error::text, finished_at = now(), locked_by = NULL, locked_at = NULL
+SET status = 'failed', error = @error::text, params = params - 'secrets', finished_at = now(), locked_by = NULL, locked_at = NULL
 WHERE id = @id AND locked_by = @worker::text AND status = 'running';
 
 -- name: RetryOperation :execrows
@@ -62,3 +65,9 @@ SET status = 'queued', locked_by = NULL, locked_at = NULL,
       'msg', 'worker ' || locked_by || ' stopped heartbeating; requeued'))
 WHERE status = 'running' AND locked_at < @stale_before::timestamptz
 RETURNING id;
+
+-- name: ProjectHasActiveOperation :one
+SELECT EXISTS (
+  SELECT 1 FROM operations
+  WHERE project_id = @project_id AND status IN ('queued', 'running')
+);

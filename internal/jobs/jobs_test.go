@@ -271,3 +271,38 @@ func TestStream(t *testing.T) {
 		t.Fatalf("unexpected events: %s", got)
 	}
 }
+
+func TestOnFailRunsOnceOnFinalFailure(t *testing.T) {
+	pool := storetest.New(t)
+	var rollbacks atomic.Int64
+	kinds := map[string]jobs.Kind{"flaky": {
+		MaxAttempts: 2,
+		Handler: func(context.Context, store.Operation, *jobs.StepLogger) error {
+			return errors.New("nope")
+		},
+		OnFail: func(ctx context.Context, _ store.Operation, log *jobs.StepLogger, cause error) error {
+			rollbacks.Add(1)
+			return log.Info(ctx, "rollback", "undoing after: %v", cause)
+		},
+	}}
+	start(t, pool, fastConfig("w"), kinds)
+
+	done := waitTerminal(t, pool, enqueue(t, pool, "flaky", nil).ID)
+	if done.Status != jobs.StatusFailed || done.Attempts != 2 || rollbacks.Load() != 1 {
+		t.Fatalf("status=%s attempts=%d rollbacks=%d", done.Status, done.Attempts, rollbacks.Load())
+	}
+	if !strings.Contains(strings.Join(logMessages(t, done), "\n"), "rollback: rollback complete") {
+		t.Fatalf("log: %q", logMessages(t, done))
+	}
+}
+
+func TestSecretsScrubbedOnFinish(t *testing.T) {
+	pool := storetest.New(t)
+	start(t, pool, fastConfig("w"), map[string]jobs.Kind{jobs.KindNoop: jobs.Noop()})
+
+	op := enqueue(t, pool, jobs.KindNoop, map[string]any{"steps": 1, "delay_ms": 1, "secrets": map[string]string{"pw": "x"}})
+	done := waitTerminal(t, pool, op.ID)
+	if strings.Contains(string(done.Params), "secrets") {
+		t.Fatalf("secrets not scrubbed: %s", done.Params)
+	}
+}

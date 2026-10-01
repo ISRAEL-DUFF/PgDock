@@ -70,6 +70,12 @@ type Kind struct {
 	MaxAttempts int
 	// Timeout bounds a single attempt. Zero means DefaultTimeout.
 	Timeout time.Duration
+	// OnFail, if set, runs once when the operation fails for good (a
+	// permanent error or the last attempt), before it is marked failed. It
+	// undoes partial work (compensating actions); it must be idempotent,
+	// since a crash during OnFail runs it again. Its error is logged, and
+	// the operation is marked failed regardless.
+	OnFail func(ctx context.Context, op store.Operation, log *StepLogger, cause error) error
 }
 
 // Defaults for Kind.

@@ -15,6 +15,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/version"
 )
@@ -26,6 +27,7 @@ type Server struct {
 	log      *slog.Logger
 	db       DB
 	streamer *jobs.Streamer
+	projects *provision.Service
 	dev      bool
 }
 
@@ -48,6 +50,8 @@ type Options struct {
 	DevEndpoints bool
 	// StreamCtx ends open SSE streams when done; nil means never.
 	StreamCtx context.Context
+	// Projects runs provisioning; nil disables the projects endpoints.
+	Projects *provision.Service
 	// UI is the web UI build output; UIIndex names its entry document.
 	UI      fs.FS
 	UIIndex string
@@ -56,7 +60,7 @@ type Options struct {
 // NewHandler returns the root HTTP handler: the API under /api, health
 // probes at /healthz and /readyz, and the SPA everywhere else.
 func NewHandler(opts Options) http.Handler {
-	s := &Server{log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints}
+	s := &Server{log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects}
 	if opts.DB != nil && opts.Notifier != nil {
 		streamCtx := opts.StreamCtx
 		if streamCtx == nil {

@@ -64,3 +64,13 @@ jobs:
 
       - name: Binary embeds the real UI
         run: make release-check
+
+      # Real Postgres 18 + PgBouncer via deploy/dev/compose.yaml: create ->
+      # connect through the poolers -> rotate -> delete, rollback, and the
+      # tenant-isolation suite (spec §7.1, §13).
+      - name: Integration and isolation suites
+        run: make test-integration
+
+      - name: Dev environment logs on failure
+        if: failure()
+        run: docker compose -f deploy/dev/compose.yaml --profile test logs --no-color --tail 200
