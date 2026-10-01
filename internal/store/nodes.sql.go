@@ -321,6 +321,38 @@ func (q *Queries) RemoveNode(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const setNodeRole = `-- name: SetNodeRole :one
+UPDATE nodes SET role = $1 WHERE id = $2 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at
+`
+
+type SetNodeRoleParams struct {
+	Role string
+	ID   uuid.UUID
+}
+
+func (q *Queries) SetNodeRole(ctx context.Context, arg SetNodeRoleParams) (Node, error) {
+	row := q.db.QueryRow(ctx, setNodeRole, arg.Role, arg.ID)
+	var i Node
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.PrivateAddr,
+		&i.AgentPort,
+		&i.Role,
+		&i.AgentCertFp,
+		&i.PgAdminSecret,
+		&i.Capacity,
+		&i.Status,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+		&i.AgentHost,
+		&i.AgentVersion,
+		&i.RegistrationToken,
+		&i.RegistrationExpiresAt,
+	)
+	return i, err
+}
+
 const setNodeStatus = `-- name: SetNodeStatus :exec
 UPDATE nodes SET status = $1 WHERE id = $2
 `

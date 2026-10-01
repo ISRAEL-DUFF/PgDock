@@ -47,3 +47,6 @@ UPDATE nodes SET status = 'removed', agent_cert_fp = NULL, registration_token = 
 
 -- name: NodeLiveInstances :one
 SELECT count(*)::int FROM instances WHERE node_id = @node_id AND deleted_at IS NULL;
+
+-- name: SetNodeRole :one
+UPDATE nodes SET role = @role WHERE id = @id AND status <> 'removed' RETURNING *;

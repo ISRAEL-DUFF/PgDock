@@ -2,7 +2,7 @@
 INSERT INTO nodes (name, private_addr, role, pg_admin_secret, capacity)
 VALUES (@name, @private_addr, @role, @pg_admin_secret, '{}')
 ON CONFLICT (name) DO UPDATE
-SET private_addr = EXCLUDED.private_addr, role = EXCLUDED.role, pg_admin_secret = EXCLUDED.pg_admin_secret
+SET private_addr = EXCLUDED.private_addr, pg_admin_secret = EXCLUDED.pg_admin_secret
 RETURNING *;
 
 -- name: SetNodeAdminSecret :exec
@@ -21,7 +21,8 @@ RETURNING *;
 -- name: PickSharedInstance :one
 SELECT i.* FROM instances i
 JOIN nodes n ON n.id = i.node_id
-WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy'
+WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
+  AND i.deleted_at IS NULL
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
 LIMIT 1;
 

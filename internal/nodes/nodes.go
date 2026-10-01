@@ -306,3 +306,16 @@ func (s *Service) RemoveNode(ctx context.Context, id uuid.UUID) error {
 	s.mu.Unlock()
 	return q.RemoveNode(ctx, id)
 }
+
+// SetRole changes which tiers new projects may be placed on the node with
+// (existing instances stay).
+func (s *Service) SetRole(ctx context.Context, id uuid.UUID, role string) (store.Node, error) {
+	if !roles[role] {
+		return store.Node{}, fmt.Errorf("%w: role must be shared, dedicated, or both", ErrInvalid)
+	}
+	n, err := store.New(s.db).SetNodeRole(ctx, store.SetNodeRoleParams{ID: id, Role: role})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return n, ErrNotFound
+	}
+	return n, err
+}

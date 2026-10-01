@@ -338,6 +338,27 @@ func (e TlsStatusState) Valid() bool {
 	}
 }
 
+// Defines values for UpdateNodeRequestRole.
+const (
+	UpdateNodeRequestRoleBoth      UpdateNodeRequestRole = "both"
+	UpdateNodeRequestRoleDedicated UpdateNodeRequestRole = "dedicated"
+	UpdateNodeRequestRoleShared    UpdateNodeRequestRole = "shared"
+)
+
+// Valid indicates whether the value is a known member of the UpdateNodeRequestRole enum.
+func (e UpdateNodeRequestRole) Valid() bool {
+	switch e {
+	case UpdateNodeRequestRoleBoth:
+		return true
+	case UpdateNodeRequestRoleDedicated:
+		return true
+	case UpdateNodeRequestRoleShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAuditParamsOutcome.
 const (
 	ListAuditParamsOutcomeDenied  ListAuditParamsOutcome = "denied"
@@ -1001,6 +1022,14 @@ type TotpRequest struct {
 	Code        string `json:"code"`
 }
 
+// UpdateNodeRequest defines model for UpdateNodeRequest.
+type UpdateNodeRequest struct {
+	Role UpdateNodeRequestRole `json:"role"`
+}
+
+// UpdateNodeRequestRole defines model for UpdateNodeRequest.Role.
+type UpdateNodeRequestRole string
+
 // UpdateProjectRequest defines model for UpdateProjectRequest.
 type UpdateProjectRequest struct {
 	Description *string               `json:"description,omitempty"`
@@ -1109,6 +1138,9 @@ type ImportPreflightJSONRequestBody = ImportSource
 // CreateNodeJSONRequestBody defines body for CreateNode for application/json ContentType.
 type CreateNodeJSONRequestBody = CreateNodeRequest
 
+// UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
+type UpdateNodeJSONRequestBody = UpdateNodeRequest
+
 // CreateSharedClusterJSONRequestBody defines body for CreateSharedCluster for application/json ContentType.
 type CreateSharedClusterJSONRequestBody = SharedClusterRequest
 
@@ -1198,6 +1230,9 @@ type ServerInterface interface {
 	// GetNode A node, its agent's health, and what runs on it
 	// (GET /api/v1/nodes/{id})
 	GetNode(w http.ResponseWriter, r *http.Request, id NodeID)
+	// UpdateNode Change a node's role (where new projects may go)
+	// (PATCH /api/v1/nodes/{id})
+	UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID)
 	// CreateNodeRegistrationToken Issue a one-time agent registration token (24 hours)
 	// (POST /api/v1/nodes/{id}/registration-token)
 	CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request, id NodeID)
@@ -1399,6 +1434,12 @@ func (_ Unimplemented) RemoveNode(w http.ResponseWriter, r *http.Request, id Nod
 // GetNode A node, its agent's health, and what runs on it
 // (GET /api/v1/nodes/{id})
 func (_ Unimplemented) GetNode(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateNode Change a node's role (where new projects may go)
+// (PATCH /api/v1/nodes/{id})
+func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1984,6 +2025,32 @@ func (siw *ServerInterfaceWrapper) GetNode(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetNode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNode operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNode(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2961,6 +3028,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/nodes/{id}", wrapper.GetNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/nodes/{id}", wrapper.UpdateNode)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/nodes/{id}/shared-cluster", wrapper.CreateSharedCluster)

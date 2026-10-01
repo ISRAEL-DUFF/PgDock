@@ -11,6 +11,7 @@ import { useProject } from "./ProjectOverview";
 
 const kindLabels: Record<string, string> = {
   logical: "Nightly / manual",
+  base: "Base backup (WAL-G)",
   final: "Final (before delete)",
   safety: "Safety (before restore)",
 };
@@ -88,13 +89,21 @@ export function ProjectBackupsPage() {
           {ov && (
             <>
               <dt className="text-muted">Schedule</dt>
-              <dd>Nightly, starting {String(ov.window_hour_utc).padStart(2, "0")}:00 UTC (spread over the following hours)</dd>
+              <dd>
+                {p.tier === "dedicated" ? "Daily base backup with WAL archived continuously" : "Nightly logical dump"}, starting{" "}
+                {String(ov.window_hour_utc).padStart(2, "0")}:00 UTC (spread over the following hours)
+              </dd>
               <dt className="text-muted">Retention</dt>
               <dd>
-                {ov.retention_daily} daily + {ov.retention_weekly} weekly; final and safety backups 30 days
+                {p.tier === "dedicated"
+                  ? "7 full base backups (about 7 days of point-in-time recovery)"
+                  : `${ov.retention_daily} daily + ${ov.retention_weekly} weekly; final and safety backups 30 days`}
               </dd>
               <dt className="text-muted">Encryption</dt>
-              <dd>AES-256-GCM before upload{ov.key.fingerprint && <span className="ml-1 font-mono text-xs text-muted">(key {ov.key.fingerprint})</span>}</dd>
+              <dd>
+                {p.tier === "dedicated" ? "OpenPGP (WAL-G), key derived from the backup key" : "AES-256-GCM before upload"}
+                {ov.key.fingerprint && <span className="ml-1 font-mono text-xs text-muted">(key {ov.key.fingerprint})</span>}
+              </dd>
             </>
           )}
         </dl>
@@ -104,6 +113,7 @@ export function ProjectBackupsPage() {
           </div>
         )}
       </Card>
+      {p.tier === "dedicated" && <PITRCard p={p} onCreated={setCreated} />}
       {list.isPending && <Spinner />}
       {list.isError && <Alert>{errorMessage(list.error)}</Alert>}
       {list.data && list.data.items.length === 0 && <EmptyState title="No backups yet">The first nightly backup runs tonight, or back up now.</EmptyState>}
@@ -173,6 +183,8 @@ export function RestoreDialog({
     }
   };
 
+  // Base backups (dedicated) restore into a new project only.
+  const canInPlace = p && backup.kind !== "base";
   if (mode === "in_place" && p) {
     return (
       <ConfirmDestroy
@@ -208,7 +220,7 @@ export function RestoreDialog({
         </Field>
         {err && <Alert>{err}</Alert>}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {p ? (
+          {canInPlace ? (
             <Button variant="ghost" className="px-0 text-xs text-danger" onClick={() => setMode("in_place")}>
               Restore in place instead…
             </Button>
@@ -224,5 +236,73 @@ export function RestoreDialog({
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** "YYYY-MM-DDTHH:MM:SS" in local time, for datetime-local inputs. */
+export function toLocalInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** Point-in-time recovery of a dedicated project into a new one (spec §6.5). */
+function PITRCard({ p, onCreated }: { p: Project; onCreated: (c: ProjectCredentials) => void }) {
+  const qc = useQueryClient();
+  const [when, setWhen] = useState("");
+  const [name, setName] = useState(`${p.name} restored`);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const w = p.pitr_window;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      const c = await api.pitr(p.id, { name, target_time: when ? new Date(when).toISOString() : undefined });
+      await qc.invalidateQueries({ queryKey: ["projects"] });
+      onCreated(c);
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title="Point-in-time recovery">
+      {!w ? (
+        <p className="text-sm text-muted">Available once the first base backup has finished.</p>
+      ) : (
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <p className="text-sm text-muted" data-testid="pitr-window">
+            Any moment from {formatDate(w.from)} until now can be restored into a new dedicated project on the same node. This project is not
+            changed.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Restore to (your local time)" hint="Leave empty for the latest point.">
+              {(id) => (
+                <Input
+                  id={id}
+                  type="datetime-local"
+                  step={1}
+                  min={toLocalInput(new Date(w.from))}
+                  max={toLocalInput(new Date())}
+                  value={when}
+                  onChange={(e) => setWhen(e.target.value)}
+                />
+              )}
+            </Field>
+            <Field label="New project name">
+              {(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} />}
+            </Field>
+          </div>
+          {err && <Alert>{err}</Alert>}
+          <div>
+            <Button type="submit" variant="primary" busy={busy}>
+              Restore to this point
+            </Button>
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }

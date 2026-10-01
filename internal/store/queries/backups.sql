@@ -62,7 +62,7 @@ SELECT * FROM backups WHERE status = 'running' AND started_at < @before;
 -- name: LastBackupTimes :many
 SELECT project_id, max(finished_at)::timestamptz AS last_backup_at
 FROM backups
-WHERE status = 'succeeded' AND project_id IS NOT NULL AND kind IN ('logical','final','safety')
+WHERE status = 'succeeded' AND project_id IS NOT NULL AND kind IN ('logical','base','final','safety')
 GROUP BY project_id;
 
 -- name: ProjectsDueForBackup :many

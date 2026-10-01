@@ -10,12 +10,13 @@ export function ProjectsPage() {
   const q = useQuery({ queryKey: ["projects"], queryFn: () => api.projects(), refetchInterval: 15_000 });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [tier, setTier] = useState("");
   const items = useMemo(() => {
     const s = search.trim().toLowerCase();
     return (q.data?.items ?? []).filter(
-      (p) => (!status || p.status === status) && (!s || p.name.toLowerCase().includes(s) || p.db_name.includes(s)),
+      (p) => (!status || p.status === status) && (!tier || p.tier === tier) && (!s || p.name.toLowerCase().includes(s) || p.db_name.includes(s)),
     );
-  }, [q.data, search, status]);
+  }, [q.data, search, status, tier]);
 
   return (
     <>
@@ -35,6 +36,11 @@ export function ProjectsPage() {
       />
       <div className="mb-3 flex flex-wrap gap-2">
         <Input placeholder="Search name or database" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" aria-label="Search projects" />
+        <Select value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Filter by tier">
+          <option value="">All tiers</option>
+          <option value="shared">Shared</option>
+          <option value="dedicated">Dedicated</option>
+        </Select>
         <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
           <option value="">All statuses</option>
           {["active", "provisioning", "restoring", "deleting", "error"].map((s) => (

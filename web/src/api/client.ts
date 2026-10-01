@@ -27,6 +27,11 @@ export type RestoreResponse = S["RestoreResponse"];
 export type ImportPreflight = S["ImportPreflight"];
 export type Node = S["Node"];
 export type RegistrationToken = S["RegistrationToken"];
+export type NodeDetail = S["NodeDetail"];
+export type NodeCreated = S["NodeCreated"];
+export type ProfileList = S["ProfileList"];
+export type InstanceSummary = S["InstanceSummary"];
+export type CreateProjectRequest = S["CreateProjectRequest"];
 
 /** An error response from the API, with the server's error code. */
 export class ApiRequestError extends Error {
@@ -104,8 +109,11 @@ export const api = {
 
   projects: (status?: string) => getJSON<S["ProjectList"]>(`/api/v1/projects${qs({ status, limit: 500 })}`),
   project: (id: string) => getJSON<Project>(`/api/v1/projects/${id}`),
-  createProject: (b: { name: string; description?: string }) =>
-    request<ProjectCredentials>("POST", "/api/v1/projects", b),
+  createProject: (b: CreateProjectRequest) => request<ProjectCredentials>("POST", "/api/v1/projects", b),
+  profiles: () => getJSON<ProfileList>("/api/v1/profiles"),
+  pitr: (id: string, b: S["PitrRequest"]) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/pitr`, b),
+  instanceAction: (id: string, action: "start" | "stop" | "restart") =>
+    request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, { action }),
   updateProject: (id: string, b: S["UpdateProjectRequest"]) =>
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
   rotatePassword: (id: string) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/rotate-password`),
@@ -131,6 +139,11 @@ export const api = {
 
   nodes: () => getJSON<S["NodeList"]>("/api/v1/nodes"),
   nodeToken: (id: string) => request<RegistrationToken>("POST", `/api/v1/nodes/${id}/registration-token`),
+  node: (id: string) => getJSON<NodeDetail>(`/api/v1/nodes/${id}`),
+  createNode: (b: S["CreateNodeRequest"]) => request<NodeCreated>("POST", "/api/v1/nodes", b),
+  removeNode: (id: string) => request<void>("DELETE", `/api/v1/nodes/${id}`),
+  updateNode: (id: string, role: "shared" | "dedicated" | "both") => request<Node>("PATCH", `/api/v1/nodes/${id}`, { role }),
+  createSharedCluster: (id: string, memory_mb: number) => request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, { memory_mb }),
 
   operations: (p: { project_id?: string; status?: string; kind?: string; limit?: number } = {}) =>
     getJSON<S["OperationList"]>(`/api/v1/operations${qs(p)}`),

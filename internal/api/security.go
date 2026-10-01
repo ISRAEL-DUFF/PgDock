@@ -178,6 +178,7 @@ var auditActions = map[string]string{
 	"POST /api/v1/agent/register":                "node.agent_register",
 	"POST /api/v1/nodes":                         "node.create",
 	"DELETE /api/v1/nodes/{id}":                  "node.remove",
+	"PATCH /api/v1/nodes/{id}":                   "node.update",
 	"POST /api/v1/nodes/{id}/shared-cluster":     "node.shared_cluster",
 	"POST /api/v1/projects/{id}/pitr":            "backup.pitr",
 	"POST /api/v1/projects/{id}/instance":        "project.instance",

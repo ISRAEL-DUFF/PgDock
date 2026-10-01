@@ -309,7 +309,8 @@ func (q *Queries) PickDedicatedNode(ctx context.Context) (Node, error) {
 const pickSharedInstance = `-- name: PickSharedInstance :one
 SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at FROM instances i
 JOIN nodes n ON n.id = i.node_id
-WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy'
+WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
+  AND i.deleted_at IS NULL
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
 LIMIT 1
 `
@@ -449,7 +450,7 @@ const upsertNode = `-- name: UpsertNode :one
 INSERT INTO nodes (name, private_addr, role, pg_admin_secret, capacity)
 VALUES ($1, $2, $3, $4, '{}')
 ON CONFLICT (name) DO UPDATE
-SET private_addr = EXCLUDED.private_addr, role = EXCLUDED.role, pg_admin_secret = EXCLUDED.pg_admin_secret
+SET private_addr = EXCLUDED.private_addr, pg_admin_secret = EXCLUDED.pg_admin_secret
 RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at
 `
 

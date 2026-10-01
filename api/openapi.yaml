@@ -912,6 +912,27 @@ paths:
                 $ref: "#/components/schemas/NodeDetail"
         default:
           $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateNode
+      summary: Change a node's role (where new projects may go)
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNodeRequest"
+      responses:
+        "200":
+          description: The node.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+        default:
+          $ref: "#/components/responses/Error"
     delete:
       operationId: removeNode
       summary: Take a node out of service (requires re-authentication)
@@ -2095,3 +2116,10 @@ components:
         memory_mb:
           type: integer
           minimum: 512
+    UpdateNodeRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [shared, dedicated, both]

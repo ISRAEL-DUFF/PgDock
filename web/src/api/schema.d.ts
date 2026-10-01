@@ -773,7 +773,8 @@ export interface paths {
         delete: operations["removeNode"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change a node's role (where new projects may go) */
+        patch: operations["updateNode"];
         trace?: never;
     };
     "/api/v1/nodes/{id}/shared-cluster": {
@@ -1398,6 +1399,10 @@ export interface components {
         };
         SharedClusterRequest: {
             memory_mb: number;
+        };
+        UpdateNodeRequest: {
+            /** @enum {string} */
+            role: "shared" | "dedicated" | "both";
         };
     };
     responses: {
@@ -2509,6 +2514,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNodeRequest"];
+            };
+        };
+        responses: {
+            /** @description The node. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Node"];
+                };
             };
             default: components["responses"]["Error"];
         };

@@ -141,6 +141,12 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/** A long-lived resource's state (instances, nodes): no progress spinner. */
+export function StateBadge({ state }: { state: string }) {
+  const tone: Tone = state === "running" || state === "healthy" ? "ok" : state === "stopped" ? "warn" : (statusTones[state] ?? "muted");
+  return <Badge tone={tone}>{state}</Badge>;
+}
+
 export function Alert({ tone = "danger", title, children }: { tone?: Tone; title?: string; children: ReactNode }) {
   return (
     <div role={tone === "danger" ? "alert" : "status"} className={cx("rounded-md border px-3 py-2 text-sm", tones[tone])}>

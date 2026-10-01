@@ -218,3 +218,23 @@ func (s *Server) CreateSharedCluster(w http.ResponseWriter, r *http.Request, id 
 	}
 	s.writeOperation(w, "create shared cluster", op)
 }
+
+// UpdateNode implements PATCH /api/v1/nodes/{id}.
+func (s *Server) UpdateNode(w http.ResponseWriter, r *http.Request, id gen.NodeID) {
+	if !s.requireBackups(w) {
+		return
+	}
+	var req gen.UpdateNodeRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("node", id.String())
+	a.set("role", string(req.Role))
+	n, err := s.nodes.SetRole(r.Context(), id, string(req.Role))
+	if err != nil {
+		s.backupError(w, "update node", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.toAPINode(n))
+}

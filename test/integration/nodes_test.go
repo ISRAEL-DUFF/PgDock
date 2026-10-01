@@ -18,7 +18,17 @@ func TestMultiNodeSharedPlacement(t *testing.T) {
 	e.StartAgent()
 	ctx := context.Background()
 
-	// No node takes dedicated instances yet.
+	// Make the harness's node shared-only: then no node takes dedicated
+	// instances.
+	var nodes gen.NodeList
+	e.Do("GET", "/api/v1/nodes", nil, &nodes)
+	if len(nodes.Items) != 1 || nodes.Items[0].Role != "both" {
+		t.Fatalf("nodes: %+v", nodes.Items)
+	}
+	var updated gen.Node
+	if code := e.Do("PATCH", "/api/v1/nodes/"+nodes.Items[0].Id.String(), gen.UpdateNodeRequest{Role: gen.UpdateNodeRequestRoleShared}, &updated); code != http.StatusOK || updated.Role != "shared" {
+		t.Fatalf("set role: %d %+v", code, updated)
+	}
 	tier := gen.ProjectTierDedicated
 	var apiErr gen.Error
 	e.ConfigureBackups()

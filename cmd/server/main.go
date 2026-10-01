@@ -361,6 +361,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 			AdminURL:   cfg.Shared.AdminURL,
 			PoolerHost: cfg.Shared.PoolerHost,
 			PoolerPort: cfg.Shared.PoolerPort,
+			NodeRole:   cfg.Shared.NodeRole,
 		}, log); err != nil {
 			log.Error("could not register shared cluster", "err", err)
 		}
