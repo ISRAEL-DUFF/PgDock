@@ -10,6 +10,22 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: pgdock
+          POSTGRES_PASSWORD: pgdock
+          POSTGRES_DB: pgdock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pgdock"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      PGDOCK_TEST_DATABASE_URL: postgres://pgdock:pgdock@127.0.0.1:5432/pgdock?sslmode=disable
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +50,7 @@ jobs:
         with:
           version: v2.5
 
-      - name: Go tests
+      - name: Go tests (including Postgres-backed)
         run: make test-go
 
       - name: Frontend type-check and tests

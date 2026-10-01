@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"log/slog"
@@ -13,6 +14,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/version"
 )
 
@@ -20,7 +23,16 @@ import (
 // implement fall through to gen.Unimplemented (501).
 type Server struct {
 	gen.Unimplemented
-	log *slog.Logger
+	log      *slog.Logger
+	db       DB
+	streamer *jobs.Streamer
+	dev      bool
+}
+
+// DB is the metadata database: queries plus a health check.
+type DB interface {
+	store.DBTX
+	Ping(ctx context.Context) error
 }
 
 var _ gen.ServerInterface = (*Server)(nil)
@@ -28,6 +40,14 @@ var _ gen.ServerInterface = (*Server)(nil)
 // Options configures NewHandler.
 type Options struct {
 	Logger *slog.Logger
+	// DB and Notifier back the operations endpoints and readiness. Both
+	// may be nil in tests that only exercise static routes.
+	DB       DB
+	Notifier *jobs.Notifier
+	// DevEndpoints enables /api/v1/dev/* (PGDOCK_DEV_ENDPOINTS).
+	DevEndpoints bool
+	// StreamCtx ends open SSE streams when done; nil means never.
+	StreamCtx context.Context
 	// UI is the web UI build output; UIIndex names its entry document.
 	UI      fs.FS
 	UIIndex string
@@ -36,7 +56,14 @@ type Options struct {
 // NewHandler returns the root HTTP handler: the API under /api, health
 // probes at /healthz and /readyz, and the SPA everywhere else.
 func NewHandler(opts Options) http.Handler {
-	s := &Server{log: opts.Logger}
+	s := &Server{log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints}
+	if opts.DB != nil && opts.Notifier != nil {
+		streamCtx := opts.StreamCtx
+		if streamCtx == nil {
+			streamCtx = context.Background()
+		}
+		s.streamer = jobs.NewStreamer(streamCtx, opts.DB, opts.Notifier, opts.Logger)
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -84,9 +111,17 @@ func (s *Server) GetHealthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, gen.Health{Status: "ok"})
 }
 
-// GetReadyz implements GET /readyz. Once the metadata DB is wired in (M0),
-// this will check it.
-func (s *Server) GetReadyz(w http.ResponseWriter, _ *http.Request) {
+// GetReadyz implements GET /readyz: ready when the metadata DB answers.
+func (s *Server) GetReadyz(w http.ResponseWriter, r *http.Request) {
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := s.db.Ping(ctx); err != nil {
+			s.log.Warn("readiness check failed", "err", err)
+			writeJSON(w, http.StatusServiceUnavailable, gen.Health{Status: "metadata database unavailable"})
+			return
+		}
+	}
 	writeJSON(w, http.StatusOK, gen.Health{Status: "ok"})
 }
 

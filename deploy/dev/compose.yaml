@@ -1,0 +1,104 @@
+# PGDock development environment (spec §14, M0):
+#   metadata-db      metadata Postgres for pgdock-server
+#   shared-pg        the shared-tier cluster (projects become databases here)
+#   pooler-session   PgBouncer, session mode      (prod :5432)
+#   pooler-tx        PgBouncer, transaction mode  (prod :6543)
+#
+# Host ports are offset so they don't clash with a local Postgres; override
+# them with the PGDOCK_DEV_*_PORT variables. Credentials are for local
+# development only.
+#
+#   make dev-up      start everything and wait until healthy
+#   make dev         run pgdock-server + Vite against it
+#   make dev-down    stop (add -v to the compose command to drop data)
+
+name: pgdock-dev
+
+services:
+  metadata-db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: pgdock
+      POSTGRES_PASSWORD: pgdock
+      POSTGRES_DB: pgdock
+    ports:
+      - "127.0.0.1:${PGDOCK_DEV_METADATA_PORT:-5440}:5432"
+    volumes:
+      - metadata-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgdock -d pgdock"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  shared-pg:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: pgdock_admin
+      POSTGRES_PASSWORD: pgdock_admin
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
+    # §11.2 tuning, scaled down for a laptop.
+    command:
+      - postgres
+      - -c
+      - max_connections=500
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - autovacuum_max_workers=5
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+    ports:
+      - "127.0.0.1:${PGDOCK_DEV_SHARED_PORT:-5441}:5432"
+    volumes:
+      - shared-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgdock_admin -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  pooler-session:
+    image: edoburu/pgbouncer:v1.25.1-p0
+    depends_on:
+      shared-pg:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PGDOCK_DEV_POOLER_SESSION_PORT:-6432}:5432"
+    volumes:
+      - ./pgbouncer/session.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck: &pooler-health
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 $$(grep -E '^listen_port' /etc/pgbouncer/pgbouncer.ini | tr -dc 0-9)"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  pooler-tx:
+    image: edoburu/pgbouncer:v1.25.1-p0
+    depends_on:
+      shared-pg:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PGDOCK_DEV_POOLER_TX_PORT:-6543}:6543"
+    volumes:
+      - ./pgbouncer/transaction.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck: *pooler-health
+
+volumes:
+  metadata-data:
+  shared-data:
