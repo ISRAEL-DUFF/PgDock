@@ -44,6 +44,8 @@ type Config struct {
 	Public Public
 	// Web configures cookies, proxies, and setup.
 	Web Web
+	// PoolerTLS configures the poolers' certificate.
+	PoolerTLS PoolerTLS
 }
 
 // Load reads configuration from PGDOCK_* environment variables, applying
@@ -123,6 +125,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 
 	errs = append(errs, loadProvisioning(getenv, readFile, &cfg)...)
 	errs = append(errs, loadWeb(getenv, &cfg)...)
+	errs = append(errs, loadPoolerTLS(getenv, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err

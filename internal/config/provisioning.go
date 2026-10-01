@@ -142,3 +142,54 @@ func loadProvisioning(getenv func(string) string, readFile func(string) ([]byte,
 	cfg.Pooler = p
 	return errs
 }
+
+// PoolerTLS configures the poolers' client-facing certificate.
+type PoolerTLS struct {
+	// Mode (PGDOCK_POOLER_TLS): self-signed (default), acme, files, or off.
+	Mode string
+	// DataDir (PGDOCK_DATA_DIR, default /var/lib/pgdock) holds ACME state.
+	DataDir string
+	// ACMEEmail (PGDOCK_ACME_EMAIL), ACMECA (PGDOCK_ACME_CA, default Let's
+	// Encrypt), and ACMECARoots (PGDOCK_ACME_CA_ROOTS, a PEM file trusted for
+	// the CA's own HTTPS, for private or test CAs).
+	ACMEEmail   string
+	ACMECA      string
+	ACMECARoots string
+	// CertFile/KeyFile (PGDOCK_POOLER_TLS_CERT/_KEY) for mode files.
+	CertFile string
+	KeyFile  string
+}
+
+func loadPoolerTLS(getenv func(string) string, cfg *Config) []error {
+	t := PoolerTLS{
+		Mode:        getenv("PGDOCK_POOLER_TLS"),
+		DataDir:     getenv("PGDOCK_DATA_DIR"),
+		ACMEEmail:   getenv("PGDOCK_ACME_EMAIL"),
+		ACMECA:      getenv("PGDOCK_ACME_CA"),
+		ACMECARoots: getenv("PGDOCK_ACME_CA_ROOTS"),
+		CertFile:    getenv("PGDOCK_POOLER_TLS_CERT"),
+		KeyFile:     getenv("PGDOCK_POOLER_TLS_KEY"),
+	}
+	if t.Mode == "" {
+		t.Mode = "self-signed"
+	}
+	if t.DataDir == "" {
+		t.DataDir = "/var/lib/pgdock"
+	}
+	var errs []error
+	switch t.Mode {
+	case "self-signed", "off":
+	case "acme":
+		if t.ACMEEmail == "" {
+			errs = append(errs, fmt.Errorf("PGDOCK_ACME_EMAIL is required with PGDOCK_POOLER_TLS=acme"))
+		}
+	case "files":
+		if t.CertFile == "" || t.KeyFile == "" {
+			errs = append(errs, fmt.Errorf("PGDOCK_POOLER_TLS_CERT and _KEY are required with PGDOCK_POOLER_TLS=files"))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("PGDOCK_POOLER_TLS: want self-signed, acme, files, or off; got %q", t.Mode))
+	}
+	cfg.PoolerTLS = t
+	return errs
+}

@@ -131,7 +131,7 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	var admins []*pooler.Admin
 	for name, addr := range map[string]string{"session": sessionAddr, "transaction": pooledAddr} {
-		a, err := pooler.NewAdmin(name, addr, "pgdock", adminPW, "disable")
+		a, err := pooler.NewAdmin(name, addr, "pgdock", adminPW, "require")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -148,9 +148,9 @@ func Start(t testing.TB, opts Options) *Env {
 	pp, _ := strconv.Atoi(pport)
 	st := settings.New(db, host)
 	cfg := provision.Config{
-		DBHost: host, DBHostFunc: st.DBHost, SessionPort: sp, PooledPort: pp, SSLMode: "disable",
+		DBHost: host, DBHostFunc: st.DBHost, SessionPort: sp, PooledPort: pp, SSLMode: "require",
 		SmokeSessionAddr: sessionAddr, SmokePooledAddr: pooledAddr,
-		SmokeSSLMode: "disable", AdminSSLMode: "disable",
+		SmokeSSLMode: "require", AdminSSLMode: "disable",
 	}
 	if opts.SmokePooledAddr != "" {
 		cfg.SmokePooledAddr = opts.SmokePooledAddr
@@ -447,14 +447,14 @@ func (e *Env) DirectURL(url, database string) string {
 		net.JoinHostPort(ac.Host, strconv.Itoa(int(ac.Port))), database)
 }
 
-// WithDatabase returns url with a different database name.
+// WithDatabase returns a pooler url with a different database name.
 func WithDatabase(t testing.TB, url, database string) string {
 	t.Helper()
 	pc, err := pgx.ParseConfig(url)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", pc.User, pc.Password,
+	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=require", pc.User, pc.Password,
 		net.JoinHostPort(pc.Host, strconv.Itoa(int(pc.Port))), database)
 }
 

@@ -55,14 +55,14 @@ func TestRenderRejectsInjection(t *testing.T) {
 func TestWriteFileAtomic(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "f")
-	changed, err := writeFileAtomic(p, []byte("a"), 0o640)
+	changed, err := WriteFileAtomic(p, []byte("a"), 0o640)
 	if err != nil || !changed {
 		t.Fatalf("first write: %v %v", changed, err)
 	}
-	if changed, _ := writeFileAtomic(p, []byte("a"), 0o640); changed {
+	if changed, _ := WriteFileAtomic(p, []byte("a"), 0o640); changed {
 		t.Fatal("identical write reported a change")
 	}
-	if changed, _ := writeFileAtomic(p, []byte("b"), 0o640); !changed {
+	if changed, _ := WriteFileAtomic(p, []byte("b"), 0o640); !changed {
 		t.Fatal("new content not reported")
 	}
 	b, _ := os.ReadFile(p)

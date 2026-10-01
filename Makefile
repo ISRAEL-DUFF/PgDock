@@ -22,7 +22,7 @@ POOLER_DIR := tmp/pooler
 TEST_POOLER_DIR := tmp/pooler-test
 DEV_ENV := deploy/dev/server.env
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-acme generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
 
 all: build
 
@@ -53,6 +53,10 @@ pooler-seed:
 		for f in userlist.txt databases.ini; do \
 			[ -f $$d/$$f ] || install -m 644 deploy/dev/pgbouncer/bootstrap/$$f $$d/$$f; \
 		done; \
+		[ -f $$d/server.crt ] || openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
+			-days 3650 -subj /CN=localhost -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+			-keyout $$d/server.key -out $$d/server.crt 2>/dev/null; \
+		chmod 644 $$d/server.crt $$d/server.key; \
 	done
 
 ## dev-down: stop the dev environment (data volumes are kept).
@@ -101,6 +105,18 @@ test-go:
 ## test-db: Go tests including the Postgres-backed ones, against `make dev-up`.
 test-db: dev-up
 	PGDOCK_TEST_DATABASE_URL="$(DEV_DATABASE_URL)" go test -race -count=1 ./...
+
+# Pebble (Let's Encrypt's test CA) for the ACME test, built from source.
+PEBBLE_VERSION := v2.10.1
+PEBBLE_DIR := tmp/pebble
+
+$(PEBBLE_DIR)/pebble $(PEBBLE_DIR)/pebble-challtestsrv:
+	GOBIN=$(CURDIR)/$(PEBBLE_DIR) go install github.com/letsencrypt/pebble/v2/cmd/pebble@$(PEBBLE_VERSION) \
+		github.com/letsencrypt/pebble/v2/cmd/pebble-challtestsrv@$(PEBBLE_VERSION)
+
+## test-acme: obtain a real certificate over HTTP-01 from Pebble.
+test-acme: $(PEBBLE_DIR)/pebble $(PEBBLE_DIR)/pebble-challtestsrv
+	PGDOCK_TEST_PEBBLE_DIR=$(CURDIR)/$(PEBBLE_DIR) go test -count=1 -run TestACMEWithPebble -v ./internal/tlscert/
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).

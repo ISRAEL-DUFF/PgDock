@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/base32"
 	"errors"
 	"flag"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -21,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/israel-duff/pgdock/internal/api"
+	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/crypto"
@@ -30,6 +33,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/tlscert"
 	"github.com/israel-duff/pgdock/internal/version"
 	"github.com/israel-duff/pgdock/web"
 )
@@ -45,6 +49,7 @@ func run() error {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	requireUI := flag.Bool("require-ui", false, "exit with an error if only the placeholder UI is embedded")
 	genKey := flag.Bool("gen-master-key", false, "print a new random master key for PGDOCK_MASTER_KEY and exit")
+	healthcheck := flag.String("healthcheck", "", "GET this URL's /healthz and exit 0 if healthy (for container health checks)")
 	flag.Parse()
 
 	v := version.Get()
@@ -57,6 +62,17 @@ func run() error {
 			return errors.New("binary embeds only the placeholder UI; build with `make build`")
 		}
 		fmt.Println("web UI embedded")
+		return nil
+	case *healthcheck != "":
+		c := &http.Client{Timeout: 3 * time.Second}
+		res, err := c.Get(strings.TrimRight(*healthcheck, "/") + "/healthz")
+		if err != nil {
+			return err
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			return fmt.Errorf("healthz: %s", res.Status)
+		}
 		return nil
 	case *genKey:
 		k, err := crypto.GenerateKey()
@@ -111,7 +127,7 @@ func run() error {
 	go func() { defer bg.Done(); sweepAuth(bgCtx, authSvc, log) }()
 
 	kinds := map[string]jobs.Kind{jobs.KindNoop: jobs.Noop()}
-	projects, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, log)
+	projects, pm, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, log)
 	if err != nil {
 		return err
 	}
@@ -119,6 +135,15 @@ func run() error {
 		for name, k := range projects.Kinds() {
 			kinds[name] = k
 		}
+	}
+
+	var certs *tlscert.Manager
+	if pm != nil {
+		if certs, err = setupPoolerTLS(cfg, pm, settingsStore, log); err != nil {
+			return err
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); certs.Run(bgCtx) }()
 	}
 
 	notifier := jobs.NewNotifier(pool, log)
@@ -136,25 +161,34 @@ func run() error {
 		log.Warn("development endpoints enabled (PGDOCK_DEV_ENDPOINTS); do not use in production")
 	}
 
+	tlsStatus := func() gen.TlsStatus { return gen.TlsStatus{Mode: gen.TlsStatusModeOff, State: gen.TlsStatusStateOff} }
+	if certs != nil {
+		tlsStatus = func() gen.TlsStatus { return toAPITLS(certs.Status()) }
+	}
+	handler := api.NewHandler(api.Options{
+		Logger:       log,
+		DB:           pool,
+		Notifier:     notifier,
+		DevEndpoints: cfg.DevEndpoints,
+		StreamCtx:    bgCtx,
+		Projects:     projects,
+		UI:           web.Dist(),
+		UIIndex:      index,
+		Auth:         authSvc,
+		Security: api.SecurityOptions{
+			SecureCookies:  cfg.Web.SecureCookies,
+			TrustedProxies: cfg.Web.TrustedProxies,
+		},
+		Settings:  settingsStore,
+		PublicIPs: cfg.Web.PublicIPs,
+		TLS:       tlsStatus,
+	})
+	if certs != nil {
+		handler = certs.HTTPChallengeHandler(handler)
+	}
 	srv := &http.Server{
-		Addr: cfg.ListenAddr,
-		Handler: api.NewHandler(api.Options{
-			Logger:       log,
-			DB:           pool,
-			Notifier:     notifier,
-			DevEndpoints: cfg.DevEndpoints,
-			StreamCtx:    bgCtx,
-			Projects:     projects,
-			UI:           web.Dist(),
-			UIIndex:      index,
-			Auth:         authSvc,
-			Security: api.SecurityOptions{
-				SecureCookies:  cfg.Web.SecureCookies,
-				TrustedProxies: cfg.Web.TrustedProxies,
-			},
-			Settings:  settingsStore,
-			PublicIPs: cfg.Web.PublicIPs,
-		}),
+		Addr:              cfg.ListenAddr,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelError),
 	}
@@ -236,7 +270,58 @@ func sweepAuth(ctx context.Context, svc *auth.Service, log *slog.Logger) {
 	}
 }
 
-func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, st *settings.Store, log *slog.Logger) (*provision.Service, error) {
+// setupPoolerTLS builds the certificate manager for the poolers and makes
+// sure a certificate exists before they need one.
+func setupPoolerTLS(cfg config.Config, pm *pooler.Manager, st *settings.Store, log *slog.Logger) (*tlscert.Manager, error) {
+	mode, err := tlscert.ParseMode(cfg.PoolerTLS.Mode)
+	if err != nil {
+		return nil, err
+	}
+	tc := tlscert.Config{
+		Mode: mode, Dir: pm.Dir(), FileMode: pm.FileMode(), Reload: pm.Reload,
+		DataDir: cfg.PoolerTLS.DataDir, ACMEEmail: cfg.PoolerTLS.ACMEEmail, ACMECA: cfg.PoolerTLS.ACMECA,
+		SourceCert: cfg.PoolerTLS.CertFile, SourceKey: cfg.PoolerTLS.KeyFile, Log: log,
+	}
+	if path := cfg.PoolerTLS.ACMECARoots; path != "" {
+		pemBytes, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("PGDOCK_ACME_CA_ROOTS: %w", err)
+		}
+		tc.ACMERoots = x509.NewCertPool()
+		if !tc.ACMERoots.AppendCertsFromPEM(pemBytes) {
+			return nil, fmt.Errorf("PGDOCK_ACME_CA_ROOTS: no certificates in %s", path)
+		}
+	}
+	m, err := tlscert.New(tc, st.DBHost())
+	if err != nil {
+		return nil, err
+	}
+	if err := m.Bootstrap(); err != nil {
+		return nil, fmt.Errorf("pooler TLS: %w", err)
+	}
+	st.OnDBHostChange(m.SetHost)
+	log.Info("pooler TLS", "mode", mode, "host", st.DBHost())
+	return m, nil
+}
+
+func toAPITLS(s tlscert.Status) gen.TlsStatus {
+	out := gen.TlsStatus{Mode: gen.TlsStatusMode(s.Mode), State: gen.TlsStatusState(s.State)}
+	if s.Host != "" {
+		out.Host = &s.Host
+	}
+	if s.Issuer != "" {
+		out.Issuer = &s.Issuer
+	}
+	if !s.NotAfter.IsZero() {
+		out.NotAfter = &s.NotAfter
+	}
+	if s.Err != "" {
+		out.Error = &s.Err
+	}
+	return out
+}
+
+func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, st *settings.Store, log *slog.Logger) (*provision.Service, *pooler.Manager, error) {
 	if cfg.Shared.AdminURL != "" {
 		// A cluster that is down at boot should not keep the control plane
 		// down; creates fail until it is back.
@@ -252,27 +337,27 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 	pc := cfg.Pooler
 	if pc.ConfigDir == "" {
 		log.Warn("project provisioning disabled: PGDOCK_POOLER_CONFIG_DIR is not set")
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// A stable, secret salt keeps the admin entry identical across syncs.
 	adminVerifier, err := crypto.SCRAMVerifierWithSalt(pc.AdminPassword,
 		keyring.Derive("pooler admin scram salt:"+pc.AdminUser, 16), crypto.SCRAMIterations)
 	if err != nil {
-		return nil, fmt.Errorf("pooler admin password: %w", err)
+		return nil, nil, fmt.Errorf("pooler admin password: %w", err)
 	}
 	var admins []*pooler.Admin
 	for _, a := range []struct{ name, addr string }{{"session", pc.SessionAddr}, {"transaction", pc.PooledAddr}} {
 		adm, err := pooler.NewAdmin(a.name, a.addr, pc.AdminUser, pc.AdminPassword, pc.SSLMode)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		admins = append(admins, adm)
 	}
 	pm, err := pooler.NewManager(pc.ConfigDir, pc.FileMode, pool, admins,
 		[]pooler.User{{Name: pc.AdminUser, Secret: adminVerifier}}, log)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Bring the poolers in line with the metadata DB (e.g. after a restore
 	// or a lost reload). Failure is not fatal: every flow syncs again.
@@ -293,7 +378,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 		SmokeSessionAddr: pc.SessionAddr,
 		SmokePooledAddr:  pc.PooledAddr,
 		SmokeSSLMode:     pc.SSLMode,
-	}, log), nil
+	}, log), pm, nil
 }
 
 func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
