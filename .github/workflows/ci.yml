@@ -77,16 +77,17 @@ jobs:
           set -o pipefail
           make test-integration 2>&1 | tee "$RUNNER_TEMP/integration.log"
 
-      - name: Failing tests
-        if: failure()
-        run: grep -E -- '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' "$RUNNER_TEMP/integration.log" | head -200 || true
 
       - name: ACME against Pebble (real HTTP-01)
         run: make test-acme
 
       - name: Dev environment logs on failure
         if: failure()
-        run: docker compose -f deploy/dev/compose.yaml --profile test logs --no-color --tail 200
+        run: docker compose -f deploy/dev/compose.yaml --profile test logs --no-color --tail 60
+
+      - name: Failing tests
+        if: failure()
+        run: grep -E -- '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' "$RUNNER_TEMP/integration.log" | head -200 || true
 
   # The M2–M6 done-whens (and M7's smoke tests): install the compose bundle from scratch and go
   # from a fresh install to a working database entirely through the browser
