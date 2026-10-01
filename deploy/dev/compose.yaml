@@ -11,6 +11,10 @@
 #   make dev-up      seed tmp/pooler, start everything, wait until healthy
 #   make dev         run pgdock-server + Vite against it
 #   make dev-down    stop (add -v to the compose command to drop data)
+#
+# The network has a fixed subnet so the test harness knows the gateway
+# address (PGDOCK_DEV_GATEWAY): processes on the host listen there (the
+# test control plane, a fake S3) and containers reach them through it.
 
 name: pgdock-dev
 
@@ -128,6 +132,55 @@ services:
       - ../pgbouncer/transaction.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ../../tmp/pooler-test:/etc/pgbouncer/pgdock:ro
     healthcheck: *pooler-health
+
+  # M3 test fixtures (`--profile test`). The agent runs where Postgres 18
+  # client tools are, on the Compose network like the poolers; the test
+  # harness starts and stops it with `docker exec` (one per test).
+  agent-test:
+    image: postgres:18
+    profiles: [test]
+    entrypoint: ["sleep", "infinity"]
+    stop_signal: SIGKILL
+    ports:
+      - "127.0.0.1:${PGDOCK_TEST_AGENT_PORT:-7071}:7070"
+    volumes:
+      - ../../tmp/bin:/pgdock:ro
+
+  # Import sources: a Supabase image and a plain Postgres 15. Published on
+  # the gateway address so the control plane (host) and the agent
+  # (container) use one connection string.
+  src-supabase:
+    image: mirror.gcr.io/supabase/postgres:17.6.1.003
+    profiles: [test]
+    environment:
+      POSTGRES_PASSWORD: supabase-source
+    ports:
+      - "${PGDOCK_DEV_GATEWAY:-172.31.251.1}:${PGDOCK_TEST_SRC_SUPABASE_PORT:-5450}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  src-pg15:
+    image: mirror.gcr.io/library/postgres:15
+    profiles: [test]
+    environment:
+      POSTGRES_PASSWORD: pg15-source
+    ports:
+      - "${PGDOCK_DEV_GATEWAY:-172.31.251.1}:${PGDOCK_TEST_SRC_PG15_PORT:-5451}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${PGDOCK_DEV_SUBNET:-172.31.251.0/24}
+          gateway: ${PGDOCK_DEV_GATEWAY:-172.31.251.1}
 
 volumes:
   metadata-data:

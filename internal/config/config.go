@@ -46,6 +46,22 @@ type Config struct {
 	Web Web
 	// PoolerTLS configures the poolers' certificate.
 	PoolerTLS PoolerTLS
+	// Backups configures agents and backups.
+	Backups Backups
+}
+
+// Backups configures node agents and backups (M3).
+type Backups struct {
+	// AgentBootstrapToken lets the install bundle's agent register the
+	// local node without an operator (PGDOCK_AGENT_BOOTSTRAP_TOKEN).
+	AgentBootstrapToken string
+	// Hour is the UTC hour the nightly backup window opens; Jitter spreads
+	// projects over it.
+	Hour   int
+	Jitter time.Duration
+	// MetadataURL is the metadata DB as an agent reaches it, for nightly
+	// self-backups. Defaults to DatabaseURL; "off" disables them.
+	MetadataURL string
 }
 
 // Load reads configuration from PGDOCK_* environment variables, applying
@@ -126,6 +142,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadProvisioning(getenv, readFile, &cfg)...)
 	errs = append(errs, loadWeb(getenv, &cfg)...)
 	errs = append(errs, loadPoolerTLS(getenv, &cfg)...)
+	errs = append(errs, loadBackups(getenv, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err
@@ -159,4 +176,35 @@ func loadMasterKey(getenv func(string) string, readFile func(string) ([]byte, er
 	default:
 		return nil, errors.New("PGDOCK_MASTER_KEY or PGDOCK_MASTER_KEY_FILE is required (generate one with `pgdock-server -gen-master-key`)")
 	}
+}
+
+func loadBackups(getenv func(string) string, cfg *Config) []error {
+	var errs []error
+	b := Backups{Hour: 2, Jitter: 2 * time.Hour, AgentBootstrapToken: getenv("PGDOCK_AGENT_BOOTSTRAP_TOKEN"), MetadataURL: cfg.DatabaseURL}
+	if t := b.AgentBootstrapToken; t != "" && len(t) < 24 {
+		errs = append(errs, errors.New("PGDOCK_AGENT_BOOTSTRAP_TOKEN: must be at least 24 characters"))
+	}
+	if v := getenv("PGDOCK_BACKUP_HOUR"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 || n > 23 {
+			errs = append(errs, fmt.Errorf("PGDOCK_BACKUP_HOUR: must be an hour from 0 to 23, got %q", v))
+		}
+		b.Hour = n
+	}
+	if v := getenv("PGDOCK_BACKUP_JITTER"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < time.Minute || d > 12*time.Hour {
+			errs = append(errs, fmt.Errorf("PGDOCK_BACKUP_JITTER: must be a duration from 1m to 12h, got %q", v))
+		}
+		b.Jitter = d
+	}
+	switch v := getenv("PGDOCK_METADATA_BACKUP_URL"); v {
+	case "":
+	case "off":
+		b.MetadataURL = ""
+	default:
+		b.MetadataURL = v
+	}
+	cfg.Backups = b
+	return errs
 }

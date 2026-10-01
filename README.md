@@ -16,13 +16,15 @@ decrypts everything PGDock stores), starts the stack with Docker Compose,
 and prints a one-time setup code. Point DNS for the UI hostname (and later
 the database hostname) at the host, open `https://<ui-host>`, and the setup
 wizard takes it from there: owner account, two-factor enrolment, database
-hostname. The poolers then get a Let's Encrypt certificate for the database
+hostname, S3 storage for backups (with a live write/read/delete test), the
+backup encryption key (download it and confirm it, then keep it offline),
+and the local node's agent, which registers itself. The poolers then get a Let's Encrypt certificate for the database
 hostname, and every project's connection string uses `sslmode=require` or
 stricter.
 
 The bundle runs Caddy (TLS for the UI), pgdock-server, the metadata
-database, the shared PostgreSQL 18 cluster, and the two PgBouncers on
-`:5432` (session) and `:6543` (transaction).
+database, the shared PostgreSQL 18 cluster, the two PgBouncers on
+`:5432` (session) and `:6543` (transaction), and pgdock-agent.
 
 ## Requirements
 
@@ -42,9 +44,9 @@ database, the shared PostgreSQL 18 cluster, and the two PgBouncers on
 | `make generate` | Regenerates Go server interfaces and TypeScript types from `api/openapi.yaml`. |
 | `make test` | Go unit tests, frontend type-check and unit tests. Postgres-backed tests skip unless `PGDOCK_TEST_DATABASE_URL` is set. |
 | `make test-db` | Go tests including the Postgres-backed ones, against the dev environment. |
-| `make test-integration` | Provisioning end to end and the tenant-isolation suite, against real Postgres 18 and PgBouncer. |
+| `make test-integration` | Provisioning, backups, restores, and imports end to end, and the tenant-isolation suite, against real Postgres 18 and PgBouncer (the agent runs in a container; S3 is faked; import sources are `supabase/postgres` and Postgres 15). |
 | `make test-acme` | Obtains a real certificate over HTTP-01 from Pebble (Let's Encrypt's test CA). |
-| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database (Playwright). |
+| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, and imports a Supabase-shaped project and serves its app (Playwright). |
 | `make run-dev` | Runs the built `bin/pgdock-server` against the dev environment (`deploy/dev/server.env`). |
 | `make lint` | `golangci-lint`. |
 | `make release-check` | Fails if the server binary embeds only the placeholder UI. |
@@ -96,6 +98,46 @@ neither can reach the other's database, objects, sessions, or the server's
 files. Decisions that depart from the spec are in
 [docs/decisions.md](docs/decisions.md).
 
+## Agents, backups, and restores
+
+`pgdock-agent` runs on each node, next to Postgres (spec §3.2). pgdock-server
+reaches it over mutual TLS: the server runs its own CA (key sealed with the
+master key), signs each agent's certificate at registration, and pins its
+fingerprint. An agent registers once with a one-time token (Nodes →
+Register agent) or, for the install bundle's own agent,
+`PGDOCK_AGENT_BOOTSTRAP_TOKEN`. It reports health and host metrics, and
+runs `pg_dump`/`pg_restore` for backups, restores, and imports, with
+passwords passed in the environment, never on the command line.
+
+Backups are encrypted on the agent before they leave the node (AES-256-GCM
+in 64 KiB chunks, with a per-object key wrapped by the backup key) and
+streamed to S3 as `projects/<id>/logical/<time>.dump.enc`. Every active
+project is backed up nightly, spread over a window starting at
+`PGDOCK_BACKUP_HOUR` UTC, and keeps 7 daily plus 4 weekly backups. Deleting
+a project takes a final backup and restoring in place takes a safety
+backup first; both are kept 30 days. A weekly job restores the latest
+backup of a random project into a scratch database and counts every
+table, and the metadata DB backs itself up nightly (see
+[docs/disaster-recovery.md](docs/disaster-recovery.md)).
+
+Restore goes into a new project by default, so nothing is overwritten. In
+place needs the typed project name and a fresh re-authentication; clients
+wait at the pooler while it runs, and a failure puts the safety backup back.
+
+## Import from an existing database
+
+Projects → Import copies a database (Supabase included) into a new project
+(spec §6.8). The preflight reports the source's version, size, schemas,
+extensions against the allow-list, and grants and RLS policies that name
+Supabase roles; Supabase-managed schemas (`auth`, `storage`, …) are skipped
+by default. The agent then streams `pg_dump --no-owner --no-acl -n …` into
+`pg_restore --role=<project owner>` and the result is verified by per-table
+row counts and sequence values. For Supabase sources PGDock adds
+`auth.uid()`, `auth.role()`, and `auth.jwt()` (reading `request.jwt.claims`
+like Supabase) and NOLOGIN stand-ins for `anon`, `authenticated`, and
+`service_role`, so policies restore as written. The source connection string
+stays in memory for the operation only, and the source is never modified.
+
 ## Operations
 
 Long actions run as rows in the `operations` table (spec §6). Workers claim
@@ -140,5 +182,14 @@ with `NOTIFY`, which wakes idle workers and drives the SSE stream at
 | `PGDOCK_DATA_DIR` | `/var/lib/pgdock` | ACME account and certificate storage |
 | `PGDOCK_ACME_EMAIL` / `_CA` / `_CA_ROOTS` | Let's Encrypt | ACME account email, directory URL, extra trusted roots |
 | `PGDOCK_POOLER_TLS_CERT` / `_KEY` | | Certificate files for mode `files` |
+| `PGDOCK_AGENT_BOOTSTRAP_TOKEN` | | Lets the bundled agent register the local node without an operator (24+ characters) |
+| `PGDOCK_BACKUP_HOUR` | `2` | UTC hour the nightly backup window opens |
+| `PGDOCK_BACKUP_JITTER` | `2h` | How widely projects are spread over the window |
+| `PGDOCK_METADATA_BACKUP_URL` | `PGDOCK_DATABASE_URL` | The metadata DB as the agent reaches it, for self-backups; `off` disables them |
+
+pgdock-agent reads `PGDOCK_AGENT_STATE_DIR` (`/var/lib/pgdock-agent`),
+`_LISTEN` (`:7070`), `_SERVER`, `_TOKEN`, `_BOOTSTRAP_TOKEN` with `_NODE`,
+`_ADVERTISE` (how the server reaches it), `_SERVER_CA`, `_PG_BIN`, and
+`_DISK_PATH`; see `pgdock-agent run -h`.
 
 

@@ -21,6 +21,7 @@ export function ProjectLayout() {
   const tabs = [
     { to: "/projects/$id", label: "Overview", exact: true },
     { to: "/projects/$id/connect", label: "Connect" },
+    { to: "/projects/$id/backups", label: "Backups" },
     { to: "/projects/$id/settings", label: "Settings" },
   ] as const;
   return (

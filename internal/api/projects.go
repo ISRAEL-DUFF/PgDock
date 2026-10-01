@@ -38,11 +38,15 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 		return
 	}
 	out := gen.ProjectList{Items: make([]gen.Project, 0, len(ps))}
+	last := s.lastBackups(r.Context())
 	for _, p := range ps {
 		gp, err := s.toAPIProject(p)
 		if err != nil {
 			s.internalError(w, "list projects", err)
 			return
+		}
+		if t, ok := last[p.ID]; ok {
+			gp.LastBackupAt = &t
 		}
 		out.Items = append(out.Items, gp)
 	}
@@ -86,6 +90,9 @@ func (s *Server) GetProject(w http.ResponseWriter, r *http.Request, id gen.Proje
 		s.internalError(w, "get project", err)
 		return
 	}
+	if t, ok := s.lastBackups(r.Context())[p.ID]; ok {
+		gp.LastBackupAt = &t
+	}
 	writeJSON(w, http.StatusOK, gp)
 }
 
@@ -95,7 +102,9 @@ func (s *Server) DeleteProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 		return
 	}
 	auditFrom(r.Context()).target("project", id.String())
-	op, err := s.projects.Delete(r.Context(), id, params.Confirm, operatorID(r.Context()))
+	skip := params.SkipFinalBackup != nil && *params.SkipFinalBackup
+	auditFrom(r.Context()).set("skip_final_backup", skip)
+	op, err := s.projects.Delete(r.Context(), id, params.Confirm, skip, operatorID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "delete project", err)
 		return

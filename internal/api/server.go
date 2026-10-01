@@ -16,7 +16,9 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
+	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -37,6 +39,8 @@ type Server struct {
 	settings  *settings.Store
 	publicIPs []netip.Addr
 	tls       func() gen.TlsStatus
+	backups   *backup.Service
+	nodes     *nodes.Service
 }
 
 // DB is the metadata database: queries plus a health check.
@@ -74,6 +78,10 @@ type Options struct {
 	Settings  *settings.Store
 	PublicIPs []netip.Addr
 	TLS       func() gen.TlsStatus
+	// Backups and Nodes run backups, restores, imports, and agents; nil
+	// disables those endpoints.
+	Backups *backup.Service
+	Nodes   *nodes.Service
 }
 
 // NewHandler returns the root HTTP handler: the API under /api, health
@@ -85,6 +93,7 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
+		backups: opts.Backups, nodes: opts.Nodes,
 	}
 	if opts.DB != nil && opts.Notifier != nil {
 		streamCtx := opts.StreamCtx

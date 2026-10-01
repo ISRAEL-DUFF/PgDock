@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
 
 all: build
 
@@ -142,18 +142,29 @@ test-e2e: e2e-images
 	PGDOCK_E2E_DB_ADDR=127.0.0.1 \
 	PGDOCK_E2E_DB_CA=$(CURDIR)/tmp/e2e-pebble-root.pem \
 	PGDOCK_E2E_EXPECT_ISSUER=Pebble \
-	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server caddy pebble; exit 1; }
+	PGDOCK_E2E_S3_ENDPOINT=http://fakes3:9000 \
+	PGDOCK_E2E_S3_BUCKET=pgdock-e2e \
+	PGDOCK_E2E_SUPABASE_SEED_URL=postgres://postgres:supabase-source@127.0.0.1:15450/postgres \
+	PGDOCK_E2E_SUPABASE_URL=postgres://postgres:supabase-source@src-supabase:5432/postgres?sslmode=disable \
+	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server pgdock-agent caddy pebble; exit 1; }
 	$(E2E_COMPOSE) down -v --remove-orphans
 
 e2e-images:
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock:local .
+	docker build $(DOCKER_BUILD_FLAGS) --target agent -t pgdock-agent:local .
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-pebble:local -f test/e2e/bundle/Dockerfile.pebble test/e2e/bundle
+	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-fakes3:local -f test/e2e/bundle/Dockerfile.fakes3 .
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
-test-integration: pooler-seed
+test-integration: pooler-seed test-agent-bin
 	$(COMPOSE) --profile test up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
+
+# The agent the integration tests run inside the agent-test container.
+test-agent-bin:
+	@mkdir -p tmp/bin
+	CGO_ENABLED=0 go build -trimpath -o tmp/bin/pgdock-agent ./cmd/agent
 
 test-web:
 	cd web && npm run typecheck && npm test

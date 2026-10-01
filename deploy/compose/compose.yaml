@@ -1,5 +1,6 @@
 # PGDock on a single host (spec §11.1): Caddy, pgdock-server, the metadata
-# database, the shared PostgreSQL 18 cluster, and the two PgBouncer poolers.
+# database, the shared PostgreSQL 18 cluster, the two PgBouncer poolers, and
+# the node agent (backups, restores, imports).
 #
 #   ./install.sh            writes .env with generated secrets, then starts it
 #   docker compose up -d    (with an existing .env)
@@ -74,6 +75,9 @@ services:
       PGDOCK_DB_SESSION_PORT: ${PGDOCK_DB_SESSION_PORT:-5432}
       PGDOCK_DB_POOLED_PORT: ${PGDOCK_DB_POOLED_PORT:-6543}
       PGDOCK_DB_SSLMODE: require
+      # Lets the bundled agent register the local node by itself.
+      PGDOCK_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?run install.sh or set AGENT_BOOTSTRAP_TOKEN}
+      PGDOCK_BACKUP_HOUR: ${PGDOCK_BACKUP_HOUR:-2}
     volumes:
       - pgdock-data:/var/lib/pgdock
       - pooler-config:/var/lib/pgdock/pooler
@@ -82,6 +86,27 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+
+  # The local node's agent: it runs pg_dump/pg_restore next to the shared
+  # cluster and registers with the bootstrap token on first start (mTLS
+  # from then on; the CA is pinned in agent-state).
+  pgdock-agent:
+    image: ${PGDOCK_AGENT_IMAGE:-pgdock-agent:local}
+    build:
+      context: ../..
+      target: agent
+    restart: unless-stopped
+    depends_on:
+      pgdock-server:
+        condition: service_healthy
+    environment:
+      PGDOCK_AGENT_SERVER: http://pgdock-server:8080
+      PGDOCK_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?}
+      PGDOCK_AGENT_NODE: local
+      PGDOCK_AGENT_ADVERTISE: pgdock-agent:7070
+      PGDOCK_AGENT_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
+    volumes:
+      - agent-state:/var/lib/pgdock-agent
 
   metadata-db:
     image: postgres:18
@@ -161,6 +186,8 @@ networks:
     ipam:
       config:
         - subnet: 172.31.250.0/24
+          # Dynamic addresses stay clear of the fixed ones (caddy at .10).
+          ip_range: 172.31.250.128/25
 
 volumes:
   caddy-data:
@@ -169,3 +196,4 @@ volumes:
   pooler-config:
   metadata-data:
   shared-data:
+  agent-state:
