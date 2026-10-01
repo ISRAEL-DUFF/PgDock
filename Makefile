@@ -21,8 +21,10 @@ DEV_MASTER_KEY_FILE := tmp/dev-master.key
 POOLER_DIR := tmp/pooler
 TEST_POOLER_DIR := tmp/pooler-test
 DEV_ENV := deploy/dev/server.env
+# Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
+LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
 
 all: build
 
@@ -31,14 +33,14 @@ all: build
 dev: dev-key
 	@command -v air >/dev/null || { echo "air not found: go install github.com/air-verse/air@latest"; exit 1; }
 	@trap 'kill 0' EXIT; \
-	set -a; . ./$(DEV_ENV); set +a; \
+	$(LOAD_DEV_ENV); \
 	air -c .air.toml & \
 	(cd web && npm run dev) & \
 	wait
 
 ## run-dev: run the built bin/pgdock-server against the dev environment.
 run-dev: dev-key
-	@set -a; . ./$(DEV_ENV); set +a; exec $(BIN)/pgdock-server
+	@$(LOAD_DEV_ENV); exec $(BIN)/pgdock-server
 
 ## dev-up: start the dev environment (metadata PG, shared PG, PgBouncer x2).
 dev-up: pooler-seed
@@ -53,6 +55,10 @@ pooler-seed:
 		for f in userlist.txt databases.ini; do \
 			[ -f $$d/$$f ] || install -m 644 deploy/dev/pgbouncer/bootstrap/$$f $$d/$$f; \
 		done; \
+		[ -f $$d/server.crt ] || openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
+			-days 3650 -subj /CN=localhost -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+			-keyout $$d/server.key -out $$d/server.crt 2>/dev/null; \
+		chmod 644 $$d/server.crt $$d/server.key; \
 	done
 
 ## dev-down: stop the dev environment (data volumes are kept).
@@ -101,6 +107,47 @@ test-go:
 ## test-db: Go tests including the Postgres-backed ones, against `make dev-up`.
 test-db: dev-up
 	PGDOCK_TEST_DATABASE_URL="$(DEV_DATABASE_URL)" go test -race -count=1 ./...
+
+# Pebble (Let's Encrypt's test CA) for the ACME test, built from source.
+PEBBLE_VERSION := v2.10.1
+PEBBLE_DIR := tmp/pebble
+
+$(PEBBLE_DIR)/pebble $(PEBBLE_DIR)/pebble-challtestsrv:
+	GOBIN=$(CURDIR)/$(PEBBLE_DIR) go install github.com/letsencrypt/pebble/v2/cmd/pebble@$(PEBBLE_VERSION) \
+		github.com/letsencrypt/pebble/v2/cmd/pebble-challtestsrv@$(PEBBLE_VERSION)
+
+## test-acme: obtain a real certificate over HTTP-01 from Pebble.
+test-acme: $(PEBBLE_DIR)/pebble $(PEBBLE_DIR)/pebble-challtestsrv
+	PGDOCK_TEST_PEBBLE_DIR=$(CURDIR)/$(PEBBLE_DIR) go test -count=1 -run TestACMEWithPebble -v ./internal/tlscert/
+
+# ---- End-to-end: the install bundle, driven through a browser --------------
+E2E_COMPOSE := docker compose -p pgdock-e2e --env-file $(CURDIR)/test/e2e/bundle/e2e.env \
+	-f $(CURDIR)/deploy/compose/compose.yaml -f $(CURDIR)/test/e2e/bundle/compose.e2e.yaml
+# Extra flags for image builds, e.g. behind a TLS-intercepting proxy:
+#   DOCKER_BUILD_FLAGS='--network host --secret id=ca_bundle,src=/path/ca.pem'
+DOCKER_BUILD_FLAGS ?=
+
+## test-e2e: install the compose bundle from scratch and go from a fresh
+## install to a working database entirely through the browser (M2 done-when).
+test-e2e: e2e-images
+	$(E2E_COMPOSE) down -v --remove-orphans >/dev/null 2>&1 || true
+	$(E2E_COMPOSE) up -d --no-build --wait
+	@mkdir -p tmp && curl -fsSk --noproxy '*' https://127.0.0.1:15000/roots/0 > tmp/e2e-pebble-root.pem
+	cd test/e2e && npm ci --silent && \
+	PGDOCK_E2E_URL=https://pgdock.test:18443 \
+	PGDOCK_E2E_HOST_RULES="MAP pgdock.test 127.0.0.1" \
+	PGDOCK_E2E_IGNORE_HTTPS_ERRORS=1 \
+	PGDOCK_E2E_SETUP_CODE=e2e-setup-code \
+	PGDOCK_E2E_DB_HOST=db.pgdock.test \
+	PGDOCK_E2E_DB_ADDR=127.0.0.1 \
+	PGDOCK_E2E_DB_CA=$(CURDIR)/tmp/e2e-pebble-root.pem \
+	PGDOCK_E2E_EXPECT_ISSUER=Pebble \
+	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server caddy pebble; exit 1; }
+	$(E2E_COMPOSE) down -v --remove-orphans
+
+e2e-images:
+	docker build $(DOCKER_BUILD_FLAGS) -t pgdock:local .
+	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-pebble:local -f test/e2e/bundle/Dockerfile.pebble test/e2e/bundle
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).

@@ -1,0 +1,171 @@
+# PGDock on a single host (spec §11.1): Caddy, pgdock-server, the metadata
+# database, the shared PostgreSQL 18 cluster, and the two PgBouncer poolers.
+#
+#   ./install.sh            writes .env with generated secrets, then starts it
+#   docker compose up -d    (with an existing .env)
+#
+# Then open https://$PGDOCK_UI_DOMAIN and enter the setup code from
+# `docker compose logs pgdock-server`.
+
+name: pgdock
+
+x-pooler: &pooler
+  image: edoburu/pgbouncer:v1.25.1-p0
+  restart: unless-stopped
+  depends_on:
+    pgdock-server:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "nc -z 127.0.0.1 $$(grep -E '^listen_port' /etc/pgbouncer/pgbouncer.ini | tr -dc 0-9)"]
+    interval: 5s
+    timeout: 3s
+    retries: 30
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "${PGDOCK_HTTP_PORT:-80}:80"
+      - "${PGDOCK_HTTPS_PORT:-443}:443"
+    environment:
+      PGDOCK_UI_DOMAIN: ${PGDOCK_UI_DOMAIN:?set PGDOCK_UI_DOMAIN in .env}
+      PGDOCK_ACME_EMAIL: ${PGDOCK_ACME_EMAIL:?set PGDOCK_ACME_EMAIL in .env}
+      CADDY_UI_TLS: ${CADDY_UI_TLS:-}
+      CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      default:
+        ipv4_address: 172.31.250.10
+
+  pgdock-server:
+    image: ${PGDOCK_IMAGE:-pgdock:local}
+    build:
+      context: ../..
+    restart: unless-stopped
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+      shared-pg:
+        condition: service_healthy
+    environment:
+      PGDOCK_DATABASE_URL: postgres://pgdock:${METADATA_DB_PASSWORD:?}@metadata-db:5432/pgdock?sslmode=disable
+      PGDOCK_MASTER_KEY: ${PGDOCK_MASTER_KEY:?run install.sh or set PGDOCK_MASTER_KEY}
+      PGDOCK_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
+      # Caddy terminates TLS; trust its X-Forwarded-For.
+      PGDOCK_TRUSTED_PROXIES: 172.31.250.10
+      PGDOCK_PUBLIC_IPS: ${PGDOCK_PUBLIC_IPS:-}
+      PGDOCK_SETUP_CODE: ${PGDOCK_SETUP_CODE:-}
+      PGDOCK_SHARED_ADMIN_URL: postgres://pgdock_admin:${SHARED_ADMIN_PASSWORD:?}@shared-pg:5432/postgres?sslmode=disable
+      PGDOCK_SHARED_POOLER_HOST: shared-pg
+      PGDOCK_POOLER_ADMIN_PASSWORD: ${POOLER_ADMIN_PASSWORD:?}
+      PGDOCK_POOLER_SESSION_ADDR: pooler-session:5432
+      PGDOCK_POOLER_POOLED_ADDR: pooler-tx:6543
+      PGDOCK_POOLER_SSLMODE: require
+      PGDOCK_POOLER_TLS: ${PGDOCK_POOLER_TLS:-acme}
+      PGDOCK_ACME_EMAIL: ${PGDOCK_ACME_EMAIL:?}
+      PGDOCK_ACME_CA: ${PGDOCK_ACME_CA:-}
+      PGDOCK_ACME_CA_ROOTS: ${PGDOCK_ACME_CA_ROOTS:-}
+      # The wizard sets the DB hostname; this is only the starting value.
+      PGDOCK_DB_HOST: ${PGDOCK_DB_HOST:-${PGDOCK_UI_DOMAIN}}
+      PGDOCK_DB_SESSION_PORT: ${PGDOCK_DB_SESSION_PORT:-5432}
+      PGDOCK_DB_POOLED_PORT: ${PGDOCK_DB_POOLED_PORT:-6543}
+      PGDOCK_DB_SSLMODE: require
+    volumes:
+      - pgdock-data:/var/lib/pgdock
+      - pooler-config:/var/lib/pgdock/pooler
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/pgdock-server", "-healthcheck", "http://127.0.0.1:8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  metadata-db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pgdock
+      POSTGRES_PASSWORD: ${METADATA_DB_PASSWORD:?}
+      POSTGRES_DB: pgdock
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - metadata-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgdock -d pgdock"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  shared-pg:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pgdock_admin
+      POSTGRES_PASSWORD: ${SHARED_ADMIN_PASSWORD:?}
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
+    # §11.2 tuning for an 8 GB host; adjust for yours.
+    command:
+      - postgres
+      - -c
+      - max_connections=500
+      - -c
+      - shared_buffers=${SHARED_PG_SHARED_BUFFERS:-2GB}
+      - -c
+      - effective_cache_size=${SHARED_PG_EFFECTIVE_CACHE_SIZE:-6GB}
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - autovacuum_max_workers=5
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - log_min_duration_statement=5s
+    volumes:
+      - shared-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgdock_admin -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  pooler-session:
+    <<: *pooler
+    ports:
+      - "${PGDOCK_DB_SESSION_PORT:-5432}:5432"
+    volumes:
+      - ../pgbouncer/session.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - pooler-config:/etc/pgbouncer/pgdock:ro
+
+  pooler-tx:
+    <<: *pooler
+    ports:
+      - "${PGDOCK_DB_POOLED_PORT:-6543}:6543"
+    volumes:
+      - ../pgbouncer/transaction.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - pooler-config:/etc/pgbouncer/pgdock:ro
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+
+volumes:
+  caddy-data:
+  caddy-config:
+  pgdock-data:
+  pooler-config:
+  metadata-data:
+  shared-data:

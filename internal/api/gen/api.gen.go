@@ -14,6 +14,27 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AuditEntryOutcome.
+const (
+	AuditEntryOutcomeDenied  AuditEntryOutcome = "denied"
+	AuditEntryOutcomeFailure AuditEntryOutcome = "failure"
+	AuditEntryOutcomeSuccess AuditEntryOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the AuditEntryOutcome enum.
+func (e AuditEntryOutcome) Valid() bool {
+	switch e {
+	case AuditEntryOutcomeDenied:
+		return true
+	case AuditEntryOutcomeFailure:
+		return true
+	case AuditEntryOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperationLogEntryLevel.
 const (
 	OperationLogEntryLevelError OperationLogEntryLevel = "error"
@@ -53,6 +74,24 @@ func (e OperationStatus) Valid() bool {
 	case Running:
 		return true
 	case Succeeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OperatorRole.
+const (
+	Member OperatorRole = "member"
+	Owner  OperatorRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the OperatorRole enum.
+func (e OperatorRole) Valid() bool {
+	switch e {
+	case Member:
+		return true
+	case Owner:
 		return true
 	default:
 		return false
@@ -107,6 +146,100 @@ func (e ProjectTier) Valid() bool {
 	}
 }
 
+// Defines values for TlsStatusMode.
+const (
+	TlsStatusModeAcme       TlsStatusMode = "acme"
+	TlsStatusModeFiles      TlsStatusMode = "files"
+	TlsStatusModeOff        TlsStatusMode = "off"
+	TlsStatusModeSelfSigned TlsStatusMode = "self-signed"
+)
+
+// Valid indicates whether the value is a known member of the TlsStatusMode enum.
+func (e TlsStatusMode) Valid() bool {
+	switch e {
+	case TlsStatusModeAcme:
+		return true
+	case TlsStatusModeFiles:
+		return true
+	case TlsStatusModeOff:
+		return true
+	case TlsStatusModeSelfSigned:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TlsStatusState.
+const (
+	TlsStatusStateError   TlsStatusState = "error"
+	TlsStatusStateOff     TlsStatusState = "off"
+	TlsStatusStateOk      TlsStatusState = "ok"
+	TlsStatusStatePending TlsStatusState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the TlsStatusState enum.
+func (e TlsStatusState) Valid() bool {
+	switch e {
+	case TlsStatusStateError:
+		return true
+	case TlsStatusStateOff:
+		return true
+	case TlsStatusStateOk:
+		return true
+	case TlsStatusStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAuditParamsOutcome.
+const (
+	ListAuditParamsOutcomeDenied  ListAuditParamsOutcome = "denied"
+	ListAuditParamsOutcomeFailure ListAuditParamsOutcome = "failure"
+	ListAuditParamsOutcomeSuccess ListAuditParamsOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the ListAuditParamsOutcome enum.
+func (e ListAuditParamsOutcome) Valid() bool {
+	switch e {
+	case ListAuditParamsOutcomeDenied:
+		return true
+	case ListAuditParamsOutcomeFailure:
+		return true
+	case ListAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// AuditEntry defines model for AuditEntry.
+type AuditEntry struct {
+	// Action Example: project.create
+	Action        string                 `json:"action"`
+	CreatedAt     time.Time              `json:"created_at"`
+	Detail        map[string]interface{} `json:"detail"`
+	Id            int64                  `json:"id"`
+	Ip            *string                `json:"ip,omitempty"`
+	OperatorEmail *string                `json:"operator_email,omitempty"`
+	OperatorId    *openapi_types.UUID    `json:"operator_id,omitempty"`
+	Outcome       AuditEntryOutcome      `json:"outcome"`
+	TargetId      *string                `json:"target_id,omitempty"`
+	TargetType    *string                `json:"target_type,omitempty"`
+	UserAgent     *string                `json:"user_agent,omitempty"`
+}
+
+// AuditEntryOutcome defines model for AuditEntry.Outcome.
+type AuditEntryOutcome string
+
+// AuditList defines model for AuditList.
+type AuditList struct {
+	Items      []AuditEntry `json:"items"`
+	NextBefore *int64       `json:"next_before,omitempty"`
+}
+
 // ConnectionInfo defines model for ConnectionInfo.
 type ConnectionInfo struct {
 	// Database Example: blog_k2f9
@@ -146,11 +279,37 @@ type CreateProjectRequest struct {
 	Name string `json:"name"`
 }
 
+// DbHostRequest defines model for DbHostRequest.
+type DbHostRequest struct {
+	// DbHost Example: db.example.com
+	DbHost string `json:"db_host"`
+}
+
+// DnsCheck defines model for DnsCheck.
+type DnsCheck struct {
+	Addresses  []string `json:"addresses"`
+	Error      *string  `json:"error,omitempty"`
+	Host       string   `json:"host"`
+	PointsHere bool     `json:"points_here"`
+
+	// ServerAddresses Addresses this server considers its own.
+	ServerAddresses []string `json:"server_addresses"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_implemented
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// GeneralSettings defines model for GeneralSettings.
+type GeneralSettings struct {
+	DbHost      string    `json:"db_host"`
+	PooledPort  int       `json:"pooled_port"`
+	SessionPort int       `json:"session_port"`
+	Sslmode     string    `json:"sslmode"`
+	Tls         TlsStatus `json:"tls"`
 }
 
 // Health defines model for Health.
@@ -219,8 +378,12 @@ type OperationStatus string
 // Operator defines model for Operator.
 type Operator struct {
 	Email openapi_types.Email `json:"email"`
-	Id    string              `json:"id"`
+	Id    openapi_types.UUID  `json:"id"`
+	Role  OperatorRole        `json:"role"`
 }
+
+// OperatorRole defines model for Operator.Role.
+type OperatorRole string
 
 // Project defines model for Project.
 type Project struct {
@@ -260,11 +423,29 @@ type ProjectSettings struct {
 	StatementTimeout                string `json:"statement_timeout"`
 }
 
+// ProjectSettingsPatch defines model for ProjectSettingsPatch.
+type ProjectSettingsPatch struct {
+	ConnectionLimit                 *int    `json:"connection_limit,omitempty"`
+	ConsoleReadOnly                 *bool   `json:"console_read_only,omitempty"`
+	DiskWarnBytes                   *int64  `json:"disk_warn_bytes,omitempty"`
+	IdleInTransactionSessionTimeout *string `json:"idle_in_transaction_session_timeout,omitempty"`
+	PoolSize                        *int    `json:"pool_size,omitempty"`
+
+	// StatementTimeout Postgres duration such as `60s`; empty to unset.
+	StatementTimeout *string `json:"statement_timeout,omitempty"`
+}
+
 // ProjectStatus defines model for ProjectStatus.
 type ProjectStatus string
 
 // ProjectTier defines model for ProjectTier.
 type ProjectTier string
+
+// ProjectUpdated defines model for ProjectUpdated.
+type ProjectUpdated struct {
+	Operation *Operation `json:"operation,omitempty"`
+	Project   Project    `json:"project"`
+}
 
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
@@ -272,10 +453,66 @@ type ReauthRequest struct {
 	Password string `json:"password"`
 }
 
+// SessionState defines model for SessionState.
+type SessionState struct {
+	Authenticated      bool      `json:"authenticated"`
+	CsrfToken          string    `json:"csrf_token"`
+	IdleTimeoutSeconds *int      `json:"idle_timeout_seconds,omitempty"`
+	Operator           *Operator `json:"operator,omitempty"`
+
+	// ReauthUntil Destructive actions are allowed without re-authenticating until then.
+	ReauthUntil   *time.Time `json:"reauth_until,omitempty"`
+	SetupRequired bool       `json:"setup_required"`
+}
+
+// SetupBeginRequest defines model for SetupBeginRequest.
+type SetupBeginRequest struct {
+	Email     openapi_types.Email `json:"email"`
+	Password  string              `json:"password"`
+	SetupCode string              `json:"setup_code"`
+}
+
+// SetupCompleteRequest defines model for SetupCompleteRequest.
+type SetupCompleteRequest struct {
+	Code            string `json:"code"`
+	EnrollmentToken string `json:"enrollment_token"`
+}
+
+// SetupEnrollment defines model for SetupEnrollment.
+type SetupEnrollment struct {
+	EnrollmentToken string    `json:"enrollment_token"`
+	ExpiresAt       time.Time `json:"expires_at"`
+	TotpSecret      string    `json:"totp_secret"`
+	TotpUri         string    `json:"totp_uri"`
+}
+
+// TlsStatus defines model for TlsStatus.
+type TlsStatus struct {
+	Error    *string        `json:"error,omitempty"`
+	Host     *string        `json:"host,omitempty"`
+	Issuer   *string        `json:"issuer,omitempty"`
+	Mode     TlsStatusMode  `json:"mode"`
+	NotAfter *time.Time     `json:"not_after,omitempty"`
+	State    TlsStatusState `json:"state"`
+}
+
+// TlsStatusMode defines model for TlsStatus.Mode.
+type TlsStatusMode string
+
+// TlsStatusState defines model for TlsStatus.State.
+type TlsStatusState string
+
 // TotpRequest defines model for TotpRequest.
 type TotpRequest struct {
 	ChallengeId string `json:"challenge_id"`
 	Code        string `json:"code"`
+}
+
+// UpdateProjectRequest defines model for UpdateProjectRequest.
+type UpdateProjectRequest struct {
+	Description *string               `json:"description,omitempty"`
+	Name        *string               `json:"name,omitempty"`
+	Settings    *ProjectSettingsPatch `json:"settings,omitempty"`
 }
 
 // Version defines model for Version.
@@ -298,6 +535,21 @@ type OperationID = openapi_types.UUID
 
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
+
+// ListAuditParams defines parameters for ListAudit.
+type ListAuditParams struct {
+	// Action Action prefix, e.g. `project.` or `auth.login`.
+	Action   *string                 `form:"action,omitempty" json:"action,omitempty"`
+	Outcome  *ListAuditParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+	TargetId *string                 `form:"target_id,omitempty" json:"target_id,omitempty"`
+
+	// Before Return entries with an id below this (pagination).
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAuditParamsOutcome defines parameters for ListAudit.
+type ListAuditParamsOutcome string
 
 // ListOperationsParams defines parameters for ListOperations.
 type ListOperationsParams struct {
@@ -333,8 +585,26 @@ type CreateDevOperationJSONRequestBody = NoopParams
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
 
+// UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
+type UpdateProjectJSONRequestBody = UpdateProjectRequest
+
+// PutDbHostJSONRequestBody defines body for PutDbHost for application/json ContentType.
+type PutDbHostJSONRequestBody = DbHostRequest
+
+// CheckDbHostJSONRequestBody defines body for CheckDbHost for application/json ContentType.
+type CheckDbHostJSONRequestBody = DbHostRequest
+
+// BeginSetupJSONRequestBody defines body for BeginSetup for application/json ContentType.
+type BeginSetupJSONRequestBody = SetupBeginRequest
+
+// CompleteSetupJSONRequestBody defines body for CompleteSetup for application/json ContentType.
+type CompleteSetupJSONRequestBody = SetupCompleteRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAudit Audit log, newest first
+	// (GET /api/v1/audit)
+	ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams)
 	// PostAuthLogin Email + password login; returns a TOTP challenge
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
@@ -377,6 +647,27 @@ type ServerInterface interface {
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpdateProject Update a project's name, description, or guardrails
+	// (PATCH /api/v1/projects/{id}/settings)
+	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetSession Session state for the UI (public)
+	// (GET /api/v1/session)
+	GetSession(w http.ResponseWriter, r *http.Request)
+	// PutDbHost Set the hostname clients use for databases
+	// (PUT /api/v1/settings/db-host)
+	PutDbHost(w http.ResponseWriter, r *http.Request)
+	// CheckDbHost Check that a hostname resolves to this server
+	// (POST /api/v1/settings/db-host/check)
+	CheckDbHost(w http.ResponseWriter, r *http.Request)
+	// GetGeneralSettings DB hostname and pooler TLS status
+	// (GET /api/v1/settings/general)
+	GetGeneralSettings(w http.ResponseWriter, r *http.Request)
+	// BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
+	// (POST /api/v1/setup/begin)
+	BeginSetup(w http.ResponseWriter, r *http.Request)
+	// CompleteSetup First-run setup, step 2 - confirm TOTP and create the owner
+	// (POST /api/v1/setup/complete)
+	CompleteSetup(w http.ResponseWriter, r *http.Request)
 	// GetVersion Build information for this server
 	// (GET /api/v1/version)
 	GetVersion(w http.ResponseWriter, r *http.Request)
@@ -391,6 +682,12 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// ListAudit Audit log, newest first
+// (GET /api/v1/audit)
+func (_ Unimplemented) ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // PostAuthLogin Email + password login; returns a TOTP challenge
 // (POST /api/v1/auth/login)
@@ -476,6 +773,48 @@ func (_ Unimplemented) RotateProjectPassword(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// UpdateProject Update a project's name, description, or guardrails
+// (PATCH /api/v1/projects/{id}/settings)
+func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetSession Session state for the UI (public)
+// (GET /api/v1/session)
+func (_ Unimplemented) GetSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutDbHost Set the hostname clients use for databases
+// (PUT /api/v1/settings/db-host)
+func (_ Unimplemented) PutDbHost(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CheckDbHost Check that a hostname resolves to this server
+// (POST /api/v1/settings/db-host/check)
+func (_ Unimplemented) CheckDbHost(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetGeneralSettings DB hostname and pooler TLS status
+// (GET /api/v1/settings/general)
+func (_ Unimplemented) GetGeneralSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
+// (POST /api/v1/setup/begin)
+func (_ Unimplemented) BeginSetup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CompleteSetup First-run setup, step 2 - confirm TOTP and create the owner
+// (POST /api/v1/setup/complete)
+func (_ Unimplemented) CompleteSetup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetVersion Build information for this server
 // (GET /api/v1/version)
 func (_ Unimplemented) GetVersion(w http.ResponseWriter, r *http.Request) {
@@ -502,6 +841,91 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAudit operation middleware
+func (siw *ServerInterfaceWrapper) ListAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditParams
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", r.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_id", r.URL.Query(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAudit(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // PostAuthLogin operation middleware
 func (siw *ServerInterfaceWrapper) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
@@ -865,6 +1289,116 @@ func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateProject operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSession operation middleware
+func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutDbHost operation middleware
+func (siw *ServerInterfaceWrapper) PutDbHost(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutDbHost(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckDbHost operation middleware
+func (siw *ServerInterfaceWrapper) CheckDbHost(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckDbHost(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGeneralSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetGeneralSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGeneralSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BeginSetup operation middleware
+func (siw *ServerInterfaceWrapper) BeginSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BeginSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteSetup operation middleware
+func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetVersion operation middleware
 func (siw *ServerInterfaceWrapper) GetVersion(w http.ResponseWriter, r *http.Request) {
 
@@ -1045,6 +1579,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/session", wrapper.GetSession)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/setup/begin", wrapper.BeginSetup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/setup/complete", wrapper.CompleteSetup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/audit", wrapper.ListAudit)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/general", wrapper.GetGeneralSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/settings/db-host", wrapper.PutDbHost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/db-host/check", wrapper.CheckDbHost)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/operations", wrapper.ListOperations)
 	})
 	r.Group(func(r chi.Router) {
@@ -1067,6 +1622,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}", wrapper.GetProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/settings", wrapper.UpdateProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/rotate-password", wrapper.RotateProjectPassword)

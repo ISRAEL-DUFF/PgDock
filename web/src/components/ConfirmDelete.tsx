@@ -1,0 +1,74 @@
+import { useState, type FormEvent } from "react";
+import { ApiRequestError, api, errorMessage } from "../api/client";
+import { Alert, Button, Field, Input, Modal } from "./ui";
+
+/**
+ * Typed-confirmation modal for destructive actions (spec §8.9). It always
+ * asks for password + code up front, since the server requires a recent
+ * step-up authentication (spec §7.2).
+ */
+export function ConfirmDestroy({
+  open,
+  onClose,
+  title,
+  name,
+  description,
+  action,
+  run,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  name: string;
+  description: string;
+  action: string;
+  run: () => Promise<void>;
+}) {
+  const [typed, setTyped] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.reauth({ password, code });
+      await run();
+      setTyped("");
+      setPassword("");
+      setCode("");
+      onClose();
+    } catch (e) {
+      setErr(e instanceof ApiRequestError && e.code === "invalid_credentials" ? "Wrong password or code." : errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={title} open={open} onClose={onClose}>
+      <form className="flex flex-col gap-4" onSubmit={submit}>
+        <p className="text-sm text-muted">{description}</p>
+        <Field label={`Type ${name} to confirm`}>
+          {(id) => <Input id={id} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" data-testid="confirm-name" />}
+        </Field>
+        <Field label="Your password">
+          {(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />}
+        </Field>
+        <Field label="Authenticator code">
+          {(id) => <Input id={id} inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" data-testid="confirm-code" />}
+        </Field>
+        {err && <Alert>{err}</Alert>}
+        <div className="flex justify-end gap-2">
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="danger" busy={busy} disabled={typed !== name || !password || code.length < 6}>
+            {action}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

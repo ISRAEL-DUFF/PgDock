@@ -59,11 +59,15 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return
 	}
-	c, err := s.projects.Create(r.Context(), provision.CreateParams{Name: req.Name, Description: req.Description})
+	a := auditFrom(r.Context())
+	a.set("name", req.Name)
+	c, err := s.projects.Create(r.Context(), provision.CreateParams{Name: req.Name, Description: req.Description, CreatedBy: operatorID(r.Context())})
 	if err != nil {
 		s.provisionError(w, "create project", err)
 		return
 	}
+	a.target("project", c.Project.ID.String())
+	a.set("db_name", c.Project.DbName)
 	s.writeCredentials(w, c.Project, c.Operation, c.Password)
 }
 
@@ -90,7 +94,8 @@ func (s *Server) DeleteProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 	if !s.requireProjects(w) {
 		return
 	}
-	op, err := s.projects.Delete(r.Context(), id, params.Confirm, nil)
+	auditFrom(r.Context()).target("project", id.String())
+	op, err := s.projects.Delete(r.Context(), id, params.Confirm, operatorID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "delete project", err)
 		return
@@ -109,7 +114,8 @@ func (s *Server) RotateProjectPassword(w http.ResponseWriter, r *http.Request, i
 	if !s.requireProjects(w) {
 		return
 	}
-	rot, err := s.projects.Rotate(r.Context(), id, nil)
+	auditFrom(r.Context()).target("project", id.String())
+	rot, err := s.projects.Rotate(r.Context(), id, operatorID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "rotate password", err)
 		return
@@ -200,4 +206,19 @@ func (s *Server) provisionError(w http.ResponseWriter, what string, err error) {
 	default:
 		s.internalError(w, what, err)
 	}
+}
+
+func provisionUpdate(req gen.UpdateProjectRequest) provision.UpdateParams {
+	p := provision.UpdateParams{Name: req.Name, Description: req.Description}
+	if st := req.Settings; st != nil {
+		p.Settings = &provision.SettingsPatch{
+			ConnectionLimit:          st.ConnectionLimit,
+			PoolSize:                 st.PoolSize,
+			StatementTimeout:         st.StatementTimeout,
+			IdleInTransactionTimeout: st.IdleInTransactionSessionTimeout,
+			DiskWarnBytes:            st.DiskWarnBytes,
+			ConsoleReadOnly:          st.ConsoleReadOnly,
+		}
+	}
+	return p
 }

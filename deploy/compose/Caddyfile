@@ -1,0 +1,24 @@
+# TLS for the web UI (spec §3.2). Caddy obtains the UI certificate itself;
+# pgdock-server obtains the DB hostname's certificate for the poolers, and
+# Caddy forwards that hostname's HTTP-01 challenges to it.
+{
+	email {$PGDOCK_ACME_EMAIL}
+	{$CADDY_GLOBAL_OPTIONS}
+}
+
+{$PGDOCK_UI_DOMAIN} {
+	{$CADDY_UI_TLS}
+	encode zstd gzip
+	reverse_proxy pgdock-server:8080
+}
+
+# Any other host on port 80: ACME challenges go to pgdock-server (for the
+# DB hostname's certificate); everything else is sent to the UI.
+http:// {
+	handle /.well-known/acme-challenge/* {
+		reverse_proxy pgdock-server:8080
+	}
+	handle {
+		redir https://{$PGDOCK_UI_DOMAIN}{uri}
+	}
+}

@@ -1,0 +1,7 @@
+.git
+bin
+tmp
+web/node_modules
+web/dist/assets
+web/dist/index.html
+**/.DS_Store

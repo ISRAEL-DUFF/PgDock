@@ -1,0 +1,13 @@
+# Pebble (Let's Encrypt's test CA) and its DNS helper, built from source.
+ARG REGISTRY=
+FROM ${REGISTRY}golang:1.25-alpine AS build
+ARG PEBBLE_VERSION=v2.10.1
+RUN --mount=type=secret,id=ca_bundle,required=false \
+    if [ -f /run/secrets/ca_bundle ]; then export SSL_CERT_FILE=/run/secrets/ca_bundle; fi; \
+    GOBIN=/out go install github.com/letsencrypt/pebble/v2/cmd/pebble@${PEBBLE_VERSION} \
+      github.com/letsencrypt/pebble/v2/cmd/pebble-challtestsrv@${PEBBLE_VERSION} \
+ && cp -r "$(go env GOMODCACHE)/github.com/letsencrypt/pebble/v2@${PEBBLE_VERSION}/test" /out/test
+
+FROM ${REGISTRY}alpine:3.22
+COPY --from=build /out/ /pebble/
+WORKDIR /pebble

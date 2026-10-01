@@ -51,6 +51,13 @@ func (a *Admin) Pause(ctx context.Context, db string) error { return a.dbCommand
 // Resume releases a database paused with Pause (or Kill).
 func (a *Admin) Resume(ctx context.Context, db string) error { return a.dbCommand(ctx, "RESUME", db) }
 
+// Reconnect closes db's server connections as they are released, so new
+// ones pick up changed role settings (ALTER ROLE ... SET applies only to new
+// backends).
+func (a *Admin) Reconnect(ctx context.Context, db string) error {
+	return a.dbCommand(ctx, "RECONNECT", db)
+}
+
 // Kill immediately drops all client and server connections to db. New
 // clients wait until Resume or until the route is removed.
 func (a *Admin) Kill(ctx context.Context, db string) error { return a.dbCommand(ctx, "KILL", db) }

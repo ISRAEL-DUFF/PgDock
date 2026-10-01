@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 )
 
-// writeFileAtomic replaces path with data via a temp file and rename, so a
+// WriteFileAtomic replaces path with data via a temp file and rename, so a
 // pooler reloading concurrently never reads a partial file. It reports
 // whether the content changed.
-func writeFileAtomic(path string, data []byte, perm fs.FileMode) (bool, error) {
+func WriteFileAtomic(path string, data []byte, perm fs.FileMode) (bool, error) {
 	old, err := os.ReadFile(path)
 	if err == nil && bytes.Equal(old, data) {
 		return false, nil

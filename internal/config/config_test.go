@@ -160,3 +160,27 @@ func TestProvisioningInvalid(t *testing.T) {
 		}
 	}
 }
+
+func TestWebConfig(t *testing.T) {
+	cfg, err := load(env(nil), noFiles)
+	if err != nil || !cfg.Web.SecureCookies || len(cfg.Web.TrustedProxies) != 0 {
+		t.Fatalf("defaults: %+v %v", cfg.Web, err)
+	}
+	cfg, err = load(env(map[string]string{
+		"PGDOCK_COOKIE_SECURE":   "false",
+		"PGDOCK_TRUSTED_PROXIES": "172.16.0.0/12, 127.0.0.1",
+		"PGDOCK_PUBLIC_IPS":      "203.0.113.7",
+	}), noFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Web.SecureCookies || len(cfg.Web.TrustedProxies) != 2 || cfg.Web.TrustedProxies[1].String() != "127.0.0.1/32" ||
+		len(cfg.Web.PublicIPs) != 1 {
+		t.Fatalf("web: %+v", cfg.Web)
+	}
+	for _, m := range []map[string]string{{"PGDOCK_TRUSTED_PROXIES": "nope"}, {"PGDOCK_PUBLIC_IPS": "x"}, {"PGDOCK_COOKIE_SECURE": "kinda"}} {
+		if _, err := load(env(m), noFiles); err == nil {
+			t.Errorf("accepted %v", m)
+		}
+	}
+}

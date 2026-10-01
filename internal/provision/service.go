@@ -49,8 +49,11 @@ var (
 // Config holds the connection details handed to clients and those the
 // control plane uses to smoke-test the poolers.
 type Config struct {
-	// Public connection info, as clients see it (spec §5.1).
+	// Public connection info, as clients see it (spec §5.1). DBHostFunc,
+	// when set, supplies the host at call time (it is operator-editable)
+	// and DBHost is its fallback.
 	DBHost      string
+	DBHostFunc  func() string
 	SessionPort int // session-mode pooler, 5432 in production
 	PooledPort  int // transaction-mode pooler, 6543 in production
 	SSLMode     string
@@ -105,6 +108,8 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3},
 		KindRotate: {Handler: s.runRotate, OnFail: s.rollbackRotate, MaxAttempts: 3},
 		KindDelete: {Handler: s.runDelete, OnFail: s.failDelete, MaxAttempts: 5},
+
+		KindApplySettings: {Handler: s.runApplySettings, MaxAttempts: 5},
 	}
 }
 
@@ -120,8 +125,14 @@ type Connection struct {
 
 // ConnectionFor returns the connection info for a project.
 func (s *Service) ConnectionFor(p store.Project) Connection {
+	host := s.cfg.DBHost
+	if s.cfg.DBHostFunc != nil {
+		if h := s.cfg.DBHostFunc(); h != "" {
+			host = h
+		}
+	}
 	return Connection{
-		Host: s.cfg.DBHost, SessionPort: s.cfg.SessionPort, PooledPort: s.cfg.PooledPort,
+		Host: host, SessionPort: s.cfg.SessionPort, PooledPort: s.cfg.PooledPort,
 		Database: p.DbName, User: p.OwnerRole, SSLMode: s.cfg.SSLMode,
 	}
 }

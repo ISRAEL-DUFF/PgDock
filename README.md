@@ -3,6 +3,27 @@
 Self-hosted managed PostgreSQL with a web UI. See
 [the V1 specification & build plan](./PGDock%20—%20V1%20Specification%20&%20Build%20Plan.md).
 
+## Install (single host)
+
+```sh
+git clone https://github.com/israel-duff/pgdock && cd pgdock/deploy/compose
+./install.sh
+```
+
+`install.sh` asks for the web UI hostname and an email for Let's Encrypt,
+writes `.env` with generated secrets (back it up: `PGDOCK_MASTER_KEY`
+decrypts everything PGDock stores), starts the stack with Docker Compose,
+and prints a one-time setup code. Point DNS for the UI hostname (and later
+the database hostname) at the host, open `https://<ui-host>`, and the setup
+wizard takes it from there: owner account, two-factor enrolment, database
+hostname. The poolers then get a Let's Encrypt certificate for the database
+hostname, and every project's connection string uses `sslmode=require` or
+stricter.
+
+The bundle runs Caddy (TLS for the UI), pgdock-server, the metadata
+database, the shared PostgreSQL 18 cluster, and the two PgBouncers on
+`:5432` (session) and `:6543` (transaction).
+
 ## Requirements
 
 - Go 1.25+
@@ -22,6 +43,8 @@ Self-hosted managed PostgreSQL with a web UI. See
 | `make test` | Go unit tests, frontend type-check and unit tests. Postgres-backed tests skip unless `PGDOCK_TEST_DATABASE_URL` is set. |
 | `make test-db` | Go tests including the Postgres-backed ones, against the dev environment. |
 | `make test-integration` | Provisioning end to end and the tenant-isolation suite, against real Postgres 18 and PgBouncer. |
+| `make test-acme` | Obtains a real certificate over HTTP-01 from Pebble (Let's Encrypt's test CA). |
+| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database (Playwright). |
 | `make run-dev` | Runs the built `bin/pgdock-server` against the dev environment (`deploy/dev/server.env`). |
 | `make lint` | `golangci-lint`. |
 | `make release-check` | Fails if the server binary embeds only the placeholder UI. |
@@ -43,7 +66,19 @@ ID=$(curl -s -X POST localhost:8080/api/v1/dev/operations \
 curl -N localhost:8080/api/v1/operations/$ID/stream
 ```
 
-Migrations run automatically on start.
+Migrations run automatically on start. The dev server prints the first-run
+setup code in its log; `PGDOCK_SETUP_CODE` fixes it instead.
+
+## Operator authentication
+
+One owner account (spec §7.2): an argon2id password plus a TOTP second
+factor that is enrolled before the account exists. Sessions live in the
+metadata DB (tokens hashed at rest) behind `HttpOnly`, `Secure`,
+`SameSite=Strict` cookies with a 12-hour idle timeout. Every mutating API
+call needs the double-submit CSRF token, and destructive ones (deleting a
+project) need a re-authentication from the last 10 minutes. Logins are rate
+limited per address and lock the account after 5 failures. Every mutating
+request, including refused ones, lands in the audit log.
 
 ## Projects (shared tier)
 
@@ -97,6 +132,13 @@ with `NOTIFY`, which wakes idle workers and drives the SSE stream at
 | `PGDOCK_DB_HOST` | `localhost` | Host in client connection strings, e.g. `db.example.com` |
 | `PGDOCK_DB_SESSION_PORT` / `_POOLED_PORT` | `5432` / `6543` | Ports in client connection strings |
 | `PGDOCK_DB_SSLMODE` | `require` | `sslmode` in client connection strings |
+| `PGDOCK_COOKIE_SECURE` | `true` | Secure, `__Host-` cookies; `false` only for plain-HTTP dev |
+| `PGDOCK_TRUSTED_PROXIES` | | CIDRs whose `X-Forwarded-For` is trusted (Caddy) |
+| `PGDOCK_PUBLIC_IPS` | | This host's public IPs, for the DB hostname DNS check |
+| `PGDOCK_SETUP_CODE` | random | Fixes the first-run setup code |
+| `PGDOCK_POOLER_TLS` | `self-signed` | Pooler certificate: `self-signed`, `acme`, `files`, or `off` |
+| `PGDOCK_DATA_DIR` | `/var/lib/pgdock` | ACME account and certificate storage |
+| `PGDOCK_ACME_EMAIL` / `_CA` / `_CA_ROOTS` | Let's Encrypt | ACME account email, directory URL, extra trusted roots |
+| `PGDOCK_POOLER_TLS_CERT` / `_KEY` | | Certificate files for mode `files` |
 
-> Until auth lands in M2, the API is unauthenticated. Keep the default
-> loopback listen address.
+

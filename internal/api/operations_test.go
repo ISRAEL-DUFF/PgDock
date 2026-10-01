@@ -34,7 +34,7 @@ func newDBServer(t *testing.T, dev bool) *httptest.Server {
 
 	ts := httptest.NewServer(NewHandler(Options{
 		Logger: log, DB: pool, Notifier: n, DevEndpoints: dev, StreamCtx: ctx,
-		UI: fstest.MapFS{"index.html": {Data: []byte("app")}}, UIIndex: "index.html",
+		UI: fstest.MapFS{"index.html": {Data: []byte("app")}}, UIIndex: "index.html", InsecureNoAuth: true,
 	}))
 	t.Cleanup(func() { ts.Close(); cancel(); wg.Wait() })
 	return ts

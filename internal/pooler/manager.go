@@ -90,11 +90,11 @@ func (m *Manager) Sync(ctx context.Context) error {
 		return err
 	}
 	// Users first: a new route is only useful once its user can log in.
-	usersChanged, err := writeFileAtomic(filepath.Join(m.dir, UserlistFile), userlist, m.mode)
+	usersChanged, err := WriteFileAtomic(filepath.Join(m.dir, UserlistFile), userlist, m.mode)
 	if err != nil {
 		return fmt.Errorf("pooler sync: %w", err)
 	}
-	routesChanged, err := writeFileAtomic(filepath.Join(m.dir, DatabasesFile), databases, m.mode)
+	routesChanged, err := WriteFileAtomic(filepath.Join(m.dir, DatabasesFile), databases, m.mode)
 	if err != nil {
 		return fmt.Errorf("pooler sync: %w", err)
 	}
@@ -103,9 +103,26 @@ func (m *Manager) Sync(ctx context.Context) error {
 	return m.each(ctx, func(a *Admin) error { return a.Reload(ctx) })
 }
 
+// Dir is the pooler config directory.
+func (m *Manager) Dir() string { return m.dir }
+
+// FileMode is the mode generated files are written with.
+func (m *Manager) FileMode() os.FileMode { return m.mode }
+
+// Reload makes every pooler re-read its configuration, auth file, and TLS
+// certificate without re-rendering anything.
+func (m *Manager) Reload(ctx context.Context) error {
+	return m.each(ctx, func(a *Admin) error { return a.Reload(ctx) })
+}
+
 // Kill drops all connections to db on every pooler.
 func (m *Manager) Kill(ctx context.Context, db string) error {
 	return m.each(ctx, func(a *Admin) error { return a.Kill(ctx, db) })
+}
+
+// Reconnect recycles db's server connections on every pooler.
+func (m *Manager) Reconnect(ctx context.Context, db string) error {
+	return m.each(ctx, func(a *Admin) error { return a.Reconnect(ctx, db) })
 }
 
 // Pause pauses db on every pooler.

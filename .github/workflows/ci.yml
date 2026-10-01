@@ -71,6 +71,37 @@ jobs:
       - name: Integration and isolation suites
         run: make test-integration
 
+      - name: ACME against Pebble (real HTTP-01)
+        run: make test-acme
+
       - name: Dev environment logs on failure
         if: failure()
         run: docker compose -f deploy/dev/compose.yaml --profile test logs --no-color --tail 200
+
+  # The M2 done-when: install the compose bundle from scratch and go from a
+  # fresh install to a working database entirely through the browser, with
+  # Pebble standing in for Let's Encrypt.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: test/e2e/package-lock.json
+
+      - name: Install Playwright's Chromium
+        working-directory: test/e2e
+        run: npm ci && npx playwright install --with-deps chromium
+
+      - name: Fresh install to a working database, through the browser
+        run: make test-e2e
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test/e2e/test-results/

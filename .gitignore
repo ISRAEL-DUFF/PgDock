@@ -7,3 +7,8 @@
 /web/dist/*
 !/web/dist/placeholder.html
 /web/*.tsbuildinfo
+
+# Browser end-to-end tests
+/test/e2e/node_modules/
+/test/e2e/test-results/
+/test/e2e/playwright-report/

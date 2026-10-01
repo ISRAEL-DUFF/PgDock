@@ -1,0 +1,49 @@
+# Overlay on deploy/compose/compose.yaml for `make test-e2e`: the real
+# install bundle, with Pebble standing in for Let's Encrypt.
+#
+# - challtestsrv answers DNS for every name with Caddy's address, so Pebble
+#   validates the DB hostname over HTTP-01 through Caddy -> pgdock-server.
+# - Caddy serves the UI from its internal CA (no public DNS in tests).
+# - Host ports are offset to stay clear of the dev environment.
+
+services:
+  challtestsrv:
+    image: pgdock-pebble:local
+    command: ["/pebble/pebble-challtestsrv", "-defaultIPv4", "172.31.250.10", "-defaultIPv6", "",
+              "-dnsserver", ":8053", "-http01", "", "-https01", "", "-tlsalpn01", "", "-doh", "",
+              "-management", ":8055"]
+    networks:
+      default:
+        ipv4_address: 172.31.250.20
+
+  pebble:
+    image: pgdock-pebble:local
+    command: ["/pebble/pebble", "-config", "/etc/pebble/config.json", "-dnsserver", "172.31.250.20:8053"]
+    environment:
+      PEBBLE_VA_NOSLEEP: "1"
+      PEBBLE_WFE_NONCEREJECT: "0"
+    volumes:
+      # Paths are relative to deploy/compose, the project directory.
+      - ../../test/e2e/bundle/pebble-config.json:/etc/pebble/config.json:ro
+    ports:
+      - "127.0.0.1:15000:15000"   # management API: the issuing root, for verify-full
+    depends_on: [challtestsrv]
+
+  caddy:
+    ports: !override
+      - "127.0.0.1:${PGDOCK_HTTP_PORT:-18081}:80"
+      - "127.0.0.1:${PGDOCK_HTTPS_PORT:-18443}:443"
+    environment:
+      CADDY_UI_TLS: "tls internal"
+
+  pgdock-server:
+    depends_on:
+      pebble:
+        condition: service_started
+    environment:
+      PGDOCK_ACME_CA: https://pebble:14000/dir
+      PGDOCK_ACME_CA_ROOTS: /etc/pgdock/pebble.minica.pem
+      PGDOCK_SETUP_CODE: e2e-setup-code
+      PGDOCK_LOG_FORMAT: text
+    volumes:
+      - ../../test/e2e/bundle/pebble.minica.pem:/etc/pgdock/pebble.minica.pem:ro
