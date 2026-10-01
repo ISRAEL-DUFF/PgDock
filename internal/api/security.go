@@ -183,6 +183,9 @@ var auditActions = map[string]string{
 	"POST /api/v1/projects/{id}/pitr":            "backup.pitr",
 	"POST /api/v1/projects/{id}/instance":        "project.instance",
 	"POST /api/v1/projects/{id}/promote":         "project.promote",
+	"POST /api/v1/projects/{id}/sql":             "project.console",
+	"POST /api/v1/projects/{id}/sql/cancel":      "project.console_cancel",
+	"POST /api/v1/projects/{id}/extensions":      "project.extension",
 }
 
 func outcomeFor(status int) string {

@@ -97,6 +97,11 @@ type HostMetrics struct {
 	DiskPath          string  `json:"disk_path"`
 	DiskTotalBytes    int64   `json:"disk_total_bytes"`
 	DiskFreeBytes     int64   `json:"disk_free_bytes"`
+	// Cumulative counters since boot; rates come from differences.
+	CPUBusyTicks   uint64 `json:"cpu_busy_ticks"`
+	CPUTotalTicks  uint64 `json:"cpu_total_ticks"`
+	DiskReadBytes  uint64 `json:"disk_read_bytes"`
+	DiskWriteBytes uint64 `json:"disk_write_bytes"`
 }
 
 // Upload is where an agent writes an encrypted object. FileKey is the

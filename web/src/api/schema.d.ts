@@ -859,6 +859,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/sql": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run SQL in the project database (SQL console)
+         * @description Runs as the project's role (spec §8.5), with a statement timeout
+         *     (30s by default), at most 1,000 rows per result. When the project's
+         *     console is read-only, or `read_only` is set, one statement runs
+         *     inside `BEGIN READ ONLY … ROLLBACK`. Otherwise several statements
+         *     may run in one submission. SQL errors are returned in the result's
+         *     `error` with status 200. Only an audit entry is stored, never the
+         *     query text.
+         */
+        post: operations["runSQL"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/sql/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a running console query */
+        post: operations["cancelSQL"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Schemas, tables and views, with columns and indexes */
+        get: operations["getProjectSchema"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/tables/{schema}/{table}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of a table's rows (read-only)
+         * @description 50 rows per page, keyset-paginated on the primary key where there is
+         *     one (spec §8.6). Pass the previous page's `next` as `after`.
+         */
+        get: operations["getTableRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The extension allow-list and what is installed */
+        get: operations["listProjectExtensions"];
+        put?: never;
+        /** Enable an allow-listed extension */
+        post: operations["enableProjectExtension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's metric series and top queries */
+        get: operations["getProjectMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A node's metric series */
+        get: operations["getNodeMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prometheus exposition of the latest metrics
+         * @description Needs a signed-in operator, or `Authorization: Bearer <token>` with
+         *     PGDOCK_METRICS_TOKEN.
+         */
+        get: operations["getPrometheusMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1447,6 +1601,151 @@ export interface components {
             profile?: string;
             volume_gb?: number;
         };
+        SqlRequest: {
+            query: string;
+            /**
+             * Format: uuid
+             * @description Chosen by the client, to cancel the query.
+             */
+            query_id: string;
+            timeout_seconds?: number;
+            /** @description Run read-only even if the project's console is not. */
+            read_only?: boolean;
+        };
+        SqlColumn: {
+            name: string;
+            type: string;
+        };
+        SqlStatementResult: {
+            /** @description The command tag, e.g. "SELECT 3" or "INSERT 0 1". */
+            command: string;
+            columns: components["schemas"]["SqlColumn"][];
+            rows: (string | null)[][];
+            /** Format: int64 */
+            row_count: number;
+            /** @description More rows than the 1,000 shown. */
+            truncated: boolean;
+        };
+        SqlError: {
+            message: string;
+            code?: string;
+            detail?: string;
+            hint?: string;
+            position?: number;
+        };
+        SqlResult: {
+            results: components["schemas"]["SqlStatementResult"][];
+            notices: string[];
+            error?: components["schemas"]["SqlError"];
+            read_only: boolean;
+            /** Format: int64 */
+            duration_ms: number;
+        };
+        SqlCancelRequest: {
+            /** Format: uuid */
+            query_id: string;
+        };
+        SqlCancelResult: {
+            cancelled: boolean;
+        };
+        DbSchema: {
+            schemas: components["schemas"]["DbSchemaNode"][];
+        };
+        DbSchemaNode: {
+            name: string;
+            tables: components["schemas"]["DbTable"][];
+        };
+        DbTable: {
+            name: string;
+            /** @enum {string} */
+            kind: "table" | "partitioned_table" | "view" | "materialized_view" | "foreign_table";
+            /**
+             * Format: int64
+             * @description From the planner's statistics; null before the first ANALYZE.
+             */
+            row_estimate?: number | null;
+            /** Format: int64 */
+            size_bytes: number;
+            comment?: string | null;
+            primary_key: string[];
+            columns: components["schemas"]["DbColumn"][];
+            indexes: components["schemas"]["DbIndex"][];
+        };
+        DbColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            default?: string | null;
+        };
+        DbIndex: {
+            name: string;
+            definition: string;
+            primary: boolean;
+            unique: boolean;
+        };
+        TablePage: {
+            columns: components["schemas"]["SqlColumn"][];
+            rows: (string | null)[][];
+            /** @description Cursor of the next page; absent on the last. */
+            next?: string;
+            /** @enum {string} */
+            order: "primary_key" | "ctid" | "offset";
+            key_columns: string[];
+        };
+        Extension: {
+            name: string;
+            /**
+             * @description The lowest tier that allows it.
+             * @enum {string}
+             */
+            tier: "shared" | "dedicated";
+            /** @description On this project's tier's allow-list. */
+            allowed: boolean;
+            /** @description Installed on the server the project runs on. */
+            available: boolean;
+            default_version?: string;
+            installed_version?: string;
+            schema?: string;
+        };
+        ExtensionList: {
+            items: components["schemas"]["Extension"][];
+        };
+        EnableExtensionRequest: {
+            name: string;
+        };
+        MetricPoint: {
+            /** Format: date-time */
+            ts: string;
+            /** Format: double */
+            value: number;
+        };
+        MetricSeries: {
+            metric: string;
+            points: components["schemas"]["MetricPoint"][];
+        };
+        TopQuery: {
+            query: string;
+            /** Format: int64 */
+            calls: number;
+            /** Format: double */
+            total_ms: number;
+            /** Format: double */
+            mean_ms: number;
+            /** Format: int64 */
+            rows: number;
+        };
+        TopQueries: {
+            /** @description pg_stat_statements is installed in the project database. */
+            available: boolean;
+            items: components["schemas"]["TopQuery"][];
+        };
+        MetricsResponse: {
+            range: string;
+            /** @enum {string} */
+            resolution: "1m" | "1h";
+            series: components["schemas"]["MetricSeries"][];
+            top_queries?: components["schemas"]["TopQueries"];
+        };
     };
     responses: {
         /** @description Error response. */
@@ -1460,6 +1759,9 @@ export interface components {
         };
     };
     parameters: {
+        MetricRange: "1h" | "24h" | "7d";
+        /** @description Metrics to return; all when omitted. */
+        MetricNames: string[];
         BackupID: string;
         NodeID: string;
         ProjectID: string;
@@ -2708,6 +3010,236 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentRegisterResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    runSQL: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlRequest"];
+            };
+        };
+        responses: {
+            /** @description What the statements returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqlResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelSQL: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Whether a running query was found and cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqlCancelResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schema tree. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbSchema"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTableRows: {
+        parameters: {
+            query?: {
+                after?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: string;
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TablePage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectExtensions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Extensions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableProjectExtension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnableExtensionRequest"];
+            };
+        };
+        responses: {
+            /** @description Extensions after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectMetrics: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["MetricRange"];
+                /** @description Metrics to return; all when omitted. */
+                metric?: components["parameters"]["MetricNames"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Series. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNodeMetrics: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["MetricRange"];
+                /** @description Metrics to return; all when omitted. */
+                metric?: components["parameters"]["MetricNames"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Series. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPrometheusMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Text exposition format 0.0.4. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             default: components["responses"]["Error"];

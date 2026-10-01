@@ -606,4 +606,121 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("instance-card")).toBeVisible();
     await shot(page, "25-promoted-overview");
   });
+  test("inspect and query a project, and see its size and connection trends, without leaving the UI", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Insight");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const pooledURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    // An app holding a pooled connection, for the connection charts.
+    const app = await connect(pooledURL);
+    await page.getByRole("link", { name: "Open the project" }).click();
+    const tabs = page.getByRole("navigation", { name: "Project" });
+
+    // SQL console: run statements as the project role (Ctrl+Enter).
+    const editor = page.getByTestId("sql-editor");
+    const runSQL = async (sql: string) => {
+      await editor.click();
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.insertText(sql);
+      await page.keyboard.press("ControlOrMeta+Enter");
+    };
+    await tabs.getByRole("link", { name: "SQL" }).click();
+    await expect(page.getByText("Queries run against the live database")).toBeVisible();
+    await runSQL(
+      "CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL);\n" +
+        "INSERT INTO notes (body) SELECT 'note ' || g FROM generate_series(1, 120) g;\n" +
+        "SELECT current_user AS who, count(*) AS n FROM notes;",
+    );
+    const results = page.getByTestId("sql-results");
+    await expect(results).toContainText("3 statements");
+    await expect(results).toContainText("INSERT 0 120");
+    await expect(page.getByTestId("sql-grid").last()).toContainText("120");
+    await expect(page.getByTestId("sql-grid").last()).toContainText("_owner");
+    await shot(page, "26-sql-console");
+
+    // CSV export of the displayed rows.
+    await runSQL("SELECT id, body FROM notes ORDER BY id LIMIT 3");
+    await expect(page.getByTestId("sql-grid")).toContainText("note 3");
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export CSV" }).click()]);
+    expect(readFileSync((await dl.path())!, "utf8")).toBe("id,body\r\n1,note 1\r\n2,note 2\r\n3,note 3\r\n");
+
+    // Errors point at the problem; Cancel stops a running query.
+    await runSQL("SELECT * FROM missing_table");
+    await expect(page.getByTestId("sql-error")).toContainText('relation "missing_table" does not exist');
+    await expect(page.getByTestId("sql-error")).toContainText("line 1, column 15");
+    await runSQL("SELECT pg_sleep(60)");
+    await page.getByTestId("sql-cancel").click();
+    await expect(page.getByTestId("sql-error")).toContainText("canceling statement due to user request", { timeout: 15_000 });
+    // The history is this browser's own.
+    await expect(page.getByRole("button", { name: "SELECT pg_sleep(60)" })).toBeVisible();
+
+    // The read-only toggle (project settings) refuses writes in the console.
+    await tabs.getByRole("link", { name: "Settings" }).click();
+    await page.getByLabel("SQL console is read-only").check();
+    await page.getByRole("button", { name: "Save guardrails" }).click();
+    await expect(page.getByText("Saved")).toBeVisible({ timeout: 30_000 });
+    await tabs.getByRole("link", { name: "SQL" }).click();
+    await expect(page.getByText("read-only", { exact: true }).first()).toBeVisible();
+    await runSQL("DELETE FROM notes");
+    await expect(page.getByTestId("sql-error")).toContainText("cannot execute DELETE in a read-only transaction");
+    expect(await count(pooledURL, "SELECT count(*) FROM notes")).toBe(120);
+
+    // Extensions: enable pg_stat_statements for the top-queries table.
+    await tabs.getByRole("link", { name: "Settings" }).click();
+    await page.getByTestId("ext-pg_stat_statements").getByRole("button", { name: "Enable" }).click();
+    await expect(page.getByTestId("ext-pg_stat_statements")).toContainText("enabled");
+    await expect(page.getByTestId("ext-postgis")).toContainText("dedicated tier only");
+    await shot(page, "27-extensions");
+
+    // Table browser: the schema tree, table facts, and keyset pages.
+    await tabs.getByRole("link", { name: "Tables" }).click();
+    await page.getByTestId("schema-tree").getByRole("button", { name: "notes" }).click();
+    await expect(page.getByTestId("table-info")).toContainText("Primary key");
+    await expect(page.getByText("2 columns, 1 indexes")).toBeVisible();
+    const grid = page.getByTestId("table-grid");
+    await expect(grid).toContainText("note 50");
+    await expect(grid).not.toContainText("note 51");
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByTestId("page-number")).toHaveText("Page 2");
+    await expect(grid).toContainText("note 51");
+    await expect(grid).toContainText("note 100");
+    await shot(page, "28-table-browser");
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(grid).toContainText("note 120");
+    await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+    await page.getByRole("button", { name: "Previous" }).click();
+    await expect(page.getByTestId("page-number")).toHaveText("Page 2");
+
+    // Traffic, then the metrics charts: size and connection trends.
+    for (let i = 0; i < 30; i++) await app.query("SELECT count(*) FROM notes");
+    await tabs.getByRole("link", { name: "Metrics" }).click();
+    await expect(page.getByRole("img", { name: "Database size" })).toBeVisible();
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByTestId("latest-size_bytes")).toContainText(/\d+(\.\d+)? (KiB|MiB)/, { timeout: 2_000 });
+      await expect(page.getByTestId("latest-connections_active")).toContainText(/pooler clients [1-9]/, { timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+    await expect(page.getByRole("img", { name: "Connections" })).toBeVisible();
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByRole("cell", { name: /SELECT count\(\*\) FROM notes/ })).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    await page.getByRole("radio", { name: "24h" }).click();
+    await expect(page.getByTestId("latest-size_bytes")).toContainText(/(KiB|MiB)/);
+    await shot(page, "29-metrics");
+    await app.end();
+
+    // The node behind it has its own charts.
+    await page.goto("/nodes");
+    await page.getByRole("link", { name: "local" }).first().click();
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByTestId("latest-cpu_percent")).toContainText("%", { timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+    await shot(page, "30-node-metrics");
+  });
 });

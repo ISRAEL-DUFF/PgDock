@@ -184,3 +184,28 @@ func TestWebConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestInsightConfig(t *testing.T) {
+	cfg, err := load(env(nil), noFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Insight.ConsoleDisabled || cfg.Insight.MetricsInterval != time.Minute || cfg.Insight.MetricsToken != "" {
+		t.Fatalf("insight defaults: %+v", cfg.Insight)
+	}
+	cfg, err = load(env(map[string]string{
+		"PGDOCK_CONSOLE_DISABLED": "true", "PGDOCK_METRICS_INTERVAL": "15s", "PGDOCK_METRICS_TOKEN": strings.Repeat("t", 24),
+	}), noFiles)
+	if err != nil || !cfg.Insight.ConsoleDisabled || cfg.Insight.MetricsInterval != 15*time.Second || len(cfg.Insight.MetricsToken) != 24 {
+		t.Fatalf("insight overrides: %+v %v", cfg.Insight, err)
+	}
+	for k, v := range map[string]string{
+		"PGDOCK_CONSOLE_DISABLED": "maybe",
+		"PGDOCK_METRICS_INTERVAL": "100ms",
+		"PGDOCK_METRICS_TOKEN":    "short",
+	} {
+		if _, err := load(env(map[string]string{k: v}), noFiles); err == nil || !strings.Contains(err.Error(), k) {
+			t.Errorf("%s=%s: %v", k, v, err)
+		}
+	}
+}

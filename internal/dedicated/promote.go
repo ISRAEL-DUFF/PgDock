@@ -282,8 +282,9 @@ func (s *Service) freeze(ctx context.Context, p store.Project, log *jobs.StepLog
 		return fmt.Errorf("freeze pooler: %w", err)
 	}
 	var n int
-	if err := admin.QueryRow(ctx, `SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE datname = $1 AND usename = $2`,
-		p.DbName, p.OwnerRole).Scan(&n); err != nil {
+	// The console's role too: it can SET ROLE to the owner while NOLOGIN.
+	if err := admin.QueryRow(ctx, `SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE datname = $1 AND usename = ANY($2)`,
+		p.DbName, []string{p.OwnerRole, provision.ConsoleRole(p.DbName)}).Scan(&n); err != nil {
 		return fmt.Errorf("terminate sessions: %w", err)
 	}
 	msg := "writes frozen: poolers paused"
@@ -443,6 +444,9 @@ func (s *Service) DropRetired(ctx context.Context) error {
 		if err == nil {
 			// The role only owned this database on the shared cluster.
 			_, err = conn.Exec(ctx, "DROP ROLE IF EXISTS "+provision.Ident(r.OwnerRole))
+		}
+		if err == nil {
+			err = provision.DropConsoleRole(ctx, conn, provision.ConsoleRole(r.DbName), r.DbName)
 		}
 		_ = conn.Close(context.Background())
 		if err != nil {

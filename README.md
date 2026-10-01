@@ -44,10 +44,10 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | `make generate` | Regenerates Go server interfaces and TypeScript types from `api/openapi.yaml`. |
 | `make test` | Go unit tests, frontend type-check and unit tests. Postgres-backed tests skip unless `PGDOCK_TEST_DATABASE_URL` is set. |
 | `make test-db` | Go tests including the Postgres-backed ones, against the dev environment. |
-| `make test-integration` | Provisioning, backups, restores, imports, dedicated instances with point-in-time recovery, promotion with live writers (and its rollback), and multi-node placement end to end, plus the tenant-isolation suite, against real Postgres 18 and PgBouncer (agents run in containers and create instances through the host's Docker; S3 is faked; import sources are `supabase/postgres` and Postgres 15). |
+| `make test-integration` | Provisioning, backups, restores, imports, dedicated instances with point-in-time recovery, promotion with live writers (and its rollback), multi-node placement, the SQL console's role scoping and read-only mode, the table browser's keyset pages, extensions, and metrics end to end, plus the tenant-isolation suite, against real Postgres 18 and PgBouncer (agents run in containers and create instances through the host's Docker; S3 is faked; import sources are `supabase/postgres` and Postgres 15). |
 | `make pg-image` | Builds `pgdock-postgres:18-walg3.0.9`, the image dedicated instances run. |
 | `make test-acme` | Obtains a real certificate over HTTP-01 from Pebble (Let's Encrypt's test CA). |
-| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, imports a Supabase-shaped project and serves its app, creates a dedicated project and restores it to a point in time, and promotes a hobby project while a writer runs, checking the URL is unchanged and no commits are lost (Playwright). |
+| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, imports a Supabase-shaped project and serves its app, creates a dedicated project and restores it to a point in time, promotes a hobby project while a writer runs, checking the URL is unchanged and no commits are lost, and queries, browses, and charts a project from the SQL console, table browser, and metrics pages (Playwright). |
 | `make run-dev` | Runs the built `bin/pgdock-server` against the dev environment (`deploy/dev/server.env`). |
 | `make lint` | `golangci-lint`. |
 | `make release-check` | Fails if the server binary embeds only the placeholder UI. |
@@ -159,6 +159,40 @@ not change. The shared copy stays read-only for 48 hours and is then
 dropped. If anything fails before the switch, the project stays on the
 shared tier, writable, and the new instance is removed.
 
+## SQL console, table browser, and metrics
+
+Each project has an **SQL** tab (spec §8.5): a CodeMirror editor where
+Ctrl/Cmd+Enter runs the selection (or everything), with a statement timeout
+(30 s by default), a **Cancel** button, at most 1,000 rows per result, CSV
+export of the shown rows, and a query history kept in the browser only. The
+server stores just an audit entry (`project.console`), never the SQL. Queries
+run as the project's role: pgdock-server signs in as the project's
+`<db>_console` role, which may `SET ROLE` to the owner but inherits nothing,
+so `RESET ROLE` gains no privileges. With **SQL console is read-only** on
+(Settings; the default for dedicated and promoted projects), each submission
+is one statement inside `BEGIN READ ONLY … ROLLBACK`.
+
+The **Tables** tab is a read-only browser (spec §8.6): schemas, tables and
+views with columns, types, indexes, row estimate, and size, and the rows 50
+at a time, keyset-paginated on the primary key (on `ctid` for tables
+without one).
+
+The **Metrics** tab charts database size, connections (active and idle
+backends, pooler clients), transactions per second, and the cache hit ratio
+over 1 hour, 24 hours, or 7 days, plus the top 10 queries by total time once
+`pg_stat_statements` is enabled (spec §8.7). Node pages chart CPU, load,
+memory, disk, and disk I/O. Points are sampled every minute into
+`metric_points`, averaged into hourly points, and kept for 24 hours (1-minute)
+and 30 days (hourly). `GET /metrics` serves the latest values in the
+Prometheus text format to signed-in operators or with
+`Authorization: Bearer $PGDOCK_METRICS_TOKEN`.
+
+Settings → **Extensions** enables extensions from the allow-list (spec
+§7.4): `pgcrypto`, `uuid-ossp`, `citext`, `pg_trgm`, `hstore`, `unaccent`,
+`btree_gin`, `btree_gist`, `pg_stat_statements`, and `vector` everywhere,
+plus `postgis`, `pg_partman`, `timescaledb`, `postgres_fdw`, and `pg_cron` on
+dedicated instances, when the server has them installed.
+
 ## Import from an existing database
 
 Projects → Import copies a database (Supabase included) into a new project
@@ -223,6 +257,9 @@ with `NOTIFY`, which wakes idle workers and drives the SSE stream at
 | `PGDOCK_METADATA_BACKUP_URL` | `PGDOCK_DATABASE_URL` | The metadata DB as the agent reaches it, for self-backups; `off` disables them |
 | `PGDOCK_SHARED_NODE_ROLE` | `both` | Role of the node registered from `PGDOCK_SHARED_ADMIN_URL`, when first registered |
 | `PGDOCK_DEDICATED_ADMIN_VIA` | `network` | How pgdock-server reaches dedicated instances: `network` (the agent's Docker network) or `published` (the port published on the node) |
+| `PGDOCK_CONSOLE_DISABLED` | `false` | Turns the SQL console and table browser off for every project |
+| `PGDOCK_METRICS_INTERVAL` | `1m` | How often project and node metrics are sampled |
+| `PGDOCK_METRICS_TOKEN` | | Bearer token for scraping `/metrics` (24+ characters); without it only signed-in operators can read it |
 
 pgdock-agent reads `PGDOCK_AGENT_STATE_DIR` (`/var/lib/pgdock-agent`),
 `_LISTEN` (`:7070`), `_SERVER`, `_TOKEN`, `_BOOTSTRAP_TOKEN` with `_NODE`,

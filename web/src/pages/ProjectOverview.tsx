@@ -23,7 +23,10 @@ export function ProjectLayout() {
   const tabs = [
     { to: "/projects/$id", label: "Overview", exact: true },
     { to: "/projects/$id/connect", label: "Connect" },
+    { to: "/projects/$id/sql", label: "SQL" },
+    { to: "/projects/$id/tables", label: "Tables" },
     { to: "/projects/$id/backups", label: "Backups" },
+    { to: "/projects/$id/metrics", label: "Metrics" },
     { to: "/projects/$id/settings", label: "Settings" },
   ] as const;
   return (
@@ -36,7 +39,7 @@ export function ProjectLayout() {
         }
         subtitle={<span className="font-mono">{p.db_name}</span>}
       />
-      <nav aria-label="Project" className="mb-5 flex gap-1 border-b border-line">
+      <nav aria-label="Project" className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((t) => (
           <Link
             key={t.to}

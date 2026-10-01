@@ -1051,8 +1051,220 @@ paths:
                 $ref: "#/components/schemas/AgentRegisterResponse"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/sql:
+    post:
+      operationId: runSQL
+      summary: Run SQL in the project database (SQL console)
+      description: |
+        Runs as the project's role (spec §8.5), with a statement timeout
+        (30s by default), at most 1,000 rows per result. When the project's
+        console is read-only, or `read_only` is set, one statement runs
+        inside `BEGIN READ ONLY … ROLLBACK`. Otherwise several statements
+        may run in one submission. SQL errors are returned in the result's
+        `error` with status 200. Only an audit entry is stored, never the
+        query text.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SqlRequest"
+      responses:
+        "200":
+          description: What the statements returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SqlResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/sql/cancel:
+    post:
+      operationId: cancelSQL
+      summary: Cancel a running console query
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SqlCancelRequest"
+      responses:
+        "200":
+          description: Whether a running query was found and cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SqlCancelResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/schema:
+    get:
+      operationId: getProjectSchema
+      summary: Schemas, tables and views, with columns and indexes
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The schema tree.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DbSchema"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/rows:
+    get:
+      operationId: getTableRows
+      summary: A page of a table's rows (read-only)
+      description: |
+        50 rows per page, keyset-paginated on the primary key where there is
+        one (spec §8.6). Pass the previous page's `next` as `after`.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: schema
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: table
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: after
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: The page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TablePage"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/extensions:
+    get:
+      operationId: listProjectExtensions
+      summary: The extension allow-list and what is installed
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Extensions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: enableProjectExtension
+      summary: Enable an allow-listed extension
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnableExtensionRequest"
+      responses:
+        "200":
+          description: Extensions after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/metrics:
+    get:
+      operationId: getProjectMetrics
+      summary: A project's metric series and top queries
+      tags: [metrics]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/MetricRange"
+        - $ref: "#/components/parameters/MetricNames"
+      responses:
+        "200":
+          description: Series.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}/metrics:
+    get:
+      operationId: getNodeMetrics
+      summary: A node's metric series
+      tags: [metrics]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+        - $ref: "#/components/parameters/MetricRange"
+        - $ref: "#/components/parameters/MetricNames"
+      responses:
+        "200":
+          description: Series.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /metrics:
+    get:
+      operationId: getPrometheusMetrics
+      summary: Prometheus exposition of the latest metrics
+      description: |
+        Needs a signed-in operator, or `Authorization: Bearer <token>` with
+        PGDOCK_METRICS_TOKEN.
+      tags: [metrics]
+      responses:
+        "200":
+          description: Text exposition format 0.0.4.
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
+    MetricRange:
+      name: range
+      in: query
+      schema:
+        type: string
+        enum: [1h, 24h, 7d]
+        default: 24h
+    MetricNames:
+      name: metric
+      in: query
+      description: Metrics to return; all when omitted.
+      schema:
+        type: array
+        items:
+          type: string
     BackupID:
       name: id
       in: path
@@ -2194,3 +2406,299 @@ components:
           type: integer
           minimum: 1
           maximum: 16384
+    SqlRequest:
+      type: object
+      required: [query, query_id]
+      properties:
+        query:
+          type: string
+          minLength: 1
+        query_id:
+          type: string
+          format: uuid
+          description: Chosen by the client, to cancel the query.
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 300
+        read_only:
+          type: boolean
+          description: Run read-only even if the project's console is not.
+    SqlColumn:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+    SqlStatementResult:
+      type: object
+      required: [command, columns, rows, row_count, truncated]
+      properties:
+        command:
+          type: string
+          description: The command tag, e.g. "SELECT 3" or "INSERT 0 1".
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SqlColumn"
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+              nullable: true
+        row_count:
+          type: integer
+          format: int64
+        truncated:
+          type: boolean
+          description: More rows than the 1,000 shown.
+    SqlError:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        detail:
+          type: string
+        hint:
+          type: string
+        position:
+          type: integer
+    SqlResult:
+      type: object
+      required: [results, notices, read_only, duration_ms]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SqlStatementResult"
+        notices:
+          type: array
+          items:
+            type: string
+        error:
+          $ref: "#/components/schemas/SqlError"
+        read_only:
+          type: boolean
+        duration_ms:
+          type: integer
+          format: int64
+    SqlCancelRequest:
+      type: object
+      required: [query_id]
+      properties:
+        query_id:
+          type: string
+          format: uuid
+    SqlCancelResult:
+      type: object
+      required: [cancelled]
+      properties:
+        cancelled:
+          type: boolean
+    DbSchema:
+      type: object
+      required: [schemas]
+      properties:
+        schemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbSchemaNode"
+    DbSchemaNode:
+      type: object
+      required: [name, tables]
+      properties:
+        name:
+          type: string
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbTable"
+    DbTable:
+      type: object
+      required: [name, kind, size_bytes, primary_key, columns, indexes]
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [table, partitioned_table, view, materialized_view, foreign_table]
+        row_estimate:
+          type: integer
+          format: int64
+          nullable: true
+          description: From the planner's statistics; null before the first ANALYZE.
+        size_bytes:
+          type: integer
+          format: int64
+        comment:
+          type: string
+          nullable: true
+        primary_key:
+          type: array
+          items:
+            type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbColumn"
+        indexes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbIndex"
+    DbColumn:
+      type: object
+      required: [name, type, nullable]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        nullable:
+          type: boolean
+        default:
+          type: string
+          nullable: true
+    DbIndex:
+      type: object
+      required: [name, definition, primary, unique]
+      properties:
+        name:
+          type: string
+        definition:
+          type: string
+        primary:
+          type: boolean
+        unique:
+          type: boolean
+    TablePage:
+      type: object
+      required: [columns, rows, order, key_columns]
+      properties:
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SqlColumn"
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+              nullable: true
+        next:
+          type: string
+          description: Cursor of the next page; absent on the last.
+        order:
+          type: string
+          enum: [primary_key, ctid, offset]
+        key_columns:
+          type: array
+          items:
+            type: string
+    Extension:
+      type: object
+      required: [name, tier, allowed, available]
+      properties:
+        name:
+          type: string
+        tier:
+          type: string
+          enum: [shared, dedicated]
+          description: The lowest tier that allows it.
+        allowed:
+          type: boolean
+          description: On this project's tier's allow-list.
+        available:
+          type: boolean
+          description: Installed on the server the project runs on.
+        default_version:
+          type: string
+        installed_version:
+          type: string
+        schema:
+          type: string
+    ExtensionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Extension"
+    EnableExtensionRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    MetricPoint:
+      type: object
+      required: [ts, value]
+      properties:
+        ts:
+          type: string
+          format: date-time
+        value:
+          type: number
+          format: double
+    MetricSeries:
+      type: object
+      required: [metric, points]
+      properties:
+        metric:
+          type: string
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricPoint"
+    TopQuery:
+      type: object
+      required: [query, calls, total_ms, mean_ms, rows]
+      properties:
+        query:
+          type: string
+        calls:
+          type: integer
+          format: int64
+        total_ms:
+          type: number
+          format: double
+        mean_ms:
+          type: number
+          format: double
+        rows:
+          type: integer
+          format: int64
+    TopQueries:
+      type: object
+      required: [available, items]
+      properties:
+        available:
+          type: boolean
+          description: pg_stat_statements is installed in the project database.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopQuery"
+    MetricsResponse:
+      type: object
+      required: [range, resolution, series]
+      properties:
+        range:
+          type: string
+        resolution:
+          type: string
+          enum: [1m, 1h]
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricSeries"
+        top_queries:
+          $ref: "#/components/schemas/TopQueries"

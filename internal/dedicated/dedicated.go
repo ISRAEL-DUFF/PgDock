@@ -422,6 +422,12 @@ func (s *Service) adoptRestore(ctx context.Context, inst store.Instance, p store
 		if err := renameIfPresent(ctx, conn, "ROLE", "pg_roles", "rolname", src.OwnerRole, p.OwnerRole); err != nil {
 			return err
 		}
+		// The source's console login came along in the base backup.
+		if src.DbName != p.DbName {
+			if err := provision.DropConsoleRole(ctx, conn, provision.ConsoleRole(src.DbName), p.DbName); err != nil {
+				return err
+			}
+		}
 		if err := log.Info(ctx, "restore", "recovery finished and promoted; %s is now %s, owned by %s", src.DbName, p.DbName, p.OwnerRole); err != nil {
 			return err
 		}

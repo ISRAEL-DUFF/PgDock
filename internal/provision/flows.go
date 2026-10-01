@@ -295,6 +295,9 @@ func (s *Service) teardown(ctx context.Context, p store.Project, log *jobs.StepL
 	if _, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+ident(p.DbName)+" WITH (FORCE)"); err != nil {
 		return fmt.Errorf("drop database: %w", err)
 	}
+	if err := DropConsoleRole(ctx, conn, ConsoleRole(p.DbName), p.DbName); err != nil {
+		return fmt.Errorf("drop console role: %w", err)
+	}
 	if _, err := conn.Exec(ctx, "DROP ROLE IF EXISTS "+ident(p.OwnerRole)); err != nil {
 		return fmt.Errorf("drop role: %w", err)
 	}

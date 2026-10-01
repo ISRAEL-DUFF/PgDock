@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
 
@@ -93,6 +94,10 @@ func TestPromotionLiveWriter(t *testing.T) {
 
 	c := e.CreateProject("Hobby")
 	seedHobby(t, e, c.Connection.PooledUrl)
+	// The console has been used on the shared tier (its login exists there).
+	if got := onlyValue(t, runSQL(t, e, c.Project.Id.String(), "SELECT count(*) FROM notes")); got != "2000" {
+		t.Fatalf("console before promotion: %q", got)
+	}
 
 	var est gen.PromotionEstimate
 	if code := e.Do("GET", "/api/v1/projects/"+c.Project.Id.String()+"/promote", nil, &est); code != http.StatusOK || est.SizeBytes == 0 || est.EstimatedDowntimeSeconds < 5 {
@@ -208,6 +213,16 @@ func TestPromotionLiveWriter(t *testing.T) {
 		t.Fatalf("project after promotion: %+v", p)
 	}
 
+	// The console follows the project to its instance, read-only now.
+	r := runSQL(t, e, c.Project.Id.String(), "SELECT count(*) FROM notes")
+	if got := onlyValue(t, r); got != "2000" || !r.ReadOnly {
+		t.Fatalf("console after promotion: %q read-only %v", got, r.ReadOnly)
+	}
+	var sc gen.DbSchema
+	if code := e.Do("GET", "/api/v1/projects/"+c.Project.Id.String()+"/schema", nil, &sc); code != http.StatusOK || len(sc.Schemas) < 2 {
+		t.Fatalf("schema after promotion: %d %+v", code, sc)
+	}
+
 	// The shared copy stays, read-only, and the role cannot log in there.
 	admin := e.SharedAdmin(c.Project.DbName)
 	if _, err := admin.Exec(ctx, `INSERT INTO notes (body) VALUES ('late')`); err == nil {
@@ -228,8 +243,9 @@ func TestPromotionLiveWriter(t *testing.T) {
 	}
 	pg := e.SharedAdmin("postgres")
 	var exists bool
-	if err := pg.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)`, c.Project.DbName).Scan(&exists); err != nil || exists {
-		t.Fatalf("retired copy not dropped: %v %v", exists, err)
+	if err := pg.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)
+		OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $2)`, c.Project.DbName, provision.ConsoleRole(c.Project.DbName)).Scan(&exists); err != nil || exists {
+		t.Fatalf("retired copy or its console login not dropped: %v %v", exists, err)
 	}
 	p = gen.Project{}
 	e.Do("GET", "/api/v1/projects/"+c.Project.Id.String(), nil, &p)

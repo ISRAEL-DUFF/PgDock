@@ -32,6 +32,14 @@ export type NodeCreated = S["NodeCreated"];
 export type ProfileList = S["ProfileList"];
 export type InstanceSummary = S["InstanceSummary"];
 export type CreateProjectRequest = S["CreateProjectRequest"];
+export type SqlResult = S["SqlResult"];
+export type SqlStatementResult = S["SqlStatementResult"];
+export type DbSchema = S["DbSchema"];
+export type DbTable = S["DbTable"];
+export type TablePage = S["TablePage"];
+export type Extension = S["Extension"];
+export type MetricsResponse = S["MetricsResponse"];
+export type MetricRange = "1h" | "24h" | "7d";
 
 /** An error response from the API, with the server's error code. */
 export class ApiRequestError extends Error {
@@ -113,6 +121,15 @@ export const api = {
   profiles: () => getJSON<ProfileList>("/api/v1/profiles"),
   promotionEstimate: (id: string) => getJSON<S["PromotionEstimate"]>(`/api/v1/projects/${id}/promote`),
   promote: (id: string, b: S["PromoteRequest"]) => request<Operation>("POST", `/api/v1/projects/${id}/promote`, b),
+  sql: (id: string, b: S["SqlRequest"]) => request<SqlResult>("POST", `/api/v1/projects/${id}/sql`, b),
+  cancelSql: (id: string, query_id: string) => request<S["SqlCancelResult"]>("POST", `/api/v1/projects/${id}/sql/cancel`, { query_id }),
+  schema: (id: string) => getJSON<DbSchema>(`/api/v1/projects/${id}/schema`),
+  tableRows: (id: string, schema: string, table: string, after?: string) =>
+    getJSON<TablePage>(`/api/v1/projects/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/rows${qs({ after })}`),
+  extensions: (id: string) => getJSON<S["ExtensionList"]>(`/api/v1/projects/${id}/extensions`),
+  enableExtension: (id: string, name: string) => request<S["ExtensionList"]>("POST", `/api/v1/projects/${id}/extensions`, { name }),
+  projectMetrics: (id: string, range: MetricRange) => getJSON<MetricsResponse>(`/api/v1/projects/${id}/metrics${qs({ range })}`),
+  nodeMetrics: (id: string, range: MetricRange) => getJSON<MetricsResponse>(`/api/v1/nodes/${id}/metrics${qs({ range })}`),
   pitr: (id: string, b: S["PitrRequest"]) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/pitr`, b),
   instanceAction: (id: string, action: "start" | "stop" | "restart") =>
     request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, { action }),
