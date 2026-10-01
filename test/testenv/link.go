@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // Link is a TCP proxy a test can cut, to simulate losing a network path
@@ -15,6 +16,7 @@ type Link struct {
 	ln     net.Listener
 	cut    atomic.Bool
 	bytes  atomic.Int64
+	stall  atomic.Int64 // forward no more once bytes reach it (0: off)
 	mu     sync.Mutex
 	conns  map[net.Conn]struct{}
 }
@@ -69,6 +71,9 @@ func (l *Link) pipe(dst, src net.Conn) {
 	for {
 		n, err := src.Read(buf)
 		if n > 0 {
+			for at := l.stall.Load(); at > 0 && l.bytes.Load() >= at && !l.cut.Load(); at = l.stall.Load() {
+				time.Sleep(10 * time.Millisecond)
+			}
 			if l.cut.Load() {
 				break
 			}
@@ -96,8 +101,12 @@ func (l *Link) Cut() {
 	l.conns = map[net.Conn]struct{}{}
 }
 
-// Restore lets connections through again.
-func (l *Link) Restore() { l.cut.Store(false) }
+// Restore lets connections through again, at full speed.
+func (l *Link) Restore() { l.stall.Store(0); l.cut.Store(false) }
+
+// StallAfter stops forwarding once n more bytes have crossed the link, as
+// if the path hung, until Cut or Restore.
+func (l *Link) StallAfter(n int64) { l.stall.Store(l.bytes.Load() + n) }
 
 // Bytes is how much has crossed the link.
 func (l *Link) Bytes() int64 { return l.bytes.Load() }

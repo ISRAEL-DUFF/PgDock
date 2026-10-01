@@ -138,3 +138,13 @@ UPDATE backups b SET status = 'failed', error = 'interrupted: the operation ende
 WHERE b.status = 'running' AND (
   EXISTS (SELECT 1 FROM operations o WHERE o.id = b.operation_id AND o.status IN ('succeeded', 'failed'))
   OR (b.operation_id IS NULL AND b.started_at < now() - interval '1 day'));
+
+-- name: FailedBackupObjects :many
+-- Failed backups whose object may still be in storage: an upload can
+-- complete at the bucket after its attempt gave up on it.
+SELECT * FROM backups
+WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id = @storage_target_id
+ORDER BY started_at LIMIT 100;
+
+-- name: MarkFailedBackupCleaned :exec
+UPDATE backups SET deleted_at = now() WHERE id = @id AND status = 'failed';

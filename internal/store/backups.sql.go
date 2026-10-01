@@ -154,6 +154,50 @@ func (q *Queries) FailInterruptedBackups(ctx context.Context, operationID *uuid.
 	return result.RowsAffected(), nil
 }
 
+const failedBackupObjects = `-- name: FailedBackupObjects :many
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id = $1
+ORDER BY started_at LIMIT 100
+`
+
+// Failed backups whose object may still be in storage: an upload can
+// complete at the bucket after its attempt gave up on it.
+func (q *Queries) FailedBackupObjects(ctx context.Context, storageTargetID *uuid.UUID) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, failedBackupObjects, storageTargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Backup
+	for rows.Next() {
+		var i Backup
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.ObjectKey,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.StorageTargetID,
+			&i.OperationID,
+			&i.KeyWrapped,
+			&i.Error,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const finishBackup = `-- name: FinishBackup :one
 UPDATE backups SET status = 'succeeded', size_bytes = $1, checksum = $2, finished_at = now()
 WHERE id = $3
@@ -663,6 +707,15 @@ UPDATE backups SET status = 'deleted', deleted_at = now() WHERE id = $1
 
 func (q *Queries) MarkBackupDeleted(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markBackupDeleted, id)
+	return err
+}
+
+const markFailedBackupCleaned = `-- name: MarkFailedBackupCleaned :exec
+UPDATE backups SET deleted_at = now() WHERE id = $1 AND status = 'failed'
+`
+
+func (q *Queries) MarkFailedBackupCleaned(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markFailedBackupCleaned, id)
 	return err
 }
 

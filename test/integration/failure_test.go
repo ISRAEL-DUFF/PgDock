@@ -16,6 +16,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/alerts"
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
@@ -175,8 +176,9 @@ func TestFailureLoseS3(t *testing.T) {
 	// S3 drops in the middle of an upload.
 	e.S3Link.Restore()
 	before := e.S3Link.Bytes()
+	e.S3Link.StallAfter(2 << 20)
 	op = backupNow(t, e, id)
-	waitFor(t, 60*time.Second, "the upload to start", func() bool { return e.S3Link.Bytes()-before > 2<<20 })
+	waitFor(t, 60*time.Second, "the upload to start", func() bool { return e.S3Link.Bytes()-before >= 2<<20 })
 	e.S3Link.Cut()
 	op = e.WaitOperation(op.Id)
 	if op.Status != gen.OperationStatusFailed {
@@ -185,10 +187,24 @@ func TestFailureLoseS3(t *testing.T) {
 	if rows := backupRows(t, e, id); rows["running"] != 0 || rows["succeeded"] != 0 {
 		t.Fatalf("backups after the cut: %v", rows)
 	}
-	onlySucceededObjects(t, e)
 
-	// Back online: the next backup works and the alert resolves.
+	// Back online: the next backup works, removes whatever the cut attempt
+	// left in the bucket (its upload may have completed there), and the
+	// alert resolves. Make sure there is a leftover to remove.
 	e.S3Link.Restore()
+	var leftover string
+	if err := e.DB.QueryRow(ctx, `SELECT object_key FROM backups WHERE project_id = $1 AND status = 'failed' ORDER BY started_at DESC LIMIT 1`, id).Scan(&leftover); err != nil {
+		t.Fatal(err)
+	}
+	tgt := e.S3.Target("pgdock-test")
+	tgt.Prefix = "pgdock/"
+	sc, err := storage.New(tgt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sc.Upload(ctx, leftover, strings.NewReader("partial")); err != nil {
+		t.Fatal(err)
+	}
 	if op := e.WaitOperation(backupNow(t, e, id).Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("backup with S3 back: %s\n%s", op.Status, testenv.FormatLog(op))
 	}

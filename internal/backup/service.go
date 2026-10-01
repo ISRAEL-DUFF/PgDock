@@ -159,6 +159,7 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 			_ = log.Warn(ctx, "dump", "an earlier attempt was interrupted; its backup is marked failed")
 		}
 	}
+	s.cleanFailed(ctx)
 	row, err := q.InsertBackup(ctx, store.InsertBackupParams{
 		ProjectID: projectID, Kind: kind, ObjectKey: key, StorageTargetID: &targetID,
 		OperationID: opID, KeyWrapped: wrapped, ExpiresAt: expires,
@@ -174,6 +175,7 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 	}})
 	if err != nil {
 		_ = q.FailBackup(context.WithoutCancel(ctx), store.FailBackupParams{ID: row.ID, Error: err.Error()})
+		s.cleanFailed(context.WithoutCancel(ctx))
 		return store.Backup{}, err
 	}
 	size, sum := res.SizeBytes, res.SHA256
@@ -267,6 +269,34 @@ func (s *Service) deleteObject(ctx context.Context, b store.Backup) error {
 		return err
 	}
 	return store.New(s.db).MarkBackupDeleted(ctx, b.ID)
+}
+
+// cleanFailed deletes the objects failed backups may have left in
+// storage: an upload can complete at the bucket after the attempt gave up
+// on it. Storage that is still unreachable is retried next time.
+func (s *Service) cleanFailed(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	targetID, target, err := s.StorageTarget(ctx)
+	if err != nil {
+		return
+	}
+	q := store.New(s.db)
+	rows, err := q.FailedBackupObjects(ctx, &targetID)
+	if err != nil || len(rows) == 0 {
+		return
+	}
+	c, err := storage.New(target)
+	if err != nil {
+		return
+	}
+	for _, b := range rows {
+		if err := c.Delete(ctx, b.ObjectKey); err != nil {
+			s.log.Debug("delete a failed backup's object", "key", b.ObjectKey, "err", err)
+			return
+		}
+		_ = q.MarkFailedBackupCleaned(ctx, b.ID)
+	}
 }
 
 // jitter is a project's stable offset into the nightly window.
@@ -366,6 +396,7 @@ func (s *Service) Run(ctx context.Context) {
 			} else if n > 0 {
 				s.log.Warn("marked interrupted backups failed", "count", n)
 			}
+			s.cleanFailed(ctx)
 			if s.Dedicated != nil {
 				if err := s.Dedicated.DropRetired(ctx); err != nil && ctx.Err() == nil {
 					s.log.Warn("drop retired shared copies", "err", err)
