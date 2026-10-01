@@ -508,7 +508,9 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("pitr-window")).toBeVisible();
     const pad = (n: number) => String(n).padStart(2, "0");
     const local = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}:${pad(target.getSeconds())}`;
-    await page.getByLabel("Restore to (your local time)").fill(local);
+    // Chromium serializes whole minutes without ":00", and fill() checks
+    // the value reads back the same.
+    await page.getByLabel("Restore to (your local time)").fill(local.replace(/:00$/, ""));
     await page.getByLabel("New project name").fill("Orders Pro restored");
     await shot(page, "20-pitr");
     await page.getByRole("button", { name: "Restore to this point" }).click();
@@ -722,5 +724,21 @@ test.describe("with the saved session", () => {
       await expect(page.getByTestId("latest-cpu_percent")).toContainText("%", { timeout: 2_000 });
     }).toPass({ timeout: 60_000 });
     await shot(page, "30-node-metrics");
+
+    // The tenant-isolation check against the bundle's live shared cluster
+    // (its pg_hba.conf, every project, two throwaway tenants), and alerts.
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Check now" }).click();
+    await expect(page.getByTestId("isolation-row").first()).toContainText("succeeded", { timeout: 90_000 });
+    await shot(page, "31-settings-alerts");
+    await page.getByRole("navigation").getByRole("link", { name: "Alerts" }).first().click();
+    await expect(page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();
+    // The poolers starting after the server is not "pooler down" (other
+    // alerts, like a full disk on the test host, may be real).
+    await page.getByRole("radio", { name: "firing" }).click();
+    await expect(page.getByText(/Nothing is wrong|Alert/).first()).toBeVisible();
+    await expect(page.getByText("Pooler down")).toHaveCount(0);
+    await shot(page, "32-alerts");
   });
 });

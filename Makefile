@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
 
 all: build
 
@@ -96,6 +96,21 @@ build-go:
 release-check:
 	$(BIN)/pgdock-server -require-ui
 
+## release: linux/amd64 and linux/arm64 binaries (UI embedded), the install
+## bundle (source at this commit), and SHA256SUMS, in dist/.
+DIST := dist
+release: build-ui
+	rm -rf $(DIST) && mkdir -p $(DIST)
+	for arch in amd64 arm64; do \
+		for cmd in server agent; do \
+			CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
+				-o $(DIST)/pgdock-$$cmd-$(VERSION)-linux-$$arch ./cmd/$$cmd; \
+		done; \
+	done
+	git archive --format=tar.gz --prefix=pgdock-$(VERSION)/ -o $(DIST)/pgdock-$(VERSION).tar.gz HEAD
+	cd $(DIST) && sha256sum * > SHA256SUMS
+	@ls -l $(DIST)
+
 ## test: Go unit tests, frontend type-check and unit tests.
 test: test-go test-web
 
@@ -156,6 +171,11 @@ test-e2e: e2e-images
 	@$(E2E_INSTANCES)
 	$(E2E_COMPOSE) down -v --remove-orphans
 
+## test-docs: install PGDock by running docs/install.md's commands in a
+## scratch clone, then reach a working database in a browser (M7 done-when).
+test-docs:
+	PGDOCK_BUILD_FLAGS='$(DOCKER_BUILD_FLAGS)' test/docs/install-from-docs.sh
+
 e2e-images:
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock:local .
 	docker build $(DOCKER_BUILD_FLAGS) --target agent -t pgdock-agent:local .
@@ -168,6 +188,12 @@ e2e-images:
 test-integration: pooler-seed test-agent-bin pg-image
 	$(COMPOSE) --profile test up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
+
+## test-load: 150 shared projects, pgbench on 10 (spec §13); writes
+## tmp/load-report.md. Needs pgbench.
+test-load: pooler-seed test-agent-bin
+	$(COMPOSE) --profile test up -d --wait
+	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 30m -v -run TestLoad ./test/load/
 
 ## pg-image: the Postgres 18 + WAL-G image dedicated instances run.
 PG_IMAGE := pgdock-postgres:18-walg3.0.9

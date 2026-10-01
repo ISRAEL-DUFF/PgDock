@@ -30,7 +30,8 @@ WHERE id = @id
 RETURNING *;
 
 -- name: RecordNodeHeartbeat :exec
-UPDATE nodes SET last_heartbeat = now(), status = @status, capacity = @capacity, agent_version = @agent_version
+UPDATE nodes SET last_heartbeat = now(), status = @status, capacity = @capacity, agent_version = @agent_version,
+  last_reachable_at = CASE WHEN @status::text = 'healthy' THEN now() ELSE last_reachable_at END
 WHERE id = @id;
 
 -- name: SetNodeStatus :exec

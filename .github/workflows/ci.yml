@@ -3,6 +3,10 @@ name: CI
 on:
   push:
   pull_request:
+  # Weekly: everything, plus the load test (spec §13).
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -69,16 +73,23 @@ jobs:
       # connect through the poolers -> rotate -> delete, rollback, and the
       # tenant-isolation suite (spec §7.1, §13).
       - name: Integration and isolation suites
-        run: make test-integration
+        run: |
+          set -o pipefail
+          make test-integration 2>&1 | tee "$RUNNER_TEMP/integration.log"
+
 
       - name: ACME against Pebble (real HTTP-01)
         run: make test-acme
 
       - name: Dev environment logs on failure
         if: failure()
-        run: docker compose -f deploy/dev/compose.yaml --profile test logs --no-color --tail 200
+        run: docker compose -f deploy/dev/compose.yaml --profile test logs --no-color --tail 60
 
-  # The M2–M6 done-whens: install the compose bundle from scratch and go
+      - name: Failing tests
+        if: failure()
+        run: grep -E -- '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' "$RUNNER_TEMP/integration.log" | head -200 || true
+
+  # The M2–M6 done-whens (and M7's smoke tests): install the compose bundle from scratch and go
   # from a fresh install to a working database entirely through the browser
   # (Pebble standing in for Let's Encrypt), then back up, delete data,
   # restore and verify, import a Supabase-shaped project and serve its app
@@ -110,3 +121,78 @@ jobs:
         with:
           name: playwright-results
           path: test/e2e/test-results/
+
+  # The M7 done-when: install from docs/install.md on a clean machine, by
+  # running the guide's own commands, then reach a working database in a
+  # browser.
+  docs-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: test/e2e/package-lock.json
+
+      - name: Install Playwright's Chromium
+        working-directory: test/e2e
+        run: npm ci && npx playwright install --with-deps chromium
+
+      - name: Install from the docs
+        run: make test-docs
+
+  # Dependency audit (spec §14 M7): known vulnerabilities in Go modules and
+  # the standard library actually called, and in npm packages.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Go vulnerabilities (govulncheck)
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: npm audit (web UI and e2e harness)
+        run: |
+          (cd web && npm audit --audit-level=high)
+          (cd test/e2e && npm audit --audit-level=high)
+
+  # 150 shared projects with pgbench on 10 (spec §13), weekly and on demand.
+  load:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: pgbench from the postgres:18 image
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/pgbench" <<'SH'
+          #!/bin/sh
+          exec docker run --rm --network host -e PGPASSWORD -e PGSSLMODE -v "$PWD:/w" -w /w postgres:18 pgbench "$@"
+          SH
+          chmod +x "$RUNNER_TEMP/bin/pgbench"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Load test
+        run: make test-load
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-report
+          path: tmp/load-report.md

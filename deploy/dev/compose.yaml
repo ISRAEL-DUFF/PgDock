@@ -65,10 +65,15 @@ services:
       - password_encryption=scram-sha-256
       - -c
       - shared_preload_libraries=pg_stat_statements
+      - -c
+      - log_min_duration_statement=5s
+      - -c
+      - hba_file=/etc/pgdock/pg_hba.conf
     ports:
       - "127.0.0.1:${PGDOCK_DEV_SHARED_PORT:-5441}:5432"
     volumes:
       - shared-data:/var/lib/postgresql
+      - ./shared-pg-hba.conf:/etc/pgdock/pg_hba.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pgdock_admin -d postgres"]
       interval: 2s
@@ -136,6 +141,34 @@ services:
   # M3 test fixtures (`--profile test`). The agent runs where Postgres 18
   # client tools are, on the Compose network like the poolers; the test
   # harness starts and stops it with `docker exec` (one per test).
+  # A shared cluster whose data directory is a 160 MB tmpfs (WAL lives
+  # elsewhere), for the disk-full failure test.
+  shared-pg-small:
+    image: postgres:18
+    profiles: [test]
+    environment:
+      POSTGRES_USER: pgdock_admin
+      POSTGRES_PASSWORD: pgdock_admin
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
+      POSTGRES_INITDB_WALDIR: /var/lib/postgresql/wal
+    command: ["postgres", "-c", "hba_file=/etc/pgdock/pg_hba.conf", "-c", "log_min_duration_statement=5s",
+              "-c", "shared_buffers=32MB", "-c", "max_wal_size=64MB"]
+    # Both in memory, so they always start empty together (WAL on its own,
+    # larger tmpfs: only the data directory runs out of space).
+    tmpfs:
+      - /var/lib/postgresql/18/docker:size=160m,mode=0700,uid=999,gid=999
+      - /var/lib/postgresql/wal:size=1g,mode=0700,uid=999,gid=999
+    ports:
+      - "127.0.0.1:${PGDOCK_DEV_SMALL_PORT:-5442}:5432"
+    volumes:
+      - ./shared-pg-hba.conf:/etc/pgdock/pg_hba.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgdock_admin -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   agent-test:
     image: postgres:18
     profiles: [test]

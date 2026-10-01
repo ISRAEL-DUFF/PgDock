@@ -101,8 +101,18 @@ func (m *Manager) Sync(ctx context.Context) error {
 	}
 	m.log.Debug("pooler config rendered", "routes", len(cfg.Routes), "users_changed", usersChanged, "routes_changed", routesChanged)
 
-	return m.each(ctx, func(a *Admin) error { return a.Reload(ctx) })
+	if err := m.each(ctx, func(a *Admin) error { return a.Reload(ctx) }); err != nil {
+		return &ReloadError{Err: err}
+	}
+	return nil
 }
+
+// ReloadError means the configuration files were written but at least one
+// pooler did not reload them (it reads them when it next starts).
+type ReloadError struct{ Err error }
+
+func (e *ReloadError) Error() string { return e.Err.Error() }
+func (e *ReloadError) Unwrap() error { return e.Err }
 
 // Dir is the pooler config directory.
 func (m *Manager) Dir() string { return m.dir }

@@ -139,6 +139,65 @@ func (q *Queries) FailBackup(ctx context.Context, arg FailBackupParams) error {
 	return err
 }
 
+const failInterruptedBackups = `-- name: FailInterruptedBackups :execrows
+UPDATE backups SET status = 'failed', error = 'interrupted: the attempt that took it did not finish', finished_at = now()
+WHERE operation_id = $1 AND status = 'running'
+`
+
+// Backups an earlier attempt of the operation left running (its worker or
+// agent died mid-dump): they never finished.
+func (q *Queries) FailInterruptedBackups(ctx context.Context, operationID *uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, failInterruptedBackups, operationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const failedBackupObjects = `-- name: FailedBackupObjects :many
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id = $1
+ORDER BY started_at LIMIT 100
+`
+
+// Failed backups whose object may still be in storage: an upload can
+// complete at the bucket after its attempt gave up on it.
+func (q *Queries) FailedBackupObjects(ctx context.Context, storageTargetID *uuid.UUID) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, failedBackupObjects, storageTargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Backup
+	for rows.Next() {
+		var i Backup
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.ObjectKey,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.StorageTargetID,
+			&i.OperationID,
+			&i.KeyWrapped,
+			&i.Error,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const finishBackup = `-- name: FinishBackup :one
 UPDATE backups SET status = 'succeeded', size_bytes = $1, checksum = $2, finished_at = now()
 WHERE id = $3
@@ -651,9 +710,18 @@ func (q *Queries) MarkBackupDeleted(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const markFailedBackupCleaned = `-- name: MarkFailedBackupCleaned :exec
+UPDATE backups SET deleted_at = now() WHERE id = $1 AND status = 'failed'
+`
+
+func (q *Queries) MarkFailedBackupCleaned(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markFailedBackupCleaned, id)
+	return err
+}
+
 const projectsDueForBackup = `-- name: ProjectsDueForBackup :many
 SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at FROM projects p
-WHERE p.deleted_at IS NULL AND p.status = 'active'
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < $1
   AND NOT EXISTS (
     SELECT 1 FROM operations o
     WHERE o.project_id = p.id AND o.kind IN ('backup', 'base_backup') AND o.created_at >= $1
@@ -664,8 +732,10 @@ WHERE p.deleted_at IS NULL AND p.status = 'active'
   )
 `
 
-// Active projects with no backup operation created since @since, and no
-// operation in flight (the next tick picks them up).
+// Active projects created before the window that opened at @since, with no
+// backup operation since then and no operation in flight (the next tick
+// picks them up). A project created after the window opened waits for the
+// next one.
 func (q *Queries) ProjectsDueForBackup(ctx context.Context, since time.Time) ([]Project, error) {
 	rows, err := q.db.Query(ctx, projectsDueForBackup, since)
 	if err != nil {
@@ -823,6 +893,23 @@ func (q *Queries) StaleRunningBackups(ctx context.Context, before time.Time) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const sweepStaleBackups = `-- name: SweepStaleBackups :execrows
+UPDATE backups b SET status = 'failed', error = 'interrupted: the operation ended before it finished', finished_at = now()
+WHERE b.status = 'running' AND (
+  EXISTS (SELECT 1 FROM operations o WHERE o.id = b.operation_id AND o.status IN ('succeeded', 'failed'))
+  OR (b.operation_id IS NULL AND b.started_at < now() - interval '1 day'))
+`
+
+// Running backups whose operation has finished (or, without one, that
+// started over a day ago) were interrupted.
+func (q *Queries) SweepStaleBackups(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, sweepStaleBackups)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateStorageTarget = `-- name: UpdateStorageTarget :one

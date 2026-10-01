@@ -41,6 +41,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/agentca"
+	"github.com/israel-duff/pgdock/internal/alerts"
 	"github.com/israel-duff/pgdock/internal/api"
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
@@ -48,6 +49,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
@@ -76,8 +78,18 @@ type Env struct {
 	Dedicated *dedicated.Service
 	// Console and Metrics back the M6 endpoints; tests call
 	// Metrics.Collect themselves instead of waiting for the interval.
-	Console *console.Service
-	Metrics *metrics.Collector
+	Console   *console.Service
+	Metrics   *metrics.Collector
+	IsoChecks *isocheck.Service
+	// Alerts is ticked by tests (Alerts.Tick) rather than on a timer.
+	Alerts *alerts.Service
+	// MasterKey is the raw key behind Keyring (key rotation tests).
+	MasterKey []byte
+	// S3Link is set with Options.S3Link once ConfigureBackups ran.
+	S3Link *Link
+
+	s3Link   bool
+	agentRun map[string][]string // docker exec arguments per node, for restarts
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
@@ -101,6 +113,11 @@ type Options struct {
 	AfterFreeze func(ctx context.Context) error
 	// MetricsToken protects /metrics for scrapers.
 	MetricsToken string
+	// ExtraPoolers are checked for "pooler down" besides the test poolers.
+	ExtraPoolers []*pooler.Admin
+	// S3Link puts a cuttable TCP link (Env.S3Link) between agents and the
+	// fake S3 ConfigureBackups starts.
+	S3Link bool
 }
 
 func need(t testing.TB, name string) string {
@@ -207,6 +224,10 @@ func Start(t testing.TB, opts Options) *Env {
 	for name, k := range ded.Kinds() {
 		kinds[name] = k
 	}
+	isoChecks := isocheck.New(db, svc, log)
+	for name, k := range isoChecks.Kinds() {
+		kinds[name] = k
+	}
 	if opts.MaxAttempts > 0 {
 		k := kinds[provision.KindCreate]
 		k.MaxAttempts = opts.MaxAttempts
@@ -222,6 +243,7 @@ func Start(t testing.TB, opts Options) *Env {
 	go func() { defer wg.Done(); runner.Run(ctx) }()
 
 	consoleSvc := console.New(db, svc, keyring, false, log)
+	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond}, log)
 	collector := metrics.NewCollector(db, svc, pm, nodeSvc, time.Second, log)
 
 	clock := &Clock{t: time.Now()}
@@ -229,7 +251,7 @@ func Start(t testing.TB, opts Options) *Env {
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
-		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
+		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, IsoChecks: isoChecks, Alerts: alertSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
 	}))
 	// Listen where the agent container can reach us too.
 	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
@@ -246,9 +268,9 @@ func Start(t testing.TB, opts Options) *Env {
 	e := &Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
-		Console: consoleSvc, Metrics: collector,
+		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
-		admin: adminCreds{"pgdock", adminPW}, log: log,
+		admin: adminCreds{"pgdock", adminPW}, log: log, s3Link: opts.S3Link, MasterKey: key,
 	}
 	t.Cleanup(func() {
 		ts.Close()

@@ -227,6 +227,10 @@ type InstanceSpec struct {
 	// Restore fills the volume from a WAL-G base backup and recovers
 	// (to TargetTime, if set) before the instance starts serving.
 	Restore *WALGRestore `json:"restore,omitempty"`
+	// Recreate replaces an existing container (keeping its volume) with
+	// one from the agent's current image and this spec: a restart that
+	// picks up a new Postgres minor version (spec §11.3).
+	Recreate bool `json:"recreate,omitempty"`
 }
 
 // WALG is where an instance's base backups and WAL live, and the key that

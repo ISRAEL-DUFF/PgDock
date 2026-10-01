@@ -1,6 +1,6 @@
 module github.com/israel-duff/pgdock
 
-go 1.25.7
+go 1.25.13
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 

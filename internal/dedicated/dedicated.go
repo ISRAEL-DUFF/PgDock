@@ -276,19 +276,11 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 		}
 		inst.AdminSecret = sealed
 	}
-	secret, err := provision.OpenInstanceSecret(s.keyring, inst.ID, inst.AdminSecret)
-	if err != nil {
-		return jobs.Permanent(err)
-	}
-	w, err := s.walgFor(ctx, inst)
+	spec, err := s.instanceSpec(ctx, inst)
 	if err != nil {
 		return err
 	}
-	prof := profileOf(inst)
-	spec := agentapi.InstanceSpec{
-		ID: inst.ID.String(), Kind: agentapi.InstanceDedicated, CPUs: prof.CPUs, MemoryMB: prof.MemoryMB,
-		AdminUser: secret.User, AdminPassword: secret.Password, Settings: settings(prof), WALG: &w,
-	}
+	w, prof := *spec.WALG, profileOf(inst)
 	if pitr != nil {
 		src, err := q.GetInstance(ctx, pitr.SourceInstance)
 		if err != nil {
@@ -323,16 +315,7 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 	if res.Host == "" {
 		return jobs.Permanent(fmt.Errorf("agent on %s reports no address for the instance (set PGDOCK_AGENT_NETWORK or PGDOCK_AGENT_PUBLISH)", agent.Node.Name))
 	}
-	run := store.SetInstanceRunningParams{ID: inst.ID, ContainerID: &res.ContainerID, Host: &res.Host, Port: int32(res.Port)}
-	if s.cfg.AdminVia == "published" && res.PublishedPort > 0 {
-		host := res.PublishedHost
-		if host == "" || host == "0.0.0.0" {
-			host = agent.Node.PrivateAddr
-		}
-		port := int32(res.PublishedPort)
-		run.AdminHost, run.AdminPort = &host, &port
-	}
-	if err := q.SetInstanceRunning(ctx, run); err != nil {
+	if err := s.recordRunning(ctx, inst, agent, res); err != nil {
 		return err
 	}
 	if err := log.Info(ctx, "instance", "container %s up in %s, archiving WAL to %s", res.Container,
@@ -347,6 +330,67 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// instanceSpec is the container spec of an instance whose admin secret is
+// set.
+func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agentapi.InstanceSpec, error) {
+	secret, err := provision.OpenInstanceSecret(s.keyring, inst.ID, inst.AdminSecret)
+	if err != nil {
+		return agentapi.InstanceSpec{}, jobs.Permanent(err)
+	}
+	w, err := s.walgFor(ctx, inst)
+	if err != nil {
+		return agentapi.InstanceSpec{}, err
+	}
+	prof := profileOf(inst)
+	return agentapi.InstanceSpec{
+		ID: inst.ID.String(), Kind: agentapi.InstanceDedicated, CPUs: prof.CPUs, MemoryMB: prof.MemoryMB,
+		AdminUser: secret.User, AdminPassword: secret.Password, Settings: settings(prof), WALG: &w,
+	}, nil
+}
+
+// recordRunning stores how to reach a started instance.
+func (s *Service) recordRunning(ctx context.Context, inst store.Instance, agent *nodes.Agent, res agentapi.Instance) error {
+	run := store.SetInstanceRunningParams{ID: inst.ID, ContainerID: &res.ContainerID, Host: &res.Host, Port: int32(res.Port)}
+	if s.cfg.AdminVia == "published" && res.PublishedPort > 0 {
+		host := res.PublishedHost
+		if host == "" || host == "0.0.0.0" {
+			host = agent.Node.PrivateAddr
+		}
+		port := int32(res.PublishedPort)
+		run.AdminHost, run.AdminPort = &host, &port
+	}
+	return store.New(s.db).SetInstanceRunning(ctx, run)
+}
+
+// Recreate replaces an instance's container with one from the node's
+// current image, on the same volume (spec §11.3: Postgres minor upgrades
+// by restarting from the UI), then updates the pooler route if its
+// address changed.
+func (s *Service) Recreate(ctx context.Context, inst store.Instance) (agentapi.Instance, error) {
+	spec, err := s.instanceSpec(ctx, inst)
+	if err != nil {
+		return agentapi.Instance{}, err
+	}
+	spec.Recreate = true
+	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
+	if err != nil {
+		return agentapi.Instance{}, err
+	}
+	res, err := agent.CreateInstance(ctx, spec)
+	if err != nil {
+		return res, err
+	}
+	if err := s.recordRunning(ctx, inst, agent, res); err != nil {
+		return res, err
+	}
+	if inst.Host == nil || *inst.Host != res.Host || int(inst.Port) != res.Port {
+		if err := s.projects.SyncPooler(ctx, nil, "pooler", "instance address changed"); err != nil {
+			return res, err
+		}
+	}
+	return res, nil
+}
 
 // adminConn connects to database on inst as its superuser.
 func (s *Service) adminConn(ctx context.Context, inst store.Instance, database string) (*pgx.Conn, error) {

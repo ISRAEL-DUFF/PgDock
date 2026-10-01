@@ -124,6 +124,7 @@ func procError(name string, err error, stderr *stderrBuffer) error {
 // startDump runs pg_dump with its stdout returned as a reader.
 func (s *Service) startDump(ctx context.Context, c agentapi.PGConn, o agentapi.DumpOptions) (io.ReadCloser, func() error, error) {
 	cmd := exec.CommandContext(ctx, s.bin("pg_dump"), dumpArgs(o)...)
+	dieWithAgent(cmd)
 	cmd.Env = pgEnv(c)
 	stderr := &stderrBuffer{}
 	cmd.Stderr = stderr
@@ -148,6 +149,7 @@ func (s *Service) startDump(ctx context.Context, c agentapi.PGConn, o agentapi.D
 // transaction) restore.
 func (s *Service) runRestore(ctx context.Context, in io.Reader, c agentapi.PGConn, o agentapi.RestoreOptions) ([]string, error) {
 	cmd := exec.CommandContext(ctx, s.bin("pg_restore"), restoreArgs(o, c.Database)...)
+	dieWithAgent(cmd)
 	cmd.Env = pgEnv(c)
 	cmd.Stdin = in
 	stderr := &stderrBuffer{}

@@ -1248,6 +1248,111 @@ paths:
                 type: string
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/security/isolation-checks:
+    get:
+      operationId: listIsolationChecks
+      summary: The latest tenant-isolation check of each shared cluster
+      description: |
+        Each shared cluster is checked weekly against the §7.1 checklist:
+        cluster settings and pg_hba.conf, every project's role and database,
+        and two throwaway tenants that try to reach each other.
+      tags: [security]
+      responses:
+        "200":
+          description: Clusters and their latest checks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IsolationCheckList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: runIsolationChecks
+      summary: Check every shared cluster now
+      tags: [security]
+      responses:
+        "202":
+          description: One isolation_check operation per running shared cluster.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/alerts:
+    get:
+      operationId: listAlerts
+      summary: Alerts, firing first
+      tags: [alerts]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [firing, resolved]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: Alerts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/alerts:
+    get:
+      operationId: getAlertSettings
+      summary: Alert channels (secrets only reported as set)
+      tags: [alerts]
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putAlertSettings
+      summary: Set the webhook and email channels
+      description: Omit a secret to keep the stored one; send an empty string to clear it. Omit smtp to turn email off.
+      tags: [alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertSettingsRequest"
+      responses:
+        "200":
+          description: The saved settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertSettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/alerts/test:
+    post:
+      operationId: testAlertSettings
+      summary: Send a test notification to every configured channel
+      tags: [alerts]
+      responses:
+        "200":
+          description: Per-channel results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertTestResult"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
     MetricRange:
@@ -2702,3 +2807,175 @@ components:
             $ref: "#/components/schemas/MetricSeries"
         top_queries:
           $ref: "#/components/schemas/TopQueries"
+    IsolationCheck:
+      type: object
+      required: [instance_id, node_id, node_name, instance_status]
+      properties:
+        instance_id:
+          type: string
+          format: uuid
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        instance_status:
+          type: string
+        last:
+          $ref: "#/components/schemas/IsolationCheckRun"
+    IsolationCheckRun:
+      type: object
+      required: [operation_id, status, created_at]
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    IsolationCheckList:
+      type: object
+      required: [items, every_days]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/IsolationCheck"
+        every_days:
+          type: integer
+    Alert:
+      type: object
+      required: [id, kind, severity, status, summary, target_type, target_id, target_name, started_at, last_seen_at, detail]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        severity:
+          type: string
+          enum: [warning, critical]
+        status:
+          type: string
+          enum: [firing, resolved]
+        summary:
+          type: string
+        target_type:
+          type: string
+        target_id:
+          type: string
+        target_name:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+        notified_at:
+          type: string
+          format: date-time
+        delivery_error:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+    AlertList:
+      type: object
+      required: [items, firing, critical]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        firing:
+          type: integer
+          format: int64
+        critical:
+          type: integer
+          format: int64
+    AlertSmtp:
+      type: object
+      required: [host, port, from, to, tls, has_password]
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        has_password:
+          type: boolean
+        from:
+          type: string
+        to:
+          type: array
+          items:
+            type: string
+        tls:
+          type: string
+          enum: [starttls, tls, none]
+    AlertSettings:
+      type: object
+      required: [webhook_url, has_webhook_secret]
+      properties:
+        webhook_url:
+          type: string
+        has_webhook_secret:
+          type: boolean
+        smtp:
+          $ref: "#/components/schemas/AlertSmtp"
+    AlertSettingsRequest:
+      type: object
+      properties:
+        webhook_url:
+          type: string
+        webhook_secret:
+          type: string
+        smtp:
+          type: object
+          required: [host, from, to]
+          properties:
+            host:
+              type: string
+            port:
+              type: integer
+            username:
+              type: string
+            password:
+              type: string
+            from:
+              type: string
+            to:
+              type: array
+              items:
+                type: string
+            tls:
+              type: string
+              enum: [starttls, tls, none]
+    AlertTestResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [channel, ok]
+            properties:
+              channel:
+                type: string
+              ok:
+                type: boolean
+              error:
+                type: string

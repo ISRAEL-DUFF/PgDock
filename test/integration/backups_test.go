@@ -238,6 +238,11 @@ func TestScheduler(t *testing.T) {
 	ctx := context.Background()
 	c := e.CreateProject("Nightly")
 	id := c.Project.Id
+	// Created before tonight's window (one created after it waits for the next).
+	if _, err := e.DB.Exec(ctx, `UPDATE projects SET created_at = now() - interval '2 days' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	other := e.CreateProject("Brand new")
 
 	at := e.Backups.DueAt(id, time.Now()).Add(time.Minute)
 	if at.Before(time.Now()) {
@@ -267,6 +272,10 @@ func TestScheduler(t *testing.T) {
 	}
 	if n := countOps(backup.KindBackup); n != 1 {
 		t.Fatalf("nightly backups enqueued: %d, want 1", n)
+	}
+	var newOps int
+	if err := e.DB.QueryRow(ctx, `SELECT count(*) FROM operations WHERE kind = 'backup' AND project_id = $1`, other.Project.Id).Scan(&newOps); err != nil || newOps != 0 {
+		t.Fatalf("a project created after the window opened was backed up: %d %v", newOps, err)
 	}
 	if n := countOps(backup.KindMetadataBackup); n != 1 {
 		t.Fatalf("metadata backups enqueued: %d, want 1", n)
