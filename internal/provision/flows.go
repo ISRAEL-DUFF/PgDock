@@ -276,8 +276,12 @@ func (s *Service) runDelete(ctx context.Context, op store.Operation, log *jobs.S
 	if p.Status != StatusDeleting {
 		return jobs.Permanent(fmt.Errorf("project is %s, not deleting", p.Status))
 	}
-	if err := log.Warn(ctx, "backup", "final backup skipped: backups arrive in M3"); err != nil {
-		return err
+	if skip, _ := deleteParams(op); skip || s.FinalBackup == nil {
+		if err := log.Warn(ctx, "backup", "final backup skipped"); err != nil {
+			return err
+		}
+	} else if err := s.FinalBackup(ctx, p, log); err != nil {
+		return fmt.Errorf("final backup: %w", err)
 	}
 	if err := s.teardown(ctx, p, log); err != nil {
 		return err
@@ -364,4 +368,13 @@ func (s *Service) setVerifier(ctx context.Context, p store.Project, verifier str
 		return fmt.Errorf("set password: %w", err)
 	}
 	return store.New(s.db).SetProjectVerifier(ctx, store.SetProjectVerifierParams{ID: p.ID, ScramVerifier: verifier})
+}
+
+// deleteParams reads a delete operation's options.
+func deleteParams(op store.Operation) (skipFinalBackup bool, err error) {
+	var p struct {
+		SkipFinalBackup bool `json:"skip_final_backup"`
+	}
+	err = json.Unmarshal(op.Params, &p)
+	return p.SkipFinalBackup, err
 }

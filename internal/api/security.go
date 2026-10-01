@@ -164,6 +164,18 @@ var auditActions = map[string]string{
 	"PUT /api/v1/settings/db-host":               "settings.db_host",
 	"POST /api/v1/dev/operations":                "dev.operation",
 	"POST /api/v1/settings/db-host/check":        "", // read-only check
+	"POST /api/v1/projects/{id}/backups":         "backup.create",
+	"POST /api/v1/backups/{id}/restore":          "backup.restore",
+	"POST /api/v1/restore-tests":                 "backup.restore_test",
+	"PUT /api/v1/settings/storage":               "settings.storage",
+	"POST /api/v1/settings/storage/test":         "settings.storage_test",
+	"POST /api/v1/settings/backup-key":           "settings.backup_key.generate",
+	"POST /api/v1/settings/backup-key/export":    "settings.backup_key.export",
+	"POST /api/v1/settings/backup-key/confirm":   "settings.backup_key.confirm",
+	"POST /api/v1/imports/preflight":             "import.preflight",
+	"POST /api/v1/imports":                       "import.create",
+	"POST /api/v1/nodes/{id}/registration-token": "node.registration_token",
+	"POST /api/v1/agent/register":                "node.agent_register",
 }
 
 func outcomeFor(status int) string {
@@ -225,12 +237,22 @@ var publicAPI = map[string]bool{
 	"/api/v1/auth/totp":      true,
 	"/api/v1/setup/begin":    true,
 	"/api/v1/setup/complete": true,
+	"/api/v1/agent/register": true,
+}
+
+// csrfExempt lists mutating routes called by programs, not browsers. They
+// authenticate with a token in the body and ignore cookies, so CSRF does
+// not apply.
+var csrfExempt = map[string]bool{
+	"POST /api/v1/agent/register": true,
 }
 
 // reauthRequired lists destructive routes needing a recent step-up auth
 // (spec §7.2).
 var reauthRequired = map[string]bool{
-	"DELETE /api/v1/projects/{id}": true,
+	"DELETE /api/v1/projects/{id}":            true,
+	"POST /api/v1/settings/backup-key/export": true,
+	// POST /api/v1/backups/{id}/restore checks it for mode in_place only.
 }
 
 func isMutating(method string) bool {
@@ -268,7 +290,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			}()
 		}
 
-		if mutating {
+		if mutating && !csrfExempt[r.Method+" "+pattern] {
 			if msg := s.checkCSRF(r); msg != "" {
 				writeError(ww, http.StatusForbidden, "csrf", msg)
 				return

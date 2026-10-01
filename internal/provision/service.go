@@ -33,6 +33,7 @@ const (
 	StatusProvisioning = "provisioning"
 	StatusActive       = "active"
 	StatusDeleting     = "deleting"
+	StatusRestoring    = "restoring"
 	StatusDeleted      = "deleted"
 	StatusError        = "error"
 )
@@ -94,6 +95,10 @@ type Service struct {
 	pooler  *pooler.Manager
 	cfg     Config
 	log     *slog.Logger
+
+	// FinalBackup, if set, takes the final backup before a delete (spec
+	// §6.2). The backup service sets it.
+	FinalBackup func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
 }
 
 // NewService returns a Service.
@@ -157,6 +162,11 @@ type CreateParams struct {
 	Name        string
 	Description *string
 	CreatedBy   *uuid.UUID
+	// Kind is the operation that provisions it: KindCreate by default, or
+	// another kind (restore, import) whose handler builds on Prepare and
+	// Publish. Params are merged into that operation's params.
+	Kind   string
+	Params map[string]any
 }
 
 // Created is returned once by Create. Password is never stored; this is the
@@ -243,6 +253,10 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 		return Created{}, err
 	}
 
+	kind := p.Kind
+	if kind == "" {
+		kind = KindCreate
+	}
 	// The random suffix rarely collides; retry with a fresh one if it does.
 	for attempt := 0; ; attempt++ {
 		dbName, role, err := Names(slug)
@@ -250,10 +264,15 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 			return Created{}, err
 		}
 		id := uuid.New()
-		sec, err := s.sealPassword(id, KindCreate, password)
+		sec, err := s.sealPassword(id, kind, password)
 		if err != nil {
 			return Created{}, err
 		}
+		params := map[string]any{}
+		for k, v := range p.Params {
+			params[k] = v
+		}
+		params["secrets"] = sec
 
 		var out Created
 		err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
@@ -266,8 +285,7 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 				return err
 			}
 			op, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{
-				Kind: KindCreate, ProjectID: &proj.ID, CreatedBy: p.CreatedBy,
-				Params: createParams{Secrets: sec},
+				Kind: kind, ProjectID: &proj.ID, CreatedBy: p.CreatedBy, Params: params,
 			})
 			if err != nil {
 				return err
@@ -321,8 +339,9 @@ func (s *Service) Rotate(ctx context.Context, projectID uuid.UUID, by *uuid.UUID
 }
 
 // Delete queues deletion (spec §6.2). confirmName must equal the project's
-// name, as typed by the operator.
-func (s *Service) Delete(ctx context.Context, projectID uuid.UUID, confirmName string, by *uuid.UUID) (store.Operation, error) {
+// name, as typed by the operator. skipFinalBackup skips the final backup
+// (spec §6.2 step 2: on by default, can be skipped).
+func (s *Service) Delete(ctx context.Context, projectID uuid.UUID, confirmName string, skipFinalBackup bool, by *uuid.UUID) (store.Operation, error) {
 	var out store.Operation
 	err := s.withIdleProject(ctx, projectID, []string{StatusActive, StatusError}, func(tx pgx.Tx, p store.Project) error {
 		if confirmName != p.Name {
@@ -331,7 +350,32 @@ func (s *Service) Delete(ctx context.Context, projectID uuid.UUID, confirmName s
 		if err := store.New(tx).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: StatusDeleting}); err != nil {
 			return err
 		}
-		op, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindDelete, ProjectID: &p.ID, CreatedBy: by})
+		op, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindDelete, ProjectID: &p.ID, CreatedBy: by,
+			Params: map[string]any{"skip_final_backup": skipFinalBackup}})
+		out = op
+		return err
+	})
+	return out, err
+}
+
+// EnqueueExclusive queues an operation of kind on a project that is in one
+// of the allowed statuses and has no other operation pending, optionally
+// moving it to status (empty: unchanged). check, if set, runs on the locked
+// project first and can refuse.
+func (s *Service) EnqueueExclusive(ctx context.Context, projectID uuid.UUID, allowed []string, status, kind string, params any, by *uuid.UUID, check func(store.Project) error) (store.Operation, error) {
+	var out store.Operation
+	err := s.withIdleProject(ctx, projectID, allowed, func(tx pgx.Tx, p store.Project) error {
+		if check != nil {
+			if err := check(p); err != nil {
+				return err
+			}
+		}
+		if status != "" {
+			if err := store.New(tx).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: status}); err != nil {
+				return err
+			}
+		}
+		op, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: kind, ProjectID: &p.ID, CreatedBy: by, Params: params})
 		out = op
 		return err
 	})

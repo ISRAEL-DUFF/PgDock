@@ -35,6 +35,69 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for BackupStatus.
+const (
+	BackupStatusFailed    BackupStatus = "failed"
+	BackupStatusRunning   BackupStatus = "running"
+	BackupStatusSucceeded BackupStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the BackupStatus enum.
+func (e BackupStatus) Valid() bool {
+	switch e {
+	case BackupStatusFailed:
+		return true
+	case BackupStatusRunning:
+		return true
+	case BackupStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupKind.
+const (
+	Final    BackupKind = "final"
+	Logical  BackupKind = "logical"
+	Metadata BackupKind = "metadata"
+	Safety   BackupKind = "safety"
+)
+
+// Valid indicates whether the value is a known member of the BackupKind enum.
+func (e BackupKind) Valid() bool {
+	switch e {
+	case Final:
+		return true
+	case Logical:
+		return true
+	case Metadata:
+		return true
+	case Safety:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ImportPreflightRoleReferencesKind.
+const (
+	Grant  ImportPreflightRoleReferencesKind = "grant"
+	Policy ImportPreflightRoleReferencesKind = "policy"
+)
+
+// Valid indicates whether the value is a known member of the ImportPreflightRoleReferencesKind enum.
+func (e ImportPreflightRoleReferencesKind) Valid() bool {
+	switch e {
+	case Grant:
+		return true
+	case Policy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperationLogEntryLevel.
 const (
 	OperationLogEntryLevelError OperationLogEntryLevel = "error"
@@ -58,22 +121,22 @@ func (e OperationLogEntryLevel) Valid() bool {
 
 // Defines values for OperationStatus.
 const (
-	Failed    OperationStatus = "failed"
-	Queued    OperationStatus = "queued"
-	Running   OperationStatus = "running"
-	Succeeded OperationStatus = "succeeded"
+	OperationStatusFailed    OperationStatus = "failed"
+	OperationStatusQueued    OperationStatus = "queued"
+	OperationStatusRunning   OperationStatus = "running"
+	OperationStatusSucceeded OperationStatus = "succeeded"
 )
 
 // Valid indicates whether the value is a known member of the OperationStatus enum.
 func (e OperationStatus) Valid() bool {
 	switch e {
-	case Failed:
+	case OperationStatusFailed:
 		return true
-	case Queued:
+	case OperationStatusQueued:
 		return true
-	case Running:
+	case OperationStatusRunning:
 		return true
-	case Succeeded:
+	case OperationStatusSucceeded:
 		return true
 	default:
 		return false
@@ -140,6 +203,24 @@ func (e ProjectTier) Valid() bool {
 	case Dedicated:
 		return true
 	case Shared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RestoreRequestMode.
+const (
+	InPlace RestoreRequestMode = "in_place"
+	New     RestoreRequestMode = "new"
+)
+
+// Valid indicates whether the value is a known member of the RestoreRequestMode enum.
+func (e RestoreRequestMode) Valid() bool {
+	switch e {
+	case InPlace:
+		return true
+	case New:
 		return true
 	default:
 		return false
@@ -215,6 +296,36 @@ func (e ListAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// AgentRegisterRequest defines model for AgentRegisterRequest.
+type AgentRegisterRequest struct {
+	AdvertiseHost *string `json:"advertise_host,omitempty"`
+	AdvertisePort *int    `json:"advertise_port,omitempty"`
+	Csr           string  `json:"csr"`
+	Node          *string `json:"node,omitempty"`
+	Token         string  `json:"token"`
+	Version       *string `json:"version,omitempty"`
+}
+
+// AgentRegisterResponse defines model for AgentRegisterResponse.
+type AgentRegisterResponse struct {
+	CaPem   string `json:"ca_pem"`
+	CertPem string `json:"cert_pem"`
+	NodeId  string `json:"node_id"`
+}
+
+// AgentStatus defines model for AgentStatus.
+type AgentStatus struct {
+	Address         *string                 `json:"address,omitempty"`
+	CertFingerprint *string                 `json:"cert_fingerprint,omitempty"`
+	CheckedAt       *time.Time              `json:"checked_at,omitempty"`
+	Error           *string                 `json:"error,omitempty"`
+	Metrics         *map[string]interface{} `json:"metrics,omitempty"`
+	PgDump          *string                 `json:"pg_dump,omitempty"`
+	Reachable       bool                    `json:"reachable"`
+	Registered      bool                    `json:"registered"`
+	Version         *string                 `json:"version,omitempty"`
+}
+
 // AuditEntry defines model for AuditEntry.
 type AuditEntry struct {
 	// Action Example: project.create
@@ -238,6 +349,67 @@ type AuditEntryOutcome string
 type AuditList struct {
 	Items      []AuditEntry `json:"items"`
 	NextBefore *int64       `json:"next_before,omitempty"`
+}
+
+// Backup defines model for Backup.
+type Backup struct {
+	Checksum       *string             `json:"checksum,omitempty"`
+	Error          *string             `json:"error,omitempty"`
+	ExpiresAt      *time.Time          `json:"expires_at,omitempty"`
+	FinishedAt     *time.Time          `json:"finished_at,omitempty"`
+	Id             openapi_types.UUID  `json:"id"`
+	Kind           BackupKind          `json:"kind"`
+	OperationId    *openapi_types.UUID `json:"operation_id,omitempty"`
+	ProjectDeleted *bool               `json:"project_deleted,omitempty"`
+	ProjectId      *openapi_types.UUID `json:"project_id,omitempty"`
+	ProjectName    *string             `json:"project_name,omitempty"`
+	SizeBytes      *int64              `json:"size_bytes,omitempty"`
+	StartedAt      time.Time           `json:"started_at"`
+	Status         BackupStatus        `json:"status"`
+}
+
+// BackupStatus defines model for Backup.Status.
+type BackupStatus string
+
+// BackupKeyConfirmRequest defines model for BackupKeyConfirmRequest.
+type BackupKeyConfirmRequest struct {
+	Key string `json:"key"`
+}
+
+// BackupKeyExport defines model for BackupKeyExport.
+type BackupKeyExport struct {
+	Info BackupKeyInfo `json:"info"`
+
+	// Key Store it offline; without it the backups cannot be decrypted.
+	Key string `json:"key"`
+}
+
+// BackupKeyInfo defines model for BackupKeyInfo.
+type BackupKeyInfo struct {
+	ConfirmedAt *time.Time `json:"confirmed_at,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	Exists      bool       `json:"exists"`
+	Fingerprint *string    `json:"fingerprint,omitempty"`
+}
+
+// BackupKind defines model for BackupKind.
+type BackupKind string
+
+// BackupList defines model for BackupList.
+type BackupList struct {
+	Items []Backup `json:"items"`
+}
+
+// BackupOverview defines model for BackupOverview.
+type BackupOverview struct {
+	AgentAvailable     bool          `json:"agent_available"`
+	Key                BackupKeyInfo `json:"key"`
+	LastMetadataBackup *Backup       `json:"last_metadata_backup,omitempty"`
+	LastRestoreTest    *Operation    `json:"last_restore_test,omitempty"`
+	RetentionDaily     int           `json:"retention_daily"`
+	RetentionWeekly    int           `json:"retention_weekly"`
+	StorageConfigured  bool          `json:"storage_configured"`
+	WindowHourUtc      int           `json:"window_hour_utc"`
 }
 
 // ConnectionInfo defines model for ConnectionInfo.
@@ -318,6 +490,50 @@ type Health struct {
 	Status string `json:"status"`
 }
 
+// ImportPreflight defines model for ImportPreflight.
+type ImportPreflight struct {
+	DefaultSchemas []string `json:"default_schemas"`
+	Extensions     []struct {
+		Allowed bool   `json:"allowed"`
+		Name    string `json:"name"`
+		Schema  string `json:"schema"`
+		Version string `json:"version"`
+	} `json:"extensions"`
+	RoleReferences []struct {
+		Kind   ImportPreflightRoleReferencesKind `json:"kind"`
+		Name   string                            `json:"name"`
+		Roles  []string                          `json:"roles"`
+		Schema string                            `json:"schema"`
+		Table  string                            `json:"table"`
+	} `json:"role_references"`
+	Schemas []struct {
+		Managed bool   `json:"managed"`
+		Name    string `json:"name"`
+		Tables  int    `json:"tables"`
+	} `json:"schemas"`
+	ServerVersion string   `json:"server_version"`
+	SizeBytes     int64    `json:"size_bytes"`
+	Supabase      bool     `json:"supabase"`
+	Warnings      []string `json:"warnings"`
+}
+
+// ImportPreflightRoleReferencesKind defines model for ImportPreflight.RoleReferences.Kind.
+type ImportPreflightRoleReferencesKind string
+
+// ImportRequest defines model for ImportRequest.
+type ImportRequest struct {
+	Description *string  `json:"description,omitempty"`
+	Name        string   `json:"name"`
+	Schemas     []string `json:"schemas"`
+	SourceUrl   string   `json:"source_url"`
+}
+
+// ImportSource defines model for ImportSource.
+type ImportSource struct {
+	// SourceUrl Example: postgresql://postgres:secret@db.abcd.supabase.co:5432/postgres
+	SourceUrl string `json:"source_url"`
+}
+
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
 	ChallengeId string `json:"challenge_id"`
@@ -327,6 +543,23 @@ type LoginChallenge struct {
 type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Password string              `json:"password"`
+}
+
+// Node defines model for Node.
+type Node struct {
+	Agent         AgentStatus        `json:"agent"`
+	CreatedAt     time.Time          `json:"created_at"`
+	Id            openapi_types.UUID `json:"id"`
+	LastHeartbeat *time.Time         `json:"last_heartbeat,omitempty"`
+	Name          string             `json:"name"`
+	PrivateAddr   string             `json:"private_addr"`
+	Role          string             `json:"role"`
+	Status        string             `json:"status"`
+}
+
+// NodeList defines model for NodeList.
+type NodeList struct {
+	Items []Node `json:"items"`
 }
 
 // NoopParams defines model for NoopParams.
@@ -392,12 +625,15 @@ type Project struct {
 	DbName      string             `json:"db_name"`
 	Description *string            `json:"description,omitempty"`
 	Id          openapi_types.UUID `json:"id"`
-	Name        string             `json:"name"`
-	OwnerRole   string             `json:"owner_role"`
-	Settings    ProjectSettings    `json:"settings"`
-	Slug        string             `json:"slug"`
-	Status      ProjectStatus      `json:"status"`
-	Tier        ProjectTier        `json:"tier"`
+
+	// LastBackupAt When the latest backup of this project finished.
+	LastBackupAt *time.Time      `json:"last_backup_at,omitempty"`
+	Name         string          `json:"name"`
+	OwnerRole    string          `json:"owner_role"`
+	Settings     ProjectSettings `json:"settings"`
+	Slug         string          `json:"slug"`
+	Status       ProjectStatus   `json:"status"`
+	Tier         ProjectTier     `json:"tier"`
 }
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
@@ -453,6 +689,34 @@ type ReauthRequest struct {
 	Password string `json:"password"`
 }
 
+// RegistrationToken defines model for RegistrationToken.
+type RegistrationToken struct {
+	// Command A ready-to-run registration command for the node.
+	Command   string    `json:"command"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Token     string    `json:"token"`
+}
+
+// RestoreRequest defines model for RestoreRequest.
+type RestoreRequest struct {
+	// Confirm The project's name, typed (mode `in_place`).
+	Confirm *string             `json:"confirm,omitempty"`
+	Mode    *RestoreRequestMode `json:"mode,omitempty"`
+
+	// Name Name of the new project (mode `new`).
+	Name *string `json:"name,omitempty"`
+}
+
+// RestoreRequestMode defines model for RestoreRequest.Mode.
+type RestoreRequestMode string
+
+// RestoreResponse defines model for RestoreResponse.
+type RestoreResponse struct {
+	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
+	Credentials *ProjectCredentials `json:"credentials,omitempty"`
+	Operation   Operation           `json:"operation"`
+}
+
 // SessionState defines model for SessionState.
 type SessionState struct {
 	Authenticated      bool      `json:"authenticated"`
@@ -484,6 +748,45 @@ type SetupEnrollment struct {
 	ExpiresAt       time.Time `json:"expires_at"`
 	TotpSecret      string    `json:"totp_secret"`
 	TotpUri         string    `json:"totp_uri"`
+}
+
+// StorageRequest defines model for StorageRequest.
+type StorageRequest struct {
+	AccessKey string `json:"access_key"`
+	Bucket    string `json:"bucket"`
+
+	// Endpoint Example: https://s3.eu-central-1.amazonaws.com
+	Endpoint  string  `json:"endpoint"`
+	PathStyle *bool   `json:"path_style,omitempty"`
+	Prefix    *string `json:"prefix,omitempty"`
+	Region    *string `json:"region,omitempty"`
+	SecretKey *string `json:"secret_key,omitempty"`
+}
+
+// StorageSettings defines model for StorageSettings.
+type StorageSettings struct {
+	AccessKey  *string `json:"access_key,omitempty"`
+	Bucket     *string `json:"bucket,omitempty"`
+	Configured bool    `json:"configured"`
+	Endpoint   *string `json:"endpoint,omitempty"`
+	PathStyle  *bool   `json:"path_style,omitempty"`
+	Prefix     *string `json:"prefix,omitempty"`
+	Region     *string `json:"region,omitempty"`
+}
+
+// StorageTestResult defines model for StorageTestResult.
+type StorageTestResult struct {
+	Ok    bool              `json:"ok"`
+	Saved bool              `json:"saved"`
+	Steps []StorageTestStep `json:"steps"`
+}
+
+// StorageTestStep defines model for StorageTestStep.
+type StorageTestStep struct {
+	Error  *string `json:"error,omitempty"`
+	Ok     bool    `json:"ok"`
+	Step   string  `json:"step"`
+	TookMs int     `json:"took_ms"`
 }
 
 // TlsStatus defines model for TlsStatus.
@@ -530,6 +833,12 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// BackupID defines model for BackupID.
+type BackupID = openapi_types.UUID
+
+// NodeID defines model for NodeID.
+type NodeID = openapi_types.UUID
+
 // OperationID defines model for OperationID.
 type OperationID = openapi_types.UUID
 
@@ -551,6 +860,13 @@ type ListAuditParams struct {
 // ListAuditParamsOutcome defines parameters for ListAudit.
 type ListAuditParamsOutcome string
 
+// ListBackupsParams defines parameters for ListBackups.
+type ListBackupsParams struct {
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+	Kind      *BackupKind         `form:"kind,omitempty" json:"kind,omitempty"`
+	Limit     *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListOperationsParams defines parameters for ListOperations.
 type ListOperationsParams struct {
 	Status    *OperationStatus    `form:"status,omitempty" json:"status,omitempty"`
@@ -567,8 +883,17 @@ type ListProjectsParams struct {
 
 // DeleteProjectParams defines parameters for DeleteProject.
 type DeleteProjectParams struct {
-	Confirm string `form:"confirm" json:"confirm"`
+	Confirm         string `form:"confirm" json:"confirm"`
+	SkipFinalBackup *bool  `form:"skip_final_backup,omitempty" json:"skip_final_backup,omitempty"`
 }
+
+// RunRestoreTestParams defines parameters for RunRestoreTest.
+type RunRestoreTestParams struct {
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// RegisterAgentJSONRequestBody defines body for RegisterAgent for application/json ContentType.
+type RegisterAgentJSONRequestBody = AgentRegisterRequest
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
@@ -579,8 +904,17 @@ type PostAuthReauthJSONRequestBody = ReauthRequest
 // PostAuthTotpJSONRequestBody defines body for PostAuthTotp for application/json ContentType.
 type PostAuthTotpJSONRequestBody = TotpRequest
 
+// RestoreBackupJSONRequestBody defines body for RestoreBackup for application/json ContentType.
+type RestoreBackupJSONRequestBody = RestoreRequest
+
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
+
+// CreateImportJSONRequestBody defines body for CreateImport for application/json ContentType.
+type CreateImportJSONRequestBody = ImportRequest
+
+// ImportPreflightJSONRequestBody defines body for ImportPreflight for application/json ContentType.
+type ImportPreflightJSONRequestBody = ImportSource
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
@@ -588,11 +922,20 @@ type CreateProjectJSONRequestBody = CreateProjectRequest
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
+// ConfirmBackupKeyJSONRequestBody defines body for ConfirmBackupKey for application/json ContentType.
+type ConfirmBackupKeyJSONRequestBody = BackupKeyConfirmRequest
+
 // PutDbHostJSONRequestBody defines body for PutDbHost for application/json ContentType.
 type PutDbHostJSONRequestBody = DbHostRequest
 
 // CheckDbHostJSONRequestBody defines body for CheckDbHost for application/json ContentType.
 type CheckDbHostJSONRequestBody = DbHostRequest
+
+// PutStorageSettingsJSONRequestBody defines body for PutStorageSettings for application/json ContentType.
+type PutStorageSettingsJSONRequestBody = StorageRequest
+
+// TestStorageSettingsJSONRequestBody defines body for TestStorageSettings for application/json ContentType.
+type TestStorageSettingsJSONRequestBody = StorageRequest
 
 // BeginSetupJSONRequestBody defines body for BeginSetup for application/json ContentType.
 type BeginSetupJSONRequestBody = SetupBeginRequest
@@ -602,6 +945,9 @@ type CompleteSetupJSONRequestBody = SetupCompleteRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+	// (POST /api/v1/agent/register)
+	RegisterAgent(w http.ResponseWriter, r *http.Request)
 	// ListAudit Audit log, newest first
 	// (GET /api/v1/audit)
 	ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams)
@@ -617,12 +963,33 @@ type ServerInterface interface {
 	// PostAuthTotp Complete login with a TOTP code
 	// (POST /api/v1/auth/totp)
 	PostAuthTotp(w http.ResponseWriter, r *http.Request)
+	// ListBackups List backups, newest first
+	// (GET /api/v1/backups)
+	ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams)
+	// GetBackupOverview Backup configuration and health at a glance
+	// (GET /api/v1/backups/overview)
+	GetBackupOverview(w http.ResponseWriter, r *http.Request)
+	// RestoreBackup Restore a backup into a new project or in place
+	// (POST /api/v1/backups/{id}/restore)
+	RestoreBackup(w http.ResponseWriter, r *http.Request, id BackupID)
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	// (POST /api/v1/dev/operations)
 	CreateDevOperation(w http.ResponseWriter, r *http.Request)
+	// CreateImport Import an existing database into a new project
+	// (POST /api/v1/imports)
+	CreateImport(w http.ResponseWriter, r *http.Request)
+	// ImportPreflight Inspect a source database before importing it
+	// (POST /api/v1/imports/preflight)
+	ImportPreflight(w http.ResponseWriter, r *http.Request)
 	// GetMe Current operator
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// ListNodes Nodes and their agents
+	// (GET /api/v1/nodes)
+	ListNodes(w http.ResponseWriter, r *http.Request)
+	// CreateNodeRegistrationToken Issue a one-time agent registration token (24 hours)
+	// (POST /api/v1/nodes/{id}/registration-token)
+	CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request, id NodeID)
 	// ListOperations List operations, newest first
 	// (GET /api/v1/operations)
 	ListOperations(w http.ResponseWriter, r *http.Request, params ListOperationsParams)
@@ -644,15 +1011,33 @@ type ServerInterface interface {
 	// GetProject Project detail and connection info (no password)
 	// (GET /api/v1/projects/{id})
 	GetProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateProjectBackup Back up a project now
+	// (POST /api/v1/projects/{id}/backups)
+	CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// RunRestoreTest Run the restore test now
+	// (POST /api/v1/restore-tests)
+	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
 	// GetSession Session state for the UI (public)
 	// (GET /api/v1/session)
 	GetSession(w http.ResponseWriter, r *http.Request)
+	// GetBackupKey Whether the backup key exists and was confirmed
+	// (GET /api/v1/settings/backup-key)
+	GetBackupKey(w http.ResponseWriter, r *http.Request)
+	// GenerateBackupKey Generate the backup encryption key
+	// (POST /api/v1/settings/backup-key)
+	GenerateBackupKey(w http.ResponseWriter, r *http.Request)
+	// ConfirmBackupKey Prove the key was saved by pasting it back
+	// (POST /api/v1/settings/backup-key/confirm)
+	ConfirmBackupKey(w http.ResponseWriter, r *http.Request)
+	// ExportBackupKey Download the backup key again (requires re-authentication)
+	// (POST /api/v1/settings/backup-key/export)
+	ExportBackupKey(w http.ResponseWriter, r *http.Request)
 	// PutDbHost Set the hostname clients use for databases
 	// (PUT /api/v1/settings/db-host)
 	PutDbHost(w http.ResponseWriter, r *http.Request)
@@ -662,6 +1047,15 @@ type ServerInterface interface {
 	// GetGeneralSettings DB hostname and pooler TLS status
 	// (GET /api/v1/settings/general)
 	GetGeneralSettings(w http.ResponseWriter, r *http.Request)
+	// GetStorageSettings The backup storage target (never the secret key)
+	// (GET /api/v1/settings/storage)
+	GetStorageSettings(w http.ResponseWriter, r *http.Request)
+	// PutStorageSettings Save the backup storage target after a live test
+	// (PUT /api/v1/settings/storage)
+	PutStorageSettings(w http.ResponseWriter, r *http.Request)
+	// TestStorageSettings Run the live write/read/delete test without saving
+	// (POST /api/v1/settings/storage/test)
+	TestStorageSettings(w http.ResponseWriter, r *http.Request)
 	// BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
 	// (POST /api/v1/setup/begin)
 	BeginSetup(w http.ResponseWriter, r *http.Request)
@@ -682,6 +1076,12 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+// (POST /api/v1/agent/register)
+func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // ListAudit Audit log, newest first
 // (GET /api/v1/audit)
@@ -713,15 +1113,57 @@ func (_ Unimplemented) PostAuthTotp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListBackups List backups, newest first
+// (GET /api/v1/backups)
+func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetBackupOverview Backup configuration and health at a glance
+// (GET /api/v1/backups/overview)
+func (_ Unimplemented) GetBackupOverview(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RestoreBackup Restore a backup into a new project or in place
+// (POST /api/v1/backups/{id}/restore)
+func (_ Unimplemented) RestoreBackup(w http.ResponseWriter, r *http.Request, id BackupID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CreateDevOperation Enqueue a dummy operation (development only)
 // (POST /api/v1/dev/operations)
 func (_ Unimplemented) CreateDevOperation(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// CreateImport Import an existing database into a new project
+// (POST /api/v1/imports)
+func (_ Unimplemented) CreateImport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ImportPreflight Inspect a source database before importing it
+// (POST /api/v1/imports/preflight)
+func (_ Unimplemented) ImportPreflight(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetMe Current operator
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListNodes Nodes and their agents
+// (GET /api/v1/nodes)
+func (_ Unimplemented) ListNodes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateNodeRegistrationToken Issue a one-time agent registration token (24 hours)
+// (POST /api/v1/nodes/{id}/registration-token)
+func (_ Unimplemented) CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request, id NodeID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -767,6 +1209,12 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, id Pro
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// CreateProjectBackup Back up a project now
+// (POST /api/v1/projects/{id}/backups)
+func (_ Unimplemented) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // RotateProjectPassword Rotate the project password
 // (POST /api/v1/projects/{id}/rotate-password)
 func (_ Unimplemented) RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -779,9 +1227,39 @@ func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, id 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// RunRestoreTest Run the restore test now
+// (POST /api/v1/restore-tests)
+func (_ Unimplemented) RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetSession Session state for the UI (public)
 // (GET /api/v1/session)
 func (_ Unimplemented) GetSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetBackupKey Whether the backup key exists and was confirmed
+// (GET /api/v1/settings/backup-key)
+func (_ Unimplemented) GetBackupKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GenerateBackupKey Generate the backup encryption key
+// (POST /api/v1/settings/backup-key)
+func (_ Unimplemented) GenerateBackupKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConfirmBackupKey Prove the key was saved by pasting it back
+// (POST /api/v1/settings/backup-key/confirm)
+func (_ Unimplemented) ConfirmBackupKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExportBackupKey Download the backup key again (requires re-authentication)
+// (POST /api/v1/settings/backup-key/export)
+func (_ Unimplemented) ExportBackupKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -800,6 +1278,24 @@ func (_ Unimplemented) CheckDbHost(w http.ResponseWriter, r *http.Request) {
 // GetGeneralSettings DB hostname and pooler TLS status
 // (GET /api/v1/settings/general)
 func (_ Unimplemented) GetGeneralSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetStorageSettings The backup storage target (never the secret key)
+// (GET /api/v1/settings/storage)
+func (_ Unimplemented) GetStorageSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutStorageSettings Save the backup storage target after a live test
+// (PUT /api/v1/settings/storage)
+func (_ Unimplemented) PutStorageSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestStorageSettings Run the live write/read/delete test without saving
+// (POST /api/v1/settings/storage/test)
+func (_ Unimplemented) TestStorageSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -841,6 +1337,20 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// RegisterAgent operation middleware
+func (siw *ServerInterfaceWrapper) RegisterAgent(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterAgent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListAudit operation middleware
 func (siw *ServerInterfaceWrapper) ListAudit(w http.ResponseWriter, r *http.Request) {
@@ -983,6 +1493,105 @@ func (siw *ServerInterfaceWrapper) PostAuthTotp(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListBackups operation middleware
+func (siw *ServerInterfaceWrapper) ListBackups(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBackupsParams
+
+	// ------------- Optional query parameter "project_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project_id", r.URL.Query(), &params.ProjectId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBackups(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBackupOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetBackupOverview(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBackupOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreBackup operation middleware
+func (siw *ServerInterfaceWrapper) RestoreBackup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id BackupID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreBackup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateDevOperation operation middleware
 func (siw *ServerInterfaceWrapper) CreateDevOperation(w http.ResponseWriter, r *http.Request) {
 
@@ -997,11 +1606,79 @@ func (siw *ServerInterfaceWrapper) CreateDevOperation(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// CreateImport operation middleware
+func (siw *ServerInterfaceWrapper) CreateImport(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateImport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportPreflight operation middleware
+func (siw *ServerInterfaceWrapper) ImportPreflight(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportPreflight(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNodes operation middleware
+func (siw *ServerInterfaceWrapper) ListNodes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNodes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNodeRegistrationToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNodeRegistrationToken(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1226,6 +1903,19 @@ func (siw *ServerInterfaceWrapper) DeleteProject(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// ------------- Optional query parameter "skip_final_backup" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "skip_final_backup", r.URL.Query(), &params.SkipFinalBackup, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "skip_final_backup"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "skip_final_backup", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteProject(w, r, id, params)
 	}))
@@ -1254,6 +1944,32 @@ func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProjectBackup operation middleware
+func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProjectBackup(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1315,11 +2031,100 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// RunRestoreTest operation middleware
+func (siw *ServerInterfaceWrapper) RunRestoreTest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RunRestoreTestParams
+
+	// ------------- Optional query parameter "project_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project_id", r.URL.Query(), &params.ProjectId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunRestoreTest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSession operation middleware
 func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) GetBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBackupKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GenerateBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) GenerateBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GenerateBackupKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmBackupKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) ExportBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportBackupKey(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1362,6 +2167,48 @@ func (siw *ServerInterfaceWrapper) GetGeneralSettings(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetGeneralSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStorageSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetStorageSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStorageSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutStorageSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutStorageSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutStorageSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestStorageSettings operation middleware
+func (siw *ServerInterfaceWrapper) TestStorageSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestStorageSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1628,6 +2475,57 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/rotate-password", wrapper.RotateProjectPassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/backups", wrapper.CreateProjectBackup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/backups", wrapper.ListBackups)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/backups/overview", wrapper.GetBackupOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/backups/{id}/restore", wrapper.RestoreBackup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/restore-tests", wrapper.RunRestoreTest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/storage", wrapper.GetStorageSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/settings/storage", wrapper.PutStorageSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/storage/test", wrapper.TestStorageSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/backup-key", wrapper.GetBackupKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/backup-key", wrapper.GenerateBackupKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/backup-key/export", wrapper.ExportBackupKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/backup-key/confirm", wrapper.ConfirmBackupKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/imports/preflight", wrapper.ImportPreflight)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/imports", wrapper.CreateImport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/nodes", wrapper.ListNodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/nodes/{id}/registration-token", wrapper.CreateNodeRegistrationToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/agent/register", wrapper.RegisterAgent)
 	})
 
 	return r

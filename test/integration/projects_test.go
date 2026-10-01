@@ -73,7 +73,7 @@ func TestCreateConnectRotateDelete(t *testing.T) {
 	if rot.Password == c.Password {
 		t.Fatal("rotation returned the same password")
 	}
-	if op := e.WaitOperation(rot.Operation.Id); op.Status != gen.Succeeded {
+	if op := e.WaitOperation(rot.Operation.Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("rotate operation %s\n%s", op.Status, testenv.FormatLog(op))
 	}
 	if conn, err := e.Connect(c.Connection.PooledUrl); err == nil {
@@ -105,7 +105,7 @@ func TestCreateConnectRotateDelete(t *testing.T) {
 		t.Fatalf("delete: %d", code)
 	}
 	// An open client connection must not block the delete.
-	if op := e.WaitOperation(del.Id); op.Status != gen.Succeeded {
+	if op := e.WaitOperation(del.Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("delete operation %s\n%s", op.Status, testenv.FormatLog(op))
 	}
 	if code := e.Do("GET", "/api/v1/projects/"+p.Id.String(), nil, nil); code != http.StatusNotFound {
@@ -147,7 +147,7 @@ func TestFailedCreateRollsBack(t *testing.T) {
 		t.Fatalf("create: %d", code)
 	}
 	op := e.WaitOperation(c.Operation.Id)
-	if op.Status != gen.Failed || op.Attempts != 2 {
+	if op.Status != gen.OperationStatusFailed || op.Attempts != 2 {
 		t.Fatalf("operation %s after %d attempts\n%s", op.Status, op.Attempts, testenv.FormatLog(op))
 	}
 	if log := testenv.FormatLog(op); !strings.Contains(log, "rollback complete") {
@@ -223,7 +223,7 @@ func TestConcurrentCreates(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, c := range creds {
-		if op := e.WaitOperation(c.Operation.Id); op.Status != gen.Succeeded {
+		if op := e.WaitOperation(c.Operation.Id); op.Status != gen.OperationStatusSucceeded {
 			t.Fatalf("%s: %s\n%s", c.Project.DbName, op.Status, testenv.FormatLog(op))
 		}
 		if seen[c.Project.DbName] {
@@ -311,7 +311,7 @@ func TestUpdateGuardrailsAndDBHost(t *testing.T) {
 	}, &upd); code != http.StatusOK || upd.Operation == nil {
 		t.Fatalf("patch: %d %+v", code, upd)
 	}
-	if op := e.WaitOperation(upd.Operation.Id); op.Status != gen.Succeeded {
+	if op := e.WaitOperation(upd.Operation.Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("apply_settings %s\n%s", op.Status, testenv.FormatLog(op))
 	}
 	if upd.Project.Name != "Guarded Renamed" || upd.Project.DbName != c.Project.DbName || !upd.Project.Settings.ConsoleReadOnly {

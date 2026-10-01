@@ -39,14 +39,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/agentca"
 	"github.com/israel-duff/pgdock/internal/api"
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
+	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
+	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
 )
 
@@ -63,6 +68,10 @@ type Env struct {
 	Pooler   *pooler.Manager
 	Service  *provision.Service
 	Notifier *jobs.Notifier
+	Backups  *backup.Service
+	Nodes    *nodes.Service
+	// S3 is the fake object store, once ConfigureBackups ran.
+	S3 *storage.Fake
 
 	SharedAdminURL string
 	SessionAddr    string
@@ -157,7 +166,27 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	svc := provision.NewService(db, keyring, pm, cfg, log)
 
+	ca, err := agentca.LoadOrCreate(ctx, db, keyring)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodeSvc, err := nodes.NewService(db, ca, "", log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bcfg := backup.Config{}
+	if host := os.Getenv("PGDOCK_TEST_METADATA_AGENT_HOST"); host != "" {
+		h, p, _ := net.SplitHostPort(host)
+		port, _ := strconv.Atoi(p)
+		cc := db.Config().ConnConfig
+		bcfg.MetadataPG = agentapi.PGConn{Host: h, Port: port, User: cc.User, Password: cc.Password, Database: cc.Database, SSLMode: "disable"}
+	}
+	backups := backup.NewService(db, keyring, nodeSvc, svc, bcfg, log)
+
 	kinds := svc.Kinds()
+	for name, k := range backups.Kinds() {
+		kinds[name] = k
+	}
 	if opts.MaxAttempts > 0 {
 		k := kinds[provision.KindCreate]
 		k.MaxAttempts = opts.MaxAttempts
@@ -174,15 +203,26 @@ func Start(t testing.TB, opts Options) *Env {
 
 	clock := &Clock{t: time.Now()}
 	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now}, "test-setup-code", log)
-	ts := httptest.NewServer(api.NewHandler(api.Options{
+	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
+		Backups: backups, Nodes: nodeSvc,
 	}))
+	// Listen where the agent container can reach us too.
+	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
+		ln, err := net.Listen("tcp", net.JoinHostPort(gw, "0"))
+		if err != nil {
+			t.Fatalf("listen on the docker gateway %s: %v", gw, err)
+		}
+		_ = ts.Listener.Close()
+		ts.Listener = ln
+	}
+	ts.Start()
 	jar, _ := cookiejar.New(nil)
 
 	e := &Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock,
-		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier,
+		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc,
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
 		admin: adminCreds{"pgdock", adminPW}, log: log,
 	}
@@ -214,6 +254,13 @@ type Clock struct {
 func (c *Clock) Now() time.Time { c.mu.Lock(); defer c.mu.Unlock(); return c.t }
 
 func (c *Clock) advance() { c.mu.Lock(); c.t = c.t.Add(30 * time.Second); c.mu.Unlock() }
+
+// Advance moves the auth clock on, e.g. past the re-auth window.
+func (e *Env) Advance(d time.Duration) {
+	e.clock.mu.Lock()
+	e.clock.t = e.clock.t.Add(d)
+	e.clock.mu.Unlock()
+}
 
 // Owner credentials created by the harness.
 const (
@@ -355,7 +402,7 @@ func (e *Env) CreateProject(name string) gen.ProjectCredentials {
 	if code := e.Do("POST", "/api/v1/projects", map[string]string{"name": name}, &c); code != http.StatusAccepted {
 		e.t.Fatalf("create %q: status %d", name, code)
 	}
-	if op := e.WaitOperation(c.Operation.Id); op.Status != gen.Succeeded {
+	if op := e.WaitOperation(c.Operation.Id); op.Status != gen.OperationStatusSucceeded {
 		e.t.Fatalf("create %q: operation %s: %v\n%s", name, op.Status, deref(op.Error), FormatLog(op))
 	}
 	return c
@@ -365,7 +412,7 @@ func (e *Env) CreateProject(name string) gen.ProjectCredentials {
 // returns its final state.
 func (e *Env) WaitOperation(id uuid.UUID) gen.Operation {
 	e.t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, "GET", e.URL+"/api/v1/operations/"+id.String()+"/stream", nil)
 	res, err := e.client.Do(req)

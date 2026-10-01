@@ -457,8 +457,9 @@ paths:
       description: |
         `confirm` must equal the project's name, and the session must have
         re-authenticated recently (`POST /auth/reauth`); otherwise 403 with
-        code `reauth_required`. Queues a `delete` operation that removes the
-        pooler route and drops the database and role.
+        code `reauth_required`. Queues a `delete` operation that takes a
+        final backup (kept 30 days; `skip_final_backup` skips it), removes
+        the pooler route, and drops the database and role.
       tags: [projects]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -467,6 +468,11 @@ paths:
           required: true
           schema:
             type: string
+        - name: skip_final_backup
+          in: query
+          schema:
+            type: boolean
+            default: false
       responses:
         "202":
           description: Delete operation queued.
@@ -521,8 +527,349 @@ paths:
                 $ref: "#/components/schemas/ProjectCredentials"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/backups:
+    post:
+      operationId: createProjectBackup
+      summary: Back up a project now
+      description: Queues a `backup` operation (a logical backup, kept by the nightly retention policy).
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Backup operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/backups:
+    get:
+      operationId: listBackups
+      summary: List backups, newest first
+      description: Includes final backups of deleted projects until they expire.
+      tags: [backups]
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: kind
+          in: query
+          schema:
+            $ref: "#/components/schemas/BackupKind"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Backups.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/backups/overview:
+    get:
+      operationId: getBackupOverview
+      summary: Backup configuration and health at a glance
+      tags: [backups]
+      responses:
+        "200":
+          description: Overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupOverview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/backups/{id}/restore:
+    post:
+      operationId: restoreBackup
+      summary: Restore a backup into a new project or in place
+      description: |
+        `mode: new` (the default, non-destructive) creates a project named
+        `name` and returns its credentials once. `mode: in_place` replaces the
+        backup's own project: `confirm` must equal the project's name and the
+        session must have re-authenticated recently (403 `reauth_required`).
+        It takes a safety backup first.
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/BackupID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreRequest"
+      responses:
+        "202":
+          description: Restore operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/restore-tests:
+    post:
+      operationId: runRestoreTest
+      summary: Run the restore test now
+      description: Restores the latest backup of a random project (or `project_id`) into a scratch database, counts every table, and drops it.
+      tags: [backups]
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Restore test queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/storage:
+    get:
+      operationId: getStorageSettings
+      summary: The backup storage target (never the secret key)
+      tags: [settings]
+      responses:
+        "200":
+          description: Storage settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putStorageSettings
+      summary: Save the backup storage target after a live test
+      description: Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageRequest"
+      responses:
+        "200":
+          description: Test result; `saved` says whether the settings were stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTestResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/storage/test:
+    post:
+      operationId: testStorageSettings
+      summary: Run the live write/read/delete test without saving
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageRequest"
+      responses:
+        "200":
+          description: Test result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTestResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/backup-key:
+    get:
+      operationId: getBackupKey
+      summary: Whether the backup key exists and was confirmed
+      tags: [settings]
+      responses:
+        "200":
+          description: Key status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupKeyInfo"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: generateBackupKey
+      summary: Generate the backup encryption key
+      description: Returns the key for download. Refuses (409) if one exists, since replacing it would make every backup unreadable.
+      tags: [settings]
+      responses:
+        "201":
+          description: The new key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupKeyExport"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/backup-key/export:
+    post:
+      operationId: exportBackupKey
+      summary: Download the backup key again (requires re-authentication)
+      tags: [settings]
+      responses:
+        "200":
+          description: The key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupKeyExport"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/backup-key/confirm:
+    post:
+      operationId: confirmBackupKey
+      summary: Prove the key was saved by pasting it back
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupKeyConfirmRequest"
+      responses:
+        "200":
+          description: Key status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupKeyInfo"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/imports/preflight:
+    post:
+      operationId: importPreflight
+      summary: Inspect a source database before importing it
+      description: Connects read-only and changes nothing. The connection string is not stored.
+      tags: [imports]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportSource"
+      responses:
+        "200":
+          description: What the import would copy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportPreflight"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/imports:
+    post:
+      operationId: createImport
+      summary: Import an existing database into a new project
+      description: |
+        Creates the project and queues an `import` operation. The source
+        connection string is held in memory for the operation only. The
+        response carries the new project's password once.
+      tags: [imports]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportRequest"
+      responses:
+        "202":
+          description: Project recorded and import queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCredentials"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes:
+    get:
+      operationId: listNodes
+      summary: Nodes and their agents
+      tags: [nodes]
+      responses:
+        "200":
+          description: Nodes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}/registration-token:
+    post:
+      operationId: createNodeRegistrationToken
+      summary: Issue a one-time agent registration token (24 hours)
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      responses:
+        "201":
+          description: The token, shown once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationToken"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/agent/register:
+    post:
+      operationId: registerAgent
+      summary: Agent registration (called by pgdock-agent, not the UI)
+      description: |
+        Exchanges a one-time registration token and a CSR for a client
+        certificate signed by the PGDock agent CA. Needs no session; the
+        token authenticates. Rate limited per address.
+      tags: [nodes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRegisterRequest"
+      responses:
+        "200":
+          description: Certificate issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRegisterResponse"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
+    BackupID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    NodeID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ProjectID:
       name: id
       in: path
@@ -784,6 +1131,11 @@ components:
           format: date-time
         connection:
           $ref: "#/components/schemas/ConnectionInfo"
+        last_backup_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the latest backup of this project finished.
     ProjectSettings:
       type: object
       required: [connection_limit, pool_size, statement_timeout, idle_in_transaction_session_timeout, disk_warn_bytes, console_read_only]
@@ -1044,3 +1396,376 @@ components:
           $ref: "#/components/schemas/Project"
         operation:
           $ref: "#/components/schemas/Operation"
+    BackupKind:
+      type: string
+      enum: [logical, final, safety, metadata]
+    Backup:
+      type: object
+      required: [id, kind, status, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        project_name:
+          type: string
+          nullable: true
+        project_deleted:
+          type: boolean
+        kind:
+          $ref: "#/components/schemas/BackupKind"
+        status:
+          type: string
+          enum: [running, succeeded, failed]
+        size_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        checksum:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        operation_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+    BackupList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Backup"
+    BackupOverview:
+      type: object
+      required: [storage_configured, key, agent_available, window_hour_utc, retention_daily, retention_weekly]
+      properties:
+        storage_configured:
+          type: boolean
+        key:
+          $ref: "#/components/schemas/BackupKeyInfo"
+        agent_available:
+          type: boolean
+        window_hour_utc:
+          type: integer
+        retention_daily:
+          type: integer
+        retention_weekly:
+          type: integer
+        last_restore_test:
+          $ref: "#/components/schemas/Operation"
+        last_metadata_backup:
+          $ref: "#/components/schemas/Backup"
+    RestoreRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [new, in_place]
+          default: new
+        name:
+          type: string
+          description: Name of the new project (mode `new`).
+          maxLength: 64
+        confirm:
+          type: string
+          description: The project's name, typed (mode `in_place`).
+    RestoreResponse:
+      type: object
+      required: [operation]
+      properties:
+        operation:
+          $ref: "#/components/schemas/Operation"
+        credentials:
+          $ref: "#/components/schemas/ProjectCredentials"
+    StorageRequest:
+      type: object
+      required: [endpoint, bucket, access_key]
+      properties:
+        endpoint:
+          type: string
+          example: https://s3.eu-central-1.amazonaws.com
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        access_key:
+          type: string
+        secret_key:
+          type: string
+        path_style:
+          type: boolean
+    StorageSettings:
+      type: object
+      required: [configured]
+      properties:
+        configured:
+          type: boolean
+        endpoint:
+          type: string
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        access_key:
+          type: string
+        path_style:
+          type: boolean
+    StorageTestStep:
+      type: object
+      required: [step, ok, took_ms]
+      properties:
+        step:
+          type: string
+        ok:
+          type: boolean
+        error:
+          type: string
+        took_ms:
+          type: integer
+    StorageTestResult:
+      type: object
+      required: [ok, saved, steps]
+      properties:
+        ok:
+          type: boolean
+        saved:
+          type: boolean
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageTestStep"
+    BackupKeyInfo:
+      type: object
+      required: [exists]
+      properties:
+        exists:
+          type: boolean
+        fingerprint:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+    BackupKeyExport:
+      type: object
+      required: [key, info]
+      properties:
+        key:
+          type: string
+          description: Store it offline; without it the backups cannot be decrypted.
+        info:
+          $ref: "#/components/schemas/BackupKeyInfo"
+    BackupKeyConfirmRequest:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+    ImportSource:
+      type: object
+      required: [source_url]
+      properties:
+        source_url:
+          type: string
+          example: postgresql://postgres:secret@db.abcd.supabase.co:5432/postgres
+    ImportRequest:
+      type: object
+      required: [source_url, name, schemas]
+      properties:
+        source_url:
+          type: string
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        description:
+          type: string
+          maxLength: 1000
+        schemas:
+          type: array
+          minItems: 1
+          items:
+            type: string
+    ImportPreflight:
+      type: object
+      required: [server_version, size_bytes, supabase, schemas, default_schemas, extensions, role_references, warnings]
+      properties:
+        server_version:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        supabase:
+          type: boolean
+        schemas:
+          type: array
+          items:
+            type: object
+            required: [name, tables, managed]
+            properties:
+              name:
+                type: string
+              tables:
+                type: integer
+              managed:
+                type: boolean
+        default_schemas:
+          type: array
+          items:
+            type: string
+        extensions:
+          type: array
+          items:
+            type: object
+            required: [name, version, schema, allowed]
+            properties:
+              name:
+                type: string
+              version:
+                type: string
+              schema:
+                type: string
+              allowed:
+                type: boolean
+        role_references:
+          type: array
+          items:
+            type: object
+            required: [kind, schema, table, name, roles]
+            properties:
+              kind:
+                type: string
+                enum: [policy, grant]
+              schema:
+                type: string
+              table:
+                type: string
+              name:
+                type: string
+              roles:
+                type: array
+                items:
+                  type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    Node:
+      type: object
+      required: [id, name, private_addr, role, status, created_at, agent]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        private_addr:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        last_heartbeat:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        agent:
+          $ref: "#/components/schemas/AgentStatus"
+    AgentStatus:
+      type: object
+      required: [registered, reachable]
+      properties:
+        registered:
+          type: boolean
+        reachable:
+          type: boolean
+        address:
+          type: string
+        version:
+          type: string
+        cert_fingerprint:
+          type: string
+        error:
+          type: string
+        checked_at:
+          type: string
+          format: date-time
+        pg_dump:
+          type: string
+        metrics:
+          type: object
+          additionalProperties: true
+    NodeList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+    RegistrationToken:
+      type: object
+      required: [token, expires_at, command]
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        command:
+          type: string
+          description: A ready-to-run registration command for the node.
+    AgentRegisterRequest:
+      type: object
+      required: [token, csr]
+      properties:
+        token:
+          type: string
+        node:
+          type: string
+        csr:
+          type: string
+        advertise_host:
+          type: string
+        advertise_port:
+          type: integer
+        version:
+          type: string
+    AgentRegisterResponse:
+      type: object
+      required: [node_id, cert_pem, ca_pem]
+      properties:
+        node_id:
+          type: string
+        cert_pem:
+          type: string
+        ca_pem:
+          type: string

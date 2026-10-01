@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
 
 all: build
 
@@ -151,9 +151,14 @@ e2e-images:
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
-test-integration: pooler-seed
+test-integration: pooler-seed test-agent-bin
 	$(COMPOSE) --profile test up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
+
+# The agent the integration tests run inside the agent-test container.
+test-agent-bin:
+	@mkdir -p tmp/bin
+	CGO_ENABLED=0 go build -trimpath -o tmp/bin/pgdock-agent ./cmd/agent
 
 test-web:
 	cd web && npm run typecheck && npm test
