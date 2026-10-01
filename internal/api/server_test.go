@@ -21,9 +21,10 @@ func newTestServer(t *testing.T) *httptest.Server {
 		"favicon.svg":      {Data: []byte("<svg/>")},
 	}
 	h := NewHandler(Options{
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		UI:      ui,
-		UIIndex: "index.html",
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		UI:             ui,
+		UIIndex:        "index.html",
+		InsecureNoAuth: true,
 	})
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
@@ -81,14 +82,6 @@ func TestUnknownAPIPathIsJSON404(t *testing.T) {
 	res, body := get(t, ts, "/api/v1/nope")
 	if res.StatusCode != http.StatusNotFound || !strings.Contains(body, "not_found") {
 		t.Fatalf("got %d %s", res.StatusCode, body)
-	}
-}
-
-func TestUnimplementedEndpoint(t *testing.T) {
-	ts := newTestServer(t)
-	res, _ := get(t, ts, "/api/v1/me")
-	if res.StatusCode != http.StatusNotImplemented {
-		t.Fatalf("got %d", res.StatusCode)
 	}
 }
 

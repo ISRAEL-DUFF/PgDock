@@ -83,8 +83,12 @@ paths:
             schema:
               $ref: "#/components/schemas/TotpRequest"
       responses:
-        "204":
+        "200":
           description: Logged in; the session cookie is set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionState"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/auth/reauth:
@@ -125,6 +129,163 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Operator"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/session:
+    get:
+      operationId: getSession
+      summary: Session state for the UI (public)
+      description: |
+        Whether first-run setup is needed, who is signed in, and the CSRF
+        token to send as `X-CSRF-Token` on every mutating request (also set
+        as the `pgdock_csrf` cookie).
+      tags: [auth]
+      responses:
+        "200":
+          description: Session state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionState"
+  /api/v1/setup/begin:
+    post:
+      operationId: beginSetup
+      summary: First-run setup, step 1 - owner account and TOTP enrolment
+      description: |
+        Only before any operator exists. `setup_code` is printed in the
+        pgdock-server log. Returns the TOTP secret to enrol; nothing is
+        created until `/setup/complete` proves a code.
+      tags: [setup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupBeginRequest"
+      responses:
+        "200":
+          description: TOTP enrolment details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupEnrollment"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/setup/complete:
+    post:
+      operationId: completeSetup
+      summary: First-run setup, step 2 - confirm TOTP and create the owner
+      tags: [setup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupCompleteRequest"
+      responses:
+        "200":
+          description: Owner created and signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionState"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/audit:
+    get:
+      operationId: listAudit
+      summary: Audit log, newest first
+      tags: [audit]
+      parameters:
+        - name: action
+          in: query
+          description: Action prefix, e.g. `project.` or `auth.login`.
+          schema:
+            type: string
+        - name: outcome
+          in: query
+          schema:
+            type: string
+            enum: [success, failure, denied]
+        - name: target_id
+          in: query
+          schema:
+            type: string
+        - name: before
+          in: query
+          description: Return entries with an id below this (pagination).
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Audit entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/general:
+    get:
+      operationId: getGeneralSettings
+      summary: DB hostname and pooler TLS status
+      tags: [settings]
+      responses:
+        "200":
+          description: Settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneralSettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/db-host:
+    put:
+      operationId: putDbHost
+      summary: Set the hostname clients use for databases
+      description: Also starts obtaining the pooler's TLS certificate for it.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DbHostRequest"
+      responses:
+        "200":
+          description: Updated settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneralSettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/db-host/check:
+    post:
+      operationId: checkDbHost
+      summary: Check that a hostname resolves to this server
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DbHostRequest"
+      responses:
+        "200":
+          description: DNS check result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DnsCheck"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/operations:
@@ -294,9 +455,10 @@ paths:
       operationId: deleteProject
       summary: Delete a project
       description: |
-        `confirm` must equal the project's name. Queues a `delete`
-        operation that removes the pooler route and drops the database and
-        role. (Re-authentication is enforced once auth lands in M2.)
+        `confirm` must equal the project's name, and the session must have
+        re-authenticated recently (`POST /auth/reauth`); otherwise 403 with
+        code `reauth_required`. Queues a `delete` operation that removes the
+        pooler route and drops the database and role.
       tags: [projects]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -312,6 +474,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/settings:
+    patch:
+      operationId: updateProject
+      summary: Update a project's name, description, or guardrails
+      description: |
+        Changes to guardrails that live on the backend or the pooler
+        (connection limit, timeouts, pool size) queue an `apply_settings`
+        operation, returned alongside the project.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: The updated project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectUpdated"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/rotate-password:
@@ -415,13 +603,17 @@ components:
           type: string
     Operator:
       type: object
-      required: [id, email]
+      required: [id, email, role]
       properties:
         id:
           type: string
+          format: uuid
         email:
           type: string
           format: email
+        role:
+          type: string
+          enum: [owner, member]
     Error:
       type: object
       required: [code, message]
@@ -642,3 +834,213 @@ components:
           type: string
         connection:
           $ref: "#/components/schemas/ConnectionInfo"
+    SessionState:
+      type: object
+      required: [authenticated, setup_required, csrf_token]
+      properties:
+        authenticated:
+          type: boolean
+        setup_required:
+          type: boolean
+        csrf_token:
+          type: string
+        operator:
+          $ref: "#/components/schemas/Operator"
+        reauth_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: Destructive actions are allowed without re-authenticating until then.
+        idle_timeout_seconds:
+          type: integer
+    SetupBeginRequest:
+      type: object
+      required: [setup_code, email, password]
+      properties:
+        setup_code:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 12
+    SetupEnrollment:
+      type: object
+      required: [enrollment_token, totp_secret, totp_uri, expires_at]
+      properties:
+        enrollment_token:
+          type: string
+        totp_secret:
+          type: string
+        totp_uri:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    SetupCompleteRequest:
+      type: object
+      required: [enrollment_token, code]
+      properties:
+        enrollment_token:
+          type: string
+        code:
+          type: string
+    AuditEntry:
+      type: object
+      required: [id, action, outcome, detail, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        operator_id:
+          type: string
+          format: uuid
+          nullable: true
+        operator_email:
+          type: string
+          nullable: true
+        action:
+          type: string
+          example: project.create
+        target_type:
+          type: string
+          nullable: true
+        target_id:
+          type: string
+          nullable: true
+        detail:
+          type: object
+          additionalProperties: true
+        ip:
+          type: string
+          nullable: true
+        user_agent:
+          type: string
+          nullable: true
+        outcome:
+          type: string
+          enum: [success, failure, denied]
+        created_at:
+          type: string
+          format: date-time
+    AuditList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        next_before:
+          type: integer
+          format: int64
+          nullable: true
+    DbHostRequest:
+      type: object
+      required: [db_host]
+      properties:
+        db_host:
+          type: string
+          example: db.example.com
+    DnsCheck:
+      type: object
+      required: [host, addresses, server_addresses, points_here]
+      properties:
+        host:
+          type: string
+        addresses:
+          type: array
+          items:
+            type: string
+        server_addresses:
+          type: array
+          items:
+            type: string
+          description: Addresses this server considers its own.
+        points_here:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+    TlsStatus:
+      type: object
+      required: [mode, state]
+      properties:
+        mode:
+          type: string
+          enum: [acme, self-signed, files, off]
+        state:
+          type: string
+          enum: [ok, pending, error, off]
+        host:
+          type: string
+          nullable: true
+        issuer:
+          type: string
+          nullable: true
+        not_after:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+          nullable: true
+    GeneralSettings:
+      type: object
+      required: [db_host, session_port, pooled_port, sslmode, tls]
+      properties:
+        db_host:
+          type: string
+        session_port:
+          type: integer
+        pooled_port:
+          type: integer
+        sslmode:
+          type: string
+        tls:
+          $ref: "#/components/schemas/TlsStatus"
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        settings:
+          $ref: "#/components/schemas/ProjectSettingsPatch"
+    ProjectSettingsPatch:
+      type: object
+      properties:
+        connection_limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        pool_size:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        statement_timeout:
+          type: string
+          description: Postgres duration such as `60s`; empty to unset.
+        idle_in_transaction_session_timeout:
+          type: string
+        disk_warn_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        console_read_only:
+          type: boolean
+    ProjectUpdated:
+      type: object
+      required: [project]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        operation:
+          $ref: "#/components/schemas/Operation"

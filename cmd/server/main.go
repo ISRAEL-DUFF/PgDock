@@ -4,6 +4,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base32"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,12 +21,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/israel-duff/pgdock/internal/api"
+	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/version"
 	"github.com/israel-duff/pgdock/web"
@@ -94,8 +98,20 @@ func run() error {
 	defer stopBG()
 	var bg sync.WaitGroup
 
+	settingsStore := settings.New(pool, cfg.Public.Host)
+	if err := settingsStore.Load(ctx); err != nil {
+		return err
+	}
+
+	authSvc, err := setupAuth(ctx, cfg, pool, keyring, log)
+	if err != nil {
+		return err
+	}
+	bg.Add(1)
+	go func() { defer bg.Done(); sweepAuth(bgCtx, authSvc, log) }()
+
 	kinds := map[string]jobs.Kind{jobs.KindNoop: jobs.Noop()}
-	projects, err := setupProvisioning(ctx, cfg, pool, keyring, log)
+	projects, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, log)
 	if err != nil {
 		return err
 	}
@@ -131,6 +147,13 @@ func run() error {
 			Projects:     projects,
 			UI:           web.Dist(),
 			UIIndex:      index,
+			Auth:         authSvc,
+			Security: api.SecurityOptions{
+				SecureCookies:  cfg.Web.SecureCookies,
+				TrustedProxies: cfg.Web.TrustedProxies,
+			},
+			Settings:  settingsStore,
+			PublicIPs: cfg.Web.PublicIPs,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelError),
@@ -173,7 +196,47 @@ func run() error {
 
 // setupProvisioning registers the configured shared cluster and builds the
 // provisioning service. It returns nil when no pooler is configured.
-func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, log *slog.Logger) (*provision.Service, error) {
+// setupAuth builds the auth service. Before the owner exists it logs the
+// one-time setup code the first-run wizard asks for.
+func setupAuth(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, log *slog.Logger) (*auth.Service, error) {
+	if !cfg.Web.SecureCookies {
+		log.Warn("PGDOCK_COOKIE_SECURE=false: session cookies are sent over plain HTTP; development only")
+	}
+	code := cfg.Web.SetupCode
+	if code == "" {
+		b := make([]byte, 9)
+		if _, err := rand.Read(b); err != nil {
+			return nil, err
+		}
+		code = base32.StdEncoding.EncodeToString(b)
+	}
+	svc := auth.NewService(pool, keyring, auth.Config{}, code, log)
+	needed, err := svc.SetupNeeded(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if needed {
+		log.Warn("first-run setup required: open the web UI and enter this setup code", "setup_code", code)
+	}
+	return svc, nil
+}
+
+func sweepAuth(ctx context.Context, svc *auth.Service, log *slog.Logger) {
+	t := time.NewTicker(15 * time.Minute)
+	defer t.Stop()
+	for {
+		if err := svc.Sweep(ctx); err != nil && ctx.Err() == nil {
+			log.Warn("sweep expired sessions", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, st *settings.Store, log *slog.Logger) (*provision.Service, error) {
 	if cfg.Shared.AdminURL != "" {
 		// A cluster that is down at boot should not keep the control plane
 		// down; creates fail until it is back.
@@ -223,6 +286,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 
 	return provision.NewService(pool, keyring, pm, provision.Config{
 		DBHost:           cfg.Public.Host,
+		DBHostFunc:       st.DBHost,
 		SessionPort:      cfg.Public.SessionPort,
 		PooledPort:       cfg.Public.PooledPort,
 		SSLMode:          cfg.Public.SSLMode,

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/version"
 )
@@ -24,11 +27,16 @@ import (
 // implement fall through to gen.Unimplemented (501).
 type Server struct {
 	gen.Unimplemented
-	log      *slog.Logger
-	db       DB
-	streamer *jobs.Streamer
-	projects *provision.Service
-	dev      bool
+	log       *slog.Logger
+	db        DB
+	streamer  *jobs.Streamer
+	projects  *provision.Service
+	dev       bool
+	auth      *auth.Service
+	sec       SecurityOptions
+	settings  *settings.Store
+	publicIPs []netip.Addr
+	tls       func() gen.TlsStatus
 }
 
 // DB is the metadata database: queries plus a health check.
@@ -55,12 +63,29 @@ type Options struct {
 	// UI is the web UI build output; UIIndex names its entry document.
 	UI      fs.FS
 	UIIndex string
+
+	// Auth signs operators in and guards every non-public API route.
+	// It is required unless InsecureNoAuth is set (unit tests only).
+	Auth           *auth.Service
+	InsecureNoAuth bool
+	Security       SecurityOptions
+	// Settings holds the editable DB hostname; PublicIPs are this server's
+	// public addresses for the DNS check; TLS reports pooler TLS status.
+	Settings  *settings.Store
+	PublicIPs []netip.Addr
+	TLS       func() gen.TlsStatus
 }
 
 // NewHandler returns the root HTTP handler: the API under /api, health
 // probes at /healthz and /readyz, and the SPA everywhere else.
 func NewHandler(opts Options) http.Handler {
-	s := &Server{log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects}
+	if opts.Auth == nil && !opts.InsecureNoAuth {
+		panic("api: Options.Auth is required")
+	}
+	s := &Server{
+		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
+		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
+	}
 	if opts.DB != nil && opts.Notifier != nil {
 		streamCtx := opts.StreamCtx
 		if streamCtx == nil {
@@ -73,6 +98,8 @@ func NewHandler(opts Options) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(requestLogger(opts.Logger))
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
+	r.Use(s.guard)
 
 	gen.HandlerWithOptions(s, gen.ChiServerOptions{
 		BaseRouter: r,

@@ -89,7 +89,14 @@ func TestCreateConnectRotateDelete(t *testing.T) {
 		t.Fatalf("read after rotation: %d %v", n, err)
 	}
 
-	// Delete needs the exact name.
+	// Delete needs a recent re-authentication and the exact name.
+	for range 25 {
+		e.TOTP() // let the setup-time authentication lapse (10 min)
+	}
+	if code := e.Do("DELETE", "/api/v1/projects/"+p.Id.String()+"?confirm=Integration%20Blog", nil, nil); code != http.StatusForbidden {
+		t.Fatalf("delete without reauth: %d", code)
+	}
+	e.Reauth()
 	if code := e.Do("DELETE", "/api/v1/projects/"+p.Id.String()+"?confirm=nope", nil, nil); code != http.StatusBadRequest {
 		t.Fatalf("delete with wrong confirm: %d", code)
 	}
@@ -285,5 +292,87 @@ func assertGone(t *testing.T, e *testenv.Env, db, role string) {
 	}
 	if dbs != 0 || roles != 0 {
 		t.Fatalf("leftovers on the shared cluster: %d database(s), %d role(s)", dbs, roles)
+	}
+}
+
+func TestUpdateGuardrailsAndDBHost(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	c := e.CreateProject("guarded")
+	id := c.Project.Id.String()
+
+	limit, pool, timeout := 7, 3, "5s"
+	ro := true
+	var upd gen.ProjectUpdated
+	if code := e.Do("PATCH", "/api/v1/projects/"+id+"/settings", map[string]any{
+		"name": "Guarded Renamed",
+		"settings": map[string]any{
+			"connection_limit": limit, "pool_size": pool, "statement_timeout": timeout, "console_read_only": ro,
+		},
+	}, &upd); code != http.StatusOK || upd.Operation == nil {
+		t.Fatalf("patch: %d %+v", code, upd)
+	}
+	if op := e.WaitOperation(upd.Operation.Id); op.Status != gen.Succeeded {
+		t.Fatalf("apply_settings %s\n%s", op.Status, testenv.FormatLog(op))
+	}
+	if upd.Project.Name != "Guarded Renamed" || upd.Project.DbName != c.Project.DbName || !upd.Project.Settings.ConsoleReadOnly {
+		t.Fatalf("project after patch: %+v", upd.Project)
+	}
+
+	// The role and the pooler picked up the new guardrails.
+	conn := e.MustConnect(c.Connection.SessionUrl)
+	var got string
+	if err := conn.QueryRow(context.Background(), "SHOW statement_timeout").Scan(&got); err != nil || got != "5s" {
+		t.Fatalf("statement_timeout %q %v", got, err)
+	}
+	admin := e.SharedAdmin("postgres")
+	var connLimit int
+	if err := admin.QueryRow(context.Background(), "SELECT rolconnlimit FROM pg_roles WHERE rolname = $1", c.Project.OwnerRole).Scan(&connLimit); err != nil || connLimit != limit {
+		t.Fatalf("rolconnlimit %d %v", connLimit, err)
+	}
+
+	// Invalid guardrails are refused, and a metadata-only change queues nothing.
+	for _, bad := range []map[string]any{
+		{"settings": map[string]any{"pool_size": 50}}, // above the connection limit
+		{"settings": map[string]any{"statement_timeout": "forever"}},
+		{"name": ""},
+	} {
+		if code := e.Do("PATCH", "/api/v1/projects/"+id+"/settings", bad, nil); code != http.StatusBadRequest {
+			t.Errorf("patch %v: %d", bad, code)
+		}
+	}
+	upd = gen.ProjectUpdated{}
+	if code := e.Do("PATCH", "/api/v1/projects/"+id+"/settings", map[string]any{"description": "just text"}, &upd); code != http.StatusOK || upd.Operation != nil {
+		t.Fatalf("metadata-only patch: %d op=%v", code, upd.Operation)
+	}
+
+	// The operator-set DB hostname shows up in connection info.
+	var gs gen.GeneralSettings
+	if code := e.Do("PUT", "/api/v1/settings/db-host", map[string]string{"db_host": "DB.Example.com"}, &gs); code != http.StatusOK || gs.DbHost != "db.example.com" {
+		t.Fatalf("set db host: %d %+v", code, gs)
+	}
+	var p gen.Project
+	e.Do("GET", "/api/v1/projects/"+id, nil, &p)
+	if !strings.Contains(p.Connection.PooledUrl, "@db.example.com:") {
+		t.Fatalf("connection info ignores the db host: %s", p.Connection.PooledUrl)
+	}
+	if code := e.Do("PUT", "/api/v1/settings/db-host", map[string]string{"db_host": "not a host"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("bad host: %d", code)
+	}
+	var dns gen.DnsCheck
+	if code := e.Do("POST", "/api/v1/settings/db-host/check", map[string]string{"db_host": "127.0.0.1"}, &dns); code != http.StatusOK || !dns.PointsHere {
+		t.Fatalf("dns check: %d %+v", code, dns)
+	}
+
+	// Everything above is in the audit log.
+	var audit gen.AuditList
+	e.Do("GET", "/api/v1/audit?target_id="+id, nil, &audit)
+	actions := map[string]bool{}
+	for _, a := range audit.Items {
+		actions[a.Action+":"+string(a.Outcome)] = true
+	}
+	for _, want := range []string{"project.create:success", "project.update:success", "project.update:failure"} {
+		if !actions[want] {
+			t.Errorf("audit missing %s: %v", want, actions)
+		}
 	}
 }

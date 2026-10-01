@@ -140,6 +140,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session state for the UI (public)
+         * @description Whether first-run setup is needed, who is signed in, and the CSRF
+         *     token to send as `X-CSRF-Token` on every mutating request (also set
+         *     as the `pgdock_csrf` cookie).
+         */
+        get: operations["getSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/setup/begin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * First-run setup, step 1 - owner account and TOTP enrolment
+         * @description Only before any operator exists. `setup_code` is printed in the
+         *     pgdock-server log. Returns the TOTP secret to enrol; nothing is
+         *     created until `/setup/complete` proves a code.
+         */
+        post: operations["beginSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/setup/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** First-run setup, step 2 - confirm TOTP and create the owner */
+        post: operations["completeSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit log, newest first */
+        get: operations["listAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/general": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** DB hostname and pooler TLS status */
+        get: operations["getGeneralSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/db-host": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the hostname clients use for databases
+         * @description Also starts obtaining the pooler's TLS certificate for it.
+         */
+        put: operations["putDbHost"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/db-host/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check that a hostname resolves to this server */
+        post: operations["checkDbHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operations": {
         parameters: {
             query?: never;
@@ -257,14 +389,37 @@ export interface paths {
         post?: never;
         /**
          * Delete a project
-         * @description `confirm` must equal the project's name. Queues a `delete`
-         *     operation that removes the pooler route and drops the database and
-         *     role. (Re-authentication is enforced once auth lands in M2.)
+         * @description `confirm` must equal the project's name, and the session must have
+         *     re-authenticated recently (`POST /auth/reauth`); otherwise 403 with
+         *     code `reauth_required`. Queues a `delete` operation that removes the
+         *     pooler route and drops the database and role.
          */
         delete: operations["deleteProject"];
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a project's name, description, or guardrails
+         * @description Changes to guardrails that live on the backend or the pooler
+         *     (connection limit, timeouts, pool size) queue an `apply_settings`
+         *     operation, returned alongside the project.
+         */
+        patch: operations["updateProject"];
         trace?: never;
     };
     "/api/v1/projects/{id}/rotate-password": {
@@ -325,9 +480,12 @@ export interface components {
             code: string;
         };
         Operator: {
+            /** Format: uuid */
             id: string;
             /** Format: email */
             email: string;
+            /** @enum {string} */
+            role: "owner" | "member";
         };
         Error: {
             /** @example not_implemented */
@@ -452,6 +610,110 @@ export interface components {
             operation: components["schemas"]["Operation"];
             password: string;
             connection: components["schemas"]["ConnectionInfo"];
+        };
+        SessionState: {
+            authenticated: boolean;
+            setup_required: boolean;
+            csrf_token: string;
+            operator?: components["schemas"]["Operator"];
+            /**
+             * Format: date-time
+             * @description Destructive actions are allowed without re-authenticating until then.
+             */
+            reauth_until?: string | null;
+            idle_timeout_seconds?: number;
+        };
+        SetupBeginRequest: {
+            setup_code: string;
+            /** Format: email */
+            email: string;
+            /** Format: password */
+            password: string;
+        };
+        SetupEnrollment: {
+            enrollment_token: string;
+            totp_secret: string;
+            totp_uri: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        SetupCompleteRequest: {
+            enrollment_token: string;
+            code: string;
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: uuid */
+            operator_id?: string | null;
+            operator_email?: string | null;
+            /** @example project.create */
+            action: string;
+            target_type?: string | null;
+            target_id?: string | null;
+            detail: {
+                [key: string]: unknown;
+            };
+            ip?: string | null;
+            user_agent?: string | null;
+            /** @enum {string} */
+            outcome: "success" | "failure" | "denied";
+            /** Format: date-time */
+            created_at: string;
+        };
+        AuditList: {
+            items: components["schemas"]["AuditEntry"][];
+            /** Format: int64 */
+            next_before?: number | null;
+        };
+        DbHostRequest: {
+            /** @example db.example.com */
+            db_host: string;
+        };
+        DnsCheck: {
+            host: string;
+            addresses: string[];
+            /** @description Addresses this server considers its own. */
+            server_addresses: string[];
+            points_here: boolean;
+            error?: string | null;
+        };
+        TlsStatus: {
+            /** @enum {string} */
+            mode: "acme" | "self-signed" | "files" | "off";
+            /** @enum {string} */
+            state: "ok" | "pending" | "error" | "off";
+            host?: string | null;
+            issuer?: string | null;
+            /** Format: date-time */
+            not_after?: string | null;
+            error?: string | null;
+        };
+        GeneralSettings: {
+            db_host: string;
+            session_port: number;
+            pooled_port: number;
+            sslmode: string;
+            tls: components["schemas"]["TlsStatus"];
+        };
+        UpdateProjectRequest: {
+            name?: string;
+            description?: string | null;
+            settings?: components["schemas"]["ProjectSettingsPatch"];
+        };
+        ProjectSettingsPatch: {
+            connection_limit?: number;
+            pool_size?: number;
+            /** @description Postgres duration such as `60s`; empty to unset. */
+            statement_timeout?: string;
+            idle_in_transaction_session_timeout?: string;
+            /** Format: int64 */
+            disk_warn_bytes?: number;
+            console_read_only?: boolean;
+        };
+        ProjectUpdated: {
+            project: components["schemas"]["Project"];
+            operation?: components["schemas"]["Operation"];
         };
     };
     responses: {
@@ -583,11 +845,13 @@ export interface operations {
         };
         responses: {
             /** @description Logged in; the session cookie is set. */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SessionState"];
+                };
             };
             default: components["responses"]["Error"];
         };
@@ -650,6 +914,176 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operator"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionState"];
+                };
+            };
+        };
+    };
+    beginSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupBeginRequest"];
+            };
+        };
+        responses: {
+            /** @description TOTP enrolment details. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupEnrollment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    completeSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Owner created and signed in. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAudit: {
+        parameters: {
+            query?: {
+                /** @description Action prefix, e.g. `project.` or `auth.login`. */
+                action?: string;
+                outcome?: "success" | "failure" | "denied";
+                target_id?: string;
+                /** @description Return entries with an id below this (pagination). */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getGeneralSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putDbHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DbHostRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    checkDbHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DbHostRequest"];
+            };
+        };
+        responses: {
+            /** @description DNS check result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsCheck"];
                 };
             };
             default: components["responses"]["Error"];
@@ -844,6 +1278,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated project. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectUpdated"];
                 };
             };
             default: components["responses"]["Error"];

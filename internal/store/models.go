@@ -26,6 +26,16 @@ type AuditLog struct {
 	CreatedAt  time.Time
 }
 
+type AuthChallenge struct {
+	ID         string
+	Kind       string
+	OperatorID *uuid.UUID
+	Payload    []byte
+	Attempts   int32
+	ExpiresAt  time.Time
+	CreatedAt  time.Time
+}
+
 type Backup struct {
 	ID         uuid.UUID
 	ProjectID  uuid.UUID
@@ -103,6 +113,9 @@ type Operator struct {
 	Role         string
 	CreatedAt    time.Time
 	DisabledAt   *time.Time
+	FailedLogins int32
+	LockedUntil  *time.Time
+	TotpLastStep int64
 }
 
 type Project struct {

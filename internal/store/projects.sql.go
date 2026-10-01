@@ -262,3 +262,45 @@ func (q *Queries) SoftDeleteProject(ctx context.Context, arg SoftDeleteProjectPa
 	_, err := q.db.Exec(ctx, softDeleteProject, arg.Status, arg.ID)
 	return err
 }
+
+const updateProjectMeta = `-- name: UpdateProjectMeta :one
+UPDATE projects SET name = $1, description = $2, settings = $3
+WHERE id = $4
+RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at
+`
+
+type UpdateProjectMetaParams struct {
+	Name        string
+	Description *string
+	Settings    json.RawMessage
+	ID          uuid.UUID
+}
+
+func (q *Queries) UpdateProjectMeta(ctx context.Context, arg UpdateProjectMetaParams) (Project, error) {
+	row := q.db.QueryRow(ctx, updateProjectMeta,
+		arg.Name,
+		arg.Description,
+		arg.Settings,
+		arg.ID,
+	)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.DbName,
+		&i.OwnerRole,
+		&i.ScramVerifier,
+		&i.Tier,
+		&i.InstanceID,
+		&i.Status,
+		&i.Settings,
+		&i.StorageTargetID,
+		&i.Extensions,
+		&i.Description,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}

@@ -111,7 +111,7 @@ func (s *Server) CreateDevOperation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	op, err := jobs.Enqueue(r.Context(), s.db, jobs.EnqueueParams{Kind: jobs.KindNoop, Params: params})
+	op, err := jobs.Enqueue(r.Context(), s.db, jobs.EnqueueParams{Kind: jobs.KindNoop, Params: params, CreatedBy: operatorID(r.Context())})
 	if err != nil {
 		s.internalError(w, "enqueue operation", err)
 		return

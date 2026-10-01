@@ -36,3 +36,8 @@ JOIN nodes n ON n.id = i.node_id
 WHERE p.deleted_at IS NULL
   AND p.status IN ('provisioning', 'active', 'promoting', 'restoring')
 ORDER BY p.db_name;
+
+-- name: UpdateProjectMeta :one
+UPDATE projects SET name = @name, description = sqlc.narg(description), settings = @settings
+WHERE id = @id
+RETURNING *;

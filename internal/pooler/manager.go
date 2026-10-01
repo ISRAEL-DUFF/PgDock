@@ -108,6 +108,11 @@ func (m *Manager) Kill(ctx context.Context, db string) error {
 	return m.each(ctx, func(a *Admin) error { return a.Kill(ctx, db) })
 }
 
+// Reconnect recycles db's server connections on every pooler.
+func (m *Manager) Reconnect(ctx context.Context, db string) error {
+	return m.each(ctx, func(a *Admin) error { return a.Reconnect(ctx, db) })
+}
+
 // Pause pauses db on every pooler.
 func (m *Manager) Pause(ctx context.Context, db string) error {
 	return m.each(ctx, func(a *Admin) error { return a.Pause(ctx, db) })
