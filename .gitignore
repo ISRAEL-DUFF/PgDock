@@ -1,0 +1,9 @@
+.DS_Store
+/bin/
+/tmp/
+
+# Web UI: build output is generated; only the placeholder is committed.
+/web/node_modules/
+/web/dist/*
+!/web/dist/placeholder.html
+/web/*.tsbuildinfo

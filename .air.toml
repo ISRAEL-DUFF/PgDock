@@ -1,0 +1,14 @@
+# Live reload for `make dev`. The Vite dev server serves the UI and proxies
+# /api to this process.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/pgdock-server ./cmd/server"
+entrypoint = ["./tmp/pgdock-server"]
+include_ext = ["go", "yaml"]
+exclude_dir = ["web/node_modules", "web/src", "tmp", "bin", "test"]
+delay = 500
+
+[log]
+time = false
