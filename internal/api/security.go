@@ -182,6 +182,7 @@ var auditActions = map[string]string{
 	"POST /api/v1/nodes/{id}/shared-cluster":     "node.shared_cluster",
 	"POST /api/v1/projects/{id}/pitr":            "backup.pitr",
 	"POST /api/v1/projects/{id}/instance":        "project.instance",
+	"POST /api/v1/projects/{id}/promote":         "project.promote",
 }
 
 func outcomeFor(status int) string {

@@ -111,6 +111,8 @@ export const api = {
   project: (id: string) => getJSON<Project>(`/api/v1/projects/${id}`),
   createProject: (b: CreateProjectRequest) => request<ProjectCredentials>("POST", "/api/v1/projects", b),
   profiles: () => getJSON<ProfileList>("/api/v1/profiles"),
+  promotionEstimate: (id: string) => getJSON<S["PromotionEstimate"]>(`/api/v1/projects/${id}/promote`),
+  promote: (id: string, b: S["PromoteRequest"]) => request<Operation>("POST", `/api/v1/projects/${id}/promote`, b),
   pitr: (id: string, b: S["PitrRequest"]) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/pitr`, b),
   instanceAction: (id: string, action: "start" | "stop" | "restart") =>
     request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, { action }),

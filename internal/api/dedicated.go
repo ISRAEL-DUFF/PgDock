@@ -12,6 +12,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -237,4 +238,55 @@ func (s *Server) UpdateNode(w http.ResponseWriter, r *http.Request, id gen.NodeI
 		return
 	}
 	writeJSON(w, http.StatusOK, s.toAPINode(n))
+}
+
+// GetPromotionEstimate implements GET /api/v1/projects/{id}/promote.
+func (s *Server) GetPromotionEstimate(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	p, err := s.projects.Get(r.Context(), id)
+	if err != nil {
+		s.provisionError(w, "promotion estimate", err)
+		return
+	}
+	if p.Tier != provision.TierShared {
+		writeError(w, http.StatusBadRequest, "bad_request", "only shared projects can be promoted")
+		return
+	}
+	est, err := ds.EstimatePromotion(r.Context(), p)
+	if err != nil {
+		s.internalError(w, "promotion estimate", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, gen.PromotionEstimate{SizeBytes: est.SizeBytes, EstimatedDowntimeSeconds: int(est.Downtime.Seconds())})
+}
+
+// PromoteProject implements POST /api/v1/projects/{id}/promote.
+func (s *Server) PromoteProject(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	var req gen.PromoteRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	pp := dedicated.PromoteParams{ProjectID: id, NodeID: req.NodeId, CreatedBy: operatorID(r.Context())}
+	if req.Profile != nil {
+		pp.Profile = *req.Profile
+		a.set("profile", pp.Profile)
+	}
+	if req.VolumeGb != nil {
+		pp.VolumeGB = *req.VolumeGb
+	}
+	op, err := ds.Promote(r.Context(), pp)
+	if err != nil {
+		s.provisionError(w, "promote", err)
+		return
+	}
+	s.writeOperation(w, "promote", op)
 }

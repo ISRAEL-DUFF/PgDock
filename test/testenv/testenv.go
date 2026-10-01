@@ -58,19 +58,20 @@ import (
 
 // Env is a running control plane.
 type Env struct {
-	t        testing.TB
-	URL      string // base URL of the HTTP API
-	client   *http.Client
-	csrf     string
-	clock    *Clock
-	totp     string // the owner's TOTP secret
-	DB       *pgxpool.Pool
-	Keyring  *crypto.Keyring
-	Pooler   *pooler.Manager
-	Service  *provision.Service
-	Notifier *jobs.Notifier
-	Backups  *backup.Service
-	Nodes    *nodes.Service
+	t         testing.TB
+	URL       string // base URL of the HTTP API
+	client    *http.Client
+	csrf      string
+	clock     *Clock
+	totp      string // the owner's TOTP secret
+	DB        *pgxpool.Pool
+	Keyring   *crypto.Keyring
+	Pooler    *pooler.Manager
+	Service   *provision.Service
+	Notifier  *jobs.Notifier
+	Backups   *backup.Service
+	Nodes     *nodes.Service
+	Dedicated *dedicated.Service
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
@@ -90,6 +91,8 @@ type Options struct {
 	SmokePooledAddr string
 	// MaxAttempts overrides the create operation's attempt limit.
 	MaxAttempts int
+	// AfterFreeze is passed to the dedicated service (promotion tests).
+	AfterFreeze func(ctx context.Context) error
 }
 
 func need(t testing.TB, name string) string {
@@ -185,7 +188,7 @@ func Start(t testing.TB, opts Options) *Env {
 	backups := backup.NewService(db, keyring, nodeSvc, svc, bcfg, log)
 	// The test server runs on the host: it reaches instances through the
 	// ports agents publish on 127.0.0.1.
-	ded := dedicated.New(db, keyring, nodeSvc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute}, log)
+	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze}, log)
 	svc.Instances = ded
 	backups.Dedicated = ded
 
@@ -231,7 +234,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	e := &Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock,
-		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc,
+		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
 		admin: adminCreds{"pgdock", adminPW}, log: log,
 	}

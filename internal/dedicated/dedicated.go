@@ -47,20 +47,25 @@ type Config struct {
 	RetainFull int
 	// ReadyTimeout bounds waiting for a restored instance to promote.
 	ReadyTimeout time.Duration
+	// AfterFreeze, if set, runs during a promotion right after writes are
+	// frozen; an error fails the promotion there (tests use it to exercise
+	// the rollback).
+	AfterFreeze func(ctx context.Context) error
 }
 
 // Service manages dedicated instances.
 type Service struct {
-	db      *pgxpool.Pool
-	keyring *crypto.Keyring
-	nodes   *nodes.Service
-	secrets Secrets
-	cfg     Config
-	log     *slog.Logger
+	db       *pgxpool.Pool
+	keyring  *crypto.Keyring
+	nodes    *nodes.Service
+	projects *provision.Service
+	secrets  Secrets
+	cfg      Config
+	log      *slog.Logger
 }
 
 // New returns a Service.
-func New(db *pgxpool.Pool, keyring *crypto.Keyring, ns *nodes.Service, secrets Secrets, cfg Config, log *slog.Logger) *Service {
+func New(db *pgxpool.Pool, keyring *crypto.Keyring, ns *nodes.Service, ps *provision.Service, secrets Secrets, cfg Config, log *slog.Logger) *Service {
 	if cfg.AdminVia == "" {
 		cfg.AdminVia = "network"
 	}
@@ -70,7 +75,7 @@ func New(db *pgxpool.Pool, keyring *crypto.Keyring, ns *nodes.Service, secrets S
 	if cfg.ReadyTimeout <= 0 {
 		cfg.ReadyTimeout = 15 * time.Minute
 	}
-	return &Service{db: db, keyring: keyring, nodes: ns, secrets: secrets, cfg: cfg, log: log}
+	return &Service{db: db, keyring: keyring, nodes: ns, projects: ps, secrets: secrets, cfg: cfg, log: log}
 }
 
 var _ provision.InstanceManager = (*Service)(nil)
@@ -541,11 +546,16 @@ func human(n int64) string {
 // Destroy implements provision.InstanceManager: container, volume, and the
 // WAL-G archive go. (The final logical backup is taken before this.)
 func (s *Service) Destroy(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
-	q := store.New(s.db)
-	inst, err := q.GetInstance(ctx, p.InstanceID)
+	inst, err := store.New(s.db).GetInstance(ctx, p.InstanceID)
 	if err != nil {
 		return err
 	}
+	return s.destroyInstance(ctx, inst, log)
+}
+
+// destroyInstance removes an instance's container, volume, and archive.
+func (s *Service) destroyInstance(ctx context.Context, inst store.Instance, log *jobs.StepLogger) error {
+	q := store.New(s.db)
 	if inst.Status == "deleted" {
 		return nil
 	}

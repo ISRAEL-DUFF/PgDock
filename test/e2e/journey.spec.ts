@@ -530,4 +530,80 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("instance-row").filter({ hasText: "dedicated" })).toHaveCount(2);
     await shot(page, "22-node");
   });
+  // The M5 "done when" (spec §14): a hobby project is promoted with its URL
+  // unchanged and no lost commits, while an app keeps writing.
+  test("promote a hobby project with a live writer: same URL, no lost commits", async ({ page }) => {
+    test.skip(!s3Endpoint, "needs the e2e bundle (Docker for instances, fake S3 for WAL-G)");
+    await signedIn(page);
+
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Hobby promo");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const pooledURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    const seed = await connect(pooledURL);
+    await seed.query("CREATE TABLE events (id bigserial PRIMARY KEY, n int UNIQUE NOT NULL)");
+    await seed.query("CREATE TABLE notes AS SELECT g AS id, 'note ' || g AS body FROM generate_series(1, 5000) g");
+    await seed.end();
+
+    // A live writer on the pooled URL, as an app would be.
+    const acked: number[] = [];
+    const errors: string[] = [];
+    let stop = false;
+    const writer = (async () => {
+      let c: pg.Client | null = null;
+      for (let n = 1; !stop; n++) {
+        try {
+          c ??= await connect(pooledURL);
+          await c.query("INSERT INTO events (n) VALUES ($1)", [n]);
+          acked.push(n);
+        } catch (e) {
+          errors.push(String(e));
+          await c?.end().catch(() => {});
+          c = null;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      await c?.end().catch(() => {});
+    })();
+    await expect.poll(() => acked.length).toBeGreaterThan(20);
+
+    // The wizard: target, size, the estimate, then live progress.
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("button", { name: "Promote…" }).click();
+    await expect(page.getByText(/Estimated write freeze: about \d+ s/)).toBeVisible();
+    await expect(page.getByTestId("promote-estimate")).toContainText("The database is");
+    await page.getByLabel("Volume size (GB)").fill("5");
+    await shot(page, "23-promote-wizard");
+    await page.getByRole("button", { name: "Promote now" }).click();
+    await expect(page.getByTestId("promote-done")).toBeVisible({ timeout: 240_000 });
+    await expect(page.getByTestId("operation-log")).toContainText("verified:");
+    await expect(page.getByTestId("operation-log")).toContainText("writes were frozen for");
+    await shot(page, "24-promoted");
+
+    // The writer keeps going on the new instance, then stops.
+    const after = acked.length;
+    await expect.poll(() => acked.length, { timeout: 30_000 }).toBeGreaterThan(after + 20);
+    stop = true;
+    await writer;
+
+    // Same URL, now on the dedicated instance, with every acknowledged commit.
+    const c = await connect(pooledURL);
+    const archive = (await c.query("SELECT current_setting('archive_mode') AS a")).rows[0].a;
+    expect(archive).toBe("on");
+    const have = new Set((await c.query("SELECT n FROM events")).rows.map((r: { n: number }) => r.n));
+    expect(acked.filter((n) => !have.has(n))).toEqual([]);
+    expect(Number((await c.query("SELECT count(*) AS n FROM notes")).rows[0].n)).toBe(5000);
+    await c.end();
+    expect(errors).toEqual([]); // the pooled URL waited out the freeze
+
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
+    await expect(page.getByText("Promoted to the dedicated tier")).toBeVisible();
+    await expect(page.getByTestId("instance-card")).toBeVisible();
+    await shot(page, "25-promoted-overview");
+  });
 });

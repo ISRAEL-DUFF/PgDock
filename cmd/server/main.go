@@ -434,7 +434,7 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 		bc.MetadataPG = pg
 	}
 	bs := backup.NewService(pool, keyring, ns, projects, bc, log)
-	ds := dedicated.New(pool, keyring, ns, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
+	ds := dedicated.New(pool, keyring, ns, projects, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
 	projects.Instances = ds
 	bs.Dedicated = ds
 	return bs, ns, nil

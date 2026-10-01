@@ -835,11 +835,14 @@ type Project struct {
 	OwnerRole    string     `json:"owner_role"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
-	PitrWindow *PitrWindow     `json:"pitr_window,omitempty"`
-	Settings   ProjectSettings `json:"settings"`
-	Slug       string          `json:"slug"`
-	Status     ProjectStatus   `json:"status"`
-	Tier       ProjectTier     `json:"tier"`
+	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
+
+	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped.
+	RetiredCopyUntil *time.Time      `json:"retired_copy_until,omitempty"`
+	Settings         ProjectSettings `json:"settings"`
+	Slug             string          `json:"slug"`
+	Status           ProjectStatus   `json:"status"`
+	Tier             ProjectTier     `json:"tier"`
 }
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
@@ -887,6 +890,20 @@ type ProjectTier string
 type ProjectUpdated struct {
 	Operation *Operation `json:"operation,omitempty"`
 	Project   Project    `json:"project"`
+}
+
+// PromoteRequest defines model for PromoteRequest.
+type PromoteRequest struct {
+	NodeId   *openapi_types.UUID `json:"node_id,omitempty"`
+	Profile  *string             `json:"profile,omitempty"`
+	VolumeGb *int                `json:"volume_gb,omitempty"`
+}
+
+// PromotionEstimate defines model for PromotionEstimate.
+type PromotionEstimate struct {
+	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
+	EstimatedDowntimeSeconds int   `json:"estimated_downtime_seconds"`
+	SizeBytes                int64 `json:"size_bytes"`
 }
 
 // ReauthRequest defines model for ReauthRequest.
@@ -1153,6 +1170,9 @@ type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
 // RestoreProjectPITRJSONRequestBody defines body for RestoreProjectPITR for application/json ContentType.
 type RestoreProjectPITRJSONRequestBody = PitrRequest
 
+// PromoteProjectJSONRequestBody defines body for PromoteProject for application/json ContentType.
+type PromoteProjectJSONRequestBody = PromoteRequest
+
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
@@ -1272,6 +1292,12 @@ type ServerInterface interface {
 	// RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
 	// (POST /api/v1/projects/{id}/pitr)
 	RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetPromotionEstimate Size and estimated write freeze of promoting this shared project
+	// (GET /api/v1/projects/{id}/promote)
+	GetPromotionEstimate(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// PromoteProject Promote a shared project to a dedicated instance
+	// (POST /api/v1/projects/{id}/promote)
+	PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -1518,6 +1544,18 @@ func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Requ
 // RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
 // (POST /api/v1/projects/{id}/pitr)
 func (_ Unimplemented) RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPromotionEstimate Size and estimated write freeze of promoting this shared project
+// (GET /api/v1/projects/{id}/promote)
+func (_ Unimplemented) GetPromotionEstimate(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PromoteProject Promote a shared project to a dedicated instance
+// (POST /api/v1/projects/{id}/promote)
+func (_ Unimplemented) PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2469,6 +2507,58 @@ func (siw *ServerInterfaceWrapper) RestoreProjectPITR(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetPromotionEstimate operation middleware
+func (siw *ServerInterfaceWrapper) GetPromotionEstimate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPromotionEstimate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PromoteProject operation middleware
+func (siw *ServerInterfaceWrapper) PromoteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PromoteProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RotateProjectPassword operation middleware
 func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, r *http.Request) {
 
@@ -3016,6 +3106,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/pitr", wrapper.RestoreProjectPITR)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.GetPromotionEstimate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.PromoteProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.ProjectInstanceAction)

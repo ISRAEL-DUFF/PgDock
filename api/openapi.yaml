@@ -860,6 +860,50 @@ paths:
                 $ref: "#/components/schemas/ProjectCredentials"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/promote:
+    get:
+      operationId: getPromotionEstimate
+      summary: Size and estimated write freeze of promoting this shared project
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The estimate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromotionEstimate"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: promoteProject
+      summary: Promote a shared project to a dedicated instance
+      description: |
+        Queues a `promote` operation (spec §6.6): a dedicated instance with
+        the same role and password, a short write freeze while the data is
+        copied and verified, then the pooler route moves. Connection strings
+        do not change. If anything fails before the route moves, the project
+        stays on the shared tier untouched. The shared copy is kept
+        read-only for 48 hours, then dropped.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromoteRequest"
+      responses:
+        "202":
+          description: Promotion queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/instance:
     post:
       operationId: projectInstanceAction
@@ -1293,6 +1337,11 @@ components:
           $ref: "#/components/schemas/InstanceSummary"
         pitr_window:
           $ref: "#/components/schemas/PitrWindow"
+        retired_copy_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: After a promotion, when the read-only shared copy is dropped.
     ProjectSettings:
       type: object
       required: [connection_limit, pool_size, statement_timeout, idle_in_transaction_session_timeout, disk_warn_bytes, console_read_only]
@@ -2123,3 +2172,25 @@ components:
         role:
           type: string
           enum: [shared, dedicated, both]
+    PromotionEstimate:
+      type: object
+      required: [size_bytes, estimated_downtime_seconds]
+      properties:
+        size_bytes:
+          type: integer
+          format: int64
+        estimated_downtime_seconds:
+          type: integer
+          description: Roughly dump + restore time, while writes wait.
+    PromoteRequest:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        profile:
+          type: string
+        volume_gb:
+          type: integer
+          minimum: 1
+          maximum: 16384

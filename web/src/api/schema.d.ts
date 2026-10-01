@@ -721,6 +721,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Size and estimated write freeze of promoting this shared project */
+        get: operations["getPromotionEstimate"];
+        put?: never;
+        /**
+         * Promote a shared project to a dedicated instance
+         * @description Queues a `promote` operation (spec §6.6): a dedicated instance with
+         *     the same role and password, a short write freeze while the data is
+         *     copied and verified, then the pooler route moves. Connection strings
+         *     do not change. If anything fails before the route moves, the project
+         *     stays on the shared tier untouched. The shared copy is kept
+         *     read-only for 48 hours, then dropped.
+         */
+        post: operations["promoteProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/instance": {
         parameters: {
             query?: never;
@@ -983,6 +1009,11 @@ export interface components {
             last_backup_at?: string | null;
             instance?: components["schemas"]["InstanceSummary"];
             pitr_window?: components["schemas"]["PitrWindow"];
+            /**
+             * Format: date-time
+             * @description After a promotion, when the read-only shared copy is dropped.
+             */
+            retired_copy_until?: string | null;
         };
         ProjectSettings: {
             connection_limit: number;
@@ -1403,6 +1434,18 @@ export interface components {
         UpdateNodeRequest: {
             /** @enum {string} */
             role: "shared" | "dedicated" | "both";
+        };
+        PromotionEstimate: {
+            /** Format: int64 */
+            size_bytes: number;
+            /** @description Roughly dump + restore time, while writes wait. */
+            estimated_downtime_seconds: number;
+        };
+        PromoteRequest: {
+            /** Format: uuid */
+            node_id?: string;
+            profile?: string;
+            volume_gb?: number;
         };
     };
     responses: {
@@ -2421,6 +2464,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPromotionEstimate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The estimate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionEstimate"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    promoteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Promotion queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

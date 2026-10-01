@@ -78,12 +78,13 @@ jobs:
         if: failure()
         run: docker compose -f deploy/dev/compose.yaml --profile test logs --no-color --tail 200
 
-  # The M2, M3, and M4 done-whens: install the compose bundle from scratch and go
+  # The M2–M5 done-whens: install the compose bundle from scratch and go
   # from a fresh install to a working database entirely through the browser
   # (Pebble standing in for Let's Encrypt), then back up, delete data,
   # restore and verify, import a Supabase-shaped project and serve its app
   # (a fake S3 and the supabase/postgres image in the bundle), and run a
-  # dedicated project with point-in-time recovery.
+  # dedicated project with point-in-time recovery, and promote a hobby
+  # project under a live writer with its URL unchanged and no lost commits.
   e2e:
     runs-on: ubuntu-latest
     steps:

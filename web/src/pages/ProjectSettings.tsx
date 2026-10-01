@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type Project, type ProjectCredentials } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { CredentialPanel } from "../components/Credentials";
+import { PromoteCard } from "../components/PromoteCard";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Button, Card, Field, Input } from "../components/ui";
 import { formatBytes, parseBytes } from "../lib/format";
@@ -18,6 +19,7 @@ export function ProjectSettingsPage() {
       <GeneralCard p={p} />
       <GuardrailsCard p={p} />
       <RotateCard p={p} />
+      <PromoteCard p={p} />
       <DangerCard p={p} />
     </div>
   );

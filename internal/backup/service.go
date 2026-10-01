@@ -354,6 +354,11 @@ func (s *Service) Run(ctx context.Context) {
 		}
 		if time.Since(lastExpiry) > time.Hour {
 			s.expireSpecial(ctx)
+			if s.Dedicated != nil {
+				if err := s.Dedicated.DropRetired(ctx); err != nil && ctx.Err() == nil {
+					s.log.Warn("drop retired shared copies", "err", err)
+				}
+			}
 			lastExpiry = time.Now()
 		}
 		select {

@@ -34,6 +34,7 @@ const (
 	StatusActive       = "active"
 	StatusDeleting     = "deleting"
 	StatusRestoring    = "restoring"
+	StatusPromoting    = "promoting"
 	StatusDeleted      = "deleted"
 	StatusError        = "error"
 )
@@ -428,6 +429,27 @@ func (s *Service) Delete(ctx context.Context, projectID uuid.UUID, confirmName s
 		op, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindDelete, ProjectID: &p.ID, CreatedBy: by,
 			Params: map[string]any{"skip_final_backup": skipFinalBackup}})
 		out = op
+		return err
+	})
+	return out, err
+}
+
+// EnqueueExclusiveTx is EnqueueExclusive with params built by f inside the
+// transaction (which can also insert rows and refuse).
+func (s *Service) EnqueueExclusiveTx(ctx context.Context, projectID uuid.UUID, allowed []string, status, kind string, by *uuid.UUID,
+	f func(pgx.Tx, store.Project) (any, error)) (store.Operation, error) {
+	var out store.Operation
+	err := s.withIdleProject(ctx, projectID, allowed, func(tx pgx.Tx, p store.Project) error {
+		params, err := f(tx, p)
+		if err != nil {
+			return err
+		}
+		if status != "" {
+			if err := store.New(tx).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: status}); err != nil {
+				return err
+			}
+		}
+		out, err = jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: kind, ProjectID: &p.ID, CreatedBy: by, Params: params})
 		return err
 	})
 	return out, err

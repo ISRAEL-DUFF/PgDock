@@ -44,10 +44,10 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | `make generate` | Regenerates Go server interfaces and TypeScript types from `api/openapi.yaml`. |
 | `make test` | Go unit tests, frontend type-check and unit tests. Postgres-backed tests skip unless `PGDOCK_TEST_DATABASE_URL` is set. |
 | `make test-db` | Go tests including the Postgres-backed ones, against the dev environment. |
-| `make test-integration` | Provisioning, backups, restores, imports, dedicated instances with point-in-time recovery, and multi-node placement end to end, plus the tenant-isolation suite, against real Postgres 18 and PgBouncer (agents run in containers and create instances through the host's Docker; S3 is faked; import sources are `supabase/postgres` and Postgres 15). |
+| `make test-integration` | Provisioning, backups, restores, imports, dedicated instances with point-in-time recovery, promotion with live writers (and its rollback), and multi-node placement end to end, plus the tenant-isolation suite, against real Postgres 18 and PgBouncer (agents run in containers and create instances through the host's Docker; S3 is faked; import sources are `supabase/postgres` and Postgres 15). |
 | `make pg-image` | Builds `pgdock-postgres:18-walg3.0.9`, the image dedicated instances run. |
 | `make test-acme` | Obtains a real certificate over HTTP-01 from Pebble (Let's Encrypt's test CA). |
-| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, imports a Supabase-shaped project and serves its app, and creates a dedicated project and restores it to a point in time (Playwright). |
+| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, imports a Supabase-shaped project and serves its app, creates a dedicated project and restores it to a point in time, and promotes a hobby project while a writer runs, checking the URL is unchanged and no commits are lost (Playwright). |
 | `make run-dev` | Runs the built `bin/pgdock-server` against the dev environment (`deploy/dev/server.env`). |
 | `make lint` | `golangci-lint`. |
 | `make release-check` | Fails if the server binary embeds only the placeholder UI. |
@@ -145,6 +145,19 @@ Nodes are added on the Nodes page: PGDock records the node and prints the
 both node can run an extra shared cluster (Node → Create shared cluster),
 and new shared projects go to the least loaded one. The install bundle's
 agent manages instances on the local Docker host.
+
+### Promotion
+
+A shared project can be **promoted** to the dedicated tier (Settings →
+Promote to dedicated, or `POST /projects/{id}/promote`; spec §6.6). The
+wizard shows the database size and the expected write freeze. PGDock creates
+the dedicated instance with the same role and password, then freezes writes
+(transaction-mode clients wait in the pooler; session-mode clients are
+disconnected once and reconnect), copies the data, checks every table's row
+count and sequence, and moves the pooler route. The connection strings do
+not change. The shared copy stays read-only for 48 hours and is then
+dropped. If anything fails before the switch, the project stays on the
+shared tier, writable, and the new instance is removed.
 
 ## Import from an existing database
 
