@@ -17,6 +17,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -41,6 +42,10 @@ type Server struct {
 	tls       func() gen.TlsStatus
 	backups   *backup.Service
 	nodes     *nodes.Service
+	console   *console.Service
+
+	metricsInterval time.Duration
+	metricsToken    string
 }
 
 // DB is the metadata database: queries plus a health check.
@@ -82,6 +87,12 @@ type Options struct {
 	// disables those endpoints.
 	Backups *backup.Service
 	Nodes   *nodes.Service
+	// Console runs the SQL console, table browser, and extensions; nil
+	// disables them. MetricsInterval is the sampling interval (for
+	// /metrics freshness); MetricsToken lets scrapers read /metrics.
+	Console         *console.Service
+	MetricsInterval time.Duration
+	MetricsToken    string
 }
 
 // NewHandler returns the root HTTP handler: the API under /api, health
@@ -93,7 +104,8 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console,
+		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 	}
 	if opts.DB != nil && opts.Notifier != nil {
 		streamCtx := opts.StreamCtx

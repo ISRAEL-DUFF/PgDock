@@ -107,24 +107,33 @@ func (s *Service) instanceTarget(ctx context.Context, instanceID uuid.UUID) (tar
 // connectInstance opens an admin connection to database on an instance,
 // using the control-plane address (admin_host/admin_port when set).
 func (s *Service) connectInstance(ctx context.Context, instanceID uuid.UUID, database string) (*pgx.Conn, error) {
-	t, err := s.instanceTarget(ctx, instanceID)
+	cfg, node, err := s.adminConfig(ctx, instanceID, database)
 	if err != nil {
 		return nil, err
 	}
-	secret := t.Secret
+	conn, err := pgx.ConnectConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("connect to %s on node %s: %w", database, node, err)
+	}
+	return conn, nil
+}
+
+// adminConfig is the superuser connection config for database on an
+// instance, at the control-plane address, and the instance's node name.
+func (s *Service) adminConfig(ctx context.Context, instanceID uuid.UUID, database string) (*pgx.ConnConfig, string, error) {
+	t, err := s.instanceTarget(ctx, instanceID)
+	if err != nil {
+		return nil, "", err
+	}
 	host, port := t.adminAddr()
 	cfg, err := pgx.ParseConfig(fmt.Sprintf("host=%s port=%d sslmode=%s", host, port, s.cfg.AdminSSLMode))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	cfg.User, cfg.Password, cfg.Database = secret.User, secret.Password, database
+	cfg.User, cfg.Password, cfg.Database = t.Secret.User, t.Secret.Password, database
 	cfg.RuntimeParams["application_name"] = "pgdock-server"
 	cfg.ConnectTimeout = 10 * time.Second
-	conn, err := pgx.ConnectConfig(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("connect to %s on node %s: %w", database, t.NodeName, err)
-	}
-	return conn, nil
+	return cfg, t.NodeName, nil
 }
 
 // ident quotes a Postgres identifier.

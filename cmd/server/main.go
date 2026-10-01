@@ -30,10 +30,12 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/config"
+	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
+	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -160,6 +162,17 @@ func run() error {
 		go func() { defer bg.Done(); backups.Run(bgCtx) }()
 	}
 
+	var consoleSvc *console.Service
+	if projects != nil {
+		consoleSvc = console.New(pool, projects, keyring, cfg.Insight.ConsoleDisabled, log)
+		collector := metrics.NewCollector(pool, projects, pm, nodeSvc, cfg.Insight.MetricsInterval, log)
+		bg.Add(1)
+		go func() { defer bg.Done(); collector.Run(bgCtx) }()
+	}
+	if cfg.Insight.ConsoleDisabled {
+		log.Warn("SQL console disabled (PGDOCK_CONSOLE_DISABLED)")
+	}
+
 	var certs *tlscert.Manager
 	if pm != nil {
 		if certs, err = setupPoolerTLS(cfg, pm, settingsStore, log); err != nil {
@@ -205,6 +218,10 @@ func run() error {
 		TLS:       tlsStatus,
 		Backups:   backups,
 		Nodes:     nodeSvc,
+
+		Console:         consoleSvc,
+		MetricsInterval: cfg.Insight.MetricsInterval,
+		MetricsToken:    cfg.Insight.MetricsToken,
 	})
 	if certs != nil {
 		handler = certs.HTTPChallengeHandler(handler)
@@ -434,7 +451,7 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 		bc.MetadataPG = pg
 	}
 	bs := backup.NewService(pool, keyring, ns, projects, bc, log)
-	ds := dedicated.New(pool, keyring, ns, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
+	ds := dedicated.New(pool, keyring, ns, projects, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
 	projects.Instances = ds
 	bs.Dedicated = ds
 	return bs, ns, nil

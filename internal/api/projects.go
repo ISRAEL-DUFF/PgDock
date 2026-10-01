@@ -111,6 +111,9 @@ func (s *Server) GetProject(w http.ResponseWriter, r *http.Request, id gen.Proje
 	if i, ok := s.instanceSummaries(r.Context())[p.InstanceID]; ok {
 		gp.Instance = &i
 	}
+	if rc, err := store.New(s.db).LiveRetiredForProject(r.Context(), p.ID); err == nil {
+		gp.RetiredCopyUntil = &rc.DropAfter
+	}
 	if s.backups != nil && s.backups.Dedicated != nil && p.Tier == provision.TierDedicated {
 		if w, ok, err := s.backups.Dedicated.PITRWindow(r.Context(), p); err == nil && ok {
 			gp.PitrWindow = &gen.PitrWindow{From: w.From, To: w.To}

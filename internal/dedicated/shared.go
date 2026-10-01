@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -24,6 +25,7 @@ const KindSharedCluster = "shared_cluster"
 func (s *Service) Kinds() map[string]jobs.Kind {
 	return map[string]jobs.Kind{
 		KindSharedCluster: {Handler: s.runSharedCluster, OnFail: s.failSharedCluster, MaxAttempts: 3},
+		KindPromote:       {Handler: s.runPromote, OnFail: s.failPromote, MaxAttempts: 2, Timeout: 12 * time.Hour},
 	}
 }
 

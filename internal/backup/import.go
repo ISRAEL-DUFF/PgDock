@@ -19,10 +19,7 @@ import (
 )
 
 // SharedExtensions is the shared tier's extension allow-list (spec §7.4).
-var SharedExtensions = []string{
-	"pgcrypto", "uuid-ossp", "citext", "pg_trgm", "hstore", "unaccent",
-	"btree_gin", "btree_gist", "pg_stat_statements", "vector",
-}
+var SharedExtensions = provision.SharedExtensions
 
 // SupabaseManagedSchemas are skipped by default when importing from
 // Supabase (spec §6.8 step 1).

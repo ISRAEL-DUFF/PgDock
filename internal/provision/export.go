@@ -84,6 +84,13 @@ func (s *Service) AdminConn(ctx context.Context, instanceID uuid.UUID, database 
 	return s.connectInstance(ctx, instanceID, database)
 }
 
+// AdminConfig is the admin connection config for database on an instance,
+// for callers that connect as another role at the same address.
+func (s *Service) AdminConfig(ctx context.Context, instanceID uuid.UUID, database string) (*pgx.ConnConfig, error) {
+	cfg, _, err := s.adminConfig(ctx, instanceID, database)
+	return cfg, err
+}
+
 // AgentConn is the admin connection to database as the instance's node
 // agent reaches it (the node-local address the poolers use).
 func (s *Service) AgentConn(ctx context.Context, instanceID uuid.UUID, database string) (agentapi.PGConn, error) {
