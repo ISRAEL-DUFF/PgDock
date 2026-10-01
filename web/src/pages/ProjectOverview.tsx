@@ -63,7 +63,7 @@ export function ProjectOverviewPage() {
   if (!p) return null;
   const s = p.settings;
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card title="Details">
         <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
           <dt className="text-muted">Tier</dt>

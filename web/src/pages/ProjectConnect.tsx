@@ -46,7 +46,7 @@ datasource db {
   return (
     <div className="flex flex-col gap-4">
       <Card title="Connection details">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <CopyField label="Host" value={c.host} />
           <CopyField label="Database" value={c.database} />
           <CopyField label="User" value={c.user} />

@@ -59,7 +59,7 @@ export function NewProjectPage() {
   return (
     <>
       <PageHeader title={creds.project.name} subtitle={<span className="font-mono">{creds.project.db_name}</span>} />
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Credentials">
           {!dismissed ? (
             <CredentialPanel creds={creds} ready={ready} onDismiss={() => setDismissed(true)} />

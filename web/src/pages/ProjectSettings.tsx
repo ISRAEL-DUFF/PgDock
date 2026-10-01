@@ -118,7 +118,7 @@ function GuardrailsCard({ p }: { p: Project }) {
 
   return (
     <Card title="Guardrails">
-      <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
+      <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={submit}>
         <Field label="Max backend connections">
           {(id) => <Input id={id} type="number" min={1} max={1000} value={form.connection_limit} onChange={set("connection_limit")} />}
         </Field>

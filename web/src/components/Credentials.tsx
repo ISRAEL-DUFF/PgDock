@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ProjectCredentials } from "../api/client";
+import { downloadTextFile, envFileContents } from "../lib/envFile";
 import { Alert, Button, CopyField } from "./ui";
 
 /** The one-time credential panel (spec §8.4): shown once, then gone. */
@@ -19,7 +20,10 @@ export function CredentialPanel({ creds, onDismiss, ready }: { creds: ProjectCre
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
         I've saved the password somewhere safe
       </label>
-      <div>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => downloadTextFile(`${creds.project.db_name}.env`, envFileContents(creds))}>
+          Download .env
+        </Button>
         <Button variant="primary" disabled={!saved} onClick={onDismiss}>
           Done
         </Button>
