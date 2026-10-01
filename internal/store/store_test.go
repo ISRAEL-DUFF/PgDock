@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,5 +81,27 @@ func TestReclaimStale(t *testing.T) {
 	got, _ := q.GetOperation(ctx, op.ID)
 	if got.Status != "queued" || got.LockedBy != nil || string(got.Log) == "[]" {
 		t.Fatalf("unexpected state after reclaim: %+v log=%s", got, got.Log)
+	}
+}
+
+func TestAuditLogIsAppendOnly(t *testing.T) {
+	ctx := context.Background()
+	pool := storetest.New(t)
+	q := store.New(pool)
+	if err := q.InsertAudit(ctx, store.InsertAuditParams{Action: "test.append", Detail: json.RawMessage(`{}`), Outcome: "success"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, stmt := range []string{
+		`UPDATE audit_log SET action = 'test.changed'`,
+		`DELETE FROM audit_log`,
+		`TRUNCATE audit_log`,
+	} {
+		if _, err := pool.Exec(ctx, stmt); err == nil || !strings.Contains(err.Error(), "append-only") {
+			t.Errorf("%s: %v", stmt, err)
+		}
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_log WHERE action = 'test.append'`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("audit rows: %d %v", n, err)
 	}
 }

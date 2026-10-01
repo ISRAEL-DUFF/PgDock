@@ -1013,6 +1013,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/security/isolation-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The latest tenant-isolation check of each shared cluster
+         * @description Each shared cluster is checked weekly against the §7.1 checklist:
+         *     cluster settings and pg_hba.conf, every project's role and database,
+         *     and two throwaway tenants that try to reach each other.
+         */
+        get: operations["listIsolationChecks"];
+        put?: never;
+        /** Check every shared cluster now */
+        post: operations["runIsolationChecks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Alerts, firing first */
+        get: operations["listAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Alert channels (secrets only reported as set) */
+        get: operations["getAlertSettings"];
+        /**
+         * Set the webhook and email channels
+         * @description Omit a secret to keep the stored one; send an empty string to clear it. Omit smtp to turn email off.
+         */
+        put: operations["putAlertSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/alerts/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a test notification to every configured channel */
+        post: operations["testAlertSettings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1745,6 +1823,97 @@ export interface components {
             resolution: "1m" | "1h";
             series: components["schemas"]["MetricSeries"][];
             top_queries?: components["schemas"]["TopQueries"];
+        };
+        IsolationCheck: {
+            /** Format: uuid */
+            instance_id: string;
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            instance_status: string;
+            last?: components["schemas"]["IsolationCheckRun"];
+        };
+        IsolationCheckRun: {
+            /** Format: uuid */
+            operation_id: string;
+            status: string;
+            error?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+        };
+        IsolationCheckList: {
+            items: components["schemas"]["IsolationCheck"][];
+            every_days: number;
+        };
+        Alert: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            /** @enum {string} */
+            severity: "warning" | "critical";
+            /** @enum {string} */
+            status: "firing" | "resolved";
+            summary: string;
+            target_type: string;
+            target_id: string;
+            target_name: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            resolved_at?: string;
+            /** Format: date-time */
+            notified_at?: string;
+            delivery_error?: string;
+            detail: {
+                [key: string]: unknown;
+            };
+        };
+        AlertList: {
+            items: components["schemas"]["Alert"][];
+            /** Format: int64 */
+            firing: number;
+            /** Format: int64 */
+            critical: number;
+        };
+        AlertSmtp: {
+            host: string;
+            port: number;
+            username?: string;
+            has_password: boolean;
+            from: string;
+            to: string[];
+            /** @enum {string} */
+            tls: "starttls" | "tls" | "none";
+        };
+        AlertSettings: {
+            webhook_url: string;
+            has_webhook_secret: boolean;
+            smtp?: components["schemas"]["AlertSmtp"];
+        };
+        AlertSettingsRequest: {
+            webhook_url?: string;
+            webhook_secret?: string;
+            smtp?: {
+                host: string;
+                port?: number;
+                username?: string;
+                password?: string;
+                from: string;
+                to: string[];
+                /** @enum {string} */
+                tls?: "starttls" | "tls" | "none";
+            };
+        };
+        AlertTestResult: {
+            results: {
+                channel: string;
+                ok: boolean;
+                error?: string;
+            }[];
         };
     };
     responses: {
@@ -3240,6 +3409,139 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listIsolationChecks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Clusters and their latest checks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IsolationCheckList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    runIsolationChecks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One isolation_check operation per running shared cluster. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAlerts: {
+        parameters: {
+            query?: {
+                status?: "firing" | "resolved";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Alerts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAlertSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putAlertSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testAlertSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-channel results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertTestResult"];
                 };
             };
             default: components["responses"]["Error"];

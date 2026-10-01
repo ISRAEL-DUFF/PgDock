@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -63,6 +64,10 @@ func (e *Env) runAgent(container, agentAddr, nodeName, token string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		e.t.Fatalf("start agent: %v: %s", err, out)
 	}
+	if e.agentRun == nil {
+		e.agentRun = map[string][]string{}
+	}
+	e.agentRun[nodeName] = append(append([]string(nil), args...), container, "sh", "-c", script)
 	e.t.Cleanup(func() {
 		if e.t.Failed() {
 			out, _ := exec.Command("docker", "exec", container, "tail", "-n", "40", "/tmp/agent.log").CombinedOutput()
@@ -112,6 +117,15 @@ func (e *Env) ConfigureBackups() string {
 	e.t.Cleanup(fake.Close)
 	e.S3 = fake
 	tgt := fake.Target("pgdock-test")
+	if e.s3Link {
+		u, err := url.Parse(tgt.Endpoint)
+		if err != nil {
+			e.t.Fatal(err)
+		}
+		e.S3Link = NewLink(e.t, addr, u.Host)
+		u.Host = e.S3Link.Addr
+		tgt.Endpoint = u.String()
+	}
 	var res gen.StorageTestResult
 	region, prefix, pathStyle := tgt.Region, "pgdock", true
 	if code := e.Do("PUT", "/api/v1/settings/storage", gen.StorageRequest{
@@ -162,5 +176,42 @@ func (e *Env) SetNodeRole(name, role string) {
 	e.t.Helper()
 	if _, err := e.DB.Exec(context.Background(), `UPDATE nodes SET role = $2 WHERE name = $1`, name, role); err != nil {
 		e.t.Fatal(err)
+	}
+}
+
+// KillAgent kills the agent of node with SIGKILL, as a crash would (the
+// state directory survives).
+func (e *Env) KillAgent(node string) {
+	e.t.Helper()
+	run := e.agentRun[node]
+	if run == nil {
+		e.t.Fatalf("no agent started for %s", node)
+	}
+	container := run[len(run)-4]
+	if out, err := exec.Command("docker", "exec", container, "sh", "-c", `kill -9 $(cat /tmp/agent.pid)`).CombinedOutput(); err != nil {
+		e.t.Fatalf("kill agent: %v: %s", err, out)
+	}
+}
+
+// RestartAgent starts a killed agent again with its saved state and waits
+// until it answers.
+func (e *Env) RestartAgent(node string) {
+	e.t.Helper()
+	run := e.agentRun[node]
+	if out, err := exec.Command("docker", run...).CombinedOutput(); err != nil {
+		e.t.Fatalf("restart agent: %v: %s", err, out)
+	}
+	ctx := context.Background()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		n, err := store.New(e.DB).GetNodeByName(ctx, node)
+		if err == nil {
+			if st := e.Nodes.Check(ctx, n); st.Reachable {
+				return
+			} else if time.Now().After(deadline) {
+				e.t.Fatalf("agent did not come back: %s", st.Err)
+			}
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 }

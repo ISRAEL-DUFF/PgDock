@@ -40,6 +40,10 @@ export type TablePage = S["TablePage"];
 export type Extension = S["Extension"];
 export type MetricsResponse = S["MetricsResponse"];
 export type MetricRange = "1h" | "24h" | "7d";
+export type AlertItem = S["Alert"];
+export type AlertSettings = S["AlertSettings"];
+export type AlertSettingsRequest = S["AlertSettingsRequest"];
+export type IsolationCheck = S["IsolationCheck"];
 
 /** An error response from the API, with the server's error code. */
 export class ApiRequestError extends Error {
@@ -170,6 +174,13 @@ export const api = {
 
   audit: (p: { action?: string; outcome?: string; target_id?: string; before?: number; limit?: number } = {}) =>
     getJSON<AuditList>(`/api/v1/audit${qs(p)}`),
+
+  alerts: (status?: "firing" | "resolved") => getJSON<S["AlertList"]>(`/api/v1/alerts${qs({ status, limit: 200 })}`),
+  alertSettings: () => getJSON<AlertSettings>("/api/v1/settings/alerts"),
+  saveAlertSettings: (b: AlertSettingsRequest) => request<AlertSettings>("PUT", "/api/v1/settings/alerts", b),
+  testAlerts: () => request<S["AlertTestResult"]>("POST", "/api/v1/settings/alerts/test"),
+  isolationChecks: () => getJSON<S["IsolationCheckList"]>("/api/v1/security/isolation-checks"),
+  runIsolationChecks: () => request<S["OperationList"]>("POST", "/api/v1/security/isolation-checks"),
 
   generalSettings: () => getJSON<GeneralSettings>("/api/v1/settings/general"),
   setDbHost: (db_host: string) => request<GeneralSettings>("PUT", "/api/v1/settings/db-host", { db_host }),

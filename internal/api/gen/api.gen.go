@@ -14,6 +14,84 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AlertSeverity.
+const (
+	Critical AlertSeverity = "critical"
+	Warning  AlertSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the AlertSeverity enum.
+func (e AlertSeverity) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertStatus.
+const (
+	AlertStatusFiring   AlertStatus = "firing"
+	AlertStatusResolved AlertStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the AlertStatus enum.
+func (e AlertStatus) Valid() bool {
+	switch e {
+	case AlertStatusFiring:
+		return true
+	case AlertStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertSettingsRequestSmtpTls.
+const (
+	AlertSettingsRequestSmtpTlsNone     AlertSettingsRequestSmtpTls = "none"
+	AlertSettingsRequestSmtpTlsStarttls AlertSettingsRequestSmtpTls = "starttls"
+	AlertSettingsRequestSmtpTlsTls      AlertSettingsRequestSmtpTls = "tls"
+)
+
+// Valid indicates whether the value is a known member of the AlertSettingsRequestSmtpTls enum.
+func (e AlertSettingsRequestSmtpTls) Valid() bool {
+	switch e {
+	case AlertSettingsRequestSmtpTlsNone:
+		return true
+	case AlertSettingsRequestSmtpTlsStarttls:
+		return true
+	case AlertSettingsRequestSmtpTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertSmtpTls.
+const (
+	AlertSmtpTlsNone     AlertSmtpTls = "none"
+	AlertSmtpTlsStarttls AlertSmtpTls = "starttls"
+	AlertSmtpTlsTls      AlertSmtpTls = "tls"
+)
+
+// Valid indicates whether the value is a known member of the AlertSmtpTls enum.
+func (e AlertSmtpTls) Valid() bool {
+	switch e {
+	case AlertSmtpTlsNone:
+		return true
+	case AlertSmtpTlsStarttls:
+		return true
+	case AlertSmtpTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuditEntryOutcome.
 const (
 	AuditEntryOutcomeDenied  AuditEntryOutcome = "denied"
@@ -464,6 +542,24 @@ func (e MetricRange) Valid() bool {
 	}
 }
 
+// Defines values for ListAlertsParamsStatus.
+const (
+	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
+	ListAlertsParamsStatusResolved ListAlertsParamsStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the ListAlertsParamsStatus enum.
+func (e ListAlertsParamsStatus) Valid() bool {
+	switch e {
+	case ListAlertsParamsStatusFiring:
+		return true
+	case ListAlertsParamsStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAuditParamsOutcome.
 const (
 	ListAuditParamsOutcomeDenied  ListAuditParamsOutcome = "denied"
@@ -559,6 +655,85 @@ type AgentStatus struct {
 	Reachable  bool                    `json:"reachable"`
 	Registered bool                    `json:"registered"`
 	Version    *string                 `json:"version,omitempty"`
+}
+
+// Alert defines model for Alert.
+type Alert struct {
+	DeliveryError *string                `json:"delivery_error,omitempty"`
+	Detail        map[string]interface{} `json:"detail"`
+	Id            openapi_types.UUID     `json:"id"`
+	Kind          string                 `json:"kind"`
+	LastSeenAt    time.Time              `json:"last_seen_at"`
+	NotifiedAt    *time.Time             `json:"notified_at,omitempty"`
+	ResolvedAt    *time.Time             `json:"resolved_at,omitempty"`
+	Severity      AlertSeverity          `json:"severity"`
+	StartedAt     time.Time              `json:"started_at"`
+	Status        AlertStatus            `json:"status"`
+	Summary       string                 `json:"summary"`
+	TargetId      string                 `json:"target_id"`
+	TargetName    string                 `json:"target_name"`
+	TargetType    string                 `json:"target_type"`
+}
+
+// AlertSeverity defines model for Alert.Severity.
+type AlertSeverity string
+
+// AlertStatus defines model for Alert.Status.
+type AlertStatus string
+
+// AlertList defines model for AlertList.
+type AlertList struct {
+	Critical int64   `json:"critical"`
+	Firing   int64   `json:"firing"`
+	Items    []Alert `json:"items"`
+}
+
+// AlertSettings defines model for AlertSettings.
+type AlertSettings struct {
+	HasWebhookSecret bool       `json:"has_webhook_secret"`
+	Smtp             *AlertSmtp `json:"smtp,omitempty"`
+	WebhookUrl       string     `json:"webhook_url"`
+}
+
+// AlertSettingsRequest defines model for AlertSettingsRequest.
+type AlertSettingsRequest struct {
+	Smtp *struct {
+		From     string                       `json:"from"`
+		Host     string                       `json:"host"`
+		Password *string                      `json:"password,omitempty"`
+		Port     *int                         `json:"port,omitempty"`
+		Tls      *AlertSettingsRequestSmtpTls `json:"tls,omitempty"`
+		To       []string                     `json:"to"`
+		Username *string                      `json:"username,omitempty"`
+	} `json:"smtp,omitempty"`
+	WebhookSecret *string `json:"webhook_secret,omitempty"`
+	WebhookUrl    *string `json:"webhook_url,omitempty"`
+}
+
+// AlertSettingsRequestSmtpTls defines model for AlertSettingsRequest.Smtp.Tls.
+type AlertSettingsRequestSmtpTls string
+
+// AlertSmtp defines model for AlertSmtp.
+type AlertSmtp struct {
+	From        string       `json:"from"`
+	HasPassword bool         `json:"has_password"`
+	Host        string       `json:"host"`
+	Port        int          `json:"port"`
+	Tls         AlertSmtpTls `json:"tls"`
+	To          []string     `json:"to"`
+	Username    *string      `json:"username,omitempty"`
+}
+
+// AlertSmtpTls defines model for AlertSmtp.Tls.
+type AlertSmtpTls string
+
+// AlertTestResult defines model for AlertTestResult.
+type AlertTestResult struct {
+	Results []struct {
+		Channel string  `json:"channel"`
+		Error   *string `json:"error,omitempty"`
+		Ok      bool    `json:"ok"`
+	} `json:"results"`
 }
 
 // AuditEntry defines model for AuditEntry.
@@ -898,6 +1073,30 @@ type InstanceSummary struct {
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
+
+// IsolationCheck defines model for IsolationCheck.
+type IsolationCheck struct {
+	InstanceId     openapi_types.UUID `json:"instance_id"`
+	InstanceStatus string             `json:"instance_status"`
+	Last           *IsolationCheckRun `json:"last,omitempty"`
+	NodeId         openapi_types.UUID `json:"node_id"`
+	NodeName       string             `json:"node_name"`
+}
+
+// IsolationCheckList defines model for IsolationCheckList.
+type IsolationCheckList struct {
+	EveryDays int              `json:"every_days"`
+	Items     []IsolationCheck `json:"items"`
+}
+
+// IsolationCheckRun defines model for IsolationCheckRun.
+type IsolationCheckRun struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Error       *string            `json:"error,omitempty"`
+	FinishedAt  *time.Time         `json:"finished_at,omitempty"`
+	OperationId openapi_types.UUID `json:"operation_id"`
+	Status      string             `json:"status"`
+}
 
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
@@ -1419,6 +1618,15 @@ type OperationID = openapi_types.UUID
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
 
+// ListAlertsParams defines parameters for ListAlerts.
+type ListAlertsParams struct {
+	Status *ListAlertsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Limit  *int                    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAlertsParamsStatus defines parameters for ListAlerts.
+type ListAlertsParamsStatus string
+
 // ListAuditParams defines parameters for ListAudit.
 type ListAuditParams struct {
 	// Action Action prefix, e.g. `project.` or `auth.login`.
@@ -1551,6 +1759,9 @@ type RunSQLJSONRequestBody = SqlRequest
 // CancelSQLJSONRequestBody defines body for CancelSQL for application/json ContentType.
 type CancelSQLJSONRequestBody = SqlCancelRequest
 
+// PutAlertSettingsJSONRequestBody defines body for PutAlertSettings for application/json ContentType.
+type PutAlertSettingsJSONRequestBody = AlertSettingsRequest
+
 // ConfirmBackupKeyJSONRequestBody defines body for ConfirmBackupKey for application/json ContentType.
 type ConfirmBackupKeyJSONRequestBody = BackupKeyConfirmRequest
 
@@ -1577,6 +1788,9 @@ type ServerInterface interface {
 	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
 	// (POST /api/v1/agent/register)
 	RegisterAgent(w http.ResponseWriter, r *http.Request)
+	// ListAlerts Alerts, firing first
+	// (GET /api/v1/alerts)
+	ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams)
 	// ListAudit Audit log, newest first
 	// (GET /api/v1/audit)
 	ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams)
@@ -1706,9 +1920,24 @@ type ServerInterface interface {
 	// RunRestoreTest Run the restore test now
 	// (POST /api/v1/restore-tests)
 	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
+	// ListIsolationChecks The latest tenant-isolation check of each shared cluster
+	// (GET /api/v1/security/isolation-checks)
+	ListIsolationChecks(w http.ResponseWriter, r *http.Request)
+	// RunIsolationChecks Check every shared cluster now
+	// (POST /api/v1/security/isolation-checks)
+	RunIsolationChecks(w http.ResponseWriter, r *http.Request)
 	// GetSession Session state for the UI (public)
 	// (GET /api/v1/session)
 	GetSession(w http.ResponseWriter, r *http.Request)
+	// GetAlertSettings Alert channels (secrets only reported as set)
+	// (GET /api/v1/settings/alerts)
+	GetAlertSettings(w http.ResponseWriter, r *http.Request)
+	// PutAlertSettings Set the webhook and email channels
+	// (PUT /api/v1/settings/alerts)
+	PutAlertSettings(w http.ResponseWriter, r *http.Request)
+	// TestAlertSettings Send a test notification to every configured channel
+	// (POST /api/v1/settings/alerts/test)
+	TestAlertSettings(w http.ResponseWriter, r *http.Request)
 	// GetBackupKey Whether the backup key exists and was confirmed
 	// (GET /api/v1/settings/backup-key)
 	GetBackupKey(w http.ResponseWriter, r *http.Request)
@@ -1766,6 +1995,12 @@ type Unimplemented struct{}
 // RegisterAgent Agent registration (called by pgdock-agent, not the UI)
 // (POST /api/v1/agent/register)
 func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAlerts Alerts, firing first
+// (GET /api/v1/alerts)
+func (_ Unimplemented) ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2027,9 +2262,39 @@ func (_ Unimplemented) RunRestoreTest(w http.ResponseWriter, r *http.Request, pa
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListIsolationChecks The latest tenant-isolation check of each shared cluster
+// (GET /api/v1/security/isolation-checks)
+func (_ Unimplemented) ListIsolationChecks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RunIsolationChecks Check every shared cluster now
+// (POST /api/v1/security/isolation-checks)
+func (_ Unimplemented) RunIsolationChecks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetSession Session state for the UI (public)
 // (GET /api/v1/session)
 func (_ Unimplemented) GetSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAlertSettings Alert channels (secrets only reported as set)
+// (GET /api/v1/settings/alerts)
+func (_ Unimplemented) GetAlertSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutAlertSettings Set the webhook and email channels
+// (PUT /api/v1/settings/alerts)
+func (_ Unimplemented) PutAlertSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestAlertSettings Send a test notification to every configured channel
+// (POST /api/v1/settings/alerts/test)
+func (_ Unimplemented) TestAlertSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2143,6 +2408,52 @@ func (siw *ServerInterfaceWrapper) RegisterAgent(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RegisterAgent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAlerts operation middleware
+func (siw *ServerInterfaceWrapper) ListAlerts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAlertsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAlerts(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3413,11 +3724,81 @@ func (siw *ServerInterfaceWrapper) RunRestoreTest(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListIsolationChecks operation middleware
+func (siw *ServerInterfaceWrapper) ListIsolationChecks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIsolationChecks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunIsolationChecks operation middleware
+func (siw *ServerInterfaceWrapper) RunIsolationChecks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunIsolationChecks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSession operation middleware
 func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAlertSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetAlertSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAlertSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAlertSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutAlertSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAlertSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestAlertSettings operation middleware
+func (siw *ServerInterfaceWrapper) TestAlertSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestAlertSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3946,6 +4327,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/metrics", wrapper.GetPrometheusMetrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/security/isolation-checks", wrapper.ListIsolationChecks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/security/isolation-checks", wrapper.RunIsolationChecks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/alerts", wrapper.ListAlerts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/alerts", wrapper.GetAlertSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/settings/alerts", wrapper.PutAlertSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/alerts/test", wrapper.TestAlertSettings)
 	})
 
 	return r

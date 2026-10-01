@@ -17,5 +17,6 @@ RUN --mount=type=secret,id=ca_bundle,required=false \
 
 FROM ${REGISTRY}postgres:18
 COPY --from=walg /out-wal-g /usr/local/bin/wal-g
+COPY --chmod=755 pgdock-hba.sh /docker-entrypoint-initdb.d/10-pgdock-hba.sh
 LABEL org.opencontainers.image.title="pgdock-postgres" \
       org.opencontainers.image.description="PostgreSQL 18 with WAL-G v3.0.9 for PGDock dedicated instances"

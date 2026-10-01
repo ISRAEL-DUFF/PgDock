@@ -169,6 +169,12 @@ test-integration: pooler-seed test-agent-bin pg-image
 	$(COMPOSE) --profile test up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
 
+## test-load: 150 shared projects, pgbench on 10 (spec §13); writes
+## tmp/load-report.md. Needs pgbench.
+test-load: pooler-seed test-agent-bin
+	$(COMPOSE) --profile test up -d --wait
+	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 30m -v -run TestLoad ./test/load/
+
 ## pg-image: the Postgres 18 + WAL-G image dedicated instances run.
 PG_IMAGE := pgdock-postgres:18-walg3.0.9
 pg-image:

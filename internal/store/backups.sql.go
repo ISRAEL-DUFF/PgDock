@@ -139,6 +139,21 @@ func (q *Queries) FailBackup(ctx context.Context, arg FailBackupParams) error {
 	return err
 }
 
+const failInterruptedBackups = `-- name: FailInterruptedBackups :execrows
+UPDATE backups SET status = 'failed', error = 'interrupted: the attempt that took it did not finish', finished_at = now()
+WHERE operation_id = $1 AND status = 'running'
+`
+
+// Backups an earlier attempt of the operation left running (its worker or
+// agent died mid-dump): they never finished.
+func (q *Queries) FailInterruptedBackups(ctx context.Context, operationID *uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, failInterruptedBackups, operationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const finishBackup = `-- name: FinishBackup :one
 UPDATE backups SET status = 'succeeded', size_bytes = $1, checksum = $2, finished_at = now()
 WHERE id = $3
@@ -823,6 +838,23 @@ func (q *Queries) StaleRunningBackups(ctx context.Context, before time.Time) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const sweepStaleBackups = `-- name: SweepStaleBackups :execrows
+UPDATE backups b SET status = 'failed', error = 'interrupted: the operation ended before it finished', finished_at = now()
+WHERE b.status = 'running' AND (
+  EXISTS (SELECT 1 FROM operations o WHERE o.id = b.operation_id AND o.status IN ('succeeded', 'failed'))
+  OR (b.operation_id IS NULL AND b.started_at < now() - interval '1 day'))
+`
+
+// Running backups whose operation has finished (or, without one, that
+// started over a day ago) were interrupted.
+func (q *Queries) SweepStaleBackups(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, sweepStaleBackups)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateStorageTarget = `-- name: UpdateStorageTarget :one

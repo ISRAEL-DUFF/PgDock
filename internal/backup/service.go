@@ -152,6 +152,13 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 	}
 	key := objectKey(kind, projectID, time.Now())
 	q := store.New(s.db)
+	if opID != nil {
+		if n, err := q.FailInterruptedBackups(ctx, opID); err != nil {
+			return store.Backup{}, err
+		} else if n > 0 {
+			_ = log.Warn(ctx, "dump", "an earlier attempt was interrupted; its backup is marked failed")
+		}
+	}
 	row, err := q.InsertBackup(ctx, store.InsertBackupParams{
 		ProjectID: projectID, Kind: kind, ObjectKey: key, StorageTargetID: &targetID,
 		OperationID: opID, KeyWrapped: wrapped, ExpiresAt: expires,
@@ -354,6 +361,11 @@ func (s *Service) Run(ctx context.Context) {
 		}
 		if time.Since(lastExpiry) > time.Hour {
 			s.expireSpecial(ctx)
+			if n, err := store.New(s.db).SweepStaleBackups(ctx); err != nil && ctx.Err() == nil {
+				s.log.Warn("sweep interrupted backups", "err", err)
+			} else if n > 0 {
+				s.log.Warn("marked interrupted backups failed", "count", n)
+			}
 			if s.Dedicated != nil {
 				if err := s.Dedicated.DropRetired(ctx); err != nil && ctx.Err() == nil {
 					s.log.Warn("drop retired shared copies", "err", err)

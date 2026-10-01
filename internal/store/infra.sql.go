@@ -275,7 +275,7 @@ func (q *Queries) MarkInstanceDeleted(ctx context.Context, id uuid.UUID) error {
 }
 
 const pickDedicatedNode = `-- name: PickDedicatedNode :one
-SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at FROM nodes n
+SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at, n.last_reachable_at FROM nodes n
 WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.agent_cert_fp IS NOT NULL
 ORDER BY (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.kind = 'dedicated' AND i.deleted_at IS NULL), n.created_at
 LIMIT 1
@@ -302,6 +302,7 @@ func (q *Queries) PickDedicatedNode(ctx context.Context) (Node, error) {
 		&i.AgentVersion,
 		&i.RegistrationToken,
 		&i.RegistrationExpiresAt,
+		&i.LastReachableAt,
 	)
 	return i, err
 }
@@ -451,7 +452,7 @@ INSERT INTO nodes (name, private_addr, role, pg_admin_secret, capacity)
 VALUES ($1, $2, $3, $4, '{}')
 ON CONFLICT (name) DO UPDATE
 SET private_addr = EXCLUDED.private_addr, pg_admin_secret = EXCLUDED.pg_admin_secret
-RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at
+RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at
 `
 
 type UpsertNodeParams struct {
@@ -485,6 +486,7 @@ func (q *Queries) UpsertNode(ctx context.Context, arg UpsertNodeParams) (Node, e
 		&i.AgentVersion,
 		&i.RegistrationToken,
 		&i.RegistrationExpiresAt,
+		&i.LastReachableAt,
 	)
 	return i, err
 }

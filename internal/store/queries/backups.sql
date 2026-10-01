@@ -122,3 +122,17 @@ SELECT * FROM backups
 WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' AND finished_at <= @before
 ORDER BY finished_at DESC
 LIMIT 1;
+
+-- name: FailInterruptedBackups :execrows
+-- Backups an earlier attempt of the operation left running (its worker or
+-- agent died mid-dump): they never finished.
+UPDATE backups SET status = 'failed', error = 'interrupted: the attempt that took it did not finish', finished_at = now()
+WHERE operation_id = @operation_id AND status = 'running';
+
+-- name: SweepStaleBackups :execrows
+-- Running backups whose operation has finished (or, without one, that
+-- started over a day ago) were interrupted.
+UPDATE backups b SET status = 'failed', error = 'interrupted: the operation ended before it finished', finished_at = now()
+WHERE b.status = 'running' AND (
+  EXISTS (SELECT 1 FROM operations o WHERE o.id = b.operation_id AND o.status IN ('succeeded', 'failed'))
+  OR (b.operation_id IS NULL AND b.started_at < now() - interval '1 day'));

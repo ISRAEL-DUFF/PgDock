@@ -32,6 +32,15 @@ type Agent struct {
 var ErrNoAgent = errors.New("node has no registered agent")
 
 func (s *Service) agentFor(n store.Node) (*Agent, error) {
+	if err := checkVersion(n); err != nil {
+		return nil, err
+	}
+	return s.dial(n)
+}
+
+// dial returns a client for a node's agent without the version check
+// (health checks must still reach an agent that needs upgrading).
+func (s *Service) dial(n store.Node) (*Agent, error) {
 	if n.AgentCertFp == nil || *n.AgentCertFp == "" {
 		return nil, fmt.Errorf("%w (node %s)", ErrNoAgent, n.Name)
 	}
