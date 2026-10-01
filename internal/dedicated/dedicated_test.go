@@ -49,7 +49,7 @@ func setup(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &env{db: db, svc: dedicated.New(db, kr, ns, secrets{}, dedicated.Config{}, quiet)}
+	return &env{db: db, svc: dedicated.New(db, kr, ns, nil, secrets{}, dedicated.Config{}, quiet)}
 }
 
 // node adds a dedicated-capable node with a registered agent in the given

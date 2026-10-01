@@ -567,7 +567,6 @@ func (s *Service) Destroy(ctx context.Context, p store.Project, log *jobs.StepLo
 
 // destroyInstance removes an instance's container, volume, and archive.
 func (s *Service) destroyInstance(ctx context.Context, inst store.Instance, log *jobs.StepLogger) error {
-	q := store.New(s.db)
 	if inst.Status == "deleted" {
 		return nil
 	}
