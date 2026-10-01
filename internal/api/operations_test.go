@@ -76,7 +76,7 @@ func TestOperationLifecycleOverAPI(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &op); err != nil {
 		t.Fatal(err)
 	}
-	if op.Kind != jobs.KindNoop || op.Status != gen.Queued || res.Header.Get("Location") != "/api/v1/operations/"+op.Id.String() {
+	if op.Kind != jobs.KindNoop || op.Status != gen.OperationStatusQueued || res.Header.Get("Location") != "/api/v1/operations/"+op.Id.String() {
 		t.Fatalf("unexpected operation: %+v", op)
 	}
 
@@ -104,7 +104,7 @@ func TestOperationLifecycleOverAPI(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &op); err != nil {
 		t.Fatal(err)
 	}
-	if op.Status != gen.Succeeded || len(op.Log) != 3 || op.Params["steps"] != float64(2) {
+	if op.Status != gen.OperationStatusSucceeded || len(op.Log) != 3 || op.Params["steps"] != float64(2) {
 		t.Fatalf("unexpected final operation: %+v", op)
 	}
 

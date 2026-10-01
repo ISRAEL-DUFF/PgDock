@@ -8,6 +8,7 @@ import { Button, cx } from "./ui";
 
 const nav = [
   { to: "/projects", label: "Projects" },
+  { to: "/nodes", label: "Nodes" },
   { to: "/operations", label: "Operations" },
   { to: "/audit", label: "Audit log" },
   { to: "/settings", label: "Settings" },
@@ -89,6 +90,7 @@ export function AppLayout() {
           </Button>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+          <BackupBanner />
           <Outlet />
         </main>
       </div>
@@ -103,6 +105,34 @@ export function AuthShell({ children, wide }: { children: React.ReactNode; wide?
       <Logo />
       <div className={cx("w-full rounded-lg border border-line bg-surface p-6", wide ? "max-w-xl" : "max-w-sm")}>{children}</div>
       <ThemeToggle />
+    </div>
+  );
+}
+
+/**
+ * Warns while backups cannot run, or the backup key was never confirmed as
+ * stored offline (spec §15: "a warning banner if never re-confirmed").
+ */
+function BackupBanner() {
+  const q = useQuery({ queryKey: ["backups", "overview"], queryFn: api.backupOverview, refetchInterval: 60_000, retry: false });
+  const o = q.data;
+  if (!o) return null;
+  let msg: string | null = null;
+  let to: "/settings" | "/nodes" = "/settings";
+  if (!o.storage_configured) msg = "Backups are off: no S3 storage is configured.";
+  else if (!o.key.exists) msg = "Backups are off: no backup key yet.";
+  else if (!o.key.confirmed_at) msg = "The backup key was never confirmed as stored offline. Without it, backups cannot be restored.";
+  else if (!o.agent_available) {
+    msg = "No agent is registered, so backups cannot run.";
+    to = "/nodes";
+  }
+  if (!msg) return null;
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn" role="status" data-testid="backup-banner">
+      <span>{msg}</span>
+      <Link to={to} className="font-medium underline">
+        Fix it
+      </Link>
     </div>
   );
 }

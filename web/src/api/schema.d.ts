@@ -391,8 +391,9 @@ export interface paths {
          * Delete a project
          * @description `confirm` must equal the project's name, and the session must have
          *     re-authenticated recently (`POST /auth/reauth`); otherwise 403 with
-         *     code `reauth_required`. Queues a `delete` operation that removes the
-         *     pooler route and drops the database and role.
+         *     code `reauth_required`. Queues a `delete` operation that takes a
+         *     final backup (kept 30 days; `skip_final_backup` skips it), removes
+         *     the pooler route, and drops the database and role.
          */
         delete: operations["deleteProject"];
         options?: never;
@@ -437,6 +438,298 @@ export interface paths {
          *     new password works, and the old one stops working, when it succeeds.
          */
         post: operations["rotateProjectPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Back up a project now
+         * @description Queues a `backup` operation (a logical backup, kept by the nightly retention policy).
+         */
+        post: operations["createProjectBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List backups, newest first
+         * @description Includes final backups of deleted projects until they expire.
+         */
+        get: operations["listBackups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Backup configuration and health at a glance */
+        get: operations["getBackupOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a backup into a new project or in place
+         * @description `mode: new` (the default, non-destructive) creates a project named
+         *     `name` and returns its credentials once. `mode: in_place` replaces the
+         *     backup's own project: `confirm` must equal the project's name and the
+         *     session must have re-authenticated recently (403 `reauth_required`).
+         *     It takes a safety backup first.
+         */
+        post: operations["restoreBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/restore-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the restore test now
+         * @description Restores the latest backup of a random project (or `project_id`) into a scratch database, counts every table, and drops it.
+         */
+        post: operations["runRestoreTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The backup storage target (never the secret key) */
+        get: operations["getStorageSettings"];
+        /**
+         * Save the backup storage target after a live test
+         * @description Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+         */
+        put: operations["putStorageSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/storage/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run the live write/read/delete test without saving */
+        post: operations["testStorageSettings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/backup-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the backup key exists and was confirmed */
+        get: operations["getBackupKey"];
+        put?: never;
+        /**
+         * Generate the backup encryption key
+         * @description Returns the key for download. Refuses (409) if one exists, since replacing it would make every backup unreadable.
+         */
+        post: operations["generateBackupKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/backup-key/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Download the backup key again (requires re-authentication) */
+        post: operations["exportBackupKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/backup-key/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prove the key was saved by pasting it back */
+        post: operations["confirmBackupKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect a source database before importing it
+         * @description Connects read-only and changes nothing. The connection string is not stored.
+         */
+        post: operations["importPreflight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import an existing database into a new project
+         * @description Creates the project and queues an `import` operation. The source
+         *     connection string is held in memory for the operation only. The
+         *     response carries the new project's password once.
+         */
+        post: operations["createImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nodes and their agents */
+        get: operations["listNodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/registration-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a one-time agent registration token (24 hours) */
+        post: operations["createNodeRegistrationToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Agent registration (called by pgdock-agent, not the UI)
+         * @description Exchanges a one-time registration token and a CSR for a client
+         *     certificate signed by the PGDock agent CA. Needs no session; the
+         *     token authenticates. Rate limited per address.
+         */
+        post: operations["registerAgent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -586,6 +879,11 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             connection: components["schemas"]["ConnectionInfo"];
+            /**
+             * Format: date-time
+             * @description When the latest backup of this project finished.
+             */
+            last_backup_at?: string | null;
         };
         ProjectSettings: {
             connection_limit: number;
@@ -715,6 +1013,192 @@ export interface components {
             project: components["schemas"]["Project"];
             operation?: components["schemas"]["Operation"];
         };
+        /** @enum {string} */
+        BackupKind: "logical" | "final" | "safety" | "metadata";
+        Backup: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            project_name?: string | null;
+            project_deleted?: boolean;
+            kind: components["schemas"]["BackupKind"];
+            /** @enum {string} */
+            status: "running" | "succeeded" | "failed";
+            /** Format: int64 */
+            size_bytes?: number | null;
+            checksum?: string | null;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: uuid */
+            operation_id?: string | null;
+            error?: string | null;
+        };
+        BackupList: {
+            items: components["schemas"]["Backup"][];
+        };
+        BackupOverview: {
+            storage_configured: boolean;
+            key: components["schemas"]["BackupKeyInfo"];
+            agent_available: boolean;
+            window_hour_utc: number;
+            retention_daily: number;
+            retention_weekly: number;
+            last_restore_test?: components["schemas"]["Operation"];
+            last_metadata_backup?: components["schemas"]["Backup"];
+        };
+        RestoreRequest: {
+            /**
+             * @default new
+             * @enum {string}
+             */
+            mode: "new" | "in_place";
+            /** @description Name of the new project (mode `new`). */
+            name?: string;
+            /** @description The project's name, typed (mode `in_place`). */
+            confirm?: string;
+        };
+        RestoreResponse: {
+            operation: components["schemas"]["Operation"];
+            credentials?: components["schemas"]["ProjectCredentials"];
+        };
+        StorageRequest: {
+            /** @example https://s3.eu-central-1.amazonaws.com */
+            endpoint: string;
+            region?: string;
+            bucket: string;
+            prefix?: string;
+            access_key: string;
+            secret_key?: string;
+            path_style?: boolean;
+        };
+        StorageSettings: {
+            configured: boolean;
+            endpoint?: string;
+            region?: string;
+            bucket?: string;
+            prefix?: string;
+            access_key?: string;
+            path_style?: boolean;
+        };
+        StorageTestStep: {
+            step: string;
+            ok: boolean;
+            error?: string;
+            took_ms: number;
+        };
+        StorageTestResult: {
+            ok: boolean;
+            saved: boolean;
+            steps: components["schemas"]["StorageTestStep"][];
+        };
+        BackupKeyInfo: {
+            exists: boolean;
+            fingerprint?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            confirmed_at?: string | null;
+        };
+        BackupKeyExport: {
+            /** @description Store it offline; without it the backups cannot be decrypted. */
+            key: string;
+            info: components["schemas"]["BackupKeyInfo"];
+        };
+        BackupKeyConfirmRequest: {
+            key: string;
+        };
+        ImportSource: {
+            /** @example postgresql://postgres:secret@db.abcd.supabase.co:5432/postgres */
+            source_url: string;
+        };
+        ImportRequest: {
+            source_url: string;
+            name: string;
+            description?: string;
+            schemas: string[];
+        };
+        ImportPreflight: {
+            server_version: string;
+            /** Format: int64 */
+            size_bytes: number;
+            supabase: boolean;
+            schemas: {
+                name: string;
+                tables: number;
+                managed: boolean;
+            }[];
+            default_schemas: string[];
+            extensions: {
+                name: string;
+                version: string;
+                schema: string;
+                allowed: boolean;
+            }[];
+            role_references: {
+                /** @enum {string} */
+                kind: "policy" | "grant";
+                schema: string;
+                table: string;
+                name: string;
+                roles: string[];
+            }[];
+            warnings: string[];
+        };
+        Node: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            private_addr: string;
+            role: string;
+            status: string;
+            /** Format: date-time */
+            last_heartbeat?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            agent: components["schemas"]["AgentStatus"];
+        };
+        AgentStatus: {
+            registered: boolean;
+            reachable: boolean;
+            address?: string;
+            version?: string;
+            cert_fingerprint?: string;
+            error?: string;
+            /** Format: date-time */
+            checked_at?: string;
+            pg_dump?: string;
+            metrics?: {
+                [key: string]: unknown;
+            };
+        };
+        NodeList: {
+            items: components["schemas"]["Node"][];
+        };
+        RegistrationToken: {
+            token: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** @description A ready-to-run registration command for the node. */
+            command: string;
+        };
+        AgentRegisterRequest: {
+            token: string;
+            node?: string;
+            csr: string;
+            advertise_host?: string;
+            advertise_port?: number;
+            version?: string;
+        };
+        AgentRegisterResponse: {
+            node_id: string;
+            cert_pem: string;
+            ca_pem: string;
+        };
     };
     responses: {
         /** @description Error response. */
@@ -728,6 +1212,8 @@ export interface components {
         };
     };
     parameters: {
+        BackupID: string;
+        NodeID: string;
         ProjectID: string;
         OperationID: string;
     };
@@ -1262,6 +1748,7 @@ export interface operations {
         parameters: {
             query: {
                 confirm: string;
+                skip_final_backup?: boolean;
             };
             header?: never;
             path: {
@@ -1328,6 +1815,403 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createProjectBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backup operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBackups: {
+        parameters: {
+            query?: {
+                project_id?: string;
+                kind?: components["schemas"]["BackupKind"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backups. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBackupOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["BackupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Restore operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    runRestoreTest: {
+        parameters: {
+            query?: {
+                project_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restore test queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getStorageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putStorageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result; `saved` says whether the settings were stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testStorageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Key status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupKeyInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    generateBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new key. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupKeyExport"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupKeyExport"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupKeyConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Key status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupKeyInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    importPreflight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportSource"];
+            };
+        };
+        responses: {
+            /** @description What the import would copy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreflight"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Project recorded and import queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listNodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Nodes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createNodeRegistrationToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The token, shown once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationToken"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    registerAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Certificate issued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRegisterResponse"];
                 };
             };
             default: components["responses"]["Error"];

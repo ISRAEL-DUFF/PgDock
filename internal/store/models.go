@@ -37,16 +37,21 @@ type AuthChallenge struct {
 }
 
 type Backup struct {
-	ID         uuid.UUID
-	ProjectID  uuid.UUID
-	Kind       string
-	ObjectKey  string
-	SizeBytes  *int64
-	Checksum   *string
-	StartedAt  time.Time
-	FinishedAt *time.Time
-	Status     string
-	ExpiresAt  *time.Time
+	ID              uuid.UUID
+	ProjectID       *uuid.UUID
+	Kind            string
+	ObjectKey       string
+	SizeBytes       *int64
+	Checksum        *string
+	StartedAt       time.Time
+	FinishedAt      *time.Time
+	Status          string
+	ExpiresAt       *time.Time
+	StorageTargetID *uuid.UUID
+	OperationID     *uuid.UUID
+	KeyWrapped      []byte
+	Error           *string
+	DeletedAt       *time.Time
 }
 
 type Instance struct {
@@ -75,17 +80,21 @@ type MetricPoint struct {
 }
 
 type Node struct {
-	ID            uuid.UUID
-	Name          string
-	PrivateAddr   string
-	AgentPort     int32
-	Role          string
-	AgentCertFp   *string
-	PgAdminSecret []byte
-	Capacity      json.RawMessage
-	Status        string
-	LastHeartbeat *time.Time
-	CreatedAt     time.Time
+	ID                    uuid.UUID
+	Name                  string
+	PrivateAddr           string
+	AgentPort             int32
+	Role                  string
+	AgentCertFp           *string
+	PgAdminSecret         []byte
+	Capacity              json.RawMessage
+	Status                string
+	LastHeartbeat         *time.Time
+	CreatedAt             time.Time
+	AgentHost             *string
+	AgentVersion          *string
+	RegistrationToken     *string
+	RegistrationExpiresAt *time.Time
 }
 
 type Operation struct {

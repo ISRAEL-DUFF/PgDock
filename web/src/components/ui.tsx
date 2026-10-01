@@ -114,6 +114,7 @@ export function Badge({ tone = "muted", children }: { tone?: Tone; children: Rea
 
 const statusTones: Record<string, Tone> = {
   active: "ok",
+  healthy: "ok",
   succeeded: "ok",
   ok: "ok",
   success: "ok",

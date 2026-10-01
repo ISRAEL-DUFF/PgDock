@@ -34,6 +34,8 @@ POOLER_ADMIN_PASSWORD=$(rand_url 24)
 ENV
 	echo "Wrote .env (mode 600)."
 fi
+# Added in M3; older .env files lack it.
+grep -q '^AGENT_BOOTSTRAP_TOKEN=' .env || echo "AGENT_BOOTSTRAP_TOKEN=$(rand_url 32)" >> .env
 
 docker compose up -d --build --wait
 

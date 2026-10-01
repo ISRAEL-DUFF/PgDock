@@ -1,0 +1,17 @@
+# An in-memory S3 server for the e2e bundle. Build from the repository root:
+#   docker build -f test/e2e/bundle/Dockerfile.fakes3 -t pgdock-fakes3:local .
+ARG REGISTRY=
+FROM ${REGISTRY}golang:1.25-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=secret,id=ca_bundle,required=false \
+    if [ -f /run/secrets/ca_bundle ]; then export SSL_CERT_FILE=/run/secrets/ca_bundle; fi; \
+    go mod download
+COPY internal/ ./internal/
+COPY test/e2e/fakes3/ ./test/e2e/fakes3/
+RUN CGO_ENABLED=0 go build -trimpath -o /out/fakes3 ./test/e2e/fakes3
+
+FROM ${REGISTRY}alpine:3.22
+COPY --from=build /out/fakes3 /usr/local/bin/fakes3
+USER 65534
+ENTRYPOINT ["/usr/local/bin/fakes3"]

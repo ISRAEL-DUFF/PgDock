@@ -5,6 +5,8 @@
 #   validates the DB hostname over HTTP-01 through Caddy -> pgdock-server.
 # - Caddy serves the UI from its internal CA (no public DNS in tests).
 # - Host ports are offset to stay clear of the dev environment.
+# - fakes3 stands in for the backup bucket; src-supabase is a Supabase
+#   project to import (the supabase/postgres image; the test seeds it).
 
 services:
   challtestsrv:
@@ -47,3 +49,22 @@ services:
       PGDOCK_LOG_FORMAT: text
     volumes:
       - ../../test/e2e/bundle/pebble.minica.pem:/etc/pgdock/pebble.minica.pem:ro
+
+  pgdock-agent:
+    image: pgdock-agent:local
+
+  fakes3:
+    image: pgdock-fakes3:local
+    command: ["-listen", ":9000", "-buckets", "pgdock-e2e"]
+
+  src-supabase:
+    image: mirror.gcr.io/supabase/postgres:17.6.1.003
+    environment:
+      POSTGRES_PASSWORD: supabase-source
+    ports:
+      - "127.0.0.1:15450:5432"   # the test seeds the fixture here
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+      interval: 2s
+      timeout: 3s
+      retries: 60

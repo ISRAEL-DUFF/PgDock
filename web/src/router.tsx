@@ -7,6 +7,9 @@ import { AuditPage } from "./pages/Audit";
 import { LoginPage } from "./pages/Login";
 import { NewProjectPage } from "./pages/NewProject";
 import { OperationDetailPage, OperationsPage } from "./pages/Operations";
+import { ImportProjectPage } from "./pages/ImportProject";
+import { NodesPage } from "./pages/Nodes";
+import { ProjectBackupsPage } from "./pages/ProjectBackups";
 import { ProjectConnectPage } from "./pages/ProjectConnect";
 import { ProjectLayout, ProjectOverviewPage } from "./pages/ProjectOverview";
 import { ProjectSettingsPage } from "./pages/ProjectSettings";
@@ -70,10 +73,13 @@ const index = createRoute({
 
 const projects = createRoute({ getParentRoute: () => app, path: "/projects", component: ProjectsPage });
 const newProject = createRoute({ getParentRoute: () => app, path: "/projects/new", component: NewProjectPage });
+const importProject = createRoute({ getParentRoute: () => app, path: "/projects/import", component: ImportProjectPage });
 const project = createRoute({ getParentRoute: () => app, path: "/projects/$id", component: ProjectLayout });
 const projectOverview = createRoute({ getParentRoute: () => project, path: "/", component: ProjectOverviewPage });
 const projectConnect = createRoute({ getParentRoute: () => project, path: "/connect", component: ProjectConnectPage });
+const projectBackups = createRoute({ getParentRoute: () => project, path: "/backups", component: ProjectBackupsPage });
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
+const nodes = createRoute({ getParentRoute: () => app, path: "/nodes", component: NodesPage });
 const operations = createRoute({ getParentRoute: () => app, path: "/operations", component: OperationsPage });
 const operation = createRoute({ getParentRoute: () => app, path: "/operations/$id", component: OperationDetailPage });
 const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: AuditPage });
@@ -86,7 +92,9 @@ const routeTree = root.addChildren([
     index,
     projects,
     newProject,
-    project.addChildren([projectOverview, projectConnect, projectSettings]),
+    importProject,
+    project.addChildren([projectOverview, projectConnect, projectBackups, projectSettings]),
+    nodes,
     operations,
     operation,
     audit,

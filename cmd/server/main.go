@@ -23,13 +23,17 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/agentca"
 	"github.com/israel-duff/pgdock/internal/api"
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
+	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
+	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
@@ -138,6 +142,20 @@ func run() error {
 		}
 	}
 
+	var backups *backup.Service
+	var nodeSvc *nodes.Service
+	if projects != nil {
+		if backups, nodeSvc, err = setupBackups(ctx, cfg, pool, keyring, projects, log); err != nil {
+			return err
+		}
+		for name, k := range backups.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(2)
+		go func() { defer bg.Done(); nodeSvc.Run(bgCtx, 30*time.Second) }()
+		go func() { defer bg.Done(); backups.Run(bgCtx) }()
+	}
+
 	var certs *tlscert.Manager
 	if pm != nil {
 		if certs, err = setupPoolerTLS(cfg, pm, settingsStore, log); err != nil {
@@ -181,6 +199,8 @@ func run() error {
 		Settings:  settingsStore,
 		PublicIPs: cfg.Web.PublicIPs,
 		TLS:       tlsStatus,
+		Backups:   backups,
+		Nodes:     nodeSvc,
 	})
 	if certs != nil {
 		handler = certs.HTTPChallengeHandler(handler)
@@ -387,6 +407,28 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 		SmokePooledAddr:  pc.PooledAddr,
 		SmokeSSLMode:     pc.SSLMode,
 	}, log), pm, nil
+}
+
+// setupBackups builds the agent CA, the nodes service, and the backup
+// service (which hooks final backups into deletes).
+func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, projects *provision.Service, log *slog.Logger) (*backup.Service, *nodes.Service, error) {
+	ca, err := agentca.LoadOrCreate(ctx, pool, keyring)
+	if err != nil {
+		return nil, nil, fmt.Errorf("agent CA: %w", err)
+	}
+	ns, err := nodes.NewService(pool, ca, cfg.Backups.AgentBootstrapToken, log)
+	if err != nil {
+		return nil, nil, err
+	}
+	bc := backup.Config{Hour: cfg.Backups.Hour, Jitter: cfg.Backups.Jitter}
+	if u := cfg.Backups.MetadataURL; u != "" {
+		pg, err := agentapi.ParseURL(u)
+		if err != nil {
+			return nil, nil, fmt.Errorf("metadata backup URL: %w", err)
+		}
+		bc.MetadataPG = pg
+	}
+	return backup.NewService(pool, keyring, ns, projects, bc, log), ns, nil
 }
 
 func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {

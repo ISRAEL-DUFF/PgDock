@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { ApiRequestError, api, errorMessage } from "../api/client";
 import { Alert, Button, Field, Input, Modal } from "./ui";
 
@@ -15,6 +15,7 @@ export function ConfirmDestroy({
   description,
   action,
   run,
+  children,
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,6 +24,8 @@ export function ConfirmDestroy({
   description: string;
   action: string;
   run: () => Promise<void>;
+  /** Extra options shown above the confirmation fields. */
+  children?: ReactNode;
 }) {
   const [typed, setTyped] = useState("");
   const [password, setPassword] = useState("");
@@ -52,6 +55,7 @@ export function ConfirmDestroy({
     <Modal title={title} open={open} onClose={onClose}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">{description}</p>
+        {children}
         <Field label={`Type ${name} to confirm`}>
           {(id) => <Input id={id} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" data-testid="confirm-name" />}
         </Field>

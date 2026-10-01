@@ -97,7 +97,7 @@ INSERT INTO nodes (name, private_addr, role, pg_admin_secret, capacity)
 VALUES ($1, $2, $3, $4, '{}')
 ON CONFLICT (name) DO UPDATE
 SET private_addr = EXCLUDED.private_addr, role = EXCLUDED.role, pg_admin_secret = EXCLUDED.pg_admin_secret
-RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at
+RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at
 `
 
 type UpsertNodeParams struct {
@@ -127,6 +127,10 @@ func (q *Queries) UpsertNode(ctx context.Context, arg UpsertNodeParams) (Node, e
 		&i.Status,
 		&i.LastHeartbeat,
 		&i.CreatedAt,
+		&i.AgentHost,
+		&i.AgentVersion,
+		&i.RegistrationToken,
+		&i.RegistrationExpiresAt,
 	)
 	return i, err
 }
