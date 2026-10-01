@@ -152,6 +152,18 @@ type Project struct {
 	DeletedAt       *time.Time
 }
 
+type RetiredDatabase struct {
+	ID         uuid.UUID
+	ProjectID  uuid.UUID
+	InstanceID uuid.UUID
+	DbName     string
+	OwnerRole  string
+	Reason     string
+	DropAfter  time.Time
+	DroppedAt  *time.Time
+	CreatedAt  time.Time
+}
+
 type Session struct {
 	ID         string
 	OperatorID uuid.UUID

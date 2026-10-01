@@ -62,7 +62,10 @@ func dumpArgs(o agentapi.DumpOptions) []string {
 }
 
 func restoreArgs(o agentapi.RestoreOptions, db string) []string {
-	args := []string{"--no-password", "--no-owner", "--no-acl", "--dbname=" + db}
+	args := []string{"--no-password", "--dbname=" + db}
+	if !o.KeepOwners {
+		args = append(args, "--no-owner", "--no-acl")
+	}
 	if o.Role != "" {
 		args = append(args, "--role="+o.Role)
 	}

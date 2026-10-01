@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -128,6 +129,46 @@ func (m *Manager) Reconnect(ctx context.Context, db string) error {
 // Pause pauses db on every pooler.
 func (m *Manager) Pause(ctx context.Context, db string) error {
 	return m.each(ctx, func(a *Admin) error { return a.Pause(ctx, db) })
+}
+
+// SessionPooler names the session-mode pooler's admin.
+const SessionPooler = "session"
+
+// Freeze holds db's clients on every pooler before a cutover (spec §6.6
+// step 3). On the transaction pooler PAUSE lets in-flight transactions
+// finish and queues new work, falling back to KILL if that takes longer
+// than wait. Session-mode clients hold their server connection until they
+// disconnect, so PAUSE would wait for them: that pooler gets KILL, which
+// drops them; their reconnects wait. Resume releases both. It returns the
+// poolers that used KILL.
+func (m *Manager) Freeze(ctx context.Context, db string, wait time.Duration) ([]string, error) {
+	var killed []string
+	var errs []error
+	for _, a := range m.admins {
+		if a.Name == SessionPooler {
+			if err := a.Kill(ctx, db); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			killed = append(killed, a.Name)
+			continue
+		}
+		pctx, cancel := context.WithTimeout(ctx, wait)
+		err := a.Pause(pctx, db)
+		cancel()
+		if err == nil {
+			continue
+		}
+		if ctx.Err() != nil {
+			return killed, ctx.Err()
+		}
+		if kerr := a.Kill(ctx, db); kerr != nil {
+			errs = append(errs, fmt.Errorf("pause: %w; kill: %w", err, kerr))
+			continue
+		}
+		killed = append(killed, a.Name)
+	}
+	return killed, errors.Join(errs...)
 }
 
 // Resume resumes db on every pooler.

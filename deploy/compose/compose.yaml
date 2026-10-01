@@ -78,6 +78,9 @@ services:
       # Lets the bundled agent register the local node by itself.
       PGDOCK_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?run install.sh or set AGENT_BOOTSTRAP_TOKEN}
       PGDOCK_BACKUP_HOUR: ${PGDOCK_BACKUP_HOUR:-2}
+      PGDOCK_METRICS_INTERVAL: ${PGDOCK_METRICS_INTERVAL:-1m}
+      PGDOCK_METRICS_TOKEN: ${PGDOCK_METRICS_TOKEN:-}
+      PGDOCK_CONSOLE_DISABLED: ${PGDOCK_CONSOLE_DISABLED:-false}
     volumes:
       - pgdock-data:/var/lib/pgdock
       - pooler-config:/var/lib/pgdock/pooler

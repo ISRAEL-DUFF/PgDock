@@ -97,6 +97,11 @@ type HostMetrics struct {
 	DiskPath          string  `json:"disk_path"`
 	DiskTotalBytes    int64   `json:"disk_total_bytes"`
 	DiskFreeBytes     int64   `json:"disk_free_bytes"`
+	// Cumulative counters since boot; rates come from differences.
+	CPUBusyTicks   uint64 `json:"cpu_busy_ticks"`
+	CPUTotalTicks  uint64 `json:"cpu_total_ticks"`
+	DiskReadBytes  uint64 `json:"disk_read_bytes"`
+	DiskWriteBytes uint64 `json:"disk_write_bytes"`
 }
 
 // Upload is where an agent writes an encrypted object. FileKey is the
@@ -123,13 +128,17 @@ type DumpOptions struct {
 	NoACL          bool     `json:"no_acl,omitempty"`
 }
 
-// RestoreOptions control pg_restore. Objects are always restored without
-// their original owners and grants, owned by Role (the project owner).
+// RestoreOptions control pg_restore. Objects are restored without their
+// original owners and grants, owned by Role (the project owner), unless
+// KeepOwners.
 type RestoreOptions struct {
 	Role string `json:"role,omitempty"`
 	// AllowErrors keeps going past failing statements and reports them as
 	// warnings (imports, where some objects reference skipped schemas).
 	AllowErrors bool `json:"allow_errors,omitempty"`
+	// KeepOwners restores owners and grants as dumped (promotion: the same
+	// roles exist on the target), instead of handing everything to Role.
+	KeepOwners bool `json:"keep_owners,omitempty"`
 }
 
 // DumpRequest is POST /v1/dump: pg_dump -Fc of PG, encrypted, to Upload.

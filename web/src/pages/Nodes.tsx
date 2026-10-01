@@ -6,6 +6,8 @@ import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Badge, Button, Card, CodeBlock, Field, Input, PageHeader, Select, Spinner, StateBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
+import { MetricCharts } from "../components/Metrics";
+import { nodeCharts } from "./ProjectMetrics";
 
 type Role = "shared" | "dedicated" | "both";
 
@@ -273,6 +275,8 @@ export function NodeDetailPage() {
           </div>
         </Card>
       </div>
+      <h2 className="mt-6 mb-2 text-sm font-semibold">Metrics</h2>
+      <MetricCharts queryKey={["metrics", "node", n.id]} fetch={(r) => api.nodeMetrics(n.id, r)} charts={nodeCharts} />
       <h2 className="mt-6 mb-2 text-sm font-semibold">Instances</h2>
       {instances.length === 0 ? (
         <p className="text-sm text-muted">Nothing runs here yet.</p>

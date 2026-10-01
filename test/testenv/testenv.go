@@ -45,9 +45,11 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -58,19 +60,24 @@ import (
 
 // Env is a running control plane.
 type Env struct {
-	t        testing.TB
-	URL      string // base URL of the HTTP API
-	client   *http.Client
-	csrf     string
-	clock    *Clock
-	totp     string // the owner's TOTP secret
-	DB       *pgxpool.Pool
-	Keyring  *crypto.Keyring
-	Pooler   *pooler.Manager
-	Service  *provision.Service
-	Notifier *jobs.Notifier
-	Backups  *backup.Service
-	Nodes    *nodes.Service
+	t         testing.TB
+	URL       string // base URL of the HTTP API
+	client    *http.Client
+	csrf      string
+	clock     *Clock
+	totp      string // the owner's TOTP secret
+	DB        *pgxpool.Pool
+	Keyring   *crypto.Keyring
+	Pooler    *pooler.Manager
+	Service   *provision.Service
+	Notifier  *jobs.Notifier
+	Backups   *backup.Service
+	Nodes     *nodes.Service
+	Dedicated *dedicated.Service
+	// Console and Metrics back the M6 endpoints; tests call
+	// Metrics.Collect themselves instead of waiting for the interval.
+	Console *console.Service
+	Metrics *metrics.Collector
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
@@ -90,6 +97,10 @@ type Options struct {
 	SmokePooledAddr string
 	// MaxAttempts overrides the create operation's attempt limit.
 	MaxAttempts int
+	// AfterFreeze is passed to the dedicated service (promotion tests).
+	AfterFreeze func(ctx context.Context) error
+	// MetricsToken protects /metrics for scrapers.
+	MetricsToken string
 }
 
 func need(t testing.TB, name string) string {
@@ -185,7 +196,7 @@ func Start(t testing.TB, opts Options) *Env {
 	backups := backup.NewService(db, keyring, nodeSvc, svc, bcfg, log)
 	// The test server runs on the host: it reaches instances through the
 	// ports agents publish on 127.0.0.1.
-	ded := dedicated.New(db, keyring, nodeSvc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute}, log)
+	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze}, log)
 	svc.Instances = ded
 	backups.Dedicated = ded
 
@@ -210,12 +221,15 @@ func Start(t testing.TB, opts Options) *Env {
 	go func() { defer wg.Done(); notifier.Run(ctx) }()
 	go func() { defer wg.Done(); runner.Run(ctx) }()
 
+	consoleSvc := console.New(db, svc, keyring, false, log)
+	collector := metrics.NewCollector(db, svc, pm, nodeSvc, time.Second, log)
+
 	clock := &Clock{t: time.Now()}
 	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now}, "test-setup-code", log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
-		Backups: backups, Nodes: nodeSvc,
+		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
 	}))
 	// Listen where the agent container can reach us too.
 	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
@@ -231,7 +245,8 @@ func Start(t testing.TB, opts Options) *Env {
 
 	e := &Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock,
-		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc,
+		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
+		Console: consoleSvc, Metrics: collector,
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
 		admin: adminCreds{"pgdock", adminPW}, log: log,
 	}
@@ -366,6 +381,7 @@ func (e *Env) dropLeftovers() {
 	for _, n := range names {
 		_, _ = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{n.DB}.Sanitize()+" WITH (FORCE)")
 		_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{n.Role}.Sanitize())
+		_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{provision.ConsoleRole(n.DB)}.Sanitize())
 	}
 }
 
@@ -533,4 +549,28 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// GetText sends a GET with the given headers, as the signed-in operator
+// when withSession is set, and returns the status and body.
+func (e *Env) GetText(path string, header http.Header, withSession bool) (int, string) {
+	e.t.Helper()
+	req, err := http.NewRequest("GET", e.URL+path, nil)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	for k, v := range header {
+		req.Header[k] = v
+	}
+	client := http.DefaultClient
+	if withSession {
+		client = e.client
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	return res.StatusCode, string(b)
 }

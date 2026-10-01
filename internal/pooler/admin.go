@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -81,4 +82,53 @@ func (a *Admin) exec(ctx context.Context, cmd string) error {
 		return fmt.Errorf("pooler %s (%s): %s: %w", a.Name, a.Addr(), cmd, err)
 	}
 	return nil
+}
+
+// Pool is one row of SHOW POOLS.
+type Pool struct {
+	Database  string
+	User      string
+	ClActive  int64
+	ClWaiting int64
+	SvActive  int64
+	SvIdle    int64
+}
+
+// Pools runs SHOW POOLS.
+func (a *Admin) Pools(ctx context.Context) ([]Pool, error) {
+	conn, err := pgx.ConnectConfig(ctx, a.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("pooler %s (%s): connect admin console: %w", a.Name, a.Addr(), err)
+	}
+	defer conn.Close(context.Background())
+	rows, err := conn.Query(ctx, "SHOW POOLS")
+	if err != nil {
+		return nil, fmt.Errorf("pooler %s: SHOW POOLS: %w", a.Name, err)
+	}
+	defer rows.Close()
+	// Columns vary between PgBouncer versions; read them by name.
+	col := map[string]int{}
+	for i, fd := range rows.FieldDescriptions() {
+		col[fd.Name] = i
+	}
+	get := func(raw [][]byte, name string) string {
+		if i, ok := col[name]; ok && i < len(raw) {
+			return string(raw[i])
+		}
+		return ""
+	}
+	num := func(raw [][]byte, name string) int64 {
+		n, _ := strconv.ParseInt(get(raw, name), 10, 64)
+		return n
+	}
+	var out []Pool
+	for rows.Next() {
+		raw := rows.RawValues()
+		out = append(out, Pool{
+			Database: get(raw, "database"), User: get(raw, "user"),
+			ClActive: num(raw, "cl_active"), ClWaiting: num(raw, "cl_waiting"),
+			SvActive: num(raw, "sv_active"), SvIdle: num(raw, "sv_idle"),
+		})
+	}
+	return out, rows.Err()
 }

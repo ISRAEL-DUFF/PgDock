@@ -12,7 +12,10 @@ import { NodeDetailPage, NodesPage } from "./pages/Nodes";
 import { ProjectBackupsPage } from "./pages/ProjectBackups";
 import { ProjectConnectPage } from "./pages/ProjectConnect";
 import { ProjectLayout, ProjectOverviewPage } from "./pages/ProjectOverview";
+import { ProjectMetricsPage } from "./pages/ProjectMetrics";
 import { ProjectSettingsPage } from "./pages/ProjectSettings";
+import { ProjectSqlPage } from "./pages/ProjectSql";
+import { ProjectTablesPage } from "./pages/ProjectTables";
 import { ProjectsPage } from "./pages/Projects";
 import { SettingsPage } from "./pages/Settings";
 import { SetupPage } from "./pages/Setup";
@@ -77,6 +80,9 @@ const importProject = createRoute({ getParentRoute: () => app, path: "/projects/
 const project = createRoute({ getParentRoute: () => app, path: "/projects/$id", component: ProjectLayout });
 const projectOverview = createRoute({ getParentRoute: () => project, path: "/", component: ProjectOverviewPage });
 const projectConnect = createRoute({ getParentRoute: () => project, path: "/connect", component: ProjectConnectPage });
+const projectSql = createRoute({ getParentRoute: () => project, path: "/sql", component: ProjectSqlPage });
+const projectTables = createRoute({ getParentRoute: () => project, path: "/tables", component: ProjectTablesPage });
+const projectMetrics = createRoute({ getParentRoute: () => project, path: "/metrics", component: ProjectMetricsPage });
 const projectBackups = createRoute({ getParentRoute: () => project, path: "/backups", component: ProjectBackupsPage });
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
 const nodes = createRoute({ getParentRoute: () => app, path: "/nodes", component: NodesPage });
@@ -94,7 +100,7 @@ const routeTree = root.addChildren([
     projects,
     newProject,
     importProject,
-    project.addChildren([projectOverview, projectConnect, projectBackups, projectSettings]),
+    project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups, projectMetrics, projectSettings]),
     nodes,
     nodeDetail,
     operations,

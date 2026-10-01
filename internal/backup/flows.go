@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/pgverify"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -322,73 +323,18 @@ func (s *Service) runMetadataBackup(ctx context.Context, op store.Operation, log
 	return nil
 }
 
-// TableCount is one table's row count.
-type TableCount struct {
-	Table string
-	Rows  int64
-}
+// Verification helpers live in pgverify (shared with promotion).
+type (
+	TableCount    = pgverify.TableCount
+	SequenceValue = pgverify.SequenceValue
+)
 
-// tableCounts counts the rows of every user table on conn, by name.
 func tableCounts(ctx context.Context, conn *pgx.Conn) ([]TableCount, error) {
-	rows, err := conn.Query(ctx, `
-		SELECT n.nspname, c.relname FROM pg_class c
-		JOIN pg_namespace n ON n.oid = c.relnamespace
-		WHERE c.relkind IN ('r', 'p')
-		  AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg_toast%'
-		  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')
-		ORDER BY 1, 2`)
-	if err != nil {
-		return nil, err
-	}
-	var names [][2]string
-	for rows.Next() {
-		var n [2]string
-		if err := rows.Scan(&n[0], &n[1]); err != nil {
-			return nil, err
-		}
-		names = append(names, n)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	out := make([]TableCount, 0, len(names))
-	for _, n := range names {
-		var c int64
-		qn := provision.Ident(n[0]) + "." + provision.Ident(n[1])
-		if err := conn.QueryRow(ctx, "SELECT count(*) FROM "+qn).Scan(&c); err != nil {
-			return nil, fmt.Errorf("%s: %w", qn, err)
-		}
-		out = append(out, TableCount{Table: n[0] + "." + n[1], Rows: c})
-	}
-	return out, nil
+	return pgverify.TableCounts(ctx, conn)
 }
 
-// SequenceValue is one sequence's state.
-type SequenceValue struct {
-	Name   string
-	Value  *int64
-	Called bool
-}
-
-// sequenceValues reads every user sequence's last value.
 func sequenceValues(ctx context.Context, conn *pgx.Conn, schemas []string) ([]SequenceValue, error) {
-	rows, err := conn.Query(ctx, `
-		SELECT schemaname || '.' || sequencename, last_value FROM pg_sequences
-		WHERE schemaname = ANY($1) ORDER BY 1`, schemas)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []SequenceValue
-	for rows.Next() {
-		var v SequenceValue
-		if err := rows.Scan(&v.Name, &v.Value); err != nil {
-			return nil, err
-		}
-		v.Called = v.Value != nil
-		out = append(out, v)
-	}
-	return out, rows.Err()
+	return pgverify.SequenceValues(ctx, conn, schemas)
 }
 
 func joinLimit(items []string, n int) string {

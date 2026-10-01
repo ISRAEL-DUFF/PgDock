@@ -104,6 +104,51 @@ func (e CreateNodeRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for DbTableKind.
+const (
+	ForeignTable     DbTableKind = "foreign_table"
+	MaterializedView DbTableKind = "materialized_view"
+	PartitionedTable DbTableKind = "partitioned_table"
+	Table            DbTableKind = "table"
+	View             DbTableKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the DbTableKind enum.
+func (e DbTableKind) Valid() bool {
+	switch e {
+	case ForeignTable:
+		return true
+	case MaterializedView:
+		return true
+	case PartitionedTable:
+		return true
+	case Table:
+		return true
+	case View:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExtensionTier.
+const (
+	ExtensionTierDedicated ExtensionTier = "dedicated"
+	ExtensionTierShared    ExtensionTier = "shared"
+)
+
+// Valid indicates whether the value is a known member of the ExtensionTier enum.
+func (e ExtensionTier) Valid() bool {
+	switch e {
+	case ExtensionTierDedicated:
+		return true
+	case ExtensionTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ImportPreflightRoleReferencesKind.
 const (
 	Grant  ImportPreflightRoleReferencesKind = "grant"
@@ -155,6 +200,24 @@ func (e InstanceSummaryKind) Valid() bool {
 	case InstanceSummaryKindDedicated:
 		return true
 	case InstanceSummaryKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MetricsResponseResolution.
+const (
+	MetricsResponseResolutionN1h MetricsResponseResolution = "1h"
+	MetricsResponseResolutionN1m MetricsResponseResolution = "1m"
+)
+
+// Valid indicates whether the value is a known member of the MetricsResponseResolution enum.
+func (e MetricsResponseResolution) Valid() bool {
+	switch e {
+	case MetricsResponseResolutionN1h:
+		return true
+	case MetricsResponseResolutionN1m:
 		return true
 	default:
 		return false
@@ -290,6 +353,27 @@ func (e RestoreRequestMode) Valid() bool {
 	}
 }
 
+// Defines values for TablePageOrder.
+const (
+	Ctid       TablePageOrder = "ctid"
+	Offset     TablePageOrder = "offset"
+	PrimaryKey TablePageOrder = "primary_key"
+)
+
+// Valid indicates whether the value is a known member of the TablePageOrder enum.
+func (e TablePageOrder) Valid() bool {
+	switch e {
+	case Ctid:
+		return true
+	case Offset:
+		return true
+	case PrimaryKey:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TlsStatusMode.
 const (
 	TlsStatusModeAcme       TlsStatusMode = "acme"
@@ -359,6 +443,27 @@ func (e UpdateNodeRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for MetricRange.
+const (
+	MetricRangeN1h  MetricRange = "1h"
+	MetricRangeN24h MetricRange = "24h"
+	MetricRangeN7d  MetricRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the MetricRange enum.
+func (e MetricRange) Valid() bool {
+	switch e {
+	case MetricRangeN1h:
+		return true
+	case MetricRangeN24h:
+		return true
+	case MetricRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAuditParamsOutcome.
 const (
 	ListAuditParamsOutcomeDenied  ListAuditParamsOutcome = "denied"
@@ -374,6 +479,48 @@ func (e ListAuditParamsOutcome) Valid() bool {
 	case ListAuditParamsOutcomeFailure:
 		return true
 	case ListAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetNodeMetricsParamsRange.
+const (
+	GetNodeMetricsParamsRangeN1h  GetNodeMetricsParamsRange = "1h"
+	GetNodeMetricsParamsRangeN24h GetNodeMetricsParamsRange = "24h"
+	GetNodeMetricsParamsRangeN7d  GetNodeMetricsParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the GetNodeMetricsParamsRange enum.
+func (e GetNodeMetricsParamsRange) Valid() bool {
+	switch e {
+	case GetNodeMetricsParamsRangeN1h:
+		return true
+	case GetNodeMetricsParamsRangeN24h:
+		return true
+	case GetNodeMetricsParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetProjectMetricsParamsRange.
+const (
+	GetProjectMetricsParamsRangeN1h  GetProjectMetricsParamsRange = "1h"
+	GetProjectMetricsParamsRangeN24h GetProjectMetricsParamsRange = "24h"
+	GetProjectMetricsParamsRangeN7d  GetProjectMetricsParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the GetProjectMetricsParamsRange enum.
+func (e GetProjectMetricsParamsRange) Valid() bool {
+	switch e {
+	case GetProjectMetricsParamsRangeN1h:
+		return true
+	case GetProjectMetricsParamsRangeN24h:
+		return true
+	case GetProjectMetricsParamsRangeN7d:
 		return true
 	default:
 		return false
@@ -564,11 +711,55 @@ type CreateProjectRequest struct {
 	VolumeGb *int `json:"volume_gb,omitempty"`
 }
 
+// DbColumn defines model for DbColumn.
+type DbColumn struct {
+	Default  *string `json:"default,omitempty"`
+	Name     string  `json:"name"`
+	Nullable bool    `json:"nullable"`
+	Type     string  `json:"type"`
+}
+
 // DbHostRequest defines model for DbHostRequest.
 type DbHostRequest struct {
 	// DbHost Example: db.example.com
 	DbHost string `json:"db_host"`
 }
+
+// DbIndex defines model for DbIndex.
+type DbIndex struct {
+	Definition string `json:"definition"`
+	Name       string `json:"name"`
+	Primary    bool   `json:"primary"`
+	Unique     bool   `json:"unique"`
+}
+
+// DbSchema defines model for DbSchema.
+type DbSchema struct {
+	Schemas []DbSchemaNode `json:"schemas"`
+}
+
+// DbSchemaNode defines model for DbSchemaNode.
+type DbSchemaNode struct {
+	Name   string    `json:"name"`
+	Tables []DbTable `json:"tables"`
+}
+
+// DbTable defines model for DbTable.
+type DbTable struct {
+	Columns    []DbColumn  `json:"columns"`
+	Comment    *string     `json:"comment,omitempty"`
+	Indexes    []DbIndex   `json:"indexes"`
+	Kind       DbTableKind `json:"kind"`
+	Name       string      `json:"name"`
+	PrimaryKey []string    `json:"primary_key"`
+
+	// RowEstimate From the planner's statistics; null before the first ANALYZE.
+	RowEstimate *int64 `json:"row_estimate,omitempty"`
+	SizeBytes   int64  `json:"size_bytes"`
+}
+
+// DbTableKind defines model for DbTable.Kind.
+type DbTableKind string
 
 // DnsCheck defines model for DnsCheck.
 type DnsCheck struct {
@@ -581,11 +772,40 @@ type DnsCheck struct {
 	ServerAddresses []string `json:"server_addresses"`
 }
 
+// EnableExtensionRequest defines model for EnableExtensionRequest.
+type EnableExtensionRequest struct {
+	Name string `json:"name"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_implemented
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// Extension defines model for Extension.
+type Extension struct {
+	// Allowed On this project's tier's allow-list.
+	Allowed bool `json:"allowed"`
+
+	// Available Installed on the server the project runs on.
+	Available        bool    `json:"available"`
+	DefaultVersion   *string `json:"default_version,omitempty"`
+	InstalledVersion *string `json:"installed_version,omitempty"`
+	Name             string  `json:"name"`
+	Schema           *string `json:"schema,omitempty"`
+
+	// Tier The lowest tier that allows it.
+	Tier ExtensionTier `json:"tier"`
+}
+
+// ExtensionTier The lowest tier that allows it.
+type ExtensionTier string
+
+// ExtensionList defines model for ExtensionList.
+type ExtensionList struct {
+	Items []Extension `json:"items"`
 }
 
 // GeneralSettings defines model for GeneralSettings.
@@ -689,6 +909,29 @@ type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Password string              `json:"password"`
 }
+
+// MetricPoint defines model for MetricPoint.
+type MetricPoint struct {
+	Ts    time.Time `json:"ts"`
+	Value float64   `json:"value"`
+}
+
+// MetricSeries defines model for MetricSeries.
+type MetricSeries struct {
+	Metric string        `json:"metric"`
+	Points []MetricPoint `json:"points"`
+}
+
+// MetricsResponse defines model for MetricsResponse.
+type MetricsResponse struct {
+	Range      string                    `json:"range"`
+	Resolution MetricsResponseResolution `json:"resolution"`
+	Series     []MetricSeries            `json:"series"`
+	TopQueries *TopQueries               `json:"top_queries,omitempty"`
+}
+
+// MetricsResponseResolution defines model for MetricsResponse.Resolution.
+type MetricsResponseResolution string
 
 // Node defines model for Node.
 type Node struct {
@@ -835,11 +1078,14 @@ type Project struct {
 	OwnerRole    string     `json:"owner_role"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
-	PitrWindow *PitrWindow     `json:"pitr_window,omitempty"`
-	Settings   ProjectSettings `json:"settings"`
-	Slug       string          `json:"slug"`
-	Status     ProjectStatus   `json:"status"`
-	Tier       ProjectTier     `json:"tier"`
+	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
+
+	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped.
+	RetiredCopyUntil *time.Time      `json:"retired_copy_until,omitempty"`
+	Settings         ProjectSettings `json:"settings"`
+	Slug             string          `json:"slug"`
+	Status           ProjectStatus   `json:"status"`
+	Tier             ProjectTier     `json:"tier"`
 }
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
@@ -887,6 +1133,20 @@ type ProjectTier string
 type ProjectUpdated struct {
 	Operation *Operation `json:"operation,omitempty"`
 	Project   Project    `json:"project"`
+}
+
+// PromoteRequest defines model for PromoteRequest.
+type PromoteRequest struct {
+	NodeId   *openapi_types.UUID `json:"node_id,omitempty"`
+	Profile  *string             `json:"profile,omitempty"`
+	VolumeGb *int                `json:"volume_gb,omitempty"`
+}
+
+// PromotionEstimate defines model for PromotionEstimate.
+type PromotionEstimate struct {
+	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
+	EstimatedDowntimeSeconds int   `json:"estimated_downtime_seconds"`
+	SizeBytes                int64 `json:"size_bytes"`
 }
 
 // ReauthRequest defines model for ReauthRequest.
@@ -961,6 +1221,65 @@ type SharedClusterRequest struct {
 	MemoryMb int `json:"memory_mb"`
 }
 
+// SqlCancelRequest defines model for SqlCancelRequest.
+type SqlCancelRequest struct {
+	QueryId openapi_types.UUID `json:"query_id"`
+}
+
+// SqlCancelResult defines model for SqlCancelResult.
+type SqlCancelResult struct {
+	Cancelled bool `json:"cancelled"`
+}
+
+// SqlColumn defines model for SqlColumn.
+type SqlColumn struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+// SqlError defines model for SqlError.
+type SqlError struct {
+	Code     *string `json:"code,omitempty"`
+	Detail   *string `json:"detail,omitempty"`
+	Hint     *string `json:"hint,omitempty"`
+	Message  string  `json:"message"`
+	Position *int    `json:"position,omitempty"`
+}
+
+// SqlRequest defines model for SqlRequest.
+type SqlRequest struct {
+	Query string `json:"query"`
+
+	// QueryId Chosen by the client, to cancel the query.
+	QueryId openapi_types.UUID `json:"query_id"`
+
+	// ReadOnly Run read-only even if the project's console is not.
+	ReadOnly       *bool `json:"read_only,omitempty"`
+	TimeoutSeconds *int  `json:"timeout_seconds,omitempty"`
+}
+
+// SqlResult defines model for SqlResult.
+type SqlResult struct {
+	DurationMs int64                `json:"duration_ms"`
+	Error      *SqlError            `json:"error,omitempty"`
+	Notices    []string             `json:"notices"`
+	ReadOnly   bool                 `json:"read_only"`
+	Results    []SqlStatementResult `json:"results"`
+}
+
+// SqlStatementResult defines model for SqlStatementResult.
+type SqlStatementResult struct {
+	Columns []SqlColumn `json:"columns"`
+
+	// Command The command tag, e.g. "SELECT 3" or "INSERT 0 1".
+	Command  string      `json:"command"`
+	RowCount int64       `json:"row_count"`
+	Rows     [][]*string `json:"rows"`
+
+	// Truncated More rows than the 1,000 shown.
+	Truncated bool `json:"truncated"`
+}
+
 // StorageRequest defines model for StorageRequest.
 type StorageRequest struct {
 	AccessKey string `json:"access_key"`
@@ -1000,6 +1319,20 @@ type StorageTestStep struct {
 	TookMs int     `json:"took_ms"`
 }
 
+// TablePage defines model for TablePage.
+type TablePage struct {
+	Columns    []SqlColumn `json:"columns"`
+	KeyColumns []string    `json:"key_columns"`
+
+	// Next Cursor of the next page; absent on the last.
+	Next  *string        `json:"next,omitempty"`
+	Order TablePageOrder `json:"order"`
+	Rows  [][]*string    `json:"rows"`
+}
+
+// TablePageOrder defines model for TablePage.Order.
+type TablePageOrder string
+
 // TlsStatus defines model for TlsStatus.
 type TlsStatus struct {
 	Error    *string        `json:"error,omitempty"`
@@ -1015,6 +1348,22 @@ type TlsStatusMode string
 
 // TlsStatusState defines model for TlsStatus.State.
 type TlsStatusState string
+
+// TopQueries defines model for TopQueries.
+type TopQueries struct {
+	// Available pg_stat_statements is installed in the project database.
+	Available bool       `json:"available"`
+	Items     []TopQuery `json:"items"`
+}
+
+// TopQuery defines model for TopQuery.
+type TopQuery struct {
+	Calls   int64   `json:"calls"`
+	MeanMs  float64 `json:"mean_ms"`
+	Query   string  `json:"query"`
+	Rows    int64   `json:"rows"`
+	TotalMs float64 `json:"total_ms"`
+}
 
 // TotpRequest defines model for TotpRequest.
 type TotpRequest struct {
@@ -1055,6 +1404,12 @@ type Version struct {
 // BackupID defines model for BackupID.
 type BackupID = openapi_types.UUID
 
+// MetricNames defines model for MetricNames.
+type MetricNames = []string
+
+// MetricRange defines model for MetricRange.
+type MetricRange string
+
 // NodeID defines model for NodeID.
 type NodeID = openapi_types.UUID
 
@@ -1086,6 +1441,17 @@ type ListBackupsParams struct {
 	Limit     *int                `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetNodeMetricsParams defines parameters for GetNodeMetrics.
+type GetNodeMetricsParams struct {
+	Range *GetNodeMetricsParamsRange `form:"range,omitempty" json:"range,omitempty"`
+
+	// Metric Metrics to return; all when omitted.
+	Metric *MetricNames `form:"metric,omitempty" json:"metric,omitempty"`
+}
+
+// GetNodeMetricsParamsRange defines parameters for GetNodeMetrics.
+type GetNodeMetricsParamsRange string
+
 // ListOperationsParams defines parameters for ListOperations.
 type ListOperationsParams struct {
 	Status    *OperationStatus    `form:"status,omitempty" json:"status,omitempty"`
@@ -1104,6 +1470,23 @@ type ListProjectsParams struct {
 type DeleteProjectParams struct {
 	Confirm         string `form:"confirm" json:"confirm"`
 	SkipFinalBackup *bool  `form:"skip_final_backup,omitempty" json:"skip_final_backup,omitempty"`
+}
+
+// GetProjectMetricsParams defines parameters for GetProjectMetrics.
+type GetProjectMetricsParams struct {
+	Range *GetProjectMetricsParamsRange `form:"range,omitempty" json:"range,omitempty"`
+
+	// Metric Metrics to return; all when omitted.
+	Metric *MetricNames `form:"metric,omitempty" json:"metric,omitempty"`
+}
+
+// GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
+type GetProjectMetricsParamsRange string
+
+// GetTableRowsParams defines parameters for GetTableRows.
+type GetTableRowsParams struct {
+	After *string `form:"after,omitempty" json:"after,omitempty"`
+	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // RunRestoreTestParams defines parameters for RunRestoreTest.
@@ -1147,14 +1530,26 @@ type CreateSharedClusterJSONRequestBody = SharedClusterRequest
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
 
+// EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
+type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
+
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
 
 // RestoreProjectPITRJSONRequestBody defines body for RestoreProjectPITR for application/json ContentType.
 type RestoreProjectPITRJSONRequestBody = PitrRequest
 
+// PromoteProjectJSONRequestBody defines body for PromoteProject for application/json ContentType.
+type PromoteProjectJSONRequestBody = PromoteRequest
+
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
+
+// RunSQLJSONRequestBody defines body for RunSQL for application/json ContentType.
+type RunSQLJSONRequestBody = SqlRequest
+
+// CancelSQLJSONRequestBody defines body for CancelSQL for application/json ContentType.
+type CancelSQLJSONRequestBody = SqlCancelRequest
 
 // ConfirmBackupKeyJSONRequestBody defines body for ConfirmBackupKey for application/json ContentType.
 type ConfirmBackupKeyJSONRequestBody = BackupKeyConfirmRequest
@@ -1233,6 +1628,9 @@ type ServerInterface interface {
 	// UpdateNode Change a node's role (where new projects may go)
 	// (PATCH /api/v1/nodes/{id})
 	UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID)
+	// GetNodeMetrics A node's metric series
+	// (GET /api/v1/nodes/{id}/metrics)
+	GetNodeMetrics(w http.ResponseWriter, r *http.Request, id NodeID, params GetNodeMetricsParams)
 	// CreateNodeRegistrationToken Issue a one-time agent registration token (24 hours)
 	// (POST /api/v1/nodes/{id}/registration-token)
 	CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request, id NodeID)
@@ -1266,18 +1664,45 @@ type ServerInterface interface {
 	// CreateProjectBackup Back up a project now
 	// (POST /api/v1/projects/{id}/backups)
 	CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListProjectExtensions The extension allow-list and what is installed
+	// (GET /api/v1/projects/{id}/extensions)
+	ListProjectExtensions(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// EnableProjectExtension Enable an allow-listed extension
+	// (POST /api/v1/projects/{id}/extensions)
+	EnableProjectExtension(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectMetrics A project's metric series and top queries
+	// (GET /api/v1/projects/{id}/metrics)
+	GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams)
 	// RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
 	// (POST /api/v1/projects/{id}/pitr)
 	RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetPromotionEstimate Size and estimated write freeze of promoting this shared project
+	// (GET /api/v1/projects/{id}/promote)
+	GetPromotionEstimate(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// PromoteProject Promote a shared project to a dedicated instance
+	// (POST /api/v1/projects/{id}/promote)
+	PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectSchema Schemas, tables and views, with columns and indexes
+	// (GET /api/v1/projects/{id}/schema)
+	GetProjectSchema(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// RunSQL Run SQL in the project database (SQL console)
+	// (POST /api/v1/projects/{id}/sql)
+	RunSQL(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CancelSQL Cancel a running console query
+	// (POST /api/v1/projects/{id}/sql/cancel)
+	CancelSQL(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetTableRows A page of a table's rows (read-only)
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
+	GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams)
 	// RunRestoreTest Run the restore test now
 	// (POST /api/v1/restore-tests)
 	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
@@ -1326,6 +1751,9 @@ type ServerInterface interface {
 	// GetHealthz Liveness probe
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// GetPrometheusMetrics Prometheus exposition of the latest metrics
+	// (GET /metrics)
+	GetPrometheusMetrics(w http.ResponseWriter, r *http.Request)
 	// GetReadyz Readiness probe
 	// (GET /readyz)
 	GetReadyz(w http.ResponseWriter, r *http.Request)
@@ -1443,6 +1871,12 @@ func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, id Nod
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetNodeMetrics A node's metric series
+// (GET /api/v1/nodes/{id}/metrics)
+func (_ Unimplemented) GetNodeMetrics(w http.ResponseWriter, r *http.Request, id NodeID, params GetNodeMetricsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CreateNodeRegistrationToken Issue a one-time agent registration token (24 hours)
 // (POST /api/v1/nodes/{id}/registration-token)
 func (_ Unimplemented) CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request, id NodeID) {
@@ -1509,9 +1943,27 @@ func (_ Unimplemented) CreateProjectBackup(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListProjectExtensions The extension allow-list and what is installed
+// (GET /api/v1/projects/{id}/extensions)
+func (_ Unimplemented) ListProjectExtensions(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableProjectExtension Enable an allow-listed extension
+// (POST /api/v1/projects/{id}/extensions)
+func (_ Unimplemented) EnableProjectExtension(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 // (POST /api/v1/projects/{id}/instance)
 func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProjectMetrics A project's metric series and top queries
+// (GET /api/v1/projects/{id}/metrics)
+func (_ Unimplemented) GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1521,15 +1973,51 @@ func (_ Unimplemented) RestoreProjectPITR(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetPromotionEstimate Size and estimated write freeze of promoting this shared project
+// (GET /api/v1/projects/{id}/promote)
+func (_ Unimplemented) GetPromotionEstimate(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PromoteProject Promote a shared project to a dedicated instance
+// (POST /api/v1/projects/{id}/promote)
+func (_ Unimplemented) PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // RotateProjectPassword Rotate the project password
 // (POST /api/v1/projects/{id}/rotate-password)
 func (_ Unimplemented) RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetProjectSchema Schemas, tables and views, with columns and indexes
+// (GET /api/v1/projects/{id}/schema)
+func (_ Unimplemented) GetProjectSchema(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // UpdateProject Update a project's name, description, or guardrails
 // (PATCH /api/v1/projects/{id}/settings)
 func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RunSQL Run SQL in the project database (SQL console)
+// (POST /api/v1/projects/{id}/sql)
+func (_ Unimplemented) RunSQL(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CancelSQL Cancel a running console query
+// (POST /api/v1/projects/{id}/sql/cancel)
+func (_ Unimplemented) CancelSQL(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTableRows A page of a table's rows (read-only)
+// (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
+func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1626,6 +2114,12 @@ func (_ Unimplemented) GetVersion(w http.ResponseWriter, r *http.Request) {
 // GetHealthz Liveness probe
 // (GET /healthz)
 func (_ Unimplemented) GetHealthz(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPrometheusMetrics Prometheus exposition of the latest metrics
+// (GET /metrics)
+func (_ Unimplemented) GetPrometheusMetrics(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2060,6 +2554,61 @@ func (siw *ServerInterfaceWrapper) UpdateNode(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetNodeMetrics operation middleware
+func (siw *ServerInterfaceWrapper) GetNodeMetrics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetNodeMetricsParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "metric" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "metric", r.URL.Query(), &params.Metric, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "metric"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "metric", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNodeMetrics(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateNodeRegistrationToken operation middleware
 func (siw *ServerInterfaceWrapper) CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request) {
 
@@ -2417,6 +2966,58 @@ func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjectExtensions operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectExtensions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectExtensions(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableProjectExtension operation middleware
+func (siw *ServerInterfaceWrapper) EnableProjectExtension(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableProjectExtension(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProjectInstanceAction operation middleware
 func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, r *http.Request) {
 
@@ -2434,6 +3035,61 @@ func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ProjectInstanceAction(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectMetrics operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectMetrics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetProjectMetricsParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "metric" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "metric", r.URL.Query(), &params.Metric, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "metric"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "metric", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectMetrics(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2469,6 +3125,58 @@ func (siw *ServerInterfaceWrapper) RestoreProjectPITR(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetPromotionEstimate operation middleware
+func (siw *ServerInterfaceWrapper) GetPromotionEstimate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPromotionEstimate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PromoteProject operation middleware
+func (siw *ServerInterfaceWrapper) PromoteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PromoteProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RotateProjectPassword operation middleware
 func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, r *http.Request) {
 
@@ -2495,6 +3203,32 @@ func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// GetProjectSchema operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectSchema(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectSchema(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateProject operation middleware
 func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.Request) {
 
@@ -2512,6 +3246,131 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunSQL operation middleware
+func (siw *ServerInterfaceWrapper) RunSQL(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunSQL(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelSQL operation middleware
+func (siw *ServerInterfaceWrapper) CancelSQL(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelSQL(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTableRows operation middleware
+func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTableRowsParams
+
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", r.URL.Query(), &params.After, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "after"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTableRows(w, r, id, schema, table, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2755,6 +3614,20 @@ func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPrometheusMetrics operation middleware
+func (siw *ServerInterfaceWrapper) GetPrometheusMetrics(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPrometheusMetrics(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3018,6 +3891,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/pitr", wrapper.RestoreProjectPITR)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.GetPromotionEstimate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.PromoteProject)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.ProjectInstanceAction)
 	})
 	r.Group(func(r chi.Router) {
@@ -3040,6 +3919,33 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/agent/register", wrapper.RegisterAgent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/sql", wrapper.RunSQL)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/sql/cancel", wrapper.CancelSQL)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/schema", wrapper.GetProjectSchema)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/rows", wrapper.GetTableRows)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/extensions", wrapper.ListProjectExtensions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/extensions", wrapper.EnableProjectExtension)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/metrics", wrapper.GetProjectMetrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/nodes/{id}/metrics", wrapper.GetNodeMetrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/metrics", wrapper.GetPrometheusMetrics)
 	})
 
 	return r

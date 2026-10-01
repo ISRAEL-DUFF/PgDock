@@ -47,6 +47,8 @@ services:
       PGDOCK_ACME_CA_ROOTS: /etc/pgdock/pebble.minica.pem
       PGDOCK_SETUP_CODE: e2e-setup-code
       PGDOCK_LOG_FORMAT: text
+      # Charts fill in seconds rather than minutes.
+      PGDOCK_METRICS_INTERVAL: 5s
     volumes:
       - ../../test/e2e/bundle/pebble.minica.pem:/etc/pgdock/pebble.minica.pem:ro
 

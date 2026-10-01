@@ -48,6 +48,8 @@ type Config struct {
 	PoolerTLS PoolerTLS
 	// Backups configures agents and backups.
 	Backups Backups
+	// Insight configures the SQL console and metrics.
+	Insight Insight
 }
 
 // Backups configures node agents and backups (M3).
@@ -147,6 +149,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadWeb(getenv, &cfg)...)
 	errs = append(errs, loadPoolerTLS(getenv, &cfg)...)
 	errs = append(errs, loadBackups(getenv, &cfg)...)
+	errs = append(errs, loadInsight(getenv, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err
