@@ -668,7 +668,7 @@ func (q *Queries) MarkBackupDeleted(ctx context.Context, id uuid.UUID) error {
 
 const projectsDueForBackup = `-- name: ProjectsDueForBackup :many
 SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at FROM projects p
-WHERE p.deleted_at IS NULL AND p.status = 'active'
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < $1
   AND NOT EXISTS (
     SELECT 1 FROM operations o
     WHERE o.project_id = p.id AND o.kind IN ('backup', 'base_backup') AND o.created_at >= $1
@@ -679,8 +679,10 @@ WHERE p.deleted_at IS NULL AND p.status = 'active'
   )
 `
 
-// Active projects with no backup operation created since @since, and no
-// operation in flight (the next tick picks them up).
+// Active projects created before the window that opened at @since, with no
+// backup operation since then and no operation in flight (the next tick
+// picks them up). A project created after the window opened waits for the
+// next one.
 func (q *Queries) ProjectsDueForBackup(ctx context.Context, since time.Time) ([]Project, error) {
 	rows, err := q.db.Query(ctx, projectsDueForBackup, since)
 	if err != nil {

@@ -66,10 +66,12 @@ WHERE status = 'succeeded' AND project_id IS NOT NULL AND kind IN ('logical','ba
 GROUP BY project_id;
 
 -- name: ProjectsDueForBackup :many
--- Active projects with no backup operation created since @since, and no
--- operation in flight (the next tick picks them up).
+-- Active projects created before the window that opened at @since, with no
+-- backup operation since then and no operation in flight (the next tick
+-- picks them up). A project created after the window opened waits for the
+-- next one.
 SELECT p.* FROM projects p
-WHERE p.deleted_at IS NULL AND p.status = 'active'
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < @since
   AND NOT EXISTS (
     SELECT 1 FROM operations o
     WHERE o.project_id = p.id AND o.kind IN ('backup', 'base_backup') AND o.created_at >= @since

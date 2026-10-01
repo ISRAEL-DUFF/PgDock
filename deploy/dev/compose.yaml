@@ -154,8 +154,11 @@ services:
       POSTGRES_INITDB_WALDIR: /var/lib/postgresql/wal
     command: ["postgres", "-c", "hba_file=/etc/pgdock/pg_hba.conf", "-c", "log_min_duration_statement=5s",
               "-c", "shared_buffers=32MB", "-c", "max_wal_size=64MB"]
+    # Both in memory, so they always start empty together (WAL on its own,
+    # larger tmpfs: only the data directory runs out of space).
     tmpfs:
       - /var/lib/postgresql/18/docker:size=160m,mode=0700,uid=999,gid=999
+      - /var/lib/postgresql/wal:size=1g,mode=0700,uid=999,gid=999
     ports:
       - "127.0.0.1:${PGDOCK_DEV_SMALL_PORT:-5442}:5432"
     volumes:

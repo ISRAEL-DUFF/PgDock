@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
 
 all: build
 
@@ -95,6 +95,21 @@ build-go:
 ## release-check: fail if the server binary embeds only the placeholder UI.
 release-check:
 	$(BIN)/pgdock-server -require-ui
+
+## release: linux/amd64 and linux/arm64 binaries (UI embedded), the install
+## bundle (source at this commit), and SHA256SUMS, in dist/.
+DIST := dist
+release: build-ui
+	rm -rf $(DIST) && mkdir -p $(DIST)
+	for arch in amd64 arm64; do \
+		for cmd in server agent; do \
+			CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
+				-o $(DIST)/pgdock-$$cmd-$(VERSION)-linux-$$arch ./cmd/$$cmd; \
+		done; \
+	done
+	git archive --format=tar.gz --prefix=pgdock-$(VERSION)/ -o $(DIST)/pgdock-$(VERSION).tar.gz HEAD
+	cd $(DIST) && sha256sum * > SHA256SUMS
+	@ls -l $(DIST)
 
 ## test: Go unit tests, frontend type-check and unit tests.
 test: test-go test-web

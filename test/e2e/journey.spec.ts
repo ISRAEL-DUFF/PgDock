@@ -508,7 +508,9 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("pitr-window")).toBeVisible();
     const pad = (n: number) => String(n).padStart(2, "0");
     const local = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}:${pad(target.getSeconds())}`;
-    await page.getByLabel("Restore to (your local time)").fill(local);
+    // Chromium serializes whole minutes without ":00", and fill() checks
+    // the value reads back the same.
+    await page.getByLabel("Restore to (your local time)").fill(local.replace(/:00$/, ""));
     await page.getByLabel("New project name").fill("Orders Pro restored");
     await shot(page, "20-pitr");
     await page.getByRole("button", { name: "Restore to this point" }).click();
