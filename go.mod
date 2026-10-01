@@ -21,6 +21,7 @@ require (
 )
 
 require (
+	github.com/ProtonMail/go-crypto v1.5.2 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
@@ -32,6 +33,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.4 // indirect
 	github.com/aws/smithy-go v1.28.1 // indirect
 	github.com/caddyserver/zerossl v0.1.5 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/getkin/kin-openapi v0.142.0 // indirect
 	github.com/go-openapi/jsonpointer v0.23.1 // indirect

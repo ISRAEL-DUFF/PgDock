@@ -145,6 +145,20 @@ services:
       - "127.0.0.1:${PGDOCK_TEST_AGENT_PORT:-7071}:7070"
     volumes:
       - ../../tmp/bin:/pgdock:ro
+      # Dedicated instances are sibling containers on this network (M4).
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # A second node's agent, for multi-node placement tests.
+  agent-test-2:
+    image: postgres:18
+    profiles: [test]
+    entrypoint: ["sleep", "infinity"]
+    stop_signal: SIGKILL
+    ports:
+      - "127.0.0.1:${PGDOCK_TEST_AGENT2_PORT:-7072}:7070"
+    volumes:
+      - ../../tmp/bin:/pgdock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
 
   # Import sources: a Supabase image and a plain Postgres 15. Published on
   # the gateway address so the control plane (host) and the agent

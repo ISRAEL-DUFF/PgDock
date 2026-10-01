@@ -1,0 +1,241 @@
+package dedicated
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/store"
+)
+
+// KindSharedCluster creates a shared cluster on a node through its agent,
+// for multi-node shared placement (M4).
+const KindSharedCluster = "shared_cluster"
+
+// Kinds returns the operation kinds this service runs.
+func (s *Service) Kinds() map[string]jobs.Kind {
+	return map[string]jobs.Kind{
+		KindSharedCluster: {Handler: s.runSharedCluster, OnFail: s.failSharedCluster, MaxAttempts: 3},
+	}
+}
+
+// sharedSettings is postgresql.conf for an agent-run shared cluster (spec
+// §11.2, scaled to the memory given).
+func sharedSettings(memMB int) map[string]string {
+	mb := func(n int) string { return strconv.Itoa(n) + "MB" }
+	return map[string]string{
+		"max_connections":            "500",
+		"shared_buffers":             mb(memMB / 4),
+		"effective_cache_size":       mb(memMB * 3 / 4),
+		"work_mem":                   "8MB",
+		"maintenance_work_mem":       mb(min(max(memMB/32, 64), 1024)),
+		"wal_compression":            "on",
+		"checkpoint_timeout":         "15min",
+		"autovacuum_max_workers":     "5",
+		"shared_preload_libraries":   "pg_stat_statements",
+		"log_min_duration_statement": "5s",
+	}
+}
+
+// AddSharedCluster records a shared cluster on node and queues its
+// creation. memoryMB sizes it (its CPU is not limited: it is the node's
+// shared tenant pool).
+func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memoryMB int, by *uuid.UUID) (store.Operation, error) {
+	if memoryMB < 512 || memoryMB > 1<<20 {
+		return store.Operation{}, fmt.Errorf("%w: memory must be 512 MB to 1 TB", provision.ErrInvalid)
+	}
+	var op store.Operation
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		n, err := q.GetNode(ctx, nodeID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return provision.ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if n.Role != "shared" && n.Role != "both" {
+			return fmt.Errorf("%w: node %s does not take shared projects (role %s)", provision.ErrInvalid, n.Name, n.Role)
+		}
+		if n.AgentCertFp == nil {
+			return fmt.Errorf("%w: node %s has no agent yet", provision.ErrConflict, n.Name)
+		}
+		if _, err := q.SharedInstanceOnNode(ctx, nodeID); err == nil {
+			return fmt.Errorf("%w: node %s already has a shared cluster", provision.ErrConflict, n.Name)
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		mem := int32(memoryMB)
+		name := "shared"
+		inst, err := q.InsertInstance(ctx, store.InsertInstanceParams{
+			ID: uuid.New(), NodeID: nodeID, Kind: provision.TierShared, MemLimitMb: &mem, Profile: &name,
+		})
+		if err != nil {
+			return err
+		}
+		op, err = jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindSharedCluster, CreatedBy: by,
+			Params: map[string]any{"instance_id": inst.ID, "node_id": nodeID}})
+		return err
+	})
+	return op, err
+}
+
+type sharedParams struct {
+	InstanceID uuid.UUID `json:"instance_id"`
+}
+
+func (s *Service) runSharedCluster(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
+	var params sharedParams
+	if err := decodeJSON(op.Params, &params); err != nil {
+		return err
+	}
+	q := store.New(s.db)
+	inst, err := q.GetInstance(ctx, params.InstanceID)
+	if err != nil {
+		return jobs.Permanent(err)
+	}
+	if len(inst.AdminSecret) == 0 {
+		sealed, err := provision.SealInstanceSecret(s.keyring, inst.ID, provision.AdminSecret{User: "pgdock_admin", Password: randomPassword()})
+		if err != nil {
+			return err
+		}
+		if err := q.SetInstanceAdminSecret(ctx, store.SetInstanceAdminSecretParams{ID: inst.ID, AdminSecret: sealed}); err != nil {
+			return err
+		}
+		inst.AdminSecret = sealed
+	}
+	secret, err := provision.OpenInstanceSecret(s.keyring, inst.ID, inst.AdminSecret)
+	if err != nil {
+		return jobs.Permanent(err)
+	}
+	mem := 1024
+	if inst.MemLimitMb != nil {
+		mem = int(*inst.MemLimitMb)
+	}
+	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
+	if err != nil {
+		return err
+	}
+	if err := log.Info(ctx, "instance", "starting a shared cluster (%d MB) on node %s", mem, agent.Node.Name); err != nil {
+		return err
+	}
+	res, err := agent.CreateInstance(ctx, agentapi.InstanceSpec{
+		ID: inst.ID.String(), Kind: agentapi.InstanceShared, MemoryMB: mem,
+		AdminUser: secret.User, AdminPassword: secret.Password, Settings: sharedSettings(mem),
+	})
+	if err != nil {
+		return err
+	}
+	if res.Host == "" {
+		return jobs.Permanent(fmt.Errorf("agent on %s reports no address for the instance", agent.Node.Name))
+	}
+	run := store.SetInstanceRunningParams{ID: inst.ID, ContainerID: &res.ContainerID, Host: &res.Host, Port: int32(res.Port)}
+	if s.cfg.AdminVia == "published" && res.PublishedPort > 0 {
+		host := res.PublishedHost
+		if host == "" || host == "0.0.0.0" {
+			host = agent.Node.PrivateAddr
+		}
+		port := int32(res.PublishedPort)
+		run.AdminHost, run.AdminPort = &host, &port
+	}
+	if err := q.SetInstanceRunning(ctx, run); err != nil {
+		return err
+	}
+	inst, err = q.GetInstance(ctx, inst.ID)
+	if err != nil {
+		return err
+	}
+	if err := s.adoptRestore(ctx, inst, store.Project{}, nil, log); err != nil { // hardening only
+		return err
+	}
+	return log.Info(ctx, "done", "shared cluster on %s is running; new shared projects are placed on the least loaded cluster", agent.Node.Name)
+}
+
+func (s *Service) failSharedCluster(ctx context.Context, op store.Operation, log *jobs.StepLogger, _ error) error {
+	var params sharedParams
+	if err := decodeJSON(op.Params, &params); err != nil {
+		return err
+	}
+	q := store.New(s.db)
+	inst, err := q.GetInstance(ctx, params.InstanceID)
+	if err != nil {
+		return err
+	}
+	if agent, err := s.nodes.ForNode(ctx, inst.NodeID); err == nil {
+		_ = agent.DestroyInstance(ctx, inst.ID.String())
+	}
+	_ = log.Warn(ctx, "rollback", "removed the half-created shared cluster")
+	return q.MarkInstanceDeleted(ctx, inst.ID)
+}
+
+// Instance actions.
+const (
+	ActionStart   = "start"
+	ActionStop    = "stop"
+	ActionRestart = "restart"
+)
+
+// Act starts, stops, or restarts a dedicated project's instance.
+func (s *Service) Act(ctx context.Context, p store.Project, action string) (agentapi.Instance, error) {
+	if p.Tier != provision.TierDedicated {
+		return agentapi.Instance{}, fmt.Errorf("%w: only dedicated projects have their own instance", provision.ErrInvalid)
+	}
+	q := store.New(s.db)
+	inst, err := q.GetInstance(ctx, p.InstanceID)
+	if err != nil {
+		return agentapi.Instance{}, err
+	}
+	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
+	if err != nil {
+		return agentapi.Instance{}, err
+	}
+	id := inst.ID.String()
+	var res agentapi.Instance
+	switch action {
+	case ActionStop:
+		res, err = agent.StopInstance(ctx, id)
+		if err == nil {
+			err = q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "stopped"})
+		}
+	case ActionStart, ActionRestart:
+		if action == ActionRestart {
+			if _, err = agent.StopInstance(ctx, id); err != nil {
+				return res, err
+			}
+		}
+		res, err = agent.StartInstance(ctx, id)
+		if err == nil {
+			err = q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "running"})
+		}
+	default:
+		return res, fmt.Errorf("%w: action must be start, stop, or restart", provision.ErrInvalid)
+	}
+	return res, err
+}
+
+// Status asks the agent for the instance's container state.
+func (s *Service) Status(ctx context.Context, inst store.Instance) (agentapi.Instance, error) {
+	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
+	if err != nil {
+		return agentapi.Instance{}, err
+	}
+	return agent.Instance(ctx, inst.ID.String())
+}
+
+func decodeJSON(raw []byte, v any) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, v); err != nil {
+		return jobs.Permanent(fmt.Errorf("operation params: %w", err))
+	}
+	return nil
+}

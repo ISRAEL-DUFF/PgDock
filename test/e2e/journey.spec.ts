@@ -31,6 +31,10 @@ const email = "owner@example.com";
 const password = "a long enough passphrase";
 
 let totpSecret = "";
+// The signed-in session from the first test, reused by the later ones:
+// signing in again would spend the per-address auth rate limit (10 per 5
+// minutes) that the first test already exercises.
+const stateFile = "test-results/.session.json";
 
 // Optional screenshots of key screens, in both themes, for review.
 const shotDir = process.env.PGDOCK_E2E_SCREENSHOTS;
@@ -44,13 +48,9 @@ async function shot(page: Page, name: string) {
   await page.waitForTimeout(400);
 }
 
-async function signIn(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByLabel("Code").fill(await freshTotp(totpSecret));
-  await page.getByRole("button", { name: "Sign in" }).click();
+/** Opens the app with the session saved by the first test. */
+async function signedIn(page: Page) {
+  await page.goto("/projects");
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 }
 
@@ -318,130 +318,216 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
     throw new Error("the deleted project still accepts connections");
   }).toPass({ timeout: 60_000 });
   await expect(page.getByText("No projects yet")).toBeVisible({ timeout: 30_000 });
+  await page.context().storageState({ path: stateFile });
 });
 
 // The M3 "done when" (spec §14): delete data, restore to a new project, and
 // verify it; then import a Supabase project and serve its app from PGDock.
 // (A hosted Supabase project is not reachable from CI, so the import source
 // is the supabase/postgres image with a Supabase-shaped app in it.)
-test("back up, delete data, restore and verify; import a Supabase project and serve its app", async ({ page }) => {
-  test.skip(!s3Endpoint || !supabaseSeedURL || !supabaseURL, "needs the e2e bundle's fake S3 and Supabase source");
-  await signIn(page);
+test.describe("with the saved session", () => {
+  test.use({ storageState: stateFile });
 
-  // 1. A project with data.
-  await page.goto("/projects/new");
-  await page.getByLabel("Name").fill("Notes");
-  await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
-  const notesURL = await revealedValue(page, "credential-pooled-url");
-  await page.getByLabel("I've saved the password somewhere safe").check();
-  await page.getByRole("button", { name: "Done" }).click();
-  const app = await connect(notesURL);
-  await app.query("CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL)");
-  await app.query("INSERT INTO notes (body) SELECT 'note ' || g FROM generate_series(1, 50) g");
-  await app.end();
+  test("back up, delete data, restore and verify; import a Supabase project and serve its app", async ({ page }) => {
+    test.skip(!s3Endpoint || !supabaseSeedURL || !supabaseURL, "needs the e2e bundle's fake S3 and Supabase source");
+    await signedIn(page);
 
-  // 2. Back it up from the Backups tab.
-  await page.getByRole("link", { name: "Open the project" }).click();
-  const tabs = page.getByRole("navigation", { name: "Project" });
-  await tabs.getByRole("link", { name: "Backups" }).click();
-  await expect(page.getByTestId("last-backup")).toHaveText("never");
-  await page.getByRole("button", { name: "Back up now" }).click();
-  await expect(page.getByTestId("backup-row").first()).toContainText("succeeded", { timeout: 60_000 });
-  await expect(page.getByTestId("backup-row").first()).toContainText("Nightly / manual");
-  await page.reload();
-  await expect(page.getByTestId("last-backup")).toContainText(/just now|s ago/);
-  await shot(page, "12-backups");
+    // 1. A project with data.
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Notes");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const notesURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    const app = await connect(notesURL);
+    await app.query("CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL)");
+    await app.query("INSERT INTO notes (body) SELECT 'note ' || g FROM generate_series(1, 50) g");
+    await app.end();
 
-  // 3. Delete data.
-  expect(await count(notesURL, "DELETE FROM notes WHERE id > 5 RETURNING 1")).toBe(1);
-  expect(await count(notesURL, "SELECT count(*) FROM notes")).toBe(5);
+    // 2. Back it up from the Backups tab.
+    await page.getByRole("link", { name: "Open the project" }).click();
+    const tabs = page.getByRole("navigation", { name: "Project" });
+    await tabs.getByRole("link", { name: "Backups" }).click();
+    await expect(page.getByTestId("last-backup")).toHaveText("never");
+    await page.getByRole("button", { name: "Back up now" }).click();
+    await expect(page.getByTestId("backup-row").first()).toContainText("succeeded", { timeout: 60_000 });
+    await expect(page.getByTestId("backup-row").first()).toContainText("Nightly / manual");
+    await page.reload();
+    await expect(page.getByTestId("last-backup")).toContainText(/just now|s ago/);
+    await shot(page, "12-backups");
 
-  // 4. Restore into a new project and verify it.
-  await page.getByTestId("backup-row").first().getByRole("button", { name: "Restore" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel("New project name")).toHaveValue("Notes restored");
-  await shot(page, "13-restore-dialog");
-  await dialog.getByRole("button", { name: "Restore into new project" }).click();
-  await expect(page.getByTestId("credential-panel")).toBeVisible();
-  await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId("operation-log")).toContainText("restored in");
-  const restoredURL = await revealedValue(page, "credential-pooled-url");
-  expect(await count(restoredURL, "SELECT count(*) FROM notes")).toBe(50);
-  expect(await count(restoredURL, "SELECT max(id) FROM notes")).toBe(50);
-  expect(await count(notesURL, "SELECT count(*) FROM notes")).toBe(5); // the original is untouched
-  await shot(page, "14-restored");
-  await page.getByLabel("I've saved the password somewhere safe").check();
-  await page.getByRole("button", { name: "Done" }).click();
+    // 3. Delete data.
+    expect(await count(notesURL, "DELETE FROM notes WHERE id > 5 RETURNING 1")).toBe(1);
+    expect(await count(notesURL, "SELECT count(*) FROM notes")).toBe(5);
 
-  // 5. Restore in place: typed name, password and code; same URL afterwards.
-  await page.goto("/projects");
-  await page.getByRole("link", { name: "Notes", exact: true }).click();
-  await tabs.getByRole("link", { name: "Backups" }).click();
-  await page.getByTestId("backup-row").last().getByRole("button", { name: "Restore" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Restore in place instead…" }).click();
-  const confirm = page.getByRole("dialog").getByRole("button", { name: "Restore in place" });
-  await expect(confirm).toBeDisabled();
-  await page.getByRole("dialog").getByTestId("confirm-name").fill("Notes");
-  await page.getByRole("dialog").getByLabel("Your password").fill(password);
-  await page.getByRole("dialog").getByTestId("confirm-code").fill(await freshTotp(totpSecret));
-  await confirm.click();
-  await expect(async () => {
-    expect(await count(notesURL, "SELECT count(*) FROM notes")).toBe(50);
-  }).toPass({ timeout: 60_000 });
-  // A safety backup of the 5-row state was taken first.
-  await expect(page.getByText("Safety (before restore)")).toBeVisible({ timeout: 30_000 });
+    // 4. Restore into a new project and verify it.
+    await page.getByTestId("backup-row").first().getByRole("button", { name: "Restore" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("New project name")).toHaveValue("Notes restored");
+    await shot(page, "13-restore-dialog");
+    await dialog.getByRole("button", { name: "Restore into new project" }).click();
+    await expect(page.getByTestId("credential-panel")).toBeVisible();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("operation-log")).toContainText("restored in");
+    const restoredURL = await revealedValue(page, "credential-pooled-url");
+    expect(await count(restoredURL, "SELECT count(*) FROM notes")).toBe(50);
+    expect(await count(restoredURL, "SELECT max(id) FROM notes")).toBe(50);
+    expect(await count(notesURL, "SELECT count(*) FROM notes")).toBe(5); // the original is untouched
+    await shot(page, "14-restored");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
 
-  // 6. The projects list shows the last backup.
-  await page.goto("/projects");
-  const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: "Notes", exact: true }) });
-  await expect(row.getByTestId("last-backup-cell")).not.toContainText("never");
-  await shot(page, "15-projects-last-backup");
+    // 5. Restore in place: typed name, password and code; same URL afterwards.
+    await page.goto("/projects");
+    await page.getByRole("link", { name: "Notes", exact: true }).click();
+    await tabs.getByRole("link", { name: "Backups" }).click();
+    await page.getByTestId("backup-row").last().getByRole("button", { name: "Restore" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Restore in place instead…" }).click();
+    const confirm = page.getByRole("dialog").getByRole("button", { name: "Restore in place" });
+    await expect(confirm).toBeDisabled();
+    await page.getByRole("dialog").getByTestId("confirm-name").fill("Notes");
+    await page.getByRole("dialog").getByLabel("Your password").fill(password);
+    await page.getByRole("dialog").getByTestId("confirm-code").fill(await freshTotp(totpSecret));
+    await confirm.click();
+    await expect(async () => {
+      expect(await count(notesURL, "SELECT count(*) FROM notes")).toBe(50);
+    }).toPass({ timeout: 60_000 });
+    // A safety backup of the 5-row state was taken first.
+    await expect(page.getByText("Safety (before restore)")).toBeVisible({ timeout: 30_000 });
 
-  // 7. Import a Supabase project.
-  const seed = new pg.Client({ connectionString: supabaseSeedURL });
-  await seed.connect();
-  await seed.query(readFileSync(fileURLToPath(new URL("./supabase-fixture.sql", import.meta.url)), "utf8"));
-  await seed.end();
+    // 6. The projects list shows the last backup.
+    await page.goto("/projects");
+    const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: "Notes", exact: true }) });
+    await expect(row.getByTestId("last-backup-cell")).not.toContainText("never");
+    await shot(page, "15-projects-last-backup");
 
-  await page.getByRole("link", { name: "Import" }).click();
-  await page.getByLabel("Source connection string").fill(supabaseURL!);
-  await page.getByRole("button", { name: "Run preflight" }).click();
-  await expect(page.getByText("Supabase project")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("preflight-version")).toContainText("17");
-  await expect(page.getByLabel("Import schema public")).toBeChecked();
-  await expect(page.getByLabel("Import schema app")).toBeChecked();
-  await expect(page.getByLabel("Import schema auth")).not.toBeChecked();
-  await expect(page.getByLabel("Import schema storage")).not.toBeChecked();
-  await expect(page.getByRole("cell", { name: "own todos" })).toBeVisible();
-  await shot(page, "16-import-preflight");
-  await page.getByLabel("Project name").fill("Todo app");
-  await page.getByRole("button", { name: "Import 2 schemas" }).click();
-  await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByTestId("operation-log")).toContainText("verified: 2 table(s), 122 row(s)");
-  await shot(page, "17-imported");
-  const todoURL = await revealedValue(page, "credential-pooled-url");
-  expect(todoURL).toContain(`@${dbHost}:`);
+    // 7. Import a Supabase project.
+    const seed = new pg.Client({ connectionString: supabaseSeedURL });
+    await seed.connect();
+    await seed.query(readFileSync(fileURLToPath(new URL("./supabase-fixture.sql", import.meta.url)), "utf8"));
+    await seed.end();
 
-  // 8. The app runs against PGDock with nothing but the new URL.
-  const todo = await startTodoApp(() => connect(todoURL));
-  try {
-    const ada = "00000000-0000-0000-0000-000000000001";
-    const list = (await (await fetch(`${todo.url}/todos?user=${ada}`)).json()) as { id: number }[];
-    expect(list).toHaveLength(60);
-    expect(await (await fetch(`${todo.url}/profile?user=${ada}`)).json()).toEqual({ username: "ada" });
-    const created = (await (await fetch(`${todo.url}/todos`, { method: "POST", body: JSON.stringify({ user: ada, task: "written on PGDock" }) })).json()) as {
-      id: number;
-      ref: string;
+    await page.getByRole("link", { name: "Import" }).click();
+    await page.getByLabel("Source connection string").fill(supabaseURL!);
+    await page.getByRole("button", { name: "Run preflight" }).click();
+    await expect(page.getByText("Supabase project")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("preflight-version")).toContainText("17");
+    await expect(page.getByLabel("Import schema public")).toBeChecked();
+    await expect(page.getByLabel("Import schema app")).toBeChecked();
+    await expect(page.getByLabel("Import schema auth")).not.toBeChecked();
+    await expect(page.getByLabel("Import schema storage")).not.toBeChecked();
+    await expect(page.getByRole("cell", { name: "own todos" })).toBeVisible();
+    await shot(page, "16-import-preflight");
+    await page.getByLabel("Project name").fill("Todo app");
+    await page.getByRole("button", { name: "Import 2 schemas" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByTestId("operation-log")).toContainText("verified: 2 table(s), 122 row(s)");
+    await shot(page, "17-imported");
+    const todoURL = await revealedValue(page, "credential-pooled-url");
+    expect(todoURL).toContain(`@${dbHost}:`);
+
+    // 8. The app runs against PGDock with nothing but the new URL.
+    const todo = await startTodoApp(() => connect(todoURL));
+    try {
+      const ada = "00000000-0000-0000-0000-000000000001";
+      const list = (await (await fetch(`${todo.url}/todos?user=${ada}`)).json()) as { id: number }[];
+      expect(list).toHaveLength(60);
+      expect(await (await fetch(`${todo.url}/profile?user=${ada}`)).json()).toEqual({ username: "ada" });
+      const created = (await (await fetch(`${todo.url}/todos`, { method: "POST", body: JSON.stringify({ user: ada, task: "written on PGDock" }) })).json()) as {
+        id: number;
+        ref: string;
+      };
+      expect(created.id).toBe(121); // the identity sequence carried over
+      expect(created.ref).toMatch(/^[0-9a-f-]{36}$/); // extensions.uuid_generate_v4() works
+      expect(await (await fetch(`${todo.url}/open`)).json()).toEqual([{ open: 81 }]);
+    } finally {
+      await todo.close();
+    }
+    const src = new pg.Client({ connectionString: supabaseSeedURL });
+    await src.connect();
+    expect((await src.query("SELECT count(*)::int AS n FROM public.todos")).rows[0].n).toBe(120); // the source was not modified
+    await src.end();
+  });
+
+  // The M4 "done when" (spec §14): a dedicated project works through the
+  // same pooler URL format, and a point-in-time restore succeeds, through
+  // the browser. The bundle's local node runs dedicated instances too.
+  test("a dedicated project through the same pooler URL format, and a point-in-time restore", async ({ page }) => {
+    test.skip(!s3Endpoint, "needs the e2e bundle (Docker for instances, fake S3 for WAL-G)");
+    await signedIn(page);
+
+    // A shared project's URL, for comparison.
+    const urlShape = (u: string) => {
+      const x = new URL(u);
+      return `${x.protocol}//${x.host}?${x.searchParams.toString()}`;
     };
-    expect(created.id).toBe(121); // the identity sequence carried over
-    expect(created.ref).toMatch(/^[0-9a-f-]{36}$/); // extensions.uuid_generate_v4() works
-    expect(await (await fetch(`${todo.url}/open`)).json()).toEqual([{ open: 81 }]);
-  } finally {
-    await todo.close();
-  }
-  const src = new pg.Client({ connectionString: supabaseSeedURL });
-  await src.connect();
-  expect((await src.query("SELECT count(*)::int AS n FROM public.todos")).rows[0].n).toBe(120); // the source was not modified
-  await src.end();
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Shape check");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const sharedURL = await revealedValue(page, "credential-pooled-url");
+
+    // 1. Create on the dedicated tier.
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Orders Pro");
+    await page.getByLabel("Dedicated").check();
+    await expect(page.getByLabel("Size")).toContainText("small");
+    await page.getByLabel("Volume (GB)").fill("5");
+    await shot(page, "18-new-dedicated");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 180_000 });
+    await expect(page.getByTestId("operation-log")).toContainText("archiving WAL to s3://");
+    await expect(page.getByTestId("operation-log")).toContainText("base backup base_");
+    const pooledURL = await revealedValue(page, "credential-pooled-url");
+    expect(urlShape(pooledURL)).toBe(urlShape(sharedURL)); // same host, ports, sslmode
+    expect(new URL(pooledURL).pathname).toMatch(/^\/orders_pro_[a-z0-9]{4}$/);
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+
+    // 2. The app writes through the pooler; remember a moment, then damage.
+    const app = await connect(pooledURL);
+    await app.query("CREATE TABLE orders (id bigserial PRIMARY KEY, item text NOT NULL)");
+    await app.query("INSERT INTO orders (item) SELECT 'order ' || g FROM generate_series(1, 30) g");
+    await new Promise((r) => setTimeout(r, 2_000));
+    const target = new Date(Math.floor(Date.now() / 1000) * 1000); // datetime-local has second precision
+    await new Promise((r) => setTimeout(r, 2_000));
+    await app.query("DELETE FROM orders WHERE id > 3");
+    await app.end();
+    expect(await count(pooledURL, "SELECT count(*) FROM orders")).toBe(3);
+
+    // 3. The instance card and the node it runs on.
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page.getByTestId("instance-card")).toContainText("small");
+    await expect(page.getByTestId("instance-card")).toContainText("5 GB volume");
+    await shot(page, "19-dedicated-overview");
+
+    // 4. Point-in-time recovery into a new project, from the Backups tab.
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await expect(page.getByTestId("backup-row").first()).toContainText("Base backup (WAL-G)");
+    await expect(page.getByTestId("pitr-window")).toBeVisible();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const local = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}:${pad(target.getSeconds())}`;
+    await page.getByLabel("Restore to (your local time)").fill(local);
+    await page.getByLabel("New project name").fill("Orders Pro restored");
+    await shot(page, "20-pitr");
+    await page.getByRole("button", { name: "Restore to this point" }).click();
+    await expect(page.getByTestId("credential-panel")).toBeVisible();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 240_000 });
+    await expect(page.getByTestId("operation-log")).toContainText("recovery finished and promoted");
+    const restoredURL = await revealedValue(page, "credential-pooled-url");
+    expect(urlShape(restoredURL)).toBe(urlShape(sharedURL));
+    expect(await count(restoredURL, "SELECT count(*) FROM orders")).toBe(30);
+    expect(await count(pooledURL, "SELECT count(*) FROM orders")).toBe(3); // the source is unchanged
+    await shot(page, "21-pitr-restored");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+
+    // 5. The node page lists both dedicated instances.
+    await page.getByRole("link", { name: "Nodes", exact: true }).click();
+    await page.getByRole("link", { name: "local" }).click();
+    await expect(page.getByTestId("node-docker")).toHaveText("ok");
+    await expect(page.getByTestId("instance-row").filter({ hasText: "dedicated" })).toHaveCount(2);
+    await shot(page, "22-node");
+  });
 });

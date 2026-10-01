@@ -1,6 +1,6 @@
 -- name: InsertProject :one
 INSERT INTO projects (id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by)
-VALUES (@id, @name, @slug, @db_name, @owner_role, @scram_verifier, 'shared', @instance_id, 'provisioning', @settings, sqlc.narg(description), sqlc.narg(created_by))
+VALUES (@id, @name, @slug, @db_name, @owner_role, @scram_verifier, @tier, @instance_id, 'provisioning', @settings, sqlc.narg(description), sqlc.narg(created_by))
 RETURNING *;
 
 -- name: GetProject :one
@@ -29,7 +29,7 @@ UPDATE projects SET status = @status, deleted_at = now() WHERE id = @id;
 -- backend address the pooler uses and the SCRAM verifier for its auth file.
 -- name: PoolerRoutes :many
 SELECT p.db_name, p.owner_role, p.scram_verifier, p.settings,
-       n.private_addr AS host, i.port
+       COALESCE(i.host, n.private_addr)::text AS host, i.port
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id

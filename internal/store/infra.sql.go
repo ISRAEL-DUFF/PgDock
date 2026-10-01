@@ -7,12 +7,46 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getInstance = `-- name: GetInstance :one
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at FROM instances WHERE id = $1
+`
+
+func (q *Queries) GetInstance(ctx context.Context, id uuid.UUID) (Instance, error) {
+	row := q.db.QueryRow(ctx, getInstance, id)
+	var i Instance
+	err := row.Scan(
+		&i.ID,
+		&i.NodeID,
+		&i.Kind,
+		&i.PgVersion,
+		&i.Port,
+		&i.ContainerID,
+		&i.CpuLimit,
+		&i.MemLimitMb,
+		&i.VolumeGb,
+		&i.Status,
+		&i.CreatedAt,
+		&i.AdminHost,
+		&i.AdminPort,
+		&i.Host,
+		&i.AdminSecret,
+		&i.Profile,
+		&i.WalgPrefix,
+		&i.Error,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getInstanceTarget = `-- name: GetInstanceTarget :one
-SELECT i.id, i.kind, i.port, i.admin_host, i.admin_port,
+SELECT i.id, i.kind, i.port, i.admin_host, i.admin_port, i.status,
+       COALESCE(i.host, n.private_addr)::text AS host, i.admin_secret,
        n.id AS node_id, n.name AS node_name, n.private_addr, n.pg_admin_secret
 FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.id = $1
@@ -24,12 +58,18 @@ type GetInstanceTargetRow struct {
 	Port          int32
 	AdminHost     *string
 	AdminPort     *int32
+	Status        string
+	Host          string
+	AdminSecret   []byte
 	NodeID        uuid.UUID
 	NodeName      string
 	PrivateAddr   string
 	PgAdminSecret []byte
 }
 
+// GetInstanceTarget is how to reach an instance: host (poolers, agents)
+// defaults to the node's private address; the admin credential is the
+// instance's own (dedicated) or the node's (registered shared cluster).
 func (q *Queries) GetInstanceTarget(ctx context.Context, id uuid.UUID) (GetInstanceTargetRow, error) {
 	row := q.db.QueryRow(ctx, getInstanceTarget, id)
 	var i GetInstanceTargetRow
@@ -39,6 +79,9 @@ func (q *Queries) GetInstanceTarget(ctx context.Context, id uuid.UUID) (GetInsta
 		&i.Port,
 		&i.AdminHost,
 		&i.AdminPort,
+		&i.Status,
+		&i.Host,
+		&i.AdminSecret,
 		&i.NodeID,
 		&i.NodeName,
 		&i.PrivateAddr,
@@ -47,10 +90,227 @@ func (q *Queries) GetInstanceTarget(ctx context.Context, id uuid.UUID) (GetInsta
 	return i, err
 }
 
+const insertInstance = `-- name: InsertInstance :one
+INSERT INTO instances (id, node_id, kind, pg_version, port, cpu_limit, mem_limit_mb, volume_gb, profile, walg_prefix, status)
+VALUES ($1, $2, $3, 18, 5432, $4, $5, $6, $7, $8, 'provisioning')
+RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at
+`
+
+type InsertInstanceParams struct {
+	ID         uuid.UUID
+	NodeID     uuid.UUID
+	Kind       string
+	CpuLimit   pgtype.Numeric
+	MemLimitMb *int32
+	VolumeGb   *int32
+	Profile    *string
+	WalgPrefix *string
+}
+
+func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) (Instance, error) {
+	row := q.db.QueryRow(ctx, insertInstance,
+		arg.ID,
+		arg.NodeID,
+		arg.Kind,
+		arg.CpuLimit,
+		arg.MemLimitMb,
+		arg.VolumeGb,
+		arg.Profile,
+		arg.WalgPrefix,
+	)
+	var i Instance
+	err := row.Scan(
+		&i.ID,
+		&i.NodeID,
+		&i.Kind,
+		&i.PgVersion,
+		&i.Port,
+		&i.ContainerID,
+		&i.CpuLimit,
+		&i.MemLimitMb,
+		&i.VolumeGb,
+		&i.Status,
+		&i.CreatedAt,
+		&i.AdminHost,
+		&i.AdminPort,
+		&i.Host,
+		&i.AdminSecret,
+		&i.Profile,
+		&i.WalgPrefix,
+		&i.Error,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const listInstanceSummaries = `-- name: ListInstanceSummaries :many
+SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error,
+       n.id AS node_id, n.name AS node_name
+FROM instances i JOIN nodes n ON n.id = i.node_id
+WHERE i.deleted_at IS NULL
+`
+
+type ListInstanceSummariesRow struct {
+	ID         uuid.UUID
+	Kind       string
+	Profile    *string
+	CpuLimit   pgtype.Numeric
+	MemLimitMb *int32
+	VolumeGb   *int32
+	Status     string
+	Error      *string
+	NodeID     uuid.UUID
+	NodeName   string
+}
+
+func (q *Queries) ListInstanceSummaries(ctx context.Context) ([]ListInstanceSummariesRow, error) {
+	rows, err := q.db.Query(ctx, listInstanceSummaries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInstanceSummariesRow
+	for rows.Next() {
+		var i ListInstanceSummariesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Profile,
+			&i.CpuLimit,
+			&i.MemLimitMb,
+			&i.VolumeGb,
+			&i.Status,
+			&i.Error,
+			&i.NodeID,
+			&i.NodeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNodeInstances = `-- name: ListNodeInstances :many
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)::int AS projects
+FROM instances i
+WHERE i.node_id = $1 AND i.deleted_at IS NULL
+ORDER BY i.created_at
+`
+
+type ListNodeInstancesRow struct {
+	ID          uuid.UUID
+	NodeID      uuid.UUID
+	Kind        string
+	PgVersion   int32
+	Port        int32
+	ContainerID *string
+	CpuLimit    pgtype.Numeric
+	MemLimitMb  *int32
+	VolumeGb    *int32
+	Status      string
+	CreatedAt   time.Time
+	AdminHost   *string
+	AdminPort   *int32
+	Host        *string
+	AdminSecret []byte
+	Profile     *string
+	WalgPrefix  *string
+	Error       *string
+	DeletedAt   *time.Time
+	Projects    int32
+}
+
+func (q *Queries) ListNodeInstances(ctx context.Context, nodeID uuid.UUID) ([]ListNodeInstancesRow, error) {
+	rows, err := q.db.Query(ctx, listNodeInstances, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNodeInstancesRow
+	for rows.Next() {
+		var i ListNodeInstancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.Kind,
+			&i.PgVersion,
+			&i.Port,
+			&i.ContainerID,
+			&i.CpuLimit,
+			&i.MemLimitMb,
+			&i.VolumeGb,
+			&i.Status,
+			&i.CreatedAt,
+			&i.AdminHost,
+			&i.AdminPort,
+			&i.Host,
+			&i.AdminSecret,
+			&i.Profile,
+			&i.WalgPrefix,
+			&i.Error,
+			&i.DeletedAt,
+			&i.Projects,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markInstanceDeleted = `-- name: MarkInstanceDeleted :exec
+UPDATE instances SET status = 'deleted', deleted_at = now() WHERE id = $1
+`
+
+func (q *Queries) MarkInstanceDeleted(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markInstanceDeleted, id)
+	return err
+}
+
+const pickDedicatedNode = `-- name: PickDedicatedNode :one
+SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at FROM nodes n
+WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.agent_cert_fp IS NOT NULL
+ORDER BY (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.kind = 'dedicated' AND i.deleted_at IS NULL), n.created_at
+LIMIT 1
+`
+
+// PickDedicatedNode chooses the healthy node with an agent that allows
+// dedicated instances and runs the fewest.
+func (q *Queries) PickDedicatedNode(ctx context.Context) (Node, error) {
+	row := q.db.QueryRow(ctx, pickDedicatedNode)
+	var i Node
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.PrivateAddr,
+		&i.AgentPort,
+		&i.Role,
+		&i.AgentCertFp,
+		&i.PgAdminSecret,
+		&i.Capacity,
+		&i.Status,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+		&i.AgentHost,
+		&i.AgentVersion,
+		&i.RegistrationToken,
+		&i.RegistrationExpiresAt,
+	)
+	return i, err
+}
+
 const pickSharedInstance = `-- name: PickSharedInstance :one
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port FROM instances i
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at FROM instances i
 JOIN nodes n ON n.id = i.node_id
-WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy'
+WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
+  AND i.deleted_at IS NULL
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
 LIMIT 1
 `
@@ -74,8 +334,71 @@ func (q *Queries) PickSharedInstance(ctx context.Context) (Instance, error) {
 		&i.CreatedAt,
 		&i.AdminHost,
 		&i.AdminPort,
+		&i.Host,
+		&i.AdminSecret,
+		&i.Profile,
+		&i.WalgPrefix,
+		&i.Error,
+		&i.DeletedAt,
 	)
 	return i, err
+}
+
+const setInstanceAdminSecret = `-- name: SetInstanceAdminSecret :exec
+UPDATE instances SET admin_secret = $1 WHERE id = $2
+`
+
+type SetInstanceAdminSecretParams struct {
+	AdminSecret []byte
+	ID          uuid.UUID
+}
+
+func (q *Queries) SetInstanceAdminSecret(ctx context.Context, arg SetInstanceAdminSecretParams) error {
+	_, err := q.db.Exec(ctx, setInstanceAdminSecret, arg.AdminSecret, arg.ID)
+	return err
+}
+
+const setInstanceRunning = `-- name: SetInstanceRunning :exec
+UPDATE instances
+SET status = 'running', container_id = $1, host = $2, port = $3,
+    admin_host = $4, admin_port = $5, error = NULL
+WHERE id = $6
+`
+
+type SetInstanceRunningParams struct {
+	ContainerID *string
+	Host        *string
+	Port        int32
+	AdminHost   *string
+	AdminPort   *int32
+	ID          uuid.UUID
+}
+
+func (q *Queries) SetInstanceRunning(ctx context.Context, arg SetInstanceRunningParams) error {
+	_, err := q.db.Exec(ctx, setInstanceRunning,
+		arg.ContainerID,
+		arg.Host,
+		arg.Port,
+		arg.AdminHost,
+		arg.AdminPort,
+		arg.ID,
+	)
+	return err
+}
+
+const setInstanceStatus = `-- name: SetInstanceStatus :exec
+UPDATE instances SET status = $1, error = $2 WHERE id = $3
+`
+
+type SetInstanceStatusParams struct {
+	Status string
+	Error  *string
+	ID     uuid.UUID
+}
+
+func (q *Queries) SetInstanceStatus(ctx context.Context, arg SetInstanceStatusParams) error {
+	_, err := q.db.Exec(ctx, setInstanceStatus, arg.Status, arg.Error, arg.ID)
+	return err
 }
 
 const setNodeAdminSecret = `-- name: SetNodeAdminSecret :exec
@@ -92,11 +415,42 @@ func (q *Queries) SetNodeAdminSecret(ctx context.Context, arg SetNodeAdminSecret
 	return err
 }
 
+const sharedInstanceOnNode = `-- name: SharedInstanceOnNode :one
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at FROM instances WHERE node_id = $1 AND kind = 'shared' AND deleted_at IS NULL
+`
+
+func (q *Queries) SharedInstanceOnNode(ctx context.Context, nodeID uuid.UUID) (Instance, error) {
+	row := q.db.QueryRow(ctx, sharedInstanceOnNode, nodeID)
+	var i Instance
+	err := row.Scan(
+		&i.ID,
+		&i.NodeID,
+		&i.Kind,
+		&i.PgVersion,
+		&i.Port,
+		&i.ContainerID,
+		&i.CpuLimit,
+		&i.MemLimitMb,
+		&i.VolumeGb,
+		&i.Status,
+		&i.CreatedAt,
+		&i.AdminHost,
+		&i.AdminPort,
+		&i.Host,
+		&i.AdminSecret,
+		&i.Profile,
+		&i.WalgPrefix,
+		&i.Error,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const upsertNode = `-- name: UpsertNode :one
 INSERT INTO nodes (name, private_addr, role, pg_admin_secret, capacity)
 VALUES ($1, $2, $3, $4, '{}')
 ON CONFLICT (name) DO UPDATE
-SET private_addr = EXCLUDED.private_addr, role = EXCLUDED.role, pg_admin_secret = EXCLUDED.pg_admin_secret
+SET private_addr = EXCLUDED.private_addr, pg_admin_secret = EXCLUDED.pg_admin_secret
 RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at
 `
 
@@ -138,10 +492,10 @@ func (q *Queries) UpsertNode(ctx context.Context, arg UpsertNodeParams) (Node, e
 const upsertSharedInstance = `-- name: UpsertSharedInstance :one
 INSERT INTO instances (node_id, kind, pg_version, port, admin_host, admin_port, status)
 VALUES ($1, 'shared', $2, $3, $4, $5, 'running')
-ON CONFLICT (node_id) WHERE kind = 'shared' DO UPDATE
+ON CONFLICT (node_id) WHERE kind = 'shared' AND deleted_at IS NULL DO UPDATE
 SET pg_version = EXCLUDED.pg_version, port = EXCLUDED.port,
     admin_host = EXCLUDED.admin_host, admin_port = EXCLUDED.admin_port, status = 'running'
-RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port
+RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at
 `
 
 type UpsertSharedInstanceParams struct {
@@ -175,6 +529,12 @@ func (q *Queries) UpsertSharedInstance(ctx context.Context, arg UpsertSharedInst
 		&i.CreatedAt,
 		&i.AdminHost,
 		&i.AdminPort,
+		&i.Host,
+		&i.AdminSecret,
+		&i.Profile,
+		&i.WalgPrefix,
+		&i.Error,
+		&i.DeletedAt,
 	)
 	return i, err
 }

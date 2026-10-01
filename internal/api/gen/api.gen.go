@@ -58,6 +58,7 @@ func (e BackupStatus) Valid() bool {
 
 // Defines values for BackupKind.
 const (
+	Base     BackupKind = "base"
 	Final    BackupKind = "final"
 	Logical  BackupKind = "logical"
 	Metadata BackupKind = "metadata"
@@ -67,6 +68,8 @@ const (
 // Valid indicates whether the value is a known member of the BackupKind enum.
 func (e BackupKind) Valid() bool {
 	switch e {
+	case Base:
+		return true
 	case Final:
 		return true
 	case Logical:
@@ -74,6 +77,27 @@ func (e BackupKind) Valid() bool {
 	case Metadata:
 		return true
 	case Safety:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateNodeRequestRole.
+const (
+	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
+	CreateNodeRequestRoleDedicated CreateNodeRequestRole = "dedicated"
+	CreateNodeRequestRoleShared    CreateNodeRequestRole = "shared"
+)
+
+// Valid indicates whether the value is a known member of the CreateNodeRequestRole enum.
+func (e CreateNodeRequestRole) Valid() bool {
+	switch e {
+	case CreateNodeRequestRoleBoth:
+		return true
+	case CreateNodeRequestRoleDedicated:
+		return true
+	case CreateNodeRequestRoleShared:
 		return true
 	default:
 		return false
@@ -92,6 +116,45 @@ func (e ImportPreflightRoleReferencesKind) Valid() bool {
 	case Grant:
 		return true
 	case Policy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceActionRequestAction.
+const (
+	Restart InstanceActionRequestAction = "restart"
+	Start   InstanceActionRequestAction = "start"
+	Stop    InstanceActionRequestAction = "stop"
+)
+
+// Valid indicates whether the value is a known member of the InstanceActionRequestAction enum.
+func (e InstanceActionRequestAction) Valid() bool {
+	switch e {
+	case Restart:
+		return true
+	case Start:
+		return true
+	case Stop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSummaryKind.
+const (
+	InstanceSummaryKindDedicated InstanceSummaryKind = "dedicated"
+	InstanceSummaryKindShared    InstanceSummaryKind = "shared"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSummaryKind enum.
+func (e InstanceSummaryKind) Valid() bool {
+	switch e {
+	case InstanceSummaryKindDedicated:
+		return true
+	case InstanceSummaryKindShared:
 		return true
 	default:
 		return false
@@ -193,16 +256,16 @@ func (e ProjectStatus) Valid() bool {
 
 // Defines values for ProjectTier.
 const (
-	Dedicated ProjectTier = "dedicated"
-	Shared    ProjectTier = "shared"
+	ProjectTierDedicated ProjectTier = "dedicated"
+	ProjectTierShared    ProjectTier = "shared"
 )
 
 // Valid indicates whether the value is a known member of the ProjectTier enum.
 func (e ProjectTier) Valid() bool {
 	switch e {
-	case Dedicated:
+	case ProjectTierDedicated:
 		return true
-	case Shared:
+	case ProjectTierShared:
 		return true
 	default:
 		return false
@@ -275,6 +338,27 @@ func (e TlsStatusState) Valid() bool {
 	}
 }
 
+// Defines values for UpdateNodeRequestRole.
+const (
+	UpdateNodeRequestRoleBoth      UpdateNodeRequestRole = "both"
+	UpdateNodeRequestRoleDedicated UpdateNodeRequestRole = "dedicated"
+	UpdateNodeRequestRoleShared    UpdateNodeRequestRole = "shared"
+)
+
+// Valid indicates whether the value is a known member of the UpdateNodeRequestRole enum.
+func (e UpdateNodeRequestRole) Valid() bool {
+	switch e {
+	case UpdateNodeRequestRoleBoth:
+		return true
+	case UpdateNodeRequestRoleDedicated:
+		return true
+	case UpdateNodeRequestRoleShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAuditParamsOutcome.
 const (
 	ListAuditParamsOutcomeDenied  ListAuditParamsOutcome = "denied"
@@ -315,15 +399,19 @@ type AgentRegisterResponse struct {
 
 // AgentStatus defines model for AgentStatus.
 type AgentStatus struct {
-	Address         *string                 `json:"address,omitempty"`
-	CertFingerprint *string                 `json:"cert_fingerprint,omitempty"`
-	CheckedAt       *time.Time              `json:"checked_at,omitempty"`
-	Error           *string                 `json:"error,omitempty"`
-	Metrics         *map[string]interface{} `json:"metrics,omitempty"`
-	PgDump          *string                 `json:"pg_dump,omitempty"`
-	Reachable       bool                    `json:"reachable"`
-	Registered      bool                    `json:"registered"`
-	Version         *string                 `json:"version,omitempty"`
+	Address         *string    `json:"address,omitempty"`
+	CertFingerprint *string    `json:"cert_fingerprint,omitempty"`
+	CheckedAt       *time.Time `json:"checked_at,omitempty"`
+
+	// Docker "ok" when the agent can run instances, else why not.
+	Docker     *string                 `json:"docker,omitempty"`
+	Error      *string                 `json:"error,omitempty"`
+	Image      *string                 `json:"image,omitempty"`
+	Metrics    *map[string]interface{} `json:"metrics,omitempty"`
+	PgDump     *string                 `json:"pg_dump,omitempty"`
+	Reachable  bool                    `json:"reachable"`
+	Registered bool                    `json:"registered"`
+	Version    *string                 `json:"version,omitempty"`
 }
 
 // AuditEntry defines model for AuditEntry.
@@ -443,12 +531,37 @@ type ConnectionInfo struct {
 	User string `json:"user"`
 }
 
+// CreateNodeRequest defines model for CreateNodeRequest.
+type CreateNodeRequest struct {
+	// Name Example: node-b
+	Name string `json:"name"`
+
+	// PrivateAddr The node's address on the private network (poolers and the control plane reach it here).
+	//
+	// Example: 10.0.0.12
+	PrivateAddr string                `json:"private_addr"`
+	Role        CreateNodeRequestRole `json:"role"`
+}
+
+// CreateNodeRequestRole defines model for CreateNodeRequest.Role.
+type CreateNodeRequestRole string
+
 // CreateProjectRequest defines model for CreateProjectRequest.
 type CreateProjectRequest struct {
 	Description *string `json:"description,omitempty"`
 
 	// Name Example: My Blog
 	Name string `json:"name"`
+
+	// NodeId Dedicated only; default is the least loaded dedicated node.
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+
+	// Profile Dedicated only (see /profiles); default small.
+	Profile *string      `json:"profile,omitempty"`
+	Tier    *ProjectTier `json:"tier,omitempty"`
+
+	// VolumeGb Dedicated only; default 20.
+	VolumeGb *int `json:"volume_gb,omitempty"`
 }
 
 // DbHostRequest defines model for DbHostRequest.
@@ -534,6 +647,38 @@ type ImportSource struct {
 	SourceUrl string `json:"source_url"`
 }
 
+// InstanceActionRequest defines model for InstanceActionRequest.
+type InstanceActionRequest struct {
+	Action InstanceActionRequestAction `json:"action"`
+}
+
+// InstanceActionRequestAction defines model for InstanceActionRequest.Action.
+type InstanceActionRequestAction string
+
+// InstanceState defines model for InstanceState.
+type InstanceState struct {
+	Container *string `json:"container,omitempty"`
+	Running   bool    `json:"running"`
+	State     string  `json:"state"`
+}
+
+// InstanceSummary defines model for InstanceSummary.
+type InstanceSummary struct {
+	Cpus     *float32            `json:"cpus,omitempty"`
+	Error    *string             `json:"error,omitempty"`
+	Id       openapi_types.UUID  `json:"id"`
+	Kind     InstanceSummaryKind `json:"kind"`
+	MemoryMb *int                `json:"memory_mb,omitempty"`
+	NodeId   openapi_types.UUID  `json:"node_id"`
+	NodeName string              `json:"node_name"`
+	Profile  *string             `json:"profile,omitempty"`
+	Status   string              `json:"status"`
+	VolumeGb *int                `json:"volume_gb,omitempty"`
+}
+
+// InstanceSummaryKind defines model for InstanceSummary.Kind.
+type InstanceSummaryKind string
+
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
 	ChallengeId string `json:"challenge_id"`
@@ -555,6 +700,35 @@ type Node struct {
 	PrivateAddr   string             `json:"private_addr"`
 	Role          string             `json:"role"`
 	Status        string             `json:"status"`
+}
+
+// NodeCreated defines model for NodeCreated.
+type NodeCreated struct {
+	Command   string    `json:"command"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Node      Node      `json:"node"`
+	Token     string    `json:"token"`
+}
+
+// NodeDetail defines model for NodeDetail.
+type NodeDetail struct {
+	Instances []NodeInstance `json:"instances"`
+	Node      Node           `json:"node"`
+}
+
+// NodeInstance defines model for NodeInstance.
+type NodeInstance struct {
+	Address   *string            `json:"address,omitempty"`
+	Cpus      *float32           `json:"cpus,omitempty"`
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+	Error     *string            `json:"error,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	Kind      string             `json:"kind"`
+	MemoryMb  *int               `json:"memory_mb,omitempty"`
+	Profile   *string            `json:"profile,omitempty"`
+	Projects  int                `json:"projects"`
+	Status    string             `json:"status"`
+	VolumeGb  *int               `json:"volume_gb,omitempty"`
 }
 
 // NodeList defines model for NodeList.
@@ -618,6 +792,34 @@ type Operator struct {
 // OperatorRole defines model for Operator.Role.
 type OperatorRole string
 
+// PitrRequest defines model for PitrRequest.
+type PitrRequest struct {
+	Name string `json:"name"`
+
+	// TargetTime Omit for the latest point.
+	TargetTime *time.Time `json:"target_time,omitempty"`
+}
+
+// PitrWindow Dedicated only. Any time in [from, to] can be restored.
+type PitrWindow struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
+
+// Profile defines model for Profile.
+type Profile struct {
+	Cpus     float32 `json:"cpus"`
+	MemoryMb int     `json:"memory_mb"`
+	Name     string  `json:"name"`
+}
+
+// ProfileList defines model for ProfileList.
+type ProfileList struct {
+	DefaultProfile  string    `json:"default_profile"`
+	DefaultVolumeGb int       `json:"default_volume_gb"`
+	Items           []Profile `json:"items"`
+}
+
 // Project defines model for Project.
 type Project struct {
 	Connection  ConnectionInfo     `json:"connection"`
@@ -625,15 +827,19 @@ type Project struct {
 	DbName      string             `json:"db_name"`
 	Description *string            `json:"description,omitempty"`
 	Id          openapi_types.UUID `json:"id"`
+	Instance    *InstanceSummary   `json:"instance,omitempty"`
 
 	// LastBackupAt When the latest backup of this project finished.
-	LastBackupAt *time.Time      `json:"last_backup_at,omitempty"`
-	Name         string          `json:"name"`
-	OwnerRole    string          `json:"owner_role"`
-	Settings     ProjectSettings `json:"settings"`
-	Slug         string          `json:"slug"`
-	Status       ProjectStatus   `json:"status"`
-	Tier         ProjectTier     `json:"tier"`
+	LastBackupAt *time.Time `json:"last_backup_at,omitempty"`
+	Name         string     `json:"name"`
+	OwnerRole    string     `json:"owner_role"`
+
+	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
+	PitrWindow *PitrWindow     `json:"pitr_window,omitempty"`
+	Settings   ProjectSettings `json:"settings"`
+	Slug       string          `json:"slug"`
+	Status     ProjectStatus   `json:"status"`
+	Tier       ProjectTier     `json:"tier"`
 }
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
@@ -750,6 +956,11 @@ type SetupEnrollment struct {
 	TotpUri         string    `json:"totp_uri"`
 }
 
+// SharedClusterRequest defines model for SharedClusterRequest.
+type SharedClusterRequest struct {
+	MemoryMb int `json:"memory_mb"`
+}
+
 // StorageRequest defines model for StorageRequest.
 type StorageRequest struct {
 	AccessKey string `json:"access_key"`
@@ -810,6 +1021,14 @@ type TotpRequest struct {
 	ChallengeId string `json:"challenge_id"`
 	Code        string `json:"code"`
 }
+
+// UpdateNodeRequest defines model for UpdateNodeRequest.
+type UpdateNodeRequest struct {
+	Role UpdateNodeRequestRole `json:"role"`
+}
+
+// UpdateNodeRequestRole defines model for UpdateNodeRequest.Role.
+type UpdateNodeRequestRole string
 
 // UpdateProjectRequest defines model for UpdateProjectRequest.
 type UpdateProjectRequest struct {
@@ -916,8 +1135,23 @@ type CreateImportJSONRequestBody = ImportRequest
 // ImportPreflightJSONRequestBody defines body for ImportPreflight for application/json ContentType.
 type ImportPreflightJSONRequestBody = ImportSource
 
+// CreateNodeJSONRequestBody defines body for CreateNode for application/json ContentType.
+type CreateNodeJSONRequestBody = CreateNodeRequest
+
+// UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
+type UpdateNodeJSONRequestBody = UpdateNodeRequest
+
+// CreateSharedClusterJSONRequestBody defines body for CreateSharedCluster for application/json ContentType.
+type CreateSharedClusterJSONRequestBody = SharedClusterRequest
+
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
+
+// ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
+type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
+
+// RestoreProjectPITRJSONRequestBody defines body for RestoreProjectPITR for application/json ContentType.
+type RestoreProjectPITRJSONRequestBody = PitrRequest
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
@@ -987,9 +1221,24 @@ type ServerInterface interface {
 	// ListNodes Nodes and their agents
 	// (GET /api/v1/nodes)
 	ListNodes(w http.ResponseWriter, r *http.Request)
+	// CreateNode Add a node; returns its one-time agent registration token
+	// (POST /api/v1/nodes)
+	CreateNode(w http.ResponseWriter, r *http.Request)
+	// RemoveNode Take a node out of service (requires re-authentication)
+	// (DELETE /api/v1/nodes/{id})
+	RemoveNode(w http.ResponseWriter, r *http.Request, id NodeID)
+	// GetNode A node, its agent's health, and what runs on it
+	// (GET /api/v1/nodes/{id})
+	GetNode(w http.ResponseWriter, r *http.Request, id NodeID)
+	// UpdateNode Change a node's role (where new projects may go)
+	// (PATCH /api/v1/nodes/{id})
+	UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID)
 	// CreateNodeRegistrationToken Issue a one-time agent registration token (24 hours)
 	// (POST /api/v1/nodes/{id}/registration-token)
 	CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request, id NodeID)
+	// CreateSharedCluster Run a shared cluster on this node (multi-node shared placement)
+	// (POST /api/v1/nodes/{id}/shared-cluster)
+	CreateSharedCluster(w http.ResponseWriter, r *http.Request, id NodeID)
 	// ListOperations List operations, newest first
 	// (GET /api/v1/operations)
 	ListOperations(w http.ResponseWriter, r *http.Request, params ListOperationsParams)
@@ -999,6 +1248,9 @@ type ServerInterface interface {
 	// StreamOperation Stream an operation's progress as Server-Sent Events
 	// (GET /api/v1/operations/{id}/stream)
 	StreamOperation(w http.ResponseWriter, r *http.Request, id OperationID)
+	// ListProfiles Dedicated instance sizes
+	// (GET /api/v1/profiles)
+	ListProfiles(w http.ResponseWriter, r *http.Request)
 	// ListProjects List projects, newest first
 	// (GET /api/v1/projects)
 	ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams)
@@ -1014,6 +1266,12 @@ type ServerInterface interface {
 	// CreateProjectBackup Back up a project now
 	// (POST /api/v1/projects/{id}/backups)
 	CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
+	// (POST /api/v1/projects/{id}/instance)
+	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
+	// (POST /api/v1/projects/{id}/pitr)
+	RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -1161,9 +1419,39 @@ func (_ Unimplemented) ListNodes(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// CreateNode Add a node; returns its one-time agent registration token
+// (POST /api/v1/nodes)
+func (_ Unimplemented) CreateNode(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveNode Take a node out of service (requires re-authentication)
+// (DELETE /api/v1/nodes/{id})
+func (_ Unimplemented) RemoveNode(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetNode A node, its agent's health, and what runs on it
+// (GET /api/v1/nodes/{id})
+func (_ Unimplemented) GetNode(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateNode Change a node's role (where new projects may go)
+// (PATCH /api/v1/nodes/{id})
+func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CreateNodeRegistrationToken Issue a one-time agent registration token (24 hours)
 // (POST /api/v1/nodes/{id}/registration-token)
 func (_ Unimplemented) CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateSharedCluster Run a shared cluster on this node (multi-node shared placement)
+// (POST /api/v1/nodes/{id}/shared-cluster)
+func (_ Unimplemented) CreateSharedCluster(w http.ResponseWriter, r *http.Request, id NodeID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1182,6 +1470,12 @@ func (_ Unimplemented) GetOperation(w http.ResponseWriter, r *http.Request, id O
 // StreamOperation Stream an operation's progress as Server-Sent Events
 // (GET /api/v1/operations/{id}/stream)
 func (_ Unimplemented) StreamOperation(w http.ResponseWriter, r *http.Request, id OperationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListProfiles Dedicated instance sizes
+// (GET /api/v1/profiles)
+func (_ Unimplemented) ListProfiles(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1212,6 +1506,18 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, id Pro
 // CreateProjectBackup Back up a project now
 // (POST /api/v1/projects/{id}/backups)
 func (_ Unimplemented) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
+// (POST /api/v1/projects/{id}/instance)
+func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
+// (POST /api/v1/projects/{id}/pitr)
+func (_ Unimplemented) RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1662,6 +1968,98 @@ func (siw *ServerInterfaceWrapper) ListNodes(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// CreateNode operation middleware
+func (siw *ServerInterfaceWrapper) CreateNode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveNode operation middleware
+func (siw *ServerInterfaceWrapper) RemoveNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveNode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNode operation middleware
+func (siw *ServerInterfaceWrapper) GetNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNode operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateNodeRegistrationToken operation middleware
 func (siw *ServerInterfaceWrapper) CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Request) {
 
@@ -1679,6 +2077,32 @@ func (siw *ServerInterfaceWrapper) CreateNodeRegistrationToken(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateNodeRegistrationToken(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSharedCluster operation middleware
+func (siw *ServerInterfaceWrapper) CreateSharedCluster(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSharedCluster(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1803,6 +2227,20 @@ func (siw *ServerInterfaceWrapper) StreamOperation(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.StreamOperation(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProfiles operation middleware
+func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProfiles(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1970,6 +2408,58 @@ func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateProjectBackup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ProjectInstanceAction operation middleware
+func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ProjectInstanceAction(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreProjectPITR operation middleware
+func (siw *ServerInterfaceWrapper) RestoreProjectPITR(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreProjectPITR(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2520,6 +3010,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/nodes", wrapper.ListNodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/nodes", wrapper.CreateNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/pitr", wrapper.RestoreProjectPITR)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.ProjectInstanceAction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/profiles", wrapper.ListProfiles)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/nodes/{id}", wrapper.RemoveNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/nodes/{id}", wrapper.GetNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/nodes/{id}", wrapper.UpdateNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/nodes/{id}/shared-cluster", wrapper.CreateSharedCluster)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/nodes/{id}/registration-token", wrapper.CreateNodeRegistrationToken)

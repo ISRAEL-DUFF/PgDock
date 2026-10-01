@@ -46,6 +46,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/pooler"
@@ -182,9 +183,17 @@ func Start(t testing.TB, opts Options) *Env {
 		bcfg.MetadataPG = agentapi.PGConn{Host: h, Port: port, User: cc.User, Password: cc.Password, Database: cc.Database, SSLMode: "disable"}
 	}
 	backups := backup.NewService(db, keyring, nodeSvc, svc, bcfg, log)
+	// The test server runs on the host: it reaches instances through the
+	// ports agents publish on 127.0.0.1.
+	ded := dedicated.New(db, keyring, nodeSvc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute}, log)
+	svc.Instances = ded
+	backups.Dedicated = ded
 
 	kinds := svc.Kinds()
 	for name, k := range backups.Kinds() {
+		kinds[name] = k
+	}
+	for name, k := range ded.Kinds() {
 		kinds[name] = k
 	}
 	if opts.MaxAttempts > 0 {

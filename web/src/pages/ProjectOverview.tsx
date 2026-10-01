@@ -1,7 +1,9 @@
 import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { api, errorMessage } from "../api/client";
-import { Alert, Badge, Card, CopyField, PageHeader, Spinner, StatusBadge, Table } from "../components/ui";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { api, errorMessage, type InstanceSummary } from "../api/client";
+import { Alert, Badge, Button, Card, CopyField, PageHeader, Spinner, StateBadge, StatusBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 
 export function useProject() {
@@ -105,6 +107,7 @@ export function ProjectOverviewPage() {
           <dd>{s.console_read_only ? "read-only" : "read/write"}</dd>
         </dl>
       </Card>
+      {p.tier === "dedicated" && p.instance && <InstanceCard projectId={p.id} instance={p.instance} />}
       <Card title="Recent operations">
         {ops.data && ops.data.items.length > 0 ? (
           <Table head={["Kind", "Status", "When"]}>
@@ -127,5 +130,64 @@ export function ProjectOverviewPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+/** A dedicated project's own instance (spec §4.2), with start/stop/restart. */
+function InstanceCard({ projectId, instance: i }: { projectId: string; instance: InstanceSummary }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const act = async (action: "start" | "stop" | "restart") => {
+    if (action === "stop" && !window.confirm("Stop the instance? Clients cannot connect until it starts again.")) return;
+    setBusy(action);
+    setErr(null);
+    try {
+      await api.instanceAction(projectId, action);
+      await qc.invalidateQueries({ queryKey: ["project", projectId] });
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <Card title="Instance" actions={<StateBadge state={i.status} />}>
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm" data-testid="instance-card">
+        <dt className="text-muted">Node</dt>
+        <dd>
+          <Link to="/nodes/$id" params={{ id: i.node_id }} className="hover:underline">
+            {i.node_name}
+          </Link>
+        </dd>
+        <dt className="text-muted">Size</dt>
+        <dd>
+          {i.profile} · {i.cpus} CPU · {(i.memory_mb ?? 0) / 1024} GB memory · {i.volume_gb} GB volume
+        </dd>
+        <dt className="text-muted">Engine</dt>
+        <dd>PostgreSQL 18 with WAL-G continuous archiving</dd>
+      </dl>
+      <div className="mt-3 flex gap-2">
+        {i.status === "stopped" ? (
+          <Button className="text-xs" busy={busy === "start"} onClick={() => act("start")}>
+            Start
+          </Button>
+        ) : (
+          <>
+            <Button className="text-xs" busy={busy === "restart"} onClick={() => act("restart")}>
+              Restart
+            </Button>
+            <Button className="text-xs" busy={busy === "stop"} onClick={() => act("stop")}>
+              Stop
+            </Button>
+          </>
+        )}
+      </div>
+      {err && (
+        <div className="mt-3">
+          <Alert>{err}</Alert>
+        </div>
+      )}
+    </Card>
   );
 }

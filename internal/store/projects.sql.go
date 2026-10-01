@@ -70,7 +70,7 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 
 const insertProject = `-- name: InsertProject :one
 INSERT INTO projects (id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, 'shared', $7, 'provisioning', $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'provisioning', $9, $10, $11)
 RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at
 `
 
@@ -81,6 +81,7 @@ type InsertProjectParams struct {
 	DbName        string
 	OwnerRole     string
 	ScramVerifier string
+	Tier          string
 	InstanceID    uuid.UUID
 	Settings      json.RawMessage
 	Description   *string
@@ -95,6 +96,7 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (P
 		arg.DbName,
 		arg.OwnerRole,
 		arg.ScramVerifier,
+		arg.Tier,
 		arg.InstanceID,
 		arg.Settings,
 		arg.Description,
@@ -174,7 +176,7 @@ func (q *Queries) ListLiveProjects(ctx context.Context, arg ListLiveProjectsPara
 
 const poolerRoutes = `-- name: PoolerRoutes :many
 SELECT p.db_name, p.owner_role, p.scram_verifier, p.settings,
-       n.private_addr AS host, i.port
+       COALESCE(i.host, n.private_addr)::text AS host, i.port
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id

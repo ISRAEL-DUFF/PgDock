@@ -21,6 +21,9 @@ type SharedCluster struct {
 	// poolers reach the cluster; default to AdminURL's host and port.
 	PoolerHost string
 	PoolerPort int
+	// NodeRole (PGDOCK_SHARED_NODE_ROLE, default "both") is the node's role
+	// when first registered; later it is changed in the UI.
+	NodeRole string
 }
 
 // Pooler configures pgdock-server's control of the edge PgBouncers.
@@ -104,6 +107,10 @@ func loadProvisioning(getenv func(string) string, readFile func(string) ([]byte,
 		NodeName:   str("PGDOCK_SHARED_NODE_NAME", "local"),
 		PoolerHost: getenv("PGDOCK_SHARED_POOLER_HOST"),
 		PoolerPort: port("PGDOCK_SHARED_POOLER_PORT", 0),
+		NodeRole:   str("PGDOCK_SHARED_NODE_ROLE", "both"),
+	}
+	if r := cfg.Shared.NodeRole; r != "shared" && r != "dedicated" && r != "both" {
+		errs = append(errs, fmt.Errorf("PGDOCK_SHARED_NODE_ROLE: must be shared, dedicated, or both, got %q", r))
 	}
 
 	p := Pooler{ConfigDir: getenv("PGDOCK_POOLER_CONFIG_DIR"), FileMode: 0o640}

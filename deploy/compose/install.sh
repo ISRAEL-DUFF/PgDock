@@ -37,6 +37,8 @@ fi
 # Added in M3; older .env files lack it.
 grep -q '^AGENT_BOOTSTRAP_TOKEN=' .env || echo "AGENT_BOOTSTRAP_TOKEN=$(rand_url 32)" >> .env
 
+# Dedicated instances run this image (PostgreSQL 18 + WAL-G).
+docker build -t pgdock-postgres:18-walg3.0.9 ../images/postgres
 docker compose up -d --build --wait
 
 echo

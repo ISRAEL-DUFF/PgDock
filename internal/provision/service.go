@@ -99,7 +99,12 @@ type Service struct {
 	// FinalBackup, if set, takes the final backup before a delete (spec
 	// §6.2). The backup service sets it.
 	FinalBackup func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
+	// Instances runs dedicated instances; nil disables the dedicated tier.
+	Instances InstanceManager
 }
+
+// ErrNoDedicated means the dedicated tier is not available.
+var ErrNoDedicated = errors.New("the dedicated tier is not available on this server")
 
 // NewService returns a Service.
 func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, pm *pooler.Manager, cfg Config, log *slog.Logger) *Service {
@@ -167,6 +172,41 @@ type CreateParams struct {
 	// Publish. Params are merged into that operation's params.
 	Kind   string
 	Params map[string]any
+	// Tier is TierShared (default) or TierDedicated. A dedicated project
+	// gets its own instance on NodeID (or the least loaded dedicated node)
+	// with Profile's limits and VolumeGB of disk.
+	Tier     string
+	NodeID   *uuid.UUID
+	Profile  string
+	VolumeGB int
+}
+
+// Tiers (spec §4).
+const (
+	TierShared    = "shared"
+	TierDedicated = "dedicated"
+)
+
+// InstanceManager runs dedicated instances (the dedicated package). It is
+// optional: without it, only the shared tier is available.
+type InstanceManager interface {
+	// Validate checks a dedicated create request and fills defaults.
+	Validate(ctx context.Context, p *CreateParams) (Profile, error)
+	// Ensure creates and starts the project's instance (idempotent),
+	// restoring it first when the operation asks for a point-in-time
+	// recovery, and waits until it serves.
+	Ensure(ctx context.Context, op store.Operation, p store.Project, log *jobs.StepLogger) error
+	// Provisioned runs once the project is active (the first base backup).
+	Provisioned(ctx context.Context, p store.Project, log *jobs.StepLogger) error
+	// Destroy removes the instance's container, volume, and WAL archive.
+	Destroy(ctx context.Context, p store.Project, log *jobs.StepLogger) error
+}
+
+// Profile is a dedicated instance's size (spec §6.6 step 1).
+type Profile struct {
+	Name     string  `json:"name"`
+	CPUs     float64 `json:"cpus"`
+	MemoryMB int     `json:"memory_mb"`
 }
 
 // Created is returned once by Create. Password is never stored; this is the
@@ -240,15 +280,34 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	if err != nil {
 		return Created{}, err
 	}
-	settings, err := json.Marshal(store.DefaultSharedSettings())
-	if err != nil {
-		return Created{}, err
+	tier := p.Tier
+	if tier == "" {
+		tier = TierShared
 	}
-
-	inst, err := store.New(s.db).PickSharedInstance(ctx)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Created{}, ErrNoCapacity
+	var profile Profile
+	var inst store.Instance
+	defaults := store.DefaultSharedSettings()
+	switch tier {
+	case TierShared:
+		inst, err = store.New(s.db).PickSharedInstance(ctx)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Created{}, ErrNoCapacity
+		}
+		if err != nil {
+			return Created{}, err
+		}
+	case TierDedicated:
+		if s.Instances == nil {
+			return Created{}, ErrNoDedicated
+		}
+		if profile, err = s.Instances.Validate(ctx, &p); err != nil {
+			return Created{}, err
+		}
+		defaults = store.DefaultDedicatedSettings(p.VolumeGB)
+	default:
+		return Created{}, fmt.Errorf("%w: tier must be shared or dedicated", ErrInvalid)
 	}
+	settings, err := json.Marshal(defaults)
 	if err != nil {
 		return Created{}, err
 	}
@@ -276,9 +335,25 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 
 		var out Created
 		err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-			proj, err := store.New(tx).InsertProject(ctx, store.InsertProjectParams{
+			q := store.New(tx)
+			instanceID := inst.ID
+			if tier == TierDedicated {
+				iid := uuid.New()
+				prefix := "instances/" + iid.String() + "/wal-g"
+				mem := int32(profile.MemoryMB)
+				vol := int32(p.VolumeGB)
+				ni, err := q.InsertInstance(ctx, store.InsertInstanceParams{
+					ID: iid, NodeID: *p.NodeID, Kind: TierDedicated, CpuLimit: numeric(profile.CPUs),
+					MemLimitMb: &mem, VolumeGb: &vol, Profile: &profile.Name, WalgPrefix: &prefix,
+				})
+				if err != nil {
+					return err
+				}
+				instanceID = ni.ID
+			}
+			proj, err := q.InsertProject(ctx, store.InsertProjectParams{
 				ID: id, Name: name, Slug: slug, DbName: dbName, OwnerRole: role,
-				ScramVerifier: verifier, InstanceID: inst.ID, Settings: settings,
+				ScramVerifier: verifier, Tier: tier, InstanceID: instanceID, Settings: settings,
 				Description: p.Description, CreatedBy: p.CreatedBy,
 			})
 			if err != nil {

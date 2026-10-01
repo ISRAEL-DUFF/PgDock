@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -92,5 +93,32 @@ func TestValidate(t *testing.T) {
 	}
 	if k := (Target{Prefix: "p"}).Key("/a/b"); k != "p/a/b" {
 		t.Fatalf("key %q", k)
+	}
+}
+
+func TestDeletePrefix(t *testing.T) {
+	f, err := NewFake("b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	tgt := f.Target("b")
+	tgt.Prefix = "pg"
+	c, err := New(tgt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for _, k := range []string{"instances/a/wal-g/1", "instances/a/wal-g/x/2", "instances/ab/keep"} {
+		if err := c.Upload(ctx, k, strings.NewReader("x")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	n, err := c.DeletePrefix(ctx, "instances/a")
+	if err != nil || n != 2 {
+		t.Fatalf("deleted %d, %v", n, err)
+	}
+	if _, err := c.Size(ctx, "instances/ab/keep"); err != nil {
+		t.Fatal("deleted an object outside the prefix")
 	}
 }

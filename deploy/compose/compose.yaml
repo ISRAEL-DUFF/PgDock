@@ -1,6 +1,6 @@
 # PGDock on a single host (spec §11.1): Caddy, pgdock-server, the metadata
 # database, the shared PostgreSQL 18 cluster, the two PgBouncer poolers, and
-# the node agent (backups, restores, imports).
+# the node agent (backups, restores, imports, and dedicated instances).
 #
 #   ./install.sh            writes .env with generated secrets, then starts it
 #   docker compose up -d    (with an existing .env)
@@ -99,14 +99,20 @@ services:
     depends_on:
       pgdock-server:
         condition: service_healthy
+    # Root, for the Docker socket: dedicated instances are sibling
+    # containers on this network (spec §4.2).
+    user: "0:0"
     environment:
       PGDOCK_AGENT_SERVER: http://pgdock-server:8080
       PGDOCK_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?}
       PGDOCK_AGENT_NODE: local
       PGDOCK_AGENT_ADVERTISE: pgdock-agent:7070
       PGDOCK_AGENT_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
+      PGDOCK_AGENT_NETWORK: ${PGDOCK_NETWORK:-pgdock}
+      PGDOCK_AGENT_PG_IMAGE: ${PGDOCK_PG_IMAGE:-pgdock-postgres:18-walg3.0.9}
     volumes:
       - agent-state:/var/lib/pgdock-agent
+      - /var/run/docker.sock:/var/run/docker.sock
 
   metadata-db:
     image: postgres:18
@@ -183,6 +189,8 @@ services:
 
 networks:
   default:
+    # Named, so the agent can attach dedicated instances to it.
+    name: ${PGDOCK_NETWORK:-pgdock}
     ipam:
       config:
         - subnet: 172.31.250.0/24

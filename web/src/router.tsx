@@ -8,7 +8,7 @@ import { LoginPage } from "./pages/Login";
 import { NewProjectPage } from "./pages/NewProject";
 import { OperationDetailPage, OperationsPage } from "./pages/Operations";
 import { ImportProjectPage } from "./pages/ImportProject";
-import { NodesPage } from "./pages/Nodes";
+import { NodeDetailPage, NodesPage } from "./pages/Nodes";
 import { ProjectBackupsPage } from "./pages/ProjectBackups";
 import { ProjectConnectPage } from "./pages/ProjectConnect";
 import { ProjectLayout, ProjectOverviewPage } from "./pages/ProjectOverview";
@@ -80,6 +80,7 @@ const projectConnect = createRoute({ getParentRoute: () => project, path: "/conn
 const projectBackups = createRoute({ getParentRoute: () => project, path: "/backups", component: ProjectBackupsPage });
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
 const nodes = createRoute({ getParentRoute: () => app, path: "/nodes", component: NodesPage });
+const nodeDetail = createRoute({ getParentRoute: () => app, path: "/nodes/$id", component: NodeDetailPage });
 const operations = createRoute({ getParentRoute: () => app, path: "/operations", component: OperationsPage });
 const operation = createRoute({ getParentRoute: () => app, path: "/operations/$id", component: OperationDetailPage });
 const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: AuditPage });
@@ -95,6 +96,7 @@ const routeTree = root.addChildren([
     importProject,
     project.addChildren([projectOverview, projectConnect, projectBackups, projectSettings]),
     nodes,
+    nodeDetail,
     operations,
     operation,
     audit,

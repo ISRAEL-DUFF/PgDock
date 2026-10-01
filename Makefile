@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
 
 all: build
 
@@ -129,7 +129,13 @@ DOCKER_BUILD_FLAGS ?=
 
 ## test-e2e: install the compose bundle from scratch and go from a fresh
 ## install to a working database entirely through the browser (M2 done-when).
+# Dedicated instances are created by the agent, outside Compose: remove the
+# bundle's (containers on its network, and their volumes).
+E2E_INSTANCES := ids=$$(docker ps -aq --filter network=pgdock-e2e --filter label=pgdock.instance); \
+	[ -z "$$ids" ] || { vols=$$(docker inspect -f '{{.Name}}' $$ids | tr -d /); docker rm -f $$ids >/dev/null; docker volume rm -f $$vols >/dev/null; }
+
 test-e2e: e2e-images
+	@$(E2E_INSTANCES)
 	$(E2E_COMPOSE) down -v --remove-orphans >/dev/null 2>&1 || true
 	$(E2E_COMPOSE) up -d --no-build --wait
 	@mkdir -p tmp && curl -fsSk --noproxy '*' https://127.0.0.1:15000/roots/0 > tmp/e2e-pebble-root.pem
@@ -146,7 +152,8 @@ test-e2e: e2e-images
 	PGDOCK_E2E_S3_BUCKET=pgdock-e2e \
 	PGDOCK_E2E_SUPABASE_SEED_URL=postgres://postgres:supabase-source@127.0.0.1:15450/postgres \
 	PGDOCK_E2E_SUPABASE_URL=postgres://postgres:supabase-source@src-supabase:5432/postgres?sslmode=disable \
-	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server pgdock-agent caddy pebble; exit 1; }
+	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server pgdock-agent caddy pebble; $(E2E_INSTANCES); exit 1; }
+	@$(E2E_INSTANCES)
 	$(E2E_COMPOSE) down -v --remove-orphans
 
 e2e-images:
@@ -154,12 +161,18 @@ e2e-images:
 	docker build $(DOCKER_BUILD_FLAGS) --target agent -t pgdock-agent:local .
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-pebble:local -f test/e2e/bundle/Dockerfile.pebble test/e2e/bundle
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-fakes3:local -f test/e2e/bundle/Dockerfile.fakes3 .
+	docker build $(DOCKER_BUILD_FLAGS) -t $(PG_IMAGE) deploy/images/postgres
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
-test-integration: pooler-seed test-agent-bin
+test-integration: pooler-seed test-agent-bin pg-image
 	$(COMPOSE) --profile test up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
+
+## pg-image: the Postgres 18 + WAL-G image dedicated instances run.
+PG_IMAGE := pgdock-postgres:18-walg3.0.9
+pg-image:
+	docker build $(DOCKER_BUILD_FLAGS) -t $(PG_IMAGE) deploy/images/postgres
 
 # The agent the integration tests run inside the agent-test container.
 test-agent-bin:

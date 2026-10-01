@@ -16,3 +16,12 @@ describe("backups", () => {
     expect(extractKey("  pgdock-backup-key-v1:BBBB  ")).toBe("pgdock-backup-key-v1:BBBB");
   });
 });
+
+import { toLocalInput } from "../pages/ProjectBackups";
+
+describe("toLocalInput", () => {
+  it("formats a date for datetime-local inputs in local time", () => {
+    const d = new Date(2026, 9, 1, 7, 5, 9);
+    expect(toLocalInput(d)).toBe("2026-10-01T07:05:09");
+  });
+});

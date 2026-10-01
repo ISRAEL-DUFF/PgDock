@@ -41,3 +41,12 @@ SELECT n.* FROM nodes n JOIN instances i ON i.node_id = n.id WHERE i.id = @insta
 
 -- name: FirstAgentNode :one
 SELECT * FROM nodes WHERE agent_cert_fp IS NOT NULL ORDER BY created_at LIMIT 1;
+
+-- name: RemoveNode :exec
+UPDATE nodes SET status = 'removed', agent_cert_fp = NULL, registration_token = NULL WHERE id = @id;
+
+-- name: NodeLiveInstances :one
+SELECT count(*)::int FROM instances WHERE node_id = @node_id AND deleted_at IS NULL;
+
+-- name: SetNodeRole :one
+UPDATE nodes SET role = @role WHERE id = @id AND status <> 'removed' RETURNING *;

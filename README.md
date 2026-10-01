@@ -44,9 +44,10 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | `make generate` | Regenerates Go server interfaces and TypeScript types from `api/openapi.yaml`. |
 | `make test` | Go unit tests, frontend type-check and unit tests. Postgres-backed tests skip unless `PGDOCK_TEST_DATABASE_URL` is set. |
 | `make test-db` | Go tests including the Postgres-backed ones, against the dev environment. |
-| `make test-integration` | Provisioning, backups, restores, and imports end to end, and the tenant-isolation suite, against real Postgres 18 and PgBouncer (the agent runs in a container; S3 is faked; import sources are `supabase/postgres` and Postgres 15). |
+| `make test-integration` | Provisioning, backups, restores, imports, dedicated instances with point-in-time recovery, and multi-node placement end to end, plus the tenant-isolation suite, against real Postgres 18 and PgBouncer (agents run in containers and create instances through the host's Docker; S3 is faked; import sources are `supabase/postgres` and Postgres 15). |
+| `make pg-image` | Builds `pgdock-postgres:18-walg3.0.9`, the image dedicated instances run. |
 | `make test-acme` | Obtains a real certificate over HTTP-01 from Pebble (Let's Encrypt's test CA). |
-| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, and imports a Supabase-shaped project and serves its app (Playwright). |
+| `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, imports a Supabase-shaped project and serves its app, and creates a dedicated project and restores it to a point in time (Playwright). |
 | `make run-dev` | Runs the built `bin/pgdock-server` against the dev environment (`deploy/dev/server.env`). |
 | `make lint` | `golangci-lint`. |
 | `make release-check` | Fails if the server binary embeds only the placeholder UI. |
@@ -124,6 +125,27 @@ Restore goes into a new project by default, so nothing is overwritten. In
 place needs the typed project name and a fresh re-authentication; clients
 wait at the pooler while it runs, and a failure puts the safety backup back.
 
+## Dedicated projects and nodes
+
+A project can live on the **dedicated tier** instead (spec §4.2): its own
+PostgreSQL 18 container on a node, with CPU and memory limits from a profile
+(`small` 1 CPU / 1 GB, `medium` 2 / 4 GB, `large` 4 / 8 GB) and its own
+volume. The agent runs it from the `pgdock-postgres` image
+(`make pg-image`, or `deploy/images/postgres`), which adds WAL-G. Clients
+connect through the same poolers with the same URL format as shared
+projects. WAL is archived continuously to the backup bucket, encrypted with
+a key derived from the backup key; a base backup is taken at creation and
+daily, keeping 7. **Point-in-time recovery** (Backups tab, or
+`POST /projects/{id}/pitr`) restores any moment in that window into a new
+dedicated project; the source is not changed.
+
+Nodes are added on the Nodes page: PGDock records the node and prints the
+`pgdock-agent register` command with a one-time token. A node's role
+(`shared`, `dedicated`, `both`) decides where new projects go; a shared or
+both node can run an extra shared cluster (Node → Create shared cluster),
+and new shared projects go to the least loaded one. The install bundle's
+agent manages instances on the local Docker host.
+
 ## Import from an existing database
 
 Projects → Import copies a database (Supabase included) into a new project
@@ -186,10 +208,14 @@ with `NOTIFY`, which wakes idle workers and drives the SSE stream at
 | `PGDOCK_BACKUP_HOUR` | `2` | UTC hour the nightly backup window opens |
 | `PGDOCK_BACKUP_JITTER` | `2h` | How widely projects are spread over the window |
 | `PGDOCK_METADATA_BACKUP_URL` | `PGDOCK_DATABASE_URL` | The metadata DB as the agent reaches it, for self-backups; `off` disables them |
+| `PGDOCK_SHARED_NODE_ROLE` | `both` | Role of the node registered from `PGDOCK_SHARED_ADMIN_URL`, when first registered |
+| `PGDOCK_DEDICATED_ADMIN_VIA` | `network` | How pgdock-server reaches dedicated instances: `network` (the agent's Docker network) or `published` (the port published on the node) |
 
 pgdock-agent reads `PGDOCK_AGENT_STATE_DIR` (`/var/lib/pgdock-agent`),
 `_LISTEN` (`:7070`), `_SERVER`, `_TOKEN`, `_BOOTSTRAP_TOKEN` with `_NODE`,
 `_ADVERTISE` (how the server reaches it), `_SERVER_CA`, `_PG_BIN`, and
-`_DISK_PATH`; see `pgdock-agent run -h`.
+`_DISK_PATH`, and for instances `_DOCKER` (daemon address), `_PG_IMAGE`,
+`_NETWORK` (Docker network to join), and `_PUBLISH` (address to publish
+ports on); see `pgdock-agent run -h`.
 
 

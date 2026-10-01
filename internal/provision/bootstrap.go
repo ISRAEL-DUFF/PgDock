@@ -26,6 +26,9 @@ type SharedCluster struct {
 	// default to AdminURL's host and port.
 	PoolerHost string
 	PoolerPort int
+	// NodeRole is the node's role when first registered (default "both");
+	// an existing node keeps the role it has.
+	NodeRole string
 }
 
 // RegisterSharedCluster verifies and hardens a shared cluster, then records
@@ -35,6 +38,9 @@ func RegisterSharedCluster(ctx context.Context, db *pgxpool.Pool, keyring *crypt
 	cfg, err := pgx.ParseConfig(c.AdminURL)
 	if err != nil {
 		return fmt.Errorf("shared cluster admin url: %w", err)
+	}
+	if c.NodeRole == "" {
+		c.NodeRole = "both"
 	}
 	if c.PoolerHost == "" {
 		c.PoolerHost = cfg.Host
@@ -68,7 +74,7 @@ func RegisterSharedCluster(ctx context.Context, db *pgxpool.Pool, keyring *crypt
 
 	q := store.New(db)
 	node, err := q.UpsertNode(ctx, store.UpsertNodeParams{
-		Name: c.NodeName, PrivateAddr: c.PoolerHost, Role: "shared",
+		Name: c.NodeName, PrivateAddr: c.PoolerHost, Role: c.NodeRole,
 	})
 	if err != nil {
 		return fmt.Errorf("register node: %w", err)

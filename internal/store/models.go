@@ -68,6 +68,12 @@ type Instance struct {
 	CreatedAt   time.Time
 	AdminHost   *string
 	AdminPort   *int32
+	Host        *string
+	AdminSecret []byte
+	Profile     *string
+	WalgPrefix  *string
+	Error       *string
+	DeletedAt   *time.Time
 }
 
 type MetricPoint struct {
