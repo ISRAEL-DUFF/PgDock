@@ -127,7 +127,112 @@ paths:
                 $ref: "#/components/schemas/Operator"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/operations:
+    get:
+      operationId: listOperations
+      summary: List operations, newest first
+      tags: [operations]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/OperationStatus"
+        - name: kind
+          in: query
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Operations matching the filters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/operations/{id}:
+    get:
+      operationId: getOperation
+      summary: Get one operation, including its step log
+      tags: [operations]
+      parameters:
+        - $ref: "#/components/parameters/OperationID"
+      responses:
+        "200":
+          description: The operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/operations/{id}/stream:
+    get:
+      operationId: streamOperation
+      summary: Stream an operation's progress as Server-Sent Events
+      description: |
+        Emits `log` events (data: OperationLogEntry, id: 1-based log index),
+        `status` events (data: OperationStatusEvent) whenever the status
+        changes, and a final `done` event before closing once the operation
+        succeeds or fails. Reconnect with `Last-Event-ID` to resume after a
+        log entry.
+      tags: [operations]
+      parameters:
+        - $ref: "#/components/parameters/OperationID"
+      responses:
+        "200":
+          description: An event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/dev/operations:
+    post:
+      operationId: createDevOperation
+      summary: Enqueue a dummy operation (development only)
+      description: |
+        Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+        otherwise returns 404. Enqueues a `noop` operation for exercising
+        the queue end to end.
+      tags: [dev]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoopParams"
+      responses:
+        "202":
+          description: The operation was queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
 components:
+  parameters:
+    OperationID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   responses:
     Error:
       description: Error response.
@@ -210,3 +315,99 @@ components:
           example: not_implemented
         message:
           type: string
+    OperationStatus:
+      type: string
+      enum: [queued, running, succeeded, failed]
+    OperationLogEntry:
+      type: object
+      required: [ts, step, level, msg]
+      properties:
+        ts:
+          type: string
+          format: date-time
+        step:
+          type: string
+        level:
+          type: string
+          enum: [info, warn, error]
+        msg:
+          type: string
+    Operation:
+      type: object
+      required: [id, kind, params, status, attempts, run_after, log, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          example: create
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        params:
+          type: object
+          additionalProperties: true
+        status:
+          $ref: "#/components/schemas/OperationStatus"
+        attempts:
+          type: integer
+        run_after:
+          type: string
+          format: date-time
+        log:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationLogEntry"
+        error:
+          type: string
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+    OperationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Operation"
+    OperationStatusEvent:
+      type: object
+      required: [status, attempts]
+      properties:
+        status:
+          $ref: "#/components/schemas/OperationStatus"
+        attempts:
+          type: integer
+        error:
+          type: string
+          nullable: true
+    NoopParams:
+      type: object
+      properties:
+        steps:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 3
+        delay_ms:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          default: 500
+        fail_attempts:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Fail the first N attempts to exercise retries.

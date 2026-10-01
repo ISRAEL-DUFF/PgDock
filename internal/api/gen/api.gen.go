@@ -4,12 +4,60 @@
 package gen
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for OperationLogEntryLevel.
+const (
+	OperationLogEntryLevelError OperationLogEntryLevel = "error"
+	OperationLogEntryLevelInfo  OperationLogEntryLevel = "info"
+	OperationLogEntryLevelWarn  OperationLogEntryLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the OperationLogEntryLevel enum.
+func (e OperationLogEntryLevel) Valid() bool {
+	switch e {
+	case OperationLogEntryLevelError:
+		return true
+	case OperationLogEntryLevelInfo:
+		return true
+	case OperationLogEntryLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OperationStatus.
+const (
+	Failed    OperationStatus = "failed"
+	Queued    OperationStatus = "queued"
+	Running   OperationStatus = "running"
+	Succeeded OperationStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the OperationStatus enum.
+func (e OperationStatus) Valid() bool {
+	switch e {
+	case Failed:
+		return true
+	case Queued:
+		return true
+	case Running:
+		return true
+	case Succeeded:
+		return true
+	default:
+		return false
+	}
+}
 
 // Error defines model for Error.
 type Error struct {
@@ -34,6 +82,52 @@ type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Password string              `json:"password"`
 }
+
+// NoopParams defines model for NoopParams.
+type NoopParams struct {
+	DelayMs *int `json:"delay_ms,omitempty"`
+
+	// FailAttempts Fail the first N attempts to exercise retries.
+	FailAttempts *int `json:"fail_attempts,omitempty"`
+	Steps        *int `json:"steps,omitempty"`
+}
+
+// Operation defines model for Operation.
+type Operation struct {
+	Attempts   int                 `json:"attempts"`
+	CreatedAt  time.Time           `json:"created_at"`
+	CreatedBy  *openapi_types.UUID `json:"created_by,omitempty"`
+	Error      *string             `json:"error,omitempty"`
+	FinishedAt *time.Time          `json:"finished_at,omitempty"`
+	Id         openapi_types.UUID  `json:"id"`
+
+	// Kind Example: create
+	Kind      string                 `json:"kind"`
+	Log       []OperationLogEntry    `json:"log"`
+	Params    map[string]interface{} `json:"params"`
+	ProjectId *openapi_types.UUID    `json:"project_id,omitempty"`
+	RunAfter  time.Time              `json:"run_after"`
+	Status    OperationStatus        `json:"status"`
+}
+
+// OperationList defines model for OperationList.
+type OperationList struct {
+	Items []Operation `json:"items"`
+}
+
+// OperationLogEntry defines model for OperationLogEntry.
+type OperationLogEntry struct {
+	Level OperationLogEntryLevel `json:"level"`
+	Msg   string                 `json:"msg"`
+	Step  string                 `json:"step"`
+	Ts    time.Time              `json:"ts"`
+}
+
+// OperationLogEntryLevel defines model for OperationLogEntry.Level.
+type OperationLogEntryLevel string
+
+// OperationStatus defines model for OperationStatus.
+type OperationStatus string
 
 // Operator defines model for Operator.
 type Operator struct {
@@ -68,6 +162,17 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// OperationID defines model for OperationID.
+type OperationID = openapi_types.UUID
+
+// ListOperationsParams defines parameters for ListOperations.
+type ListOperationsParams struct {
+	Status    *OperationStatus    `form:"status,omitempty" json:"status,omitempty"`
+	Kind      *string             `form:"kind,omitempty" json:"kind,omitempty"`
+	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
+	Limit     *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
 
@@ -76,6 +181,9 @@ type PostAuthReauthJSONRequestBody = ReauthRequest
 
 // PostAuthTotpJSONRequestBody defines body for PostAuthTotp for application/json ContentType.
 type PostAuthTotpJSONRequestBody = TotpRequest
+
+// CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
+type CreateDevOperationJSONRequestBody = NoopParams
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -91,9 +199,21 @@ type ServerInterface interface {
 	// PostAuthTotp Complete login with a TOTP code
 	// (POST /api/v1/auth/totp)
 	PostAuthTotp(w http.ResponseWriter, r *http.Request)
+	// CreateDevOperation Enqueue a dummy operation (development only)
+	// (POST /api/v1/dev/operations)
+	CreateDevOperation(w http.ResponseWriter, r *http.Request)
 	// GetMe Current operator
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// ListOperations List operations, newest first
+	// (GET /api/v1/operations)
+	ListOperations(w http.ResponseWriter, r *http.Request, params ListOperationsParams)
+	// GetOperation Get one operation, including its step log
+	// (GET /api/v1/operations/{id})
+	GetOperation(w http.ResponseWriter, r *http.Request, id OperationID)
+	// StreamOperation Stream an operation's progress as Server-Sent Events
+	// (GET /api/v1/operations/{id}/stream)
+	StreamOperation(w http.ResponseWriter, r *http.Request, id OperationID)
 	// GetVersion Build information for this server
 	// (GET /api/v1/version)
 	GetVersion(w http.ResponseWriter, r *http.Request)
@@ -133,9 +253,33 @@ func (_ Unimplemented) PostAuthTotp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// CreateDevOperation Enqueue a dummy operation (development only)
+// (POST /api/v1/dev/operations)
+func (_ Unimplemented) CreateDevOperation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetMe Current operator
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOperations List operations, newest first
+// (GET /api/v1/operations)
+func (_ Unimplemented) ListOperations(w http.ResponseWriter, r *http.Request, params ListOperationsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOperation Get one operation, including its step log
+// (GET /api/v1/operations/{id})
+func (_ Unimplemented) GetOperation(w http.ResponseWriter, r *http.Request, id OperationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StreamOperation Stream an operation's progress as Server-Sent Events
+// (GET /api/v1/operations/{id}/stream)
+func (_ Unimplemented) StreamOperation(w http.ResponseWriter, r *http.Request, id OperationID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -222,11 +366,149 @@ func (siw *ServerInterfaceWrapper) PostAuthTotp(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// CreateDevOperation operation middleware
+func (siw *ServerInterfaceWrapper) CreateDevOperation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateDevOperation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOperations operation middleware
+func (siw *ServerInterfaceWrapper) ListOperations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListOperationsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "project_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project_id", r.URL.Query(), &params.ProjectId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOperations(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOperation operation middleware
+func (siw *ServerInterfaceWrapper) GetOperation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id OperationID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOperation(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StreamOperation operation middleware
+func (siw *ServerInterfaceWrapper) StreamOperation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id OperationID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamOperation(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -414,6 +696,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/operations", wrapper.ListOperations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/operations/{id}", wrapper.GetOperation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/operations/{id}/stream", wrapper.StreamOperation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/dev/operations", wrapper.CreateDevOperation)
 	})
 
 	return r

@@ -140,6 +140,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List operations, newest first */
+        get: operations["listOperations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one operation, including its step log */
+        get: operations["getOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/{id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream an operation's progress as Server-Sent Events
+         * @description Emits `log` events (data: OperationLogEntry, id: 1-based log index),
+         *     `status` events (data: OperationStatusEvent) whenever the status
+         *     changes, and a final `done` event before closing once the operation
+         *     succeeds or fails. Reconnect with `Last-Event-ID` to resume after a
+         *     log entry.
+         */
+        get: operations["streamOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dev/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enqueue a dummy operation (development only)
+         * @description Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+         *     otherwise returns 404. Enqueues a `noop` operation for exercising
+         *     the queue end to end.
+         */
+        post: operations["createDevOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -186,6 +266,58 @@ export interface components {
             code: string;
             message: string;
         };
+        /** @enum {string} */
+        OperationStatus: "queued" | "running" | "succeeded" | "failed";
+        OperationLogEntry: {
+            /** Format: date-time */
+            ts: string;
+            step: string;
+            /** @enum {string} */
+            level: "info" | "warn" | "error";
+            msg: string;
+        };
+        Operation: {
+            /** Format: uuid */
+            id: string;
+            /** @example create */
+            kind: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            params: {
+                [key: string]: unknown;
+            };
+            status: components["schemas"]["OperationStatus"];
+            attempts: number;
+            /** Format: date-time */
+            run_after: string;
+            log: components["schemas"]["OperationLogEntry"][];
+            error?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+        };
+        OperationList: {
+            items: components["schemas"]["Operation"][];
+        };
+        OperationStatusEvent: {
+            status: components["schemas"]["OperationStatus"];
+            attempts: number;
+            error?: string | null;
+        };
+        NoopParams: {
+            /** @default 3 */
+            steps: number;
+            /** @default 500 */
+            delay_ms: number;
+            /**
+             * @description Fail the first N attempts to exercise retries.
+             * @default 0
+             */
+            fail_attempts: number;
+        };
     };
     responses: {
         /** @description Error response. */
@@ -198,7 +330,9 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        OperationID: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -380,6 +514,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operator"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOperations: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["OperationStatus"];
+                kind?: string;
+                project_id?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operations matching the filters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OperationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The operation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    streamOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OperationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An event stream. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createDevOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NoopParams"];
+            };
+        };
+        responses: {
+            /** @description The operation was queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

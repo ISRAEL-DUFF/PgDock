@@ -6,7 +6,7 @@ tmp_dir = "tmp"
 [build]
 cmd = "go build -o ./tmp/pgdock-server ./cmd/server"
 entrypoint = ["./tmp/pgdock-server"]
-include_ext = ["go", "yaml"]
+include_ext = ["go", "yaml", "sql"]
 exclude_dir = ["web/node_modules", "web/src", "tmp", "bin", "test"]
 delay = 500
 
