@@ -1,11 +1,15 @@
-# syntax=docker/dockerfile:1
 # pgdock-server and pgdock-agent, with the web UI embedded.
 #   docker build -t pgdock .
 #
 # Behind a TLS-intercepting proxy, pass its CA as a build secret:
 #   docker build --secret id=ca_bundle,src=/path/to/ca.pem -t pgdock .
+# Base images can come from a mirror, e.g.
+#   --build-arg REGISTRY=mirror.gcr.io/library/
 
-FROM node:22-alpine AS ui
+ARG REGISTRY=
+ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12
+
+FROM ${REGISTRY}node:22-alpine AS ui
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN --mount=type=secret,id=ca_bundle,required=false \
@@ -14,7 +18,7 @@ RUN --mount=type=secret,id=ca_bundle,required=false \
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.25-alpine AS build
+FROM ${REGISTRY}golang:1.25-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN --mount=type=secret,id=ca_bundle,required=false \
@@ -31,7 +35,7 @@ RUN CGO_ENABLED=0 go build -trimpath \
  && /out/usr/local/bin/pgdock-server -require-ui \
  && mkdir -p /out/var/lib/pgdock/pooler
 
-FROM gcr.io/distroless/static-debian12
+FROM ${RUNTIME_IMAGE}
 # uid 70 matches the PgBouncer image, so the poolers can read the 0640
 # config, auth file, and TLS key pgdock-server writes.
 COPY --from=build --chown=70:70 /out/ /

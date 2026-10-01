@@ -408,15 +408,16 @@ func (m *Manager) writeSelfSigned(host string) (bool, error) {
 }
 
 func (m *Manager) ensureACME(ctx context.Context, host string) (bool, error) {
-	if c, err := m.currentCert(); err != nil || !m.isFromCA(c) {
-		// Keep the poolers serving something while the CA answers.
+	if c, err := m.currentCert(); err != nil || !m.isFromCA(c) || c.VerifyHostname(host) != nil {
+		// Keep the poolers serving something while the CA answers; the
+		// status stays "pending" until a CA-issued certificate is in place.
 		if _, err := m.ensureSelfSigned(host); err != nil {
 			return false, err
 		}
+		m.mu.Lock()
+		m.status.State = "pending"
+		m.mu.Unlock()
 	}
-	m.mu.Lock()
-	m.status.State = "pending"
-	m.mu.Unlock()
 	// Obtains if missing, renews if due, and keeps maintaining it.
 	if err := m.magic.ManageSync(ctx, []string{host}); err != nil {
 		return false, fmt.Errorf("obtain certificate for %s: %w", host, err)

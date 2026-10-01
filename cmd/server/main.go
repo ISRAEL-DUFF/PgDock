@@ -364,7 +364,8 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 	syncCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	if err := pm.Sync(syncCtx); err != nil {
-		log.Error("initial pooler sync failed", "err", err)
+		// Normal on first boot of the bundle: the poolers start after us.
+		log.Warn("initial pooler sync incomplete; the files are written and the next sync reloads the poolers", "err", err)
 	} else {
 		log.Info("pooler config synced", "dir", pc.ConfigDir)
 	}
