@@ -172,7 +172,11 @@ func TestDedicatedProjectAndPITR(t *testing.T) {
 	}
 
 	// The nightly schedule takes base backups of dedicated projects, not
-	// logical dumps.
+	// logical dumps. Projects created after the window opened wait for the
+	// next one, so backdate this one.
+	if _, err := e.DB.Exec(ctx, `UPDATE projects SET created_at = now() - interval '2 days' WHERE id = $1`, c.Project.Id); err != nil {
+		t.Fatal(err)
+	}
 	due := e.Backups.DueAt(c.Project.Id, time.Now()).Add(time.Minute)
 	if due.Before(time.Now()) {
 		due = time.Now()
