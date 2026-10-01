@@ -9,8 +9,8 @@
 # the stack, and prints the one-time setup code. Run it again after
 # `git checkout <new tag>` to upgrade: .env is kept.
 #
-# PGDOCK_BUILD_FLAGS is passed to `docker build` (e.g. a proxy CA secret).
-# PGDOCK_COMPOSE_FILES adds compose overlays, e.g. "-f compose.yaml -f extra.yaml".
+# PGDOCK_BUILD_FLAGS is passed to `docker build` (e.g. a proxy CA secret);
+# COMPOSE_FILE and COMPOSE_PROJECT_NAME work as for docker compose.
 set -eu
 cd "$(dirname "$0")"
 
@@ -19,10 +19,6 @@ docker compose version >/dev/null 2>&1 || { echo "Docker Compose v2 is required.
 
 rand() { head -c "$1" /dev/urandom | base64 | tr -d '\n'; }
 rand_url() { rand "$1" | tr '+/' '-_' | tr -d '='; }
-compose() {
-	# shellcheck disable=SC2086 # PGDOCK_COMPOSE_FILES is a list of flags
-	docker compose ${PGDOCK_COMPOSE_FILES:-} "$@"
-}
 
 if [ ! -f .env ]; then
 	ui_domain=${PGDOCK_UI_DOMAIN:-}
@@ -69,11 +65,12 @@ docker build ${PGDOCK_BUILD_FLAGS:-} -t pgdock-postgres:18-walg3.0.9 ../images/p
 docker build ${PGDOCK_BUILD_FLAGS:-} -t "${PGDOCK_IMAGE:-pgdock:local}" ../..
 # shellcheck disable=SC2086
 docker build ${PGDOCK_BUILD_FLAGS:-} --target agent -t "${PGDOCK_AGENT_IMAGE:-pgdock-agent:local}" ../..
-compose up -d --no-build --wait
+docker compose up -d --no-build --wait
 
 echo
 echo "PGDock is running: https://$(grep '^PGDOCK_UI_DOMAIN=' .env | cut -d= -f2-)"
-code=$(compose logs pgdock-server 2>/dev/null | grep -o '"setup_code":"[^"]*"' | tail -1 | cut -d'"' -f4)
+# The server logs JSON ("setup_code":"…") or text (setup_code=…).
+code=$(docker compose logs pgdock-server 2>/dev/null | grep -oE 'setup_code"?[=:]"?[A-Za-z0-9_-]+' | tail -1 | sed -E 's/.*[=:]"?//')
 if [ -n "$code" ]; then
 	echo "First-run setup code: $code"
 else

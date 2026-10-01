@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check clean clean-ui
 
 all: build
 
@@ -155,6 +155,11 @@ test-e2e: e2e-images
 	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server pgdock-agent caddy pebble; $(E2E_INSTANCES); exit 1; }
 	@$(E2E_INSTANCES)
 	$(E2E_COMPOSE) down -v --remove-orphans
+
+## test-docs: install PGDock by running docs/install.md's commands in a
+## scratch clone, then reach a working database in a browser (M7 done-when).
+test-docs:
+	PGDOCK_BUILD_FLAGS='$(DOCKER_BUILD_FLAGS)' test/docs/install-from-docs.sh
 
 e2e-images:
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock:local .
