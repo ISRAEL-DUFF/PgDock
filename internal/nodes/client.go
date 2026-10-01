@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
@@ -119,4 +120,48 @@ func (a *Agent) Restore(ctx context.Context, req agentapi.RestoreRequest) (agent
 func (a *Agent) Copy(ctx context.Context, req agentapi.CopyRequest) (agentapi.RestoreResult, error) {
 	var r agentapi.RestoreResult
 	return r, a.do(ctx, http.MethodPost, agentapi.PathCopy, req, &r)
+}
+
+func instancePath(p, id string) string { return strings.Replace(p, "{id}", id, 1) }
+
+// CreateInstance calls POST /v1/instances (idempotent).
+func (a *Agent) CreateInstance(ctx context.Context, spec agentapi.InstanceSpec) (agentapi.Instance, error) {
+	var r agentapi.Instance
+	return r, a.do(ctx, http.MethodPost, agentapi.PathInstances, spec, &r)
+}
+
+// Instance calls GET /v1/instances/{id}.
+func (a *Agent) Instance(ctx context.Context, id string) (agentapi.Instance, error) {
+	var r agentapi.Instance
+	return r, a.do(ctx, http.MethodGet, instancePath(agentapi.PathInstance, id), nil, &r)
+}
+
+// StartInstance calls POST /v1/instances/{id}/start.
+func (a *Agent) StartInstance(ctx context.Context, id string) (agentapi.Instance, error) {
+	var r agentapi.Instance
+	return r, a.do(ctx, http.MethodPost, instancePath(agentapi.PathInstanceStart, id), nil, &r)
+}
+
+// StopInstance calls POST /v1/instances/{id}/stop.
+func (a *Agent) StopInstance(ctx context.Context, id string) (agentapi.Instance, error) {
+	var r agentapi.Instance
+	return r, a.do(ctx, http.MethodPost, instancePath(agentapi.PathInstanceStop, id), nil, &r)
+}
+
+// DestroyInstance calls DELETE /v1/instances/{id}: container and volume.
+func (a *Agent) DestroyInstance(ctx context.Context, id string) error {
+	var r agentapi.Instance
+	return a.do(ctx, http.MethodDelete, instancePath(agentapi.PathInstance, id), nil, &r)
+}
+
+// BaseBackup calls POST /v1/instances/{id}/walg/backup.
+func (a *Agent) BaseBackup(ctx context.Context, id string, req agentapi.WALGBackupRequest) (agentapi.WALGBackupResult, error) {
+	var r agentapi.WALGBackupResult
+	return r, a.do(ctx, http.MethodPost, instancePath(agentapi.PathWALGBackup, id), req, &r)
+}
+
+// BaseBackups calls GET /v1/instances/{id}/walg/backups.
+func (a *Agent) BaseBackups(ctx context.Context, id string) ([]agentapi.WALGBackup, error) {
+	var r []agentapi.WALGBackup
+	return r, a.do(ctx, http.MethodGet, instancePath(agentapi.PathWALGBackupList, id), nil, &r)
 }

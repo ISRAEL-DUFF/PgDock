@@ -38,8 +38,9 @@ ORDER BY started_at DESC
 LIMIT @max_rows;
 
 -- name: LatestSucceededBackup :one
+-- The newest logical backup (base backups restore only by PITR).
 SELECT * FROM backups
-WHERE project_id = @project_id AND status = 'succeeded'
+WHERE project_id = @project_id AND status = 'succeeded' AND kind IN ('logical', 'final', 'safety')
 ORDER BY finished_at DESC
 LIMIT 1;
 
@@ -71,7 +72,7 @@ SELECT p.* FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active'
   AND NOT EXISTS (
     SELECT 1 FROM operations o
-    WHERE o.project_id = p.id AND o.kind = 'backup' AND o.created_at >= @since
+    WHERE o.project_id = p.id AND o.kind IN ('backup', 'base_backup') AND o.created_at >= @since
   )
   AND NOT EXISTS (
     SELECT 1 FROM operations o
@@ -105,3 +106,19 @@ LIMIT @max_rows;
 
 -- name: ListRestoreTests :many
 SELECT * FROM operations WHERE kind = 'restore_test' ORDER BY created_at DESC LIMIT @max_rows;
+
+-- name: InsertBaseBackup :one
+INSERT INTO backups (project_id, kind, object_key, started_at, finished_at, status, size_bytes, storage_target_id, operation_id)
+VALUES (@project_id, 'base', @object_key, @started_at, @finished_at, 'succeeded', @size_bytes, @storage_target_id, sqlc.narg(operation_id))
+RETURNING *;
+
+-- name: ListBaseBackups :many
+SELECT * FROM backups WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' ORDER BY finished_at;
+
+-- BaseBackupBefore is the newest base backup of a project finished at or
+-- before a time (the starting point of a point-in-time recovery).
+-- name: BaseBackupBefore :one
+SELECT * FROM backups
+WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' AND finished_at <= @before
+ORDER BY finished_at DESC
+LIMIT 1;

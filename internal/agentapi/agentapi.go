@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/israel-duff/pgdock/internal/storage"
 )
@@ -21,6 +22,14 @@ const (
 	PathRestore  = "/v1/restore"
 	PathCopy     = "/v1/copy"
 	PathRegister = "/api/v1/agent/register" // on pgdock-server
+
+	// Instances (spec §10 agent API). {id} is the instance ID.
+	PathInstances      = "/v1/instances"
+	PathInstance       = "/v1/instances/{id}"
+	PathInstanceStart  = "/v1/instances/{id}/start"
+	PathInstanceStop   = "/v1/instances/{id}/stop"
+	PathWALGBackup     = "/v1/instances/{id}/walg/backup"
+	PathWALGBackupList = "/v1/instances/{id}/walg/backups"
 )
 
 // PGConn is how the agent reaches a Postgres server. Passwords travel only
@@ -72,6 +81,10 @@ type Health struct {
 	NodeID    string `json:"node_id"`
 	PGDump    string `json:"pg_dump"`
 	PGRestore string `json:"pg_restore"`
+	// Docker is "ok" when the agent can manage instances, else why not.
+	Docker string `json:"docker"`
+	// Image is the Postgres image instances run.
+	Image string `json:"image"`
 }
 
 // HostMetrics is GET /v1/host/metrics.
@@ -178,4 +191,92 @@ type RegisterResponse struct {
 // Error is the agent's error body.
 type Error struct {
 	Error string `json:"error"`
+}
+
+// Instance kinds.
+const (
+	InstanceDedicated = "dedicated"
+	InstanceShared    = "shared"
+)
+
+// InstanceSpec is POST /v1/instances: create (idempotently) and start a
+// Postgres container with a volume (spec §4.2).
+type InstanceSpec struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	// CPUs and MemoryMB are hard container limits.
+	CPUs     float64 `json:"cpus"`
+	MemoryMB int     `json:"memory_mb"`
+	// AdminUser/AdminPassword create the instance's superuser at initdb
+	// (ignored when the data comes from a restore).
+	AdminUser     string `json:"admin_user"`
+	AdminPassword string `json:"admin_password"`
+	// Settings are postgresql.conf parameters, passed as -c flags.
+	Settings map[string]string `json:"settings"`
+	// WALG, when set, enables continuous archiving to it.
+	WALG *WALG `json:"walg,omitempty"`
+	// Restore fills the volume from a WAL-G base backup and recovers
+	// (to TargetTime, if set) before the instance starts serving.
+	Restore *WALGRestore `json:"restore,omitempty"`
+}
+
+// WALG is where an instance's base backups and WAL live, and the key that
+// encrypts them.
+type WALG struct {
+	Storage storage.Target `json:"storage"`
+	// Prefix is relative to the target's prefix, e.g. "projects/<id>/wal-g".
+	Prefix string `json:"prefix"`
+	// PGPKey is the armored OpenPGP private key (WALG_PGP_KEY).
+	PGPKey string `json:"pgp_key"`
+}
+
+// WALGRestore restores another instance's backups into a new volume.
+type WALGRestore struct {
+	Source     WALG   `json:"source"`
+	BackupName string `json:"backup_name"` // or "LATEST"
+	// TargetTime is RFC 3339; empty replays all archived WAL.
+	TargetTime string `json:"target_time,omitempty"`
+}
+
+// Instance describes a container (POST/GET /v1/instances...).
+type Instance struct {
+	ID          string `json:"id"`
+	ContainerID string `json:"container_id"`
+	Container   string `json:"container"`
+	Volume      string `json:"volume"`
+	State       string `json:"state"` // created, running, exited, missing
+	Running     bool   `json:"running"`
+	// Host and Port reach Postgres from the node's network (the container
+	// name on the agent's Docker network, or the published address).
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	// PublishedHost/Port are the port published on the node, if any.
+	PublishedHost string `json:"published_host,omitempty"`
+	PublishedPort int    `json:"published_port,omitempty"`
+	Image         string `json:"image"`
+}
+
+// WALGBackupRequest is POST /v1/instances/{id}/walg/backup.
+type WALGBackupRequest struct {
+	// RetainFull keeps this many full backups afterwards (0: keep all).
+	RetainFull int `json:"retain_full"`
+}
+
+// WALGBackup is one base backup as WAL-G lists it.
+type WALGBackup struct {
+	Name             string    `json:"backup_name"`
+	StartTime        time.Time `json:"start_time"`
+	FinishTime       time.Time `json:"finish_time"`
+	WALFileName      string    `json:"wal_file_name"`
+	StartLSN         uint64    `json:"start_lsn"`
+	FinishLSN        uint64    `json:"finish_lsn"`
+	UncompressedSize int64     `json:"uncompressed_size"`
+	CompressedSize   int64     `json:"compressed_size"`
+}
+
+// WALGBackupResult reports a base backup.
+type WALGBackupResult struct {
+	Backup     WALGBackup `json:"backup"`
+	DurationMS int64      `json:"duration_ms"`
+	Deleted    string     `json:"deleted,omitempty"` // retention output
 }

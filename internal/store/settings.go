@@ -34,6 +34,19 @@ func DefaultSharedSettings() ProjectSettings {
 	}
 }
 
+// DefaultDedicatedSettings are the dedicated-tier defaults from spec §4.3
+// for an instance with volumeGB of disk: most of the instance's 100
+// connections, a larger pool, no timeouts, a disk warning at 80% of the
+// volume, and a read-only SQL console (spec §16 #6).
+func DefaultDedicatedSettings(volumeGB int) ProjectSettings {
+	return ProjectSettings{
+		ConnectionLimit: 90,
+		PoolSize:        20,
+		DiskWarnBytes:   int64(volumeGB) << 30 * 8 / 10,
+		ConsoleReadOnly: true,
+	}
+}
+
 // DecodeProjectSettings parses a settings column, filling unset fields
 // from DefaultSharedSettings.
 func DecodeProjectSettings(raw json.RawMessage) (ProjectSettings, error) {

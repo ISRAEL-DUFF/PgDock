@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
@@ -24,22 +25,41 @@ func (e *Env) StartAgent() {
 	e.t.Helper()
 	container := need(e.t, "PGDOCK_TEST_AGENT_CONTAINER")
 	agentAddr := need(e.t, "PGDOCK_TEST_AGENT_ADDR")
+	node, err := store.New(e.DB).GetNodeByName(context.Background(), "test")
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	token, _, err := e.Nodes.NewToken(context.Background(), node.ID)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	e.runAgent(container, agentAddr, "test", token)
+}
+
+// StartSecondAgent runs a second agent (the agent-test-2 container) for
+// the node named name, registered with token (from POST /nodes).
+func (e *Env) StartSecondAgent(name, token string) {
+	e.t.Helper()
+	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT2_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT2_ADDR"), name, token)
+}
+
+func (e *Env) runAgent(container, agentAddr, nodeName, token string) {
+	e.t.Helper()
 	ctx := context.Background()
-	node, err := store.New(e.DB).GetNodeByName(ctx, "test")
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	token, _, err := e.Nodes.NewToken(ctx, node.ID)
-	if err != nil {
-		e.t.Fatal(err)
-	}
 	stopAgent(container) // a leftover from an aborted run
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
 	state := "/tmp/agent-state-" + hex.EncodeToString(b)
 	script := `echo $$ > /tmp/agent.pid; exec /pgdock/pgdock-agent run --state ` + state +
 		` --server ` + e.URL + ` --token "$PGDOCK_AGENT_TOKEN" --advertise ` + agentAddr + ` --listen :7070 > /tmp/agent.log 2>&1`
-	cmd := exec.Command("docker", "exec", "-d", "-e", "PGDOCK_AGENT_TOKEN="+token, "-e", "PGDOCK_AGENT_LOG_FORMAT=text", container, "sh", "-c", script)
+	args := []string{"exec", "-d", "-e", "PGDOCK_AGENT_TOKEN=" + token, "-e", "PGDOCK_AGENT_LOG_FORMAT=text"}
+	if img := os.Getenv("PGDOCK_TEST_PG_IMAGE"); img != "" {
+		// Instances join the Compose network (poolers and the agent use the
+		// container name) and publish on 127.0.0.1 (the test server).
+		args = append(args, "-e", "PGDOCK_AGENT_PG_IMAGE="+img, "-e", "PGDOCK_AGENT_NETWORK="+os.Getenv("PGDOCK_TEST_DOCKER_NETWORK"),
+			"-e", "PGDOCK_AGENT_PUBLISH=127.0.0.1")
+	}
+	cmd := exec.Command("docker", append(args, container, "sh", "-c", script)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		e.t.Fatalf("start agent: %v: %s", err, out)
 	}
@@ -49,11 +69,12 @@ func (e *Env) StartAgent() {
 			e.t.Logf("agent log:\n%s", out)
 		}
 		stopAgent(container)
+		removeInstances(e.t)
 	})
 
 	deadline := time.Now().Add(60 * time.Second)
 	for {
-		n, err := store.New(e.DB).GetNodeByName(ctx, "test")
+		n, err := store.New(e.DB).GetNodeByName(ctx, nodeName)
 		if err == nil && n.AgentCertFp != nil {
 			if st := e.Nodes.Check(ctx, n); st.Reachable {
 				return
@@ -108,4 +129,38 @@ func (e *Env) ConfigureBackups() string {
 		e.t.Fatalf("confirm backup key: status %d", code)
 	}
 	return key.Key
+}
+
+// removeInstances deletes instance containers and volumes a test left
+// behind (normally deletes and rollbacks remove them).
+func removeInstances(t testing.TB) {
+	for _, kind := range []string{"container", "volume"} {
+		list := []string{"ps", "-aq"}
+		if kind == "volume" {
+			list = []string{"volume", "ls", "-q"}
+		}
+		out, err := exec.Command("docker", append(list, "--filter", "label=pgdock.instance")...).Output()
+		if err != nil {
+			continue
+		}
+		ids := strings.Fields(string(out))
+		if len(ids) == 0 {
+			continue
+		}
+		t.Logf("removing %d leftover instance %s(s)", len(ids), kind)
+		rm := []string{"rm", "-f"}
+		if kind == "volume" {
+			rm = []string{"volume", "rm", "-f"}
+		}
+		_ = exec.Command("docker", append(rm, ids...)...).Run()
+	}
+}
+
+// SetNodeRole changes a node's role (the harness registers "test" as a
+// shared node).
+func (e *Env) SetNodeRole(name, role string) {
+	e.t.Helper()
+	if _, err := e.DB.Exec(context.Background(), `UPDATE nodes SET role = $2 WHERE name = $1`, name, role); err != nil {
+		e.t.Fatal(err)
+	}
 }

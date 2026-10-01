@@ -47,6 +47,43 @@ func (q *Queries) BackupForOperation(ctx context.Context, arg BackupForOperation
 	return i, err
 }
 
+const baseBackupBefore = `-- name: BaseBackupBefore :one
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+WHERE project_id = $1 AND kind = 'base' AND status = 'succeeded' AND finished_at <= $2
+ORDER BY finished_at DESC
+LIMIT 1
+`
+
+type BaseBackupBeforeParams struct {
+	ProjectID *uuid.UUID
+	Before    *time.Time
+}
+
+// BaseBackupBefore is the newest base backup of a project finished at or
+// before a time (the starting point of a point-in-time recovery).
+func (q *Queries) BaseBackupBefore(ctx context.Context, arg BaseBackupBeforeParams) (Backup, error) {
+	row := q.db.QueryRow(ctx, baseBackupBefore, arg.ProjectID, arg.Before)
+	var i Backup
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Kind,
+		&i.ObjectKey,
+		&i.SizeBytes,
+		&i.Checksum,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.StorageTargetID,
+		&i.OperationID,
+		&i.KeyWrapped,
+		&i.Error,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const expiredBackups = `-- name: ExpiredBackups :many
 SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
 WHERE status = 'succeeded' AND expires_at IS NOT NULL AND expires_at < now()
@@ -231,6 +268,53 @@ func (q *Queries) InsertBackup(ctx context.Context, arg InsertBackupParams) (Bac
 	return i, err
 }
 
+const insertBaseBackup = `-- name: InsertBaseBackup :one
+INSERT INTO backups (project_id, kind, object_key, started_at, finished_at, status, size_bytes, storage_target_id, operation_id)
+VALUES ($1, 'base', $2, $3, $4, 'succeeded', $5, $6, $7)
+RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at
+`
+
+type InsertBaseBackupParams struct {
+	ProjectID       *uuid.UUID
+	ObjectKey       string
+	StartedAt       time.Time
+	FinishedAt      *time.Time
+	SizeBytes       *int64
+	StorageTargetID *uuid.UUID
+	OperationID     *uuid.UUID
+}
+
+func (q *Queries) InsertBaseBackup(ctx context.Context, arg InsertBaseBackupParams) (Backup, error) {
+	row := q.db.QueryRow(ctx, insertBaseBackup,
+		arg.ProjectID,
+		arg.ObjectKey,
+		arg.StartedAt,
+		arg.FinishedAt,
+		arg.SizeBytes,
+		arg.StorageTargetID,
+		arg.OperationID,
+	)
+	var i Backup
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Kind,
+		&i.ObjectKey,
+		&i.SizeBytes,
+		&i.Checksum,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.StorageTargetID,
+		&i.OperationID,
+		&i.KeyWrapped,
+		&i.Error,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const insertStorageTarget = `-- name: InsertStorageTarget :one
 INSERT INTO storage_targets (id, name, endpoint, bucket, prefix, credentials, is_default)
 VALUES ($1, $2, $3, $4, $5, $6, true)
@@ -329,11 +413,12 @@ func (q *Queries) LastOperationOfKind(ctx context.Context, kind string) (Operati
 
 const latestSucceededBackup = `-- name: LatestSucceededBackup :one
 SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
-WHERE project_id = $1 AND status = 'succeeded'
+WHERE project_id = $1 AND status = 'succeeded' AND kind IN ('logical', 'final', 'safety')
 ORDER BY finished_at DESC
 LIMIT 1
 `
 
+// The newest logical backup (base backups restore only by PITR).
 func (q *Queries) LatestSucceededBackup(ctx context.Context, projectID *uuid.UUID) (Backup, error) {
 	row := q.db.QueryRow(ctx, latestSucceededBackup, projectID)
 	var i Backup
@@ -419,6 +504,46 @@ func (q *Queries) ListAllBackups(ctx context.Context, arg ListAllBackupsParams) 
 			&i.DeletedAt,
 			&i.ProjectName,
 			&i.ProjectDeleted,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBaseBackups = `-- name: ListBaseBackups :many
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups WHERE project_id = $1 AND kind = 'base' AND status = 'succeeded' ORDER BY finished_at
+`
+
+func (q *Queries) ListBaseBackups(ctx context.Context, projectID *uuid.UUID) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, listBaseBackups, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Backup
+	for rows.Next() {
+		var i Backup
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.ObjectKey,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.StorageTargetID,
+			&i.OperationID,
+			&i.KeyWrapped,
+			&i.Error,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -531,7 +656,7 @@ SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, 
 WHERE p.deleted_at IS NULL AND p.status = 'active'
   AND NOT EXISTS (
     SELECT 1 FROM operations o
-    WHERE o.project_id = p.id AND o.kind = 'backup' AND o.created_at >= $1
+    WHERE o.project_id = p.id AND o.kind IN ('backup', 'base_backup') AND o.created_at >= $1
   )
   AND NOT EXISTS (
     SELECT 1 FROM operations o

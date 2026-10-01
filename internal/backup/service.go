@@ -20,6 +20,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/backupfmt"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -34,6 +35,7 @@ const (
 	KindRestoreTest    = "restore_test"
 	KindMetadataBackup = "metadata_backup"
 	KindImport         = "import"
+	KindBaseBackup     = "base_backup"
 )
 
 // Backup kinds (backups.kind).
@@ -88,6 +90,9 @@ type Service struct {
 	cfg       Config
 	log       *slog.Logger
 	ephemeral *Ephemeral
+	// Dedicated runs base backups and point-in-time recovery; nil without
+	// the dedicated tier.
+	Dedicated *dedicated.Service
 }
 
 // NewService returns a Service and hooks final backups into deletes.
@@ -106,6 +111,7 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindRestoreTest:    {Handler: s.runRestoreTest, MaxAttempts: 1, Timeout: 6 * time.Hour},
 		KindMetadataBackup: {Handler: s.runMetadataBackup, MaxAttempts: 3, Timeout: time.Hour},
 		KindImport:         {Handler: s.runImport, OnFail: s.projects.Rollback, MaxAttempts: 1, Timeout: 12 * time.Hour},
+		KindBaseBackup:     {Handler: s.runBaseBackup, MaxAttempts: 3, Timeout: 12 * time.Hour},
 	}
 }
 
@@ -304,7 +310,12 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 				continue
 			}
 			id := p.ID
-			if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindBackup, ProjectID: &id, Params: map[string]any{"kind": Logical, "scheduled": true}}); err != nil {
+			kind, params := KindBackup, map[string]any{"kind": Logical, "scheduled": true}
+			if p.Tier == provision.TierDedicated {
+				// Daily base backup; WAL is archived continuously (spec §6.4).
+				kind, params = KindBaseBackup, map[string]any{"scheduled": true}
+			}
+			if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: kind, ProjectID: &id, Params: params}); err != nil {
 				return err
 			}
 		}

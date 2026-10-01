@@ -176,6 +176,11 @@ var auditActions = map[string]string{
 	"POST /api/v1/imports":                       "import.create",
 	"POST /api/v1/nodes/{id}/registration-token": "node.registration_token",
 	"POST /api/v1/agent/register":                "node.agent_register",
+	"POST /api/v1/nodes":                         "node.create",
+	"DELETE /api/v1/nodes/{id}":                  "node.remove",
+	"POST /api/v1/nodes/{id}/shared-cluster":     "node.shared_cluster",
+	"POST /api/v1/projects/{id}/pitr":            "backup.pitr",
+	"POST /api/v1/projects/{id}/instance":        "project.instance",
 }
 
 func outcomeFor(status int) string {
@@ -252,6 +257,7 @@ var csrfExempt = map[string]bool{
 var reauthRequired = map[string]bool{
 	"DELETE /api/v1/projects/{id}":            true,
 	"POST /api/v1/settings/backup-key/export": true,
+	"DELETE /api/v1/nodes/{id}":               true,
 	// POST /api/v1/backups/{id}/restore checks it for mode in_place only.
 }
 

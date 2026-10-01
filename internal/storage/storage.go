@@ -140,6 +140,30 @@ func (c *Client) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+// DeletePrefix deletes every object under rel (relative to the target's
+// prefix) and returns how many it removed.
+func (c *Client) DeletePrefix(ctx context.Context, rel string) (int, error) {
+	prefix := strings.TrimSuffix(c.t.Key(rel), "/") + "/"
+	var n int
+	var token *string
+	for {
+		out, err := c.s3.ListObjectsV2(ctx, &s3.ListObjectsV2Input{Bucket: aws.String(c.t.Bucket), Prefix: aws.String(prefix), ContinuationToken: token})
+		if err != nil {
+			return n, fmt.Errorf("list %s: %w", prefix, err)
+		}
+		for _, o := range out.Contents {
+			if _, err := c.s3.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(c.t.Bucket), Key: o.Key}); err != nil {
+				return n, fmt.Errorf("delete %s: %w", aws.ToString(o.Key), err)
+			}
+			n++
+		}
+		if !aws.ToBool(out.IsTruncated) {
+			return n, nil
+		}
+		token = out.NextContinuationToken
+	}
+}
+
 // Size returns an object's size, or an error if it does not exist.
 func (c *Client) Size(ctx context.Context, key string) (int64, error) {
 	out, err := c.s3.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(c.t.Bucket), Key: aws.String(c.t.Key(key))})

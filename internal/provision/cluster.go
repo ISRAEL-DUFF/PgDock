@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -46,24 +48,71 @@ func openAdminSecret(k *crypto.Keyring, nodeID uuid.UUID, blob []byte) (AdminSec
 	return s, json.Unmarshal(b, &s)
 }
 
-// connectInstance opens an admin connection to database on an instance,
-// using the control-plane address (admin_host/admin_port when set).
-func (s *Service) connectInstance(ctx context.Context, instanceID uuid.UUID, database string) (*pgx.Conn, error) {
-	t, err := store.New(s.db).GetInstanceTarget(ctx, instanceID)
-	if err != nil {
-		return nil, fmt.Errorf("load instance %s: %w", instanceID, err)
-	}
-	secret, err := openAdminSecret(s.keyring, t.NodeID, t.PgAdminSecret)
+func instanceSecretAAD(instanceID uuid.UUID) []byte {
+	return []byte("instances.admin_secret:" + instanceID.String())
+}
+
+// SealInstanceSecret seals an instance's own superuser credential
+// (instances.admin_secret).
+func SealInstanceSecret(k *crypto.Keyring, instanceID uuid.UUID, s AdminSecret) ([]byte, error) {
+	b, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
 	}
-	host, port := t.PrivateAddr, int(t.Port)
+	return k.Encrypt(b, instanceSecretAAD(instanceID))
+}
+
+// OpenInstanceSecret opens instances.admin_secret.
+func OpenInstanceSecret(k *crypto.Keyring, instanceID uuid.UUID, blob []byte) (AdminSecret, error) {
+	var s AdminSecret
+	b, err := k.Decrypt(blob, instanceSecretAAD(instanceID))
+	if err != nil {
+		return s, fmt.Errorf("instance %s admin credential: %w", instanceID, err)
+	}
+	return s, json.Unmarshal(b, &s)
+}
+
+// target is how to reach an instance as its superuser.
+type target struct {
+	store.GetInstanceTargetRow
+	Secret AdminSecret
+}
+
+// adminAddr is the control plane's address for the instance.
+func (t target) adminAddr() (string, int) {
+	host, port := t.Host, int(t.Port)
 	if t.AdminHost != nil && *t.AdminHost != "" {
 		host = *t.AdminHost
 	}
 	if t.AdminPort != nil && *t.AdminPort > 0 {
 		port = int(*t.AdminPort)
 	}
+	return host, port
+}
+
+func (s *Service) instanceTarget(ctx context.Context, instanceID uuid.UUID) (target, error) {
+	row, err := store.New(s.db).GetInstanceTarget(ctx, instanceID)
+	if err != nil {
+		return target{}, fmt.Errorf("load instance %s: %w", instanceID, err)
+	}
+	t := target{GetInstanceTargetRow: row}
+	if len(row.AdminSecret) > 0 {
+		t.Secret, err = OpenInstanceSecret(s.keyring, row.ID, row.AdminSecret)
+	} else {
+		t.Secret, err = openAdminSecret(s.keyring, row.NodeID, row.PgAdminSecret)
+	}
+	return t, err
+}
+
+// connectInstance opens an admin connection to database on an instance,
+// using the control-plane address (admin_host/admin_port when set).
+func (s *Service) connectInstance(ctx context.Context, instanceID uuid.UUID, database string) (*pgx.Conn, error) {
+	t, err := s.instanceTarget(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	secret := t.Secret
+	host, port := t.adminAddr()
 	cfg, err := pgx.ParseConfig(fmt.Sprintf("host=%s port=%d sslmode=%s", host, port, s.cfg.AdminSSLMode))
 	if err != nil {
 		return nil, err
@@ -88,3 +137,10 @@ func literal(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + 
 var durationRe = regexp.MustCompile(`^[0-9]{1,9}(us|ms|s|min|h|d)?$`)
 
 func validDuration(s string) bool { return durationRe.MatchString(s) }
+
+// numeric converts a float for a numeric column.
+func numeric(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(strconv.FormatFloat(f, 'f', -1, 64))
+	return n
+}

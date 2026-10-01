@@ -690,7 +690,103 @@ export interface paths {
         /** Nodes and their agents */
         get: operations["listNodes"];
         put?: never;
+        /** Add a node; returns its one-time agent registration token */
+        post: operations["createNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/pitr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Point-in-time recovery of a dedicated project into a new one
+         * @description Restores the newest base backup taken before `target_time` (default:
+         *     now) and replays archived WAL up to it, into a new dedicated project
+         *     on the same node with the same size. The response carries the new
+         *     project's password once. The source is not changed.
+         */
+        post: operations["restoreProjectPITR"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/instance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start, stop, or restart a dedicated project's instance */
+        post: operations["projectInstanceAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dedicated instance sizes */
+        get: operations["listProfiles"];
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A node, its agent's health, and what runs on it */
+        get: operations["getNode"];
+        put?: never;
+        post?: never;
+        /**
+         * Take a node out of service (requires re-authentication)
+         * @description Refused (409) while instances run on it. Its agent's certificate stops being trusted.
+         */
+        delete: operations["removeNode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/shared-cluster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a shared cluster on this node (multi-node shared placement) */
+        post: operations["createSharedCluster"];
         delete?: never;
         options?: never;
         head?: never;
@@ -884,6 +980,8 @@ export interface components {
              * @description When the latest backup of this project finished.
              */
             last_backup_at?: string | null;
+            instance?: components["schemas"]["InstanceSummary"];
+            pitr_window?: components["schemas"]["PitrWindow"];
         };
         ProjectSettings: {
             connection_limit: number;
@@ -901,6 +999,16 @@ export interface components {
             /** @example My Blog */
             name: string;
             description?: string;
+            tier?: components["schemas"]["ProjectTier"];
+            /**
+             * Format: uuid
+             * @description Dedicated only; default is the least loaded dedicated node.
+             */
+            node_id?: string;
+            /** @description Dedicated only (see /profiles); default small. */
+            profile?: string;
+            /** @description Dedicated only; default 20. */
+            volume_gb?: number;
         };
         /** @description Shown once. PGDock keeps only the SCRAM verifier. */
         ProjectCredentials: {
@@ -1014,7 +1122,7 @@ export interface components {
             operation?: components["schemas"]["Operation"];
         };
         /** @enum {string} */
-        BackupKind: "logical" | "final" | "safety" | "metadata";
+        BackupKind: "logical" | "base" | "final" | "safety" | "metadata";
         Backup: {
             /** Format: uuid */
             id: string;
@@ -1172,6 +1280,9 @@ export interface components {
             /** Format: date-time */
             checked_at?: string;
             pg_dump?: string;
+            /** @description "ok" when the agent can run instances, else why not. */
+            docker?: string;
+            image?: string;
             metrics?: {
                 [key: string]: unknown;
             };
@@ -1198,6 +1309,95 @@ export interface components {
             node_id: string;
             cert_pem: string;
             ca_pem: string;
+        };
+        InstanceSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "shared" | "dedicated";
+            status: string;
+            error?: string | null;
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            profile?: string | null;
+            cpus?: number | null;
+            memory_mb?: number | null;
+            volume_gb?: number | null;
+        };
+        /** @description Dedicated only. Any time in [from, to] can be restored. */
+        PitrWindow: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+        };
+        PitrRequest: {
+            name: string;
+            /**
+             * Format: date-time
+             * @description Omit for the latest point.
+             */
+            target_time?: string;
+        };
+        InstanceActionRequest: {
+            /** @enum {string} */
+            action: "start" | "stop" | "restart";
+        };
+        InstanceState: {
+            state: string;
+            running: boolean;
+            container?: string;
+        };
+        Profile: {
+            name: string;
+            cpus: number;
+            memory_mb: number;
+        };
+        ProfileList: {
+            items: components["schemas"]["Profile"][];
+            default_profile: string;
+            default_volume_gb: number;
+        };
+        CreateNodeRequest: {
+            /** @example node-b */
+            name: string;
+            /**
+             * @description The node's address on the private network (poolers and the control plane reach it here).
+             * @example 10.0.0.12
+             */
+            private_addr: string;
+            /** @enum {string} */
+            role: "shared" | "dedicated" | "both";
+        };
+        NodeCreated: {
+            node: components["schemas"]["Node"];
+            token: string;
+            /** Format: date-time */
+            expires_at: string;
+            command: string;
+        };
+        NodeDetail: {
+            node: components["schemas"]["Node"];
+            instances: components["schemas"]["NodeInstance"][];
+        };
+        NodeInstance: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            status: string;
+            error?: string | null;
+            profile?: string | null;
+            cpus?: number | null;
+            memory_mb?: number | null;
+            volume_gb?: number | null;
+            address?: string;
+            projects: number;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        SharedClusterRequest: {
+            memory_mb: number;
         };
     };
     responses: {
@@ -2164,6 +2364,177 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodeList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNodeRequest"];
+            };
+        };
+        responses: {
+            /** @description The node and its token (shown once). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreProjectPITR: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PitrRequest"];
+            };
+        };
+        responses: {
+            /** @description Restore operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    projectInstanceAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceActionRequest"];
+            };
+        };
+        responses: {
+            /** @description The instance after the action. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profiles. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The node. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createSharedCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SharedClusterRequest"];
+            };
+        };
+        responses: {
+            /** @description Creation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

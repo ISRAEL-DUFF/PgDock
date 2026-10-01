@@ -33,8 +33,10 @@ type Config struct {
 	PGBinDir string
 	// DiskPath is reported in host metrics (the Postgres data volume).
 	DiskPath string
-	// MaxJobs bounds concurrent dumps, restores, and copies.
+	// MaxJobs bounds concurrent dumps, restores, copies, and base backups.
 	MaxJobs int
+	// Instances configures Postgres containers (dedicated tier).
+	Instances InstanceConfig
 }
 
 // Service implements the agent API.
@@ -42,6 +44,7 @@ type Service struct {
 	cfg  Config
 	log  *slog.Logger
 	jobs chan struct{}
+	inst *instances
 }
 
 // New returns a Service.
@@ -52,7 +55,7 @@ func New(cfg Config, log *slog.Logger) *Service {
 	if cfg.DiskPath == "" {
 		cfg.DiskPath = "/"
 	}
-	return &Service{cfg: cfg, log: log, jobs: make(chan struct{}, cfg.MaxJobs)}
+	return &Service{cfg: cfg, log: log, jobs: make(chan struct{}, cfg.MaxJobs), inst: newInstances(cfg.Instances)}
 }
 
 // Handler returns the API's HTTP handler.
@@ -63,6 +66,13 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+agentapi.PathDump, s.dump)
 	mux.HandleFunc("POST "+agentapi.PathRestore, s.restore)
 	mux.HandleFunc("POST "+agentapi.PathCopy, s.copy)
+	mux.HandleFunc("POST "+agentapi.PathInstances, s.createInstance)
+	mux.HandleFunc("GET "+agentapi.PathInstance, s.getInstance)
+	mux.HandleFunc("DELETE "+agentapi.PathInstance, s.instanceAction("destroy"))
+	mux.HandleFunc("POST "+agentapi.PathInstanceStart, s.instanceAction("start"))
+	mux.HandleFunc("POST "+agentapi.PathInstanceStop, s.instanceAction("stop"))
+	mux.HandleFunc("POST "+agentapi.PathWALGBackup, s.walgBackup)
+	mux.HandleFunc("GET "+agentapi.PathWALGBackupList, s.walgBackups)
 	return mux
 }
 
@@ -128,11 +138,12 @@ func (s *Service) acquire(ctx context.Context) (func(), error) {
 	}
 }
 
-func (s *Service) health(w http.ResponseWriter, _ *http.Request) {
+func (s *Service) health(w http.ResponseWriter, r *http.Request) {
 	host, _ := os.Hostname()
 	writeJSON(w, http.StatusOK, agentapi.Health{
 		Version: s.cfg.Version, Hostname: host, NodeID: s.cfg.NodeID,
 		PGDump: s.toolVersion("pg_dump"), PGRestore: s.toolVersion("pg_restore"),
+		Docker: s.inst.status(r.Context()), Image: s.cfg.Instances.Image,
 	})
 }
 

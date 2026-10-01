@@ -33,7 +33,7 @@ func (s *Server) backupError(w http.ResponseWriter, what string, err error) {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 	case errors.Is(err, backup.ErrNotFound), errors.Is(err, nodes.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", err.Error())
-	case errors.Is(err, backup.ErrConflict), errors.Is(err, backup.ErrKeyExists):
+	case errors.Is(err, backup.ErrConflict), errors.Is(err, backup.ErrKeyExists), errors.Is(err, nodes.ErrBusy):
 		writeError(w, http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, backup.ErrNoStorage), errors.Is(err, backup.ErrNoBackupKey), errors.Is(err, nodes.ErrNoAgent):
 		writeError(w, http.StatusConflict, "not_configured", err.Error())
@@ -496,37 +496,7 @@ func (s *Server) ListNodes(w http.ResponseWriter, r *http.Request) {
 	}
 	out := gen.NodeList{Items: make([]gen.Node, 0, len(ns))}
 	for _, n := range ns {
-		gn := gen.Node{
-			Id: n.ID, Name: n.Name, PrivateAddr: n.PrivateAddr, Role: n.Role, Status: n.Status,
-			LastHeartbeat: n.LastHeartbeat, CreatedAt: n.CreatedAt,
-			Agent: gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
-		}
-		if n.AgentCertFp != nil {
-			host := n.PrivateAddr
-			if n.AgentHost != nil && *n.AgentHost != "" {
-				host = *n.AgentHost
-			}
-			addr := fmt.Sprintf("%s:%d", host, n.AgentPort)
-			gn.Agent.Address = &addr
-		}
-		if st, ok := s.nodes.Status(n.ID); ok {
-			gn.Agent.Reachable = st.Reachable
-			checked := st.CheckedAt
-			gn.Agent.CheckedAt = &checked
-			if st.Err != "" {
-				e := st.Err
-				gn.Agent.Error = &e
-			}
-			if st.Reachable {
-				dump := st.Health.PGDump
-				gn.Agent.PgDump = &dump
-				var m map[string]any
-				if b, err := json.Marshal(st.Metrics); err == nil && json.Unmarshal(b, &m) == nil {
-					gn.Agent.Metrics = &m
-				}
-			}
-		}
-		out.Items = append(out.Items, gn)
+		out.Items = append(out.Items, s.toAPINode(n))
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -585,4 +555,38 @@ func (s *Server) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	a.target("node", res.NodeID)
 	writeJSON(w, http.StatusOK, gen.AgentRegisterResponse{NodeId: res.NodeID, CertPem: res.CertPEM, CaPem: res.CAPEM})
+}
+
+func (s *Server) toAPINode(n store.Node) gen.Node {
+	gn := gen.Node{
+		Id: n.ID, Name: n.Name, PrivateAddr: n.PrivateAddr, Role: n.Role, Status: n.Status,
+		LastHeartbeat: n.LastHeartbeat, CreatedAt: n.CreatedAt,
+		Agent: gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
+	}
+	if n.AgentCertFp != nil {
+		host := n.PrivateAddr
+		if n.AgentHost != nil && *n.AgentHost != "" {
+			host = *n.AgentHost
+		}
+		addr := fmt.Sprintf("%s:%d", host, n.AgentPort)
+		gn.Agent.Address = &addr
+	}
+	if st, ok := s.nodes.Status(n.ID); ok {
+		gn.Agent.Reachable = st.Reachable
+		checked := st.CheckedAt
+		gn.Agent.CheckedAt = &checked
+		if st.Err != "" {
+			e := st.Err
+			gn.Agent.Error = &e
+		}
+		if st.Reachable {
+			dump, dk, img := st.Health.PGDump, st.Health.Docker, st.Health.Image
+			gn.Agent.PgDump, gn.Agent.Docker, gn.Agent.Image = &dump, &dk, &img
+			var m map[string]any
+			if b, err := json.Marshal(st.Metrics); err == nil && json.Unmarshal(b, &m) == nil {
+				gn.Agent.Metrics = &m
+			}
+		}
+	}
+	return gn
 }

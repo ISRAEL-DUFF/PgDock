@@ -17,10 +17,12 @@ import (
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
-// Restore modes (spec §6.5).
+// Restore modes (spec §6.5). ModePITR is a dedicated project's
+// point-in-time recovery into a new dedicated project.
 const (
 	ModeNew     = "new"
 	ModeInPlace = "in_place"
+	ModePITR    = "pitr"
 )
 
 type backupParams struct {
@@ -112,6 +114,9 @@ func (s *Service) runRestore(ctx context.Context, op store.Operation, log *jobs.
 	var params restoreParams
 	if err := decodeParams(op, &params); err != nil {
 		return err
+	}
+	if params.Mode == ModePITR {
+		return s.runPITR(ctx, op, log)
 	}
 	q := store.New(s.db)
 	b, err := q.GetBackup(ctx, params.BackupID)
@@ -208,7 +213,7 @@ func (s *Service) failRestore(ctx context.Context, op store.Operation, log *jobs
 	if err := decodeParams(op, &params); err != nil {
 		return err
 	}
-	if params.Mode == ModeNew {
+	if params.Mode == ModeNew || params.Mode == ModePITR {
 		return s.projects.Rollback(ctx, op, log, cause)
 	}
 	p, err := s.projects.ProjectFor(ctx, op)
@@ -391,4 +396,48 @@ func joinLimit(items []string, n int) string {
 		return strings.Join(items, ", ")
 	}
 	return strings.Join(items[:n], ", ") + fmt.Sprintf(" and %d more", len(items)-n)
+}
+
+// runPITR builds a new dedicated project from another's base backup and
+// WAL (spec §6.5, dedicated): the instance restores and recovers, then the
+// database and role take this project's names and password.
+func (s *Service) runPITR(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
+	p, err := s.projects.ProjectFor(ctx, op)
+	if err != nil {
+		return err
+	}
+	password, err := s.projects.Password(op)
+	if err != nil {
+		return err
+	}
+	if err := s.projects.EnsureInstance(ctx, op, p, log); err != nil {
+		return err
+	}
+	if err := s.projects.Prepare(ctx, p, log); err != nil {
+		return err
+	}
+	if err := s.projects.Publish(ctx, p, password, log); err != nil {
+		return err
+	}
+	return log.Info(ctx, "done", "project %s restored to a point in time", p.Name)
+}
+
+// runBaseBackup takes a dedicated project's base backup (spec §6.4).
+func (s *Service) runBaseBackup(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
+	if s.Dedicated == nil {
+		return jobs.Permanent(provision.ErrNoDedicated)
+	}
+	p, err := s.projects.ProjectFor(ctx, op)
+	if err != nil {
+		return err
+	}
+	if p.Status != provision.StatusActive {
+		return jobs.Permanent(fmt.Errorf("project is %s, not active", p.Status))
+	}
+	if _, err := store.New(s.db).BackupForOperation(ctx, store.BackupForOperationParams{OperationID: &op.ID, Kind: "base"}); err == nil {
+		return log.Info(ctx, "done", "base backup already taken by an earlier attempt")
+	}
+	opID := op.ID
+	_, err = s.Dedicated.BaseBackup(ctx, p, &opID, log)
+	return err
 }

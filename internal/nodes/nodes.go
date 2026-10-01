@@ -14,12 +14,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
@@ -32,6 +34,7 @@ var (
 	ErrBadToken = errors.New("the registration token is invalid or has expired")
 	ErrInvalid  = errors.New("invalid request")
 	ErrNotFound = errors.New("node not found")
+	ErrBusy     = errors.New("node is in use")
 )
 
 // Service manages nodes and their agents.
@@ -66,6 +69,16 @@ func NewService(db *pgxpool.Pool, ca *agentca.CA, bootstrapToken string, log *sl
 	return &Service{db: db, ca: ca, clientCert: cert, bootstrap: bootstrapToken, log: log, health: map[uuid.UUID]Status{}}, nil
 }
 
+// newToken returns a registration token, its hash, and its expiry (a day).
+func newToken() (token, hash string, exp time.Time, err error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", time.Time{}, err
+	}
+	token = "pgdreg_" + base64.RawURLEncoding.EncodeToString(b)
+	return token, hashToken(token), time.Now().Add(24 * time.Hour), nil
+}
+
 func hashToken(t string) string {
 	s := sha256.Sum256([]byte(t))
 	return hex.EncodeToString(s[:])
@@ -74,13 +87,13 @@ func hashToken(t string) string {
 // NewToken creates a one-time registration token for a node, valid for a
 // day, replacing any earlier one.
 func (s *Service) NewToken(ctx context.Context, nodeID uuid.UUID) (string, time.Time, error) {
-	b := make([]byte, 24)
-	if _, err := rand.Read(b); err != nil {
+	if n, err := store.New(s.db).GetNode(ctx, nodeID); errors.Is(err, pgx.ErrNoRows) || (err == nil && n.Status == "removed") {
+		return "", time.Time{}, ErrNotFound
+	}
+	tok, h, exp, err := newToken()
+	if err != nil {
 		return "", time.Time{}, err
 	}
-	tok := "pgdreg_" + base64.RawURLEncoding.EncodeToString(b)
-	exp := time.Now().Add(24 * time.Hour)
-	h := hashToken(tok)
 	if err := store.New(s.db).SetRegistrationToken(ctx, store.SetRegistrationTokenParams{ID: nodeID, RegistrationToken: &h, RegistrationExpiresAt: &exp}); err != nil {
 		return "", time.Time{}, err
 	}
@@ -238,4 +251,58 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 // List returns all nodes.
 func (s *Service) List(ctx context.Context) ([]store.Node, error) {
 	return store.New(s.db).ListNodes(ctx)
+}
+
+// Node roles (spec §9).
+var roles = map[string]bool{"shared": true, "dedicated": true, "both": true}
+
+var nodeName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+
+// CreateNode records a node an operator is adding and issues its one-time
+// registration token (spec §10: POST /nodes returns a token).
+func (s *Service) CreateNode(ctx context.Context, name, privateAddr, role string) (store.Node, string, time.Time, error) {
+	if !nodeName.MatchString(name) {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: node names are lowercase letters, digits, and dashes", ErrInvalid)
+	}
+	if !roles[role] {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: role must be shared, dedicated, or both", ErrInvalid)
+	}
+	privateAddr = strings.TrimSpace(privateAddr)
+	if privateAddr == "" || strings.ContainsAny(privateAddr, " /:") {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: private address must be a host name or IP", ErrInvalid)
+	}
+	token, hash, exp, err := newToken()
+	if err != nil {
+		return store.Node{}, "", time.Time{}, err
+	}
+	n, err := store.New(s.db).InsertNode(ctx, store.InsertNodeParams{
+		Name: name, PrivateAddr: privateAddr, Role: role, RegistrationToken: &hash, RegistrationExpiresAt: &exp,
+	})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: a node named %s exists", ErrInvalid, name)
+	}
+	return n, token, exp, err
+}
+
+// RemoveNode takes a node out of service once nothing runs on it: its
+// agent's certificate is no longer trusted and nothing is placed there.
+func (s *Service) RemoveNode(ctx context.Context, id uuid.UUID) error {
+	q := store.New(s.db)
+	if _, err := q.GetNode(ctx, id); errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return err
+	}
+	n, err := q.NodeLiveInstances(ctx, id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: %d instance(s) still run on this node", ErrBusy, n)
+	}
+	s.mu.Lock()
+	delete(s.health, id)
+	s.mu.Unlock()
+	return q.RemoveNode(ctx, id)
 }

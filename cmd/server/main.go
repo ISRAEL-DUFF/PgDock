@@ -31,6 +31,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/nodes"
@@ -149,6 +150,9 @@ func run() error {
 			return err
 		}
 		for name, k := range backups.Kinds() {
+			kinds[name] = k
+		}
+		for name, k := range backups.Dedicated.Kinds() {
 			kinds[name] = k
 		}
 		bg.Add(2)
@@ -428,7 +432,11 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 		}
 		bc.MetadataPG = pg
 	}
-	return backup.NewService(pool, keyring, ns, projects, bc, log), ns, nil
+	bs := backup.NewService(pool, keyring, ns, projects, bc, log)
+	ds := dedicated.New(pool, keyring, ns, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
+	projects.Instances = ds
+	bs.Dedicated = ds
+	return bs, ns, nil
 }
 
 func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {

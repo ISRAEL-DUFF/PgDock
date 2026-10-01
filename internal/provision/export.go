@@ -66,7 +66,11 @@ func (s *Service) Publish(ctx context.Context, p store.Project, password string,
 	if err := s.smokeTest(ctx, p, password, log); err != nil {
 		return err
 	}
-	return store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: StatusActive})
+	if err := store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: StatusActive}); err != nil {
+		return err
+	}
+	s.Provisioned(ctx, p, log)
+	return nil
 }
 
 // Rollback undoes a failed provisioning: route, database, and role. It has
@@ -83,16 +87,12 @@ func (s *Service) AdminConn(ctx context.Context, instanceID uuid.UUID, database 
 // AgentConn is the admin connection to database as the instance's node
 // agent reaches it (the node-local address the poolers use).
 func (s *Service) AgentConn(ctx context.Context, instanceID uuid.UUID, database string) (agentapi.PGConn, error) {
-	t, err := store.New(s.db).GetInstanceTarget(ctx, instanceID)
-	if err != nil {
-		return agentapi.PGConn{}, fmt.Errorf("load instance %s: %w", instanceID, err)
-	}
-	secret, err := openAdminSecret(s.keyring, t.NodeID, t.PgAdminSecret)
+	t, err := s.instanceTarget(ctx, instanceID)
 	if err != nil {
 		return agentapi.PGConn{}, err
 	}
 	return agentapi.PGConn{
-		Host: t.PrivateAddr, Port: int(t.Port), User: secret.User, Password: secret.Password,
+		Host: t.Host, Port: int(t.Port), User: t.Secret.User, Password: t.Secret.Password,
 		SSLMode: s.cfg.AdminSSLMode, Database: database,
 	}, nil
 }

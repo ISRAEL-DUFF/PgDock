@@ -814,6 +814,138 @@ paths:
                 $ref: "#/components/schemas/NodeList"
         default:
           $ref: "#/components/responses/Error"
+    post:
+      operationId: createNode
+      summary: Add a node; returns its one-time agent registration token
+      tags: [nodes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNodeRequest"
+      responses:
+        "201":
+          description: The node and its token (shown once).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeCreated"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/pitr:
+    post:
+      operationId: restoreProjectPITR
+      summary: Point-in-time recovery of a dedicated project into a new one
+      description: |
+        Restores the newest base backup taken before `target_time` (default:
+        now) and replays archived WAL up to it, into a new dedicated project
+        on the same node with the same size. The response carries the new
+        project's password once. The source is not changed.
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PitrRequest"
+      responses:
+        "202":
+          description: Restore operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCredentials"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/instance:
+    post:
+      operationId: projectInstanceAction
+      summary: Start, stop, or restart a dedicated project's instance
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstanceActionRequest"
+      responses:
+        "200":
+          description: The instance after the action.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceState"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/profiles:
+    get:
+      operationId: listProfiles
+      summary: Dedicated instance sizes
+      tags: [projects]
+      responses:
+        "200":
+          description: Profiles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}:
+    get:
+      operationId: getNode
+      summary: A node, its agent's health, and what runs on it
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      responses:
+        "200":
+          description: The node.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeDetail"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: removeNode
+      summary: Take a node out of service (requires re-authentication)
+      description: Refused (409) while instances run on it. Its agent's certificate stops being trusted.
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      responses:
+        "204":
+          description: Removed.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}/shared-cluster:
+    post:
+      operationId: createSharedCluster
+      summary: Run a shared cluster on this node (multi-node shared placement)
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharedClusterRequest"
+      responses:
+        "202":
+          description: Creation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/nodes/{id}/registration-token:
     post:
       operationId: createNodeRegistrationToken
@@ -1136,6 +1268,10 @@ components:
           format: date-time
           nullable: true
           description: When the latest backup of this project finished.
+        instance:
+          $ref: "#/components/schemas/InstanceSummary"
+        pitr_window:
+          $ref: "#/components/schemas/PitrWindow"
     ProjectSettings:
       type: object
       required: [connection_limit, pool_size, statement_timeout, idle_in_transaction_session_timeout, disk_warn_bytes, console_read_only]
@@ -1173,6 +1309,20 @@ components:
         description:
           type: string
           maxLength: 1000
+        tier:
+          $ref: "#/components/schemas/ProjectTier"
+        node_id:
+          type: string
+          format: uuid
+          description: Dedicated only; default is the least loaded dedicated node.
+        profile:
+          type: string
+          description: Dedicated only (see /profiles); default small.
+        volume_gb:
+          type: integer
+          minimum: 1
+          maximum: 16384
+          description: Dedicated only; default 20.
     ProjectCredentials:
       type: object
       description: Shown once. PGDock keeps only the SCRAM verifier.
@@ -1398,7 +1548,7 @@ components:
           $ref: "#/components/schemas/Operation"
     BackupKind:
       type: string
-      enum: [logical, final, safety, metadata]
+      enum: [logical, base, final, safety, metadata]
     Backup:
       type: object
       required: [id, kind, status, started_at]
@@ -1720,6 +1870,11 @@ components:
           format: date-time
         pg_dump:
           type: string
+        docker:
+          type: string
+          description: '"ok" when the agent can run instances, else why not.'
+        image:
+          type: string
         metrics:
           type: object
           additionalProperties: true
@@ -1769,3 +1924,174 @@ components:
           type: string
         ca_pem:
           type: string
+    InstanceSummary:
+      type: object
+      required: [id, kind, status, node_id, node_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [shared, dedicated]
+        status:
+          type: string
+        error:
+          type: string
+          nullable: true
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        profile:
+          type: string
+          nullable: true
+        cpus:
+          type: number
+          nullable: true
+        memory_mb:
+          type: integer
+          nullable: true
+        volume_gb:
+          type: integer
+          nullable: true
+    PitrWindow:
+      type: object
+      description: Dedicated only. Any time in [from, to] can be restored.
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+    PitrRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        target_time:
+          type: string
+          format: date-time
+          description: Omit for the latest point.
+    InstanceActionRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [start, stop, restart]
+    InstanceState:
+      type: object
+      required: [state, running]
+      properties:
+        state:
+          type: string
+        running:
+          type: boolean
+        container:
+          type: string
+    Profile:
+      type: object
+      required: [name, cpus, memory_mb]
+      properties:
+        name:
+          type: string
+        cpus:
+          type: number
+        memory_mb:
+          type: integer
+    ProfileList:
+      type: object
+      required: [items, default_profile, default_volume_gb]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Profile"
+        default_profile:
+          type: string
+        default_volume_gb:
+          type: integer
+    CreateNodeRequest:
+      type: object
+      required: [name, private_addr, role]
+      properties:
+        name:
+          type: string
+          example: node-b
+        private_addr:
+          type: string
+          description: The node's address on the private network (poolers and the control plane reach it here).
+          example: 10.0.0.12
+        role:
+          type: string
+          enum: [shared, dedicated, both]
+    NodeCreated:
+      type: object
+      required: [node, token, expires_at, command]
+      properties:
+        node:
+          $ref: "#/components/schemas/Node"
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        command:
+          type: string
+    NodeDetail:
+      type: object
+      required: [node, instances]
+      properties:
+        node:
+          $ref: "#/components/schemas/Node"
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/NodeInstance"
+    NodeInstance:
+      type: object
+      required: [id, kind, status, projects]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        status:
+          type: string
+        error:
+          type: string
+          nullable: true
+        profile:
+          type: string
+          nullable: true
+        cpus:
+          type: number
+          nullable: true
+        memory_mb:
+          type: integer
+          nullable: true
+        volume_gb:
+          type: integer
+          nullable: true
+        address:
+          type: string
+        projects:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    SharedClusterRequest:
+      type: object
+      required: [memory_mb]
+      properties:
+        memory_mb:
+          type: integer
+          minimum: 512

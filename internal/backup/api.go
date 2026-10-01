@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -35,8 +36,64 @@ func (s *Service) BackupNow(ctx context.Context, projectID uuid.UUID, by *uuid.U
 	if err := s.ready(ctx); err != nil {
 		return store.Operation{}, err
 	}
+	p, err := s.projects.Get(ctx, projectID)
+	if err != nil {
+		return store.Operation{}, err
+	}
+	if p.Tier == provision.TierDedicated {
+		return s.projects.EnqueueExclusive(ctx, projectID, []string{provision.StatusActive}, "", KindBaseBackup,
+			map[string]any{}, by, nil)
+	}
 	return s.projects.EnqueueExclusive(ctx, projectID, []string{provision.StatusActive}, "", KindBackup,
 		backupParams{Kind: Logical}, by, nil)
+}
+
+// PITRParams asks for a point-in-time recovery of a dedicated project into
+// a new one.
+type PITRParams struct {
+	ProjectID uuid.UUID
+	// TargetTime is the moment to recover to; nil is the latest.
+	TargetTime *time.Time
+	Name       string
+	CreatedBy  *uuid.UUID
+}
+
+// PITR queues a point-in-time recovery into a new dedicated project on the
+// source's node with the same size.
+func (s *Service) PITR(ctx context.Context, p PITRParams) (provision.Created, error) {
+	if s.Dedicated == nil {
+		return provision.Created{}, provision.ErrNoDedicated
+	}
+	if err := s.ready(ctx); err != nil {
+		return provision.Created{}, err
+	}
+	src, err := s.projects.Get(ctx, p.ProjectID)
+	if err != nil {
+		return provision.Created{}, err
+	}
+	if strings.TrimSpace(p.Name) == "" {
+		return provision.Created{}, fmt.Errorf("%w: name the new project", ErrInvalid)
+	}
+	plan, err := s.Dedicated.PlanPITR(ctx, src, p.TargetTime)
+	if err != nil {
+		return provision.Created{}, err
+	}
+	inst, err := store.New(s.db).GetInstance(ctx, src.InstanceID)
+	if err != nil {
+		return provision.Created{}, err
+	}
+	cp := provision.CreateParams{
+		Name: strings.TrimSpace(p.Name), CreatedBy: p.CreatedBy, Kind: KindRestore,
+		Tier: provision.TierDedicated, NodeID: &inst.NodeID,
+		Params: map[string]any{"mode": ModePITR, "pitr": plan},
+	}
+	if inst.Profile != nil {
+		cp.Profile = *inst.Profile
+	}
+	if inst.VolumeGb != nil {
+		cp.VolumeGB = int(*inst.VolumeGb)
+	}
+	return s.projects.Create(ctx, cp)
 }
 
 // RestoreParams describes a restore request.
@@ -65,6 +122,17 @@ func (s *Service) Restore(ctx context.Context, p RestoreParams) (store.Operation
 	}
 	if b.Status != "succeeded" || b.ProjectID == nil || b.Kind == Metadata {
 		return store.Operation{}, nil, fmt.Errorf("%w: only succeeded project backups can be restored", ErrInvalid)
+	}
+	if b.Kind == "base" {
+		// A base backup restores as a recovery to the moment it finished.
+		if p.Mode == ModeInPlace {
+			return store.Operation{}, nil, fmt.Errorf("%w: dedicated projects restore into a new project", ErrInvalid)
+		}
+		c, err := s.PITR(ctx, PITRParams{ProjectID: *b.ProjectID, TargetTime: b.FinishedAt, Name: p.Name, CreatedBy: p.CreatedBy})
+		if err != nil {
+			return store.Operation{}, nil, err
+		}
+		return c.Operation, &c, nil
 	}
 	params := restoreParams{Mode: p.Mode, BackupID: b.ID}
 	switch p.Mode {

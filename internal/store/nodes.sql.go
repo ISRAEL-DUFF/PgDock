@@ -279,6 +279,17 @@ func (q *Queries) NodeForInstance(ctx context.Context, instanceID uuid.UUID) (No
 	return i, err
 }
 
+const nodeLiveInstances = `-- name: NodeLiveInstances :one
+SELECT count(*)::int FROM instances WHERE node_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) NodeLiveInstances(ctx context.Context, nodeID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, nodeLiveInstances, nodeID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const recordNodeHeartbeat = `-- name: RecordNodeHeartbeat :exec
 UPDATE nodes SET last_heartbeat = now(), status = $1, capacity = $2, agent_version = $3
 WHERE id = $4
@@ -298,6 +309,15 @@ func (q *Queries) RecordNodeHeartbeat(ctx context.Context, arg RecordNodeHeartbe
 		arg.AgentVersion,
 		arg.ID,
 	)
+	return err
+}
+
+const removeNode = `-- name: RemoveNode :exec
+UPDATE nodes SET status = 'removed', agent_cert_fp = NULL, registration_token = NULL WHERE id = $1
+`
+
+func (q *Queries) RemoveNode(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, removeNode, id)
 	return err
 }
 

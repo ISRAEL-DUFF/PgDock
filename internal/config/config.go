@@ -62,6 +62,10 @@ type Backups struct {
 	// MetadataURL is the metadata DB as an agent reaches it, for nightly
 	// self-backups. Defaults to DatabaseURL; "off" disables them.
 	MetadataURL string
+	// DedicatedAdminVia is how pgdock-server reaches dedicated instances:
+	// "network" (the address agents report; the Compose bundle) or
+	// "published" (the port published on the node).
+	DedicatedAdminVia string
 }
 
 // Load reads configuration from PGDOCK_* environment variables, applying
@@ -197,6 +201,12 @@ func loadBackups(getenv func(string) string, cfg *Config) []error {
 			errs = append(errs, fmt.Errorf("PGDOCK_BACKUP_JITTER: must be a duration from 1m to 12h, got %q", v))
 		}
 		b.Jitter = d
+	}
+	switch v := getenv("PGDOCK_DEDICATED_ADMIN_VIA"); v {
+	case "", "network", "published":
+		b.DedicatedAdminVia = v
+	default:
+		errs = append(errs, fmt.Errorf("PGDOCK_DEDICATED_ADMIN_VIA: must be network or published, got %q", v))
 	}
 	switch v := getenv("PGDOCK_METADATA_BACKUP_URL"); v {
 	case "":

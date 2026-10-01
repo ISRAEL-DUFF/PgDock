@@ -39,6 +39,7 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 	}
 	out := gen.ProjectList{Items: make([]gen.Project, 0, len(ps))}
 	last := s.lastBackups(r.Context())
+	insts := s.instanceSummaries(r.Context())
 	for _, p := range ps {
 		gp, err := s.toAPIProject(p)
 		if err != nil {
@@ -47,6 +48,9 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 		}
 		if t, ok := last[p.ID]; ok {
 			gp.LastBackupAt = &t
+		}
+		if i, ok := insts[p.InstanceID]; ok {
+			gp.Instance = &i
 		}
 		out.Items = append(out.Items, gp)
 	}
@@ -65,7 +69,18 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	a := auditFrom(r.Context())
 	a.set("name", req.Name)
-	c, err := s.projects.Create(r.Context(), provision.CreateParams{Name: req.Name, Description: req.Description, CreatedBy: operatorID(r.Context())})
+	cp := provision.CreateParams{Name: req.Name, Description: req.Description, CreatedBy: operatorID(r.Context()), NodeID: req.NodeId}
+	if req.Tier != nil {
+		cp.Tier = string(*req.Tier)
+		a.set("tier", cp.Tier)
+	}
+	if req.Profile != nil {
+		cp.Profile = *req.Profile
+	}
+	if req.VolumeGb != nil {
+		cp.VolumeGB = *req.VolumeGb
+	}
+	c, err := s.projects.Create(r.Context(), cp)
 	if err != nil {
 		s.provisionError(w, "create project", err)
 		return
@@ -92,6 +107,14 @@ func (s *Server) GetProject(w http.ResponseWriter, r *http.Request, id gen.Proje
 	}
 	if t, ok := s.lastBackups(r.Context())[p.ID]; ok {
 		gp.LastBackupAt = &t
+	}
+	if i, ok := s.instanceSummaries(r.Context())[p.InstanceID]; ok {
+		gp.Instance = &i
+	}
+	if s.backups != nil && s.backups.Dedicated != nil && p.Tier == provision.TierDedicated {
+		if w, ok, err := s.backups.Dedicated.PITRWindow(r.Context(), p); err == nil && ok {
+			gp.PitrWindow = &gen.PitrWindow{From: w.From, To: w.To}
+		}
 	}
 	writeJSON(w, http.StatusOK, gp)
 }
@@ -211,7 +234,13 @@ func (s *Server) provisionError(w http.ResponseWriter, what string, err error) {
 	case errors.Is(err, provision.ErrConflict):
 		writeError(w, http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, provision.ErrNoCapacity):
-		writeError(w, http.StatusServiceUnavailable, "no_capacity", "no shared cluster is available for new projects")
+		msg := err.Error()
+		if err == provision.ErrNoCapacity { //nolint:errorlint // the bare sentinel gets the friendly text
+			msg = "no shared cluster is available for new projects"
+		}
+		writeError(w, http.StatusServiceUnavailable, "no_capacity", msg)
+	case errors.Is(err, provision.ErrNoDedicated):
+		writeError(w, http.StatusServiceUnavailable, "unavailable", err.Error())
 	default:
 		s.internalError(w, what, err)
 	}

@@ -32,6 +32,10 @@ import (
 	"github.com/israel-duff/pgdock/internal/version"
 )
 
+// DefaultPGImage is the instance image this release was built and tested
+// with (deploy/images/postgres).
+const DefaultPGImage = "pgdock-postgres:18-walg3.0.9"
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "pgdock-agent:", err)
@@ -48,6 +52,7 @@ func env(name, def string) string {
 
 type opts struct {
 	state, listen, server, token, bootstrap, node, advertise, caFile, pgBin, diskPath string
+	dockerHost, image, network, publish                                               string
 	insecure                                                                          bool
 }
 
@@ -65,6 +70,10 @@ func flags(name string, args []string) (*opts, error) {
 	fs.BoolVar(&o.insecure, "insecure-skip-verify", env("PGDOCK_AGENT_INSECURE_SKIP_VERIFY", "") == "true", "do not verify pgdock-server's HTTPS certificate (development only)")
 	fs.StringVar(&o.pgBin, "pg-bin", env("PGDOCK_AGENT_PG_BIN", ""), "directory with pg_dump and pg_restore (default: $PATH)")
 	fs.StringVar(&o.diskPath, "disk-path", env("PGDOCK_AGENT_DISK_PATH", "/"), "path whose disk usage is reported")
+	fs.StringVar(&o.dockerHost, "docker", env("PGDOCK_AGENT_DOCKER", env("DOCKER_HOST", "")), "Docker daemon for instances (default: the local socket)")
+	fs.StringVar(&o.image, "pg-image", env("PGDOCK_AGENT_PG_IMAGE", DefaultPGImage), "Postgres + WAL-G image for instances")
+	fs.StringVar(&o.network, "network", env("PGDOCK_AGENT_NETWORK", ""), "Docker network instances join (reached by container name)")
+	fs.StringVar(&o.publish, "publish", env("PGDOCK_AGENT_PUBLISH", ""), "node address to publish instance ports on (e.g. its private IP)")
 	return o, fs.Parse(args)
 }
 
@@ -179,7 +188,10 @@ func serve(o *opts) error {
 	if err != nil {
 		return err
 	}
-	svc := agentsvc.New(agentsvc.Config{Version: version.Get().Version, NodeID: st.NodeID, PGBinDir: o.pgBin, DiskPath: o.diskPath}, log)
+	svc := agentsvc.New(agentsvc.Config{
+		Version: version.Get().Version, NodeID: st.NodeID, PGBinDir: o.pgBin, DiskPath: o.diskPath,
+		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish},
+	}, log)
 	log.Info("pgdock-agent listening", "addr", ln.Addr().String(), "node_id", st.NodeID, "version", version.Get().Version)
 	return svc.Serve(ctx, ln, agentsvc.TLSConfig(st.Cert, st.CA))
 }

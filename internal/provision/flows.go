@@ -56,6 +56,9 @@ func (s *Service) runCreate(ctx context.Context, op store.Operation, log *jobs.S
 	}
 
 	start := time.Now()
+	if err := s.EnsureInstance(ctx, op, p, log); err != nil {
+		return err
+	}
 	if err := s.ensureRole(ctx, p, settings, log); err != nil {
 		return err
 	}
@@ -74,7 +77,35 @@ func (s *Service) runCreate(ctx context.Context, op store.Operation, log *jobs.S
 	if err := store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: StatusActive}); err != nil {
 		return err
 	}
-	return log.Info(ctx, "done", "project %s is active (provisioned in %s)", p.DbName, time.Since(start).Round(time.Millisecond))
+	if err := log.Info(ctx, "done", "project %s is active (provisioned in %s)", p.DbName, time.Since(start).Round(time.Millisecond)); err != nil {
+		return err
+	}
+	s.Provisioned(ctx, p, log)
+	return nil
+}
+
+// EnsureInstance creates a dedicated project's instance (a no-op for the
+// shared tier).
+func (s *Service) EnsureInstance(ctx context.Context, op store.Operation, p store.Project, log *jobs.StepLogger) error {
+	if p.Tier != TierDedicated {
+		return nil
+	}
+	if s.Instances == nil {
+		return jobs.Permanent(ErrNoDedicated)
+	}
+	return s.Instances.Ensure(ctx, op, p, log)
+}
+
+// Provisioned runs the dedicated tier's after-create steps (the first base
+// backup). A failure is only a warning: the project works, and the daily
+// schedule takes the backup.
+func (s *Service) Provisioned(ctx context.Context, p store.Project, log *jobs.StepLogger) {
+	if p.Tier != TierDedicated || s.Instances == nil {
+		return
+	}
+	if err := s.Instances.Provisioned(ctx, p, log); err != nil {
+		_ = log.Warn(ctx, "backup", "first base backup failed: %v (the daily schedule will retry)", err)
+	}
 }
 
 func (s *Service) ensureRole(ctx context.Context, p store.Project, set store.ProjectSettings, log *jobs.StepLogger) error {
@@ -241,6 +272,12 @@ func (s *Service) teardown(ctx context.Context, p store.Project, log *jobs.StepL
 	}
 	if err := s.syncPooler(ctx, log, "pooler", "route and auth entry removed"); err != nil {
 		return err
+	}
+	if p.Tier == TierDedicated {
+		if s.Instances == nil {
+			return jobs.Permanent(ErrNoDedicated)
+		}
+		return s.Instances.Destroy(ctx, p, log)
 	}
 
 	conn, err := s.connectInstance(ctx, p.InstanceID, "postgres")
