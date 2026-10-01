@@ -27,6 +27,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/agentca"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/version"
 )
 
 // Errors for the API layer.
@@ -194,7 +195,7 @@ func (s *Service) Status(id uuid.UUID) (Status, bool) {
 // Check polls one node's agent now.
 func (s *Service) Check(ctx context.Context, n store.Node) Status {
 	st := Status{CheckedAt: time.Now()}
-	a, err := s.agentFor(n)
+	a, err := s.dial(n)
 	if err == nil {
 		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		st.Health, err = a.Health(cctx)
@@ -207,6 +208,10 @@ func (s *Service) Check(ctx context.Context, n store.Node) Status {
 		st.Err = err.Error()
 	} else {
 		st.Reachable = true
+		if server := version.Get().Version; !Compatible(server, st.Health.Version) {
+			st.Err = fmt.Sprintf("agent %s is incompatible with pgdock-server %s: no work is sent to it until it is upgraded", st.Health.Version, server)
+			s.log.Warn("incompatible agent", "node", n.Name, "agent_version", st.Health.Version, "server_version", server)
+		}
 	}
 	s.mu.Lock()
 	s.health[n.ID] = st

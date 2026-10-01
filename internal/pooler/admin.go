@@ -132,3 +132,6 @@ func (a *Admin) Pools(ctx context.Context) ([]Pool, error) {
 	}
 	return out, rows.Err()
 }
+
+// Ping checks the admin console answers (SHOW VERSION).
+func (a *Admin) Ping(ctx context.Context) error { return a.exec(ctx, "SHOW VERSION") }

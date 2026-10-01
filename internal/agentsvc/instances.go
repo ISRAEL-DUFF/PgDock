@@ -30,6 +30,9 @@ type InstanceConfig struct {
 	// PublishAddr, if set, is the node address instance ports are published
 	// on (an ephemeral port each), e.g. the node's private IP.
 	PublishAddr string
+	// HBAAllow are the CIDRs new instances accept network logins from
+	// (written to pg_hba.conf at initdb; spec §7.1).
+	HBAAllow []string
 }
 
 // instances manages Postgres containers.
@@ -105,7 +108,15 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	defer in.lock(spec.ID)()
 	name, vol, restoreName := names(spec.ID)
 
-	if _, err := in.dc.InspectContainer(ctx, name); err == nil {
+	if _, err := in.dc.InspectContainer(ctx, name); err == nil && spec.Recreate && spec.Restore == nil {
+		if err := in.dc.StopContainer(ctx, name, 60*time.Second); err != nil {
+			return agentapi.Instance{}, fmt.Errorf("stop for recreate: %w", err)
+		}
+		if err := in.dc.RemoveContainer(ctx, name); err != nil {
+			return agentapi.Instance{}, fmt.Errorf("remove for recreate: %w", err)
+		}
+		// The volume stays: the new container below starts on the same data.
+	} else if err == nil {
 		if err := in.dc.StartContainer(ctx, name); err != nil {
 			return agentapi.Instance{}, err
 		}
@@ -168,6 +179,9 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		"POSTGRES_PASSWORD=" + spec.AdminPassword,
 		"POSTGRES_DB=postgres",
 		"POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 --auth-local=trust",
+	}
+	if len(in.cfg.HBAAllow) > 0 {
+		env = append(env, "PGDOCK_HBA_ALLOW="+strings.Join(in.cfg.HBAAllow, ","))
 	}
 	if spec.WALG != nil {
 		env = append(env, walg.Env(*spec.WALG)...)

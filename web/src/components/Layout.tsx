@@ -9,6 +9,7 @@ import { Button, cx } from "./ui";
 const nav = [
   { to: "/projects", label: "Projects" },
   { to: "/nodes", label: "Nodes" },
+  { to: "/alerts", label: "Alerts" },
   { to: "/operations", label: "Operations" },
   { to: "/audit", label: "Audit log" },
   { to: "/settings", label: "Settings" },
@@ -49,6 +50,7 @@ export function AppLayout() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [menu, setMenu] = useState(false);
+  const firing = useQuery({ queryKey: ["alerts", "count"], queryFn: () => api.alerts("firing"), refetchInterval: 30_000, retry: false });
 
   const logout = async () => {
     await api.logout().catch(() => {});
@@ -76,7 +78,20 @@ export function AppLayout() {
               className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-fg"
               activeProps={{ className: "bg-surface-2 !text-fg font-medium" }}
             >
-              {n.label}
+              <span className="flex items-center justify-between">
+                {n.label}
+                {n.to === "/alerts" && (firing.data?.firing ?? 0) > 0 && (
+                  <span
+                    data-testid="alerts-count"
+                    className={cx(
+                      "rounded-full px-1.5 text-xs font-semibold",
+                      (firing.data?.critical ?? 0) > 0 ? "bg-danger text-white" : "bg-warn text-white",
+                    )}
+                  >
+                    {firing.data?.firing}
+                  </span>
+                )}
+              </span>
             </Link>
           ))}
         </nav>

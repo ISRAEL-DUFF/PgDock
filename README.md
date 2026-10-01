@@ -6,25 +6,28 @@ Self-hosted managed PostgreSQL with a web UI. See
 ## Install (single host)
 
 ```sh
-git clone https://github.com/israel-duff/pgdock && cd pgdock/deploy/compose
-./install.sh
+git clone https://github.com/israel-duff/pgdock && cd pgdock && git checkout v1.0.0
+cd deploy/compose && ./install.sh
 ```
 
-`install.sh` asks for the web UI hostname and an email for Let's Encrypt,
-writes `.env` with generated secrets (back it up: `PGDOCK_MASTER_KEY`
-decrypts everything PGDock stores), starts the stack with Docker Compose,
-and prints a one-time setup code. Point DNS for the UI hostname (and later
-the database hostname) at the host, open `https://<ui-host>`, and the setup
-wizard takes it from there: owner account, two-factor enrolment, database
-hostname, S3 storage for backups (with a live write/read/delete test), the
-backup encryption key (download it and confirm it, then keep it offline),
-and the local node's agent, which registers itself. The poolers then get a Let's Encrypt certificate for the database
-hostname, and every project's connection string uses `sslmode=require` or
-stricter.
+The full guide, from a fresh VPS (DNS, firewall, Docker) through the setup
+wizard to your first database, is **[docs/install.md](docs/install.md)**;
+CI runs its commands on a clean machine (`make test-docs`).
 
 The bundle runs Caddy (TLS for the UI), pgdock-server, the metadata
 database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 `:5432` (session) and `:6543` (transaction), and pgdock-agent.
+
+| Guide | |
+| --- | --- |
+| [Install](docs/install.md) | A VPS to a working database |
+| [Operations](docs/operations.md) | Alerts, backups, security checks, capacity, secrets |
+| [Upgrades](docs/upgrade.md) | New releases, agents, PostgreSQL minor versions |
+| [Disaster recovery](docs/disaster-recovery.md) | Rebuild the control node from backups |
+| [Security review](docs/security-review.md) | Spec §7, item by item, with the tests that check it |
+| [Load test](docs/load-test.md) | 150 projects, results and tuning |
+| [Decisions](docs/decisions.md) | Choices made while building, per milestone |
+| [Changelog](CHANGELOG.md) | Releases |
 
 ## Requirements
 
@@ -48,6 +51,9 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | `make pg-image` | Builds `pgdock-postgres:18-walg3.0.9`, the image dedicated instances run. |
 | `make test-acme` | Obtains a real certificate over HTTP-01 from Pebble (Let's Encrypt's test CA). |
 | `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, imports a Supabase-shaped project and serves its app, creates a dedicated project and restores it to a point in time, promotes a hobby project while a writer runs, checking the URL is unchanged and no commits are lost, and queries, browses, and charts a project from the SQL console, table browser, and metrics pages (Playwright). |
+| `make test-docs` | Follows `docs/install.md` in a scratch clone (its marked commands, as written), then drives a browser from the fresh install to a working database. |
+| `make test-load` | 150 shared projects, pgbench on 10: create latency, pooler overhead, noisy neighbour; writes `tmp/load-report.md` (needs `pgbench`). |
+| `make release` | linux/amd64 and arm64 binaries, the source bundle, and checksums in `dist/` (CI does it on `v*` tags). |
 | `make run-dev` | Runs the built `bin/pgdock-server` against the dev environment (`deploy/dev/server.env`). |
 | `make lint` | `golangci-lint`. |
 | `make release-check` | Fails if the server binary embeds only the placeholder UI. |
@@ -260,12 +266,15 @@ with `NOTIFY`, which wakes idle workers and drives the SSE stream at
 | `PGDOCK_CONSOLE_DISABLED` | `false` | Turns the SQL console and table browser off for every project |
 | `PGDOCK_METRICS_INTERVAL` | `1m` | How often project and node metrics are sampled |
 | `PGDOCK_METRICS_TOKEN` | | Bearer token for scraping `/metrics` (24+ characters); without it only signed-in operators can read it |
+| `PGDOCK_ALERTS_INTERVAL` | `30s` | How often alert conditions are checked |
+| `PGDOCK_PUBLIC_URL` | | The web UI's address, for links in alerts (`install.sh` sets it) |
 
 pgdock-agent reads `PGDOCK_AGENT_STATE_DIR` (`/var/lib/pgdock-agent`),
 `_LISTEN` (`:7070`), `_SERVER`, `_TOKEN`, `_BOOTSTRAP_TOKEN` with `_NODE`,
 `_ADVERTISE` (how the server reaches it), `_SERVER_CA`, `_PG_BIN`, and
 `_DISK_PATH`, and for instances `_DOCKER` (daemon address), `_PG_IMAGE`,
-`_NETWORK` (Docker network to join), and `_PUBLISH` (address to publish
-ports on); see `pgdock-agent run -h`.
+`_NETWORK` (Docker network to join), `_PUBLISH` (address to publish
+ports on), and `_DB_ALLOW` (CIDRs new instances accept logins from; default
+the private ranges); see `pgdock-agent run -h`.
 
 

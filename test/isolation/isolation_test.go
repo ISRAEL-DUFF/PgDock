@@ -8,12 +8,14 @@ package isolation
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
 
@@ -253,39 +255,99 @@ func TestTenantIsolation(t *testing.T) {
 	})
 }
 
-// TestClusterConfiguration checks the cluster-wide items of spec §7.1 that
-// the operator controls: statement logging and pg_hba.conf.
+// TestClusterConfiguration checks the cluster-wide items of spec §7.1
+// with the same checker the weekly live check runs.
 func TestClusterConfiguration(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	admin := e.SharedAdmin("postgres")
-	ctx := context.Background()
+	findings, err := isocheck.Cluster(context.Background(), admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range findings {
+		t.Errorf("finding: %s", f)
+	}
+}
 
-	var logStatement string
-	if err := admin.QueryRow(ctx, `SHOW log_statement`).Scan(&logStatement); err != nil || logStatement != "none" {
-		t.Errorf("log_statement = %q (%v), want none", logStatement, err)
+// TestLiveIsolationCheck runs the weekly isolation_check operation through
+// the API: it passes on a correctly provisioned cluster, and a violation
+// of any kind makes it fail with a finding.
+func TestLiveIsolationCheck(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	ctx := context.Background()
+	p := e.CreateProject("audited")
+
+	run := func() gen.Operation {
+		t.Helper()
+		var ops gen.OperationList
+		if code := e.Do("POST", "/api/v1/security/isolation-checks", nil, &ops); code != http.StatusAccepted || len(ops.Items) == 0 {
+			t.Fatalf("run checks: %d %+v", code, ops)
+		}
+		var last gen.Operation
+		for _, op := range ops.Items {
+			last = e.WaitOperation(op.Id)
+			if last.Status != gen.OperationStatusSucceeded {
+				return last
+			}
+		}
+		return last
 	}
-	rows, err := admin.Query(ctx, `SELECT line_number, type, auth_method FROM pg_hba_file_rules
-		WHERE type <> 'local' AND auth_method NOT IN ('scram-sha-256', 'reject', 'cert')`)
-	if err != nil {
-		t.Fatal(err)
+	if op := run(); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("clean cluster: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
 	}
-	type rule struct {
-		Line         int
-		Type, Method string
+	var list gen.IsolationCheckList
+	if code := e.Do("GET", "/api/v1/security/isolation-checks", nil, &list); code != http.StatusOK || len(list.Items) == 0 || list.EveryDays != 7 {
+		t.Fatalf("list: %d %+v", code, list)
 	}
-	bad, err := pgx.CollectRows(rows, pgx.RowToStructByPos[rule])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(bad) > 0 {
-		t.Errorf("pg_hba.conf allows network logins without scram-sha-256: %+v", bad)
-	}
-	for _, db := range []string{"postgres", "template1"} {
-		var connect bool
-		if err := admin.QueryRow(ctx, `SELECT has_database_privilege('public', $1, 'CONNECT')`, db).Scan(&connect); err != nil || connect {
-			t.Errorf("PUBLIC can connect to %s (%v)", db, err)
+	for _, c := range list.Items {
+		if c.Last == nil || c.Last.Status != "succeeded" {
+			t.Fatalf("latest check of %s: %+v", c.NodeName, c.Last)
 		}
 	}
+	// The throwaway tenants are gone afterwards.
+	admin := e.SharedAdmin("postgres")
+	var probes int
+	if err := admin.QueryRow(ctx, `SELECT (SELECT count(*) FROM pg_database WHERE datname LIKE 'pgdock\_isocheck\_%') +
+		(SELECT count(*) FROM pg_roles WHERE rolname LIKE 'pgdock\_isocheck\_%')`).Scan(&probes); err != nil || probes != 0 {
+		t.Fatalf("probe leftovers: %d %v", probes, err)
+	}
+
+	// Each violation is found, then undone.
+	db := pgx.Identifier{p.Project.DbName}.Sanitize()
+	role := pgx.Identifier{p.Project.OwnerRole}.Sanitize()
+	projectDB := e.SharedAdmin(p.Project.DbName)
+	for _, v := range []struct {
+		name, finding string
+		conn          *pgx.Conn
+		do, undo      string
+	}{
+		{"PUBLIC may connect", "database grants", admin, "GRANT CONNECT ON DATABASE " + db + " TO PUBLIC", "REVOKE CONNECT ON DATABASE " + db + " FROM PUBLIC"},
+		{"role gains CREATEDB", "role attributes", admin, "ALTER ROLE " + role + " CREATEDB", "ALTER ROLE " + role + " NOCREATEDB"},
+		{"role joins pg_read_all_data", "role memberships", admin, "GRANT pg_read_all_data TO " + role, "REVOKE pg_read_all_data FROM " + role},
+		{"PUBLIC may create in public", "schema public", projectDB, "GRANT CREATE ON SCHEMA public TO PUBLIC", "REVOKE CREATE ON SCHEMA public FROM PUBLIC"},
+		{"dblink installed", "escape-prone extensions", projectDB, "CREATE EXTENSION dblink", "DROP EXTENSION dblink"},
+	} {
+		if _, err := v.conn.Exec(ctx, v.do); err != nil {
+			t.Fatalf("%s: %v", v.name, err)
+		}
+		op := run()
+		if _, err := v.conn.Exec(ctx, v.undo); err != nil {
+			t.Fatalf("undo %s: %v", v.name, err)
+		}
+		if op.Status != gen.OperationStatusFailed || !strings.Contains(deref(op.Error), v.finding) {
+			t.Errorf("%s: check %s (%s), want a %q finding\n%s", v.name, op.Status, deref(op.Error), v.finding, testenv.FormatLog(op))
+		}
+	}
+	if op := run(); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("after undoing: %s %s", op.Status, deref(op.Error))
+	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func itoa(n int) string {

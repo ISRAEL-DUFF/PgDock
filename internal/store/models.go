@@ -13,6 +13,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Alert struct {
+	ID                 uuid.UUID
+	Kind               string
+	Key                string
+	Severity           string
+	TargetType         string
+	TargetID           string
+	TargetName         string
+	Summary            string
+	Detail             json.RawMessage
+	Status             string
+	StartedAt          time.Time
+	LastSeenAt         time.Time
+	ResolvedAt         *time.Time
+	NotifiedAt         *time.Time
+	ResolvedNotifiedAt *time.Time
+	DeliveryAttempts   int32
+	DeliveryError      *string
+	DeliveryLock       *time.Time
+}
+
 type AuditLog struct {
 	ID         int64
 	OperatorID *uuid.UUID
@@ -101,6 +122,7 @@ type Node struct {
 	AgentVersion          *string
 	RegistrationToken     *string
 	RegistrationExpiresAt *time.Time
+	LastReachableAt       *time.Time
 }
 
 type Operation struct {

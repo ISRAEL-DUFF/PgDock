@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,11 +20,28 @@ type Insight struct {
 	// Bearer <token>" (PGDOCK_METRICS_TOKEN). Without it only signed-in
 	// operators can.
 	MetricsToken string
+	// AlertsInterval is how often alert conditions are evaluated
+	// (PGDOCK_ALERTS_INTERVAL, default 30s).
+	AlertsInterval time.Duration
+	// PublicURL is the web UI's address, for links in alerts
+	// (PGDOCK_PUBLIC_URL, e.g. https://pgdock.example.com).
+	PublicURL string
 }
 
 func loadInsight(getenv func(string) string, cfg *Config) []error {
 	var errs []error
-	in := Insight{MetricsInterval: time.Minute, MetricsToken: getenv("PGDOCK_METRICS_TOKEN")}
+	in := Insight{MetricsInterval: time.Minute, MetricsToken: getenv("PGDOCK_METRICS_TOKEN"), AlertsInterval: 30 * time.Second,
+		PublicURL: strings.TrimRight(getenv("PGDOCK_PUBLIC_URL"), "/")}
+	if v := getenv("PGDOCK_ALERTS_INTERVAL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < time.Second || d > time.Hour {
+			errs = append(errs, fmt.Errorf("PGDOCK_ALERTS_INTERVAL: must be a duration from 1s to 1h, got %q", v))
+		}
+		in.AlertsInterval = d
+	}
+	if u := in.PublicURL; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		errs = append(errs, fmt.Errorf("PGDOCK_PUBLIC_URL: must start with https://, got %q", u))
+	}
 	if v := getenv("PGDOCK_CONSOLE_DISABLED"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {

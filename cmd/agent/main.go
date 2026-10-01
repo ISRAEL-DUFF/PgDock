@@ -20,9 +20,11 @@ import (
 	"io/fs"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -52,7 +54,7 @@ func env(name, def string) string {
 
 type opts struct {
 	state, listen, server, token, bootstrap, node, advertise, caFile, pgBin, diskPath string
-	dockerHost, image, network, publish                                               string
+	dockerHost, image, network, publish, dbAllow                                      string
 	insecure                                                                          bool
 }
 
@@ -74,6 +76,8 @@ func flags(name string, args []string) (*opts, error) {
 	fs.StringVar(&o.image, "pg-image", env("PGDOCK_AGENT_PG_IMAGE", DefaultPGImage), "Postgres + WAL-G image for instances")
 	fs.StringVar(&o.network, "network", env("PGDOCK_AGENT_NETWORK", ""), "Docker network instances join (reached by container name)")
 	fs.StringVar(&o.publish, "publish", env("PGDOCK_AGENT_PUBLISH", ""), "node address to publish instance ports on (e.g. its private IP)")
+	fs.StringVar(&o.dbAllow, "db-allow", env("PGDOCK_AGENT_DB_ALLOW", defaultDBAllow),
+		"comma-separated CIDRs new instances accept logins from: the control plane and poolers (spec §7.1)")
 	return o, fs.Parse(args)
 }
 
@@ -188,9 +192,13 @@ func serve(o *opts) error {
 	if err != nil {
 		return err
 	}
+	cidrs, err := parseCIDRs(o.dbAllow)
+	if err != nil {
+		return err
+	}
 	svc := agentsvc.New(agentsvc.Config{
 		Version: version.Get().Version, NodeID: st.NodeID, PGBinDir: o.pgBin, DiskPath: o.diskPath,
-		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish},
+		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish, HBAAllow: cidrs},
 	}, log)
 	log.Info("pgdock-agent listening", "addr", ln.Addr().String(), "node_id", st.NodeID, "version", version.Get().Version)
 	return svc.Serve(ctx, ln, agentsvc.TLSConfig(st.Cert, st.CA))
@@ -250,4 +258,24 @@ func decrypt(args []string) error {
 		return fmt.Errorf("decrypt: %w", err)
 	}
 	return nil
+}
+
+// defaultDBAllow is every private range: the control plane and poolers
+// reach instances over a private network.
+const defaultDBAllow = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32"
+
+func parseCIDRs(s string) ([]string, error) {
+	var out []string
+	for _, c := range strings.Split(s, ",") {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(c)
+		if err != nil {
+			return nil, fmt.Errorf("-db-allow: %q is not a CIDR: %w", c, err)
+		}
+		out = append(out, p.Masked().String())
+	}
+	return out, nil
 }

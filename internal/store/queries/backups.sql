@@ -66,10 +66,12 @@ WHERE status = 'succeeded' AND project_id IS NOT NULL AND kind IN ('logical','ba
 GROUP BY project_id;
 
 -- name: ProjectsDueForBackup :many
--- Active projects with no backup operation created since @since, and no
--- operation in flight (the next tick picks them up).
+-- Active projects created before the window that opened at @since, with no
+-- backup operation since then and no operation in flight (the next tick
+-- picks them up). A project created after the window opened waits for the
+-- next one.
 SELECT p.* FROM projects p
-WHERE p.deleted_at IS NULL AND p.status = 'active'
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < @since
   AND NOT EXISTS (
     SELECT 1 FROM operations o
     WHERE o.project_id = p.id AND o.kind IN ('backup', 'base_backup') AND o.created_at >= @since
@@ -122,3 +124,27 @@ SELECT * FROM backups
 WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' AND finished_at <= @before
 ORDER BY finished_at DESC
 LIMIT 1;
+
+-- name: FailInterruptedBackups :execrows
+-- Backups an earlier attempt of the operation left running (its worker or
+-- agent died mid-dump): they never finished.
+UPDATE backups SET status = 'failed', error = 'interrupted: the attempt that took it did not finish', finished_at = now()
+WHERE operation_id = @operation_id AND status = 'running';
+
+-- name: SweepStaleBackups :execrows
+-- Running backups whose operation has finished (or, without one, that
+-- started over a day ago) were interrupted.
+UPDATE backups b SET status = 'failed', error = 'interrupted: the operation ended before it finished', finished_at = now()
+WHERE b.status = 'running' AND (
+  EXISTS (SELECT 1 FROM operations o WHERE o.id = b.operation_id AND o.status IN ('succeeded', 'failed'))
+  OR (b.operation_id IS NULL AND b.started_at < now() - interval '1 day'));
+
+-- name: FailedBackupObjects :many
+-- Failed backups whose object may still be in storage: an upload can
+-- complete at the bucket after its attempt gave up on it.
+SELECT * FROM backups
+WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id = @storage_target_id
+ORDER BY started_at LIMIT 100;
+
+-- name: MarkFailedBackupCleaned :exec
+UPDATE backups SET deleted_at = now() WHERE id = @id AND status = 'failed';

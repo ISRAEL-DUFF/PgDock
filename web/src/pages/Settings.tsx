@@ -4,6 +4,7 @@ import { api, errorMessage } from "../api/client";
 import { Alert, Button, Card, PageHeader, Spinner, StatusBadge } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { sessionQuery } from "../lib/session";
+import { AlertSettingsCard, IsolationChecksCard } from "../components/AlertSettingsCard";
 import { BackupKeyPanel, StorageForm } from "../components/BackupSetup";
 import { HostStep } from "./Setup";
 
@@ -97,6 +98,8 @@ export function SettingsPage() {
             </dl>
           </Card>
         )}
+        <AlertSettingsCard />
+        <IsolationChecksCard />
         <Card title="Account">
           <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt className="text-muted">Email</dt>

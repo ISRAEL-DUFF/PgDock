@@ -3,6 +3,7 @@ import { createRootRouteWithContext, createRoute, createRouter, Outlet, redirect
 import { AppLayout } from "./components/Layout";
 import { ToastProvider } from "./components/Toasts";
 import { sessionQuery } from "./lib/session";
+import { AlertsPage } from "./pages/Alerts";
 import { AuditPage } from "./pages/Audit";
 import { LoginPage } from "./pages/Login";
 import { NewProjectPage } from "./pages/NewProject";
@@ -89,6 +90,7 @@ const nodes = createRoute({ getParentRoute: () => app, path: "/nodes", component
 const nodeDetail = createRoute({ getParentRoute: () => app, path: "/nodes/$id", component: NodeDetailPage });
 const operations = createRoute({ getParentRoute: () => app, path: "/operations", component: OperationsPage });
 const operation = createRoute({ getParentRoute: () => app, path: "/operations/$id", component: OperationDetailPage });
+const alertsRoute = createRoute({ getParentRoute: () => app, path: "/alerts", component: AlertsPage });
 const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: AuditPage });
 const settings = createRoute({ getParentRoute: () => app, path: "/settings", component: SettingsPage });
 
@@ -105,6 +107,7 @@ const routeTree = root.addChildren([
     nodeDetail,
     operations,
     operation,
+    alertsRoute,
     audit,
     settings,
   ]),

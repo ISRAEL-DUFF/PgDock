@@ -1,0 +1,419 @@
+package alerts
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"net/mail"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/pooler"
+	"github.com/israel-duff/pgdock/internal/store"
+)
+
+// Alert kinds (spec §8.8), plus a failed weekly isolation check (§7.1).
+const (
+	KindBackupFailed       = "backup_failed"
+	KindBackupOverdue      = "backup_overdue"
+	KindRestoreTestFailed  = "restore_test_failed"
+	KindNodeDisk           = "node_disk"
+	KindNodeUnreachable    = "node_unreachable"
+	KindProjectDisk        = "project_disk"
+	KindPoolerDown         = "pooler_down"
+	KindIsolationCheck     = "isolation_check_failed"
+	SeverityWarning        = "warning"
+	SeverityCritical       = "critical"
+	defaultInterval        = 30 * time.Second
+	backupOverdueAfter     = 26 * time.Hour
+	nodeDiskThreshold      = 0.85
+	nodeUnreachableAfter   = 2 * time.Minute
+	projectSizeFreshWithin = 30 * time.Minute
+)
+
+// Config configures the service.
+type Config struct {
+	// Interval is how often conditions are evaluated (default 30s).
+	Interval time.Duration
+	// PublicURL is the web UI's address, for links in notifications.
+	PublicURL string
+	// Poolers are checked for "pooler down".
+	Poolers []*pooler.Admin
+	// PoolerGrace is how long a pooler must keep failing before it is down
+	// (default 1 min: at startup the poolers come up after the server).
+	PoolerGrace time.Duration
+}
+
+// Service evaluates conditions and delivers notifications.
+type Service struct {
+	db      *pgxpool.Pool
+	keyring *crypto.Keyring
+	cfg     Config
+	http    *http.Client
+	log     *slog.Logger
+
+	mu            sync.Mutex
+	poolerFailing map[string]time.Time // since when each pooler fails
+}
+
+// New returns a Service.
+func New(db *pgxpool.Pool, keyring *crypto.Keyring, cfg Config, log *slog.Logger) *Service {
+	if cfg.Interval <= 0 {
+		cfg.Interval = defaultInterval
+	}
+	if cfg.PoolerGrace == 0 {
+		cfg.PoolerGrace = time.Minute
+	}
+	return &Service{db: db, keyring: keyring, cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}, log: log,
+		poolerFailing: map[string]time.Time{}}
+}
+
+// Run evaluates and delivers every interval until ctx ends.
+func (s *Service) Run(ctx context.Context) {
+	t := time.NewTicker(s.cfg.Interval)
+	defer t.Stop()
+	for {
+		if err := s.Tick(ctx); err != nil && ctx.Err() == nil {
+			s.log.Warn("alerts", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// Tick evaluates every condition once, then delivers pending notifications.
+func (s *Service) Tick(ctx context.Context) error {
+	err := s.Evaluate(ctx)
+	return errors.Join(err, s.DeliverPending(ctx))
+}
+
+// condition is one alert that should be firing now.
+type condition struct {
+	kind, severity, targetType, targetID, targetName, summary string
+	detail                                                    map[string]any
+}
+
+func (c condition) key() string { return c.kind + ":" + c.targetType + ":" + c.targetID }
+
+// Evaluate fires alerts for the conditions that hold and resolves the ones
+// that no longer do. Each transition is recorded once, whichever server
+// sees it first.
+func (s *Service) Evaluate(ctx context.Context) error {
+	conds, err := s.conditions(ctx)
+	if err != nil {
+		return err
+	}
+	q := store.New(s.db)
+	now := map[string]bool{}
+	for _, c := range conds {
+		now[c.key()] = true
+		detail, _ := json.Marshal(c.detail)
+		row, err := q.FireAlert(ctx, store.FireAlertParams{
+			Kind: c.kind, Key: c.key(), Severity: c.severity, TargetType: c.targetType, TargetID: c.targetID,
+			TargetName: c.targetName, Summary: c.summary, Detail: detail,
+		})
+		if err != nil {
+			return err
+		}
+		if row.Inserted {
+			s.log.Warn("alert firing", "kind", c.kind, "target", c.targetName, "summary", c.summary, "alert_id", row.ID)
+		}
+	}
+	firing, err := q.FiringAlerts(ctx)
+	if err != nil {
+		return err
+	}
+	for _, a := range firing {
+		if now[a.Key] {
+			continue
+		}
+		if n, err := q.ResolveAlert(ctx, a.ID); err != nil {
+			return err
+		} else if n > 0 {
+			s.log.Info("alert resolved", "kind", a.Kind, "target", a.TargetName, "alert_id", a.ID)
+		}
+	}
+	return nil
+}
+
+func (s *Service) conditions(ctx context.Context) ([]condition, error) {
+	q := store.New(s.db)
+	var out []condition
+	var errs []error
+
+	names := map[uuid.UUID]string{}
+	if ps, err := q.ListLiveProjects(ctx, store.ListLiveProjectsParams{MaxRows: 100000}); err == nil {
+		for _, p := range ps {
+			names[p.ID] = p.Name
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	// Backups and restore tests whose latest run failed; isolation checks too.
+	ops, err := q.FailedLatestOperations(ctx, []string{"backup", "base_backup", "metadata_backup", "restore_test", "isolation_check"})
+	if err != nil {
+		errs = append(errs, err)
+	}
+	nodeOf := map[string]string{}
+	if insts, err := q.ListLiveSharedInstances(ctx); err == nil {
+		for _, i := range insts {
+			nodeOf[i.ID.String()] = i.NodeName
+		}
+	}
+	for _, o := range ops {
+		if o.Status != "failed" {
+			continue
+		}
+		msg := ""
+		if o.Error != nil {
+			msg = *o.Error
+		}
+		detail := map[string]any{"operation_id": o.ID, "error": msg}
+		switch o.Kind {
+		case "metadata_backup":
+			out = append(out, condition{KindBackupFailed, SeverityCritical, "control_plane", "metadata", "metadata database",
+				"Nightly backup of the metadata database failed: " + msg, detail})
+		case "backup", "base_backup":
+			if o.ProjectID == nil {
+				continue
+			}
+			name, live := names[*o.ProjectID]
+			if !live {
+				continue
+			}
+			out = append(out, condition{KindBackupFailed, SeverityCritical, "project", o.ProjectID.String(), name,
+				fmt.Sprintf("Backup of %s failed: %s", name, msg), detail})
+		case "restore_test":
+			id, name := "all", "restore test"
+			if o.ProjectID != nil {
+				id, name = o.ProjectID.String(), names[*o.ProjectID]
+			}
+			out = append(out, condition{KindRestoreTestFailed, SeverityCritical, "project", id, name,
+				fmt.Sprintf("Restore test of %s failed: %s", name, msg), detail})
+		case "isolation_check":
+			node := nodeOf[o.InstanceID]
+			if node == "" {
+				continue // the cluster is gone
+			}
+			out = append(out, condition{KindIsolationCheck, SeverityCritical, "instance", o.InstanceID, "shared cluster on " + node,
+				"Tenant isolation check failed on " + node + ": " + msg, detail})
+		}
+	}
+
+	overdue, err := q.OverdueBackups(ctx, backupOverdueAfter.Seconds())
+	if err != nil {
+		errs = append(errs, err)
+	}
+	for _, p := range overdue {
+		since := "never backed up"
+		if p.LastBackupAt.Year() > 1970 {
+			since = "last backup " + p.LastBackupAt.UTC().Format(time.RFC3339)
+		}
+		out = append(out, condition{KindBackupOverdue, SeverityWarning, "project", p.ID.String(), p.Name,
+			fmt.Sprintf("No backup of %s in 26 hours (%s)", p.Name, since), map[string]any{"last_backup_at": p.LastBackupAt}})
+	}
+
+	unreachable, err := q.UnreachableNodes(ctx, nodeUnreachableAfter.Seconds())
+	if err != nil {
+		errs = append(errs, err)
+	}
+	down := map[uuid.UUID]bool{}
+	for _, n := range unreachable {
+		down[n.ID] = true
+		since := "never reached"
+		if n.LastReachableAt != nil {
+			since = "unreachable since " + n.LastReachableAt.UTC().Format(time.RFC3339)
+		}
+		out = append(out, condition{KindNodeUnreachable, SeverityCritical, "node", n.ID.String(), n.Name,
+			fmt.Sprintf("Node %s's agent has not answered for 2+ minutes (%s)", n.Name, since), map[string]any{"last_reachable_at": n.LastReachableAt}})
+	}
+
+	caps, err := q.NodeCapacities(ctx)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	for _, n := range caps {
+		var m agentapi.HostMetrics
+		if down[n.ID] || json.Unmarshal(n.Capacity, &m) != nil || m.DiskTotalBytes <= 0 {
+			continue
+		}
+		used := float64(m.DiskTotalBytes-m.DiskFreeBytes) / float64(m.DiskTotalBytes)
+		if used > nodeDiskThreshold {
+			out = append(out, condition{KindNodeDisk, SeverityWarning, "node", n.ID.String(), n.Name,
+				fmt.Sprintf("Node %s's disk is %.0f%% full (%s)", n.Name, used*100, m.DiskPath),
+				map[string]any{"used_ratio": used, "disk_total_bytes": m.DiskTotalBytes, "disk_free_bytes": m.DiskFreeBytes}})
+		}
+	}
+
+	sizes, err := q.ProjectSizes(ctx, time.Now().Add(-projectSizeFreshWithin))
+	if err != nil {
+		errs = append(errs, err)
+	}
+	for _, p := range sizes {
+		set, err := store.DecodeProjectSettings(p.Settings)
+		if err != nil || p.SizeBytes < 0 || set.DiskWarnBytes <= 0 || p.SizeBytes <= float64(set.DiskWarnBytes) {
+			continue
+		}
+		out = append(out, condition{KindProjectDisk, SeverityWarning, "project", p.ID.String(), p.Name,
+			fmt.Sprintf("%s is %s, over its disk warning of %s", p.Name, bytesStr(p.SizeBytes), bytesStr(float64(set.DiskWarnBytes))),
+			map[string]any{"size_bytes": p.SizeBytes, "disk_warn_bytes": set.DiskWarnBytes}})
+	}
+
+	out = append(out, s.poolerConditions(ctx)...)
+	// A partial evaluation must not resolve alerts it could not check.
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// poolerConditions reports poolers whose admin console has not answered
+// for the grace period.
+func (s *Service) poolerConditions(ctx context.Context) []condition {
+	var out []condition
+	for _, a := range s.cfg.Poolers {
+		pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := a.Ping(pctx)
+		cancel()
+		s.mu.Lock()
+		since, failing := s.poolerFailing[a.Name]
+		switch {
+		case err == nil:
+			delete(s.poolerFailing, a.Name)
+		case !failing:
+			since = time.Now()
+			s.poolerFailing[a.Name] = since
+		}
+		s.mu.Unlock()
+		if err != nil && ctx.Err() == nil && time.Since(since) >= s.cfg.PoolerGrace {
+			out = append(out, condition{KindPoolerDown, SeverityCritical, "pooler", a.Name, a.Name + " pooler (" + a.Addr() + ")",
+				fmt.Sprintf("The %s pooler at %s is down: %v", a.Name, a.Addr(), err), map[string]any{"address": a.Addr()}})
+		}
+	}
+	return out
+}
+
+// DeliverPending sends notifications not yet delivered (new firings and
+// resolutions, and earlier failures once their backoff passes).
+func (s *Service) DeliverPending(ctx context.Context) error {
+	q := store.New(s.db)
+	pending, err := q.ClaimUndelivered(ctx)
+	if err != nil || len(pending) == 0 {
+		return err
+	}
+	ch, err := s.channels(ctx)
+	if err != nil {
+		return err
+	}
+	for _, a := range pending {
+		resolved := a.Status == "resolved"
+		if !ch.any() {
+			if err := q.SkipDelivery(ctx, a.ID); err != nil {
+				return err
+			}
+			continue
+		}
+		event := EventFiring
+		if resolved {
+			event = EventResolved
+		}
+		if err := s.deliver(ctx, ch, s.payload(event, a)); err != nil {
+			s.log.Warn("alert delivery failed", "alert_id", a.ID, "event", event, "err", err)
+			msg := truncate(err.Error(), 1000)
+			if err := q.MarkDeliveryFailed(ctx, store.MarkDeliveryFailedParams{ID: a.ID, Error: &msg}); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := q.MarkDelivered(ctx, store.MarkDeliveredParams{ID: a.ID, Resolved: resolved}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ChannelResult is one channel's outcome of a test notification.
+type ChannelResult struct {
+	Channel string
+	OK      bool
+	Error   string
+}
+
+// SendTest sends a test notification to each configured channel.
+func (s *Service) SendTest(ctx context.Context) ([]ChannelResult, error) {
+	ch, err := s.channels(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p := s.payload(EventTest, store.Alert{
+		ID: uuid.New(), Kind: "test", Severity: SeverityWarning, Status: "firing", Summary: "Test alert from PGDock",
+		TargetType: "control_plane", TargetID: "test", TargetName: "PGDock", StartedAt: time.Now(),
+	})
+	var out []ChannelResult
+	if ch.webhookURL != "" {
+		r := ChannelResult{Channel: "webhook", OK: true}
+		if err := s.sendWebhook(ctx, ch, p); err != nil {
+			r.OK, r.Error = false, err.Error()
+		}
+		out = append(out, r)
+	}
+	if ch.smtp != nil {
+		r := ChannelResult{Channel: "email", OK: true}
+		if err := sendMail(ctx, *ch.smtp, p); err != nil {
+			r.OK, r.Error = false, err.Error()
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// List returns alerts, firing first.
+func (s *Service) List(ctx context.Context, status *string, limit int) ([]store.Alert, error) {
+	return store.New(s.db).ListAlerts(ctx, store.ListAlertsParams{Status: status, MaxRows: int32(limit)}) //nolint:gosec // bounded by the API
+}
+
+// Firing counts firing alerts (all, critical).
+func (s *Service) Firing(ctx context.Context) (int64, int64, error) {
+	c, err := store.New(s.db).CountFiringAlerts(ctx)
+	return c.Total, c.Critical, err
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
+}
+
+func bytesStr(b float64) string {
+	units := []string{"B", "KiB", "MiB", "GiB", "TiB"}
+	i := 0
+	for b >= 1024 && i < len(units)-1 {
+		b /= 1024
+		i++
+	}
+	return fmt.Sprintf("%.1f %s", b, units[i])
+}
+
+func base64Std(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
+
+// addrOnly is the bare address of "Name <a@b>".
+func addrOnly(s string) string {
+	if a, err := mail.ParseAddress(s); err == nil {
+		return a.Address
+	}
+	return s
+}

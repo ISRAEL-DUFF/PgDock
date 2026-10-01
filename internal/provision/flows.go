@@ -12,6 +12,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -277,7 +278,13 @@ func (s *Service) teardown(ctx context.Context, p store.Project, log *jobs.StepL
 		_ = log.Warn(ctx, "pooler", "KILL %s: %v (continuing)", p.DbName, err)
 	}
 	if err := s.syncPooler(ctx, log, "pooler", "route and auth entry removed"); err != nil {
-		return err
+		// A pooler that is down reads the new files when it starts; the
+		// database and role must go regardless (a failed create cleans up).
+		var re *pooler.ReloadError
+		if !errors.As(err, &re) {
+			return err
+		}
+		_ = log.Warn(ctx, "pooler", "route removed from the config files, but %v; continuing", err)
 	}
 	if p.Tier == TierDedicated {
 		if s.Instances == nil {

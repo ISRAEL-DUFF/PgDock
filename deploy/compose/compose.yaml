@@ -89,6 +89,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    # Fixed addresses: the shared cluster's pg_hba.conf names them.
+    networks:
+      default:
+        ipv4_address: 172.31.250.11
 
   # The local node's agent: it runs pg_dump/pg_restore next to the shared
   # cluster and registers with the bootstrap token on first start (mTLS
@@ -113,9 +117,15 @@ services:
       PGDOCK_AGENT_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
       PGDOCK_AGENT_NETWORK: ${PGDOCK_NETWORK:-pgdock}
       PGDOCK_AGENT_PG_IMAGE: ${PGDOCK_PG_IMAGE:-pgdock-postgres:18-walg3.0.9}
+      # Instances accept logins from pgdock-server, the poolers, and this
+      # agent only (spec §7.1). Add a remote control node's address here.
+      PGDOCK_AGENT_DB_ALLOW: ${PGDOCK_AGENT_DB_ALLOW:-172.31.250.11/32,172.31.250.12/32,172.31.250.13/32,172.31.250.14/32}
     volumes:
       - agent-state:/var/lib/pgdock-agent
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      default:
+        ipv4_address: 172.31.250.14
 
   metadata-db:
     image: postgres:18
@@ -166,8 +176,13 @@ services:
       - shared_preload_libraries=pg_stat_statements
       - -c
       - log_min_duration_statement=5s
+      - -c
+      - log_statement=none
+      - -c
+      - hba_file=/etc/pgdock/pg_hba.conf
     volumes:
       - shared-data:/var/lib/postgresql
+      - ./shared-pg-hba.conf:/etc/pgdock/pg_hba.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pgdock_admin -d postgres"]
       interval: 2s
@@ -181,6 +196,9 @@ services:
     volumes:
       - ../pgbouncer/session.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - pooler-config:/etc/pgbouncer/pgdock:ro
+    networks:
+      default:
+        ipv4_address: 172.31.250.12
 
   pooler-tx:
     <<: *pooler
@@ -189,6 +207,9 @@ services:
     volumes:
       - ../pgbouncer/transaction.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - pooler-config:/etc/pgbouncer/pgdock:ro
+    networks:
+      default:
+        ipv4_address: 172.31.250.13
 
 networks:
   default:
@@ -197,7 +218,7 @@ networks:
     ipam:
       config:
         - subnet: 172.31.250.0/24
-          # Dynamic addresses stay clear of the fixed ones (caddy at .10).
+          # Dynamic addresses stay clear of the fixed ones (.10 to .20).
           ip_range: 172.31.250.128/25
 
 volumes:

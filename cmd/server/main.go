@@ -25,6 +25,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/agentca"
+	"github.com/israel-duff/pgdock/internal/alerts"
 	"github.com/israel-duff/pgdock/internal/api"
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
@@ -33,12 +34,14 @@ import (
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/rotate"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tlscert"
@@ -58,6 +61,8 @@ func run() error {
 	requireUI := flag.Bool("require-ui", false, "exit with an error if only the placeholder UI is embedded")
 	genKey := flag.Bool("gen-master-key", false, "print a new random master key for PGDOCK_MASTER_KEY and exit")
 	healthcheck := flag.String("healthcheck", "", "GET this URL's /healthz and exit 0 if healthy (for container health checks)")
+	rotateKey := flag.Bool("rotate-master-key", false,
+		"re-encrypt every stored secret under PGDOCK_MASTER_KEY (old key in PGDOCK_MASTER_KEY_PREVIOUS), verify, and exit")
 	flag.Parse()
 
 	v := version.Get()
@@ -104,6 +109,9 @@ func run() error {
 		return err
 	}
 	log.Info("master key loaded", "key_id", keyring.PrimaryID().String(), "previous_keys", len(cfg.PreviousMasterKeys))
+	if *rotateKey {
+		return rotateMasterKey(cfg, keyring, log)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -164,8 +172,21 @@ func run() error {
 	}
 
 	var consoleSvc *console.Service
+	var isoChecks *isocheck.Service
+	var alertSvc *alerts.Service
 	if projects != nil {
+		isoChecks = isocheck.New(pool, projects, log)
+		for name, k := range isoChecks.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); isoChecks.Run(bgCtx) }()
 		consoleSvc = console.New(pool, projects, keyring, cfg.Insight.ConsoleDisabled, log)
+		alertSvc = alerts.New(pool, keyring, alerts.Config{
+			Interval: cfg.Insight.AlertsInterval, PublicURL: cfg.Insight.PublicURL, Poolers: pm.Admins(),
+		}, log)
+		bg.Add(1)
+		go func() { defer bg.Done(); alertSvc.Run(bgCtx) }()
 		collector := metrics.NewCollector(pool, projects, pm, nodeSvc, cfg.Insight.MetricsInterval, log)
 		bg.Add(1)
 		go func() { defer bg.Done(); collector.Run(bgCtx) }()
@@ -221,6 +242,8 @@ func run() error {
 		Nodes:     nodeSvc,
 
 		Console:         consoleSvc,
+		IsoChecks:       isoChecks,
+		Alerts:          alertSvc,
 		MetricsInterval: cfg.Insight.MetricsInterval,
 		MetricsToken:    cfg.Insight.MetricsToken,
 	})
@@ -477,4 +500,40 @@ func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("connect to metadata database: %w", err)
 	}
 	return pool, nil
+}
+
+// rotateMasterKey implements -rotate-master-key (spec §7.3): re-encrypt
+// everything under the primary key, then prove the primary key alone opens
+// it all.
+func rotateMasterKey(cfg config.Config, keyring *crypto.Keyring, log *slog.Logger) error {
+	if len(cfg.PreviousMasterKeys) == 0 {
+		return errors.New("set the old key in PGDOCK_MASTER_KEY_PREVIOUS and the new one in PGDOCK_MASTER_KEY")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	pool, err := connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	if err := store.Migrate(ctx, pool, log); err != nil {
+		return err
+	}
+	res, err := rotate.Run(ctx, pool, keyring)
+	if err != nil {
+		return fmt.Errorf("rotation rolled back, nothing changed: %w", err)
+	}
+	only, err := crypto.NewKeyring(cfg.MasterKey)
+	if err != nil {
+		return err
+	}
+	if _, err := rotate.Verify(ctx, pool, only); err != nil {
+		return fmt.Errorf("after rotation a secret does not open with the new key alone: %w", err)
+	}
+	for what, n := range res.Checked {
+		log.Info("secrets re-encrypted", "kind", what, "checked", n, "rewrapped", res.Rewrapped[what])
+	}
+	log.Info("master key rotated; remove PGDOCK_MASTER_KEY_PREVIOUS and restart", "key_id", keyring.PrimaryID().String(),
+		"sign_in_challenges_cleared", res.Cleared)
+	return nil
 }

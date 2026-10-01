@@ -230,12 +230,14 @@ func (s *Service) Act(ctx context.Context, p store.Project, action string) (agen
 		if err == nil {
 			err = q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "stopped"})
 		}
-	case ActionStart, ActionRestart:
-		if action == ActionRestart {
-			if _, err = agent.StopInstance(ctx, id); err != nil {
-				return res, err
-			}
+	case ActionRestart:
+		// A fresh container, so a rebuilt image (a Postgres minor
+		// release) takes effect.
+		res, err = s.Recreate(ctx, inst)
+		if err == nil {
+			err = q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "running"})
 		}
+	case ActionStart:
 		res, err = agent.StartInstance(ctx, id)
 		if err == nil {
 			err = q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "running"})

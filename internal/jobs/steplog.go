@@ -42,6 +42,9 @@ func (l *StepLogger) Error(ctx context.Context, step, format string, args ...any
 }
 
 func (l *StepLogger) write(ctx context.Context, level, step, msg string) error {
+	if l == nil {
+		return nil // a step run outside an operation (e.g. the isolation check's probes)
+	}
 	entry, err := json.Marshal(LogEntry{TS: time.Now().UTC(), Step: step, Level: level, Msg: msg})
 	if err != nil {
 		return err
