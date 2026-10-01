@@ -142,12 +142,18 @@ test-e2e: e2e-images
 	PGDOCK_E2E_DB_ADDR=127.0.0.1 \
 	PGDOCK_E2E_DB_CA=$(CURDIR)/tmp/e2e-pebble-root.pem \
 	PGDOCK_E2E_EXPECT_ISSUER=Pebble \
-	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server caddy pebble; exit 1; }
+	PGDOCK_E2E_S3_ENDPOINT=http://fakes3:9000 \
+	PGDOCK_E2E_S3_BUCKET=pgdock-e2e \
+	PGDOCK_E2E_SUPABASE_SEED_URL=postgres://postgres:supabase-source@127.0.0.1:15450/postgres \
+	PGDOCK_E2E_SUPABASE_URL=postgres://postgres:supabase-source@src-supabase:5432/postgres?sslmode=disable \
+	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server pgdock-agent caddy pebble; exit 1; }
 	$(E2E_COMPOSE) down -v --remove-orphans
 
 e2e-images:
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock:local .
+	docker build $(DOCKER_BUILD_FLAGS) --target agent -t pgdock-agent:local .
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-pebble:local -f test/e2e/bundle/Dockerfile.pebble test/e2e/bundle
+	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-fakes3:local -f test/e2e/bundle/Dockerfile.fakes3 .
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).

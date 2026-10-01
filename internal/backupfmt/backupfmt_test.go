@@ -126,3 +126,19 @@ func TestObjectsDiffer(t *testing.T) {
 		t.Fatal("identical plaintext produced identical objects")
 	}
 }
+
+func TestKeyText(t *testing.T) {
+	k := key(t)
+	file := "# PGDock backup encryption key (fingerprint x).\n# Store it offline.\n" + EncodeKey(k) + "\n"
+	for _, in := range []string{EncodeKey(k), "  " + EncodeKey(k) + "\n", file} {
+		got, err := DecodeKey(in)
+		if err != nil || !bytes.Equal(got, k) {
+			t.Fatalf("DecodeKey(%q): %v", in, err)
+		}
+	}
+	for _, bad := range []string{"", KeyPrefix + "AAAA", "not a key"} {
+		if _, err := DecodeKey(bad); err == nil {
+			t.Fatalf("DecodeKey(%q) accepted", bad)
+		}
+	}
+}

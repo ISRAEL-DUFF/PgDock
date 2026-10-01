@@ -4,12 +4,13 @@ import QRCode from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type DnsCheck, type SetupEnrollment } from "../api/client";
 import { AuthShell } from "../components/Layout";
+import { BackupKeyPanel, NodesPanel, StorageForm } from "../components/BackupSetup";
 import { Alert, Button, CopyField, Field, Input } from "../components/ui";
 import { sessionQuery, setSession } from "../lib/session";
 
-type Step = "account" | "totp" | "host" | "done";
+type Step = "account" | "totp" | "host" | "storage" | "key" | "node" | "done";
 
-/** First-run wizard (spec §8.2; storage and backups arrive in M3). */
+/** First-run wizard (spec §8.2). */
 export function SetupPage() {
   const { data: session } = useQuery(sessionQuery);
   const [step, setStep] = useState<Step>("account");
@@ -25,6 +26,9 @@ export function SetupPage() {
     { id: "account", label: "Owner account" },
     { id: "totp", label: "Two-factor" },
     { id: "host", label: "Database hostname" },
+    { id: "storage", label: "Backup storage" },
+    { id: "key", label: "Backup key" },
+    { id: "node", label: "Local node" },
     { id: "done", label: "Done" },
   ];
   const current = steps.findIndex((s) => s.id === step);
@@ -48,14 +52,34 @@ export function SetupPage() {
         />
       )}
       {step === "totp" && enrollment && <TotpStep enrollment={enrollment} onDone={() => setStep("host")} />}
-      {step === "host" && <HostStep onDone={() => setStep("done")} />}
+      {step === "host" && <HostStep onDone={() => setStep("storage")} />}
+      {step === "storage" && (
+        <div className="flex flex-col gap-4">
+          <h1 className="text-lg font-semibold">Backup storage</h1>
+          <p className="text-sm text-muted">
+            Nightly backups go to an S3-compatible bucket. PGDock writes, reads, and deletes a test object before saving.
+          </p>
+          <StorageForm submitLabel="Test, save, and continue" onSaved={() => setStep("key")} />
+          <Button variant="ghost" className="self-start px-0 text-xs" onClick={() => setStep("key")}>
+            Skip for now (no backups until storage is set)
+          </Button>
+        </div>
+      )}
+      {step === "key" && (
+        <div className="flex flex-col gap-4">
+          <h1 className="text-lg font-semibold">Backup encryption key</h1>
+          <BackupKeyPanel onConfirmed={() => setStep("node")} />
+        </div>
+      )}
+      {step === "node" && <NodeStep onDone={() => setStep("done")} />}
       {step === "done" && (
         <div className="flex flex-col gap-4">
           <h1 className="text-lg font-semibold">PGDock is ready</h1>
-          <p className="text-sm text-muted">Backups and S3 storage are configured in a later release; for now, create your first database.</p>
+          <p className="text-sm text-muted">Projects are backed up every night. Create your first database, or import one you already have.</p>
           <Button variant="primary" onClick={() => navigate({ to: "/projects/new" })}>
             Create your first project
           </Button>
+          <Button onClick={() => navigate({ to: "/projects/import" })}>Import an existing database</Button>
         </div>
       )}
     </AuthShell>
@@ -232,5 +256,30 @@ export function HostStep({ onDone, submitLabel = "Save and continue" }: { onDone
         {submitLabel}
       </Button>
     </form>
+  );
+}
+
+/** The bundled agent registers the local node by itself (spec §8.2 step 5). */
+function NodeStep({ onDone }: { onDone: () => void }) {
+  const q = useQuery({ queryKey: ["nodes"], queryFn: api.nodes, refetchInterval: 2000 });
+  const healthy = q.data?.items.some((n) => n.agent.registered && n.agent.reachable);
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-lg font-semibold">Local node</h1>
+      <p className="text-sm text-muted">
+        The agent next to the shared cluster runs backups, restores, and imports. The install bundle's agent registers itself; this waits for it.
+      </p>
+      <NodesPanel />
+      {healthy ? (
+        <Alert tone="ok" title="Agent connected">
+          Mutual TLS with a certificate from PGDock's own CA.
+        </Alert>
+      ) : (
+        <Alert tone="accent">Waiting for the agent… (check <code className="font-mono">docker compose logs pgdock-agent</code>)</Alert>
+      )}
+      <Button variant={healthy ? "primary" : "ghost"} className={healthy ? undefined : "self-start px-0 text-xs"} onClick={onDone}>
+        {healthy ? "Continue" : "Continue without an agent for now"}
+      </Button>
+    </div>
   );
 }

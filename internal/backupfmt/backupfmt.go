@@ -22,10 +22,12 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 const (
@@ -320,4 +322,27 @@ func (z *Reader) Read(p []byte) (int, error) {
 	n := copy(p, z.plain)
 	z.plain = z.plain[n:]
 	return n, nil
+}
+
+// KeyPrefix starts a backup key in its text form.
+const KeyPrefix = "pgdock-backup-key-v1:"
+
+// EncodeKey renders a backup key as text, for download.
+func EncodeKey(k []byte) string { return KeyPrefix + base64.StdEncoding.EncodeToString(k) }
+
+// DecodeKey parses a backup key in its text form. It also accepts a whole
+// downloaded key file (comment lines and all).
+func DecodeKey(s string) ([]byte, error) {
+	for _, line := range strings.Split(s, "\n") {
+		if l := strings.TrimSpace(line); strings.HasPrefix(l, KeyPrefix) {
+			s = l
+			break
+		}
+	}
+	s = strings.TrimPrefix(strings.TrimSpace(s), KeyPrefix)
+	k, err := base64.StdEncoding.DecodeString(s)
+	if err != nil || len(k) != keySize {
+		return nil, errors.New("not a PGDock backup key")
+	}
+	return k, nil
 }

@@ -1,4 +1,5 @@
-# pgdock-server and pgdock-agent, with the web UI embedded.
+# pgdock-server (with the web UI embedded) and, as the agent target,
+# pgdock-agent.
 #   docker build -t pgdock .
 #
 # Behind a TLS-intercepting proxy, pass its CA as a build secret:
@@ -34,6 +35,18 @@ RUN CGO_ENABLED=0 go build -trimpath \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/usr/local/bin/pgdock-agent ./cmd/agent \
  && /out/usr/local/bin/pgdock-server -require-ui \
  && mkdir -p /out/var/lib/pgdock/pooler
+
+# pgdock-agent runs next to Postgres and needs its client tools (spec §3.2):
+#   docker build --target agent -t pgdock-agent .
+FROM ${REGISTRY}postgres:18 AS agent
+COPY --from=build /out/usr/local/bin/pgdock-agent /usr/local/bin/pgdock-agent
+RUN install -d -o postgres -g postgres -m 700 /var/lib/pgdock-agent
+USER postgres
+ENV PGDOCK_AGENT_STATE_DIR=/var/lib/pgdock-agent \
+    PGDOCK_AGENT_DISK_PATH=/var/lib/pgdock-agent
+EXPOSE 7070
+ENTRYPOINT ["/usr/local/bin/pgdock-agent"]
+CMD ["run"]
 
 FROM ${RUNTIME_IMAGE}
 # uid 70 matches the PgBouncer image, so the poolers can read the 0640

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/israel-duff/pgdock/internal/backupfmt"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -139,21 +139,10 @@ func fingerprint(k []byte) string {
 }
 
 // EncodeKey renders a backup key for download.
-func EncodeKey(k []byte) string {
-	return "pgdock-backup-key-v1:" + base64.StdEncoding.EncodeToString(k)
-}
+func EncodeKey(k []byte) string { return backupfmt.EncodeKey(k) }
 
 // DecodeKey parses EncodeKey's output (or bare base64).
-func DecodeKey(s string) ([]byte, error) {
-	if len(s) > 21 && s[:21] == "pgdock-backup-key-v1:" {
-		s = s[21:]
-	}
-	k, err := base64.StdEncoding.DecodeString(s)
-	if err != nil || len(k) != 32 {
-		return nil, errors.New("not a PGDock backup key")
-	}
-	return k, nil
-}
+func DecodeKey(s string) ([]byte, error) { return backupfmt.DecodeKey(s) }
 
 func (s *Service) loadKey(ctx context.Context, q *store.Queries) (*storedKey, error) {
 	raw, err := q.GetSetting(ctx, keyBackupKey)

@@ -193,13 +193,16 @@ function RotateCard({ p }: { p: Project }) {
 
 function DangerCard({ p }: { p: Project }) {
   const [open, setOpen] = useState(false);
+  const [finalBackup, setFinalBackup] = useState(true);
   const toast = useOperationToast();
   const navigate = useNavigate();
   const qc = useQueryClient();
   return (
     <Card title="Danger zone" className="border-danger/40">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">Deleting drops the database and its role and removes the connection strings. This cannot be undone.</p>
+        <p className="text-sm text-muted">
+          Deleting drops the database and its role and removes the connection strings. A final backup is kept for 30 days.
+        </p>
         <Button variant="danger" onClick={() => setOpen(true)}>
           Delete project
         </Button>
@@ -212,12 +215,17 @@ function DangerCard({ p }: { p: Project }) {
         description="Confirm with the project name, your password, and an authenticator code."
         action="Delete project"
         run={async () => {
-          const op = await api.deleteProject(p.id, p.name);
+          const op = await api.deleteProject(p.id, p.name, !finalBackup);
           toast(op.id, `Delete · ${p.name}`);
           await qc.invalidateQueries({ queryKey: ["projects"] });
           await navigate({ to: "/projects" });
         }}
-      />
+      >
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={finalBackup} onChange={(e) => setFinalBackup(e.target.checked)} />
+          Take a final backup first (kept 30 days)
+        </label>
+      </ConfirmDestroy>
     </Card>
   );
 }

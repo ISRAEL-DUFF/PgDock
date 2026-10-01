@@ -5,6 +5,7 @@
 //
 //	pgdock-agent register --server https://pgdock.example.com --token <one-time>
 //	pgdock-agent run
+//	pgdock-agent decrypt --key-file pgdock-backup-key.txt < x.dump.enc > x.dump
 //
 // Environment variables mirror the flags (PGDOCK_AGENT_*).
 package main
@@ -15,6 +16,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -25,6 +27,7 @@ import (
 	"time"
 
 	"github.com/israel-duff/pgdock/internal/agentsvc"
+	"github.com/israel-duff/pgdock/internal/backupfmt"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/version"
 )
@@ -67,13 +70,15 @@ func flags(name string, args []string) (*opts, error) {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: pgdock-agent register|run|version [flags]")
+		return errors.New("usage: pgdock-agent register|run|decrypt|version [flags]")
 	}
 	switch args[0] {
 	case "version", "-version", "--version":
 		v := version.Get()
 		fmt.Printf("pgdock-agent %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
 		return nil
+	case "decrypt":
+		return decrypt(args[1:])
 	case "register":
 		o, err := flags("register", args[1:])
 		if err != nil {
@@ -177,4 +182,60 @@ func serve(o *opts) error {
 	svc := agentsvc.New(agentsvc.Config{Version: version.Get().Version, NodeID: st.NodeID, PGBinDir: o.pgBin, DiskPath: o.diskPath}, log)
 	log.Info("pgdock-agent listening", "addr", ln.Addr().String(), "node_id", st.NodeID, "version", version.Get().Version)
 	return svc.Serve(ctx, ln, agentsvc.TLSConfig(st.Cert, st.CA))
+}
+
+// decrypt turns a backup object back into a pg_dump archive with the
+// downloaded backup key, without pgdock-server: the disaster-recovery path
+// for metadata self-backups (docs/disaster-recovery.md).
+func decrypt(args []string) error {
+	fs := flag.NewFlagSet("decrypt", flag.ContinueOnError)
+	keyFile := fs.String("key-file", "", "the backup key file downloaded from PGDock")
+	in := fs.String("in", "-", "encrypted object (- for stdin)")
+	out := fs.String("out", "-", "pg_dump archive to write (- for stdout)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *keyFile == "" {
+		return errors.New("decrypt: --key-file is required")
+	}
+	raw, err := os.ReadFile(*keyFile)
+	if err != nil {
+		return err
+	}
+	key, err := backupfmt.DecodeKey(string(raw))
+	if err != nil {
+		return fmt.Errorf("%s: %w", *keyFile, err)
+	}
+	r, w := io.Reader(os.Stdin), io.Writer(os.Stdout)
+	if *in != "-" {
+		f, err := os.Open(*in)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		r = f
+	}
+	var outFile *os.File
+	if *out != "-" {
+		if outFile, err = os.OpenFile(*out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600); err != nil {
+			return err
+		}
+		w = outFile
+	}
+	dec, err := backupfmt.OpenWithBackupKey(r, key)
+	if err == nil {
+		_, err = io.Copy(w, dec)
+	}
+	if outFile != nil {
+		if cerr := outFile.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			_ = os.Remove(*out)
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("decrypt: %w", err)
+	}
+	return nil
 }

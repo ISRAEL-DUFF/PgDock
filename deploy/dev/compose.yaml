@@ -155,7 +155,7 @@ services:
     environment:
       POSTGRES_PASSWORD: supabase-source
     ports:
-      - "${PGDOCK_DEV_GATEWAY:-172.31.250.1}:${PGDOCK_TEST_SRC_SUPABASE_PORT:-5450}:5432"
+      - "${PGDOCK_DEV_GATEWAY:-172.31.251.1}:${PGDOCK_TEST_SRC_SUPABASE_PORT:-5450}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
       interval: 2s
@@ -168,7 +168,7 @@ services:
     environment:
       POSTGRES_PASSWORD: pg15-source
     ports:
-      - "${PGDOCK_DEV_GATEWAY:-172.31.250.1}:${PGDOCK_TEST_SRC_PG15_PORT:-5451}:5432"
+      - "${PGDOCK_DEV_GATEWAY:-172.31.251.1}:${PGDOCK_TEST_SRC_PG15_PORT:-5451}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
@@ -179,8 +179,8 @@ networks:
   default:
     ipam:
       config:
-        - subnet: ${PGDOCK_DEV_SUBNET:-172.31.250.0/24}
-          gateway: ${PGDOCK_DEV_GATEWAY:-172.31.250.1}
+        - subnet: ${PGDOCK_DEV_SUBNET:-172.31.251.0/24}
+          gateway: ${PGDOCK_DEV_GATEWAY:-172.31.251.1}
 
 volumes:
   metadata-data:

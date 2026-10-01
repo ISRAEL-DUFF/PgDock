@@ -16,6 +16,17 @@ export type GeneralSettings = S["GeneralSettings"];
 export type DnsCheck = S["DnsCheck"];
 export type SetupEnrollment = S["SetupEnrollment"];
 export type LoginChallenge = S["LoginChallenge"];
+export type Backup = S["Backup"];
+export type BackupOverview = S["BackupOverview"];
+export type BackupKeyInfo = S["BackupKeyInfo"];
+export type BackupKeyExport = S["BackupKeyExport"];
+export type StorageRequest = S["StorageRequest"];
+export type StorageSettings = S["StorageSettings"];
+export type StorageTestResult = S["StorageTestResult"];
+export type RestoreResponse = S["RestoreResponse"];
+export type ImportPreflight = S["ImportPreflight"];
+export type Node = S["Node"];
+export type RegistrationToken = S["RegistrationToken"];
 
 /** An error response from the API, with the server's error code. */
 export class ApiRequestError extends Error {
@@ -98,8 +109,28 @@ export const api = {
   updateProject: (id: string, b: S["UpdateProjectRequest"]) =>
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
   rotatePassword: (id: string) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/rotate-password`),
-  deleteProject: (id: string, confirm: string) =>
-    request<Operation>("DELETE", `/api/v1/projects/${id}${qs({ confirm })}`),
+  deleteProject: (id: string, confirm: string, skipFinalBackup = false) =>
+    request<Operation>("DELETE", `/api/v1/projects/${id}${qs({ confirm, skip_final_backup: skipFinalBackup ? "true" : undefined })}`),
+
+  backups: (p: { project_id?: string; kind?: string; limit?: number } = {}) => getJSON<S["BackupList"]>(`/api/v1/backups${qs(p)}`),
+  backupOverview: () => getJSON<BackupOverview>("/api/v1/backups/overview"),
+  backupNow: (projectId: string) => request<Operation>("POST", `/api/v1/projects/${projectId}/backups`),
+  restore: (backupId: string, b: S["RestoreRequest"]) => request<RestoreResponse>("POST", `/api/v1/backups/${backupId}/restore`, b),
+  restoreTest: (projectId?: string) => request<Operation>("POST", `/api/v1/restore-tests${qs({ project_id: projectId })}`),
+
+  storage: () => getJSON<StorageSettings>("/api/v1/settings/storage"),
+  saveStorage: (b: StorageRequest) => request<StorageTestResult>("PUT", "/api/v1/settings/storage", b),
+  testStorage: (b: StorageRequest) => request<StorageTestResult>("POST", "/api/v1/settings/storage/test", b),
+  backupKey: () => getJSON<BackupKeyInfo>("/api/v1/settings/backup-key"),
+  generateBackupKey: () => request<BackupKeyExport>("POST", "/api/v1/settings/backup-key"),
+  exportBackupKey: () => request<BackupKeyExport>("POST", "/api/v1/settings/backup-key/export"),
+  confirmBackupKey: (key: string) => request<BackupKeyInfo>("POST", "/api/v1/settings/backup-key/confirm", { key }),
+
+  importPreflight: (source_url: string) => request<ImportPreflight>("POST", "/api/v1/imports/preflight", { source_url }),
+  createImport: (b: S["ImportRequest"]) => request<ProjectCredentials>("POST", "/api/v1/imports", b),
+
+  nodes: () => getJSON<S["NodeList"]>("/api/v1/nodes"),
+  nodeToken: (id: string) => request<RegistrationToken>("POST", `/api/v1/nodes/${id}/registration-token`),
 
   operations: (p: { project_id?: string; status?: string; kind?: string; limit?: number } = {}) =>
     getJSON<S["OperationList"]>(`/api/v1/operations${qs(p)}`),

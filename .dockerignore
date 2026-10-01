@@ -5,3 +5,4 @@ web/node_modules
 web/dist/assets
 web/dist/index.html
 **/.DS_Store
+test/e2e/node_modules
