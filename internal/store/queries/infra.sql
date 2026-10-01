@@ -73,6 +73,20 @@ WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.agent_cert_
 ORDER BY (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.kind = 'dedicated' AND i.deleted_at IS NULL), n.created_at
 LIMIT 1;
 
+-- ListOrphanedInstances finds instances nothing uses and nothing will finish
+-- setting up: dedicated instances no live project points at, and shared
+-- clusters whose failed creation could not be rolled back (status 'error',
+-- see rollbackSharedCluster). Both are what a rollback leaves when it could
+-- not reach the node. The grace period keeps it clear of instances a create
+-- or restore is still setting up.
+-- name: ListOrphanedInstances :many
+SELECT i.* FROM instances i
+WHERE i.deleted_at IS NULL
+  AND i.created_at < now() - interval '5 minutes'
+  AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)
+  AND (i.kind = 'dedicated' OR (i.kind = 'shared' AND i.status = 'error'))
+ORDER BY i.created_at;
+
 -- name: ListInstanceSummaries :many
 SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error,
        n.id AS node_id, n.name AS node_name

@@ -261,7 +261,13 @@ func (s *Service) rollbackCreate(ctx context.Context, op store.Operation, log *j
 	if err := store.New(s.db).SoftDeleteProject(ctx, store.SoftDeleteProjectParams{ID: p.ID, Status: StatusError}); err != nil {
 		return err
 	}
-	return s.teardown(ctx, p, log)
+	err = s.teardown(ctx, p, log)
+	if err != nil && p.Tier == TierDedicated {
+		// The instance record outlives the project; the cleanup loop removes
+		// it once the node answers.
+		_ = log.Warn(ctx, "rollback", "the instance on its node will be removed automatically once the node is reachable")
+	}
+	return err
 }
 
 // teardown removes a project's pooler route and drops its database and role.

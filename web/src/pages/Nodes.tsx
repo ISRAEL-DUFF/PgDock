@@ -128,7 +128,7 @@ function AddNode({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <form className="flex flex-col gap-3" onSubmit={submit}>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Node name" hint="Lowercase, e.g. node-b">
               {(id) => <Input id={id} required value={name} onChange={(e) => setName(e.target.value)} className="font-mono" />}
             </Field>
@@ -205,7 +205,7 @@ export function NodeDetailPage() {
           <Alert>{err}</Alert>
         </div>
       )}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Health">
           <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt className="text-muted">Agent</dt>
@@ -247,9 +247,10 @@ export function NodeDetailPage() {
                 <Field label="Run a shared cluster here (memory, MB)">
                   {(fid) => <Input id={fid} type="number" min={512} value={mem} onChange={(e) => setMem(e.target.value)} className="w-32" />}
                 </Field>
-                <Button onClick={addShared} busy={busy}>
+                <Button onClick={addShared} busy={busy} disabled={n.status !== "healthy"}>
                   Create shared cluster
                 </Button>
+                {n.status !== "healthy" && <p className="w-full text-xs text-muted">This node is {n.status}; a cluster can be created once its agent answers again.</p>}
               </div>
             )}
             <div className="flex gap-2">

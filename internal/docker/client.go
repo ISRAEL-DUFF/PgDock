@@ -16,11 +16,15 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
-// APIVersion is the Engine API version requested (Docker 24+).
+// APIVersion is the Engine API version the agent is written against
+// (Docker 24+). A daemon that no longer accepts it (Docker 29 raised its
+// minimum to 1.44) is spoken to at the oldest version it does accept.
 const APIVersion = "v1.43"
 
 // ErrNotFound is returned for a missing container, volume, or image.
@@ -29,7 +33,10 @@ var ErrNotFound = errors.New("not found")
 // Client talks to one Docker daemon.
 type Client struct {
 	http *http.Client
-	base string
+	host string // scheme and authority, without an API version
+
+	mu      sync.Mutex
+	version string // negotiated on first use
 }
 
 // New returns a client for host: "unix:///var/run/docker.sock" (the
@@ -43,7 +50,7 @@ func New(host string) (*Client, error) {
 		return nil, fmt.Errorf("docker host %q: %w", host, err)
 	}
 	tr := &http.Transport{}
-	base := "http://docker/" + APIVersion
+	host = "http://docker"
 	switch u.Scheme {
 	case "unix":
 		path := u.Path
@@ -52,11 +59,78 @@ func New(host string) (*Client, error) {
 			return d.DialContext(ctx, "unix", path)
 		}
 	case "tcp":
-		base = "http://" + u.Host + "/" + APIVersion
+		host = "http://" + u.Host
 	default:
 		return nil, fmt.Errorf("docker host %q: want unix:// or tcp://", host)
 	}
-	return &Client{http: &http.Client{Transport: tr}, base: base}, nil
+	return &Client{http: &http.Client{Transport: tr}, host: host}, nil
+}
+
+// pickAPIVersion returns the version to request from a daemon that accepts
+// lo through hi: APIVersion when it is in range, else the daemon's minimum.
+func pickAPIVersion(lo, hi string) (string, error) {
+	want := strings.TrimPrefix(APIVersion, "v")
+	if lo == "" || compareVersions(want, lo) >= 0 {
+		return APIVersion, nil
+	}
+	if hi != "" && compareVersions(lo, hi) > 0 {
+		return "", fmt.Errorf("docker daemon reports API versions %s to %s", lo, hi)
+	}
+	return "v" + lo, nil
+}
+
+// compareVersions compares dotted numeric versions such as "1.43" and "1.9".
+func compareVersions(a, b string) int {
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(as) || i < len(bs); i++ {
+		var x, y int
+		if i < len(as) {
+			x, _ = strconv.Atoi(as[i])
+		}
+		if i < len(bs) {
+			y, _ = strconv.Atoi(bs[i])
+		}
+		if x != y {
+			if x < y {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+// apiBase returns the versioned base URL, asking the daemon which versions
+// it accepts the first time. If it can't be asked, APIVersion is used and the
+// next call tries again.
+func (c *Client) apiBase(ctx context.Context) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.version != "" {
+		return c.host + "/" + c.version
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.host+"/version", nil)
+	if err != nil {
+		return c.host + "/" + APIVersion
+	}
+	res, err := c.http.Do(req)
+	if err != nil {
+		return c.host + "/" + APIVersion
+	}
+	defer res.Body.Close()
+	var v struct {
+		APIVersion    string `json:"ApiVersion"`
+		MinAPIVersion string `json:"MinAPIVersion"`
+	}
+	if res.StatusCode != http.StatusOK || json.NewDecoder(res.Body).Decode(&v) != nil {
+		return c.host + "/" + APIVersion
+	}
+	picked, err := pickAPIVersion(v.MinAPIVersion, v.APIVersion)
+	if err != nil {
+		picked = APIVersion
+	}
+	c.version = picked
+	return c.host + "/" + c.version
 }
 
 // APIError is an error response from the daemon.
@@ -91,7 +165,7 @@ func (c *Client) raw(ctx context.Context, method, path string, query url.Values,
 		}
 		body = bytes.NewReader(b)
 	}
-	u := c.base + path
+	u := c.apiBase(ctx) + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
 	}

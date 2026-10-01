@@ -165,9 +165,10 @@ func run() error {
 		for name, k := range backups.Dedicated.Kinds() {
 			kinds[name] = k
 		}
-		bg.Add(2)
+		bg.Add(3)
 		go func() { defer bg.Done(); nodeSvc.Run(bgCtx, 30*time.Second) }()
 		go func() { defer bg.Done(); backups.Run(bgCtx) }()
+		go func() { defer bg.Done(); backups.Dedicated.RunReaper(bgCtx, time.Minute) }()
 	}
 
 	var consoleSvc *console.Service

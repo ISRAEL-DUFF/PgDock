@@ -265,6 +265,61 @@ func (q *Queries) ListNodeInstances(ctx context.Context, nodeID uuid.UUID) ([]Li
 	return items, nil
 }
 
+const listOrphanedInstances = `-- name: ListOrphanedInstances :many
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at FROM instances i
+WHERE i.deleted_at IS NULL
+  AND i.created_at < now() - interval '5 minutes'
+  AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)
+  AND (i.kind = 'dedicated' OR (i.kind = 'shared' AND i.status = 'error'))
+ORDER BY i.created_at
+`
+
+// ListOrphanedInstances finds instances nothing uses and nothing will finish
+// setting up: dedicated instances no live project points at, and shared
+// clusters whose failed creation could not be rolled back (status 'error',
+// see rollbackSharedCluster). Both are what a rollback leaves when it could
+// not reach the node. The grace period keeps it clear of instances a create
+// or restore is still setting up.
+func (q *Queries) ListOrphanedInstances(ctx context.Context) ([]Instance, error) {
+	rows, err := q.db.Query(ctx, listOrphanedInstances)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Instance
+	for rows.Next() {
+		var i Instance
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.Kind,
+			&i.PgVersion,
+			&i.Port,
+			&i.ContainerID,
+			&i.CpuLimit,
+			&i.MemLimitMb,
+			&i.VolumeGb,
+			&i.Status,
+			&i.CreatedAt,
+			&i.AdminHost,
+			&i.AdminPort,
+			&i.Host,
+			&i.AdminSecret,
+			&i.Profile,
+			&i.WalgPrefix,
+			&i.Error,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markInstanceDeleted = `-- name: MarkInstanceDeleted :exec
 UPDATE instances SET status = 'deleted', deleted_at = now() WHERE id = $1
 `

@@ -167,6 +167,12 @@ func (s *Service) Validate(ctx context.Context, p *provision.CreateParams) (prov
 	if n.AgentCertFp == nil {
 		return prof, fmt.Errorf("%w: node %s has no agent", provision.ErrConflict, n.Name)
 	}
+	// Placement by load already skips unhealthy nodes (PickDedicatedNode); a
+	// node chosen by hand gets the same answer now instead of a create that
+	// retries against a dead agent and fails.
+	if n.Status != "healthy" {
+		return prof, fmt.Errorf("%w: node %s is %s; its agent has not answered recently", provision.ErrConflict, n.Name, n.Status)
+	}
 	return prof, nil
 }
 
@@ -605,31 +611,99 @@ func (s *Service) Destroy(ctx context.Context, p store.Project, log *jobs.StepLo
 
 // destroyInstance removes an instance's container, volume, and archive.
 func (s *Service) destroyInstance(ctx context.Context, inst store.Instance, log *jobs.StepLogger) error {
-	q := store.New(s.db)
 	if inst.Status == "deleted" {
 		return nil
 	}
-	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
+	node, archived, err := s.removeInstance(ctx, inst)
 	if err != nil {
 		return err
 	}
+	if archived.err != nil {
+		_ = log.Warn(ctx, "drop", "could not delete the WAL-G archive: %v", archived.err)
+	} else if archived.attempted {
+		_ = log.Info(ctx, "drop", "deleted the WAL-G archive (%d objects)", archived.objects)
+	}
+	return log.Info(ctx, "drop", "removed container and volume on node %s", node)
+}
+
+// archiveResult reports what removing an instance's WAL-G archive did.
+type archiveResult struct {
+	attempted bool
+	objects   int
+	err       error
+}
+
+// removeInstance destroys an instance's container and volume on its node,
+// deletes its WAL-G archive, and marks it deleted. Destroying what the node
+// no longer has succeeds, so it is safe to repeat.
+func (s *Service) removeInstance(ctx context.Context, inst store.Instance) (node string, archived archiveResult, err error) {
+	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
+	if err != nil {
+		return "", archived, err
+	}
 	if err := agent.DestroyInstance(ctx, inst.ID.String()); err != nil {
-		return err
+		return "", archived, err
 	}
 	if inst.WalgPrefix != nil {
 		if _, target, err := s.secrets.StorageTarget(ctx); err == nil {
 			if c, err := storage.New(target); err == nil {
-				n, err := c.DeletePrefix(ctx, *inst.WalgPrefix)
-				if err != nil {
-					_ = log.Warn(ctx, "drop", "could not delete the WAL-G archive: %v", err)
-				} else {
-					_ = log.Info(ctx, "drop", "deleted the WAL-G archive (%d objects)", n)
-				}
+				archived.attempted = true
+				archived.objects, archived.err = c.DeletePrefix(ctx, *inst.WalgPrefix)
 			}
 		}
 	}
-	if err := q.MarkInstanceDeleted(ctx, inst.ID); err != nil {
-		return err
+	if err := store.New(s.db).MarkInstanceDeleted(ctx, inst.ID); err != nil {
+		return "", archived, err
 	}
-	return log.Info(ctx, "drop", "removed container and volume on node %s", agent.Node.Name)
+	return agent.Node.Name, archived, nil
+}
+
+// ReapOrphans removes instances left by a failed create whose rollback could
+// not reach the node: dedicated instances no live project uses, and shared
+// clusters marked "error" (spec §6.1: a failed create leaves nothing
+// behind). An instance whose node is
+// not healthy is left for a later pass. It returns how many were removed.
+func (s *Service) ReapOrphans(ctx context.Context) (int, error) {
+	q := store.New(s.db)
+	orphans, err := q.ListOrphanedInstances(ctx)
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	for _, inst := range orphans {
+		n, err := q.GetNode(ctx, inst.NodeID)
+		if err != nil {
+			return removed, err
+		}
+		if n.Status != "healthy" {
+			continue
+		}
+		node, archived, err := s.removeInstance(ctx, inst)
+		if err != nil {
+			s.log.Warn("could not remove orphaned instance", "instance", inst.ID, "node", n.Name, "err", err)
+			continue
+		}
+		if archived.err != nil {
+			s.log.Warn("could not delete an orphaned instance's WAL-G archive", "instance", inst.ID, "err", archived.err)
+		}
+		s.log.Info("removed an instance left by a failed create", "instance", inst.ID, "node", node)
+		removed++
+	}
+	return removed, nil
+}
+
+// RunReaper calls ReapOrphans every interval until ctx ends.
+func (s *Service) RunReaper(ctx context.Context, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		if _, err := s.ReapOrphans(ctx); err != nil && ctx.Err() == nil {
+			s.log.Warn("orphaned instance cleanup failed", "err", err)
+		}
+	}
 }

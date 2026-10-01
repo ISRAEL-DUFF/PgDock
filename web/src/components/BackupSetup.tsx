@@ -55,7 +55,7 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
 
   return (
     <form className="flex flex-col gap-3" onSubmit={submit}>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Endpoint" hint="AWS, Backblaze B2, Cloudflare R2, MinIO, …">
           {(id) => (
             <Input id={id} required value={v.endpoint} onChange={(e) => set({ endpoint: e.target.value })} className="font-mono" placeholder="https://s3.eu-central-1.amazonaws.com" />
