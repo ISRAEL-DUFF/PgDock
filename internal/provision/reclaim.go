@@ -3,6 +3,7 @@ package provision
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ func (s *Service) runReclaimSpace(ctx context.Context, op store.Operation, log *
 	var before int64
 	err = conn.QueryRow(ctx, `SELECT pg_total_relation_size(c.oid) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 		WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind IN ('r', 'm')`, params.Schema, params.Table).Scan(&before)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return jobs.Permanent(fmt.Errorf("%s is not a table in this project", rel))
 	}
 	if err != nil {

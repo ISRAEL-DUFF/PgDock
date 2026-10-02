@@ -47,13 +47,13 @@ func (s *Service) CheckCreateProject(ctx context.Context, orgID uuid.UUID) error
 	if err := s.orgActive(o); err != nil {
 		return err
 	}
-	if max, ok := l.Get(store.LimitProjects); ok {
+	if limit, ok := l.Get(store.LimitProjects); ok {
 		n, err := store.New(s.db).CountOrgProjects(ctx, orgID)
 		if err != nil {
 			return err
 		}
-		if int64(n) >= max {
-			return &QuotaError{Limit: store.LimitProjects, Used: int64(n), Max: max}
+		if int64(n) >= limit {
+			return &QuotaError{Limit: store.LimitProjects, Used: int64(n), Max: limit}
 		}
 	}
 	return nil
@@ -69,13 +69,13 @@ func (s *Service) CheckOperation(ctx context.Context, orgID uuid.UUID) error {
 	if err := s.orgActive(o); err != nil {
 		return err
 	}
-	if max, ok := l.Get(store.LimitOperationsInFlight); ok {
+	if limit, ok := l.Get(store.LimitOperationsInFlight); ok {
 		n, err := store.New(s.db).CountOrgOperationsInFlight(ctx, store.CountOrgOperationsInFlightParams{OrgID: orgID, Kinds: operationKinds})
 		if err != nil {
 			return err
 		}
-		if int64(n) >= max {
-			return &QuotaError{Limit: store.LimitOperationsInFlight, Used: int64(n), Max: max}
+		if int64(n) >= limit {
+			return &QuotaError{Limit: store.LimitOperationsInFlight, Used: int64(n), Max: limit}
 		}
 	}
 	return nil
@@ -88,8 +88,8 @@ func (s *Service) MaxConnections(ctx context.Context, orgID uuid.UUID) (int, err
 	if err != nil {
 		return 0, err
 	}
-	if max, ok := l.Get(store.LimitProjectConnections); ok {
-		return int(max), nil
+	if limit, ok := l.Get(store.LimitProjectConnections); ok {
+		return int(limit), nil
 	}
 	return 0, nil
 }
@@ -102,11 +102,11 @@ func (s *Service) AcquireConsole(ctx context.Context, orgID uuid.UUID) (release 
 	if err != nil {
 		return nil, err
 	}
-	max, limited := l.Get(store.LimitConsoleQueries)
+	limit, limited := l.Get(store.LimitConsoleQueries)
 	s.consoleMu.Lock()
 	defer s.consoleMu.Unlock()
-	if limited && int64(s.console[orgID]) >= max {
-		return nil, &QuotaError{Limit: store.LimitConsoleQueries, Used: int64(s.console[orgID]), Max: max}
+	if limited && int64(s.console[orgID]) >= limit {
+		return nil, &QuotaError{Limit: store.LimitConsoleQueries, Used: int64(s.console[orgID]), Max: limit}
 	}
 	s.console[orgID]++
 	return func() {

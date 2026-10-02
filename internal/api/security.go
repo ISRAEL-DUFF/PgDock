@@ -408,13 +408,14 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			}
 			if status != 0 {
 				// The header lets tests tell the guard's refusals from handlers'.
-				if status == http.StatusNotFound {
+				switch {
+				case status == http.StatusNotFound:
 					ww.Header().Set("X-PGDock-Authz", "hidden")
 					writeError(ww, status, "not_found", "not found")
-				} else if acc.Frozen {
+				case acc.Frozen:
 					ww.Header().Set("X-PGDock-Authz", "denied")
 					writeError(ww, status, "org_suspended", "the organisation is suspended or being deleted; only viewing works")
-				} else {
+				default:
 					ww.Header().Set("X-PGDock-Authz", "denied")
 					writeError(ww, status, "forbidden", "you don't have permission to do this")
 				}

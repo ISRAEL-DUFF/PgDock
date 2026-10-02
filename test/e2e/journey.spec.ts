@@ -296,7 +296,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await app.query("CREATE TABLE posts (id serial PRIMARY KEY, title text NOT NULL)");
   await app.query("INSERT INTO posts (title) VALUES ($1)", ["Hello from the browser"]);
   const { rows } = await app.query("SELECT current_database() AS db, (SELECT count(*) FROM posts)::int AS n");
-  expect(rows[0].db).toMatch(/^my_blog_[a-z0-9]{4}$/);
+  expect(rows[0].db).toMatch(/^p_[a-z2-7]{10}$/);
   expect(rows[0].n).toBe(1);
   await app.end();
   if (await hasPsql()) {
@@ -554,7 +554,7 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("operation-log")).toContainText("base backup base_");
     const pooledURL = await revealedValue(page, "credential-pooled-url");
     expect(urlShape(pooledURL)).toBe(urlShape(sharedURL)); // same host, ports, sslmode
-    expect(new URL(pooledURL).pathname).toMatch(/^\/orders_pro_[a-z0-9]{4}$/);
+    expect(new URL(pooledURL).pathname).toMatch(/^\/p_[a-z2-7]{10}$/);
     await page.getByLabel("I've saved the password somewhere safe").check();
     await page.getByRole("button", { name: "Done" }).click();
 

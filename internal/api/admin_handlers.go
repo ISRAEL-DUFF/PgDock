@@ -93,13 +93,13 @@ func (s *Server) UpdateProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 	if s.tenancy != nil && p.Settings != nil && p.Settings.ConnectionLimit != nil {
 		// A shared project's connections are capped by the plan (V2 §10.3).
 		if cur, err := s.tenantProjectLive(r.Context()); err == nil && cur.Tier == provision.TierShared {
-			max, err := s.tenancy.MaxConnections(r.Context(), cur.OrgID)
+			connMax, err := s.tenancy.MaxConnections(r.Context(), cur.OrgID)
 			if err != nil {
 				s.internalError(w, "update project", err)
 				return
 			}
-			if max > 0 && *p.Settings.ConnectionLimit > max {
-				writeQuotaError(w, &tenancy.QuotaError{Limit: store.LimitProjectConnections, Used: int64(*p.Settings.ConnectionLimit), Max: int64(max)})
+			if connMax > 0 && *p.Settings.ConnectionLimit > connMax {
+				writeQuotaError(w, &tenancy.QuotaError{Limit: store.LimitProjectConnections, Used: int64(*p.Settings.ConnectionLimit), Max: int64(connMax)})
 				return
 			}
 		}

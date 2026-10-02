@@ -758,7 +758,7 @@ func TestOrgDeletionGracePeriod(t *testing.T) {
 	}
 	var del gen.OrgDeletion
 	if code := e.Do("DELETE", orgPath, map[string]any{"confirm": "Doomed team", "delete_projects": true}, &del); code != http.StatusAccepted ||
-		del.DeleteAfter.Sub(time.Now()) < 6*24*time.Hour {
+		time.Until(del.DeleteAfter) < 6*24*time.Hour {
 		t.Fatalf("delete: %d %+v", code, del)
 	}
 	if c, err := e.Connect(app.Connection.PooledUrl); err == nil {

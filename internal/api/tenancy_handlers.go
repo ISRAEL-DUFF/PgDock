@@ -51,10 +51,10 @@ func (s *Server) tenancyError(w http.ResponseWriter, what string, err error) {
 }
 
 func writeQuotaError(w http.ResponseWriter, qe *tenancy.QuotaError) {
-	max := qe.Max
+	limit := qe.Max
 	writeJSON(w, http.StatusConflict, gen.Error{
 		Code: "quota_exceeded", Message: fmt.Sprintf("your plan allows %d (%s); you are using %d", qe.Max, qe.Limit, qe.Used),
-		Quota: &gen.QuotaItem{Limit: qe.Limit, Used: float32(qe.Used), Max: &max},
+		Quota: &gen.QuotaItem{Limit: qe.Limit, Used: float32(qe.Used), Max: &limit},
 	})
 }
 

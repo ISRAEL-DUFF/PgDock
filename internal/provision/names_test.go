@@ -2,7 +2,6 @@ package provision
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -39,8 +38,6 @@ func TestValidateName(t *testing.T) {
 		}
 	}
 }
-
-var identRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 func TestOpaqueNames(t *testing.T) {
 	seen := map[string]bool{}
