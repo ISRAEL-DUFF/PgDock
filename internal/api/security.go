@@ -128,7 +128,7 @@ func userID(ctx context.Context) *uuid.UUID {
 
 // auditInfo is filled in by handlers while a mutating request runs.
 type auditInfo struct {
-	skip       bool
+	skip bool
 	// breakGlass marks a platform admin acting through a break-glass
 	// session: the row shows in the org's log and the platform's (V2 §2.4).
 	breakGlass bool

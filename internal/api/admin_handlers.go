@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 )

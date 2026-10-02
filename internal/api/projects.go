@@ -235,7 +235,7 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 			DiskWarnBytes:                   set.DiskWarnBytes,
 			ConsoleReadOnly:                 set.ConsoleReadOnly,
 		},
-		Connection: toAPIConnection(s.projects.ConnectionFor(p), ""),
+		Connection:             toAPIConnection(s.projects.ConnectionFor(p), ""),
 		StorageState:           ptrTo(gen.StorageState(p.StorageState)),
 		CanSwitchCredentials:   ptrTo(provision.CanSwitchCredentials(p)),
 		LegacyCredentialsUntil: p.LegacyUntil,

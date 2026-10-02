@@ -61,8 +61,8 @@ import (
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 )
 
 // Env is a running control plane.
@@ -105,9 +105,9 @@ type Env struct {
 	// S3Link is set with Options.S3Link once ConfigureBackups ran.
 	S3Link *Link
 
-	s3Link   bool
+	s3Link        bool
 	tenancyOffset atomic.Int64
-	agentRun map[string][]string // docker exec arguments per node, for restarts
+	agentRun      map[string][]string // docker exec arguments per node, for restarts
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
