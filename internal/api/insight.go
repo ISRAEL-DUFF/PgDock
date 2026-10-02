@@ -89,6 +89,10 @@ func (s *Server) RunSQL(w http.ResponseWriter, r *http.Request, id gen.ProjectID
 		return
 	} else if !ok {
 		if !cr.ReadOnly {
+			if sess, _ := sessionFrom(r.Context()); sess.Token != nil && !authz.HasScope(sess.Token.Scopes, authz.ScopeWrite) {
+				writeError(w, http.StatusForbidden, "insufficient_scope", "this token has the read scope only: send read_only, or use a token with the write scope")
+				return
+			}
 			writeError(w, http.StatusForbidden, "forbidden", "your project role is read-only: turn on read-only mode")
 			return
 		}

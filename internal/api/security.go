@@ -132,6 +132,8 @@ type auditInfo struct {
 	// breakGlass marks a platform admin acting through a break-glass
 	// session: the row shows in the org's log and the platform's (V2 §2.4).
 	breakGlass bool
+	// tokenID is the API token that made the request (actor kind token).
+	tokenID    *uuid.UUID
 	userID     *uuid.UUID
 	orgID      uuid.UUID
 	projectID  uuid.UUID
@@ -231,6 +233,13 @@ var auditActions = map[string]string{
 	"PUT /api/v1/admin/settings/signup":                     "admin.settings.signup",
 	"PUT /api/v1/admin/settings/mail":                       "admin.settings.mail",
 	"POST /api/v1/admin/settings/terms":                     "admin.settings.terms",
+	"POST /api/v1/tokens":                                   "token.create",
+	"DELETE /api/v1/tokens/{token_id}":                      "token.revoke",
+	"DELETE /api/v1/orgs/{org}/tokens/{token_id}":           "org.token.revoke",
+	"POST /api/v1/auth/device":                              "",
+	"POST /api/v1/auth/device/token":                        "",
+	"POST /api/v1/auth/device/approve":                      "token.device_approve",
+	"PUT /api/v1/admin/settings/tokens":                     "admin.settings.tokens",
 }
 
 func outcomeFor(status int) string {
@@ -265,6 +274,9 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 		UserID: uid, Action: action, Detail: b, Ip: ipFrom(r.Context()),
 		Outcome: outcomeFor(status), ActorKind: authz.ActorSession, BreakGlass: info.breakGlass,
 	}
+	if info.tokenID != nil {
+		params.ActorKind, params.TokenID = authz.ActorToken, info.tokenID
+	}
 	if info.orgID != uuid.Nil {
 		params.OrgID = &info.orgID
 	}
@@ -294,7 +306,9 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 // authenticate with a token in the body and ignore cookies, so CSRF does
 // not apply.
 var csrfExempt = map[string]bool{
-	"POST /api/v1/agent/register": true,
+	"POST /api/v1/agent/register":    true,
+	"POST /api/v1/auth/device":       true,
+	"POST /api/v1/auth/device/token": true,
 }
 
 // reauthRequired lists destructive routes needing a recent step-up auth
@@ -349,14 +363,20 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			}()
 		}
 
-		if mutating && !csrfExempt[key] {
-			if msg := s.checkCSRF(r); msg != "" {
-				writeError(ww, http.StatusForbidden, "csrf", msg)
+		// An API token (V2 §7.2): no cookies are involved, so CSRF does not
+		// apply, and the session cookie is ignored.
+		if bearer, ok := bearerToken(r); ok && pattern != "/metrics" {
+			sess, status, code, msg := s.tokenSession(ctx, bearer)
+			if status != 0 {
+				if status == http.StatusTooManyRequests {
+					ww.Header().Set("Retry-After", "60")
+				}
+				writeError(ww, status, code, msg)
 				return
 			}
-		}
-
-		if c, err := r.Cookie(s.cookieName(sessionName)); err == nil {
+			ctx = context.WithValue(ctx, keySession, sess)
+			info.tokenID = &sess.Token.ID
+		} else if c, err := r.Cookie(s.cookieName(sessionName)); err == nil {
 			sess, err := s.auth.Authenticate(ctx, c.Value)
 			if err == nil {
 				ctx = context.WithValue(ctx, keySession, sess)
@@ -367,6 +387,13 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			}
 		}
 		r = r.WithContext(ctx)
+
+		if mutating && !csrfExempt[key] && info.tokenID == nil {
+			if msg := s.checkCSRF(r); msg != "" {
+				writeError(ww, http.StatusForbidden, "csrf", msg)
+				return
+			}
+		}
 
 		rl, declared := routeRules[key]
 		if !declared {
@@ -385,7 +412,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 				writeError(ww, http.StatusUnauthorized, "unauthenticated", "sign in to continue")
 				return
 			}
-			if !rl.beforeTerms {
+			if !rl.beforeTerms && sess.Token == nil {
 				pending, version, err := s.auth.TermsOutstanding(ctx, sess.UserID)
 				if err != nil {
 					s.internalError(ww, "terms", err)
@@ -397,7 +424,9 @@ func (s *Server) guard(next http.Handler) http.Handler {
 					return
 				}
 			}
-			if reauthRequired[key] && !s.auth.RecentlyReauthenticated(sess) {
+			// Tokens skip step-up auth: destructive actions need the admin
+			// scope and a typed confirm field instead (V2 §7.2).
+			if reauthRequired[key] && sess.Token == nil && !s.auth.RecentlyReauthenticated(sess) {
 				writeError(ww, http.StatusForbidden, "reauth_required", "confirm your password and code to continue")
 				return
 			}
@@ -412,6 +441,9 @@ func (s *Server) guard(next http.Handler) http.Handler {
 				case status == http.StatusNotFound:
 					ww.Header().Set("X-PGDock-Authz", "hidden")
 					writeError(ww, status, "not_found", "not found")
+				case acc.NeedScope != "":
+					ww.Header().Set("X-PGDock-Authz", "denied")
+					writeScopeError(ww, acc.NeedScope)
 				case acc.Frozen:
 					ww.Header().Set("X-PGDock-Authz", "denied")
 					writeError(ww, status, "org_suspended", "the organisation is suspended or being deleted; only viewing works")

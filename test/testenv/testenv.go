@@ -63,6 +63,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
 	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/pgdock/internal/tokens"
 )
 
 // Env is a running control plane.
@@ -97,6 +98,8 @@ type Env struct {
 	// RecordUsage, Sweep) rather than running its loops. Its clock is real
 	// time plus TenancyAdvance.
 	Tenancy *tenancy.Service
+	// Tokens issues API tokens; its clock is the auth clock (Advance).
+	Tokens *tokens.Service
 	// OrgID is the owner's personal organisation, where CreateProject puts
 	// projects.
 	OrgID uuid.UUID
@@ -136,6 +139,9 @@ type Options struct {
 	// S3Link puts a cuttable TCP link (Env.S3Link) between agents and the
 	// fake S3 ConfigureBackups starts.
 	S3Link bool
+	// TokenRate and OrgTokenRate override the API token rate limits
+	// (requests per minute).
+	TokenRate, OrgTokenRate int
 }
 
 func need(t testing.TB, name string) string {
@@ -286,8 +292,10 @@ func Start(t testing.TB, opts Options) *Env {
 		_, err := backups.BackupNow(ctx, p.ID, nil)
 		return err
 	}
+	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc,
+		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
 		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, IsoChecks: isoChecks, Alerts: alertSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
@@ -305,7 +313,7 @@ func Start(t testing.TB, opts Options) *Env {
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
-		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc,
+		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

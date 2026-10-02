@@ -14,6 +14,48 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for APITokenCreatedVia.
+const (
+	Api    APITokenCreatedVia = "api"
+	Device APITokenCreatedVia = "device"
+	Ui     APITokenCreatedVia = "ui"
+)
+
+// Valid indicates whether the value is a known member of the APITokenCreatedVia enum.
+func (e APITokenCreatedVia) Valid() bool {
+	switch e {
+	case Api:
+		return true
+	case Device:
+		return true
+	case Ui:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for APITokenStatus.
+const (
+	APITokenStatusActive  APITokenStatus = "active"
+	APITokenStatusExpired APITokenStatus = "expired"
+	APITokenStatusRevoked APITokenStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the APITokenStatus enum.
+func (e APITokenStatus) Valid() bool {
+	switch e {
+	case APITokenStatusActive:
+		return true
+	case APITokenStatusExpired:
+		return true
+	case APITokenStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminOrgSummaryStatus.
 const (
 	AdminOrgSummaryStatusActive    AdminOrgSummaryStatus = "active"
@@ -833,6 +875,27 @@ func (e TlsStatusState) Valid() bool {
 	}
 }
 
+// Defines values for TokenScope.
+const (
+	TokenScopeAdmin TokenScope = "admin"
+	TokenScopeRead  TokenScope = "read"
+	TokenScopeWrite TokenScope = "write"
+)
+
+// Valid indicates whether the value is a known member of the TokenScope enum.
+func (e TokenScope) Valid() bool {
+	switch e {
+	case TokenScopeAdmin:
+		return true
+	case TokenScopeRead:
+		return true
+	case TokenScopeWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateNodeRequestRole.
 const (
 	UpdateNodeRequestRoleBoth      UpdateNodeRequestRole = "both"
@@ -1113,6 +1176,41 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// APIToken defines model for APIToken.
+type APIToken struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	CreatedVia APITokenCreatedVia `json:"created_via"`
+	ExpiresAt  time.Time          `json:"expires_at"`
+	Id         openapi_types.UUID `json:"id"`
+	LastUsedAt *time.Time         `json:"last_used_at,omitempty"`
+	LastUsedIp *string            `json:"last_used_ip,omitempty"`
+	Name       string             `json:"name"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	OrgName    *string            `json:"org_name,omitempty"`
+
+	// Prefix The token's first characters, for recognising it.
+	Prefix string `json:"prefix"`
+
+	// ProjectIds The projects the token is restricted to; null for all the user's projects.
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	RevokedAt  *time.Time            `json:"revoked_at,omitempty"`
+	Scopes     []TokenScope          `json:"scopes"`
+	Status     APITokenStatus        `json:"status"`
+	UserEmail  *string               `json:"user_email,omitempty"`
+	UserId     *openapi_types.UUID   `json:"user_id,omitempty"`
+}
+
+// APITokenCreatedVia defines model for APIToken.CreatedVia.
+type APITokenCreatedVia string
+
+// APITokenStatus defines model for APIToken.Status.
+type APITokenStatus string
+
+// APITokenList defines model for APITokenList.
+type APITokenList struct {
+	Items []APIToken `json:"items"`
 }
 
 // AcceptInvitationRequest defines model for AcceptInvitationRequest.
@@ -1500,6 +1598,23 @@ type CreateProjectRequest struct {
 	VolumeGb *int `json:"volume_gb,omitempty"`
 }
 
+// CreateTokenRequest defines model for CreateTokenRequest.
+type CreateTokenRequest struct {
+	// ExpiresInDays Defaults to 90.
+	ExpiresInDays *int                  `json:"expires_in_days,omitempty"`
+	Name          string                `json:"name"`
+	OrgId         openapi_types.UUID    `json:"org_id"`
+	ProjectIds    *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Scopes        []TokenScope          `json:"scopes"`
+}
+
+// CreatedToken defines model for CreatedToken.
+type CreatedToken struct {
+	// Secret The token itself (`pgd_…`), shown only once.
+	Secret string   `json:"secret"`
+	Token  APIToken `json:"token"`
+}
+
 // DbColumn defines model for DbColumn.
 type DbColumn struct {
 	Default  *string `json:"default,omitempty"`
@@ -1604,6 +1719,56 @@ type DeleteOrgRequest struct {
 
 	// DeleteProjects Delete every project too (each gets a final backup).
 	DeleteProjects *bool `json:"delete_projects,omitempty"`
+}
+
+// DeviceApproveRequest defines model for DeviceApproveRequest.
+type DeviceApproveRequest struct {
+	// Approve false denies the login.
+	Approve       *bool                 `json:"approve,omitempty"`
+	ExpiresInDays *int                  `json:"expires_in_days,omitempty"`
+	Name          *string               `json:"name,omitempty"`
+	OrgId         *openapi_types.UUID   `json:"org_id,omitempty"`
+	ProjectIds    *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Scopes        *[]TokenScope         `json:"scopes,omitempty"`
+	UserCode      string                `json:"user_code"`
+}
+
+// DeviceAuthorization defines model for DeviceAuthorization.
+type DeviceAuthorization struct {
+	DeviceCode string `json:"device_code"`
+
+	// ExpiresIn Seconds.
+	ExpiresIn int `json:"expires_in"`
+
+	// Interval Seconds between polls.
+	Interval int `json:"interval"`
+
+	// UserCode Example: BCDF-GHJK
+	UserCode                string `json:"user_code"`
+	VerificationUri         string `json:"verification_uri"`
+	VerificationUriComplete string `json:"verification_uri_complete"`
+}
+
+// DevicePollRequest defines model for DevicePollRequest.
+type DevicePollRequest struct {
+	DeviceCode string `json:"device_code"`
+}
+
+// DeviceRequest defines model for DeviceRequest.
+type DeviceRequest struct {
+	ClientName string       `json:"client_name"`
+	ExpiresAt  time.Time    `json:"expires_at"`
+	Scopes     []TokenScope `json:"scopes"`
+	UserCode   string       `json:"user_code"`
+}
+
+// DeviceStartRequest defines model for DeviceStartRequest.
+type DeviceStartRequest struct {
+	// ClientName Shown on the approval page, e.g. "pgdock CLI on laptop".
+	ClientName *string `json:"client_name,omitempty"`
+
+	// Scopes The most the CLI wants; the user may narrow them. Default read and write.
+	Scopes *[]TokenScope `json:"scopes,omitempty"`
 }
 
 // DnsCheck defines model for DnsCheck.
@@ -2689,9 +2854,28 @@ type TlsStatusMode string
 // TlsStatusState defines model for TlsStatus.State.
 type TlsStatusState string
 
+// TokenGrant The API token a request was made with.
+type TokenGrant struct {
+	ExpiresAt  time.Time             `json:"expires_at"`
+	Id         openapi_types.UUID    `json:"id"`
+	Name       string                `json:"name"`
+	OrgId      openapi_types.UUID    `json:"org_id"`
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Scopes     []TokenScope          `json:"scopes"`
+}
+
 // TokenRequest defines model for TokenRequest.
 type TokenRequest struct {
 	Token string `json:"token"`
+}
+
+// TokenScope defines model for TokenScope.
+type TokenScope string
+
+// TokenSettings defines model for TokenSettings.
+type TokenSettings struct {
+	// MaxDays The longest expiry a new token may have.
+	MaxDays int `json:"max_days"`
 }
 
 // TopQueries defines model for TopQueries.
@@ -2718,7 +2902,9 @@ type TotpRequest struct {
 
 // TransferOwnershipRequest defines model for TransferOwnershipRequest.
 type TransferOwnershipRequest struct {
-	UserId openapi_types.UUID `json:"user_id"`
+	// Confirm The organisation's name, typed; required with an API token.
+	Confirm *string            `json:"confirm,omitempty"`
+	UserId  openapi_types.UUID `json:"user_id"`
 }
 
 // TransferProjectRequest defines model for TransferProjectRequest.
@@ -2806,6 +2992,9 @@ type User struct {
 	Id           openapi_types.UUID  `json:"id"`
 	Name         *string             `json:"name,omitempty"`
 	PlatformRole UserPlatformRole    `json:"platform_role"`
+
+	// Token The API token a request was made with.
+	Token *TokenGrant `json:"token,omitempty"`
 }
 
 // UserPlatformRole defines model for User.PlatformRole.
@@ -2882,6 +3071,9 @@ type ProjectID = openapi_types.UUID
 
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
+
+// TokenID defines model for TokenID.
+type TokenID = openapi_types.UUID
 
 // UserID defines model for UserID.
 type UserID = openapi_types.UUID
@@ -3093,11 +3285,23 @@ type PutSignupSettingsJSONRequestBody = SignupSettings
 // PublishTermsJSONRequestBody defines body for PublishTerms for application/json ContentType.
 type PublishTermsJSONRequestBody = PublishTermsRequest
 
+// PutTokenSettingsJSONRequestBody defines body for PutTokenSettings for application/json ContentType.
+type PutTokenSettingsJSONRequestBody = TokenSettings
+
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUserRequest
 
 // RegisterAgentJSONRequestBody defines body for RegisterAgent for application/json ContentType.
 type RegisterAgentJSONRequestBody = AgentRegisterRequest
+
+// StartDeviceLoginJSONRequestBody defines body for StartDeviceLogin for application/json ContentType.
+type StartDeviceLoginJSONRequestBody = DeviceStartRequest
+
+// ApproveDeviceLoginJSONRequestBody defines body for ApproveDeviceLogin for application/json ContentType.
+type ApproveDeviceLoginJSONRequestBody = DeviceApproveRequest
+
+// PollDeviceLoginJSONRequestBody defines body for PollDeviceLogin for application/json ContentType.
+type PollDeviceLoginJSONRequestBody = DevicePollRequest
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
@@ -3240,6 +3444,9 @@ type BeginSetupJSONRequestBody = SetupBeginRequest
 // CompleteSetupJSONRequestBody defines body for CompleteSetup for application/json ContentType.
 type CompleteSetupJSONRequestBody = SetupCompleteRequest
 
+// CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
+type CreateTokenJSONRequestBody = CreateTokenRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListPlatformAudit The platform audit log, newest first (platform admin)
@@ -3308,6 +3515,12 @@ type ServerInterface interface {
 	// PublishTerms Publish a new version of the terms and privacy notice (platform admin)
 	// (POST /api/v1/admin/settings/terms)
 	PublishTerms(w http.ResponseWriter, r *http.Request)
+	// GetTokenSettings Platform-wide token rules
+	// (GET /api/v1/admin/settings/tokens)
+	GetTokenSettings(w http.ResponseWriter, r *http.Request)
+	// PutTokenSettings Change the platform-wide token rules
+	// (PUT /api/v1/admin/settings/tokens)
+	PutTokenSettings(w http.ResponseWriter, r *http.Request)
 	// ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
 	// (GET /api/v1/admin/shared-clusters)
 	ListSharedClusters(w http.ResponseWriter, r *http.Request)
@@ -3329,6 +3542,18 @@ type ServerInterface interface {
 	// ListAlerts Alerts, firing first
 	// (GET /api/v1/alerts)
 	ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams)
+	// StartDeviceLogin Start a CLI device login
+	// (POST /api/v1/auth/device)
+	StartDeviceLogin(w http.ResponseWriter, r *http.Request)
+	// ApproveDeviceLogin Approve (or deny) a device login
+	// (POST /api/v1/auth/device/approve)
+	ApproveDeviceLogin(w http.ResponseWriter, r *http.Request)
+	// GetDeviceLogin A pending device login, for the approval page
+	// (GET /api/v1/auth/device/requests/{user_code})
+	GetDeviceLogin(w http.ResponseWriter, r *http.Request, userCode string)
+	// PollDeviceLogin Collect a device login's token
+	// (POST /api/v1/auth/device/token)
+	PollDeviceLogin(w http.ResponseWriter, r *http.Request)
 	// PostAuthLogin Email + password login; returns a TOTP challenge
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
@@ -3494,6 +3719,12 @@ type ServerInterface interface {
 	// GetOrgQuotas The organisation's plan, limits, and current use (V2 §10.3)
 	// (GET /api/v1/orgs/{org}/quotas)
 	GetOrgQuotas(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgTokens Every token scoped to the organisation (owners and admins)
+	// (GET /api/v1/orgs/{org}/tokens)
+	ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RevokeOrgToken Revoke any token scoped to the organisation (owners and admins)
+	// (DELETE /api/v1/orgs/{org}/tokens/{token_id})
+	RevokeOrgToken(w http.ResponseWriter, r *http.Request, org OrgID, tokenId TokenID)
 	// TransferOrgOwnership Make another member an owner and step down to admin
 	// (POST /api/v1/orgs/{org}/transfer-ownership)
 	TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -3653,6 +3884,15 @@ type ServerInterface interface {
 	// GetTerms The current terms of use and privacy notice (public)
 	// (GET /api/v1/terms)
 	GetTerms(w http.ResponseWriter, r *http.Request)
+	// ListMyTokens Your API tokens (only the calling token's organisation, with a token)
+	// (GET /api/v1/tokens)
+	ListMyTokens(w http.ResponseWriter, r *http.Request)
+	// CreateToken Create an API token, shown once
+	// (POST /api/v1/tokens)
+	CreateToken(w http.ResponseWriter, r *http.Request)
+	// RevokeMyToken Revoke one of your tokens
+	// (DELETE /api/v1/tokens/{token_id})
+	RevokeMyToken(w http.ResponseWriter, r *http.Request, tokenId TokenID)
 	// GetVersion Build information for this server
 	// (GET /api/v1/version)
 	GetVersion(w http.ResponseWriter, r *http.Request)
@@ -3803,6 +4043,18 @@ func (_ Unimplemented) PublishTerms(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetTokenSettings Platform-wide token rules
+// (GET /api/v1/admin/settings/tokens)
+func (_ Unimplemented) GetTokenSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutTokenSettings Change the platform-wide token rules
+// (PUT /api/v1/admin/settings/tokens)
+func (_ Unimplemented) PutTokenSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
 // (GET /api/v1/admin/shared-clusters)
 func (_ Unimplemented) ListSharedClusters(w http.ResponseWriter, r *http.Request) {
@@ -3842,6 +4094,30 @@ func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 // ListAlerts Alerts, firing first
 // (GET /api/v1/alerts)
 func (_ Unimplemented) ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartDeviceLogin Start a CLI device login
+// (POST /api/v1/auth/device)
+func (_ Unimplemented) StartDeviceLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveDeviceLogin Approve (or deny) a device login
+// (POST /api/v1/auth/device/approve)
+func (_ Unimplemented) ApproveDeviceLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetDeviceLogin A pending device login, for the approval page
+// (GET /api/v1/auth/device/requests/{user_code})
+func (_ Unimplemented) GetDeviceLogin(w http.ResponseWriter, r *http.Request, userCode string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PollDeviceLogin Collect a device login's token
+// (POST /api/v1/auth/device/token)
+func (_ Unimplemented) PollDeviceLogin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -4175,6 +4451,18 @@ func (_ Unimplemented) GetOrgQuotas(w http.ResponseWriter, r *http.Request, org 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListOrgTokens Every token scoped to the organisation (owners and admins)
+// (GET /api/v1/orgs/{org}/tokens)
+func (_ Unimplemented) ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeOrgToken Revoke any token scoped to the organisation (owners and admins)
+// (DELETE /api/v1/orgs/{org}/tokens/{token_id})
+func (_ Unimplemented) RevokeOrgToken(w http.ResponseWriter, r *http.Request, org OrgID, tokenId TokenID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // TransferOrgOwnership Make another member an owner and step down to admin
 // (POST /api/v1/orgs/{org}/transfer-ownership)
 func (_ Unimplemented) TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -4490,6 +4778,24 @@ func (_ Unimplemented) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 // GetTerms The current terms of use and privacy notice (public)
 // (GET /api/v1/terms)
 func (_ Unimplemented) GetTerms(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListMyTokens Your API tokens (only the calling token's organisation, with a token)
+// (GET /api/v1/tokens)
+func (_ Unimplemented) ListMyTokens(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateToken Create an API token, shown once
+// (POST /api/v1/tokens)
+func (_ Unimplemented) CreateToken(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeMyToken Revoke one of your tokens
+// (DELETE /api/v1/tokens/{token_id})
+func (_ Unimplemented) RevokeMyToken(w http.ResponseWriter, r *http.Request, tokenId TokenID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5063,6 +5369,34 @@ func (siw *ServerInterfaceWrapper) PublishTerms(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetTokenSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetTokenSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTokenSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutTokenSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutTokenSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutTokenSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListSharedClusters operation middleware
 func (siw *ServerInterfaceWrapper) ListSharedClusters(w http.ResponseWriter, r *http.Request) {
 
@@ -5272,6 +5606,74 @@ func (siw *ServerInterfaceWrapper) ListAlerts(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAlerts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) StartDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartDeviceLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) ApproveDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveDeviceLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "user_code" -------------
+	var userCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_code", chi.URLParam(r, "user_code"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_code", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDeviceLogin(w, r, userCode)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PollDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) PollDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PollDeviceLogin(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6648,6 +7050,67 @@ func (siw *ServerInterfaceWrapper) GetOrgQuotas(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOrgQuotas(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgTokens(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgTokens(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeOrgToken operation middleware
+func (siw *ServerInterfaceWrapper) RevokeOrgToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "token_id" -------------
+	var tokenId TokenID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token_id", chi.URLParam(r, "token_id"), &tokenId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeOrgToken(w, r, org, tokenId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8069,6 +8532,60 @@ func (siw *ServerInterfaceWrapper) GetTerms(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// ListMyTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListMyTokens(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyTokens(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeMyToken operation middleware
+func (siw *ServerInterfaceWrapper) RevokeMyToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token_id" -------------
+	var tokenId TokenID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token_id", chi.URLParam(r, "token_id"), &tokenId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeMyToken(w, r, tokenId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetVersion operation middleware
 func (siw *ServerInterfaceWrapper) GetVersion(w http.ResponseWriter, r *http.Request) {
 
@@ -8465,6 +8982,39 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/me/password", wrapper.ChangePassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/tokens", wrapper.ListMyTokens)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/tokens", wrapper.CreateToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/tokens/{token_id}", wrapper.RevokeMyToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/tokens", wrapper.ListOrgTokens)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/tokens/{token_id}", wrapper.RevokeOrgToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/device", wrapper.StartDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/device/token", wrapper.PollDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/auth/device/requests/{user_code}", wrapper.GetDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/device/approve", wrapper.ApproveDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/settings/tokens", wrapper.GetTokenSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/settings/tokens", wrapper.PutTokenSettings)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me/sessions", wrapper.ListMySessions)

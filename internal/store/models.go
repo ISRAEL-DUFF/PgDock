@@ -34,6 +34,25 @@ type Alert struct {
 	DeliveryLock       *time.Time
 }
 
+type ApiToken struct {
+	ID               uuid.UUID
+	UserID           uuid.UUID
+	OrgID            uuid.UUID
+	Name             string
+	TokenHash        string
+	Prefix           string
+	Scopes           []string
+	ProjectIds       []uuid.UUID
+	ExpiresAt        time.Time
+	LastUsedAt       *time.Time
+	LastUsedIp       *netip.Addr
+	RevokedAt        *time.Time
+	RevokedBy        *uuid.UUID
+	CreatedVia       string
+	ExpiryNotifiedAt *time.Time
+	CreatedAt        time.Time
+}
+
 type AuditLog struct {
 	ID         int64
 	UserID     *uuid.UUID
@@ -103,6 +122,21 @@ type DedicatedRequest struct {
 	DecidedAt    *time.Time
 	DecisionNote *string
 	CreatedAt    time.Time
+}
+
+type DeviceAuthRequest struct {
+	DeviceCodeHash  string
+	UserCode        string
+	ClientName      string
+	RequestedScopes []string
+	OrgID           *uuid.UUID
+	ApprovedBy      *uuid.UUID
+	TokenID         *uuid.UUID
+	SealedToken     []byte
+	DeniedAt        *time.Time
+	LastPolledAt    *time.Time
+	ExpiresAt       time.Time
+	CreatedAt       time.Time
 }
 
 type EmailToken struct {

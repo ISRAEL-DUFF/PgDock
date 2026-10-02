@@ -30,11 +30,78 @@ type Actor struct {
 	Kind          string
 	UserID        uuid.UUID
 	PlatformAdmin bool
-	// TokenID and TokenOrg are set for API tokens (M10), which act only in
-	// their organisation.
-	TokenID  *uuid.UUID
-	TokenOrg *uuid.UUID
+	// TokenID and TokenOrg are set for API tokens (V2 §7.2), which act
+	// only in their organisation, within their scopes, and (when
+	// TokenProjects is not nil) only on those projects.
+	TokenID       *uuid.UUID
+	TokenOrg      *uuid.UUID
+	TokenScopes   []string
+	TokenProjects []uuid.UUID
 }
+
+// Token scopes (V2 §7.2).
+const (
+	ScopeRead  = "read"
+	ScopeWrite = "write"
+	ScopeAdmin = "admin"
+)
+
+// actionScope is the token scope each action needs: read to view, write to
+// create and modify, admin for destructive and settings actions.
+var actionScope = map[Action]string{
+	OrgView:            ScopeRead,
+	OrgAudit:           ScopeRead,
+	ProjectView:        ScopeRead,
+	ProjectCredentials: ScopeRead,
+	ConsoleRead:        ScopeRead,
+	ProjectAudit:       ScopeRead,
+	ConsoleWrite:       ScopeWrite,
+	BackupCreate:       ScopeWrite,
+	OrgCreateProject:   ScopeWrite,
+	OrgManage:          ScopeAdmin,
+	OrgOwnerOnly:       ScopeAdmin,
+	RestoreInPlace:     ScopeAdmin,
+	ProjectSettings:    ScopeAdmin,
+	ProjectMembers:     ScopeAdmin,
+	ProjectPromote:     ScopeAdmin,
+	ProjectDelete:      ScopeAdmin,
+}
+
+// ScopeFor is the token scope action needs.
+func ScopeFor(a Action) string {
+	if s, ok := actionScope[a]; ok {
+		return s
+	}
+	return ScopeAdmin
+}
+
+// HasScope reports whether scopes grant want (write includes read, admin
+// includes both).
+func HasScope(scopes []string, want string) bool {
+	rank := map[string]int{ScopeRead: 1, ScopeWrite: 2, ScopeAdmin: 3}
+	for _, s := range scopes {
+		if rank[s] >= rank[want] {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowsProject reports whether a token actor may touch project id.
+func (a Actor) AllowsProject(id uuid.UUID) bool {
+	if a.Kind != ActorToken || a.TokenProjects == nil {
+		return true
+	}
+	for _, p := range a.TokenProjects {
+		if p == id {
+			return true
+		}
+	}
+	return false
+}
+
+// Restricted reports whether the actor is a project-restricted token.
+func (a Actor) Restricted() bool { return a.Kind == ActorToken && a.TokenProjects != nil }
 
 // Action is something an actor wants to do.
 type Action string
@@ -123,6 +190,9 @@ type Decision struct {
 	// Frozen is set when the organisation is suspended or being deleted
 	// and the action is not a read (V2 §10.8): Allowed is false.
 	Frozen bool
+	// NeedScope is set when an API token's user may do this but the token
+	// lacks the scope (or its project restriction rules out org actions).
+	NeedScope string
 }
 
 // Queries is the subset of store the checks need.
@@ -154,12 +224,30 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 	if res.OrgID == uuid.Nil {
 		return Decision{}, nil
 	}
-	if actor.TokenOrg != nil && *actor.TokenOrg != res.OrgID {
+	token := actor.Kind == ActorToken
+	if token && (actor.TokenOrg == nil || *actor.TokenOrg != res.OrgID) {
 		return Decision{}, nil // a token acts only in its own organisation
 	}
+	if token && res.ProjectID != uuid.Nil && !actor.AllowsProject(res.ProjectID) {
+		return Decision{}, nil // nor outside its projects
+	}
 	d, err := can(ctx, q, actor, action, res)
-	if err != nil || !d.Allowed || readActions[action] {
+	if err != nil || !d.Allowed {
 		return d, err
+	}
+	if token {
+		switch need := ScopeFor(action); {
+		case !HasScope(actor.TokenScopes, need):
+			d.Allowed, d.NeedScope = false, need
+			return d, nil
+		case actor.Restricted() && res.ProjectID == uuid.Nil && action != OrgView:
+			// A project-restricted token can't act on the organisation.
+			d.Allowed, d.NeedScope = false, "unrestricted"
+			return d, nil
+		}
+	}
+	if readActions[action] {
+		return d, nil
 	}
 	o, err := q.GetOrg(ctx, res.OrgID)
 	if err != nil {

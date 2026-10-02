@@ -273,7 +273,8 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 	p := strings.NewReplacer(
 		"{id}", id, "{org}", w.orgA.String(), "{user}", w.users[rMember].String(),
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
-		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(),
+		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(),
+		"{user_code}", "BCDF-GHJK",
 	).Replace(pattern)
 	if rl := routeRules["GET "+pattern]; rl.scope == scopeOrgQuery {
 		p += "?org=" + w.orgA.String()
@@ -442,6 +443,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgManage: {
 		"PATCH /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/members", "PATCH /api/v1/orgs/{org}/members/{user}",
 		"DELETE /api/v1/orgs/{org}/members/{user}", "GET /api/v1/orgs/{org}/invitations", "DELETE /api/v1/orgs/{org}/invitations/{invitation_id}",
+		// §2.3 "See and revoke any token scoped to the org"
+		"GET /api/v1/orgs/{org}/tokens", "DELETE /api/v1/orgs/{org}/tokens/{token_id}",
 	},
 	// "View org usage and quotas, org audit log"
 	authz.OrgAudit: {"GET /api/v1/orgs/{org}/audit", "GET /api/v1/orgs/{org}/usage", "GET /api/v1/orgs/{org}/dedicated-requests"},
@@ -458,6 +461,9 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/me/recovery-codes", "POST /api/v1/me/terms/accept", "GET /api/v1/me/invitations",
 		"POST /api/v1/me/invitations/{invitation_id}/accept", "GET /api/v1/orgs", "POST /api/v1/orgs",
 		"GET /api/v1/settings/general", "GET /api/v1/profiles", "POST /api/v1/imports/preflight",
+		// §7.2 "Users manage their own tokens", §7.1 device-login approval
+		"GET /api/v1/tokens", "POST /api/v1/tokens", "DELETE /api/v1/tokens/{token_id}",
+		"GET /api/v1/auth/device/requests/{user_code}", "POST /api/v1/auth/device/approve",
 	},
 	// §2.4: the platform admin's
 	authz.PlatformManage: {
@@ -480,6 +486,8 @@ var specMatrix = map[authz.Action][]string{
 		"PATCH /api/v1/admin/plans/{plan_id}", "GET /api/v1/admin/dedicated-requests",
 		"POST /api/v1/admin/dedicated-requests/{request_id}/approve", "POST /api/v1/admin/dedicated-requests/{request_id}/reject",
 		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
+		// §7.2 "The platform admin can set a platform-wide maximum"
+		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",
 	},
 }
 

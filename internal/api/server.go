@@ -28,6 +28,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/version"
 )
 
@@ -53,6 +54,12 @@ type Server struct {
 	orgs      *orgs.Service
 	mail      *mail.Service
 	tenancy   *tenancy.Service
+	tokens    *tokens.Service
+
+	tokenLimit    *auth.Limiter
+	orgTokenLimit *auth.Limiter
+	publicBase    string
+	clock         func() time.Time
 
 	metricsInterval time.Duration
 	metricsToken    string
@@ -107,7 +114,18 @@ type Options struct {
 	Orgs *orgs.Service
 	Mail *mail.Service
 	// Tenancy runs quotas, storage locks, suspension, break-glass, and usage.
-	Tenancy         *tenancy.Service
+	Tenancy *tenancy.Service
+	// Tokens issues and checks API tokens and device logins; nil disables
+	// bearer authentication. TokenRate and OrgTokenRate are requests per
+	// minute per token and per organisation's tokens (defaults 600, 1200).
+	Tokens       *tokens.Service
+	TokenRate    int
+	OrgTokenRate int
+	// PublicURL is the UI's address, for device-login links; the request's
+	// host when empty.
+	PublicURL string
+	// Now is the clock (tests); time.Now when nil.
+	Now             func() time.Time
 	MetricsInterval time.Duration
 	MetricsToken    string
 }
@@ -123,7 +141,19 @@ func NewHandler(opts Options) http.Handler {
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
 		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
+		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
 	}
+	if s.clock == nil {
+		s.clock = time.Now
+	}
+	rate, orgRate := opts.TokenRate, opts.OrgTokenRate
+	if rate == 0 {
+		rate = DefaultTokenRate
+	}
+	if orgRate == 0 {
+		orgRate = DefaultOrgTokenRate
+	}
+	s.tokenLimit, s.orgTokenLimit = auth.NewLimiter(rate, time.Minute), auth.NewLimiter(orgRate, time.Minute)
 	if opts.DB != nil && opts.Notifier != nil {
 		streamCtx := opts.StreamCtx
 		if streamCtx == nil {
@@ -221,4 +251,18 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 			)
 		})
 	}
+}
+
+func (s *Server) now() time.Time { return s.clock() }
+
+// publicURL is the UI's base address: the configured one, or the request's.
+func (s *Server) publicURL(r *http.Request) string {
+	if s.publicBase != "" {
+		return s.publicBase
+	}
+	scheme := "https"
+	if r.TLS == nil && !s.sec.SecureCookies {
+		scheme = "http"
+	}
+	return scheme + "://" + r.Host
 }
