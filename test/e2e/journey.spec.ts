@@ -997,7 +997,7 @@ test.describe("with the saved session", () => {
     // Account → API tokens: write scope, only "Team data".
     await page.goto("/account");
     await page.getByTestId("new-token").click();
-    await page.getByLabel("Name").fill("GitHub Actions — team data");
+    await page.getByRole("dialog").getByLabel("Name").fill("GitHub Actions — team data");
     await page.getByTestId("scope-write").check();
     await page.getByTestId("token-some-projects").check();
     await page.getByTestId("token-project-Team data").check();
