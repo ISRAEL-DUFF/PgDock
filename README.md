@@ -191,7 +191,10 @@ memory, disk, and disk I/O. Points are sampled every minute into
 `metric_points`, averaged into hourly points, and kept for 24 hours (1-minute)
 and 30 days (hourly). `GET /metrics` serves the latest values in the
 Prometheus text format to signed-in operators or with
-`Authorization: Bearer $PGDOCK_METRICS_TOKEN`.
+`Authorization: Bearer $PGDOCK_METRICS_TOKEN`. Project series are labelled
+`project_id`, `org_id`, `org`, and `tier`, and node series `node_id` and
+`node`. Project and database names are left out on purpose: names inside an
+organisation belong to its members, not to whoever runs the scraper.
 
 Settings → **Extensions** enables extensions from the allow-list (spec
 §7.4): `pgcrypto`, `uuid-ossp`, `citext`, `pg_trgm`, `hstore`, `unaccent`,

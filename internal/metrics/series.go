@@ -164,6 +164,12 @@ var promHelp = map[string]string{
 
 // WritePrometheus writes the latest point of every metric in the text
 // exposition format, with project and node labels.
+//
+// Project series are labelled by the opaque project id, the tier, and the
+// owning organisation, never by the project's or database's name: whoever
+// scrapes this (the platform admin, or a Prometheus holding the metrics
+// token) may see organisations, but names inside one are the tenant's own
+// (V2 s2.4).
 func WritePrometheus(ctx context.Context, w io.Writer, db store.DBTX, interval time.Duration) error {
 	q := store.New(db)
 	window := max(3*interval, 6*time.Minute) // sizes come every 5 minutes
@@ -172,12 +178,20 @@ func WritePrometheus(ctx context.Context, w io.Writer, db store.DBTX, interval t
 		return err
 	}
 	labels := map[uuid.UUID]string{}
+	orgs, err := q.ListOrgNames(ctx)
+	if err != nil {
+		return err
+	}
+	orgName := make(map[uuid.UUID]string, len(orgs))
+	for _, o := range orgs {
+		orgName[o.ID] = o.Name
+	}
 	ps, err := q.ListLiveProjects(ctx, store.ListLiveProjectsParams{MaxRows: 100000})
 	if err != nil {
 		return err
 	}
 	for _, p := range ps {
-		labels[p.ID] = fmt.Sprintf(`project_id="%s",project=%s,database=%s,tier=%s`, p.ID, quote(p.Name), quote(p.DbName), quote(p.Tier))
+		labels[p.ID] = fmt.Sprintf(`project_id="%s",org_id="%s",org=%s,tier=%s`, p.ID, p.OrgID, quote(orgName[p.OrgID]), quote(p.Tier))
 	}
 	ns, err := q.ListNodes(ctx)
 	if err != nil {
