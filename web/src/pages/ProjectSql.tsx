@@ -28,7 +28,8 @@ export function ProjectSqlPage() {
   const [history, setHistory] = useState<string[]>(() => (p ? loadHistory(p.id) : []));
   if (!p) return null;
 
-  const projectReadOnly = p.settings.console_read_only;
+  // Read-only members always run read-only (V2 §2.3).
+  const projectReadOnly = p.settings.console_read_only || p.my_role === "read_only";
   const inactive = p.status !== "active";
 
   const run = async () => {
@@ -39,7 +40,7 @@ export function ProjectSqlPage() {
     setErr(null);
     setHistory(pushHistory(p.id, query));
     try {
-      const res = await api.sql(p.id, { query, query_id: id, timeout_seconds: Number(timeout), read_only: readOnlyRun || undefined });
+      const res = await api.sql(p.id, { query, query_id: id, timeout_seconds: Number(timeout), read_only: readOnlyRun || projectReadOnly || undefined });
       setResult({ query, res });
     } catch (e) {
       setResult(null);

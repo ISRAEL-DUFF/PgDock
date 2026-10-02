@@ -25,10 +25,10 @@ export function ProjectBackupsPage() {
   const { data: p } = useProject();
   const qc = useQueryClient();
   const toast = useOperationToast();
-  const overview = useQuery({ queryKey: ["backups", "overview"], queryFn: api.backupOverview });
+  const overview = useQuery({ queryKey: ["backups", "overview", p?.org_id], queryFn: () => api.backupOverview(p?.org_id), enabled: !!p });
   const list = useQuery({
     queryKey: ["backups", { project: p?.id }],
-    queryFn: () => api.backups({ project_id: p!.id, limit: 200 }),
+    queryFn: () => api.backups({ org: p!.org_id, project_id: p!.id, limit: 200 }),
     enabled: !!p,
     refetchInterval: (q) => (q.state.data?.items.some((b) => b.status === "running") ? 2000 : 15_000),
   });

@@ -4,7 +4,12 @@ import { AppLayout } from "./components/Layout";
 import { ToastProvider } from "./components/Toasts";
 import { sessionQuery } from "./lib/session";
 import { AlertsPage } from "./pages/Alerts";
-import { AuditPage } from "./pages/Audit";
+import { AccountPage } from "./pages/Account";
+import { AdminUsersPage } from "./pages/AdminUsers";
+import { AuditPage, OrgAuditPage } from "./pages/Audit";
+import { OrgMembersPage, OrgSettingsPage } from "./pages/Org";
+import { ProjectMembersPage } from "./pages/ProjectMembers";
+import { InvitePage, ResetPasswordPage, SignupPage, VerifyEmailPage } from "./pages/Public";
 import { LoginPage } from "./pages/Login";
 import { NewProjectPage } from "./pages/NewProject";
 import { OperationDetailPage, OperationsPage } from "./pages/Operations";
@@ -56,6 +61,14 @@ const login = createRoute({
   component: LoginPage,
 });
 
+const token = (s: Record<string, unknown>): { token?: string } => ({ token: typeof s.token === "string" ? s.token : undefined });
+
+// Public pages: they work signed in or not.
+const signup = createRoute({ getParentRoute: () => root, path: "/signup", component: SignupPage });
+const verifyEmail = createRoute({ getParentRoute: () => root, path: "/verify-email", validateSearch: token, component: VerifyEmailPage });
+const resetPassword = createRoute({ getParentRoute: () => root, path: "/reset-password", validateSearch: token, component: ResetPasswordPage });
+const invite = createRoute({ getParentRoute: () => root, path: "/invite", validateSearch: token, component: InvitePage });
+
 const app = createRoute({
   getParentRoute: () => root,
   id: "app",
@@ -86,6 +99,12 @@ const projectTables = createRoute({ getParentRoute: () => project, path: "/table
 const projectMetrics = createRoute({ getParentRoute: () => project, path: "/metrics", component: ProjectMetricsPage });
 const projectBackups = createRoute({ getParentRoute: () => project, path: "/backups", component: ProjectBackupsPage });
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
+const projectMembers = createRoute({ getParentRoute: () => project, path: "/members", component: ProjectMembersPage });
+const account = createRoute({ getParentRoute: () => app, path: "/account", component: AccountPage });
+const orgMembers = createRoute({ getParentRoute: () => app, path: "/org/members", component: OrgMembersPage });
+const orgSettings = createRoute({ getParentRoute: () => app, path: "/org/settings", component: OrgSettingsPage });
+const orgAudit = createRoute({ getParentRoute: () => app, path: "/org/audit", component: OrgAuditPage });
+const adminUsers = createRoute({ getParentRoute: () => app, path: "/admin/users", component: AdminUsersPage });
 const nodes = createRoute({ getParentRoute: () => app, path: "/nodes", component: NodesPage });
 const nodeDetail = createRoute({ getParentRoute: () => app, path: "/nodes/$id", component: NodeDetailPage });
 const operations = createRoute({ getParentRoute: () => app, path: "/operations", component: OperationsPage });
@@ -97,12 +116,21 @@ const settings = createRoute({ getParentRoute: () => app, path: "/settings", com
 const routeTree = root.addChildren([
   setup,
   login,
+  signup,
+  verifyEmail,
+  resetPassword,
+  invite,
   app.addChildren([
     index,
     projects,
     newProject,
     importProject,
-    project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups, projectMetrics, projectSettings]),
+    project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups, projectMetrics, projectMembers, projectSettings]),
+    account,
+    orgMembers,
+    orgSettings,
+    orgAudit,
+    adminUsers,
     nodes,
     nodeDetail,
     operations,

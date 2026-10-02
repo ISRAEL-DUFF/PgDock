@@ -3,25 +3,24 @@ import { useState } from "react";
 import { api, errorMessage } from "../api/client";
 import { Alert, Button, Card, PageHeader, Spinner, StatusBadge } from "../components/ui";
 import { formatDate } from "../lib/format";
-import { sessionQuery } from "../lib/session";
 import { AlertSettingsCard, IsolationChecksCard } from "../components/AlertSettingsCard";
 import { BackupKeyPanel, StorageForm } from "../components/BackupSetup";
+import { MailCard, SignupCard, TermsCard } from "../components/PlatformCards";
 import { HostStep } from "./Setup";
 
 export function SettingsPage() {
   const q = useQuery({ queryKey: ["settings", "general"], queryFn: api.generalSettings, refetchInterval: 10_000 });
-  const { data: session } = useQuery(sessionQuery);
   const [editing, setEditing] = useState(false);
   const [editStorage, setEditStorage] = useState(false);
   const storage = useQuery({ queryKey: ["settings", "storage"], queryFn: api.storage });
-  const ov = useQuery({ queryKey: ["backups", "overview"], queryFn: api.backupOverview, refetchInterval: 15_000 });
+  const ov = useQuery({ queryKey: ["backups", "overview"], queryFn: () => api.backupOverview(), refetchInterval: 15_000 });
   if (q.isPending) return <Spinner />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const s = q.data;
   const t = s.tls;
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader title="Platform settings" />
       <div className="flex max-w-3xl flex-col gap-4">
         <Card title="Database hostname" actions={!editing && <Button className="text-xs" onClick={() => setEditing(true)}>Change</Button>}>
           {editing ? (
@@ -100,16 +99,9 @@ export function SettingsPage() {
         )}
         <AlertSettingsCard />
         <IsolationChecksCard />
-        <Card title="Account">
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-            <dt className="text-muted">Email</dt>
-            <dd>{session?.operator?.email}</dd>
-            <dt className="text-muted">Role</dt>
-            <dd>{session?.operator?.role}</dd>
-            <dt className="text-muted">Idle timeout</dt>
-            <dd>{session?.idle_timeout_seconds ? `${Math.round(session.idle_timeout_seconds / 3600)}h` : "—"}</dd>
-          </dl>
-        </Card>
+        <MailCard />
+        <SignupCard />
+        <TermsCard />
       </div>
     </>
   );

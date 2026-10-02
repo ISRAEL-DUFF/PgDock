@@ -17,6 +17,10 @@ machine (`test/docs/install-from-docs.sh` runs the commands marked below).
 - **An S3-compatible bucket** for backups, with an access key that can read,
   write, and delete objects in it. Cloudflare R2 (no egress fees) is
   recommended; AWS S3, Backblaze B2, and MinIO work.
+- **An SMTP server** for PGDock's email: verification links, password
+  resets, invitations, and security notices. Any provider works (Postmark,
+  SES, Mailgun, Resend, your own relay); have the host, port, username,
+  password, and a From address ready.
 - **An authenticator app** (1Password, Google Authenticator, Aegis, …) for
   two-factor sign-in.
 
@@ -104,19 +108,25 @@ Open `https://<your UI hostname>`. Caddy gets the UI's certificate on the
 first visit, which can take a few seconds. Then:
 
 1. **Setup code**: paste the code from the installer.
-2. **Owner account**: your email and a long password, then scan the QR code
-   with your authenticator app and enter a code. Every sign-in needs one.
-3. **Database hostname**: the name your apps will use (`db.example.com`).
+2. **Platform admin account**: your email and a long password, then scan
+   the QR code with your authenticator app and enter a code. Every sign-in
+   needs one.
+3. **Recovery codes**: ten one-time codes that sign you in if you lose your
+   authenticator. Save them in a password manager or on paper.
+4. **Email**: your SMTP server. PGDock sends a test message to your address
+   before saving; without working email nobody can verify an account,
+   reset a password, or accept an invitation.
+5. **Database hostname**: the name your apps will use (`db.example.com`).
    PGDock checks that it resolves to this server, then gets a Let's Encrypt
    certificate for the poolers.
-4. **Backup storage**: the bucket's endpoint (for R2,
+6. **Backup storage**: the bucket's endpoint (for R2,
    `https://<account-id>.r2.cloudflarestorage.com`), bucket, region (`auto`
    for R2), access key, and secret. PGDock writes, reads, and deletes a test
    object before saving.
-5. **Backup key**: PGDock generates the key that encrypts every backup.
+7. **Backup key**: PGDock generates the key that encrypts every backup.
    **Download it and store it offline**, then paste it back to confirm.
    Without it no backup can be restored, by you or anyone else.
-6. **Local node**: the bundled agent has already registered itself; the
+8. **Local node**: the bundled agent has already registered itself; the
    wizard shows it as healthy.
 
 ## 7. Your first database
@@ -140,6 +150,11 @@ psql "postgres://<project>_owner:<password>@db.example.com:6543/<project>?sslmod
 ```
 
 ## 8. Finish setting up
+
+- **Who can sign up** (Platform settings → Sign-up): invite-only by
+  default; you can allow sign-ups that you approve, or open sign-up
+  (optionally limited to email domains). Invite people from Users →
+  **Invite someone**, or into an organisation from its Members page.
 
 - **Alerts** (Settings → Alerts): a webhook (Slack, Discord, ntfy, or your
   own endpoint) and optionally SMTP email, for failed or overdue backups,

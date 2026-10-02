@@ -3,6 +3,22 @@
 PGDock follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
+## Unreleased
+
+### Users and organisations (V2 M8)
+- Many users: sign-up (invite-only by default, approval, or open with
+  email domains), email verification, password reset, recovery codes,
+  and versioned terms. SMTP is now a setup step.
+- Organisations with owner, admin, and member roles; invitations,
+  ownership transfer, leaving, and project transfer between orgs.
+- Project roles (admin, developer, read-only) with a personal database
+  login per member; removing someone drops their login and ends their
+  connections at once.
+- Organisation, project, and platform audit logs; an org switcher and
+  account pages.
+- Upgrading: existing projects move into the platform admin's personal
+  organisation unchanged. `/api/v1/audit` is now `/api/v1/admin/audit`.
+
 ## v1.0.0
 
 The first release: self-hosted managed PostgreSQL 18 with a web UI, on one

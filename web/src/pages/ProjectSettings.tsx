@@ -3,11 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type Project, type ProjectCredentials } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
+import { setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { CredentialPanel } from "../components/Credentials";
 import { ExtensionsCard } from "../components/ExtensionsCard";
 import { PromoteCard } from "../components/PromoteCard";
 import { useOperationToast } from "../components/Toasts";
-import { Alert, Button, Card, Field, Input } from "../components/ui";
+import { Alert, Button, Card, Field, Input, Select } from "../components/ui";
 import { formatBytes, parseBytes } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { useProject } from "./ProjectOverview";
@@ -22,6 +23,7 @@ export function ProjectSettingsPage() {
       <ExtensionsCard p={p} />
       <RotateCard p={p} />
       <PromoteCard p={p} />
+      <TransferCard p={p} />
       <DangerCard p={p} />
     </div>
   );
@@ -230,6 +232,53 @@ function DangerCard({ p }: { p: Project }) {
           Take a final backup first (kept 30 days)
         </label>
       </ConfirmDestroy>
+    </Card>
+  );
+}
+
+/** Moves the project to another organisation the user owns (V2 §2.1). */
+function TransferCard({ p }: { p: Project }) {
+  const { orgs } = useCurrentOrg();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const here = orgs.find((o) => o.id === p.org_id);
+  const targets = orgs.filter((o) => o.id !== p.org_id && o.role === "owner");
+  const [to, setTo] = useState("");
+  const [open, setOpen] = useState(false);
+  if (here?.role !== "owner" || targets.length === 0) return null;
+  const target = targets.find((o) => o.id === to);
+  return (
+    <Card title="Move to another organisation">
+      <p className="mb-3 text-sm text-muted">
+        The database, its URL, and its members' logins stay as they are; members join the new organisation as members.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Select aria-label="Destination organisation" value={to} onChange={(e) => setTo(e.target.value)}>
+          <option value="">Choose an organisation…</option>
+          {targets.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </Select>
+        <Button disabled={!to} onClick={() => setOpen(true)}>
+          Move
+        </Button>
+      </div>
+      <ConfirmDestroy
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Move ${p.name}`}
+        name={p.name}
+        description={`Moves the project into ${target?.name ?? "the chosen organisation"}.`}
+        action="Move project"
+        run={async () => {
+          await api.transferProject(p.id, to);
+          setCurrentOrg(to);
+          await qc.invalidateQueries();
+          await navigate({ to: "/projects/$id", params: { id: p.id } });
+        }}
+      />
     </Card>
   );
 }

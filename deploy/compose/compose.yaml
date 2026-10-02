@@ -58,6 +58,8 @@ services:
       PGDOCK_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
       # Caddy terminates TLS; trust its X-Forwarded-For.
       PGDOCK_TRUSTED_PROXIES: 172.31.250.10
+      # Links in account, invitation, and alert email.
+      PGDOCK_PUBLIC_URL: ${PGDOCK_PUBLIC_URL:-https://${PGDOCK_UI_DOMAIN}}
       PGDOCK_PUBLIC_IPS: ${PGDOCK_PUBLIC_IPS:-}
       PGDOCK_SETUP_CODE: ${PGDOCK_SETUP_CODE:-}
       PGDOCK_SHARED_ADMIN_URL: postgres://pgdock_admin:${SHARED_ADMIN_PASSWORD:?}@shared-pg:5432/postgres?sslmode=disable

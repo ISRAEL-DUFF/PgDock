@@ -44,6 +44,24 @@ export type AlertItem = S["Alert"];
 export type AlertSettings = S["AlertSettings"];
 export type AlertSettingsRequest = S["AlertSettingsRequest"];
 export type IsolationCheck = S["IsolationCheck"];
+export type User = S["User"];
+export type Org = S["Org"];
+export type OrgRole = S["OrgRole"];
+export type ProjectRole = S["ProjectRole"];
+export type OrgMember = S["OrgMember"];
+export type Invitation = S["Invitation"];
+export type InvitationCreated = S["InvitationCreated"];
+export type InvitationPreview = S["InvitationPreview"];
+export type ProjectMember = S["ProjectMember"];
+export type PersonalCredentials = S["PersonalCredentials"];
+export type PersonalCredentialsInfo = S["PersonalCredentialsInfo"];
+export type AdminUser = S["AdminUser"];
+export type MailSettings = S["MailSettings"];
+export type MailSettingsRequest = S["MailSettingsRequest"];
+export type SignupSettings = S["SignupSettings"];
+export type Terms = S["Terms"];
+export type SessionInfo = S["SessionInfo"];
+export type AuditQuery = { action?: string; outcome?: string; target_id?: string; before?: number; limit?: number };
 
 /** An error response from the API, with the server's error code. */
 export class ApiRequestError extends Error {
@@ -119,7 +137,63 @@ export const api = {
   reauth: (b: { password: string; code: string }) => request<void>("POST", "/api/v1/auth/reauth", b),
   logout: () => request<void>("POST", "/api/v1/auth/logout"),
 
-  projects: (status?: string) => getJSON<S["ProjectList"]>(`/api/v1/projects${qs({ status, limit: 500 })}`),
+  signup: (b: S["SignupRequest"]) => request<void>("POST", "/api/v1/auth/signup", b),
+  verifyEmail: (token: string) => request<S["VerifyEmailResult"]>("POST", "/api/v1/auth/verify-email", { token }),
+  resendVerification: (email: string) => request<void>("POST", "/api/v1/auth/verify-email/resend", { email }),
+  requestPasswordReset: (email: string) => request<void>("POST", "/api/v1/auth/password-reset", { email }),
+  confirmPasswordReset: (token: string, password: string) => request<void>("POST", "/api/v1/auth/password-reset/confirm", { token, password }),
+  terms: () => getJSON<Terms>("/api/v1/terms"),
+  acceptTerms: (version: number) => request<void>("POST", "/api/v1/me/terms/accept", { version }),
+  previewInvitation: (token: string) => request<InvitationPreview>("POST", "/api/v1/invitations/preview", { token }),
+  acceptInvitation: (b: S["AcceptInvitationRequest"]) => request<S["AcceptInvitationResult"]>("POST", "/api/v1/invitations/accept", b),
+
+  me: () => getJSON<User>("/api/v1/me"),
+  updateMe: (b: S["UpdateMeRequest"]) => request<User>("PATCH", "/api/v1/me", b),
+  changePassword: (b: S["ChangePasswordRequest"]) => request<void>("POST", "/api/v1/me/password", b),
+  mySessions: () => getJSON<S["SessionList"]>("/api/v1/me/sessions"),
+  revokeSession: (id: string) => request<void>("DELETE", `/api/v1/me/sessions/${encodeURIComponent(id)}`),
+  recoveryCodes: () => getJSON<S["RecoveryCodesStatus"]>("/api/v1/me/recovery-codes"),
+  regenerateRecoveryCodes: () => request<S["RecoveryCodes"]>("POST", "/api/v1/me/recovery-codes"),
+  myInvitations: () => getJSON<S["MyInvitationList"]>("/api/v1/me/invitations"),
+  acceptMyInvitation: (id: string) => request<S["AcceptInvitationResult"]>("POST", `/api/v1/me/invitations/${id}/accept`),
+
+  orgs: () => getJSON<S["OrgList"]>("/api/v1/orgs"),
+  createOrg: (name: string) => request<Org>("POST", "/api/v1/orgs", { name }),
+  org: (id: string) => getJSON<Org>(`/api/v1/orgs/${id}`),
+  updateOrg: (id: string, b: S["UpdateOrgRequest"]) => request<Org>("PATCH", `/api/v1/orgs/${id}`, b),
+  orgMembers: (id: string) => getJSON<S["OrgMemberList"]>(`/api/v1/orgs/${id}/members`),
+  inviteOrgMember: (id: string, b: S["InviteRequest"]) => request<InvitationCreated>("POST", `/api/v1/orgs/${id}/members`, b),
+  setOrgRole: (id: string, user: string, role: OrgRole) => request<void>("PATCH", `/api/v1/orgs/${id}/members/${user}`, { role }),
+  removeOrgMember: (id: string, user: string) => request<void>("DELETE", `/api/v1/orgs/${id}/members/${user}`),
+  leaveOrg: (id: string) => request<void>("POST", `/api/v1/orgs/${id}/leave`),
+  transferOwnership: (id: string, user_id: string) => request<void>("POST", `/api/v1/orgs/${id}/transfer-ownership`, { user_id }),
+  orgInvitations: (id: string) => getJSON<S["InvitationList"]>(`/api/v1/orgs/${id}/invitations`),
+  revokeOrgInvitation: (id: string, inv: string) => request<void>("DELETE", `/api/v1/orgs/${id}/invitations/${inv}`),
+  orgAudit: (id: string, p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/orgs/${id}/audit${qs(p)}`),
+
+  projectMembers: (id: string) => getJSON<S["ProjectMemberList"]>(`/api/v1/projects/${id}/members`),
+  addProjectMember: (id: string, b: S["ProjectMemberRequest"]) => request<S["ProjectMemberAdded"]>("POST", `/api/v1/projects/${id}/members`, b),
+  setProjectRole: (id: string, user: string, role: ProjectRole) => request<void>("PATCH", `/api/v1/projects/${id}/members/${user}`, { role }),
+  removeProjectMember: (id: string, user: string) => request<void>("DELETE", `/api/v1/projects/${id}/members/${user}`),
+  myCredentials: (id: string) => getJSON<PersonalCredentialsInfo>(`/api/v1/projects/${id}/credentials`),
+  issueMyCredentials: (id: string) => request<PersonalCredentials>("POST", `/api/v1/projects/${id}/credentials`),
+  transferProject: (id: string, org_id: string) => request<Project>("POST", `/api/v1/projects/${id}/transfer`, { org_id }),
+  projectAudit: (id: string, p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/projects/${id}/audit${qs(p)}`),
+
+  users: (p: { q?: string; pending?: boolean } = {}) => getJSON<S["UserList"]>(`/api/v1/admin/users${qs({ q: p.q, pending: p.pending ? "true" : undefined })}`),
+  updateUser: (id: string, b: S["UpdateUserRequest"]) => request<AdminUser>("PATCH", `/api/v1/admin/users/${id}`, b),
+  resetUserTotp: (id: string) => request<void>("POST", `/api/v1/admin/users/${id}/reset-2fa`),
+  platformInvitations: () => getJSON<S["InvitationList"]>("/api/v1/admin/invitations"),
+  invitePlatform: (email: string) => request<InvitationCreated>("POST", "/api/v1/admin/invitations", { email }),
+  revokePlatformInvitation: (id: string) => request<void>("DELETE", `/api/v1/admin/invitations/${id}`),
+  signupSettings: () => getJSON<SignupSettings>("/api/v1/admin/settings/signup"),
+  saveSignupSettings: (b: SignupSettings) => request<SignupSettings>("PUT", "/api/v1/admin/settings/signup", b),
+  mailSettings: () => getJSON<MailSettings>("/api/v1/admin/settings/mail"),
+  saveMailSettings: (b: MailSettingsRequest) => request<MailSettings>("PUT", "/api/v1/admin/settings/mail", b),
+  publishTerms: (b: S["PublishTermsRequest"]) => request<Terms>("POST", "/api/v1/admin/settings/terms", b),
+  platformAudit: (p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/admin/audit${qs(p)}`),
+
+  projects: (org?: string, status?: string) => getJSON<S["ProjectList"]>(`/api/v1/projects${qs({ org, status, limit: 500 })}`),
   project: (id: string) => getJSON<Project>(`/api/v1/projects/${id}`),
   createProject: (b: CreateProjectRequest) => request<ProjectCredentials>("POST", "/api/v1/projects", b),
   profiles: () => getJSON<ProfileList>("/api/v1/profiles"),
@@ -143,8 +217,8 @@ export const api = {
   deleteProject: (id: string, confirm: string, skipFinalBackup = false) =>
     request<Operation>("DELETE", `/api/v1/projects/${id}${qs({ confirm, skip_final_backup: skipFinalBackup ? "true" : undefined })}`),
 
-  backups: (p: { project_id?: string; kind?: string; limit?: number } = {}) => getJSON<S["BackupList"]>(`/api/v1/backups${qs(p)}`),
-  backupOverview: () => getJSON<BackupOverview>("/api/v1/backups/overview"),
+  backups: (p: { org?: string; project_id?: string; kind?: string; limit?: number } = {}) => getJSON<S["BackupList"]>(`/api/v1/backups${qs(p)}`),
+  backupOverview: (org?: string) => getJSON<BackupOverview>(`/api/v1/backups/overview${qs({ org })}`),
   backupNow: (projectId: string) => request<Operation>("POST", `/api/v1/projects/${projectId}/backups`),
   restore: (backupId: string, b: S["RestoreRequest"]) => request<RestoreResponse>("POST", `/api/v1/backups/${backupId}/restore`, b),
   restoreTest: (projectId?: string) => request<Operation>("POST", `/api/v1/restore-tests${qs({ project_id: projectId })}`),
@@ -168,12 +242,10 @@ export const api = {
   updateNode: (id: string, role: "shared" | "dedicated" | "both") => request<Node>("PATCH", `/api/v1/nodes/${id}`, { role }),
   createSharedCluster: (id: string, memory_mb: number) => request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, { memory_mb }),
 
-  operations: (p: { project_id?: string; status?: string; kind?: string; limit?: number } = {}) =>
+  operations: (p: { org?: string; platform?: string; project_id?: string; status?: string; kind?: string; limit?: number } = {}) =>
     getJSON<S["OperationList"]>(`/api/v1/operations${qs(p)}`),
   operation: (id: string) => getJSON<Operation>(`/api/v1/operations/${id}`),
 
-  audit: (p: { action?: string; outcome?: string; target_id?: string; before?: number; limit?: number } = {}) =>
-    getJSON<AuditList>(`/api/v1/audit${qs(p)}`),
 
   alerts: (status?: "firing" | "resolved") => getJSON<S["AlertList"]>(`/api/v1/alerts${qs({ status, limit: 200 })}`),
   alertSettings: () => getJSON<AlertSettings>("/api/v1/settings/alerts"),
