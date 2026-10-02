@@ -180,6 +180,12 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 			return err
 		}
 	}
+	// Members' logins and the read-only role, with the same verifiers, so
+	// the copy's grants land and every member's credentials keep working
+	// (V2 §3.5).
+	if err := s.projects.SyncMemberRoles(ctx, pt, log); err != nil {
+		return err
+	}
 	src, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
 	if err != nil {
 		return err
@@ -238,6 +244,9 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 	if err := log.Info(ctx, "verify", "verified: %d table(s), %d row(s), and %d sequence(s) match", v.Tables, v.Rows, v.Sequences); err != nil {
 		return err
 	}
+	if err := s.projects.SyncMemberRoles(ctx, pt, nil); err != nil {
+		return err
+	}
 
 	// Step 6: switch the route. The commit is the point of no return.
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
@@ -274,8 +283,14 @@ func (s *Service) freeze(ctx context.Context, p store.Project, log *jobs.StepLog
 		return err
 	}
 	defer admin.Close(context.Background())
-	if _, err := admin.Exec(ctx, "ALTER ROLE "+provision.Ident(p.OwnerRole)+" NOLOGIN"); err != nil {
-		return fmt.Errorf("freeze: %w", err)
+	logins, err := s.memberLogins(ctx, p)
+	if err != nil {
+		return err
+	}
+	for _, r := range append([]string{p.OwnerRole}, logins...) {
+		if _, err := admin.Exec(ctx, "ALTER ROLE "+provision.Ident(r)+" NOLOGIN"); err != nil {
+			return fmt.Errorf("freeze: %w", err)
+		}
 	}
 	killed, err := s.projects.Pooler().Freeze(ctx, p.DbName, freezeWait)
 	if err != nil {
@@ -284,7 +299,7 @@ func (s *Service) freeze(ctx context.Context, p store.Project, log *jobs.StepLog
 	var n int
 	// The console's role too: it can SET ROLE to the owner while NOLOGIN.
 	if err := admin.QueryRow(ctx, `SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE datname = $1 AND usename = ANY($2)`,
-		p.DbName, []string{p.OwnerRole, provision.ConsoleRole(p.DbName)}).Scan(&n); err != nil {
+		p.DbName, append([]string{p.OwnerRole, provision.ConsoleRole(p.DbName)}, logins...)).Scan(&n); err != nil {
 		return fmt.Errorf("terminate sessions: %w", err)
 	}
 	msg := "writes frozen: poolers paused"
@@ -301,8 +316,14 @@ func (s *Service) unfreeze(ctx context.Context, p store.Project, log *jobs.StepL
 		return err
 	}
 	defer admin.Close(context.Background())
-	if _, err := admin.Exec(ctx, "ALTER ROLE "+provision.Ident(p.OwnerRole)+" LOGIN"); err != nil {
+	logins, err := s.memberLogins(ctx, p)
+	if err != nil {
 		return err
+	}
+	for _, r := range append([]string{p.OwnerRole}, logins...) {
+		if _, err := admin.Exec(ctx, "ALTER ROLE "+provision.Ident(r)+" LOGIN"); err != nil {
+			return err
+		}
 	}
 	if err := s.projects.Pooler().Resume(ctx, p.DbName); err != nil && !isNotPaused(err) {
 		return err
@@ -426,6 +447,19 @@ func (s *Service) placeholderRoles(ctx context.Context, src *pgx.Conn, pt store.
 	return nil
 }
 
+// memberLogins lists the personal logins of p.
+func (s *Service) memberLogins(ctx context.Context, p store.Project) ([]string, error) {
+	users, err := store.New(s.db).ListProjectDBUsers(ctx, p.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(users))
+	for i, u := range users {
+		out[i] = u.RoleName
+	}
+	return out, nil
+}
+
 // DropRetired drops shared copies whose retention ended (spec §6.6 step 8).
 func (s *Service) DropRetired(ctx context.Context) error {
 	q := store.New(s.db)
@@ -447,6 +481,21 @@ func (s *Service) DropRetired(ctx context.Context) error {
 		}
 		if err == nil {
 			err = provision.DropConsoleRole(ctx, conn, provision.ConsoleRole(r.DbName), r.DbName)
+		}
+		if err == nil {
+			// Members' logins and the read-only role belonged to this copy.
+			var names []string
+			rows, qerr := conn.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname = $1 OR starts_with(rolname, $2)`,
+				provision.ReadOnlyRole(r.DbName), r.DbName+"_u_")
+			if qerr == nil {
+				names, qerr = pgx.CollectRows(rows, pgx.RowTo[string])
+			}
+			err = qerr
+			for _, n := range names {
+				if err == nil {
+					_, err = conn.Exec(ctx, "DROP ROLE IF EXISTS "+provision.Ident(n))
+				}
+			}
 		}
 		_ = conn.Close(context.Background())
 		if err != nil {

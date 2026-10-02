@@ -2,8 +2,8 @@ import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, errorMessage, type InstanceSummary } from "../api/client";
-import { Alert, Badge, Button, Card, CopyField, PageHeader, Spinner, StateBadge, StatusBadge, Table } from "../components/ui";
+import { ApiRequestError, api, errorMessage, type InstanceSummary } from "../api/client";
+import { Alert, Badge, Button, Card, CopyField, EmptyState, PageHeader, Spinner, StateBadge, StatusBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 
 export function useProject() {
@@ -18,8 +18,18 @@ export function useProject() {
 export function ProjectLayout() {
   const q = useProject();
   if (q.isPending) return <Spinner />;
-  if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
+  if (q.isError) {
+    // Another organisation's project and a missing one look the same (V2 §4.2).
+    if (q.error instanceof ApiRequestError && q.error.status === 404)
+      return (
+        <div data-testid="project-not-found">
+          <EmptyState title="Project not found">It doesn't exist, or you don't have access to it.</EmptyState>
+        </div>
+      );
+    return <Alert>{errorMessage(q.error)}</Alert>;
+  }
   const p = q.data;
+  const admin = p.my_role === "admin";
   const tabs = [
     { to: "/projects/$id", label: "Overview", exact: true },
     { to: "/projects/$id/connect", label: "Connect" },
@@ -27,7 +37,8 @@ export function ProjectLayout() {
     { to: "/projects/$id/tables", label: "Tables" },
     { to: "/projects/$id/backups", label: "Backups" },
     { to: "/projects/$id/metrics", label: "Metrics" },
-    { to: "/projects/$id/settings", label: "Settings" },
+    { to: "/projects/$id/members", label: "Members" },
+    ...(admin ? [{ to: "/projects/$id/settings", label: "Settings" } as const] : []),
   ] as const;
   return (
     <>
@@ -37,7 +48,12 @@ export function ProjectLayout() {
             {p.name} <StatusBadge status={p.status} />
           </span>
         }
-        subtitle={<span className="font-mono">{p.db_name}</span>}
+        subtitle={
+          <span className="flex items-center gap-2">
+            <span className="font-mono">{p.db_name}</span>
+            {p.my_role && <Badge>{p.my_role.replace("_", "-")}</Badge>}
+          </span>
+        }
       />
       <nav aria-label="Project" className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((t) => (
@@ -62,7 +78,7 @@ export function ProjectOverviewPage() {
   const { data: p } = useProject();
   const ops = useQuery({
     queryKey: ["operations", { project: p?.id }],
-    queryFn: () => api.operations({ project_id: p!.id, limit: 10 }),
+    queryFn: () => api.operations({ org: p!.org_id, project_id: p!.id, limit: 10 }),
     enabled: !!p,
     refetchInterval: 5000,
   });

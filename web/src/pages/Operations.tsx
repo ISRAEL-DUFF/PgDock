@@ -5,19 +5,32 @@ import { api, errorMessage } from "../api/client";
 import { OperationLog } from "../components/OperationLog";
 import { Alert, Card, EmptyState, PageHeader, Select, Spinner, StatusBadge, Table } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
+import { useCurrentOrg } from "../lib/org";
+import { sessionQuery } from "../lib/session";
 import { useOperationStream } from "../lib/useOperationStream";
 
 export function OperationsPage() {
   const [status, setStatus] = useState("");
+  const [platform, setPlatform] = useState(false);
+  const { org } = useCurrentOrg();
+  const { data: session } = useQuery(sessionQuery);
   const q = useQuery({
-    queryKey: ["operations", { status }],
-    queryFn: () => api.operations({ status: status || undefined, limit: 100 }),
+    queryKey: ["operations", { status, org: org?.id, platform }],
+    queryFn: () =>
+      api.operations({ status: status || undefined, limit: 100, ...(platform ? { platform: "true" } : { org: org?.id }) }),
     refetchInterval: 5000,
+    enabled: !!org,
   });
   return (
     <>
       <PageHeader title="Operations" subtitle="Every long action runs as an operation with a step log." />
-      <div className="mb-3">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        {session?.user?.platform_role === "platform_admin" && (
+          <Select value={platform ? "platform" : "org"} onChange={(e) => setPlatform(e.target.value === "platform")} aria-label="Scope">
+            <option value="org">{org?.name ?? "This organisation"}</option>
+            <option value="platform">Platform (nodes, restore tests, self-backups)</option>
+          </Select>
+        )}
         <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
           <option value="">All statuses</option>
           {["queued", "running", "succeeded", "failed"].map((s) => (

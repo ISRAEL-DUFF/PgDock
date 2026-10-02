@@ -130,14 +130,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Current operator */
+        /** The signed-in user */
         get: operations["getMe"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change your profile */
+        patch: operations["updateMe"];
         trace?: never;
     };
     "/api/v1/session": {
@@ -195,23 +196,6 @@ export interface paths {
         put?: never;
         /** First-run setup, step 2 - confirm TOTP and create the owner */
         post: operations["completeSetup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Audit log, newest first */
-        get: operations["listAudit"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -359,7 +343,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List projects, newest first */
+        /** List projects you can see in an organisation, newest first */
         get: operations["listProjects"];
         put?: never;
         /**
@@ -1091,6 +1075,683 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an account (when the signup mode allows it)
+         * @description Public and rate-limited. The account stays inactive until its email
+         *     is verified (and, in approval mode, the platform admin approves it).
+         *     The answer is the same whether or not the address already has an
+         *     account.
+         */
+        post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify an email address with the emailed token */
+        post: operations["verifyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a new verification link */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email a password reset link (valid one hour) */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a new password from a reset link; ends every session */
+        post: operations["confirmPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The current terms of use and privacy notice (public) */
+        get: operations["getTerms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invitations/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What an invitation link offers (public, token-gated) */
+        post: operations["previewInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an invitation link (public, token-gated)
+         * @description Signed in, accepts for the current account (which must have the
+         *     invited address). Otherwise creates the account from `name`,
+         *     `password`, and `terms_version`, and returns a login challenge that
+         *     enrols the authenticator.
+         */
+        post: operations["acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change your password; ends your other sessions */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your active sessions */
+        get: operations["listMySessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End one of your sessions */
+        delete: operations["revokeMySession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many recovery codes you have left */
+        get: operations["getRecoveryCodes"];
+        put?: never;
+        /** Replace your recovery codes (step-up auth); shown once */
+        post: operations["regenerateRecoveryCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/terms/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept the current terms of use */
+        post: operations["acceptTerms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invitations waiting for you */
+        get: operations["listMyInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/invitations/{invitation_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept one of your pending invitations */
+        post: operations["acceptMyInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organisations you belong to (personal first) */
+        get: operations["listOrgs"];
+        put?: never;
+        /** Create an organisation; you become its owner */
+        post: operations["createOrg"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One organisation */
+        get: operations["getOrg"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename an organisation or change its settings */
+        patch: operations["updateOrg"];
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Members, their roles and project memberships */
+        get: operations["listOrgMembers"];
+        put?: never;
+        /** Invite someone to the organisation (and optionally to projects) */
+        post: operations["inviteOrgMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/members/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a member; their access ends at once */
+        delete: operations["removeOrgMember"];
+        options?: never;
+        head?: never;
+        /** Change a member's organisation role */
+        patch: operations["updateOrgMember"];
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leave an organisation */
+        post: operations["leaveOrg"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/transfer-ownership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make another member an owner and step down to admin */
+        post: operations["transferOrgOwnership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pending invitations */
+        get: operations["listOrgInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/invitations/{invitation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a pending invitation */
+        delete: operations["revokeOrgInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's audit log, newest first */
+        get: operations["listOrgAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project members (org owners and admins are implicit admins) */
+        get: operations["listProjectMembers"];
+        put?: never;
+        /** Add an org member to the project, or invite someone new */
+        post: operations["addProjectMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/members/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a member from the project; their login is dropped at once */
+        delete: operations["removeProjectMember"];
+        options?: never;
+        head?: never;
+        /** Change a member's project role */
+        patch: operations["updateProjectMember"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your personal database login on this project, if any (no password) */
+        get: operations["getMyCredentials"];
+        put?: never;
+        /** Create or rotate your personal database login; the password is shown once */
+        post: operations["issueMyCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move the project to another organisation (owner of both) */
+        post: operations["transferProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's slice of its organisation's audit log */
+        get: operations["listProjectAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The platform audit log, newest first (platform admin) */
+        get: operations["listPlatformAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every account (platform admin) */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Approve, disable, or re-enable an account (platform admin) */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user}/reset-2fa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset an account's two-factor authentication (platform admin, step-up auth) */
+        post: operations["resetUserTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pending platform invitations (platform admin) */
+        get: operations["listPlatformInvitations"];
+        put?: never;
+        /** Invite someone to the platform (platform admin) */
+        post: operations["createPlatformInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invitations/{invitation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a platform invitation (platform admin) */
+        delete: operations["revokePlatformInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Signup mode and domain allow-list (platform admin) */
+        get: operations["getSignupSettings"];
+        /** Change the signup mode (platform admin) */
+        put: operations["putSignupSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/mail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform SMTP settings (platform admin; no password) */
+        get: operations["getMailSettings"];
+        /**
+         * Test and save the platform SMTP settings (platform admin)
+         * @description Sends a test message to `test_to` with the new settings and saves
+         *     them only if the server accepted it (V2 §3.1: a working SMTP test
+         *     is required).
+         */
+        put: operations["putMailSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a new version of the terms and privacy notice (platform admin)
+         * @description Every user accepts the new version at their next visit.
+         */
+        post: operations["publishTerms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1117,6 +1778,14 @@ export interface components {
         };
         LoginChallenge: {
             challenge_id: string;
+            enrollment?: components["schemas"]["LoginEnrollment"];
+        };
+        /** @description First sign-in - enrol this authenticator; the next code completes it. */
+        LoginEnrollment: {
+            totp_secret: string;
+            totp_uri: string;
+            /** Format: date-time */
+            expires_at: string;
         };
         TotpRequest: {
             challenge_id: string;
@@ -1126,14 +1795,6 @@ export interface components {
             /** Format: password */
             password: string;
             code: string;
-        };
-        Operator: {
-            /** Format: uuid */
-            id: string;
-            /** Format: email */
-            email: string;
-            /** @enum {string} */
-            role: "owner" | "member";
         };
         Error: {
             /** @example not_implemented */
@@ -1223,6 +1884,9 @@ export interface components {
         Project: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            org_id: string;
+            my_role?: components["schemas"]["ProjectRole"];
             name: string;
             slug: string;
             db_name: string;
@@ -1260,6 +1924,11 @@ export interface components {
             items: components["schemas"]["Project"][];
         };
         CreateProjectRequest: {
+            /**
+             * Format: uuid
+             * @description The organisation; your personal organisation when omitted.
+             */
+            org_id?: string;
             /** @example My Blog */
             name: string;
             description?: string;
@@ -1285,7 +1954,13 @@ export interface components {
             authenticated: boolean;
             setup_required: boolean;
             csrf_token: string;
-            operator?: components["schemas"]["Operator"];
+            user?: components["schemas"]["User"];
+            /** @enum {string} */
+            signup_mode?: "invite_only" | "approval" | "open";
+            /** @description A terms version the user must accept before anything else. */
+            terms_required?: number | null;
+            /** @description Set once, when this sign-in enrolled the authenticator. */
+            recovery_codes?: string[];
             /**
              * Format: date-time
              * @description Destructive actions are allowed without re-authenticating until then.
@@ -1315,8 +1990,15 @@ export interface components {
             /** Format: int64 */
             id: number;
             /** Format: uuid */
-            operator_id?: string | null;
-            operator_email?: string | null;
+            user_id?: string | null;
+            user_email?: string | null;
+            /** @enum {string} */
+            actor_kind?: "session" | "token" | "system";
+            /** Format: uuid */
+            org_id?: string | null;
+            /** Format: uuid */
+            project_id?: string | null;
+            break_glass?: boolean;
             /** @example project.create */
             action: string;
             target_type?: string | null;
@@ -1489,6 +2171,11 @@ export interface components {
             source_url: string;
         };
         ImportRequest: {
+            /**
+             * Format: uuid
+             * @description The organisation; your personal organisation when omitted.
+             */
+            org_id?: string;
             source_url: string;
             name: string;
             description?: string;
@@ -1915,6 +2602,319 @@ export interface components {
                 error?: string;
             }[];
         };
+        User: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            name?: string | null;
+            /** @enum {string} */
+            platform_role: "platform_admin" | "user";
+        };
+        UpdateMeRequest: {
+            name?: string;
+        };
+        SignupRequest: {
+            /** Format: email */
+            email: string;
+            /** Format: password */
+            password: string;
+            name?: string;
+            /** @description The terms version the user accepted (the current one). */
+            terms_version: number;
+        };
+        TokenRequest: {
+            token: string;
+        };
+        EmailRequest: {
+            /** Format: email */
+            email: string;
+        };
+        VerifyEmailResult: {
+            email: string;
+            /** @description False while the account waits for the platform admin (approval mode). */
+            approved: boolean;
+        };
+        PasswordResetConfirm: {
+            token: string;
+            /** Format: password */
+            password: string;
+        };
+        ChangePasswordRequest: {
+            /** Format: password */
+            current_password: string;
+            /** Format: password */
+            new_password: string;
+        };
+        Terms: {
+            version: number;
+            terms_md: string;
+            privacy_md: string;
+            /** Format: date-time */
+            published_at: string;
+        };
+        AcceptTermsRequest: {
+            version: number;
+        };
+        PublishTermsRequest: {
+            terms_md: string;
+            privacy_md: string;
+        };
+        SessionInfo: {
+            id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            ip?: string | null;
+            user_agent?: string | null;
+            current: boolean;
+        };
+        SessionList: {
+            items: components["schemas"]["SessionInfo"][];
+        };
+        RecoveryCodesStatus: {
+            remaining: number;
+        };
+        RecoveryCodes: {
+            codes: string[];
+        };
+        /** @enum {string} */
+        OrgRole: "owner" | "admin" | "member";
+        /** @enum {string} */
+        ProjectRole: "admin" | "developer" | "read_only";
+        Org: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            /** @description The signed-in user's personal organisation. */
+            personal: boolean;
+            role: components["schemas"]["OrgRole"];
+            plan: string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "deleting" | "deleted";
+            members_can_create_projects: boolean;
+            member_count: number;
+            project_count: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        OrgList: {
+            items: components["schemas"]["Org"][];
+        };
+        CreateOrgRequest: {
+            name: string;
+        };
+        UpdateOrgRequest: {
+            name?: string;
+            slug?: string;
+            members_can_create_projects?: boolean;
+        };
+        ProjectMembership: {
+            /** Format: uuid */
+            project_id: string;
+            project_name: string;
+            role: components["schemas"]["ProjectRole"];
+        };
+        OrgMember: {
+            /** Format: uuid */
+            user_id: string;
+            email: string;
+            name?: string | null;
+            role: components["schemas"]["OrgRole"];
+            totp_enabled: boolean;
+            disabled: boolean;
+            /** Format: date-time */
+            last_active_at?: string | null;
+            /** Format: date-time */
+            joined_at: string;
+            projects: components["schemas"]["ProjectMembership"][];
+        };
+        OrgMemberList: {
+            items: components["schemas"]["OrgMember"][];
+        };
+        InviteProjectRole: {
+            /** Format: uuid */
+            project_id: string;
+            role: components["schemas"]["ProjectRole"];
+        };
+        InviteRequest: {
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["OrgRole"];
+            projects?: components["schemas"]["InviteProjectRole"][];
+        };
+        Invitation: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            /** @enum {string} */
+            kind: "platform" | "org";
+            /** Format: uuid */
+            org_id?: string | null;
+            org_name?: string | null;
+            role?: components["schemas"]["OrgRole"];
+            projects: components["schemas"]["InviteProjectRole"][];
+            /** @description The inviter's email. */
+            invited_by: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        InvitationList: {
+            items: components["schemas"]["Invitation"][];
+        };
+        MyInvitationList: {
+            items: components["schemas"]["Invitation"][];
+        };
+        InvitationCreated: {
+            invitation: components["schemas"]["Invitation"];
+            /** @description The invitation link, to pass on yourself if the email does not arrive. Shown once. */
+            url: string;
+            email_sent: boolean;
+            email_error?: string | null;
+        };
+        InvitationPreview: {
+            email: string;
+            /** @enum {string} */
+            kind: "platform" | "org";
+            org_name?: string | null;
+            role?: components["schemas"]["OrgRole"];
+            project_count?: number;
+            invited_by: string;
+            /** @description The address already has an account; sign in to accept. */
+            has_account: boolean;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        AcceptInvitationRequest: {
+            token: string;
+            name?: string;
+            /** Format: password */
+            password?: string;
+            terms_version?: number;
+        };
+        AcceptInvitationResult: {
+            /** Format: uuid */
+            org_id?: string | null;
+            login?: components["schemas"]["LoginChallenge"];
+        };
+        OrgRoleRequest: {
+            role: components["schemas"]["OrgRole"];
+        };
+        TransferOwnershipRequest: {
+            /** Format: uuid */
+            user_id: string;
+        };
+        ProjectMember: {
+            /** Format: uuid */
+            user_id: string;
+            email: string;
+            name?: string | null;
+            role: components["schemas"]["ProjectRole"];
+            org_role?: components["schemas"]["OrgRole"];
+            /** @description An org owner or admin, admin of every project in the organisation. */
+            implicit: boolean;
+            has_credentials?: boolean;
+        };
+        ProjectMemberList: {
+            items: components["schemas"]["ProjectMember"][];
+        };
+        ProjectMemberRequest: {
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["ProjectRole"];
+        };
+        ProjectMemberAdded: {
+            /** @description True when an existing org member was added; false when an invitation was sent. */
+            added: boolean;
+            invitation?: components["schemas"]["InvitationCreated"];
+        };
+        ProjectRoleRequest: {
+            role: components["schemas"]["ProjectRole"];
+        };
+        PersonalCredentialsInfo: {
+            exists: boolean;
+            role?: string | null;
+            /**
+             * @description What your role allows (the access a new login would get).
+             * @enum {string}
+             */
+            access: "read_write" | "read_only";
+            /** Format: date-time */
+            created_at?: string | null;
+            /** Format: date-time */
+            rotated_at?: string | null;
+        };
+        PersonalCredentials: {
+            role: string;
+            password: string;
+            /** @enum {string} */
+            access: "read_write" | "read_only";
+            connection: components["schemas"]["ConnectionInfo"];
+        };
+        TransferProjectRequest: {
+            /** Format: uuid */
+            org_id: string;
+        };
+        AdminUser: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            name?: string | null;
+            /** @enum {string} */
+            platform_role: "platform_admin" | "user";
+            email_verified: boolean;
+            approved: boolean;
+            disabled: boolean;
+            totp_enabled: boolean;
+            org_count: number;
+            /** Format: date-time */
+            last_active_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        UserList: {
+            items: components["schemas"]["AdminUser"][];
+        };
+        UpdateUserRequest: {
+            /** @description true approves an account waiting in approval mode. */
+            approved?: boolean;
+            disabled?: boolean;
+        };
+        SignupSettings: {
+            /** @enum {string} */
+            mode: "invite_only" | "approval" | "open";
+            /** @description Email domains allowed to sign up; empty allows any. */
+            domains?: string[];
+        };
+        MailSettings: {
+            configured: boolean;
+            host?: string;
+            port?: number;
+            username?: string;
+            has_password?: boolean;
+            from?: string;
+            /** @enum {string} */
+            tls?: "starttls" | "tls" | "none";
+        };
+        MailSettingsRequest: {
+            host: string;
+            port?: number;
+            username?: string;
+            /** @description Omit to keep the stored password. */
+            password?: string;
+            from: string;
+            /** @enum {string} */
+            tls?: "starttls" | "tls" | "none";
+            /**
+             * Format: email
+             * @description Where to send the test message.
+             */
+            test_to: string;
+        };
     };
     responses: {
         /** @description Error response. */
@@ -1928,6 +2928,18 @@ export interface components {
         };
     };
     parameters: {
+        OrgID: string;
+        UserID: string;
+        InvitationID: string;
+        /** @description The organisation to list; your personal organisation when omitted. */
+        OrgQuery: string;
+        /** @description Action prefix, e.g. `project.` or `auth.login`. */
+        AuditAction: string;
+        AuditOutcome: "success" | "failure" | "denied";
+        AuditTarget: string;
+        /** @description Return entries with an id below this (pagination). */
+        AuditBefore: number;
+        AuditLimit: number;
         MetricRange: "1h" | "24h" | "7d";
         /** @description Metrics to return; all when omitted. */
         MetricNames: string[];
@@ -2112,13 +3124,38 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The logged-in operator. */
+            /** @description The signed-in user. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Operator"];
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMeRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
                 };
             };
             default: components["responses"]["Error"];
@@ -2189,35 +3226,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionState"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    listAudit: {
-        parameters: {
-            query?: {
-                /** @description Action prefix, e.g. `project.` or `auth.login`. */
-                action?: string;
-                outcome?: "success" | "failure" | "denied";
-                target_id?: string;
-                /** @description Return entries with an id below this (pagination). */
-                before?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Audit entries. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditList"];
                 };
             };
             default: components["responses"]["Error"];
@@ -2297,6 +3305,10 @@ export interface operations {
     listOperations: {
         parameters: {
             query?: {
+                /** @description The organisation to list; your personal organisation when omitted. */
+                org?: components["parameters"]["OrgQuery"];
+                /** @description Platform-level operations (no project), for the platform admin. */
+                platform?: boolean;
                 status?: components["schemas"]["OperationStatus"];
                 kind?: string;
                 project_id?: string;
@@ -2394,6 +3406,8 @@ export interface operations {
     listProjects: {
         parameters: {
             query?: {
+                /** @description The organisation to list; your personal organisation when omitted. */
+                org?: components["parameters"]["OrgQuery"];
                 status?: components["schemas"]["ProjectStatus"];
                 limit?: number;
             };
@@ -2565,6 +3579,8 @@ export interface operations {
     listBackups: {
         parameters: {
             query?: {
+                /** @description The organisation to list; your personal organisation when omitted. */
+                org?: components["parameters"]["OrgQuery"];
                 project_id?: string;
                 kind?: components["schemas"]["BackupKind"];
                 limit?: number;
@@ -2589,7 +3605,10 @@ export interface operations {
     };
     getBackupOverview: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The organisation to list; your personal organisation when omitted. */
+                org?: components["parameters"]["OrgQuery"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3542,6 +4561,1173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AlertTestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    signup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupRequest"];
+            };
+        };
+        responses: {
+            /** @description Check your email for a verification link. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Verified. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyEmailResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRequest"];
+            };
+        };
+        responses: {
+            /** @description If the address has an unverified account, a link is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRequest"];
+            };
+        };
+        responses: {
+            /** @description If the address has an account, a link is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Terms"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRequest"];
+            };
+        };
+        responses: {
+            /** @description The invitation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationPreview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptInvitationResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMySessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeMySession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRecoveryCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Count. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    regenerateRecoveryCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new codes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodes"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptTermsRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMyInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending invitations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyInvitationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptMyInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: components["parameters"]["InvitationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptInvitationResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organisations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Org"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organisation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Org"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Org"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Members. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgMemberList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    inviteOrgMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteRequest"];
+            };
+        };
+        responses: {
+            /** @description Invitation sent. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeOrgMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                user: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrgMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                user: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrgRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    leaveOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Left. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    transferOrgOwnership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferOwnershipRequest"];
+            };
+        };
+        responses: {
+            /** @description Transferred. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeOrgInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invitation_id: components["parameters"]["InvitationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgAudit: {
+        parameters: {
+            query?: {
+                /** @description Action prefix, e.g. `project.` or `auth.login`. */
+                action?: components["parameters"]["AuditAction"];
+                outcome?: components["parameters"]["AuditOutcome"];
+                target_id?: components["parameters"]["AuditTarget"];
+                /** @description Return entries with an id below this (pagination). */
+                before?: components["parameters"]["AuditBefore"];
+                limit?: components["parameters"]["AuditLimit"];
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Members. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMemberList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Added (an existing org member) or invited. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMemberAdded"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                user: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                user: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your login. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalCredentialsInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    issueMyCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your login and its new password. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    transferProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Moved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectAudit: {
+        parameters: {
+            query?: {
+                /** @description Action prefix, e.g. `project.` or `auth.login`. */
+                action?: components["parameters"]["AuditAction"];
+                outcome?: components["parameters"]["AuditOutcome"];
+                target_id?: components["parameters"]["AuditTarget"];
+                /** @description Return entries with an id below this (pagination). */
+                before?: components["parameters"]["AuditBefore"];
+                limit?: components["parameters"]["AuditLimit"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPlatformAudit: {
+        parameters: {
+            query?: {
+                /** @description Action prefix, e.g. `project.` or `auth.login`. */
+                action?: components["parameters"]["AuditAction"];
+                outcome?: components["parameters"]["AuditOutcome"];
+                target_id?: components["parameters"]["AuditTarget"];
+                /** @description Return entries with an id below this (pagination). */
+                before?: components["parameters"]["AuditBefore"];
+                limit?: components["parameters"]["AuditLimit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: {
+                /** @description Email or name contains. */
+                q?: string;
+                /** @description Only accounts waiting for approval. */
+                pending?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accounts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resetUserTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset; the user enrols a new authenticator at their next sign-in. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPlatformInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPlatformInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Invitation sent. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokePlatformInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: components["parameters"]["InvitationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSignupSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putSignupSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMailSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putMailSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Tested and saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    publishTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishTermsRequest"];
+            };
+        };
+        responses: {
+            /** @description Published. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Terms"];
                 };
             };
             default: components["responses"]["Error"];

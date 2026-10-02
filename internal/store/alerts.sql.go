@@ -27,6 +27,7 @@ WHERE id IN (
 RETURNING id, kind, key, severity, target_type, target_id, target_name, summary, detail, status, started_at, last_seen_at, resolved_at, notified_at, resolved_notified_at, delivery_attempts, delivery_error, delivery_lock
 `
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 // Alerts with a notification not yet delivered, locked for a minute so
 // only one server sends each.
 func (q *Queries) ClaimUndelivered(ctx context.Context) ([]Alert, error) {
@@ -77,6 +78,7 @@ type CountFiringAlertsRow struct {
 	Total    int64
 }
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 func (q *Queries) CountFiringAlerts(ctx context.Context) (CountFiringAlertsRow, error) {
 	row := q.db.QueryRow(ctx, countFiringAlerts)
 	var i CountFiringAlertsRow
@@ -104,6 +106,7 @@ type FailedLatestOperationsRow struct {
 }
 
 // Conditions -------------------------------------------------------------------
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 // Kinds whose most recent finished run, per project (or none), failed.
 func (q *Queries) FailedLatestOperations(ctx context.Context, kinds []string) ([]FailedLatestOperationsRow, error) {
 	rows, err := q.db.Query(ctx, failedLatestOperations, kinds)
@@ -157,6 +160,7 @@ type FireAlertRow struct {
 	Inserted bool
 }
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 // Inserts a firing alert, or refreshes the one already firing for key.
 // inserted tells the caller a notification is due.
 func (q *Queries) FireAlert(ctx context.Context, arg FireAlertParams) (FireAlertRow, error) {
@@ -179,6 +183,7 @@ const firingAlerts = `-- name: FiringAlerts :many
 SELECT id, kind, key, severity, target_type, target_id, target_name, summary, detail, status, started_at, last_seen_at, resolved_at, notified_at, resolved_notified_at, delivery_attempts, delivery_error, delivery_lock FROM alerts WHERE status = 'firing' ORDER BY started_at
 `
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 func (q *Queries) FiringAlerts(ctx context.Context) ([]Alert, error) {
 	rows, err := q.db.Query(ctx, firingAlerts)
 	if err != nil {
@@ -230,6 +235,7 @@ type ListAlertsParams struct {
 	MaxRows int32
 }
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 func (q *Queries) ListAlerts(ctx context.Context, arg ListAlertsParams) ([]Alert, error) {
 	rows, err := q.db.Query(ctx, listAlerts, arg.Status, arg.MaxRows)
 	if err != nil {
@@ -282,6 +288,7 @@ type MarkDeliveredParams struct {
 	ID       uuid.UUID
 }
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 func (q *Queries) MarkDelivered(ctx context.Context, arg MarkDeliveredParams) error {
 	_, err := q.db.Exec(ctx, markDelivered, arg.Resolved, arg.ID)
 	return err
@@ -298,6 +305,7 @@ type MarkDeliveryFailedParams struct {
 	ID    uuid.UUID
 }
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 func (q *Queries) MarkDeliveryFailed(ctx context.Context, arg MarkDeliveryFailedParams) error {
 	_, err := q.db.Exec(ctx, markDeliveryFailed, arg.Error, arg.ID)
 	return err
@@ -346,6 +354,7 @@ type OverdueBackupsRow struct {
 	LastBackupAt time.Time
 }
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 // Active projects older than @age whose newest successful backup is older
 // than @age (or missing).
 func (q *Queries) OverdueBackups(ctx context.Context, ageSeconds float64) ([]OverdueBackupsRow, error) {
@@ -382,6 +391,7 @@ type ProjectSizesRow struct {
 	SizeBytes float64
 }
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 // Each active project's latest size sample (within @since) and settings.
 func (q *Queries) ProjectSizes(ctx context.Context, since time.Time) ([]ProjectSizesRow, error) {
 	rows, err := q.db.Query(ctx, projectSizes, since)
@@ -412,6 +422,7 @@ const resolveAlert = `-- name: ResolveAlert :execrows
 UPDATE alerts SET status = 'resolved', resolved_at = now() WHERE id = $1 AND status = 'firing'
 `
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 func (q *Queries) ResolveAlert(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, resolveAlert, id)
 	if err != nil {
@@ -428,6 +439,7 @@ UPDATE alerts SET
 WHERE id = $1
 `
 
+// tenant: system - the platform alert evaluator; alerts are the platform admin's.
 // Nothing configured to deliver to: record it as handled.
 func (q *Queries) SkipDelivery(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, skipDelivery, id)

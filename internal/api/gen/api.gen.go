@@ -14,6 +14,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdminUserPlatformRole.
+const (
+	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
+	AdminUserPlatformRoleUser          AdminUserPlatformRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the AdminUserPlatformRole enum.
+func (e AdminUserPlatformRole) Valid() bool {
+	switch e {
+	case AdminUserPlatformRolePlatformAdmin:
+		return true
+	case AdminUserPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertSeverity.
 const (
 	Critical AlertSeverity = "critical"
@@ -86,6 +104,27 @@ func (e AlertSmtpTls) Valid() bool {
 	case AlertSmtpTlsStarttls:
 		return true
 	case AlertSmtpTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditEntryActorKind.
+const (
+	Session AuditEntryActorKind = "session"
+	System  AuditEntryActorKind = "system"
+	Token   AuditEntryActorKind = "token"
+)
+
+// Valid indicates whether the value is a known member of the AuditEntryActorKind enum.
+func (e AuditEntryActorKind) Valid() bool {
+	switch e {
+	case Session:
+		return true
+	case System:
+		return true
+	case Token:
 		return true
 	default:
 		return false
@@ -284,6 +323,84 @@ func (e InstanceSummaryKind) Valid() bool {
 	}
 }
 
+// Defines values for InvitationKind.
+const (
+	InvitationKindOrg      InvitationKind = "org"
+	InvitationKindPlatform InvitationKind = "platform"
+)
+
+// Valid indicates whether the value is a known member of the InvitationKind enum.
+func (e InvitationKind) Valid() bool {
+	switch e {
+	case InvitationKindOrg:
+		return true
+	case InvitationKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InvitationPreviewKind.
+const (
+	InvitationPreviewKindOrg      InvitationPreviewKind = "org"
+	InvitationPreviewKindPlatform InvitationPreviewKind = "platform"
+)
+
+// Valid indicates whether the value is a known member of the InvitationPreviewKind enum.
+func (e InvitationPreviewKind) Valid() bool {
+	switch e {
+	case InvitationPreviewKindOrg:
+		return true
+	case InvitationPreviewKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MailSettingsTls.
+const (
+	MailSettingsTlsNone     MailSettingsTls = "none"
+	MailSettingsTlsStarttls MailSettingsTls = "starttls"
+	MailSettingsTlsTls      MailSettingsTls = "tls"
+)
+
+// Valid indicates whether the value is a known member of the MailSettingsTls enum.
+func (e MailSettingsTls) Valid() bool {
+	switch e {
+	case MailSettingsTlsNone:
+		return true
+	case MailSettingsTlsStarttls:
+		return true
+	case MailSettingsTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MailSettingsRequestTls.
+const (
+	MailSettingsRequestTlsNone     MailSettingsRequestTls = "none"
+	MailSettingsRequestTlsStarttls MailSettingsRequestTls = "starttls"
+	MailSettingsRequestTlsTls      MailSettingsRequestTls = "tls"
+)
+
+// Valid indicates whether the value is a known member of the MailSettingsRequestTls enum.
+func (e MailSettingsRequestTls) Valid() bool {
+	switch e {
+	case MailSettingsRequestTlsNone:
+		return true
+	case MailSettingsRequestTlsStarttls:
+		return true
+	case MailSettingsRequestTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MetricsResponseResolution.
 const (
 	MetricsResponseResolutionN1h MetricsResponseResolution = "1h"
@@ -347,18 +464,102 @@ func (e OperationStatus) Valid() bool {
 	}
 }
 
-// Defines values for OperatorRole.
+// Defines values for OrgStatus.
 const (
-	Member OperatorRole = "member"
-	Owner  OperatorRole = "owner"
+	OrgStatusActive    OrgStatus = "active"
+	OrgStatusDeleted   OrgStatus = "deleted"
+	OrgStatusDeleting  OrgStatus = "deleting"
+	OrgStatusSuspended OrgStatus = "suspended"
 )
 
-// Valid indicates whether the value is a known member of the OperatorRole enum.
-func (e OperatorRole) Valid() bool {
+// Valid indicates whether the value is a known member of the OrgStatus enum.
+func (e OrgStatus) Valid() bool {
 	switch e {
-	case Member:
+	case OrgStatusActive:
 		return true
-	case Owner:
+	case OrgStatusDeleted:
+		return true
+	case OrgStatusDeleting:
+		return true
+	case OrgStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OrgRole.
+const (
+	OrgRoleAdmin  OrgRole = "admin"
+	OrgRoleMember OrgRole = "member"
+	OrgRoleOwner  OrgRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the OrgRole enum.
+func (e OrgRole) Valid() bool {
+	switch e {
+	case OrgRoleAdmin:
+		return true
+	case OrgRoleMember:
+		return true
+	case OrgRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalCredentialsAccess.
+const (
+	PersonalCredentialsAccessReadOnly  PersonalCredentialsAccess = "read_only"
+	PersonalCredentialsAccessReadWrite PersonalCredentialsAccess = "read_write"
+)
+
+// Valid indicates whether the value is a known member of the PersonalCredentialsAccess enum.
+func (e PersonalCredentialsAccess) Valid() bool {
+	switch e {
+	case PersonalCredentialsAccessReadOnly:
+		return true
+	case PersonalCredentialsAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalCredentialsInfoAccess.
+const (
+	PersonalCredentialsInfoAccessReadOnly  PersonalCredentialsInfoAccess = "read_only"
+	PersonalCredentialsInfoAccessReadWrite PersonalCredentialsInfoAccess = "read_write"
+)
+
+// Valid indicates whether the value is a known member of the PersonalCredentialsInfoAccess enum.
+func (e PersonalCredentialsInfoAccess) Valid() bool {
+	switch e {
+	case PersonalCredentialsInfoAccessReadOnly:
+		return true
+	case PersonalCredentialsInfoAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectRole.
+const (
+	ProjectRoleAdmin     ProjectRole = "admin"
+	ProjectRoleDeveloper ProjectRole = "developer"
+	ProjectRoleReadOnly  ProjectRole = "read_only"
+)
+
+// Valid indicates whether the value is a known member of the ProjectRole enum.
+func (e ProjectRole) Valid() bool {
+	switch e {
+	case ProjectRoleAdmin:
+		return true
+	case ProjectRoleDeveloper:
+		return true
+	case ProjectRoleReadOnly:
 		return true
 	default:
 		return false
@@ -425,6 +626,48 @@ func (e RestoreRequestMode) Valid() bool {
 	case InPlace:
 		return true
 	case New:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionStateSignupMode.
+const (
+	SessionStateSignupModeApproval   SessionStateSignupMode = "approval"
+	SessionStateSignupModeInviteOnly SessionStateSignupMode = "invite_only"
+	SessionStateSignupModeOpen       SessionStateSignupMode = "open"
+)
+
+// Valid indicates whether the value is a known member of the SessionStateSignupMode enum.
+func (e SessionStateSignupMode) Valid() bool {
+	switch e {
+	case SessionStateSignupModeApproval:
+		return true
+	case SessionStateSignupModeInviteOnly:
+		return true
+	case SessionStateSignupModeOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SignupSettingsMode.
+const (
+	SignupSettingsModeApproval   SignupSettingsMode = "approval"
+	SignupSettingsModeInviteOnly SignupSettingsMode = "invite_only"
+	SignupSettingsModeOpen       SignupSettingsMode = "open"
+)
+
+// Valid indicates whether the value is a known member of the SignupSettingsMode enum.
+func (e SignupSettingsMode) Valid() bool {
+	switch e {
+	case SignupSettingsModeApproval:
+		return true
+	case SignupSettingsModeInviteOnly:
+		return true
+	case SignupSettingsModeOpen:
 		return true
 	default:
 		return false
@@ -521,6 +764,45 @@ func (e UpdateNodeRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for UserPlatformRole.
+const (
+	UserPlatformRolePlatformAdmin UserPlatformRole = "platform_admin"
+	UserPlatformRoleUser          UserPlatformRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the UserPlatformRole enum.
+func (e UserPlatformRole) Valid() bool {
+	switch e {
+	case UserPlatformRolePlatformAdmin:
+		return true
+	case UserPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditOutcome.
+const (
+	AuditOutcomeDenied  AuditOutcome = "denied"
+	AuditOutcomeFailure AuditOutcome = "failure"
+	AuditOutcomeSuccess AuditOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the AuditOutcome enum.
+func (e AuditOutcome) Valid() bool {
+	switch e {
+	case AuditOutcomeDenied:
+		return true
+	case AuditOutcomeFailure:
+		return true
+	case AuditOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MetricRange.
 const (
 	MetricRangeN1h  MetricRange = "1h"
@@ -542,6 +824,27 @@ func (e MetricRange) Valid() bool {
 	}
 }
 
+// Defines values for ListPlatformAuditParamsOutcome.
+const (
+	ListPlatformAuditParamsOutcomeDenied  ListPlatformAuditParamsOutcome = "denied"
+	ListPlatformAuditParamsOutcomeFailure ListPlatformAuditParamsOutcome = "failure"
+	ListPlatformAuditParamsOutcomeSuccess ListPlatformAuditParamsOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the ListPlatformAuditParamsOutcome enum.
+func (e ListPlatformAuditParamsOutcome) Valid() bool {
+	switch e {
+	case ListPlatformAuditParamsOutcomeDenied:
+		return true
+	case ListPlatformAuditParamsOutcomeFailure:
+		return true
+	case ListPlatformAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAlertsParamsStatus.
 const (
 	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
@@ -554,27 +857,6 @@ func (e ListAlertsParamsStatus) Valid() bool {
 	case ListAlertsParamsStatusFiring:
 		return true
 	case ListAlertsParamsStatusResolved:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ListAuditParamsOutcome.
-const (
-	ListAuditParamsOutcomeDenied  ListAuditParamsOutcome = "denied"
-	ListAuditParamsOutcomeFailure ListAuditParamsOutcome = "failure"
-	ListAuditParamsOutcomeSuccess ListAuditParamsOutcome = "success"
-)
-
-// Valid indicates whether the value is a known member of the ListAuditParamsOutcome enum.
-func (e ListAuditParamsOutcome) Valid() bool {
-	switch e {
-	case ListAuditParamsOutcomeDenied:
-		return true
-	case ListAuditParamsOutcomeFailure:
-		return true
-	case ListAuditParamsOutcomeSuccess:
 		return true
 	default:
 		return false
@@ -602,6 +884,48 @@ func (e GetNodeMetricsParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for ListOrgAuditParamsOutcome.
+const (
+	ListOrgAuditParamsOutcomeDenied  ListOrgAuditParamsOutcome = "denied"
+	ListOrgAuditParamsOutcomeFailure ListOrgAuditParamsOutcome = "failure"
+	ListOrgAuditParamsOutcomeSuccess ListOrgAuditParamsOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the ListOrgAuditParamsOutcome enum.
+func (e ListOrgAuditParamsOutcome) Valid() bool {
+	switch e {
+	case ListOrgAuditParamsOutcomeDenied:
+		return true
+	case ListOrgAuditParamsOutcomeFailure:
+		return true
+	case ListOrgAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListProjectAuditParamsOutcome.
+const (
+	ListProjectAuditParamsOutcomeDenied  ListProjectAuditParamsOutcome = "denied"
+	ListProjectAuditParamsOutcomeFailure ListProjectAuditParamsOutcome = "failure"
+	ListProjectAuditParamsOutcomeSuccess ListProjectAuditParamsOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the ListProjectAuditParamsOutcome enum.
+func (e ListProjectAuditParamsOutcome) Valid() bool {
+	switch e {
+	case ListProjectAuditParamsOutcomeDenied:
+		return true
+	case ListProjectAuditParamsOutcomeFailure:
+		return true
+	case ListProjectAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetProjectMetricsParamsRange.
 const (
 	GetProjectMetricsParamsRangeN1h  GetProjectMetricsParamsRange = "1h"
@@ -622,6 +946,43 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 		return false
 	}
 }
+
+// AcceptInvitationRequest defines model for AcceptInvitationRequest.
+type AcceptInvitationRequest struct {
+	Name         *string `json:"name,omitempty"`
+	Password     *string `json:"password,omitempty"`
+	TermsVersion *int    `json:"terms_version,omitempty"`
+	Token        string  `json:"token"`
+}
+
+// AcceptInvitationResult defines model for AcceptInvitationResult.
+type AcceptInvitationResult struct {
+	Login *LoginChallenge     `json:"login,omitempty"`
+	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
+}
+
+// AcceptTermsRequest defines model for AcceptTermsRequest.
+type AcceptTermsRequest struct {
+	Version int `json:"version"`
+}
+
+// AdminUser defines model for AdminUser.
+type AdminUser struct {
+	Approved      bool                  `json:"approved"`
+	CreatedAt     time.Time             `json:"created_at"`
+	Disabled      bool                  `json:"disabled"`
+	Email         string                `json:"email"`
+	EmailVerified bool                  `json:"email_verified"`
+	Id            openapi_types.UUID    `json:"id"`
+	LastActiveAt  *time.Time            `json:"last_active_at,omitempty"`
+	Name          *string               `json:"name,omitempty"`
+	OrgCount      int                   `json:"org_count"`
+	PlatformRole  AdminUserPlatformRole `json:"platform_role"`
+	TotpEnabled   bool                  `json:"totp_enabled"`
+}
+
+// AdminUserPlatformRole defines model for AdminUser.PlatformRole.
+type AdminUserPlatformRole string
 
 // AgentRegisterRequest defines model for AgentRegisterRequest.
 type AgentRegisterRequest struct {
@@ -739,18 +1100,25 @@ type AlertTestResult struct {
 // AuditEntry defines model for AuditEntry.
 type AuditEntry struct {
 	// Action Example: project.create
-	Action        string                 `json:"action"`
-	CreatedAt     time.Time              `json:"created_at"`
-	Detail        map[string]interface{} `json:"detail"`
-	Id            int64                  `json:"id"`
-	Ip            *string                `json:"ip,omitempty"`
-	OperatorEmail *string                `json:"operator_email,omitempty"`
-	OperatorId    *openapi_types.UUID    `json:"operator_id,omitempty"`
-	Outcome       AuditEntryOutcome      `json:"outcome"`
-	TargetId      *string                `json:"target_id,omitempty"`
-	TargetType    *string                `json:"target_type,omitempty"`
-	UserAgent     *string                `json:"user_agent,omitempty"`
+	Action     string                 `json:"action"`
+	ActorKind  *AuditEntryActorKind   `json:"actor_kind,omitempty"`
+	BreakGlass *bool                  `json:"break_glass,omitempty"`
+	CreatedAt  time.Time              `json:"created_at"`
+	Detail     map[string]interface{} `json:"detail"`
+	Id         int64                  `json:"id"`
+	Ip         *string                `json:"ip,omitempty"`
+	OrgId      *openapi_types.UUID    `json:"org_id,omitempty"`
+	Outcome    AuditEntryOutcome      `json:"outcome"`
+	ProjectId  *openapi_types.UUID    `json:"project_id,omitempty"`
+	TargetId   *string                `json:"target_id,omitempty"`
+	TargetType *string                `json:"target_type,omitempty"`
+	UserAgent  *string                `json:"user_agent,omitempty"`
+	UserEmail  *string                `json:"user_email,omitempty"`
+	UserId     *openapi_types.UUID    `json:"user_id,omitempty"`
 }
+
+// AuditEntryActorKind defines model for AuditEntry.ActorKind.
+type AuditEntryActorKind string
 
 // AuditEntryOutcome defines model for AuditEntry.Outcome.
 type AuditEntryOutcome string
@@ -822,6 +1190,12 @@ type BackupOverview struct {
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
 
+// ChangePasswordRequest defines model for ChangePasswordRequest.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
 // ConnectionInfo defines model for ConnectionInfo.
 type ConnectionInfo struct {
 	// Database Example: blog_k2f9
@@ -868,6 +1242,11 @@ type CreateNodeRequest struct {
 // CreateNodeRequestRole defines model for CreateNodeRequest.Role.
 type CreateNodeRequestRole string
 
+// CreateOrgRequest defines model for CreateOrgRequest.
+type CreateOrgRequest struct {
+	Name string `json:"name"`
+}
+
 // CreateProjectRequest defines model for CreateProjectRequest.
 type CreateProjectRequest struct {
 	Description *string `json:"description,omitempty"`
@@ -877,6 +1256,9 @@ type CreateProjectRequest struct {
 
 	// NodeId Dedicated only; default is the least loaded dedicated node.
 	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+
+	// OrgId The organisation; your personal organisation when omitted.
+	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
 
 	// Profile Dedicated only (see /profiles); default small.
 	Profile *string      `json:"profile,omitempty"`
@@ -945,6 +1327,11 @@ type DnsCheck struct {
 
 	// ServerAddresses Addresses this server considers its own.
 	ServerAddresses []string `json:"server_addresses"`
+}
+
+// EmailRequest defines model for EmailRequest.
+type EmailRequest struct {
+	Email openapi_types.Email `json:"email"`
 }
 
 // EnableExtensionRequest defines model for EnableExtensionRequest.
@@ -1030,10 +1417,13 @@ type ImportPreflightRoleReferencesKind string
 
 // ImportRequest defines model for ImportRequest.
 type ImportRequest struct {
-	Description *string  `json:"description,omitempty"`
-	Name        string   `json:"name"`
-	Schemas     []string `json:"schemas"`
-	SourceUrl   string   `json:"source_url"`
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+
+	// OrgId The organisation; your personal organisation when omitted.
+	OrgId     *openapi_types.UUID `json:"org_id,omitempty"`
+	Schemas   []string            `json:"schemas"`
+	SourceUrl string              `json:"source_url"`
 }
 
 // ImportSource defines model for ImportSource.
@@ -1074,6 +1464,70 @@ type InstanceSummary struct {
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
 
+// Invitation defines model for Invitation.
+type Invitation struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Email     string             `json:"email"`
+	ExpiresAt time.Time          `json:"expires_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// InvitedBy The inviter's email.
+	InvitedBy string              `json:"invited_by"`
+	Kind      InvitationKind      `json:"kind"`
+	OrgId     *openapi_types.UUID `json:"org_id,omitempty"`
+	OrgName   *string             `json:"org_name,omitempty"`
+	Projects  []InviteProjectRole `json:"projects"`
+	Role      *OrgRole            `json:"role,omitempty"`
+}
+
+// InvitationKind defines model for Invitation.Kind.
+type InvitationKind string
+
+// InvitationCreated defines model for InvitationCreated.
+type InvitationCreated struct {
+	EmailError *string    `json:"email_error,omitempty"`
+	EmailSent  bool       `json:"email_sent"`
+	Invitation Invitation `json:"invitation"`
+
+	// Url The invitation link, to pass on yourself if the email does not arrive. Shown once.
+	Url string `json:"url"`
+}
+
+// InvitationList defines model for InvitationList.
+type InvitationList struct {
+	Items []Invitation `json:"items"`
+}
+
+// InvitationPreview defines model for InvitationPreview.
+type InvitationPreview struct {
+	Email     string    `json:"email"`
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// HasAccount The address already has an account; sign in to accept.
+	HasAccount   bool                  `json:"has_account"`
+	InvitedBy    string                `json:"invited_by"`
+	Kind         InvitationPreviewKind `json:"kind"`
+	OrgName      *string               `json:"org_name,omitempty"`
+	ProjectCount *int                  `json:"project_count,omitempty"`
+	Role         *OrgRole              `json:"role,omitempty"`
+}
+
+// InvitationPreviewKind defines model for InvitationPreview.Kind.
+type InvitationPreviewKind string
+
+// InviteProjectRole defines model for InviteProjectRole.
+type InviteProjectRole struct {
+	ProjectId openapi_types.UUID `json:"project_id"`
+	Role      ProjectRole        `json:"role"`
+}
+
+// InviteRequest defines model for InviteRequest.
+type InviteRequest struct {
+	Email    openapi_types.Email  `json:"email"`
+	Projects *[]InviteProjectRole `json:"projects,omitempty"`
+	Role     OrgRole              `json:"role"`
+}
+
 // IsolationCheck defines model for IsolationCheck.
 type IsolationCheck struct {
 	InstanceId     openapi_types.UUID `json:"instance_id"`
@@ -1101,6 +1555,16 @@ type IsolationCheckRun struct {
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
 	ChallengeId string `json:"challenge_id"`
+
+	// Enrollment First sign-in - enrol this authenticator; the next code completes it.
+	Enrollment *LoginEnrollment `json:"enrollment,omitempty"`
+}
+
+// LoginEnrollment First sign-in - enrol this authenticator; the next code completes it.
+type LoginEnrollment struct {
+	ExpiresAt  time.Time `json:"expires_at"`
+	TotpSecret string    `json:"totp_secret"`
+	TotpUri    string    `json:"totp_uri"`
 }
 
 // LoginRequest defines model for LoginRequest.
@@ -1108,6 +1572,38 @@ type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Password string              `json:"password"`
 }
+
+// MailSettings defines model for MailSettings.
+type MailSettings struct {
+	Configured  bool             `json:"configured"`
+	From        *string          `json:"from,omitempty"`
+	HasPassword *bool            `json:"has_password,omitempty"`
+	Host        *string          `json:"host,omitempty"`
+	Port        *int             `json:"port,omitempty"`
+	Tls         *MailSettingsTls `json:"tls,omitempty"`
+	Username    *string          `json:"username,omitempty"`
+}
+
+// MailSettingsTls defines model for MailSettings.Tls.
+type MailSettingsTls string
+
+// MailSettingsRequest defines model for MailSettingsRequest.
+type MailSettingsRequest struct {
+	From string `json:"from"`
+	Host string `json:"host"`
+
+	// Password Omit to keep the stored password.
+	Password *string `json:"password,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+
+	// TestTo Where to send the test message.
+	TestTo   openapi_types.Email     `json:"test_to"`
+	Tls      *MailSettingsRequestTls `json:"tls,omitempty"`
+	Username *string                 `json:"username,omitempty"`
+}
+
+// MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
+type MailSettingsRequestTls string
 
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
@@ -1131,6 +1627,11 @@ type MetricsResponse struct {
 
 // MetricsResponseResolution defines model for MetricsResponse.Resolution.
 type MetricsResponseResolution string
+
+// MyInvitationList defines model for MyInvitationList.
+type MyInvitationList struct {
+	Items []Invitation `json:"items"`
+}
 
 // Node defines model for Node.
 type Node struct {
@@ -1224,15 +1725,86 @@ type OperationLogEntryLevel string
 // OperationStatus defines model for OperationStatus.
 type OperationStatus string
 
-// Operator defines model for Operator.
-type Operator struct {
-	Email openapi_types.Email `json:"email"`
-	Id    openapi_types.UUID  `json:"id"`
-	Role  OperatorRole        `json:"role"`
+// Org defines model for Org.
+type Org struct {
+	CreatedAt                time.Time          `json:"created_at"`
+	Id                       openapi_types.UUID `json:"id"`
+	MemberCount              int                `json:"member_count"`
+	MembersCanCreateProjects bool               `json:"members_can_create_projects"`
+	Name                     string             `json:"name"`
+
+	// Personal The signed-in user's personal organisation.
+	Personal     bool      `json:"personal"`
+	Plan         string    `json:"plan"`
+	ProjectCount int       `json:"project_count"`
+	Role         OrgRole   `json:"role"`
+	Slug         string    `json:"slug"`
+	Status       OrgStatus `json:"status"`
 }
 
-// OperatorRole defines model for Operator.Role.
-type OperatorRole string
+// OrgStatus defines model for Org.Status.
+type OrgStatus string
+
+// OrgList defines model for OrgList.
+type OrgList struct {
+	Items []Org `json:"items"`
+}
+
+// OrgMember defines model for OrgMember.
+type OrgMember struct {
+	Disabled     bool                `json:"disabled"`
+	Email        string              `json:"email"`
+	JoinedAt     time.Time           `json:"joined_at"`
+	LastActiveAt *time.Time          `json:"last_active_at,omitempty"`
+	Name         *string             `json:"name,omitempty"`
+	Projects     []ProjectMembership `json:"projects"`
+	Role         OrgRole             `json:"role"`
+	TotpEnabled  bool                `json:"totp_enabled"`
+	UserId       openapi_types.UUID  `json:"user_id"`
+}
+
+// OrgMemberList defines model for OrgMemberList.
+type OrgMemberList struct {
+	Items []OrgMember `json:"items"`
+}
+
+// OrgRole defines model for OrgRole.
+type OrgRole string
+
+// OrgRoleRequest defines model for OrgRoleRequest.
+type OrgRoleRequest struct {
+	Role OrgRole `json:"role"`
+}
+
+// PasswordResetConfirm defines model for PasswordResetConfirm.
+type PasswordResetConfirm struct {
+	Password string `json:"password"`
+	Token    string `json:"token"`
+}
+
+// PersonalCredentials defines model for PersonalCredentials.
+type PersonalCredentials struct {
+	Access     PersonalCredentialsAccess `json:"access"`
+	Connection ConnectionInfo            `json:"connection"`
+	Password   string                    `json:"password"`
+	Role       string                    `json:"role"`
+}
+
+// PersonalCredentialsAccess defines model for PersonalCredentials.Access.
+type PersonalCredentialsAccess string
+
+// PersonalCredentialsInfo defines model for PersonalCredentialsInfo.
+type PersonalCredentialsInfo struct {
+	// Access What your role allows (the access a new login would get).
+	Access    PersonalCredentialsInfoAccess `json:"access"`
+	CreatedAt *time.Time                    `json:"created_at,omitempty"`
+	Exists    bool                          `json:"exists"`
+	Role      *string                       `json:"role,omitempty"`
+	RotatedAt *time.Time                    `json:"rotated_at,omitempty"`
+}
+
+// PersonalCredentialsInfoAccess What your role allows (the access a new login would get).
+type PersonalCredentialsInfoAccess string
 
 // PitrRequest defines model for PitrRequest.
 type PitrRequest struct {
@@ -1272,9 +1844,11 @@ type Project struct {
 	Instance    *InstanceSummary   `json:"instance,omitempty"`
 
 	// LastBackupAt When the latest backup of this project finished.
-	LastBackupAt *time.Time `json:"last_backup_at,omitempty"`
-	Name         string     `json:"name"`
-	OwnerRole    string     `json:"owner_role"`
+	LastBackupAt *time.Time         `json:"last_backup_at,omitempty"`
+	MyRole       *ProjectRole       `json:"my_role,omitempty"`
+	Name         string             `json:"name"`
+	OrgId        openapi_types.UUID `json:"org_id"`
+	OwnerRole    string             `json:"owner_role"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
@@ -1298,6 +1872,52 @@ type ProjectCredentials struct {
 // ProjectList defines model for ProjectList.
 type ProjectList struct {
 	Items []Project `json:"items"`
+}
+
+// ProjectMember defines model for ProjectMember.
+type ProjectMember struct {
+	Email          string `json:"email"`
+	HasCredentials *bool  `json:"has_credentials,omitempty"`
+
+	// Implicit An org owner or admin, admin of every project in the organisation.
+	Implicit bool               `json:"implicit"`
+	Name     *string            `json:"name,omitempty"`
+	OrgRole  *OrgRole           `json:"org_role,omitempty"`
+	Role     ProjectRole        `json:"role"`
+	UserId   openapi_types.UUID `json:"user_id"`
+}
+
+// ProjectMemberAdded defines model for ProjectMemberAdded.
+type ProjectMemberAdded struct {
+	// Added True when an existing org member was added; false when an invitation was sent.
+	Added      bool               `json:"added"`
+	Invitation *InvitationCreated `json:"invitation,omitempty"`
+}
+
+// ProjectMemberList defines model for ProjectMemberList.
+type ProjectMemberList struct {
+	Items []ProjectMember `json:"items"`
+}
+
+// ProjectMemberRequest defines model for ProjectMemberRequest.
+type ProjectMemberRequest struct {
+	Email openapi_types.Email `json:"email"`
+	Role  ProjectRole         `json:"role"`
+}
+
+// ProjectMembership defines model for ProjectMembership.
+type ProjectMembership struct {
+	ProjectId   openapi_types.UUID `json:"project_id"`
+	ProjectName string             `json:"project_name"`
+	Role        ProjectRole        `json:"role"`
+}
+
+// ProjectRole defines model for ProjectRole.
+type ProjectRole string
+
+// ProjectRoleRequest defines model for ProjectRoleRequest.
+type ProjectRoleRequest struct {
+	Role ProjectRole `json:"role"`
 }
 
 // ProjectSettings defines model for ProjectSettings.
@@ -1348,10 +1968,26 @@ type PromotionEstimate struct {
 	SizeBytes                int64 `json:"size_bytes"`
 }
 
+// PublishTermsRequest defines model for PublishTermsRequest.
+type PublishTermsRequest struct {
+	PrivacyMd string `json:"privacy_md"`
+	TermsMd   string `json:"terms_md"`
+}
+
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
 	Code     string `json:"code"`
 	Password string `json:"password"`
+}
+
+// RecoveryCodes defines model for RecoveryCodes.
+type RecoveryCodes struct {
+	Codes []string `json:"codes"`
+}
+
+// RecoveryCodesStatus defines model for RecoveryCodesStatus.
+type RecoveryCodesStatus struct {
+	Remaining int `json:"remaining"`
 }
 
 // RegistrationToken defines model for RegistrationToken.
@@ -1382,17 +2018,42 @@ type RestoreResponse struct {
 	Operation   Operation           `json:"operation"`
 }
 
+// SessionInfo defines model for SessionInfo.
+type SessionInfo struct {
+	CreatedAt  time.Time `json:"created_at"`
+	Current    bool      `json:"current"`
+	Id         string    `json:"id"`
+	Ip         *string   `json:"ip,omitempty"`
+	LastSeenAt time.Time `json:"last_seen_at"`
+	UserAgent  *string   `json:"user_agent,omitempty"`
+}
+
+// SessionList defines model for SessionList.
+type SessionList struct {
+	Items []SessionInfo `json:"items"`
+}
+
 // SessionState defines model for SessionState.
 type SessionState struct {
-	Authenticated      bool      `json:"authenticated"`
-	CsrfToken          string    `json:"csrf_token"`
-	IdleTimeoutSeconds *int      `json:"idle_timeout_seconds,omitempty"`
-	Operator           *Operator `json:"operator,omitempty"`
+	Authenticated      bool   `json:"authenticated"`
+	CsrfToken          string `json:"csrf_token"`
+	IdleTimeoutSeconds *int   `json:"idle_timeout_seconds,omitempty"`
 
 	// ReauthUntil Destructive actions are allowed without re-authenticating until then.
-	ReauthUntil   *time.Time `json:"reauth_until,omitempty"`
-	SetupRequired bool       `json:"setup_required"`
+	ReauthUntil *time.Time `json:"reauth_until,omitempty"`
+
+	// RecoveryCodes Set once, when this sign-in enrolled the authenticator.
+	RecoveryCodes *[]string               `json:"recovery_codes,omitempty"`
+	SetupRequired bool                    `json:"setup_required"`
+	SignupMode    *SessionStateSignupMode `json:"signup_mode,omitempty"`
+
+	// TermsRequired A terms version the user must accept before anything else.
+	TermsRequired *int  `json:"terms_required,omitempty"`
+	User          *User `json:"user,omitempty"`
 }
+
+// SessionStateSignupMode defines model for SessionState.SignupMode.
+type SessionStateSignupMode string
 
 // SetupBeginRequest defines model for SetupBeginRequest.
 type SetupBeginRequest struct {
@@ -1419,6 +2080,26 @@ type SetupEnrollment struct {
 type SharedClusterRequest struct {
 	MemoryMb int `json:"memory_mb"`
 }
+
+// SignupRequest defines model for SignupRequest.
+type SignupRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Name     *string             `json:"name,omitempty"`
+	Password string              `json:"password"`
+
+	// TermsVersion The terms version the user accepted (the current one).
+	TermsVersion int `json:"terms_version"`
+}
+
+// SignupSettings defines model for SignupSettings.
+type SignupSettings struct {
+	// Domains Email domains allowed to sign up; empty allows any.
+	Domains *[]string          `json:"domains,omitempty"`
+	Mode    SignupSettingsMode `json:"mode"`
+}
+
+// SignupSettingsMode defines model for SignupSettings.Mode.
+type SignupSettingsMode string
 
 // SqlCancelRequest defines model for SqlCancelRequest.
 type SqlCancelRequest struct {
@@ -1532,6 +2213,14 @@ type TablePage struct {
 // TablePageOrder defines model for TablePage.Order.
 type TablePageOrder string
 
+// Terms defines model for Terms.
+type Terms struct {
+	PrivacyMd   string    `json:"privacy_md"`
+	PublishedAt time.Time `json:"published_at"`
+	TermsMd     string    `json:"terms_md"`
+	Version     int       `json:"version"`
+}
+
 // TlsStatus defines model for TlsStatus.
 type TlsStatus struct {
 	Error    *string        `json:"error,omitempty"`
@@ -1547,6 +2236,11 @@ type TlsStatusMode string
 
 // TlsStatusState defines model for TlsStatus.State.
 type TlsStatusState string
+
+// TokenRequest defines model for TokenRequest.
+type TokenRequest struct {
+	Token string `json:"token"`
+}
 
 // TopQueries defines model for TopQueries.
 type TopQueries struct {
@@ -1570,6 +2264,21 @@ type TotpRequest struct {
 	Code        string `json:"code"`
 }
 
+// TransferOwnershipRequest defines model for TransferOwnershipRequest.
+type TransferOwnershipRequest struct {
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// TransferProjectRequest defines model for TransferProjectRequest.
+type TransferProjectRequest struct {
+	OrgId openapi_types.UUID `json:"org_id"`
+}
+
+// UpdateMeRequest defines model for UpdateMeRequest.
+type UpdateMeRequest struct {
+	Name *string `json:"name,omitempty"`
+}
+
 // UpdateNodeRequest defines model for UpdateNodeRequest.
 type UpdateNodeRequest struct {
 	Role UpdateNodeRequestRole `json:"role"`
@@ -1578,11 +2287,48 @@ type UpdateNodeRequest struct {
 // UpdateNodeRequestRole defines model for UpdateNodeRequest.Role.
 type UpdateNodeRequestRole string
 
+// UpdateOrgRequest defines model for UpdateOrgRequest.
+type UpdateOrgRequest struct {
+	MembersCanCreateProjects *bool   `json:"members_can_create_projects,omitempty"`
+	Name                     *string `json:"name,omitempty"`
+	Slug                     *string `json:"slug,omitempty"`
+}
+
 // UpdateProjectRequest defines model for UpdateProjectRequest.
 type UpdateProjectRequest struct {
 	Description *string               `json:"description,omitempty"`
 	Name        *string               `json:"name,omitempty"`
 	Settings    *ProjectSettingsPatch `json:"settings,omitempty"`
+}
+
+// UpdateUserRequest defines model for UpdateUserRequest.
+type UpdateUserRequest struct {
+	// Approved true approves an account waiting in approval mode.
+	Approved *bool `json:"approved,omitempty"`
+	Disabled *bool `json:"disabled,omitempty"`
+}
+
+// User defines model for User.
+type User struct {
+	Email        openapi_types.Email `json:"email"`
+	Id           openapi_types.UUID  `json:"id"`
+	Name         *string             `json:"name,omitempty"`
+	PlatformRole UserPlatformRole    `json:"platform_role"`
+}
+
+// UserPlatformRole defines model for User.PlatformRole.
+type UserPlatformRole string
+
+// UserList defines model for UserList.
+type UserList struct {
+	Items []AdminUser `json:"items"`
+}
+
+// VerifyEmailResult defines model for VerifyEmailResult.
+type VerifyEmailResult struct {
+	// Approved False while the account waits for the platform admin (approval mode).
+	Approved bool   `json:"approved"`
+	Email    string `json:"email"`
 }
 
 // Version defines model for Version.
@@ -1600,8 +2346,26 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// AuditAction defines model for AuditAction.
+type AuditAction = string
+
+// AuditBefore defines model for AuditBefore.
+type AuditBefore = int64
+
+// AuditLimit defines model for AuditLimit.
+type AuditLimit = int
+
+// AuditOutcome defines model for AuditOutcome.
+type AuditOutcome string
+
+// AuditTarget defines model for AuditTarget.
+type AuditTarget = string
+
 // BackupID defines model for BackupID.
 type BackupID = openapi_types.UUID
+
+// InvitationID defines model for InvitationID.
+type InvitationID = openapi_types.UUID
 
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
@@ -1615,8 +2379,41 @@ type NodeID = openapi_types.UUID
 // OperationID defines model for OperationID.
 type OperationID = openapi_types.UUID
 
+// OrgID defines model for OrgID.
+type OrgID = openapi_types.UUID
+
+// OrgQuery defines model for OrgQuery.
+type OrgQuery = openapi_types.UUID
+
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
+
+// UserID defines model for UserID.
+type UserID = openapi_types.UUID
+
+// ListPlatformAuditParams defines parameters for ListPlatformAudit.
+type ListPlatformAuditParams struct {
+	// Action Action prefix, e.g. `project.` or `auth.login`.
+	Action   *AuditAction                    `form:"action,omitempty" json:"action,omitempty"`
+	Outcome  *ListPlatformAuditParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+	TargetId *AuditTarget                    `form:"target_id,omitempty" json:"target_id,omitempty"`
+
+	// Before Return entries with an id below this (pagination).
+	Before *AuditBefore `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *AuditLimit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPlatformAuditParamsOutcome defines parameters for ListPlatformAudit.
+type ListPlatformAuditParamsOutcome string
+
+// ListUsersParams defines parameters for ListUsers.
+type ListUsersParams struct {
+	// Q Email or name contains.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Pending Only accounts waiting for approval.
+	Pending *bool `form:"pending,omitempty" json:"pending,omitempty"`
+}
 
 // ListAlertsParams defines parameters for ListAlerts.
 type ListAlertsParams struct {
@@ -1627,26 +2424,19 @@ type ListAlertsParams struct {
 // ListAlertsParamsStatus defines parameters for ListAlerts.
 type ListAlertsParamsStatus string
 
-// ListAuditParams defines parameters for ListAudit.
-type ListAuditParams struct {
-	// Action Action prefix, e.g. `project.` or `auth.login`.
-	Action   *string                 `form:"action,omitempty" json:"action,omitempty"`
-	Outcome  *ListAuditParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
-	TargetId *string                 `form:"target_id,omitempty" json:"target_id,omitempty"`
-
-	// Before Return entries with an id below this (pagination).
-	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
-	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// ListAuditParamsOutcome defines parameters for ListAudit.
-type ListAuditParamsOutcome string
-
 // ListBackupsParams defines parameters for ListBackups.
 type ListBackupsParams struct {
+	// Org The organisation to list; your personal organisation when omitted.
+	Org       *OrgQuery           `form:"org,omitempty" json:"org,omitempty"`
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 	Kind      *BackupKind         `form:"kind,omitempty" json:"kind,omitempty"`
 	Limit     *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetBackupOverviewParams defines parameters for GetBackupOverview.
+type GetBackupOverviewParams struct {
+	// Org The organisation to list; your personal organisation when omitted.
+	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
 // GetNodeMetricsParams defines parameters for GetNodeMetrics.
@@ -1662,14 +2452,36 @@ type GetNodeMetricsParamsRange string
 
 // ListOperationsParams defines parameters for ListOperations.
 type ListOperationsParams struct {
+	// Org The organisation to list; your personal organisation when omitted.
+	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
+
+	// Platform Platform-level operations (no project), for the platform admin.
+	Platform  *bool               `form:"platform,omitempty" json:"platform,omitempty"`
 	Status    *OperationStatus    `form:"status,omitempty" json:"status,omitempty"`
 	Kind      *string             `form:"kind,omitempty" json:"kind,omitempty"`
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 	Limit     *int                `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListOrgAuditParams defines parameters for ListOrgAudit.
+type ListOrgAuditParams struct {
+	// Action Action prefix, e.g. `project.` or `auth.login`.
+	Action   *AuditAction               `form:"action,omitempty" json:"action,omitempty"`
+	Outcome  *ListOrgAuditParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+	TargetId *AuditTarget               `form:"target_id,omitempty" json:"target_id,omitempty"`
+
+	// Before Return entries with an id below this (pagination).
+	Before *AuditBefore `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *AuditLimit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
+type ListOrgAuditParamsOutcome string
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
+	// Org The organisation to list; your personal organisation when omitted.
+	Org    *OrgQuery      `form:"org,omitempty" json:"org,omitempty"`
 	Status *ProjectStatus `form:"status,omitempty" json:"status,omitempty"`
 	Limit  *int           `form:"limit,omitempty" json:"limit,omitempty"`
 }
@@ -1679,6 +2491,21 @@ type DeleteProjectParams struct {
 	Confirm         string `form:"confirm" json:"confirm"`
 	SkipFinalBackup *bool  `form:"skip_final_backup,omitempty" json:"skip_final_backup,omitempty"`
 }
+
+// ListProjectAuditParams defines parameters for ListProjectAudit.
+type ListProjectAuditParams struct {
+	// Action Action prefix, e.g. `project.` or `auth.login`.
+	Action   *AuditAction                   `form:"action,omitempty" json:"action,omitempty"`
+	Outcome  *ListProjectAuditParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+	TargetId *AuditTarget                   `form:"target_id,omitempty" json:"target_id,omitempty"`
+
+	// Before Return entries with an id below this (pagination).
+	Before *AuditBefore `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *AuditLimit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
+type ListProjectAuditParamsOutcome string
 
 // GetProjectMetricsParams defines parameters for GetProjectMetrics.
 type GetProjectMetricsParams struct {
@@ -1702,17 +2529,47 @@ type RunRestoreTestParams struct {
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
+// CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
+type CreatePlatformInvitationJSONRequestBody = EmailRequest
+
+// PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
+type PutMailSettingsJSONRequestBody = MailSettingsRequest
+
+// PutSignupSettingsJSONRequestBody defines body for PutSignupSettings for application/json ContentType.
+type PutSignupSettingsJSONRequestBody = SignupSettings
+
+// PublishTermsJSONRequestBody defines body for PublishTerms for application/json ContentType.
+type PublishTermsJSONRequestBody = PublishTermsRequest
+
+// UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
+type UpdateUserJSONRequestBody = UpdateUserRequest
+
 // RegisterAgentJSONRequestBody defines body for RegisterAgent for application/json ContentType.
 type RegisterAgentJSONRequestBody = AgentRegisterRequest
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
 
+// RequestPasswordResetJSONRequestBody defines body for RequestPasswordReset for application/json ContentType.
+type RequestPasswordResetJSONRequestBody = EmailRequest
+
+// ConfirmPasswordResetJSONRequestBody defines body for ConfirmPasswordReset for application/json ContentType.
+type ConfirmPasswordResetJSONRequestBody = PasswordResetConfirm
+
 // PostAuthReauthJSONRequestBody defines body for PostAuthReauth for application/json ContentType.
 type PostAuthReauthJSONRequestBody = ReauthRequest
 
+// SignupJSONRequestBody defines body for Signup for application/json ContentType.
+type SignupJSONRequestBody = SignupRequest
+
 // PostAuthTotpJSONRequestBody defines body for PostAuthTotp for application/json ContentType.
 type PostAuthTotpJSONRequestBody = TotpRequest
+
+// VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
+type VerifyEmailJSONRequestBody = TokenRequest
+
+// ResendVerificationJSONRequestBody defines body for ResendVerification for application/json ContentType.
+type ResendVerificationJSONRequestBody = EmailRequest
 
 // RestoreBackupJSONRequestBody defines body for RestoreBackup for application/json ContentType.
 type RestoreBackupJSONRequestBody = RestoreRequest
@@ -1726,6 +2583,21 @@ type CreateImportJSONRequestBody = ImportRequest
 // ImportPreflightJSONRequestBody defines body for ImportPreflight for application/json ContentType.
 type ImportPreflightJSONRequestBody = ImportSource
 
+// AcceptInvitationJSONRequestBody defines body for AcceptInvitation for application/json ContentType.
+type AcceptInvitationJSONRequestBody = AcceptInvitationRequest
+
+// PreviewInvitationJSONRequestBody defines body for PreviewInvitation for application/json ContentType.
+type PreviewInvitationJSONRequestBody = TokenRequest
+
+// UpdateMeJSONRequestBody defines body for UpdateMe for application/json ContentType.
+type UpdateMeJSONRequestBody = UpdateMeRequest
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody = ChangePasswordRequest
+
+// AcceptTermsJSONRequestBody defines body for AcceptTerms for application/json ContentType.
+type AcceptTermsJSONRequestBody = AcceptTermsRequest
+
 // CreateNodeJSONRequestBody defines body for CreateNode for application/json ContentType.
 type CreateNodeJSONRequestBody = CreateNodeRequest
 
@@ -1735,6 +2607,21 @@ type UpdateNodeJSONRequestBody = UpdateNodeRequest
 // CreateSharedClusterJSONRequestBody defines body for CreateSharedCluster for application/json ContentType.
 type CreateSharedClusterJSONRequestBody = SharedClusterRequest
 
+// CreateOrgJSONRequestBody defines body for CreateOrg for application/json ContentType.
+type CreateOrgJSONRequestBody = CreateOrgRequest
+
+// UpdateOrgJSONRequestBody defines body for UpdateOrg for application/json ContentType.
+type UpdateOrgJSONRequestBody = UpdateOrgRequest
+
+// InviteOrgMemberJSONRequestBody defines body for InviteOrgMember for application/json ContentType.
+type InviteOrgMemberJSONRequestBody = InviteRequest
+
+// UpdateOrgMemberJSONRequestBody defines body for UpdateOrgMember for application/json ContentType.
+type UpdateOrgMemberJSONRequestBody = OrgRoleRequest
+
+// TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
+type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
+
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
 
@@ -1743,6 +2630,12 @@ type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
+
+// AddProjectMemberJSONRequestBody defines body for AddProjectMember for application/json ContentType.
+type AddProjectMemberJSONRequestBody = ProjectMemberRequest
+
+// UpdateProjectMemberJSONRequestBody defines body for UpdateProjectMember for application/json ContentType.
+type UpdateProjectMemberJSONRequestBody = ProjectRoleRequest
 
 // RestoreProjectPITRJSONRequestBody defines body for RestoreProjectPITR for application/json ContentType.
 type RestoreProjectPITRJSONRequestBody = PitrRequest
@@ -1758,6 +2651,9 @@ type RunSQLJSONRequestBody = SqlRequest
 
 // CancelSQLJSONRequestBody defines body for CancelSQL for application/json ContentType.
 type CancelSQLJSONRequestBody = SqlCancelRequest
+
+// TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
+type TransferProjectJSONRequestBody = TransferProjectRequest
 
 // PutAlertSettingsJSONRequestBody defines body for PutAlertSettings for application/json ContentType.
 type PutAlertSettingsJSONRequestBody = AlertSettingsRequest
@@ -1785,33 +2681,81 @@ type CompleteSetupJSONRequestBody = SetupCompleteRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListPlatformAudit The platform audit log, newest first (platform admin)
+	// (GET /api/v1/admin/audit)
+	ListPlatformAudit(w http.ResponseWriter, r *http.Request, params ListPlatformAuditParams)
+	// ListPlatformInvitations Pending platform invitations (platform admin)
+	// (GET /api/v1/admin/invitations)
+	ListPlatformInvitations(w http.ResponseWriter, r *http.Request)
+	// CreatePlatformInvitation Invite someone to the platform (platform admin)
+	// (POST /api/v1/admin/invitations)
+	CreatePlatformInvitation(w http.ResponseWriter, r *http.Request)
+	// RevokePlatformInvitation Revoke a platform invitation (platform admin)
+	// (DELETE /api/v1/admin/invitations/{invitation_id})
+	RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID)
+	// GetMailSettings Platform SMTP settings (platform admin; no password)
+	// (GET /api/v1/admin/settings/mail)
+	GetMailSettings(w http.ResponseWriter, r *http.Request)
+	// PutMailSettings Test and save the platform SMTP settings (platform admin)
+	// (PUT /api/v1/admin/settings/mail)
+	PutMailSettings(w http.ResponseWriter, r *http.Request)
+	// GetSignupSettings Signup mode and domain allow-list (platform admin)
+	// (GET /api/v1/admin/settings/signup)
+	GetSignupSettings(w http.ResponseWriter, r *http.Request)
+	// PutSignupSettings Change the signup mode (platform admin)
+	// (PUT /api/v1/admin/settings/signup)
+	PutSignupSettings(w http.ResponseWriter, r *http.Request)
+	// PublishTerms Publish a new version of the terms and privacy notice (platform admin)
+	// (POST /api/v1/admin/settings/terms)
+	PublishTerms(w http.ResponseWriter, r *http.Request)
+	// ListUsers Every account (platform admin)
+	// (GET /api/v1/admin/users)
+	ListUsers(w http.ResponseWriter, r *http.Request, params ListUsersParams)
+	// UpdateUser Approve, disable, or re-enable an account (platform admin)
+	// (PATCH /api/v1/admin/users/{user})
+	UpdateUser(w http.ResponseWriter, r *http.Request, user UserID)
+	// ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
+	// (POST /api/v1/admin/users/{user}/reset-2fa)
+	ResetUserTotp(w http.ResponseWriter, r *http.Request, user UserID)
 	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
 	// (POST /api/v1/agent/register)
 	RegisterAgent(w http.ResponseWriter, r *http.Request)
 	// ListAlerts Alerts, firing first
 	// (GET /api/v1/alerts)
 	ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams)
-	// ListAudit Audit log, newest first
-	// (GET /api/v1/audit)
-	ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams)
 	// PostAuthLogin Email + password login; returns a TOTP challenge
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
 	// PostAuthLogout End the current session
 	// (POST /api/v1/auth/logout)
 	PostAuthLogout(w http.ResponseWriter, r *http.Request)
+	// RequestPasswordReset Email a password reset link (valid one hour)
+	// (POST /api/v1/auth/password-reset)
+	RequestPasswordReset(w http.ResponseWriter, r *http.Request)
+	// ConfirmPasswordReset Set a new password from a reset link; ends every session
+	// (POST /api/v1/auth/password-reset/confirm)
+	ConfirmPasswordReset(w http.ResponseWriter, r *http.Request)
 	// PostAuthReauth Step-up authentication for destructive actions
 	// (POST /api/v1/auth/reauth)
 	PostAuthReauth(w http.ResponseWriter, r *http.Request)
+	// Signup Create an account (when the signup mode allows it)
+	// (POST /api/v1/auth/signup)
+	Signup(w http.ResponseWriter, r *http.Request)
 	// PostAuthTotp Complete login with a TOTP code
 	// (POST /api/v1/auth/totp)
 	PostAuthTotp(w http.ResponseWriter, r *http.Request)
+	// VerifyEmail Verify an email address with the emailed token
+	// (POST /api/v1/auth/verify-email)
+	VerifyEmail(w http.ResponseWriter, r *http.Request)
+	// ResendVerification Send a new verification link
+	// (POST /api/v1/auth/verify-email/resend)
+	ResendVerification(w http.ResponseWriter, r *http.Request)
 	// ListBackups List backups, newest first
 	// (GET /api/v1/backups)
 	ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams)
 	// GetBackupOverview Backup configuration and health at a glance
 	// (GET /api/v1/backups/overview)
-	GetBackupOverview(w http.ResponseWriter, r *http.Request)
+	GetBackupOverview(w http.ResponseWriter, r *http.Request, params GetBackupOverviewParams)
 	// RestoreBackup Restore a backup into a new project or in place
 	// (POST /api/v1/backups/{id}/restore)
 	RestoreBackup(w http.ResponseWriter, r *http.Request, id BackupID)
@@ -1824,9 +2768,42 @@ type ServerInterface interface {
 	// ImportPreflight Inspect a source database before importing it
 	// (POST /api/v1/imports/preflight)
 	ImportPreflight(w http.ResponseWriter, r *http.Request)
-	// GetMe Current operator
+	// AcceptInvitation Accept an invitation link (public, token-gated)
+	// (POST /api/v1/invitations/accept)
+	AcceptInvitation(w http.ResponseWriter, r *http.Request)
+	// PreviewInvitation What an invitation link offers (public, token-gated)
+	// (POST /api/v1/invitations/preview)
+	PreviewInvitation(w http.ResponseWriter, r *http.Request)
+	// GetMe The signed-in user
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// UpdateMe Change your profile
+	// (PATCH /api/v1/me)
+	UpdateMe(w http.ResponseWriter, r *http.Request)
+	// ListMyInvitations Invitations waiting for you
+	// (GET /api/v1/me/invitations)
+	ListMyInvitations(w http.ResponseWriter, r *http.Request)
+	// AcceptMyInvitation Accept one of your pending invitations
+	// (POST /api/v1/me/invitations/{invitation_id}/accept)
+	AcceptMyInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID)
+	// ChangePassword Change your password; ends your other sessions
+	// (POST /api/v1/me/password)
+	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// GetRecoveryCodes How many recovery codes you have left
+	// (GET /api/v1/me/recovery-codes)
+	GetRecoveryCodes(w http.ResponseWriter, r *http.Request)
+	// RegenerateRecoveryCodes Replace your recovery codes (step-up auth); shown once
+	// (POST /api/v1/me/recovery-codes)
+	RegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request)
+	// ListMySessions Your active sessions
+	// (GET /api/v1/me/sessions)
+	ListMySessions(w http.ResponseWriter, r *http.Request)
+	// RevokeMySession End one of your sessions
+	// (DELETE /api/v1/me/sessions/{session_id})
+	RevokeMySession(w http.ResponseWriter, r *http.Request, sessionId string)
+	// AcceptTerms Accept the current terms of use
+	// (POST /api/v1/me/terms/accept)
+	AcceptTerms(w http.ResponseWriter, r *http.Request)
 	// ListNodes Nodes and their agents
 	// (GET /api/v1/nodes)
 	ListNodes(w http.ResponseWriter, r *http.Request)
@@ -1860,10 +2837,49 @@ type ServerInterface interface {
 	// StreamOperation Stream an operation's progress as Server-Sent Events
 	// (GET /api/v1/operations/{id}/stream)
 	StreamOperation(w http.ResponseWriter, r *http.Request, id OperationID)
+	// ListOrgs Organisations you belong to (personal first)
+	// (GET /api/v1/orgs)
+	ListOrgs(w http.ResponseWriter, r *http.Request)
+	// CreateOrg Create an organisation; you become its owner
+	// (POST /api/v1/orgs)
+	CreateOrg(w http.ResponseWriter, r *http.Request)
+	// GetOrg One organisation
+	// (GET /api/v1/orgs/{org})
+	GetOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// UpdateOrg Rename an organisation or change its settings
+	// (PATCH /api/v1/orgs/{org})
+	UpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgAudit The organisation's audit log, newest first
+	// (GET /api/v1/orgs/{org}/audit)
+	ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams)
+	// ListOrgInvitations Pending invitations
+	// (GET /api/v1/orgs/{org}/invitations)
+	ListOrgInvitations(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RevokeOrgInvitation Revoke a pending invitation
+	// (DELETE /api/v1/orgs/{org}/invitations/{invitation_id})
+	RevokeOrgInvitation(w http.ResponseWriter, r *http.Request, org OrgID, invitationId InvitationID)
+	// LeaveOrg Leave an organisation
+	// (POST /api/v1/orgs/{org}/leave)
+	LeaveOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgMembers Members, their roles and project memberships
+	// (GET /api/v1/orgs/{org}/members)
+	ListOrgMembers(w http.ResponseWriter, r *http.Request, org OrgID)
+	// InviteOrgMember Invite someone to the organisation (and optionally to projects)
+	// (POST /api/v1/orgs/{org}/members)
+	InviteOrgMember(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RemoveOrgMember Remove a member; their access ends at once
+	// (DELETE /api/v1/orgs/{org}/members/{user})
+	RemoveOrgMember(w http.ResponseWriter, r *http.Request, org OrgID, user UserID)
+	// UpdateOrgMember Change a member's organisation role
+	// (PATCH /api/v1/orgs/{org}/members/{user})
+	UpdateOrgMember(w http.ResponseWriter, r *http.Request, org OrgID, user UserID)
+	// TransferOrgOwnership Make another member an owner and step down to admin
+	// (POST /api/v1/orgs/{org}/transfer-ownership)
+	TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListProfiles Dedicated instance sizes
 	// (GET /api/v1/profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
-	// ListProjects List projects, newest first
+	// ListProjects List projects you can see in an organisation, newest first
 	// (GET /api/v1/projects)
 	ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams)
 	// CreateProject Create a shared-tier project
@@ -1875,9 +2891,18 @@ type ServerInterface interface {
 	// GetProject Project detail and connection info (no password)
 	// (GET /api/v1/projects/{id})
 	GetProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListProjectAudit The project's slice of its organisation's audit log
+	// (GET /api/v1/projects/{id}/audit)
+	ListProjectAudit(w http.ResponseWriter, r *http.Request, id ProjectID, params ListProjectAuditParams)
 	// CreateProjectBackup Back up a project now
 	// (POST /api/v1/projects/{id}/backups)
 	CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetMyCredentials Your personal database login on this project, if any (no password)
+	// (GET /api/v1/projects/{id}/credentials)
+	GetMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// IssueMyCredentials Create or rotate your personal database login; the password is shown once
+	// (POST /api/v1/projects/{id}/credentials)
+	IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ListProjectExtensions The extension allow-list and what is installed
 	// (GET /api/v1/projects/{id}/extensions)
 	ListProjectExtensions(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -1887,6 +2912,18 @@ type ServerInterface interface {
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListProjectMembers Project members (org owners and admins are implicit admins)
+	// (GET /api/v1/projects/{id}/members)
+	ListProjectMembers(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// AddProjectMember Add an org member to the project, or invite someone new
+	// (POST /api/v1/projects/{id}/members)
+	AddProjectMember(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// RemoveProjectMember Remove a member from the project; their login is dropped at once
+	// (DELETE /api/v1/projects/{id}/members/{user})
+	RemoveProjectMember(w http.ResponseWriter, r *http.Request, id ProjectID, user UserID)
+	// UpdateProjectMember Change a member's project role
+	// (PATCH /api/v1/projects/{id}/members/{user})
+	UpdateProjectMember(w http.ResponseWriter, r *http.Request, id ProjectID, user UserID)
 	// GetProjectMetrics A project's metric series and top queries
 	// (GET /api/v1/projects/{id}/metrics)
 	GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams)
@@ -1917,6 +2954,9 @@ type ServerInterface interface {
 	// GetTableRows A page of a table's rows (read-only)
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
 	GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams)
+	// TransferProject Move the project to another organisation (owner of both)
+	// (POST /api/v1/projects/{id}/transfer)
+	TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RunRestoreTest Run the restore test now
 	// (POST /api/v1/restore-tests)
 	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
@@ -1974,6 +3014,9 @@ type ServerInterface interface {
 	// CompleteSetup First-run setup, step 2 - confirm TOTP and create the owner
 	// (POST /api/v1/setup/complete)
 	CompleteSetup(w http.ResponseWriter, r *http.Request)
+	// GetTerms The current terms of use and privacy notice (public)
+	// (GET /api/v1/terms)
+	GetTerms(w http.ResponseWriter, r *http.Request)
 	// GetVersion Build information for this server
 	// (GET /api/v1/version)
 	GetVersion(w http.ResponseWriter, r *http.Request)
@@ -1992,6 +3035,78 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// ListPlatformAudit The platform audit log, newest first (platform admin)
+// (GET /api/v1/admin/audit)
+func (_ Unimplemented) ListPlatformAudit(w http.ResponseWriter, r *http.Request, params ListPlatformAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPlatformInvitations Pending platform invitations (platform admin)
+// (GET /api/v1/admin/invitations)
+func (_ Unimplemented) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreatePlatformInvitation Invite someone to the platform (platform admin)
+// (POST /api/v1/admin/invitations)
+func (_ Unimplemented) CreatePlatformInvitation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokePlatformInvitation Revoke a platform invitation (platform admin)
+// (DELETE /api/v1/admin/invitations/{invitation_id})
+func (_ Unimplemented) RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMailSettings Platform SMTP settings (platform admin; no password)
+// (GET /api/v1/admin/settings/mail)
+func (_ Unimplemented) GetMailSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutMailSettings Test and save the platform SMTP settings (platform admin)
+// (PUT /api/v1/admin/settings/mail)
+func (_ Unimplemented) PutMailSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetSignupSettings Signup mode and domain allow-list (platform admin)
+// (GET /api/v1/admin/settings/signup)
+func (_ Unimplemented) GetSignupSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutSignupSettings Change the signup mode (platform admin)
+// (PUT /api/v1/admin/settings/signup)
+func (_ Unimplemented) PutSignupSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PublishTerms Publish a new version of the terms and privacy notice (platform admin)
+// (POST /api/v1/admin/settings/terms)
+func (_ Unimplemented) PublishTerms(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListUsers Every account (platform admin)
+// (GET /api/v1/admin/users)
+func (_ Unimplemented) ListUsers(w http.ResponseWriter, r *http.Request, params ListUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateUser Approve, disable, or re-enable an account (platform admin)
+// (PATCH /api/v1/admin/users/{user})
+func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, user UserID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
+// (POST /api/v1/admin/users/{user}/reset-2fa)
+func (_ Unimplemented) ResetUserTotp(w http.ResponseWriter, r *http.Request, user UserID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // RegisterAgent Agent registration (called by pgdock-agent, not the UI)
 // (POST /api/v1/agent/register)
 func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
@@ -2001,12 +3116,6 @@ func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 // ListAlerts Alerts, firing first
 // (GET /api/v1/alerts)
 func (_ Unimplemented) ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ListAudit Audit log, newest first
-// (GET /api/v1/audit)
-func (_ Unimplemented) ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2022,15 +3131,45 @@ func (_ Unimplemented) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// RequestPasswordReset Email a password reset link (valid one hour)
+// (POST /api/v1/auth/password-reset)
+func (_ Unimplemented) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConfirmPasswordReset Set a new password from a reset link; ends every session
+// (POST /api/v1/auth/password-reset/confirm)
+func (_ Unimplemented) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // PostAuthReauth Step-up authentication for destructive actions
 // (POST /api/v1/auth/reauth)
 func (_ Unimplemented) PostAuthReauth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Signup Create an account (when the signup mode allows it)
+// (POST /api/v1/auth/signup)
+func (_ Unimplemented) Signup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // PostAuthTotp Complete login with a TOTP code
 // (POST /api/v1/auth/totp)
 func (_ Unimplemented) PostAuthTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// VerifyEmail Verify an email address with the emailed token
+// (POST /api/v1/auth/verify-email)
+func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResendVerification Send a new verification link
+// (POST /api/v1/auth/verify-email/resend)
+func (_ Unimplemented) ResendVerification(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2042,7 +3181,7 @@ func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request, param
 
 // GetBackupOverview Backup configuration and health at a glance
 // (GET /api/v1/backups/overview)
-func (_ Unimplemented) GetBackupOverview(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetBackupOverview(w http.ResponseWriter, r *http.Request, params GetBackupOverviewParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2070,9 +3209,75 @@ func (_ Unimplemented) ImportPreflight(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// GetMe Current operator
+// AcceptInvitation Accept an invitation link (public, token-gated)
+// (POST /api/v1/invitations/accept)
+func (_ Unimplemented) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewInvitation What an invitation link offers (public, token-gated)
+// (POST /api/v1/invitations/preview)
+func (_ Unimplemented) PreviewInvitation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMe The signed-in user
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateMe Change your profile
+// (PATCH /api/v1/me)
+func (_ Unimplemented) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListMyInvitations Invitations waiting for you
+// (GET /api/v1/me/invitations)
+func (_ Unimplemented) ListMyInvitations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AcceptMyInvitation Accept one of your pending invitations
+// (POST /api/v1/me/invitations/{invitation_id}/accept)
+func (_ Unimplemented) AcceptMyInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ChangePassword Change your password; ends your other sessions
+// (POST /api/v1/me/password)
+func (_ Unimplemented) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetRecoveryCodes How many recovery codes you have left
+// (GET /api/v1/me/recovery-codes)
+func (_ Unimplemented) GetRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RegenerateRecoveryCodes Replace your recovery codes (step-up auth); shown once
+// (POST /api/v1/me/recovery-codes)
+func (_ Unimplemented) RegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListMySessions Your active sessions
+// (GET /api/v1/me/sessions)
+func (_ Unimplemented) ListMySessions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeMySession End one of your sessions
+// (DELETE /api/v1/me/sessions/{session_id})
+func (_ Unimplemented) RevokeMySession(w http.ResponseWriter, r *http.Request, sessionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AcceptTerms Accept the current terms of use
+// (POST /api/v1/me/terms/accept)
+func (_ Unimplemented) AcceptTerms(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2142,13 +3347,91 @@ func (_ Unimplemented) StreamOperation(w http.ResponseWriter, r *http.Request, i
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListOrgs Organisations you belong to (personal first)
+// (GET /api/v1/orgs)
+func (_ Unimplemented) ListOrgs(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateOrg Create an organisation; you become its owner
+// (POST /api/v1/orgs)
+func (_ Unimplemented) CreateOrg(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrg One organisation
+// (GET /api/v1/orgs/{org})
+func (_ Unimplemented) GetOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateOrg Rename an organisation or change its settings
+// (PATCH /api/v1/orgs/{org})
+func (_ Unimplemented) UpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgAudit The organisation's audit log, newest first
+// (GET /api/v1/orgs/{org}/audit)
+func (_ Unimplemented) ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgInvitations Pending invitations
+// (GET /api/v1/orgs/{org}/invitations)
+func (_ Unimplemented) ListOrgInvitations(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeOrgInvitation Revoke a pending invitation
+// (DELETE /api/v1/orgs/{org}/invitations/{invitation_id})
+func (_ Unimplemented) RevokeOrgInvitation(w http.ResponseWriter, r *http.Request, org OrgID, invitationId InvitationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// LeaveOrg Leave an organisation
+// (POST /api/v1/orgs/{org}/leave)
+func (_ Unimplemented) LeaveOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgMembers Members, their roles and project memberships
+// (GET /api/v1/orgs/{org}/members)
+func (_ Unimplemented) ListOrgMembers(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// InviteOrgMember Invite someone to the organisation (and optionally to projects)
+// (POST /api/v1/orgs/{org}/members)
+func (_ Unimplemented) InviteOrgMember(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveOrgMember Remove a member; their access ends at once
+// (DELETE /api/v1/orgs/{org}/members/{user})
+func (_ Unimplemented) RemoveOrgMember(w http.ResponseWriter, r *http.Request, org OrgID, user UserID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateOrgMember Change a member's organisation role
+// (PATCH /api/v1/orgs/{org}/members/{user})
+func (_ Unimplemented) UpdateOrgMember(w http.ResponseWriter, r *http.Request, org OrgID, user UserID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TransferOrgOwnership Make another member an owner and step down to admin
+// (POST /api/v1/orgs/{org}/transfer-ownership)
+func (_ Unimplemented) TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListProfiles Dedicated instance sizes
 // (GET /api/v1/profiles)
 func (_ Unimplemented) ListProfiles(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ListProjects List projects, newest first
+// ListProjects List projects you can see in an organisation, newest first
 // (GET /api/v1/projects)
 func (_ Unimplemented) ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -2172,9 +3455,27 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, id Pro
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListProjectAudit The project's slice of its organisation's audit log
+// (GET /api/v1/projects/{id}/audit)
+func (_ Unimplemented) ListProjectAudit(w http.ResponseWriter, r *http.Request, id ProjectID, params ListProjectAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CreateProjectBackup Back up a project now
 // (POST /api/v1/projects/{id}/backups)
 func (_ Unimplemented) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMyCredentials Your personal database login on this project, if any (no password)
+// (GET /api/v1/projects/{id}/credentials)
+func (_ Unimplemented) GetMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// IssueMyCredentials Create or rotate your personal database login; the password is shown once
+// (POST /api/v1/projects/{id}/credentials)
+func (_ Unimplemented) IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2193,6 +3494,30 @@ func (_ Unimplemented) EnableProjectExtension(w http.ResponseWriter, r *http.Req
 // ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 // (POST /api/v1/projects/{id}/instance)
 func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListProjectMembers Project members (org owners and admins are implicit admins)
+// (GET /api/v1/projects/{id}/members)
+func (_ Unimplemented) ListProjectMembers(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AddProjectMember Add an org member to the project, or invite someone new
+// (POST /api/v1/projects/{id}/members)
+func (_ Unimplemented) AddProjectMember(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveProjectMember Remove a member from the project; their login is dropped at once
+// (DELETE /api/v1/projects/{id}/members/{user})
+func (_ Unimplemented) RemoveProjectMember(w http.ResponseWriter, r *http.Request, id ProjectID, user UserID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateProjectMember Change a member's project role
+// (PATCH /api/v1/projects/{id}/members/{user})
+func (_ Unimplemented) UpdateProjectMember(w http.ResponseWriter, r *http.Request, id ProjectID, user UserID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2253,6 +3578,12 @@ func (_ Unimplemented) CancelSQL(w http.ResponseWriter, r *http.Request, id Proj
 // GetTableRows A page of a table's rows (read-only)
 // (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
 func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TransferProject Move the project to another organisation (owner of both)
+// (POST /api/v1/projects/{id}/transfer)
+func (_ Unimplemented) TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2370,6 +3701,12 @@ func (_ Unimplemented) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetTerms The current terms of use and privacy notice (public)
+// (GET /api/v1/terms)
+func (_ Unimplemented) GetTerms(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetVersion Build information for this server
 // (GET /api/v1/version)
 func (_ Unimplemented) GetVersion(w http.ResponseWriter, r *http.Request) {
@@ -2403,74 +3740,14 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// RegisterAgent operation middleware
-func (siw *ServerInterfaceWrapper) RegisterAgent(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterAgent(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListAlerts operation middleware
-func (siw *ServerInterfaceWrapper) ListAlerts(w http.ResponseWriter, r *http.Request) {
+// ListPlatformAudit operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformAudit(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListAlertsParams
-
-	// ------------- Optional query parameter "status" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListAlerts(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListAudit operation middleware
-func (siw *ServerInterfaceWrapper) ListAudit(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListAuditParams
+	var params ListPlatformAuditParams
 
 	// ------------- Optional query parameter "action" -------------
 
@@ -2538,7 +3815,289 @@ func (siw *ServerInterfaceWrapper) ListAudit(w http.ResponseWriter, r *http.Requ
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListAudit(w, r, params)
+		siw.Handler.ListPlatformAudit(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPlatformInvitations operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPlatformInvitations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePlatformInvitation operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlatformInvitation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePlatformInvitation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokePlatformInvitation operation middleware
+func (siw *ServerInterfaceWrapper) RevokePlatformInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invitation_id" -------------
+	var invitationId InvitationID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invitation_id", chi.URLParam(r, "invitation_id"), &invitationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invitation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokePlatformInvitation(w, r, invitationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMailSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetMailSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMailSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutMailSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutMailSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMailSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSignupSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSignupSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSignupSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutSignupSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutSignupSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutSignupSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PublishTerms operation middleware
+func (siw *ServerInterfaceWrapper) PublishTerms(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublishTerms(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUsers operation middleware
+func (siw *ServerInterfaceWrapper) ListUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListUsersParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "pending" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pending", r.URL.Query(), &params.Pending, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pending"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pending", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUsers(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateUser operation middleware
+func (siw *ServerInterfaceWrapper) UpdateUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "user" -------------
+	var user UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user", chi.URLParam(r, "user"), &user, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateUser(w, r, user)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResetUserTotp operation middleware
+func (siw *ServerInterfaceWrapper) ResetUserTotp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "user" -------------
+	var user UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user", chi.URLParam(r, "user"), &user, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResetUserTotp(w, r, user)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterAgent operation middleware
+func (siw *ServerInterfaceWrapper) RegisterAgent(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterAgent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAlerts operation middleware
+func (siw *ServerInterfaceWrapper) ListAlerts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAlertsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAlerts(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2576,11 +4135,53 @@ func (siw *ServerInterfaceWrapper) PostAuthLogout(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// RequestPasswordReset operation middleware
+func (siw *ServerInterfaceWrapper) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestPasswordReset(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmPasswordReset operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmPasswordReset(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostAuthReauth operation middleware
 func (siw *ServerInterfaceWrapper) PostAuthReauth(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAuthReauth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Signup operation middleware
+func (siw *ServerInterfaceWrapper) Signup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Signup(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2604,6 +4205,34 @@ func (siw *ServerInterfaceWrapper) PostAuthTotp(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// VerifyEmail operation middleware
+func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResendVerification operation middleware
+func (siw *ServerInterfaceWrapper) ResendVerification(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResendVerification(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListBackups operation middleware
 func (siw *ServerInterfaceWrapper) ListBackups(w http.ResponseWriter, r *http.Request) {
 
@@ -2612,6 +4241,19 @@ func (siw *ServerInterfaceWrapper) ListBackups(w http.ResponseWriter, r *http.Re
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListBackupsParams
+
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "project_id" -------------
 
@@ -2666,8 +4308,27 @@ func (siw *ServerInterfaceWrapper) ListBackups(w http.ResponseWriter, r *http.Re
 // GetBackupOverview operation middleware
 func (siw *ServerInterfaceWrapper) GetBackupOverview(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBackupOverviewParams
+
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetBackupOverview(w, r)
+		siw.Handler.GetBackupOverview(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2745,11 +4406,189 @@ func (siw *ServerInterfaceWrapper) ImportPreflight(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// AcceptInvitation operation middleware
+func (siw *ServerInterfaceWrapper) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptInvitation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewInvitation operation middleware
+func (siw *ServerInterfaceWrapper) PreviewInvitation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewInvitation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMe operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyInvitations operation middleware
+func (siw *ServerInterfaceWrapper) ListMyInvitations(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyInvitations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptMyInvitation operation middleware
+func (siw *ServerInterfaceWrapper) AcceptMyInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invitation_id" -------------
+	var invitationId InvitationID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invitation_id", chi.URLParam(r, "invitation_id"), &invitationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invitation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptMyInvitation(w, r, invitationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangePassword operation middleware
+func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRecoveryCodes operation middleware
+func (siw *ServerInterfaceWrapper) GetRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRecoveryCodes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegenerateRecoveryCodes operation middleware
+func (siw *ServerInterfaceWrapper) RegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegenerateRecoveryCodes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMySessions operation middleware
+func (siw *ServerInterfaceWrapper) ListMySessions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMySessions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeMySession operation middleware
+func (siw *ServerInterfaceWrapper) RevokeMySession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "session_id" -------------
+	var sessionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "session_id", chi.URLParam(r, "session_id"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "session_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeMySession(w, r, sessionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptTerms operation middleware
+func (siw *ServerInterfaceWrapper) AcceptTerms(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptTerms(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2981,6 +4820,32 @@ func (siw *ServerInterfaceWrapper) ListOperations(w http.ResponseWriter, r *http
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListOperationsParams
 
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "platform" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "platform", r.URL.Query(), &params.Platform, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "platform"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "platform", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "status" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -3096,6 +4961,415 @@ func (siw *ServerInterfaceWrapper) StreamOperation(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListOrgs operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgs(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrg operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrg(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrg(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrg operation middleware
+func (siw *ServerInterfaceWrapper) GetOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrg operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgAudit operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListOrgAuditParams
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", r.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_id", r.URL.Query(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgAudit(w, r, org, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgInvitations operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgInvitations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgInvitations(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeOrgInvitation operation middleware
+func (siw *ServerInterfaceWrapper) RevokeOrgInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invitation_id" -------------
+	var invitationId InvitationID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invitation_id", chi.URLParam(r, "invitation_id"), &invitationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invitation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeOrgInvitation(w, r, org, invitationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LeaveOrg operation middleware
+func (siw *ServerInterfaceWrapper) LeaveOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LeaveOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgMembers operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgMembers(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// InviteOrgMember operation middleware
+func (siw *ServerInterfaceWrapper) InviteOrgMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.InviteOrgMember(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveOrgMember operation middleware
+func (siw *ServerInterfaceWrapper) RemoveOrgMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "user" -------------
+	var user UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user", chi.URLParam(r, "user"), &user, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveOrgMember(w, r, org, user)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrgMember operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrgMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "user" -------------
+	var user UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user", chi.URLParam(r, "user"), &user, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrgMember(w, r, org, user)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TransferOrgOwnership operation middleware
+func (siw *ServerInterfaceWrapper) TransferOrgOwnership(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TransferOrgOwnership(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProfiles operation middleware
 func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.Request) {
 
@@ -3118,6 +5392,19 @@ func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.R
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListProjectsParams
+
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "status" -------------
 
@@ -3251,6 +5538,100 @@ func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjectAudit operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProjectAuditParams
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", r.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_id", r.URL.Query(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectAudit(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateProjectBackup operation middleware
 func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r *http.Request) {
 
@@ -3268,6 +5649,58 @@ func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateProjectBackup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyCredentials operation middleware
+func (siw *ServerInterfaceWrapper) GetMyCredentials(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyCredentials(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// IssueMyCredentials operation middleware
+func (siw *ServerInterfaceWrapper) IssueMyCredentials(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.IssueMyCredentials(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3346,6 +5779,128 @@ func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ProjectInstanceAction(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProjectMembers operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectMembers(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddProjectMember operation middleware
+func (siw *ServerInterfaceWrapper) AddProjectMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddProjectMember(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveProjectMember operation middleware
+func (siw *ServerInterfaceWrapper) RemoveProjectMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "user" -------------
+	var user UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user", chi.URLParam(r, "user"), &user, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveProjectMember(w, r, id, user)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProjectMember operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProjectMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "user" -------------
+	var user UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user", chi.URLParam(r, "user"), &user, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProjectMember(w, r, id, user)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3691,6 +6246,32 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// TransferProject operation middleware
+func (siw *ServerInterfaceWrapper) TransferProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TransferProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RunRestoreTest operation middleware
 func (siw *ServerInterfaceWrapper) RunRestoreTest(w http.ResponseWriter, r *http.Request) {
 
@@ -3976,6 +6557,20 @@ func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetTerms operation middleware
+func (siw *ServerInterfaceWrapper) GetTerms(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTerms(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetVersion operation middleware
 func (siw *ServerInterfaceWrapper) GetVersion(w http.ResponseWriter, r *http.Request) {
 
@@ -4170,6 +6765,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
 	})
 	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/me", wrapper.UpdateMe)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/session", wrapper.GetSession)
 	})
 	r.Group(func(r chi.Router) {
@@ -4177,9 +6775,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/setup/complete", wrapper.CompleteSetup)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/audit", wrapper.ListAudit)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/settings/general", wrapper.GetGeneralSettings)
@@ -4345,6 +6940,153 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/settings/alerts/test", wrapper.TestAlertSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/signup", wrapper.Signup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/verify-email", wrapper.VerifyEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/verify-email/resend", wrapper.ResendVerification)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/password-reset", wrapper.RequestPasswordReset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/password-reset/confirm", wrapper.ConfirmPasswordReset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/terms", wrapper.GetTerms)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/invitations/preview", wrapper.PreviewInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/invitations/accept", wrapper.AcceptInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/password", wrapper.ChangePassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/me/sessions", wrapper.ListMySessions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/me/sessions/{session_id}", wrapper.RevokeMySession)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/me/recovery-codes", wrapper.GetRecoveryCodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/recovery-codes", wrapper.RegenerateRecoveryCodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/terms/accept", wrapper.AcceptTerms)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/me/invitations", wrapper.ListMyInvitations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/invitations/{invitation_id}/accept", wrapper.AcceptMyInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs", wrapper.ListOrgs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs", wrapper.CreateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}", wrapper.GetOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}", wrapper.UpdateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/members", wrapper.ListOrgMembers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/members", wrapper.InviteOrgMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/members/{user}", wrapper.RemoveOrgMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}/members/{user}", wrapper.UpdateOrgMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/leave", wrapper.LeaveOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/transfer-ownership", wrapper.TransferOrgOwnership)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/invitations", wrapper.ListOrgInvitations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/invitations/{invitation_id}", wrapper.RevokeOrgInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/audit", wrapper.ListOrgAudit)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/members", wrapper.ListProjectMembers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/members", wrapper.AddProjectMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/members/{user}", wrapper.RemoveProjectMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/members/{user}", wrapper.UpdateProjectMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/credentials", wrapper.GetMyCredentials)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/credentials", wrapper.IssueMyCredentials)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/transfer", wrapper.TransferProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/audit", wrapper.ListProjectAudit)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/audit", wrapper.ListPlatformAudit)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/users", wrapper.ListUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/users/{user}", wrapper.UpdateUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/users/{user}/reset-2fa", wrapper.ResetUserTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/invitations", wrapper.ListPlatformInvitations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invitations", wrapper.CreatePlatformInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/admin/invitations/{invitation_id}", wrapper.RevokePlatformInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/settings/signup", wrapper.GetSignupSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/settings/signup", wrapper.PutSignupSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/settings/mail", wrapper.GetMailSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/settings/mail", wrapper.PutMailSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/settings/terms", wrapper.PublishTerms)
 	})
 
 	return r

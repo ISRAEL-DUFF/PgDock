@@ -1,11 +1,19 @@
 -- name: InsertAudit :exec
-INSERT INTO audit_log (operator_id, action, target_type, target_id, detail, ip, user_agent, outcome)
-VALUES (sqlc.narg(operator_id), @action, sqlc.narg(target_type), sqlc.narg(target_id), @detail, sqlc.narg(ip), sqlc.narg(user_agent), @outcome);
+INSERT INTO audit_log (user_id, action, target_type, target_id, detail, ip, user_agent, outcome,
+                       actor_kind, token_id, org_id, project_id, break_glass)
+VALUES (sqlc.narg(user_id), @action, sqlc.narg(target_type), sqlc.narg(target_id), @detail, sqlc.narg(ip),
+        sqlc.narg(user_agent), @outcome, @actor_kind, sqlc.narg(token_id), sqlc.narg(org_id), sqlc.narg(project_id), @break_glass);
 
 -- name: ListAudit :many
-SELECT a.*, o.email AS operator_email
-FROM audit_log a LEFT JOIN operators o ON o.id = a.operator_id
-WHERE (sqlc.narg(action)::text IS NULL OR a.action LIKE sqlc.narg(action) || '%')
+-- One scope at a time: an org's log (@org_id), a project's slice of it
+-- (@org_id and @project_id), or the platform log (@platform: org-less
+-- events, plus break-glass actions wherever they happened).
+SELECT a.*, u.email AS user_email
+FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
+WHERE CASE WHEN @platform::bool THEN (a.org_id IS NULL OR a.break_glass)
+           ELSE a.org_id = sqlc.narg(org_id) END
+  AND (sqlc.narg(project_id)::uuid IS NULL OR a.project_id = sqlc.narg(project_id))
+  AND (sqlc.narg(action)::text IS NULL OR a.action LIKE sqlc.narg(action) || '%')
   AND (sqlc.narg(outcome)::text IS NULL OR a.outcome = sqlc.narg(outcome))
   AND (sqlc.narg(target_id)::text IS NULL OR a.target_id = sqlc.narg(target_id))
   AND (sqlc.narg(before_id)::bigint IS NULL OR a.id < sqlc.narg(before_id))

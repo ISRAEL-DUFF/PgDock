@@ -85,6 +85,13 @@ func (m *Manager) Sync(ctx context.Context) error {
 		})
 		cfg.Users = append(cfg.Users, User{Name: r.OwnerRole, Secret: r.ScramVerifier})
 	}
+	members, err := store.New(conn).PoolerDBUsers(ctx)
+	if err != nil {
+		return fmt.Errorf("pooler sync: load personal logins: %w", err)
+	}
+	for _, u := range members {
+		cfg.Users = append(cfg.Users, User{Name: u.RoleName, Secret: u.ScramVerifier})
+	}
 
 	databases, userlist, err := Render(cfg)
 	if err != nil {
@@ -197,4 +204,9 @@ func (m *Manager) each(ctx context.Context, f func(*Admin) error) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// KillUser drops user's client connections on every pooler.
+func (m *Manager) KillUser(ctx context.Context, user string) error {
+	return m.each(ctx, func(a *Admin) error { _, err := a.KillUser(ctx, user); return err })
 }

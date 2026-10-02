@@ -135,3 +135,52 @@ func (a *Admin) Pools(ctx context.Context) ([]Pool, error) {
 
 // Ping checks the admin console answers (SHOW VERSION).
 func (a *Admin) Ping(ctx context.Context) error { return a.exec(ctx, "SHOW VERSION") }
+
+// KillUser drops every client connection logged in as user (KILL_CLIENT,
+// PgBouncer 1.24+), leaving other users of the same database alone. It
+// returns how many clients it dropped.
+func (a *Admin) KillUser(ctx context.Context, user string) (int, error) {
+	if !dbNameRe.MatchString(user) {
+		return 0, fmt.Errorf("pooler: invalid user name %q", user)
+	}
+	conn, err := pgx.ConnectConfig(ctx, a.cfg)
+	if err != nil {
+		return 0, fmt.Errorf("pooler %s (%s): connect admin console: %w", a.Name, a.Addr(), err)
+	}
+	defer conn.Close(context.Background())
+	rows, err := conn.Query(ctx, "SHOW CLIENTS")
+	if err != nil {
+		return 0, fmt.Errorf("pooler %s: SHOW CLIENTS: %w", a.Name, err)
+	}
+	col := map[string]int{}
+	for i, fd := range rows.FieldDescriptions() {
+		col[fd.Name] = i
+	}
+	var ids []string
+	for rows.Next() {
+		raw := rows.RawValues()
+		ui, ok1 := col["user"]
+		ii, ok2 := col["id"]
+		if !ok1 || !ok2 || ui >= len(raw) || ii >= len(raw) {
+			continue
+		}
+		if string(raw[ui]) == user {
+			ids = append(ids, string(raw[ii]))
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, id := range ids {
+		if _, err := strconv.ParseUint(id, 10, 64); err != nil {
+			continue
+		}
+		if _, err := conn.Exec(ctx, "KILL_CLIENT "+id); err != nil {
+			return n, fmt.Errorf("pooler %s: KILL_CLIENT %s: %w", a.Name, id, err)
+		}
+		n++
+	}
+	return n, nil
+}

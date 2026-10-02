@@ -3,11 +3,18 @@ import { useState, type FormEvent } from "react";
 import { api, errorMessage, type ProjectCredentials } from "../api/client";
 import { ProvisionProgress } from "../components/ProvisionProgress";
 import { Alert, Button, Card, Field, Input, PageHeader, Select, cx } from "../components/ui";
+import { useCurrentOrg } from "../lib/org";
+import { sessionQuery } from "../lib/session";
 
 type Tier = "shared" | "dedicated";
 
 export function NewProjectPage() {
   const qc = useQueryClient();
+  const { org } = useCurrentOrg();
+  const { data: session } = useQuery(sessionQuery);
+  // Dedicated instances are placed on nodes only the platform admin manages
+  // (others request them through promotion once allowances exist, V2 §10.6).
+  const platformAdmin = session?.user?.platform_role === "platform_admin";
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tier, setTier] = useState<Tier>("shared");
@@ -18,7 +25,7 @@ export function NewProjectPage() {
   const [err, setErr] = useState<string | null>(null);
   const [creds, setCreds] = useState<ProjectCredentials | null>(null);
   const profiles = useQuery({ queryKey: ["profiles"], queryFn: api.profiles, enabled: tier === "dedicated" });
-  const nodes = useQuery({ queryKey: ["nodes"], queryFn: api.nodes, enabled: tier === "dedicated" });
+  const nodes = useQuery({ queryKey: ["nodes"], queryFn: api.nodes, enabled: tier === "dedicated" && platformAdmin });
   const dedicatedNodes = (nodes.data?.items ?? []).filter((n) => (n.role === "dedicated" || n.role === "both") && n.agent.registered);
 
   const submit = async (e: FormEvent) => {
@@ -28,6 +35,7 @@ export function NewProjectPage() {
     try {
       setCreds(
         await api.createProject({
+          org_id: org?.id,
           name,
           description: description || undefined,
           tier,
@@ -76,7 +84,8 @@ export function NewProjectPage() {
             <legend className="mb-1 text-sm font-medium">Tier</legend>
             <div className="flex flex-wrap gap-2">
               {tierOption("shared", "Shared", "A database on the shared cluster. Ready in a second; nightly logical backups.")}
-              {tierOption("dedicated", "Dedicated", "Its own Postgres container with CPU and memory limits; continuous backups and point-in-time restore.")}
+              {platformAdmin &&
+                tierOption("dedicated", "Dedicated", "Its own Postgres container with CPU and memory limits; continuous backups and point-in-time restore.")}
             </div>
           </fieldset>
           {tier === "dedicated" && (

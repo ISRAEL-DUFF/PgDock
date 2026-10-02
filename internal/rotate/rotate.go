@@ -22,9 +22,10 @@ import (
 )
 
 // The associated data each secret is sealed with. They must match the
-// packages that seal them (auth, backup, provision, agentca, alerts);
+// packages that seal them (auth, backup, provision, agentca, alerts, mail);
 // TestRotation decrypts everything with the new key alone to prove it.
 func totpAAD(id uuid.UUID) []byte     { return []byte("operators.totp_secret:" + id.String()) }
+func recoveryAAD(id uuid.UUID) []byte { return []byte("users.recovery_codes:" + id.String()) }
 func storageAAD(id uuid.UUID) []byte  { return []byte("storage_targets.credentials:" + id.String()) }
 func nodeAAD(id uuid.UUID) []byte     { return []byte("nodes.pg_admin_secret:" + id.String()) }
 func instanceAAD(id uuid.UUID) []byte { return []byte("instances.admin_secret:" + id.String()) }
@@ -136,8 +137,10 @@ func collect(ctx context.Context, tx pgx.Tx) ([]secret, error) {
 		aad         func(uuid.UUID) []byte
 		update      string
 	}{
-		{"operator TOTP secret", `SELECT id, totp_secret FROM operators WHERE totp_secret IS NOT NULL FOR UPDATE`, totpAAD,
-			`UPDATE operators SET totp_secret = $2 WHERE id = $1`},
+		{"user TOTP secret", `SELECT id, totp_secret FROM users WHERE totp_secret IS NOT NULL FOR UPDATE`, totpAAD,
+			`UPDATE users SET totp_secret = $2 WHERE id = $1`},
+		{"recovery codes", `SELECT id, recovery_codes FROM users WHERE recovery_codes IS NOT NULL FOR UPDATE`, recoveryAAD,
+			`UPDATE users SET recovery_codes = $2 WHERE id = $1`},
 		{"storage credentials", `SELECT id, credentials FROM storage_targets WHERE credentials IS NOT NULL FOR UPDATE`, storageAAD,
 			`UPDATE storage_targets SET credentials = $2 WHERE id = $1`},
 		{"node admin credential", `SELECT id, pg_admin_secret FROM nodes WHERE pg_admin_secret IS NOT NULL FOR UPDATE`, nodeAAD,
@@ -159,6 +162,7 @@ func collect(ctx context.Context, tx pgx.Tx) ([]secret, error) {
 		{"backup key", "backup_key", "settings.backup_key", []string{"sealed"}},
 		{"alert webhook secret", "alerts", "settings.alerts.webhook_secret", []string{"webhook_secret"}},
 		{"alert SMTP password", "alerts", "settings.alerts.smtp_password", []string{"smtp", "password"}},
+		{"SMTP password", "mail", "settings.mail.password", []string{"password"}},
 	} {
 		s, err := settingSecret(ctx, tx, f.what, f.key, f.aad, f.path)
 		if err != nil {

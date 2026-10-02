@@ -224,6 +224,7 @@ type ListNodeInstancesRow struct {
 	Projects    int32
 }
 
+// tenant: system - platform infrastructure (nodes, instances, placement).
 func (q *Queries) ListNodeInstances(ctx context.Context, nodeID uuid.UUID) ([]ListNodeInstancesRow, error) {
 	rows, err := q.db.Query(ctx, listNodeInstances, nodeID)
 	if err != nil {
@@ -280,6 +281,7 @@ ORDER BY i.created_at
 // see rollbackSharedCluster). Both are what a rollback leaves when it could
 // not reach the node. The grace period keeps it clear of instances a create
 // or restore is still setting up.
+// tenant: system - platform infrastructure (nodes, instances, placement).
 func (q *Queries) ListOrphanedInstances(ctx context.Context) ([]Instance, error) {
 	rows, err := q.db.Query(ctx, listOrphanedInstances)
 	if err != nil {
@@ -373,6 +375,7 @@ LIMIT 1
 
 // PickSharedInstance chooses the running shared instance hosting the fewest
 // live projects.
+// tenant: system - platform infrastructure (nodes, instances, placement).
 func (q *Queries) PickSharedInstance(ctx context.Context) (Instance, error) {
 	row := q.db.QueryRow(ctx, pickSharedInstance)
 	var i Instance

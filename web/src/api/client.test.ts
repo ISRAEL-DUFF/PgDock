@@ -12,7 +12,7 @@ function fakeFetch(status: number, body: unknown, seen?: RequestInit[]): typeof 
 }
 
 describe("api client", () => {
-  beforeEach(() => setCsrfToken(""));
+  beforeEach(() => setCsrfToken("tok"));
 
   it("returns the parsed version", async () => {
     const v = { version: "1.0.0", commit: "abc", build_date: "now", go_version: "go1.25" };
@@ -37,6 +37,18 @@ describe("api client", () => {
     expect((seen[0].headers as Record<string, string>)["X-CSRF-Token"]).toBe("tok");
     expect((seen[1].headers as Record<string, string>)["X-CSRF-Token"]).toBeUndefined();
     expect(seen[0].body).toBe('{"a":1}');
+  });
+
+  it("fetches the CSRF token before a first mutation", async () => {
+    setCsrfToken("");
+    const urls: string[] = [];
+    const f = (async (url: string, init?: RequestInit) => {
+      urls.push(`${init?.method} ${url} ${(init?.headers as Record<string, string>)["X-CSRF-Token"] ?? ""}`);
+      return new Response(JSON.stringify({ csrf_token: "fresh" }), { status: 200 });
+    }) as typeof fetch;
+    await request("POST", "/x", {}, f);
+    await request("POST", "/y", {}, f);
+    expect(urls).toEqual(["GET /api/v1/session ", "POST /x fresh", "POST /y fresh"]);
   });
 
   it("handles 204 responses", async () => {

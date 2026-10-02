@@ -28,19 +28,21 @@ export function totp(secret: string, at = Date.now()): string {
   return v.toString().padStart(6, "0");
 }
 
-let lastStep = -1;
+const lastStep = new Map<string, number>();
 
 /**
- * A code from a time step not used before in this run: PGDock rejects
- * replayed codes, so consecutive sign-ins wait for the next 30s window.
+ * A code from a time step not used before in this run for this secret:
+ * PGDock rejects replayed codes, so consecutive sign-ins of one account wait
+ * for the next 30s window.
  */
 export async function freshTotp(secret: string): Promise<string> {
   let step = Math.floor(Date.now() / 30_000);
-  if (step <= lastStep) {
-    const wait = (lastStep + 1) * 30_000 - Date.now() + 250;
+  const last = lastStep.get(secret) ?? -1;
+  if (step <= last) {
+    const wait = (last + 1) * 30_000 - Date.now() + 250;
     await new Promise((r) => setTimeout(r, wait));
     step = Math.floor(Date.now() / 30_000);
   }
-  lastStep = step;
+  lastStep.set(secret, step);
   return totp(secret);
 }

@@ -18,6 +18,8 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
 )
@@ -83,8 +85,13 @@ func newAuthServer(t *testing.T) (*httptest.Server, *fakeClock, DB) {
 	clk := &fakeClock{t: time.Now()}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := auth.NewService(pool, kr, auth.Config{Now: clk.Now, ReauthWindow: time.Minute}, "let-me-in", log)
+	if err := svc.EnsureTerms(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	orgSvc := orgs.New(pool, svc, nil, nil, "", log)
+	svc.SetHooks(orgSvc.Hooks())
 	ts := httptest.NewServer(NewHandler(Options{
-		Logger: log, DB: pool, Auth: svc, DevEndpoints: true,
+		Logger: log, DB: pool, Auth: svc, DevEndpoints: true, Orgs: orgSvc, Mail: mail.New(pool, kr),
 		UI: fstest.MapFS{"index.html": {Data: []byte("app")}}, UIIndex: "index.html",
 	}))
 	t.Cleanup(ts.Close)
@@ -163,11 +170,11 @@ func TestAuthFlowOverHTTP(t *testing.T) {
 	}
 
 	secret := b.setup(clk)
-	if st := b.session(); !st.Authenticated || st.SetupRequired || st.Operator == nil || string(st.Operator.Email) != ownerEmail {
+	if st := b.session(); !st.Authenticated || st.SetupRequired || st.User == nil || string(st.User.Email) != ownerEmail || st.TermsRequired != nil {
 		t.Fatalf("after setup: %+v", st)
 	}
-	var me gen.Operator
-	if code, _ := b.do("GET", "/api/v1/me", nil, &me); code != 200 || me.Role != gen.Owner {
+	var me gen.User
+	if code, _ := b.do("GET", "/api/v1/me", nil, &me); code != 200 || me.PlatformRole != gen.UserPlatformRolePlatformAdmin {
 		t.Fatalf("me: %d %+v", code, me)
 	}
 
@@ -212,8 +219,8 @@ func TestAuthFlowOverHTTP(t *testing.T) {
 	if code, body := b.do("POST", "/api/v1/auth/reauth", map[string]string{"password": ownerPassword, "code": totp}, nil); code != http.StatusNoContent {
 		t.Fatalf("reauth: %d %s", code, body)
 	}
-	// Past the guard now (provisioning is not configured in this test).
-	if code, _ := b.do("DELETE", path, nil, nil); code != http.StatusServiceUnavailable {
+	// Past re-authentication now; no such project, so 404.
+	if code, _ := b.do("DELETE", path, nil, nil); code != http.StatusNotFound {
 		t.Fatalf("delete after reauth: %d", code)
 	}
 
@@ -223,7 +230,7 @@ func TestAuthFlowOverHTTP(t *testing.T) {
 
 	// Everything mutating was audited, including the refusals.
 	ctx := context.Background()
-	rows, err := store.New(db).ListAudit(ctx, store.ListAuditParams{MaxRows: 100})
+	rows, err := store.New(db).ListAudit(ctx, store.ListAuditParams{Platform: true, MaxRows: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,13 +239,13 @@ func TestAuthFlowOverHTTP(t *testing.T) {
 		seen[r.Action+":"+r.Outcome]++
 	}
 	for _, want := range []string{"setup.complete:success", "auth.login:success", "auth.totp:success",
-		"auth.reauth:success", "auth.logout:success", "project.delete:denied", "setup.begin:denied"} {
+		"auth.reauth:success", "auth.logout:success", "project.delete:denied", "project.delete:failure", "setup.begin:denied"} {
 		if seen[want] == 0 {
 			t.Errorf("no audit row %s (have %v)", want, seen)
 		}
 	}
 	var list gen.AuditList
-	if code, _ := b.do("GET", "/api/v1/audit?action=auth.&limit=50", nil, &list); code != 200 || len(list.Items) == 0 {
+	if code, _ := b.do("GET", "/api/v1/admin/audit?action=auth.&limit=50", nil, &list); code != 200 || len(list.Items) == 0 {
 		t.Fatalf("audit api: %d %d", code, len(list.Items))
 	}
 	for _, e := range list.Items {

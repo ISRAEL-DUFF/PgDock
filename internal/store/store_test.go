@@ -88,7 +88,7 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 	ctx := context.Background()
 	pool := storetest.New(t)
 	q := store.New(pool)
-	if err := q.InsertAudit(ctx, store.InsertAuditParams{Action: "test.append", Detail: json.RawMessage(`{}`), Outcome: "success"}); err != nil {
+	if err := q.InsertAudit(ctx, store.InsertAuditParams{Action: "test.append", Detail: json.RawMessage(`{}`), Outcome: "success", ActorKind: "system"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, stmt := range []string{

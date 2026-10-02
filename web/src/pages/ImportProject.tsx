@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useCurrentOrg } from "../lib/org";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type ImportPreflight, type ProjectCredentials } from "../api/client";
 import { ProvisionProgress } from "../components/ProvisionProgress";
@@ -8,6 +9,7 @@ import { formatBytes } from "../lib/format";
 /** Import from an existing database (spec §6.8). */
 export function ImportProjectPage() {
   const qc = useQueryClient();
+  const { org } = useCurrentOrg();
   const [source, setSource] = useState("");
   const [pf, setPf] = useState<ImportPreflight | null>(null);
   const [schemas, setSchemas] = useState<string[]>([]);
@@ -37,7 +39,7 @@ export function ImportProjectPage() {
     setBusy("import");
     setErr(null);
     try {
-      setCreds(await api.createImport({ source_url: source.trim(), name, schemas }));
+      setCreds(await api.createImport({ org_id: org?.id, source_url: source.trim(), name, schemas }));
       void qc.invalidateQueries({ queryKey: ["projects"] });
     } catch (e) {
       setErr(errorMessage(e));

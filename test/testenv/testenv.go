@@ -51,8 +51,10 @@ import (
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
+	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
@@ -83,6 +85,14 @@ type Env struct {
 	IsoChecks *isocheck.Service
 	// Alerts is ticked by tests (Alerts.Tick) rather than on a timer.
 	Alerts *alerts.Service
+	// Auth, Orgs, and SMTP back the M8 account flows; SMTP receives every
+	// email the server sends.
+	Auth *auth.Service
+	Orgs *orgs.Service
+	SMTP *SMTPServer
+	// OrgID is the owner's personal organisation, where CreateProject puts
+	// projects.
+	OrgID uuid.UUID
 	// MasterKey is the raw key behind Keyring (key rotation tests).
 	MasterKey []byte
 	// S3Link is set with Options.S3Link once ConfigureBackups ran.
@@ -247,8 +257,20 @@ func Start(t testing.TB, opts Options) *Env {
 	collector := metrics.NewCollector(db, svc, pm, nodeSvc, time.Second, log)
 
 	clock := &Clock{t: time.Now()}
-	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now}, "test-setup-code", log)
+	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, "test-setup-code", log)
+	smtpd := StartSMTP(t)
+	mailSvc := mail.New(db, keyring)
+	host, port, _ := net.SplitHostPort(smtpd.Addr)
+	portN, _ := strconv.Atoi(port)
+	mailSvc.UseConfig(mail.Config{Host: host, Port: portN, From: "PGDock <pgdock@pgdock.test>", TLS: mail.TLSNone})
+	authSvc.SetMailer(mailSvc)
+	if err := authSvc.EnsureTerms(ctx); err != nil {
+		t.Fatal(err)
+	}
+	orgSvc := orgs.New(db, authSvc, svc, mailSvc, "https://pgdock.test", log)
+	authSvc.SetHooks(orgSvc.Hooks())
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
+		Orgs: orgSvc, Mail: mailSvc,
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
 		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, IsoChecks: isoChecks, Alerts: alertSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
@@ -269,6 +291,7 @@ func Start(t testing.TB, opts Options) *Env {
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
+		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
 		admin: adminCreds{"pgdock", adminPW}, log: log, s3Link: opts.S3Link, MasterKey: key,
 	}
@@ -345,6 +368,11 @@ func (e *Env) signUp() {
 	}, &st); code != http.StatusOK || !st.Authenticated {
 		e.t.Fatalf("setup complete: %d", code)
 	}
+	var orgsList gen.OrgList
+	if code := e.Do("GET", "/api/v1/orgs", nil, &orgsList); code != http.StatusOK || len(orgsList.Items) == 0 || !orgsList.Items[0].Personal {
+		e.t.Fatalf("orgs after setup: %d %+v", code, orgsList)
+	}
+	e.OrgID = orgsList.Items[0].Id
 }
 
 // Reauth performs step-up authentication, as destructive actions require.

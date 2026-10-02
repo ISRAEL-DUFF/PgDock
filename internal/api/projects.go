@@ -1,11 +1,15 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -32,7 +36,12 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 		st := string(*params.Status)
 		status = &st
 	}
-	ps, err := s.projects.List(r.Context(), status, limit)
+	acc := accessFrom(r.Context())
+	seeAll := acc.OrgRole == authz.OrgOwner || acc.OrgRole == authz.OrgAdmin
+	sess, _ := sessionFrom(r.Context())
+	ps, err := store.New(s.db).ListOrgProjects(r.Context(), store.ListOrgProjectsParams{
+		OrgID: acc.OrgID, Status: status, SeeAll: seeAll, UserID: sess.UserID, MaxRows: int32(limit),
+	})
 	if err != nil {
 		s.internalError(w, "list projects", err)
 		return
@@ -40,11 +49,16 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 	out := gen.ProjectList{Items: make([]gen.Project, 0, len(ps))}
 	last := s.lastBackups(r.Context())
 	insts := s.instanceSummaries(r.Context())
+	roles := s.myProjectRoles(r.Context(), acc, sess.UserID)
 	for _, p := range ps {
 		gp, err := s.toAPIProject(p)
 		if err != nil {
 			s.internalError(w, "list projects", err)
 			return
+		}
+		if role, ok := roles[p.ID]; ok {
+			pr := gen.ProjectRole(role)
+			gp.MyRole = &pr
 		}
 		if t, ok := last[p.ID]; ok {
 			gp.LastBackupAt = &t
@@ -67,9 +81,14 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return
 	}
+	acc, ok := s.authorizeOrg(w, r, req.OrgId, authz.OrgCreateProject)
+	if !ok {
+		return
+	}
 	a := auditFrom(r.Context())
 	a.set("name", req.Name)
-	cp := provision.CreateParams{Name: req.Name, Description: req.Description, CreatedBy: operatorID(r.Context()), NodeID: req.NodeId}
+	cp := provision.CreateParams{OrgID: acc.OrgID, CreatorRole: creatorRole(acc),
+		Name: req.Name, Description: req.Description, CreatedBy: userID(r.Context()), NodeID: req.NodeId}
 	if req.Tier != nil {
 		cp.Tier = string(*req.Tier)
 		a.set("tier", cp.Tier)
@@ -86,24 +105,29 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.target("project", c.Project.ID.String())
+	a.projectID = c.Project.ID
 	a.set("db_name", c.Project.DbName)
 	s.writeCredentials(w, c.Project, c.Operation, c.Password)
 }
 
 // GetProject implements GET /api/v1/projects/{id}.
-func (s *Server) GetProject(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+func (s *Server) GetProject(w http.ResponseWriter, r *http.Request, _ gen.ProjectID) {
 	if !s.requireProjects(w) {
 		return
 	}
-	p, err := s.projects.Get(r.Context(), id)
-	if err != nil {
-		s.provisionError(w, "get project", err)
+	p, err := s.tenantProject(r.Context())
+	if err != nil || p.DeletedAt != nil {
+		s.provisionError(w, "get project", provision.ErrNotFound)
 		return
 	}
 	gp, err := s.toAPIProject(p)
 	if err != nil {
 		s.internalError(w, "get project", err)
 		return
+	}
+	if role := accessFrom(r.Context()).ProjectRole; role != "" {
+		pr := gen.ProjectRole(role)
+		gp.MyRole = &pr
 	}
 	if t, ok := s.lastBackups(r.Context())[p.ID]; ok {
 		gp.LastBackupAt = &t
@@ -130,7 +154,7 @@ func (s *Server) DeleteProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 	auditFrom(r.Context()).target("project", id.String())
 	skip := params.SkipFinalBackup != nil && *params.SkipFinalBackup
 	auditFrom(r.Context()).set("skip_final_backup", skip)
-	op, err := s.projects.Delete(r.Context(), id, params.Confirm, skip, operatorID(r.Context()))
+	op, err := s.projects.Delete(r.Context(), id, params.Confirm, skip, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "delete project", err)
 		return
@@ -150,7 +174,7 @@ func (s *Server) RotateProjectPassword(w http.ResponseWriter, r *http.Request, i
 		return
 	}
 	auditFrom(r.Context()).target("project", id.String())
-	rot, err := s.projects.Rotate(r.Context(), id, operatorID(r.Context()))
+	rot, err := s.projects.Rotate(r.Context(), id, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "rotate password", err)
 		return
@@ -186,6 +210,7 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 	}
 	return gen.Project{
 		Id:          p.ID,
+		OrgId:       p.OrgID,
 		Name:        p.Name,
 		Slug:        p.Slug,
 		DbName:      p.DbName,
@@ -217,6 +242,30 @@ func toAPIConnection(c provision.Connection, password string) gen.ConnectionInfo
 		PooledUrl:   c.PooledURL(password),
 		SessionUrl:  c.SessionURL(password),
 	}
+}
+
+// myProjectRoles returns userID's effective role on each project of acc's
+// organisation that they can see.
+func (s *Server) myProjectRoles(ctx context.Context, acc access, userID uuid.UUID) map[uuid.UUID]string {
+	out := map[uuid.UUID]string{}
+	if acc.OrgRole == authz.OrgOwner || acc.OrgRole == authz.OrgAdmin {
+		rows, err := store.New(s.db).ListOrgProjects(ctx, store.ListOrgProjectsParams{OrgID: acc.OrgID, SeeAll: true, UserID: userID, MaxRows: 10000})
+		if err == nil {
+			for _, p := range rows {
+				out[p.ID] = authz.ProjectAdmin
+			}
+		}
+		return out
+	}
+	rows, err := store.New(s.db).ListOrgProjectMemberships(ctx, acc.OrgID)
+	if err == nil {
+		for _, m := range rows {
+			if m.UserID == userID {
+				out[m.ProjectID] = m.Role
+			}
+		}
+	}
+	return out
 }
 
 func (s *Server) requireProjects(w http.ResponseWriter) bool {

@@ -41,7 +41,7 @@ func (s *Server) RunIsolationChecks(w http.ResponseWriter, r *http.Request) {
 	if !s.requireIsoChecks(w) {
 		return
 	}
-	ops, err := s.isochecks.EnqueueAll(r.Context(), operatorID(r.Context()))
+	ops, err := s.isochecks.EnqueueAll(r.Context(), userID(r.Context()))
 	if err != nil {
 		s.internalError(w, "run isolation checks", err)
 		return

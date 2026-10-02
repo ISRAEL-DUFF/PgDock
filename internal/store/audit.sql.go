@@ -15,12 +15,14 @@ import (
 )
 
 const insertAudit = `-- name: InsertAudit :exec
-INSERT INTO audit_log (operator_id, action, target_type, target_id, detail, ip, user_agent, outcome)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO audit_log (user_id, action, target_type, target_id, detail, ip, user_agent, outcome,
+                       actor_kind, token_id, org_id, project_id, break_glass)
+VALUES ($1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11, $12, $13)
 `
 
 type InsertAuditParams struct {
-	OperatorID *uuid.UUID
+	UserID     *uuid.UUID
 	Action     string
 	TargetType *string
 	TargetID   *string
@@ -28,11 +30,16 @@ type InsertAuditParams struct {
 	Ip         *netip.Addr
 	UserAgent  *string
 	Outcome    string
+	ActorKind  string
+	TokenID    *uuid.UUID
+	OrgID      *uuid.UUID
+	ProjectID  *uuid.UUID
+	BreakGlass bool
 }
 
 func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error {
 	_, err := q.db.Exec(ctx, insertAudit,
-		arg.OperatorID,
+		arg.UserID,
 		arg.Action,
 		arg.TargetType,
 		arg.TargetID,
@@ -40,45 +47,67 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error 
 		arg.Ip,
 		arg.UserAgent,
 		arg.Outcome,
+		arg.ActorKind,
+		arg.TokenID,
+		arg.OrgID,
+		arg.ProjectID,
+		arg.BreakGlass,
 	)
 	return err
 }
 
 const listAudit = `-- name: ListAudit :many
-SELECT a.id, a.operator_id, a.action, a.target_type, a.target_id, a.detail, a.ip, a.user_agent, a.outcome, a.created_at, o.email AS operator_email
-FROM audit_log a LEFT JOIN operators o ON o.id = a.operator_id
-WHERE ($1::text IS NULL OR a.action LIKE $1 || '%')
-  AND ($2::text IS NULL OR a.outcome = $2)
-  AND ($3::text IS NULL OR a.target_id = $3)
-  AND ($4::bigint IS NULL OR a.id < $4)
+SELECT a.id, a.user_id, a.action, a.target_type, a.target_id, a.detail, a.ip, a.user_agent, a.outcome, a.created_at, a.actor_kind, a.token_id, a.org_id, a.project_id, a.break_glass, u.email AS user_email
+FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
+WHERE CASE WHEN $1::bool THEN (a.org_id IS NULL OR a.break_glass)
+           ELSE a.org_id = $2 END
+  AND ($3::uuid IS NULL OR a.project_id = $3)
+  AND ($4::text IS NULL OR a.action LIKE $4 || '%')
+  AND ($5::text IS NULL OR a.outcome = $5)
+  AND ($6::text IS NULL OR a.target_id = $6)
+  AND ($7::bigint IS NULL OR a.id < $7)
 ORDER BY a.id DESC
-LIMIT $5
+LIMIT $8
 `
 
 type ListAuditParams struct {
-	Action   *string
-	Outcome  *string
-	TargetID *string
-	BeforeID *int64
-	MaxRows  int32
+	Platform  bool
+	OrgID     *uuid.UUID
+	ProjectID *uuid.UUID
+	Action    *string
+	Outcome   *string
+	TargetID  *string
+	BeforeID  *int64
+	MaxRows   int32
 }
 
 type ListAuditRow struct {
-	ID            int64
-	OperatorID    *uuid.UUID
-	Action        string
-	TargetType    *string
-	TargetID      *string
-	Detail        json.RawMessage
-	Ip            *netip.Addr
-	UserAgent     *string
-	Outcome       string
-	CreatedAt     time.Time
-	OperatorEmail *string
+	ID         int64
+	UserID     *uuid.UUID
+	Action     string
+	TargetType *string
+	TargetID   *string
+	Detail     json.RawMessage
+	Ip         *netip.Addr
+	UserAgent  *string
+	Outcome    string
+	CreatedAt  time.Time
+	ActorKind  string
+	TokenID    *uuid.UUID
+	OrgID      *uuid.UUID
+	ProjectID  *uuid.UUID
+	BreakGlass bool
+	UserEmail  *string
 }
 
+// One scope at a time: an org's log (@org_id), a project's slice of it
+// (@org_id and @project_id), or the platform log (@platform: org-less
+// events, plus break-glass actions wherever they happened).
 func (q *Queries) ListAudit(ctx context.Context, arg ListAuditParams) ([]ListAuditRow, error) {
 	rows, err := q.db.Query(ctx, listAudit,
+		arg.Platform,
+		arg.OrgID,
+		arg.ProjectID,
 		arg.Action,
 		arg.Outcome,
 		arg.TargetID,
@@ -94,7 +123,7 @@ func (q *Queries) ListAudit(ctx context.Context, arg ListAuditParams) ([]ListAud
 		var i ListAuditRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.OperatorID,
+			&i.UserID,
 			&i.Action,
 			&i.TargetType,
 			&i.TargetID,
@@ -103,7 +132,12 @@ func (q *Queries) ListAudit(ctx context.Context, arg ListAuditParams) ([]ListAud
 			&i.UserAgent,
 			&i.Outcome,
 			&i.CreatedAt,
-			&i.OperatorEmail,
+			&i.ActorKind,
+			&i.TokenID,
+			&i.OrgID,
+			&i.ProjectID,
+			&i.BreakGlass,
+			&i.UserEmail,
 		); err != nil {
 			return nil, err
 		}

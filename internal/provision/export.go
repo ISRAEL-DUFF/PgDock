@@ -60,6 +60,9 @@ func (s *Service) Prepare(ctx context.Context, p store.Project, log *jobs.StepLo
 // Publish routes a prepared project through the poolers, smoke-tests it
 // with password, and marks it active (spec §6.1 steps 4-6).
 func (s *Service) Publish(ctx context.Context, p store.Project, password string, log *jobs.StepLogger) error {
+	if err := s.SyncMemberRoles(ctx, p, log); err != nil {
+		return err
+	}
 	if err := s.syncPooler(ctx, log, "pooler", "route and auth entry added"); err != nil {
 		return err
 	}

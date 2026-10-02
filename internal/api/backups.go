@@ -13,6 +13,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
+	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/storage"
@@ -99,28 +100,16 @@ func (s *Server) ListBackups(w http.ResponseWriter, r *http.Request, params gen.
 		limit = *params.Limit
 	}
 	out := gen.BackupList{Items: []gen.Backup{}}
-	q := store.New(s.db)
-	if params.ProjectId != nil {
-		rows, err := q.ListProjectBackups(r.Context(), store.ListProjectBackupsParams{ProjectID: params.ProjectId, MaxRows: int32(limit)})
-		if err != nil {
-			s.internalError(w, "list backups", err)
-			return
-		}
-		for _, b := range rows {
-			if params.Kind != nil && string(*params.Kind) != b.Kind {
-				continue
-			}
-			out.Items = append(out.Items, toAPIBackup(b))
-		}
-		writeJSON(w, http.StatusOK, out)
-		return
-	}
 	var kind *string
 	if params.Kind != nil {
 		k := string(*params.Kind)
 		kind = &k
 	}
-	rows, err := q.ListAllBackups(r.Context(), store.ListAllBackupsParams{Kind: kind, MaxRows: int32(limit)})
+	acc := accessFrom(r.Context())
+	seeAll, ids := s.visibleProjects(r.Context(), acc)
+	rows, err := store.New(s.db).ListOrgBackups(r.Context(), store.ListOrgBackupsParams{
+		OrgID: acc.OrgID, Kind: kind, ProjectID: params.ProjectId, SeeAll: seeAll, ProjectIds: ids, MaxRows: int32(limit),
+	})
 	if err != nil {
 		s.internalError(w, "list backups", err)
 		return
@@ -131,7 +120,8 @@ func (s *Server) ListBackups(w http.ResponseWriter, r *http.Request, params gen.
 			Checksum: row.Checksum, StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, Status: row.Status,
 			ExpiresAt: row.ExpiresAt, OperationID: row.OperationID, Error: row.Error,
 		})
-		b.ProjectName = row.ProjectName
+		name := row.ProjectName
+		b.ProjectName = &name
 		deleted := row.ProjectDeleted
 		b.ProjectDeleted = &deleted
 		out.Items = append(out.Items, b)
@@ -140,7 +130,7 @@ func (s *Server) ListBackups(w http.ResponseWriter, r *http.Request, params gen.
 }
 
 // GetBackupOverview implements GET /api/v1/backups/overview.
-func (s *Server) GetBackupOverview(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GetBackupOverview(w http.ResponseWriter, r *http.Request, _ gen.GetBackupOverviewParams) {
 	if !s.requireBackups(w) {
 		return
 	}
@@ -175,7 +165,7 @@ func (s *Server) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 	auditFrom(r.Context()).target("project", id.String())
-	op, err := s.backups.BackupNow(r.Context(), id, operatorID(r.Context()))
+	op, err := s.backups.BackupNow(r.Context(), id, userID(r.Context()))
 	if err != nil {
 		s.backupError(w, "backup now", err)
 		return
@@ -199,6 +189,15 @@ func (s *Server) RestoreBackup(w http.ResponseWriter, r *http.Request, id gen.Ba
 	a := auditFrom(r.Context())
 	a.target("backup", id.String())
 	a.set("mode", mode)
+	if mode == backup.ModeInPlace {
+		if ok, err := s.can(r.Context(), authz.RestoreInPlace); err != nil {
+			s.internalError(w, "restore", err)
+			return
+		} else if !ok {
+			writeError(w, http.StatusForbidden, "forbidden", "restoring in place needs the project admin role")
+			return
+		}
+	}
 	if mode == backup.ModeInPlace && s.auth != nil {
 		// In-place restore is destructive (spec §7.2): step-up auth.
 		if sess, ok := sessionFrom(r.Context()); !ok || !s.auth.RecentlyReauthenticated(sess) {
@@ -206,7 +205,7 @@ func (s *Server) RestoreBackup(w http.ResponseWriter, r *http.Request, id gen.Ba
 			return
 		}
 	}
-	p := backup.RestoreParams{BackupID: id, Mode: mode, CreatedBy: operatorID(r.Context())}
+	p := backup.RestoreParams{BackupID: id, Mode: mode, CreatedBy: userID(r.Context()), CreatorRole: creatorRole(accessFrom(r.Context()))}
 	if req.Name != nil {
 		p.Name = *req.Name
 	}
@@ -245,7 +244,7 @@ func (s *Server) RunRestoreTest(w http.ResponseWriter, r *http.Request, params g
 	if !s.requireBackups(w) {
 		return
 	}
-	op, err := s.backups.TestRestoreNow(r.Context(), params.ProjectId, operatorID(r.Context()))
+	op, err := s.backups.TestRestoreNow(r.Context(), params.ProjectId, userID(r.Context()))
 	if err != nil {
 		s.backupError(w, "restore test", err)
 		return
@@ -462,6 +461,10 @@ func (s *Server) CreateImport(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	acc, ok := s.authorizeOrg(w, r, req.OrgId, authz.OrgCreateProject)
+	if !ok {
+		return
+	}
 	a := auditFrom(r.Context())
 	a.set("name", req.Name)
 	a.set("schemas", req.Schemas)
@@ -471,8 +474,9 @@ func (s *Server) CreateImport(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
 	defer cancel()
 	c, err := s.backups.Import(ctx, backup.ImportParams{
+		OrgID: acc.OrgID, CreatorRole: creatorRole(acc),
 		SourceURL: req.SourceUrl, Name: req.Name, Description: req.Description,
-		Schemas: req.Schemas, CreatedBy: operatorID(r.Context()),
+		Schemas: req.Schemas, CreatedBy: userID(r.Context()),
 	})
 	if err != nil {
 		s.backupError(w, "import", err)

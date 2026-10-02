@@ -1,0 +1,218 @@
+// Package authz decides who may do what (V2 §2.3–2.6). Every tenant
+// resource resolves to an organisation before a check; Can is the single
+// entry point the API uses.
+//
+// A decision has two parts. Visible says whether the actor may know the
+// resource exists: resources in organisations (or projects) the actor
+// cannot see answer 404, never 403, so their existence does not leak.
+// Allowed says whether the action itself is permitted.
+package authz
+
+import (
+	"context"
+	"errors"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/israel-duff/pgdock/internal/store"
+)
+
+// Actor kinds (V2 §2.5).
+const (
+	ActorSession = "session"
+	ActorToken   = "token"
+	ActorSystem  = "system"
+)
+
+// Actor is who makes a request.
+type Actor struct {
+	Kind          string
+	UserID        uuid.UUID
+	PlatformAdmin bool
+	// TokenID and TokenOrg are set for API tokens (M10), which act only in
+	// their organisation.
+	TokenID  *uuid.UUID
+	TokenOrg *uuid.UUID
+}
+
+// Action is something an actor wants to do.
+type Action string
+
+// Organisation roles.
+const (
+	OrgOwner  = "owner"
+	OrgAdmin  = "admin"
+	OrgMember = "member"
+)
+
+// Project roles.
+const (
+	ProjectAdmin     = "admin"
+	ProjectDeveloper = "developer"
+	ProjectReadOnly  = "read_only"
+)
+
+// Actions. The comment on each is the least role that may perform it.
+const (
+	// Signed-in users acting on themselves (their account, their orgs list,
+	// creating an org, their invitations).
+	Self Action = "self"
+
+	// Platform admin (V2 §2.4): nodes, platform settings and storage,
+	// signup, users, platform invitations, isolation checks, alerts,
+	// platform audit, /metrics.
+	PlatformManage Action = "platform.manage"
+
+	OrgView          Action = "org.view"           // member
+	OrgCreateProject Action = "org.create_project" // admin; member when the org allows it
+	OrgManage        Action = "org.manage"         // admin: settings, members, invitations
+	OrgAudit         Action = "org.audit"          // admin: org audit log, usage
+	OrgOwnerOnly     Action = "org.owner"          // owner: owners, delete, transfer projects out
+
+	ProjectView        Action = "project.view"         // read_only: project, metrics, operations
+	ProjectCredentials Action = "project.credentials"  // read_only (read-only credentials)
+	ConsoleRead        Action = "project.console_read" // read_only
+	ConsoleWrite       Action = "project.console_write"
+	BackupCreate       Action = "project.backup"          // developer: back up, restore into a new project
+	RestoreInPlace     Action = "project.restore_inplace" // admin
+	ProjectSettings    Action = "project.settings"        // admin: rotate, settings, extensions, PITR
+	ProjectMembers     Action = "project.members"         // admin
+	ProjectPromote     Action = "project.promote"         // admin
+	ProjectDelete      Action = "project.delete"          // admin
+	ProjectAudit       Action = "project.audit"           // admin
+)
+
+// projectMin is the least project role for each project action.
+var projectMin = map[Action]string{
+	ProjectView:        ProjectReadOnly,
+	ProjectCredentials: ProjectReadOnly,
+	ConsoleRead:        ProjectReadOnly,
+	ConsoleWrite:       ProjectDeveloper,
+	BackupCreate:       ProjectDeveloper,
+	RestoreInPlace:     ProjectAdmin,
+	ProjectSettings:    ProjectAdmin,
+	ProjectMembers:     ProjectAdmin,
+	ProjectPromote:     ProjectAdmin,
+	ProjectDelete:      ProjectAdmin,
+	ProjectAudit:       ProjectAdmin,
+}
+
+// IsProjectAction reports whether a is checked against a project.
+func IsProjectAction(a Action) bool { _, ok := projectMin[a]; return ok }
+
+var projectRank = map[string]int{ProjectReadOnly: 1, ProjectDeveloper: 2, ProjectAdmin: 3}
+
+var orgRank = map[string]int{OrgMember: 1, OrgAdmin: 2, OrgOwner: 3}
+
+// Resource is what an action applies to. ProjectID implies OrgID.
+type Resource struct {
+	OrgID     uuid.UUID
+	ProjectID uuid.UUID
+}
+
+// Decision is the outcome of a check, with the roles it was based on.
+type Decision struct {
+	Visible     bool
+	Allowed     bool
+	OrgRole     string // "" when not a member
+	ProjectRole string // effective: org owners and admins are project admins
+}
+
+// Queries is the subset of store the checks need.
+type Queries interface {
+	GetOrgMember(ctx context.Context, arg store.GetOrgMemberParams) (store.OrgMember, error)
+	GetProjectMember(ctx context.Context, arg store.GetProjectMemberParams) (store.ProjectMember, error)
+	GetOrg(ctx context.Context, orgID uuid.UUID) (store.Organization, error)
+}
+
+// Can decides whether actor may perform action on res.
+func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resource) (Decision, error) {
+	switch action {
+	case Self:
+		ok := actor.Kind == ActorSession
+		return Decision{Visible: true, Allowed: ok}, nil
+	case PlatformManage:
+		ok := actor.PlatformAdmin && actor.Kind == ActorSession
+		// Platform routes are not tenant resources: refusing them is 403.
+		return Decision{Visible: true, Allowed: ok}, nil
+	}
+	if actor.Kind == ActorSystem {
+		return Decision{Visible: true, Allowed: true, OrgRole: OrgOwner, ProjectRole: ProjectAdmin}, nil
+	}
+	if res.OrgID == uuid.Nil {
+		return Decision{}, nil
+	}
+	if actor.TokenOrg != nil && *actor.TokenOrg != res.OrgID {
+		return Decision{}, nil // a token acts only in its own organisation
+	}
+	var d Decision
+	m, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: res.OrgID, UserID: actor.UserID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return d, nil
+	}
+	if err != nil {
+		return d, err
+	}
+	d.OrgRole = m.Role
+
+	if minRole, ok := projectMin[action]; ok {
+		if res.ProjectID == uuid.Nil {
+			return Decision{}, errors.New("authz: project action without a project")
+		}
+		if d.OrgRole == OrgOwner || d.OrgRole == OrgAdmin {
+			d.ProjectRole = ProjectAdmin
+		} else {
+			pm, err := q.GetProjectMember(ctx, store.GetProjectMemberParams{ProjectID: res.ProjectID, UserID: actor.UserID, OrgID: res.OrgID})
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Decision{OrgRole: d.OrgRole}, nil // a member who isn't on the project can't see it
+			}
+			if err != nil {
+				return d, err
+			}
+			d.ProjectRole = pm.Role
+		}
+		d.Visible = true
+		d.Allowed = projectRank[d.ProjectRole] >= projectRank[minRole]
+		return d, nil
+	}
+
+	d.Visible = true
+	switch action {
+	case OrgView:
+		d.Allowed = true
+	case OrgManage, OrgAudit:
+		d.Allowed = orgRank[d.OrgRole] >= orgRank[OrgAdmin]
+	case OrgOwnerOnly:
+		d.Allowed = d.OrgRole == OrgOwner
+	case OrgCreateProject:
+		if orgRank[d.OrgRole] >= orgRank[OrgAdmin] {
+			d.Allowed = true
+			break
+		}
+		o, err := q.GetOrg(ctx, res.OrgID)
+		if err != nil {
+			return d, err
+		}
+		s, err := store.DecodeOrgSettings(o.Settings)
+		if err != nil {
+			return d, err
+		}
+		d.Allowed = s.MembersCanCreateProjects
+	default:
+		return Decision{}, errors.New("authz: unknown action " + string(action))
+	}
+	return d, nil
+}
+
+// CredentialAccess is the database access a project role's personal
+// credentials get (V2 §3.5): read/write for developers and admins.
+func CredentialAccess(projectRole string) string {
+	if projectRank[projectRole] >= projectRank[ProjectDeveloper] {
+		return "read_write"
+	}
+	return "read_only"
+}
+
+// AtLeast reports whether project role have is at least want.
+func AtLeast(have, want string) bool { return projectRank[have] >= projectRank[want] }

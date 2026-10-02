@@ -24,6 +24,7 @@ type InstanceProjectsRow struct {
 	OwnerRole string
 }
 
+// tenant: system - the platform's isolation checks.
 // Live projects whose database is on an instance.
 func (q *Queries) InstanceProjects(ctx context.Context, instanceID uuid.UUID) ([]InstanceProjectsRow, error) {
 	rows, err := q.db.Query(ctx, instanceProjects, instanceID)
@@ -61,6 +62,7 @@ type LatestIsolationChecksRow struct {
 	FinishedAt *time.Time
 }
 
+// tenant: system - the platform's isolation checks.
 // The newest isolation_check operation per instance.
 func (q *Queries) LatestIsolationChecks(ctx context.Context) ([]LatestIsolationChecksRow, error) {
 	rows, err := q.db.Query(ctx, latestIsolationChecks)

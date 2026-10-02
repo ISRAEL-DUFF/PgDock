@@ -37,8 +37,10 @@ import (
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
+	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
+	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/rotate"
@@ -139,6 +141,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	mailSvc := mail.New(pool, keyring)
+	authSvc.SetMailer(mailSvc)
+	if err := authSvc.EnsureTerms(ctx); err != nil {
+		return err
+	}
+	if !mailSvc.Configured(ctx) {
+		log.Warn("email is not set up: account verification, password resets, and invitation emails need SMTP (platform settings)")
+	}
 	bg.Add(1)
 	go func() { defer bg.Done(); sweepAuth(bgCtx, authSvc, log) }()
 
@@ -170,6 +180,9 @@ func run() error {
 		go func() { defer bg.Done(); backups.Run(bgCtx) }()
 		go func() { defer bg.Done(); backups.Dedicated.RunReaper(bgCtx, time.Minute) }()
 	}
+
+	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
+	authSvc.SetHooks(orgSvc.Hooks())
 
 	var consoleSvc *console.Service
 	var isoChecks *isocheck.Service
@@ -244,6 +257,8 @@ func run() error {
 		Console:         consoleSvc,
 		IsoChecks:       isoChecks,
 		Alerts:          alertSvc,
+		Orgs:            orgSvc,
+		Mail:            mailSvc,
 		MetricsInterval: cfg.Insight.MetricsInterval,
 		MetricsToken:    cfg.Insight.MetricsToken,
 	})
@@ -313,7 +328,10 @@ func setupAuth(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyri
 		}
 		code = base32.StdEncoding.EncodeToString(b)
 	}
-	svc := auth.NewService(pool, keyring, auth.Config{}, code, log)
+	if cfg.Insight.PublicURL == "" {
+		log.Warn("PGDOCK_PUBLIC_URL is not set: links in account and invitation emails will be relative")
+	}
+	svc := auth.NewService(pool, keyring, auth.Config{PublicURL: cfg.Insight.PublicURL}, code, log)
 	needed, err := svc.SetupNeeded(ctx)
 	if err != nil {
 		return nil, err

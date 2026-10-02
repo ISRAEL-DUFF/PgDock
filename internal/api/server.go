@@ -21,7 +21,9 @@ import (
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/nodes"
+	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -47,6 +49,8 @@ type Server struct {
 	console   *console.Service
 	isochecks *isocheck.Service
 	alerts    *alerts.Service
+	orgs      *orgs.Service
+	mail      *mail.Service
 
 	metricsInterval time.Duration
 	metricsToken    string
@@ -94,9 +98,12 @@ type Options struct {
 	// Console runs the SQL console, table browser, and extensions; nil
 	// disables them. MetricsInterval is the sampling interval (for
 	// /metrics freshness); MetricsToken lets scrapers read /metrics.
-	Console         *console.Service
-	IsoChecks       *isocheck.Service
-	Alerts          *alerts.Service
+	Console   *console.Service
+	IsoChecks *isocheck.Service
+	Alerts    *alerts.Service
+	// Orgs runs organisations and memberships; Mail is the platform SMTP.
+	Orgs            *orgs.Service
+	Mail            *mail.Service
 	MetricsInterval time.Duration
 	MetricsToken    string
 }
@@ -110,7 +117,7 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 	}
 	if opts.DB != nil && opts.Notifier != nil {

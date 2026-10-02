@@ -108,7 +108,7 @@ func TestOperationLifecycleOverAPI(t *testing.T) {
 		t.Fatalf("unexpected final operation: %+v", op)
 	}
 
-	res, body = get(t, ts, "/api/v1/operations?status=succeeded&kind=noop")
+	res, body = get(t, ts, "/api/v1/operations?platform=true&status=succeeded&kind=noop")
 	var list gen.OperationList
 	if err := json.Unmarshal([]byte(body), &list); err != nil || res.StatusCode != http.StatusOK {
 		t.Fatalf("list: %d %s", res.StatusCode, body)

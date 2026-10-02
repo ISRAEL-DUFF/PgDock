@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -82,6 +83,17 @@ func (s *Server) RunSQL(w http.ResponseWriter, r *http.Request, id gen.ProjectID
 		return
 	}
 	cr := console.Request{Query: req.Query, QueryID: req.QueryId, ReadOnly: req.ReadOnly != nil && *req.ReadOnly}
+	// Read-only members run as the project's read-only role (V2 §2.3).
+	if ok, err := s.can(r.Context(), authz.ConsoleWrite); err != nil {
+		s.internalError(w, "run sql", err)
+		return
+	} else if !ok {
+		if !cr.ReadOnly {
+			writeError(w, http.StatusForbidden, "forbidden", "your project role is read-only: turn on read-only mode")
+			return
+		}
+		cr.AsReadOnlyRole = true
+	}
 	if t := req.TimeoutSeconds; t != nil {
 		if *t < 1 || time.Duration(*t)*time.Second > console.MaxTimeout {
 			writeError(w, http.StatusBadRequest, "bad_request", "timeout_seconds must be between 1 and 300")
@@ -239,7 +251,7 @@ func (s *Server) GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ge
 	if !ok {
 		return
 	}
-	p, err := s.projects.Get(r.Context(), id)
+	p, err := s.tenantProjectLive(r.Context())
 	if err != nil {
 		s.provisionError(w, "project metrics", err)
 		return
@@ -292,7 +304,7 @@ func (s *Server) GetPrometheusMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.metricsAuthorized(r) {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="pgdock"`)
-		writeError(w, http.StatusUnauthorized, "unauthenticated", "a metrics token or an operator session is required")
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a metrics token or a platform admin session is required")
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
@@ -313,6 +325,7 @@ func (s *Server) metricsAuthorized(r *http.Request) bool {
 	if err != nil {
 		return false
 	}
-	_, err = s.auth.Authenticate(r.Context(), c.Value)
-	return err == nil
+	// Every project's metrics: the platform admin's alone.
+	sess, err := s.auth.Authenticate(r.Context(), c.Value)
+	return err == nil && sess.PlatformAdmin()
 }

@@ -47,6 +47,27 @@ cluster settings and `pg_hba.conf`, every project's role and database, and
 two throwaway tenants that try to reach each other. See
 [security review](security-review.md).
 
+## Users and organisations
+
+Every user has a personal organisation and can be invited into others.
+Organisation owners and admins manage members and see every project in
+it; members see only the projects they are added to, as admin, developer,
+or read-only. Each member gets their own database login per project
+(Members → **Get my credentials**): `<db>_u_<id>`, read/write for admins
+and developers, read-only for read-only members. Removing someone from a
+project or organisation drops their logins and ends their connections at
+once; the app's own `<db>_owner` password is never shared, so it never
+needs rotating when people leave.
+
+As platform admin you manage accounts (Users: approve, disable, reset
+two-factor after checking who they are), email, sign-up, and the terms.
+You do not see into other people's organisations through the UI. The
+audit logs are per project, per organisation (Audit log), and for the
+platform (Platform audit).
+
+Projects created before V2 are in the platform admin's personal
+organisation, unchanged: same URLs, passwords, and backups.
+
 ## Capacity
 
 - The shared cluster's tuning is in `compose.yaml` (`SHARED_PG_SHARED_BUFFERS`,

@@ -121,6 +121,7 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindDelete: {Handler: s.runDelete, OnFail: s.failDelete, MaxAttempts: 5},
 
 		KindApplySettings: {Handler: s.runApplySettings, MaxAttempts: 5},
+		KindDropDBUser:    {Handler: s.runDropDBUser, MaxAttempts: 10},
 	}
 }
 
@@ -165,6 +166,11 @@ func (c Connection) url(port int, password string) string {
 
 // CreateParams describes a new project.
 type CreateParams struct {
+	// OrgID owns the project (V2 §2.1).
+	OrgID uuid.UUID
+	// CreatorRole, when set, makes CreatedBy a project member with this
+	// role (an org member creating a project becomes its admin, V2 §2.2).
+	CreatorRole string
 	Name        string
 	Description *string
 	CreatedBy   *uuid.UUID
@@ -262,6 +268,9 @@ func (s *Service) openPassword(projectID uuid.UUID, purpose string, sec opSecret
 // Create validates the request, records the project, and queues the create
 // operation (spec §6.1).
 func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
+	if p.OrgID == uuid.Nil {
+		return Created{}, fmt.Errorf("%w: a project needs an organisation", ErrInvalid)
+	}
 	name, err := ValidateName(p.Name)
 	if err != nil {
 		return Created{}, err
@@ -353,12 +362,19 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 				instanceID = ni.ID
 			}
 			proj, err := q.InsertProject(ctx, store.InsertProjectParams{
-				ID: id, Name: name, Slug: slug, DbName: dbName, OwnerRole: role,
+				ID: id, OrgID: p.OrgID, Name: name, Slug: slug, DbName: dbName, OwnerRole: role,
 				ScramVerifier: verifier, Tier: tier, InstanceID: instanceID, Settings: settings,
 				Description: p.Description, CreatedBy: p.CreatedBy,
 			})
 			if err != nil {
 				return err
+			}
+			if p.CreatorRole != "" && p.CreatedBy != nil {
+				if err := q.UpsertProjectMember(ctx, store.UpsertProjectMemberParams{
+					ProjectID: proj.ID, UserID: *p.CreatedBy, OrgID: p.OrgID, Role: p.CreatorRole, AddedBy: p.CreatedBy,
+				}); err != nil {
+					return err
+				}
 			}
 			op, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{
 				Kind: kind, ProjectID: &proj.ID, CreatedBy: p.CreatedBy, Params: params,

@@ -59,3 +59,26 @@ func DecodeProjectSettings(raw json.RawMessage) (ProjectSettings, error) {
 	}
 	return s, nil
 }
+
+// OrgSettings is an organisation's settings column (V2 §11).
+type OrgSettings struct {
+	// MembersCanCreateProjects lets org members create projects, becoming
+	// their admin (V2 §2.2). On unless turned off.
+	MembersCanCreateProjects bool `json:"members_can_create_projects"`
+}
+
+// DefaultOrgSettings are the settings of a new organisation.
+func DefaultOrgSettings() OrgSettings { return OrgSettings{MembersCanCreateProjects: true} }
+
+// DecodeOrgSettings parses an organisation's settings, filling unset fields
+// from DefaultOrgSettings.
+func DecodeOrgSettings(raw json.RawMessage) (OrgSettings, error) {
+	s := DefaultOrgSettings()
+	if len(raw) == 0 {
+		return s, nil
+	}
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return s, fmt.Errorf("decode org settings: %w", err)
+	}
+	return s, nil
+}

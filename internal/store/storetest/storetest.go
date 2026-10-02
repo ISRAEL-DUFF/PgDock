@@ -30,6 +30,16 @@ const EnvVar = "PGDOCK_TEST_DATABASE_URL"
 // it. The database is dropped when the test ends.
 func New(t testing.TB) *pgxpool.Pool {
 	t.Helper()
+	pool := NewEmpty(t)
+	if err := store.Migrate(context.Background(), pool, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	return pool
+}
+
+// NewEmpty is New without migrations.
+func NewEmpty(t testing.TB) *pgxpool.Pool {
+	t.Helper()
 	adminURL := os.Getenv(EnvVar)
 	if adminURL == "" {
 		t.Skipf("%s not set; skipping test that needs Postgres", EnvVar)
@@ -75,8 +85,5 @@ func New(t testing.TB) *pgxpool.Pool {
 		}
 	})
 
-	if err := store.Migrate(ctx, pool, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
 	return pool
 }

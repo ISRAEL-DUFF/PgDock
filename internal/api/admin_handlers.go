@@ -10,51 +10,6 @@ import (
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
-// ListAudit implements GET /api/v1/audit.
-func (s *Server) ListAudit(w http.ResponseWriter, r *http.Request, params gen.ListAuditParams) {
-	if !s.requireDB(w) {
-		return
-	}
-	limit := 100
-	if params.Limit != nil {
-		if *params.Limit < 1 || *params.Limit > 500 {
-			writeError(w, http.StatusBadRequest, "bad_request", "limit must be between 1 and 500")
-			return
-		}
-		limit = *params.Limit
-	}
-	arg := store.ListAuditParams{Action: params.Action, TargetID: params.TargetId, BeforeID: params.Before, MaxRows: int32(limit)}
-	if params.Outcome != nil {
-		o := string(*params.Outcome)
-		arg.Outcome = &o
-	}
-	rows, err := store.New(s.db).ListAudit(r.Context(), arg)
-	if err != nil {
-		s.internalError(w, "list audit", err)
-		return
-	}
-	out := gen.AuditList{Items: make([]gen.AuditEntry, 0, len(rows))}
-	for _, row := range rows {
-		detail := map[string]any{}
-		_ = json.Unmarshal(row.Detail, &detail)
-		e := gen.AuditEntry{
-			Id: row.ID, OperatorId: row.OperatorID, OperatorEmail: row.OperatorEmail, Action: row.Action,
-			TargetType: row.TargetType, TargetId: row.TargetID, Detail: detail, UserAgent: row.UserAgent,
-			Outcome: gen.AuditEntryOutcome(row.Outcome), CreatedAt: row.CreatedAt,
-		}
-		if row.Ip != nil {
-			ip := row.Ip.String()
-			e.Ip = &ip
-		}
-		out.Items = append(out.Items, e)
-	}
-	if len(rows) == limit {
-		next := rows[len(rows)-1].ID
-		out.NextBefore = &next
-	}
-	writeJSON(w, http.StatusOK, out)
-}
-
 func (s *Server) generalSettings() gen.GeneralSettings {
 	out := gen.GeneralSettings{Tls: gen.TlsStatus{Mode: gen.TlsStatusModeOff, State: gen.TlsStatusStateOff}}
 	if s.projects != nil {
@@ -133,7 +88,7 @@ func (s *Server) UpdateProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 	a := auditFrom(r.Context())
 	a.target("project", id.String())
 	p := provisionUpdate(req)
-	upd, err := s.projects.Update(r.Context(), id, p, operatorID(r.Context()))
+	upd, err := s.projects.Update(r.Context(), id, p, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "update project", err)
 		return

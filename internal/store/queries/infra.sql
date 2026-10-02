@@ -19,6 +19,7 @@ RETURNING *;
 -- PickSharedInstance chooses the running shared instance hosting the fewest
 -- live projects.
 -- name: PickSharedInstance :one
+-- tenant: system - platform infrastructure (nodes, instances, placement).
 SELECT i.* FROM instances i
 JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
@@ -60,6 +61,7 @@ UPDATE instances SET status = @status, error = sqlc.narg(error) WHERE id = @id;
 UPDATE instances SET status = 'deleted', deleted_at = now() WHERE id = @id;
 
 -- name: ListNodeInstances :many
+-- tenant: system - platform infrastructure (nodes, instances, placement).
 SELECT i.*, (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)::int AS projects
 FROM instances i
 WHERE i.node_id = @node_id AND i.deleted_at IS NULL
@@ -80,6 +82,7 @@ LIMIT 1;
 -- not reach the node. The grace period keeps it clear of instances a create
 -- or restore is still setting up.
 -- name: ListOrphanedInstances :many
+-- tenant: system - platform infrastructure (nodes, instances, placement).
 SELECT i.* FROM instances i
 WHERE i.deleted_at IS NULL
   AND i.created_at < now() - interval '5 minutes'

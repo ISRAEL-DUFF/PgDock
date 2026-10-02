@@ -75,6 +75,9 @@ type Request struct {
 	Timeout  time.Duration
 	// QueryID tags the session so Cancel can find it.
 	QueryID uuid.UUID
+	// AsReadOnlyRole runs as the project's read-only group role instead of
+	// the owner (read-only members, V2 §3.5); it implies ReadOnly.
+	AsReadOnlyRole bool
 }
 
 // Column is a result column.
@@ -143,15 +146,15 @@ func (s *Service) active(ctx context.Context, projectID uuid.UUID) (store.Projec
 // or SET ROLE that fails because the role is missing or stale (first use,
 // a restored or promoted instance, a master key rotation) is repaired and
 // retried once.
-func (s *Service) open(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration) (*session, error) {
-	sess, err := s.connect(ctx, p, queryID, timeout)
+func (s *Service) open(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration, readOnlyRole bool) (*session, error) {
+	sess, err := s.connect(ctx, p, queryID, timeout, readOnlyRole)
 	if err == nil || !repairable(err) {
 		return sess, err
 	}
 	if err := s.ensureRole(ctx, p); err != nil {
 		return nil, fmt.Errorf("prepare console role: %w", err)
 	}
-	return s.connect(ctx, p, queryID, timeout)
+	return s.connect(ctx, p, queryID, timeout, readOnlyRole)
 }
 
 func repairable(err error) bool {
@@ -161,10 +164,11 @@ func repairable(err error) bool {
 	}
 	// invalid_password (also a missing role), insufficient_privilege
 	// (CONNECT or SET ROLE not granted), invalid_authorization_specification.
-	return pe.Code == "28P01" || pe.Code == "42501" || pe.Code == "28000"
+	// undefined_object: the read-only role does not exist yet.
+	return pe.Code == "28P01" || pe.Code == "42501" || pe.Code == "28000" || pe.Code == "42704"
 }
 
-func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration) (*session, error) {
+func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration, readOnlyRole bool) (*session, error) {
 	cfg, err := s.projects.AdminConfig(ctx, p.InstanceID, p.DbName)
 	if err != nil {
 		return nil, err
@@ -183,7 +187,11 @@ func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUI
 		return nil, unwrapConnect(err)
 	}
 	sess.conn = conn
-	setup := "SET ROLE " + provision.Ident(p.OwnerRole) +
+	assume := p.OwnerRole
+	if readOnlyRole {
+		assume = provision.ReadOnlyRole(p.DbName)
+	}
+	setup := "SET ROLE " + provision.Ident(assume) +
 		fmt.Sprintf("; SET statement_timeout = %d; SET lock_timeout = %d", timeout.Milliseconds(), timeout.Milliseconds())
 	if err := conn.PgConn().Exec(ctx, setup).Close(); err != nil {
 		sess.close()
@@ -204,6 +212,9 @@ func unwrapConnect(err error) error {
 
 // ensureRole creates or repairs the project's console role.
 func (s *Service) ensureRole(ctx context.Context, p store.Project) error {
+	if err := s.projects.EnsureReadOnlyRole(ctx, p); err != nil {
+		return fmt.Errorf("read-only role: %w", err)
+	}
 	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
 	if err != nil {
 		return err
@@ -226,6 +237,7 @@ func (s *Service) ensureRole(ctx context.Context, p store.Project) error {
 		fmt.Sprintf("%s ROLE %s LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT %d PASSWORD '%s'",
 			verb, provision.Ident(role), connLimit, verifier),
 		"GRANT " + provision.Ident(p.OwnerRole) + " TO " + provision.Ident(role) + " WITH INHERIT FALSE, SET TRUE",
+		"GRANT " + provision.Ident(provision.ReadOnlyRole(p.DbName)) + " TO " + provision.Ident(role) + " WITH INHERIT FALSE, SET TRUE",
 		"GRANT CONNECT ON DATABASE " + provision.Ident(p.DbName) + " TO " + provision.Ident(role),
 		// Top queries show the app's workload, not the console's.
 		"ALTER ROLE " + provision.Ident(role) + " SET pg_stat_statements.track = 'none'",
@@ -259,7 +271,7 @@ func (s *Service) Run(ctx context.Context, projectID uuid.UUID, req Request) (Ou
 	if err != nil {
 		return Outcome{}, err
 	}
-	readOnly := req.ReadOnly || set.ConsoleReadOnly
+	readOnly := req.ReadOnly || set.ConsoleReadOnly || req.AsReadOnlyRole
 	timeout := req.Timeout
 	if timeout <= 0 {
 		timeout = DefaultTimeout
@@ -268,7 +280,7 @@ func (s *Service) Run(ctx context.Context, projectID uuid.UUID, req Request) (Ou
 	ctx, cancel := context.WithTimeout(ctx, timeout+15*time.Second)
 	defer cancel()
 
-	sess, err := s.open(ctx, p, req.QueryID, timeout)
+	sess, err := s.open(ctx, p, req.QueryID, timeout, req.AsReadOnlyRole)
 	if err != nil {
 		return Outcome{}, err
 	}

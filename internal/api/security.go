@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -19,6 +20,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/israel-duff/pgdock/internal/auth"
+	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -52,6 +54,7 @@ const (
 	keyIP ctxKey = iota
 	keySession
 	keyAudit
+	keyAccess
 )
 
 // clientIP returns the request's client address, honouring
@@ -112,10 +115,10 @@ func sessionFrom(ctx context.Context) (auth.Session, bool) {
 	return s, ok
 }
 
-// operatorID returns the signed-in operator, for created_by columns.
-func operatorID(ctx context.Context) *uuid.UUID {
+// userID returns the signed-in user, for created_by columns.
+func userID(ctx context.Context) *uuid.UUID {
 	if s, ok := sessionFrom(ctx); ok {
-		id := s.OperatorID
+		id := s.UserID
 		return &id
 	}
 	return nil
@@ -126,7 +129,9 @@ func operatorID(ctx context.Context) *uuid.UUID {
 // auditInfo is filled in by handlers while a mutating request runs.
 type auditInfo struct {
 	skip       bool
-	operatorID *uuid.UUID
+	userID     *uuid.UUID
+	orgID      uuid.UUID
+	projectID  uuid.UUID
 	targetType string
 	targetID   string
 	detail     map[string]any
@@ -189,6 +194,40 @@ var auditActions = map[string]string{
 	"POST /api/v1/security/isolation-checks":     "security.isolation_check",
 	"PUT /api/v1/settings/alerts":                "settings.alerts",
 	"POST /api/v1/settings/alerts/test":          "settings.alerts_test",
+
+	"POST /api/v1/auth/signup":                              "auth.signup",
+	"POST /api/v1/auth/verify-email":                        "auth.verify_email",
+	"POST /api/v1/auth/verify-email/resend":                 "auth.verify_email_resend",
+	"POST /api/v1/auth/password-reset":                      "auth.password_reset_request",
+	"POST /api/v1/auth/password-reset/confirm":              "auth.password_reset",
+	"POST /api/v1/invitations/preview":                      "", // read-only
+	"POST /api/v1/invitations/accept":                       "invitation.accept",
+	"PATCH /api/v1/me":                                      "account.update",
+	"POST /api/v1/me/password":                              "account.password",
+	"DELETE /api/v1/me/sessions/{session_id}":               "account.session_revoke",
+	"POST /api/v1/me/recovery-codes":                        "account.recovery_codes",
+	"POST /api/v1/me/terms/accept":                          "account.terms_accept",
+	"POST /api/v1/me/invitations/{invitation_id}/accept":    "invitation.accept",
+	"POST /api/v1/orgs":                                     "org.create",
+	"PATCH /api/v1/orgs/{org}":                              "org.update",
+	"POST /api/v1/orgs/{org}/members":                       "org.member.invite",
+	"PATCH /api/v1/orgs/{org}/members/{user}":               "org.member.role",
+	"DELETE /api/v1/orgs/{org}/members/{user}":              "org.member.remove",
+	"POST /api/v1/orgs/{org}/leave":                         "org.member.leave",
+	"POST /api/v1/orgs/{org}/transfer-ownership":            "org.transfer_ownership",
+	"DELETE /api/v1/orgs/{org}/invitations/{invitation_id}": "org.invitation.revoke",
+	"POST /api/v1/projects/{id}/members":                    "project.member.add",
+	"PATCH /api/v1/projects/{id}/members/{user}":            "project.member.role",
+	"DELETE /api/v1/projects/{id}/members/{user}":           "project.member.remove",
+	"POST /api/v1/projects/{id}/credentials":                "project.credentials",
+	"POST /api/v1/projects/{id}/transfer":                   "project.transfer",
+	"PATCH /api/v1/admin/users/{user}":                      "admin.user.update",
+	"POST /api/v1/admin/users/{user}/reset-2fa":             "admin.user.reset_2fa",
+	"POST /api/v1/admin/invitations":                        "admin.invitation.create",
+	"DELETE /api/v1/admin/invitations/{invitation_id}":      "admin.invitation.revoke",
+	"PUT /api/v1/admin/settings/signup":                     "admin.settings.signup",
+	"PUT /api/v1/admin/settings/mail":                       "admin.settings.mail",
+	"POST /api/v1/admin/settings/terms":                     "admin.settings.terms",
 }
 
 func outcomeFor(status int) string {
@@ -206,9 +245,9 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 	if s.db == nil || action == "" || info.skip {
 		return
 	}
-	opID := info.operatorID
-	if opID == nil {
-		opID = operatorID(r.Context())
+	uid := info.userID
+	if uid == nil {
+		uid = userID(r.Context())
 	}
 	detail := map[string]any{"status": status, "request_id": middleware.GetReqID(r.Context())}
 	for k, v := range info.detail {
@@ -220,8 +259,14 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 		ua = ua[:512]
 	}
 	params := store.InsertAuditParams{
-		OperatorID: opID, Action: action, Detail: b, Ip: ipFrom(r.Context()),
-		Outcome: outcomeFor(status),
+		UserID: uid, Action: action, Detail: b, Ip: ipFrom(r.Context()),
+		Outcome: outcomeFor(status), ActorKind: authz.ActorSession,
+	}
+	if info.orgID != uuid.Nil {
+		params.OrgID = &info.orgID
+	}
+	if info.projectID != uuid.Nil {
+		params.ProjectID = &info.projectID
 	}
 	if info.targetType != "" {
 		params.TargetType = &info.targetType
@@ -242,17 +287,6 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 
 // ---- Middleware --------------------------------------------------------------
 
-// publicAPI lists API routes that work without a session.
-var publicAPI = map[string]bool{
-	"/api/v1/session":        true,
-	"/api/v1/version":        true,
-	"/api/v1/auth/login":     true,
-	"/api/v1/auth/totp":      true,
-	"/api/v1/setup/begin":    true,
-	"/api/v1/setup/complete": true,
-	"/api/v1/agent/register": true,
-}
-
 // csrfExempt lists mutating routes called by programs, not browsers. They
 // authenticate with a token in the body and ignore cookies, so CSRF does
 // not apply.
@@ -263,9 +297,13 @@ var csrfExempt = map[string]bool{
 // reauthRequired lists destructive routes needing a recent step-up auth
 // (spec §7.2).
 var reauthRequired = map[string]bool{
-	"DELETE /api/v1/projects/{id}":            true,
-	"POST /api/v1/settings/backup-key/export": true,
-	"DELETE /api/v1/nodes/{id}":               true,
+	"DELETE /api/v1/projects/{id}":               true,
+	"POST /api/v1/settings/backup-key/export":    true,
+	"DELETE /api/v1/nodes/{id}":                  true,
+	"POST /api/v1/me/recovery-codes":             true,
+	"POST /api/v1/admin/users/{user}/reset-2fa":  true,
+	"POST /api/v1/projects/{id}/transfer":        true,
+	"POST /api/v1/orgs/{org}/transfer-ownership": true,
 	// POST /api/v1/backups/{id}/restore checks it for mode in_place only.
 }
 
@@ -277,34 +315,35 @@ func isMutating(method string) bool {
 	return true
 }
 
-// guard enforces CSRF, authentication, and re-authentication on /api, and
-// audits every mutating API request.
+// guard enforces CSRF, authentication, re-authentication, the terms, and
+// authorization (routeRules) on /api, and audits every mutating API request.
 func (s *Server) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), keyIP, s.clientIP(r))
 		r = r.WithContext(ctx)
-		if !isAPIPath(r.URL.Path) || s.auth == nil {
+		if (!isAPIPath(r.URL.Path) && r.URL.Path != "/metrics") || s.auth == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		mutating := isMutating(r.Method)
 		// Resolve the route now: requests refused below never reach routing.
-		pattern := matchPattern(r)
+		pattern, params := matchRoute(r)
+		key := r.Method + " " + pattern
 		info := &auditInfo{}
 		ctx = context.WithValue(ctx, keyAudit, info)
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		if mutating {
 			defer func() {
-				action, ok := auditActions[r.Method+" "+pattern]
+				action, ok := auditActions[key]
 				if !ok {
-					action = r.Method + " " + pattern
+					action = key
 				}
 				s.writeAudit(r, action, ww.Status(), info)
 			}()
 		}
 
-		if mutating && !csrfExempt[r.Method+" "+pattern] {
+		if mutating && !csrfExempt[key] {
 			if msg := s.checkCSRF(r); msg != "" {
 				writeError(ww, http.StatusForbidden, "csrf", msg)
 				return
@@ -323,16 +362,58 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		}
 		r = r.WithContext(ctx)
 
-		if !publicAPI[r.URL.Path] {
+		rl, declared := routeRules[key]
+		if !declared {
+			if pattern == r.URL.Path {
+				// No such route: routing answers 404/405.
+				next.ServeHTTP(ww, r)
+				return
+			}
+			s.log.Error("route has no authorization rule", "route", key)
+			writeError(ww, http.StatusForbidden, "forbidden", "this route is not available")
+			return
+		}
+		if rl.scope != scopePublic {
 			sess, ok := sessionFrom(ctx)
 			if !ok {
 				writeError(ww, http.StatusUnauthorized, "unauthenticated", "sign in to continue")
 				return
 			}
-			if key := r.Method + " " + pattern; reauthRequired[key] && !s.auth.RecentlyReauthenticated(sess) {
+			if !rl.beforeTerms {
+				pending, version, err := s.auth.TermsOutstanding(ctx, sess.UserID)
+				if err != nil {
+					s.internalError(ww, "terms", err)
+					return
+				}
+				if pending {
+					writeError(ww, http.StatusForbidden, "terms_required",
+						fmt.Sprintf("accept version %d of the terms of use to continue", version))
+					return
+				}
+			}
+			if reauthRequired[key] && !s.auth.RecentlyReauthenticated(sess) {
 				writeError(ww, http.StatusForbidden, "reauth_required", "confirm your password and code to continue")
 				return
 			}
+			acc, status, err := s.authorize(ctx, sess, rl, params, r)
+			if err != nil {
+				s.internalError(ww, "authorize", err)
+				return
+			}
+			if status != 0 {
+				// The header lets tests tell the guard's refusals from handlers'.
+				if status == http.StatusNotFound {
+					ww.Header().Set("X-PGDock-Authz", "hidden")
+					writeError(ww, status, "not_found", "not found")
+				} else {
+					ww.Header().Set("X-PGDock-Authz", "denied")
+					writeError(ww, status, "forbidden", "you don't have permission to do this")
+				}
+				return
+			}
+			info.orgID, info.projectID = acc.OrgID, acc.ProjectID
+			ctx = context.WithValue(ctx, keyAccess, acc)
+			r = r.WithContext(ctx)
 		}
 		next.ServeHTTP(ww, r)
 	})
@@ -389,17 +470,22 @@ func (s *Server) clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-// matchPattern finds the pattern r will be routed to, before routing.
-func matchPattern(r *http.Request) string {
+// matchRoute finds the pattern r will be routed to, and its path
+// parameters, before routing.
+func matchRoute(r *http.Request) (string, map[string]string) {
 	rc := chi.RouteContext(r.Context())
 	if rc == nil || rc.Routes == nil {
-		return r.URL.Path
+		return r.URL.Path, nil
 	}
 	tctx := chi.NewRouteContext()
 	if rc.Routes.Match(tctx, r.Method, r.URL.Path) {
-		return tctx.RoutePattern()
+		params := map[string]string{}
+		for i, k := range tctx.URLParams.Keys {
+			params[k] = tctx.URLParams.Values[i]
+		}
+		return tctx.RoutePattern(), params
 	}
-	return r.URL.Path
+	return r.URL.Path, nil
 }
 
 // securityHeaders sets conservative browser security headers.

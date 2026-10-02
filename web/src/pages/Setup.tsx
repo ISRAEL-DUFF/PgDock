@@ -5,16 +5,19 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type DnsCheck, type SetupEnrollment } from "../api/client";
 import { AuthShell } from "../components/Layout";
 import { BackupKeyPanel, NodesPanel, StorageForm } from "../components/BackupSetup";
+import { RecoveryCodes } from "../components/Enrol";
+import { MailSettingsForm } from "../components/PlatformCards";
 import { Alert, Button, CopyField, Field, Input } from "../components/ui";
 import { sessionQuery, setSession } from "../lib/session";
 
-type Step = "account" | "totp" | "host" | "storage" | "key" | "node" | "done";
+type Step = "account" | "totp" | "codes" | "email" | "host" | "storage" | "key" | "node" | "done";
 
 /** First-run wizard (spec §8.2). */
 export function SetupPage() {
   const { data: session } = useQuery(sessionQuery);
   const [step, setStep] = useState<Step>("account");
   const [enrollment, setEnrollment] = useState<SetupEnrollment | null>(null);
+  const [codes, setCodes] = useState<string[]>([]);
   const navigate = useNavigate();
 
   // Setup already done (and this tab isn't mid-wizard): go to sign-in.
@@ -23,8 +26,10 @@ export function SetupPage() {
   }, [session, step, navigate]);
 
   const steps: { id: Step; label: string }[] = [
-    { id: "account", label: "Owner account" },
+    { id: "account", label: "Admin account" },
     { id: "totp", label: "Two-factor" },
+    { id: "codes", label: "Recovery codes" },
+    { id: "email", label: "Email" },
     { id: "host", label: "Database hostname" },
     { id: "storage", label: "Backup storage" },
     { id: "key", label: "Backup key" },
@@ -51,7 +56,26 @@ export function SetupPage() {
           }}
         />
       )}
-      {step === "totp" && enrollment && <TotpStep enrollment={enrollment} onDone={() => setStep("host")} />}
+      {step === "totp" && enrollment && (
+        <TotpStep
+          enrollment={enrollment}
+          onDone={(c) => {
+            setCodes(c);
+            setStep("codes");
+          }}
+        />
+      )}
+      {step === "codes" && <RecoveryCodes codes={codes} onDone={() => setStep("email")} />}
+      {step === "email" && (
+        <div className="flex flex-col gap-4">
+          <h1 className="text-lg font-semibold">Email</h1>
+          <p className="text-sm text-muted">
+            PGDock emails people to confirm their address, reset passwords, and accept invitations, and sends alerts. It sends a test now and
+            saves the settings once the server accepts it.
+          </p>
+          <MailSettingsForm defaultTo={session?.user?.email} submitLabel="Send a test, save, and continue" onSaved={() => setStep("host")} />
+        </div>
+      )}
       {step === "host" && <HostStep onDone={() => setStep("storage")} />}
       {step === "storage" && (
         <div className="flex flex-col gap-4">
@@ -110,7 +134,7 @@ function AccountStep({ onDone }: { onDone: (e: SetupEnrollment) => void }) {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={submit}>
-      <h1 className="text-lg font-semibold">Create the owner account</h1>
+      <h1 className="text-lg font-semibold">Create the platform admin account</h1>
       <Field label="Setup code" hint={<>Printed in the server log: <code className="font-mono">docker compose logs pgdock-server</code></>}>
         {(id) => <Input id={id} required value={setupCode} onChange={(e) => setSetupCode(e.target.value)} className="font-mono" autoComplete="off" autoFocus />}
       </Field>
@@ -131,7 +155,7 @@ function AccountStep({ onDone }: { onDone: (e: SetupEnrollment) => void }) {
   );
 }
 
-function TotpStep({ enrollment, onDone }: { enrollment: SetupEnrollment; onDone: () => void }) {
+function TotpStep({ enrollment, onDone }: { enrollment: SetupEnrollment; onDone: (codes: string[]) => void }) {
   const qc = useQueryClient();
   const [qr, setQr] = useState<string>("");
   const [code, setCode] = useState("");
@@ -147,8 +171,9 @@ function TotpStep({ enrollment, onDone }: { enrollment: SetupEnrollment; onDone:
     setBusy(true);
     setErr(null);
     try {
-      setSession(qc, await api.setupComplete({ enrollment_token: enrollment.enrollment_token, code }));
-      onDone();
+      const st = await api.setupComplete({ enrollment_token: enrollment.enrollment_token, code });
+      setSession(qc, st);
+      onDone(st.recovery_codes ?? []);
     } catch (e) {
       setErr(errorMessage(e));
       setCode("");

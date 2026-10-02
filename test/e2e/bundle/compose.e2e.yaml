@@ -5,7 +5,8 @@
 #   validates the DB hostname over HTTP-01 through Caddy -> pgdock-server.
 # - Caddy serves the UI from its internal CA (no public DNS in tests).
 # - Host ports are offset to stay clear of the dev environment.
-# - fakes3 stands in for the backup bucket; src-supabase is a Supabase
+# - fakes3 stands in for the backup bucket, fakesmtp for the mail server;
+#   src-supabase is a Supabase
 #   project to import (the supabase/postgres image; the test seeds it).
 
 services:
@@ -58,6 +59,13 @@ services:
   fakes3:
     image: pgdock-fakes3:local
     command: ["-listen", ":9000", "-buckets", "pgdock-e2e"]
+
+  # Account email: the wizard points SMTP here; tests read the inbox over HTTP.
+  fakesmtp:
+    image: pgdock-fakes3:local
+    entrypoint: ["/usr/local/bin/fakesmtp"]
+    ports:
+      - "127.0.0.1:18025:8025"
 
   src-supabase:
     image: mirror.gcr.io/supabase/postgres:17.6.1.003

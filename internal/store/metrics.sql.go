@@ -22,6 +22,7 @@ type AddProjectExtensionParams struct {
 	ID   uuid.UUID
 }
 
+// tenant: system - the metrics collector, or a project the request already authorized.
 func (q *Queries) AddProjectExtension(ctx context.Context, arg AddProjectExtensionParams) error {
 	_, err := q.db.Exec(ctx, addProjectExtension, arg.Name, arg.ID)
 	return err
@@ -36,6 +37,7 @@ GROUP BY scope, scope_id, metric, date_trunc('hour', ts)
 ON CONFLICT (scope, scope_id, metric, resolution, ts) DO UPDATE SET value = EXCLUDED.value
 `
 
+// tenant: system - the metrics collector, or a project the request already authorized.
 // Hourly averages of the 1-minute points of completed hours since @since.
 func (q *Queries) DownsampleMetrics(ctx context.Context, since time.Time) (int64, error) {
 	result, err := q.db.Exec(ctx, downsampleMetrics, since)
@@ -60,6 +62,7 @@ type LatestMetricsRow struct {
 	Value   float64
 }
 
+// tenant: system - the metrics collector, or a project the request already authorized.
 func (q *Queries) LatestMetrics(ctx context.Context, since time.Time) ([]LatestMetricsRow, error) {
 	rows, err := q.db.Query(ctx, latestMetrics, since)
 	if err != nil {
@@ -107,6 +110,7 @@ type MetricSeriesRow struct {
 	Value  float64
 }
 
+// tenant: system - the metrics collector, or a project the request already authorized.
 func (q *Queries) MetricSeries(ctx context.Context, arg MetricSeriesParams) ([]MetricSeriesRow, error) {
 	rows, err := q.db.Query(ctx, metricSeries,
 		arg.Scope,
@@ -139,6 +143,7 @@ WHERE (resolution = '1m' AND ts < now() - interval '24 hours')
    OR (resolution = '1h' AND ts < now() - interval '30 days')
 `
 
+// tenant: system - the metrics collector, or a project the request already authorized.
 func (q *Queries) PruneMetrics(ctx context.Context) (int64, error) {
 	result, err := q.db.Exec(ctx, pruneMetrics)
 	if err != nil {
@@ -161,6 +166,7 @@ type UpsertMetricPointsParams struct {
 	Vals     []float64
 }
 
+// tenant: system - the metrics collector, or a project the request already authorized.
 // One row per (scope_id, metric) pair in the arrays, at one timestamp.
 func (q *Queries) UpsertMetricPoints(ctx context.Context, arg UpsertMetricPointsParams) error {
 	_, err := q.db.Exec(ctx, upsertMetricPoints,

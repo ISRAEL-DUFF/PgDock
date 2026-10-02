@@ -1,36 +1,115 @@
--- name: CountOperators :one
-SELECT count(*) FROM operators;
+-- name: CountUsers :one
+SELECT count(*) FROM users;
 
--- name: InsertOperator :one
-INSERT INTO operators (email, password_hash, totp_secret, role)
-VALUES (@email, @password_hash, @totp_secret, @role)
+-- name: InsertUser :one
+INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at)
+VALUES (@email, @password_hash, sqlc.narg(name), @platform_role, sqlc.narg(email_verified_at), sqlc.narg(approved_at))
 RETURNING *;
 
--- name: GetOperatorByEmail :one
-SELECT * FROM operators WHERE email = @email;
+-- name: CountPlatformAdmins :one
+SELECT count(*) FROM users WHERE platform_role = 'platform_admin' AND disabled_at IS NULL;
 
--- name: GetOperator :one
-SELECT * FROM operators WHERE id = @id;
+-- name: SetUserTOTP :exec
+-- Enrols TOTP (and its recovery codes) once: an enrolled account keeps its secret.
+UPDATE users SET totp_secret = @totp_secret, totp_last_step = @step, recovery_codes = @recovery_codes
+WHERE id = @id;
+
+-- name: ResetUserTOTP :exec
+UPDATE users SET totp_secret = NULL, totp_last_step = 0, recovery_codes = NULL WHERE id = @id;
+
+-- name: SetRecoveryCodes :exec
+UPDATE users SET recovery_codes = @recovery_codes WHERE id = @id;
+
+-- name: SetUserPassword :exec
+UPDATE users SET password_hash = @password_hash, failed_logins = 0, locked_until = NULL WHERE id = @id;
+
+-- name: MarkEmailVerified :exec
+UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = @id;
+
+-- name: UpdateUserProfile :one
+UPDATE users SET name = sqlc.narg(name) WHERE id = @id RETURNING *;
+
+-- name: ApproveUser :one
+UPDATE users SET approved_at = COALESCE(approved_at, now()) WHERE id = @id RETURNING *;
+
+-- name: SetUserDisabled :one
+UPDATE users SET disabled_at = CASE WHEN @disabled::bool THEN COALESCE(disabled_at, now()) ELSE NULL END
+WHERE id = @id RETURNING *;
+
+-- name: TouchUserActivity :exec
+UPDATE users SET last_active_at = now()
+WHERE id = @id AND (last_active_at IS NULL OR last_active_at < now() - interval '5 minutes');
+
+-- name: ListUsers :many
+-- tenant: system - the platform admin's user list.
+SELECT u.*, (SELECT count(*) FROM org_members m WHERE m.user_id = u.id)::int AS org_count
+FROM users u
+WHERE (sqlc.narg(query)::text IS NULL OR u.email ILIKE '%' || sqlc.narg(query) || '%' OR u.name ILIKE '%' || sqlc.narg(query) || '%')
+  AND (NOT @pending_only::bool OR (u.approved_at IS NULL AND u.disabled_at IS NULL))
+ORDER BY u.created_at DESC
+LIMIT @max_rows;
+
+-- name: ListUserSessions :many
+SELECT id, created_at, last_seen_at, ip, user_agent FROM sessions WHERE user_id = @user_id ORDER BY last_seen_at DESC;
+
+-- name: DeleteUserSession :execrows
+DELETE FROM sessions WHERE user_id = @user_id AND id = @id;
+
+-- name: DeleteUserSessions :exec
+-- Ends every session of a user (except @keep, the caller's own, when set).
+DELETE FROM sessions WHERE user_id = @user_id AND (sqlc.narg(keep)::text IS NULL OR id <> sqlc.narg(keep));
+
+-- name: InsertEmailToken :exec
+INSERT INTO email_tokens (token_hash, user_id, purpose, expires_at) VALUES (@token_hash, @user_id, @purpose, @expires_at);
+
+-- name: InvalidateEmailTokens :exec
+UPDATE email_tokens SET used_at = now() WHERE user_id = @user_id AND purpose = @purpose AND used_at IS NULL;
+
+-- name: ConsumeEmailToken :one
+UPDATE email_tokens SET used_at = now()
+WHERE token_hash = @token_hash AND purpose = @purpose AND used_at IS NULL AND expires_at > now()
+RETURNING user_id;
+
+-- name: LatestTerms :one
+SELECT * FROM terms_versions ORDER BY version DESC LIMIT 1;
+
+-- name: InsertTerms :one
+INSERT INTO terms_versions (version, terms_md, privacy_md, published_by)
+VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), @terms_md, @privacy_md, sqlc.narg(published_by))
+RETURNING *;
+
+-- name: AcceptTerms :exec
+INSERT INTO terms_acceptances (user_id, version, ip) VALUES (@user_id, @version, sqlc.narg(ip))
+ON CONFLICT DO NOTHING;
+
+-- name: AcceptedTermsVersion :one
+SELECT COALESCE(max(version), 0)::int FROM terms_acceptances WHERE user_id = @user_id;
+
+-- name: GetUserByEmail :one
+SELECT * FROM users WHERE email = @email;
+
+-- name: GetUser :one
+SELECT * FROM users WHERE id = @id;
 
 -- name: RecordLoginFailure :one
 -- Counts a failed password or TOTP attempt and locks the account for
 -- @lock_seconds once @threshold consecutive failures are reached.
-UPDATE operators
+UPDATE users
 SET failed_logins = CASE WHEN failed_logins + 1 >= @threshold::int THEN 0 ELSE failed_logins + 1 END,
     locked_until  = CASE WHEN failed_logins + 1 >= @threshold::int THEN now() + make_interval(secs => @lock_seconds::int) ELSE locked_until END
 WHERE id = @id
 RETURNING failed_logins, locked_until;
 
 -- name: ResetLoginFailures :exec
-UPDATE operators SET failed_logins = 0, locked_until = NULL WHERE id = @id;
+UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = @id;
 
 -- name: AdvanceTOTPStep :execrows
 -- Accepts a TOTP step only once: replayed or older codes match no row.
-UPDATE operators SET totp_last_step = @step WHERE id = @id AND totp_last_step < @step;
+UPDATE users SET totp_last_step = @step WHERE id = @id AND totp_last_step < @step;
 
 -- name: InsertChallenge :exec
-INSERT INTO auth_challenges (id, kind, operator_id, payload, expires_at)
-VALUES (@id, @kind, sqlc.narg(operator_id), @payload, @expires_at);
+INSERT INTO auth_challenges (id, kind, user_id, payload, expires_at)
+VALUES (@id, @kind, sqlc.narg(user_id), @payload, @expires_at);
 
 -- name: GetChallenge :one
 SELECT * FROM auth_challenges WHERE id = @id AND kind = @kind AND expires_at > now();
@@ -47,13 +126,13 @@ DELETE FROM auth_challenges WHERE expires_at <= now();
 -- Session timestamps come from the auth service's clock, which is also
 -- what checks them.
 -- name: InsertSession :exec
-INSERT INTO sessions (id, operator_id, ip, user_agent, created_at, last_seen_at, reauth_at)
-VALUES (@id, @operator_id, sqlc.narg(ip), sqlc.narg(user_agent), @now, @now, @now);
+INSERT INTO sessions (id, user_id, ip, user_agent, created_at, last_seen_at, reauth_at)
+VALUES (@id, @user_id, sqlc.narg(ip), sqlc.narg(user_agent), @now, @now, @now);
 
 -- name: GetSession :one
-SELECT s.id, s.operator_id, s.created_at, s.last_seen_at, s.reauth_at,
-       o.email, o.role, o.disabled_at
-FROM sessions s JOIN operators o ON o.id = s.operator_id
+SELECT s.id, s.user_id, s.created_at, s.last_seen_at, s.reauth_at,
+       o.email, o.platform_role, o.disabled_at, o.email_verified_at, o.approved_at, o.name
+FROM sessions s JOIN users o ON o.id = s.user_id
 WHERE s.id = @id;
 
 -- name: TouchSession :exec

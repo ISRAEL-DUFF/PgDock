@@ -27,6 +27,10 @@ const s3Bucket = process.env.PGDOCK_E2E_S3_BUCKET ?? "pgdock-e2e";
 // sourceURL (the same database, as the control plane reaches it).
 const supabaseSeedURL = process.env.PGDOCK_E2E_SUPABASE_SEED_URL;
 const supabaseURL = process.env.PGDOCK_E2E_SUPABASE_URL;
+// The bundle's catch-all mail server: SMTP for the wizard, HTTP for the tests.
+const smtpHost = process.env.PGDOCK_E2E_SMTP_HOST ?? "fakesmtp";
+const smtpPort = process.env.PGDOCK_E2E_SMTP_PORT ?? "2525";
+const mailAPI = process.env.PGDOCK_E2E_MAIL_API ?? "http://127.0.0.1:18025";
 const email = "owner@example.com";
 const password = "a long enough passphrase";
 
@@ -110,8 +114,48 @@ async function hasPsql(): Promise<boolean> {
   }
 }
 
+/** The link in the latest email to addr whose body contains want. */
+async function mailLink(addr: string, want: string): Promise<string> {
+  let link = "";
+  await expect(async () => {
+    const res = await fetch(`${mailAPI}/messages?to=${encodeURIComponent(addr)}`);
+    const msgs = (await res.json()) as { data: string }[];
+    const m = [...msgs].reverse().find((x) => x.data.includes(want));
+    const url = m?.data.match(/https?:\/\/\S+token=[A-Za-z0-9_-]+/);
+    expect(url, `an email to ${addr} with ${want}`).toBeTruthy();
+    link = url![0];
+  }).toPass({ timeout: 30_000 });
+  return link;
+}
+
+/** Opens an invitation link in a fresh browser and creates the account it invites. */
+async function acceptInvitation(page: Page, link: string, name: string): Promise<string> {
+  await page.goto(link);
+  await expect(page.getByRole("heading", { name: /^Join / })).toBeVisible();
+  await page.getByLabel("Your name").fill(name);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("Confirm password").fill(password);
+  await page.getByTestId("accept-terms").check();
+  await page.getByRole("button", { name: "Create account and join" }).click();
+  await expect(page.getByRole("heading", { name: "Set up two-factor authentication" })).toBeVisible();
+  const secret = (await page.getByTestId("totp-secret").textContent())!.trim();
+  await page.getByLabel("Code").fill(await freshTotp(secret));
+  await page.getByRole("button", { name: "Verify and continue" }).click();
+  await expect(page.getByTestId("recovery-codes")).toBeVisible();
+  await page.getByTestId("codes-saved").check();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  return secret;
+}
+
+/** The status of a GET from inside the page: its cookies, its DNS mapping. */
+async function apiStatus(page: Page, path: string): Promise<number> {
+  return page.evaluate(async (p) => (await fetch(p)).status, path);
+}
+
 async function revealedValue(page: Page, testId: string): Promise<string> {
   const code = page.getByTestId(testId);
+  await expect(code).toBeVisible(); // isVisible() below does not wait
   const row = code.locator("..");
   const show = row.getByRole("button", { name: "Show" });
   if (await show.isVisible()) await show.click();
@@ -124,7 +168,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   // 1. A fresh install sends every page to the setup wizard.
   await page.goto("/");
   await expect(page).toHaveURL(/\/setup$/);
-  await expect(page.getByRole("heading", { name: "Create the owner account" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create the platform admin account" })).toBeVisible();
   await shot(page, "01-setup");
 
   await page.getByLabel("Setup code").fill(setupCode);
@@ -141,6 +185,25 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   expect(totpSecret).toMatch(/^[A-Z2-7]{32}$/);
   await page.getByLabel("Code").fill(await freshTotp(totpSecret));
   await page.getByRole("button", { name: "Verify and create account" }).click();
+
+  // Recovery codes, shown once.
+  await expect(page.getByTestId("recovery-codes")).toBeVisible();
+  await expect(page.getByTestId("recovery-codes").locator("li")).toHaveCount(10);
+  await page.getByTestId("codes-saved").check();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // Email: SMTP is required, and saved only once a test goes out.
+  await expect(page.getByRole("heading", { name: "Email" })).toBeVisible();
+  await page.getByLabel("SMTP host").fill(smtpHost);
+  await page.getByLabel("Port").fill(smtpPort);
+  await page.getByLabel("Encryption").selectOption("none");
+  await page.getByLabel("From address").fill("PGDock <pgdock@pgdock.test>");
+  await expect(page.getByLabel("Send the test to")).toHaveValue(email);
+  await page.getByRole("button", { name: "Send a test, save, and continue" }).click();
+  await expect(async () => {
+    const res = await fetch(`${mailAPI}/messages?to=${encodeURIComponent(email)}`);
+    expect(((await res.json()) as { data: string }[]).some((m) => m.data.includes("PGDock email works"))).toBe(true);
+  }).toPass({ timeout: 30_000 });
 
   // 3. The database hostname, with a DNS check.
   await expect(page.getByRole("heading", { name: "Database hostname" })).toBeVisible();
@@ -275,10 +338,12 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await page.getByRole("link", { name: "create" }).first().click();
   await expect(page.getByTestId("operation-log")).toContainText("is active");
   await page.getByRole("link", { name: "Audit log" }).click();
-  for (const action of ["setup.complete", "project.create", "project.update", "project.rotate_password"]) {
+  for (const action of ["project.create", "project.update", "project.rotate_password"]) {
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
   await shot(page, "06-audit");
+  await page.getByRole("link", { name: "Platform audit" }).click();
+  await expect(page.getByRole("cell", { name: "setup.complete", exact: true }).first()).toBeVisible();
 
   // 10. Sign out and back in with password + TOTP.
   await page.getByRole("button", { name: "Sign out" }).click();
@@ -740,5 +805,98 @@ test.describe("with the saved session", () => {
     await expect(page.getByText(/Nothing is wrong|Alert/).first()).toBeVisible();
     await expect(page.getByText("Pooler down")).toHaveCount(0);
     await shot(page, "32-alerts");
+  });
+
+  // The M8 "done when" (V2 §16): two users in two organisations see only
+  // their own projects; an invited read-only member gets working read-only
+  // credentials; removing them revokes everything at once.
+  test("organisations: invite a read-only member, keep orgs apart, remove the member", async ({ page, browser }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Team data");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const appURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const teamID = new URL(page.url()).pathname.split("/")[2];
+    const app = await connect(appURL);
+    await app.query("CREATE TABLE facts (id int PRIMARY KEY, body text); INSERT INTO facts VALUES (1, 'shared')");
+    await app.end();
+
+    // Invite carol into the organisation, read-only on this one project.
+    const carolEmail = "carol@example.com";
+    await page.goto("/org/members");
+    await page.getByTestId("invite-member").click();
+    await page.getByLabel("Email").fill(carolEmail);
+    await page.getByLabel("Organisation role").selectOption("member");
+    await page.getByLabel("Access to Team data").selectOption("read_only");
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.getByTestId("invitation-created")).toBeVisible();
+    await shot(page, "33-invitation");
+    await page.getByRole("button", { name: "Done" }).click();
+
+    const carolCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const carol = await carolCtx.newPage();
+    await acceptInvitation(carol, await mailLink(carolEmail, "invitation"), "Carol");
+    await expect(carol.getByRole("link", { name: "Team data" })).toBeVisible();
+    await carol.goto(`/projects/${teamID}/members`);
+    await expect(carol.getByText("read-only", { exact: true }).first()).toBeVisible();
+    await carol.getByTestId("get-credentials").click();
+    const carolURL = await revealedValue(carol, "my-pooled-url");
+    expect(decodeURIComponent(new URL(carolURL).username)).toMatch(/_u_/);
+    await shot(carol, "34-my-credentials");
+    const carolDB = await connect(carolURL);
+    expect((await carolDB.query("SELECT body FROM facts")).rows).toEqual([{ body: "shared" }]);
+    await expect(carolDB.query("INSERT INTO facts VALUES (2, 'nope')")).rejects.toThrow(/read-only transaction/);
+
+    // Bob, invited to the platform only, has his own organisation.
+    const bobEmail = "bob@example.com";
+    await page.goto("/admin/users");
+    await page.getByTestId("invite-user").click();
+    await page.getByLabel("Email").fill(bobEmail);
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.getByTestId("invitation-created")).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).click();
+    const bobCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const bob = await bobCtx.newPage();
+    await acceptInvitation(bob, await mailLink(bobEmail, "invitation"), "Bob");
+    await expect(bob.getByRole("link", { name: "Team data" })).toHaveCount(0);
+    await bob.goto("/projects/new");
+    await bob.getByLabel("Name").fill("Bobs app");
+    await bob.getByRole("button", { name: "Create project" }).click();
+    await expect(bob.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    await bob.getByLabel("I've saved the password somewhere safe").check();
+    await bob.getByRole("button", { name: "Done" }).click();
+    await bob.getByRole("link", { name: "Open the project" }).click();
+    await expect(bob).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const bobID = new URL(bob.url()).pathname.split("/")[2];
+
+    // Neither sees the other's project, in the UI or the API: 404, not 403.
+    await page.goto("/projects");
+    await expect(page.getByRole("link", { name: "Team data" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Bobs app" })).toHaveCount(0);
+    await page.goto(`/projects/${bobID}`);
+    await expect(page.getByTestId("project-not-found")).toBeVisible();
+    expect(await apiStatus(page, `/api/v1/projects/${bobID}`)).toBe(404);
+    await bob.goto(`/projects/${teamID}`);
+    await expect(bob.getByTestId("project-not-found")).toBeVisible();
+    expect(await apiStatus(bob, `/api/v1/projects/${teamID}`)).toBe(404);
+    expect(await apiStatus(bob, `/api/v1/projects/${teamID}/members`)).toBe(404);
+    await shot(bob, "35-not-found");
+
+    // Removing carol from the organisation revokes everything immediately.
+    await page.goto("/org/members");
+    await page.getByTestId(`remove-${carolEmail}`).click();
+    await expect(page.getByTestId(`member-${carolEmail}`)).toHaveCount(0);
+    await expect(carolDB.query("SELECT 1")).rejects.toThrow();
+    await expect(connect(carolURL).then((c) => c.query("SELECT 1"))).rejects.toThrow();
+    await carol.goto(`/projects/${teamID}`);
+    await expect(carol.getByTestId("project-not-found")).toBeVisible();
+    expect(await apiStatus(carol, `/api/v1/projects/${teamID}`)).toBe(404);
+    await carolCtx.close();
+    await bobCtx.close();
   });
 });

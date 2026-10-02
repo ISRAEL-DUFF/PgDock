@@ -24,6 +24,7 @@ type AppendOperationLogParams struct {
 	Worker string
 }
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) AppendOperationLog(ctx context.Context, arg AppendOperationLogParams) (int64, error) {
 	result, err := q.db.Exec(ctx, appendOperationLog, arg.Entry, arg.ID, arg.Worker)
 	if err != nil {
@@ -53,6 +54,7 @@ type ClaimOperationParams struct {
 // ClaimOperation takes the next runnable operation of one of the given
 // kinds. SKIP LOCKED lets any number of workers claim concurrently without
 // blocking each other or double-claiming.
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) ClaimOperation(ctx context.Context, arg ClaimOperationParams) (Operation, error) {
 	row := q.db.QueryRow(ctx, claimOperation, arg.Worker, arg.Kinds)
 	var i Operation
@@ -88,6 +90,7 @@ type EnqueueOperationParams struct {
 	CreatedBy *uuid.UUID
 }
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) EnqueueOperation(ctx context.Context, arg EnqueueOperationParams) (Operation, error) {
 	row := q.db.QueryRow(ctx, enqueueOperation,
 		arg.Kind,
@@ -127,6 +130,7 @@ type FailOperationParams struct {
 	Worker string
 }
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) FailOperation(ctx context.Context, arg FailOperationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, failOperation, arg.Error, arg.ID, arg.Worker)
 	if err != nil {
@@ -139,6 +143,7 @@ const getOperation = `-- name: GetOperation :one
 SELECT id, kind, project_id, params, status, attempts, run_after, locked_by, locked_at, log, error, created_by, created_at, finished_at FROM operations WHERE id = $1
 `
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) GetOperation(ctx context.Context, id uuid.UUID) (Operation, error) {
 	row := q.db.QueryRow(ctx, getOperation, id)
 	var i Operation
@@ -171,6 +176,7 @@ type HeartbeatOperationParams struct {
 	Worker string
 }
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) HeartbeatOperation(ctx context.Context, arg HeartbeatOperationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, heartbeatOperation, arg.ID, arg.Worker)
 	if err != nil {
@@ -195,6 +201,7 @@ type ListOperationsParams struct {
 	MaxRows   int32
 }
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) ListOperations(ctx context.Context, arg ListOperationsParams) ([]Operation, error) {
 	rows, err := q.db.Query(ctx, listOperations,
 		arg.Status,
@@ -242,6 +249,7 @@ SELECT EXISTS (
 )
 `
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) ProjectHasActiveOperation(ctx context.Context, projectID *uuid.UUID) (bool, error) {
 	row := q.db.QueryRow(ctx, projectHasActiveOperation, projectID)
 	var exists bool
@@ -261,6 +269,7 @@ RETURNING id
 
 // ReclaimStaleOperations requeues running operations whose worker stopped
 // heartbeating (crashed or partitioned), so they resume elsewhere.
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) ReclaimStaleOperations(ctx context.Context, staleBefore time.Time) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, reclaimStaleOperations, staleBefore)
 	if err != nil {
@@ -294,6 +303,7 @@ type RetryOperationParams struct {
 	Worker   string
 }
 
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) RetryOperation(ctx context.Context, arg RetryOperationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, retryOperation,
 		arg.Error,
@@ -321,6 +331,7 @@ type SucceedOperationParams struct {
 // params.secrets carries encrypted, short-lived handoff data (for example
 // a new password for the smoke test). It is scrubbed when an operation
 // finishes either way.
+// tenant: system - the job runner, or an operation the request already authorized; API lists use ListOrgOperations.
 func (q *Queries) SucceedOperation(ctx context.Context, arg SucceedOperationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, succeedOperation, arg.ID, arg.Worker)
 	if err != nil {
