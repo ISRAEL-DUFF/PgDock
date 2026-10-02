@@ -188,7 +188,7 @@ func run() error {
 	// Quotas, storage locks, the reaper, usage, suspension (V2 §10).
 	var tenancySvc *tenancy.Service
 	if projects != nil {
-		tenancySvc = tenancy.New(pool, projects, mailSvc, tenancy.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		tenancySvc = tenancy.New(pool, projects, mailSvc, tenancy.Config{PublicURL: cfg.Insight.PublicURL, SweepInterval: cfg.Insight.TenancySweep}, log)
 		if backups != nil {
 			tenancySvc.FinalBackup = func(ctx context.Context, p store.Project) error {
 				_, err := backups.BackupNow(ctx, p.ID, nil)

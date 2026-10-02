@@ -118,6 +118,24 @@ func (s *Server) orgResponse(w http.ResponseWriter, r *http.Request, orgID uuid.
 		writeJSON(w, status, g)
 		return
 	}
+	if acc.BreakGlass {
+		// A platform admin in a break-glass session is not a member (V2 §2.4).
+		o, err := store.New(s.db).GetOrg(r.Context(), orgID)
+		if err != nil {
+			s.internalError(w, "get org", err)
+			return
+		}
+		var members, projects int
+		_ = s.db.QueryRow(r.Context(), `SELECT (SELECT count(*) FROM org_members WHERE org_id = $1),
+			(SELECT count(*) FROM projects WHERE org_id = $1 AND deleted_at IS NULL)`, orgID).Scan(&members, &projects)
+		g, err := s.genOrg(r, o, acc.OrgRole, members, projects)
+		if err != nil {
+			s.internalError(w, "get org", err)
+			return
+		}
+		writeJSON(w, status, g)
+		return
+	}
 	writeError(w, http.StatusNotFound, "not_found", "not found")
 }
 

@@ -41,8 +41,17 @@ export function useCurrentOrg(): { org: Org | undefined; orgs: Org[]; loading: b
   const chosen = useSyncExternalStore(subscribe, () => memory ?? stored(), () => null);
   const q = useQuery(orgsQuery);
   const orgs = q.data?.items ?? [];
-  const org = orgs.find((o) => o.id === chosen) ?? orgs.find((o) => o.personal) ?? orgs[0];
-  return { org, orgs, loading: q.isPending };
+  const member = orgs.find((o) => o.id === chosen);
+  // A platform admin in a break-glass session works in an organisation they
+  // are not a member of (V2 §2.4): load it directly.
+  const outside = useQuery({
+    queryKey: ["org", chosen, "outside"],
+    queryFn: () => api.org(chosen!),
+    enabled: !!chosen && q.isSuccess && !member,
+    retry: false,
+  });
+  const org = member ?? (outside.data?.break_glass?.length ? outside.data : undefined) ?? orgs.find((o) => o.personal) ?? orgs[0];
+  return { org, orgs: outside.data?.break_glass?.length && !member ? [...orgs, outside.data] : orgs, loading: q.isPending };
 }
 
 /** Whether role may manage the organisation (owner or admin). */

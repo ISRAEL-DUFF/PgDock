@@ -61,6 +61,21 @@ export type MailSettingsRequest = S["MailSettingsRequest"];
 export type SignupSettings = S["SignupSettings"];
 export type Terms = S["Terms"];
 export type SessionInfo = S["SessionInfo"];
+export type OrgQuotas = S["OrgQuotas"];
+export type QuotaItem = S["QuotaItem"];
+export type UsageReport = S["UsageReport"];
+export type UsageRecord = S["UsageRecord"];
+export type DedicatedRequest = S["DedicatedRequest"];
+export type BreakGlassSession = S["BreakGlassSession"];
+export type ProjectStorage = S["ProjectStorage"];
+export type StorageState = S["StorageState"];
+export type ReapedSession = S["ReapedSession"];
+export type SwitchedCredentials = S["SwitchedCredentials"];
+export type AdminOrg = S["AdminOrg"];
+export type AdminOrgSummary = S["AdminOrgSummary"];
+export type Plan = S["Plan"];
+export type SharedCluster = S["SharedCluster"];
+export type PlatformUsage = S["PlatformUsage"];
 export type AuditQuery = { action?: string; outcome?: string; target_id?: string; before?: number; limit?: number };
 
 /** An error response from the API, with the server's error code. */
@@ -191,6 +206,13 @@ export const api = {
   orgInvitations: (id: string) => getJSON<S["InvitationList"]>(`/api/v1/orgs/${id}/invitations`),
   revokeOrgInvitation: (id: string, inv: string) => request<void>("DELETE", `/api/v1/orgs/${id}/invitations/${inv}`),
   orgAudit: (id: string, p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/orgs/${id}/audit${qs(p)}`),
+  orgQuotas: (id: string) => getJSON<OrgQuotas>(`/api/v1/orgs/${id}/quotas`),
+  orgUsage: (id: string, p: { from?: string; to?: string; metric?: string } = {}) => getJSON<UsageReport>(`/api/v1/orgs/${id}/usage${qs(p)}`),
+  orgUsageCsvUrl: (id: string, p: { from?: string; to?: string } = {}) => `/api/v1/orgs/${id}/usage${qs({ ...p, format: "csv" })}`,
+  orgDedicatedRequests: (id: string) => getJSON<S["DedicatedRequestList"]>(`/api/v1/orgs/${id}/dedicated-requests`),
+  deleteOrg: (id: string, b: S["DeleteOrgRequest"]) => request<S["OrgDeletion"]>("DELETE", `/api/v1/orgs/${id}`, b),
+  cancelOrgDeletion: (id: string) => request<void>("POST", `/api/v1/orgs/${id}/cancel-deletion`),
+  endBreakGlass: (id: string, session: string) => request<void>("POST", `/api/v1/orgs/${id}/break-glass/${session}/end`),
 
   projectMembers: (id: string) => getJSON<S["ProjectMemberList"]>(`/api/v1/projects/${id}/members`),
   addProjectMember: (id: string, b: S["ProjectMemberRequest"]) => request<S["ProjectMemberAdded"]>("POST", `/api/v1/projects/${id}/members`, b),
@@ -200,6 +222,10 @@ export const api = {
   issueMyCredentials: (id: string) => request<PersonalCredentials>("POST", `/api/v1/projects/${id}/credentials`),
   transferProject: (id: string, org_id: string) => request<Project>("POST", `/api/v1/projects/${id}/transfer`, { org_id }),
   projectAudit: (id: string, p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/projects/${id}/audit${qs(p)}`),
+  projectStorage: (id: string) => getJSON<ProjectStorage>(`/api/v1/projects/${id}/storage`),
+  reclaimSpace: (id: string, schema: string, table: string) => request<Operation>("POST", `/api/v1/projects/${id}/reclaim-space`, { schema, table }),
+  reapedSessions: (id: string) => getJSON<S["ReapedSessionList"]>(`/api/v1/projects/${id}/reaped`),
+  switchCredentials: (id: string, grace_days: number) => request<SwitchedCredentials>("POST", `/api/v1/projects/${id}/switch-credentials`, { grace_days }),
 
   users: (p: { q?: string; pending?: boolean } = {}) => getJSON<S["UserList"]>(`/api/v1/admin/users${qs({ q: p.q, pending: p.pending ? "true" : undefined })}`),
   updateUser: (id: string, b: S["UpdateUserRequest"]) => request<AdminUser>("PATCH", `/api/v1/admin/users/${id}`, b),
@@ -213,13 +239,30 @@ export const api = {
   saveMailSettings: (b: MailSettingsRequest) => request<MailSettings>("PUT", "/api/v1/admin/settings/mail", b),
   publishTerms: (b: S["PublishTermsRequest"]) => request<Terms>("POST", "/api/v1/admin/settings/terms", b),
   platformAudit: (p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/admin/audit${qs(p)}`),
+  adminOrgs: (q?: string) => getJSON<S["AdminOrgList"]>(`/api/v1/admin/orgs${qs({ q })}`),
+  adminOrg: (id: string) => getJSON<AdminOrg>(`/api/v1/admin/orgs/${id}`),
+  adminUpdateOrg: (id: string, b: S["AdminUpdateOrgRequest"]) => request<AdminOrg>("PATCH", `/api/v1/admin/orgs/${id}`, b),
+  suspendOrg: (id: string, reason: string) => request<void>("POST", `/api/v1/admin/orgs/${id}/suspend`, { reason }),
+  reinstateOrg: (id: string) => request<void>("POST", `/api/v1/admin/orgs/${id}/reinstate`),
+  setOrgCluster: (id: string, instance_id: string, reserved: boolean) => request<AdminOrg>("POST", `/api/v1/admin/orgs/${id}/cluster`, { instance_id, reserved }),
+  startBreakGlass: (id: string, reason: string, duration_minutes: number) =>
+    request<BreakGlassSession>("POST", `/api/v1/admin/orgs/${id}/break-glass`, { reason, duration_minutes }),
+  plans: () => getJSON<S["PlanList"]>("/api/v1/admin/plans"),
+  createPlan: (b: S["PlanRequest"]) => request<Plan>("POST", "/api/v1/admin/plans", b),
+  updatePlan: (id: string, b: S["PlanRequest"]) => request<Plan>("PATCH", `/api/v1/admin/plans/${id}`, b),
+  dedicatedRequests: (status?: string) => getJSON<S["DedicatedRequestList"]>(`/api/v1/admin/dedicated-requests${qs({ status })}`),
+  approveDedicatedRequest: (id: string, b: S["DecideRequest"]) => request<Operation>("POST", `/api/v1/admin/dedicated-requests/${id}/approve`, b),
+  rejectDedicatedRequest: (id: string, b: S["DecideRequest"]) => request<void>("POST", `/api/v1/admin/dedicated-requests/${id}/reject`, b),
+  platformUsage: (p: { from?: string; to?: string } = {}) => getJSON<PlatformUsage>(`/api/v1/admin/usage${qs(p)}`),
+  sharedClusters: () => getJSON<S["SharedClusterList"]>("/api/v1/admin/shared-clusters"),
 
   projects: (org?: string, status?: string) => getJSON<S["ProjectList"]>(`/api/v1/projects${qs({ org, status, limit: 500 })}`),
   project: (id: string) => getJSON<Project>(`/api/v1/projects/${id}`),
   createProject: (b: CreateProjectRequest) => request<ProjectCredentials>("POST", "/api/v1/projects", b),
   profiles: () => getJSON<ProfileList>("/api/v1/profiles"),
   promotionEstimate: (id: string) => getJSON<S["PromotionEstimate"]>(`/api/v1/projects/${id}/promote`),
-  promote: (id: string, b: S["PromoteRequest"]) => request<Operation>("POST", `/api/v1/projects/${id}/promote`, b),
+  /** An operation, or a dedicated request when beyond the org's allowance (V2 §10.6). */
+  promote: (id: string, b: S["PromoteRequest"]) => request<Operation | DedicatedRequest>("POST", `/api/v1/projects/${id}/promote`, b),
   sql: (id: string, b: S["SqlRequest"]) => request<SqlResult>("POST", `/api/v1/projects/${id}/sql`, b),
   cancelSql: (id: string, query_id: string) => request<S["SqlCancelResult"]>("POST", `/api/v1/projects/${id}/sql/cancel`, { query_id }),
   schema: (id: string) => getJSON<DbSchema>(`/api/v1/projects/${id}/schema`),

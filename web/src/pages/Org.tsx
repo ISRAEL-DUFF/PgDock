@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { api, errorMessage, type InvitationCreated, type OrgMember, type OrgRole, type ProjectRole } from "../api/client";
+import { api, errorMessage, type InvitationCreated, type Org, type OrgMember, type OrgRole, type ProjectRole } from "../api/client";
 import { Alert, Badge, Button, Card, CopyField, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, Table } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { canManageOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
@@ -343,7 +343,63 @@ export function OrgSettingsPage() {
           </p>
         </Card>
         {err && <Alert>{err}</Alert>}
+        {org.role === "owner" && !org.personal && org.status === "active" && <DeleteOrgCard org={org} />}
       </div>
     </>
+  );
+}
+
+/** Delete the organisation, after a 7-day grace period (V2 §10.10). */
+function DeleteOrgCard({ org }: { org: Org }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [all, setAll] = useState(false);
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.reauth({ password, code });
+      await api.deleteOrg(org.id, { confirm, delete_projects: all });
+      setOpen(false);
+      await qc.invalidateQueries();
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title="Delete organisation">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          Its projects go offline at once, and are deleted (each with a final backup kept for 30 days) after 7 days. Until then any owner can cancel.
+        </p>
+        <Button variant="danger" onClick={() => setOpen(true)} data-testid="delete-org">
+          Delete…
+        </Button>
+      </div>
+      <Modal title={`Delete ${org.name}`} open={open} onClose={() => setOpen(false)}>
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <Field label={`Type ${org.name} to confirm`}>{(id) => <Input id={id} value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>
+          {org.project_count > 0 && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Delete its {org.project_count} project{org.project_count === 1 ? "" : "s"} too
+            </label>
+          )}
+          <Field label="Your password">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+          <Field label="Authenticator code">{(id) => <Input id={id} inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />}</Field>
+          {err && <Alert>{err}</Alert>}
+          <Button type="submit" variant="danger" busy={busy} disabled={confirm !== org.name || (org.project_count > 0 && !all) || !password || code.length < 6}>
+            Delete in 7 days
+          </Button>
+        </form>
+      </Modal>
+    </Card>
   );
 }

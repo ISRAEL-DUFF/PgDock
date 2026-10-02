@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiRequestError, api, errorMessage, type InstanceSummary } from "../api/client";
+import { StorageBanner } from "../components/TenancyCards";
 import { Alert, Badge, Button, Card, CopyField, EmptyState, PageHeader, Spinner, StateBadge, StatusBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 
@@ -55,6 +56,7 @@ export function ProjectLayout() {
           </span>
         }
       />
+      <StorageBanner p={p} />
       <nav aria-label="Project" className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((t) => (
           <Link

@@ -6,6 +6,8 @@ import { sessionQuery } from "./lib/session";
 import { AlertsPage } from "./pages/Alerts";
 import { AccountPage } from "./pages/Account";
 import { AdminUsersPage } from "./pages/AdminUsers";
+import { AdminOrgPage, AdminOrgsPage, AdminPlansPage, DedicatedRequestsPage } from "./pages/AdminOrgs";
+import { UsagePage } from "./pages/Usage";
 import { AuditPage, OrgAuditPage } from "./pages/Audit";
 import { OrgMembersPage, OrgSettingsPage } from "./pages/Org";
 import { ProjectMembersPage } from "./pages/ProjectMembers";
@@ -112,6 +114,11 @@ const operation = createRoute({ getParentRoute: () => app, path: "/operations/$i
 const alertsRoute = createRoute({ getParentRoute: () => app, path: "/alerts", component: AlertsPage });
 const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: AuditPage });
 const settings = createRoute({ getParentRoute: () => app, path: "/settings", component: SettingsPage });
+const orgUsage = createRoute({ getParentRoute: () => app, path: "/org/usage", component: UsagePage });
+const adminOrgs = createRoute({ getParentRoute: () => app, path: "/admin/orgs", component: AdminOrgsPage });
+const adminOrg = createRoute({ getParentRoute: () => app, path: "/admin/orgs/$id", component: AdminOrgPage });
+const adminPlans = createRoute({ getParentRoute: () => app, path: "/admin/plans", component: AdminPlansPage });
+const adminRequests = createRoute({ getParentRoute: () => app, path: "/admin/dedicated-requests", component: DedicatedRequestsPage });
 
 const routeTree = root.addChildren([
   setup,
@@ -138,6 +145,11 @@ const routeTree = root.addChildren([
     alertsRoute,
     audit,
     settings,
+    orgUsage,
+    adminOrgs,
+    adminOrg,
+    adminPlans,
+    adminRequests,
   ]),
 ]);
 

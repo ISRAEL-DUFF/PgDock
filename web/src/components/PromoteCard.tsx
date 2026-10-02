@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, errorMessage, type Project } from "../api/client";
+import { api, errorMessage, type DedicatedRequest, type Project } from "../api/client";
 import { formatBytes } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { OperationLog } from "./OperationLog";
@@ -24,6 +24,8 @@ export function PromoteCard({ p }: { p: Project }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [opId, setOpId] = useState<string | undefined>();
+  const [reason, setReason] = useState("");
+  const [request, setRequest] = useState<DedicatedRequest | null>(null);
   const stream = useOperationStream(opId);
   const estimate = useQuery({ queryKey: ["promote", p.id], queryFn: () => api.promotionEstimate(p.id), enabled: open });
   const profiles = useQuery({ queryKey: ["profiles"], queryFn: api.profiles, enabled: open });
@@ -34,12 +36,18 @@ export function PromoteCard({ p }: { p: Project }) {
     setBusy(true);
     setErr(null);
     try {
-      const op = await api.promote(p.id, {
+      const r = await api.promote(p.id, {
         node_id: nodeId || undefined,
         profile: profile || undefined,
         volume_gb: volume ? Number(volume) : undefined,
+        reason: reason || undefined,
       });
-      setOpId(op.id);
+      // Beyond the organisation's dedicated allowance it becomes a request
+      // the platform admin decides (V2 §10.6).
+      if ("project_name" in r) {
+        setRequest(r);
+        setOpen(false);
+      } else setOpId(r.id);
       await qc.invalidateQueries({ queryKey: ["project", p.id] });
     } catch (e) {
       setErr(errorMessage(e));
@@ -51,6 +59,17 @@ export function PromoteCard({ p }: { p: Project }) {
   // Shared projects only; once started it stays to show the outcome, even
   // after the project has become dedicated.
   if (!opId && (p.tier !== "shared" || (p.status !== "active" && p.status !== "promoting"))) return null;
+
+  if (request) {
+    return (
+      <Card title="Promote to dedicated">
+        <Alert tone="ok" title="Request sent">
+          This is beyond your organisation&rsquo;s dedicated allowance, so the platform admin decides. You&rsquo;ll get an email either way; the promotion starts as
+          soon as it&rsquo;s approved.
+        </Alert>
+      </Card>
+    );
+  }
 
   if (opId) {
     return (
@@ -118,6 +137,9 @@ export function PromoteCard({ p }: { p: Project }) {
               )}
             </Field>
           </div>
+          <Field label="Why (if it needs approval)" hint="Beyond your organisation's dedicated allowance, this becomes a request to the platform admin.">
+            {(id) => <Input id={id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}
+          </Field>
           {estimate.data && (
             <Alert tone="accent" title={`Estimated write freeze: ${duration(estimate.data.estimated_downtime_seconds)}`}>
               <span data-testid="promote-estimate">

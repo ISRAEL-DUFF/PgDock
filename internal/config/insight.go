@@ -26,6 +26,10 @@ type Insight struct {
 	// PublicURL is the web UI's address, for links in alerts
 	// (PGDOCK_PUBLIC_URL, e.g. https://pgdock.example.com).
 	PublicURL string
+	// TenancySweep is how often opaque renames, credential grace periods,
+	// usage recording, and org deletions are processed
+	// (PGDOCK_TENANCY_SWEEP_INTERVAL, default 5m).
+	TenancySweep time.Duration
 }
 
 func loadInsight(getenv func(string) string, cfg *Config) []error {
@@ -55,6 +59,14 @@ func loadInsight(getenv func(string) string, cfg *Config) []error {
 			errs = append(errs, fmt.Errorf("PGDOCK_METRICS_INTERVAL: must be a duration from 1s to 1h, got %q", v))
 		}
 		in.MetricsInterval = d
+	}
+	in.TenancySweep = 5 * time.Minute
+	if v := getenv("PGDOCK_TENANCY_SWEEP_INTERVAL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < time.Second || d > time.Hour {
+			errs = append(errs, fmt.Errorf("PGDOCK_TENANCY_SWEEP_INTERVAL: must be a duration from 1s to 1h, got %q", v))
+		}
+		in.TenancySweep = d
 	}
 	if t := in.MetricsToken; t != "" && len(t) < 24 {
 		errs = append(errs, errors.New("PGDOCK_METRICS_TOKEN: must be at least 24 characters"))
