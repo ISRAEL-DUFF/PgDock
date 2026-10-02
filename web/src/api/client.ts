@@ -126,8 +126,11 @@ export async function request<T>(method: Method, path: string, body?: unknown, f
     }
     throw new ApiRequestError(res.status, err);
   }
+  // Some successes carry no body: 204, and 202 for requests that answer the
+  // same whatever happened (sign-up, password reset).
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const text = await res.text();
+  return (text === "" ? undefined : JSON.parse(text)) as T;
 }
 
 export function getJSON<T>(path: string, fetchFn?: typeof fetch): Promise<T> {
