@@ -86,8 +86,13 @@ func (e *env) instance(t *testing.T, node store.Node, kind, age string) store.In
 func (e *env) project(t *testing.T, inst store.Instance, name string, deleted bool) {
 	t.Helper()
 	ctx := context.Background()
+	var org uuid.UUID
+	if err := e.db.QueryRow(ctx, `INSERT INTO organizations (name, slug, plan_id)
+		SELECT $1::text, $1::text, id FROM quota_plans WHERE name = 'Personal' RETURNING id`, name).Scan(&org); err != nil {
+		t.Fatal(err)
+	}
 	p, err := store.New(e.db).InsertProject(ctx, store.InsertProjectParams{
-		ID: uuid.New(), Name: name, Slug: name, DbName: name, OwnerRole: name + "_owner",
+		ID: uuid.New(), OrgID: org, Name: name, Slug: name, DbName: name, OwnerRole: name + "_owner",
 		ScramVerifier: "SCRAM-SHA-256$4096:x$y:z", Tier: "dedicated", InstanceID: inst.ID, Settings: []byte(`{}`),
 	})
 	if err != nil {

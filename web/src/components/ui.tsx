@@ -249,7 +249,7 @@ export function Modal({ title, open, onClose, children }: { title: string; open:
       <div className="border-b border-line px-4 py-3">
         <h2 className="font-semibold">{title}</h2>
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-4">{open && children}</div>
     </dialog>
   );
 }
