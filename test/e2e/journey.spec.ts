@@ -148,6 +148,11 @@ async function acceptInvitation(page: Page, link: string, name: string): Promise
   return secret;
 }
 
+/** The status of a GET from inside the page: its cookies, its DNS mapping. */
+async function apiStatus(page: Page, path: string): Promise<number> {
+  return page.evaluate(async (p) => (await fetch(p)).status, path);
+}
+
 async function revealedValue(page: Page, testId: string): Promise<string> {
   const code = page.getByTestId(testId);
   await expect(code).toBeVisible(); // isVisible() below does not wait
@@ -875,11 +880,11 @@ test.describe("with the saved session", () => {
     await expect(page.getByRole("link", { name: "Bobs app" })).toHaveCount(0);
     await page.goto(`/projects/${bobID}`);
     await expect(page.getByTestId("project-not-found")).toBeVisible();
-    expect((await page.request.get(`/api/v1/projects/${bobID}`)).status()).toBe(404);
+    expect(await apiStatus(page, `/api/v1/projects/${bobID}`)).toBe(404);
     await bob.goto(`/projects/${teamID}`);
     await expect(bob.getByTestId("project-not-found")).toBeVisible();
-    expect((await bob.request.get(`/api/v1/projects/${teamID}`)).status()).toBe(404);
-    expect((await bob.request.get(`/api/v1/projects/${teamID}/members`)).status()).toBe(404);
+    expect(await apiStatus(bob, `/api/v1/projects/${teamID}`)).toBe(404);
+    expect(await apiStatus(bob, `/api/v1/projects/${teamID}/members`)).toBe(404);
     await shot(bob, "35-not-found");
 
     // Removing carol from the organisation revokes everything immediately.
@@ -890,7 +895,7 @@ test.describe("with the saved session", () => {
     await expect(connect(carolURL).then((c) => c.query("SELECT 1"))).rejects.toThrow();
     await carol.goto(`/projects/${teamID}`);
     await expect(carol.getByTestId("project-not-found")).toBeVisible();
-    expect((await carol.request.get(`/api/v1/projects/${teamID}`)).status()).toBe(404);
+    expect(await apiStatus(carol, `/api/v1/projects/${teamID}`)).toBe(404);
     await carolCtx.close();
     await bobCtx.close();
   });
