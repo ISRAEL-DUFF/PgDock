@@ -150,6 +150,7 @@ async function acceptInvitation(page: Page, link: string, name: string): Promise
 
 async function revealedValue(page: Page, testId: string): Promise<string> {
   const code = page.getByTestId(testId);
+  await expect(code).toBeVisible(); // isVisible() below does not wait
   const row = code.locator("..");
   const show = row.getByRole("button", { name: "Show" });
   if (await show.isVisible()) await show.click();
