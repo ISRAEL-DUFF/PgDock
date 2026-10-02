@@ -264,3 +264,17 @@ func TestLimiter(t *testing.T) {
 		t.Fatal("other address refused")
 	}
 }
+
+func TestEmailedTokensHaveTheirOwnBudget(t *testing.T) {
+	s, _ := newService(t, auth.Config{})
+	for range 10 {
+		_ = s.Allow("1.2.3.4")
+	}
+	if err := s.Allow("1.2.3.4"); !errors.Is(err, auth.ErrRateLimited) {
+		t.Fatalf("eleventh sign-in attempt: got %v, want rate limited", err)
+	}
+	// Opening an invitation from the same address still works.
+	if err := s.AllowToken("1.2.3.4"); err != nil {
+		t.Fatalf("token request after the sign-in budget ran out: %v", err)
+	}
+}

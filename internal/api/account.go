@@ -179,7 +179,7 @@ func (s *Server) PreviewInvitation(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := s.auth.Allow(ipString(r.Context())); err != nil {
+	if err := s.auth.AllowToken(ipString(r.Context())); err != nil {
 		s.authError(w, "invitation", err)
 		return
 	}
@@ -211,7 +211,7 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := s.auth.Allow(ipString(r.Context())); err != nil {
+	if err := s.auth.AllowToken(ipString(r.Context())); err != nil {
 		s.authError(w, "invitation", err)
 		return
 	}

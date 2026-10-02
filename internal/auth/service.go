@@ -113,11 +113,15 @@ type Hooks struct {
 
 // Service authenticates users and runs account flows.
 type Service struct {
-	db        *pgxpool.Pool
-	keyring   *crypto.Keyring
-	cfg       Config
-	log       *slog.Logger
-	limiter   *Limiter
+	db      *pgxpool.Pool
+	keyring *crypto.Keyring
+	cfg     Config
+	log     *slog.Logger
+	limiter *Limiter
+	// tokens limits requests that present an emailed token (invitations,
+	// verification, resets): 32 random bytes cannot be guessed, so these get
+	// their own budget rather than spending the sign-in one.
+	tokens    *Limiter
 	setupCode string
 	mailer    Mailer
 	hooks     Hooks
@@ -128,7 +132,7 @@ type Service struct {
 // claim a freshly installed control plane.
 func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, cfg Config, setupCode string, log *slog.Logger) *Service {
 	cfg.setDefaults()
-	return &Service{db: db, keyring: keyring, cfg: cfg, log: log, limiter: NewLimiter(10, 5*time.Minute), setupCode: setupCode}
+	return &Service{db: db, keyring: keyring, cfg: cfg, log: log, limiter: NewLimiter(10, 5*time.Minute), tokens: NewLimiter(60, 5*time.Minute), setupCode: setupCode}
 }
 
 // SetMailer sets how account email is sent.
@@ -165,6 +169,15 @@ func (s *Service) IdleTimeout() time.Duration { return s.cfg.IdleTimeout }
 // Allow applies the per-address rate limit to an auth attempt.
 func (s *Service) Allow(ip string) error {
 	if !s.limiter.Allow(ip) {
+		return ErrRateLimited
+	}
+	return nil
+}
+
+// AllowToken counts a request that presents an emailed token against the
+// address's token budget.
+func (s *Service) AllowToken(ip string) error {
+	if !s.tokens.Allow(ip) {
 		return ErrRateLimited
 	}
 	return nil

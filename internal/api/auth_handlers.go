@@ -275,7 +275,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := s.auth.Allow(ipString(r.Context())); err != nil {
+	if err := s.auth.AllowToken(ipString(r.Context())); err != nil {
 		s.authError(w, "verify email", err)
 		return
 	}
@@ -329,7 +329,7 @@ func (s *Server) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := s.auth.Allow(ipString(r.Context())); err != nil {
+	if err := s.auth.AllowToken(ipString(r.Context())); err != nil {
 		s.authError(w, "password reset", err)
 		return
 	}
