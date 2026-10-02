@@ -1,3 +1,4 @@
+import { StorageCard, SwitchCredentialsCard } from "../components/TenancyCards";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
@@ -18,10 +19,12 @@ export function ProjectSettingsPage() {
   if (!p) return null;
   return (
     <div className="flex max-w-3xl flex-col gap-4">
+      <StorageCard p={p} />
       <GeneralCard p={p} />
       <GuardrailsCard p={p} />
       <ExtensionsCard p={p} />
       <RotateCard p={p} />
+      <SwitchCredentialsCard p={p} />
       <PromoteCard p={p} />
       <TransferCard p={p} />
       <DangerCard p={p} />

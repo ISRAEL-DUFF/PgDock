@@ -107,3 +107,17 @@ func decodePlain(s string) string {
 }
 
 func base64Decode(s string) ([]byte, error) { return base64.StdEncoding.DecodeString(s) }
+
+// Count is how many messages to addr contain substr.
+func (s *SMTPServer) Count(addr, substr string) int {
+	n := 0
+	for _, m := range s.Mail() {
+		for _, to := range m.To {
+			if strings.EqualFold(to, addr) && strings.Contains(m.Data, substr) {
+				n++
+				break
+			}
+		}
+	}
+	return n
+}

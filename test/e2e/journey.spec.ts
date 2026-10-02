@@ -162,6 +162,14 @@ async function revealedValue(page: Page, testId: string): Promise<string> {
   return (await code.textContent())!.trim();
 }
 
+// The bundle's metadata database, for seeding history the tests cannot wait
+// a week for.
+const metadataContainer = process.env.PGDOCK_E2E_METADATA_CONTAINER ?? "pgdock-e2e-metadata-db-1";
+async function metadataSQL(sql: string): Promise<string> {
+  const { stdout } = await promisify(execFile)("docker", ["exec", metadataContainer, "psql", "-U", "pgdock", "-d", "pgdock", "-v", "ON_ERROR_STOP=1", "-Atc", sql]);
+  return stdout.trim();
+}
+
 test.describe.configure({ mode: "serial" });
 
 test("fresh install to a working database, entirely in the browser", async ({ page }) => {
@@ -288,7 +296,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await app.query("CREATE TABLE posts (id serial PRIMARY KEY, title text NOT NULL)");
   await app.query("INSERT INTO posts (title) VALUES ($1)", ["Hello from the browser"]);
   const { rows } = await app.query("SELECT current_database() AS db, (SELECT count(*) FROM posts)::int AS n");
-  expect(rows[0].db).toMatch(/^my_blog_[a-z0-9]{4}$/);
+  expect(rows[0].db).toMatch(/^p_[a-z2-7]{10}$/);
   expect(rows[0].n).toBe(1);
   await app.end();
   if (await hasPsql()) {
@@ -546,7 +554,7 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("operation-log")).toContainText("base backup base_");
     const pooledURL = await revealedValue(page, "credential-pooled-url");
     expect(urlShape(pooledURL)).toBe(urlShape(sharedURL)); // same host, ports, sslmode
-    expect(new URL(pooledURL).pathname).toMatch(/^\/orders_pro_[a-z0-9]{4}$/);
+    expect(new URL(pooledURL).pathname).toMatch(/^\/p_[a-z2-7]{10}$/);
     await page.getByLabel("I've saved the password somewhere safe").check();
     await page.getByRole("button", { name: "Done" }).click();
 
@@ -898,5 +906,68 @@ test.describe("with the saved session", () => {
     expect(await apiStatus(carol, `/api/v1/projects/${teamID}`)).toBe(404);
     await carolCtx.close();
     await bobCtx.close();
+  });
+
+  test("usage: a week of hourly storage on the Usage page", async ({ page }) => {
+    await signedIn(page);
+    // A new organisation, so only this project's storage is counted.
+    await page.getByTestId("org-switcher").selectOption("__new");
+    await page.getByLabel("Name").fill("Metered team");
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(page.getByTestId("org-switcher").locator("option:checked")).toHaveText("Metered team");
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Metered");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    expect(decodeURIComponent(new URL(await revealedValue(page, "credential-pooled-url")).username)).toMatch(/^p_[a-z2-7]{10}_owner$/);
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+
+    // A week of size samples ending at the current hour: hour i averages
+    // (i+1) x 100 MB. Older hours exist only as hourly points; the last day
+    // has minute points. Don't let the hour turn between seeding and looking.
+    while (Number(await metadataSQL("SELECT extract(minute FROM now())::int")) >= 57) await page.waitForTimeout(10_000);
+    await metadataSQL(`
+      BEGIN;
+      DELETE FROM metric_points WHERE scope = 'project' AND scope_id = '${id}' AND ts < date_trunc('hour', now());
+      DELETE FROM usage_records WHERE project_id = '${id}';
+      INSERT INTO metric_points (scope, scope_id, metric, ts, resolution, value)
+        SELECT 'project', '${id}', 'size_bytes', date_trunc('hour', now()) - interval '168 hours' + g * interval '1 hour', '1h', (g + 1) * 1e8
+        FROM generate_series(0, 143) g;
+      INSERT INTO metric_points (scope, scope_id, metric, ts, resolution, value)
+        SELECT 'project', '${id}', 'size_bytes', date_trunc('hour', now()) - interval '24 hours' + m * interval '1 minute', '1m',
+               (144 + m / 60 + 1) * 1e8 + CASE WHEN m % 2 = 0 THEN 5e6 ELSE -5e6 END
+        FROM generate_series(0, 24 * 60 - 1) m;
+      DELETE FROM settings WHERE key = 'usage.watermark';
+      COMMIT;`);
+
+    // The tenancy sweep (every 5 s in the bundle) records the week.
+    await page.goto("/org/usage");
+    await expect(page.getByRole("heading", { name: "Usage & quotas" })).toBeVisible();
+    await expect(page.getByTestId("quota-projects")).toContainText("1 of");
+    await page.getByTestId("usage-range").selectOption("30d");
+    await expect(async () => {
+      await page.reload();
+      await page.getByTestId("usage-range").selectOption("30d");
+      await expect(page.getByTestId("usage-hours-toggle")).toHaveText("168 hours recorded", { timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+    await page.getByTestId("usage-hours-toggle").click();
+    const totals = page.getByTestId("usage-hour-total");
+    await expect(totals).toHaveCount(168);
+    await expect(totals.first()).toHaveText("0.1");
+    await expect(totals.nth(99)).toHaveText("10");
+    await expect(totals.last()).toHaveText("16.8");
+    // 0.1 x (1 + 2 + ... + 168) GB-hours.
+    await expect(page.getByTestId("usage-total-shared_storage_gb_hours")).toContainText("1420 GB-hours");
+    await expect(page.getByTestId("usage-csv")).toHaveAttribute("href", /format=csv/);
+    await shot(page, "36-usage");
+
+    // The platform admin sees the organisation in the admin console.
+    await page.goto("/admin/orgs");
+    await page.getByRole("link", { name: "Metered team" }).click();
+    await expect(page.getByRole("heading", { name: "Metered team" })).toBeVisible();
   });
 });

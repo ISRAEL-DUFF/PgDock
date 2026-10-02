@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
 
@@ -21,7 +22,8 @@ func TestCreateConnectRotateDelete(t *testing.T) {
 
 	c := e.CreateProject("Integration Blog")
 	p := c.Project
-	if !strings.HasPrefix(p.DbName, "integration_blog_") || p.OwnerRole != p.DbName+"_owner" {
+	// V2 §10.2: nothing about the project is in its names.
+	if !provision.IsOpaque(p.DbName) || p.OwnerRole != p.DbName+"_owner" || strings.Contains(p.DbName, "blog") {
 		t.Fatalf("unexpected names: %s %s", p.DbName, p.OwnerRole)
 	}
 	if strings.Contains(c.Project.Connection.PooledUrl, c.Password) {

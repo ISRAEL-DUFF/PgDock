@@ -19,8 +19,9 @@ import (
 // Kind is the operation that checks one shared cluster.
 const Kind = "isolation_check"
 
-// Every is how often each shared cluster is checked (spec §7.1: weekly).
-const Every = 7 * 24 * time.Hour
+// Every is how often each shared cluster is checked: nightly in V2 (§10.4,
+// the forbidden-capabilities audit), weekly in V1.
+const Every = 24 * time.Hour
 
 // Service schedules and runs isolation checks.
 type Service struct {

@@ -5,6 +5,25 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Tenancy hardening, quotas and usage (V2 M9)
+- Opaque database and role names for new projects; existing projects are
+  renamed behind an alias (same URLs) and can switch to opaque
+  credentials with a grace period. `pg_stat_activity` no longer shows
+  other tenants.
+- Quota plans with per-org overrides, checked when creating projects,
+  backups, restores, console queries and connections.
+- Storage enforcement on the shared tier: warning at 90%, read-only at
+  100%, no app logins at 120%, with the console still working and
+  Reclaim space. Long statements (10 min) and idle transactions (5 min)
+  are ended; `temp_file_limit` is 2 GB.
+- Per-org shared clusters, dedicated allowances and dedicated requests.
+- Org suspension, break-glass sessions, and an admin console for
+  organisations, plans and requests.
+- Hourly usage recording, a Usage & quotas page with CSV export, and
+  organisation deletion with a 7-day grace period.
+- The isolation check runs nightly and covers metadata leaks, quota
+  bypass and suspended orgs.
+
 ### Users and organisations (V2 M8)
 - Many users: sign-up (invite-only by default, approval, or open with
   email domains), email verification, password reset, recovery codes,

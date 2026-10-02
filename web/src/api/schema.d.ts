@@ -1372,7 +1372,8 @@ export interface paths {
         get: operations["getOrg"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete an organisation after a 7-day grace period (owner, step-up auth) */
+        delete: operations["deleteOrg"];
         options?: never;
         head?: never;
         /** Rename an organisation or change its settings */
@@ -1752,6 +1753,387 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/quotas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's plan, limits, and current use (V2 §10.3) */
+        get: operations["getOrgQuotas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recorded usage (V2 §10.9), as JSON or CSV */
+        get: operations["getOrgUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/cancel-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a pending organisation deletion (owner) */
+        post: operations["cancelOrgDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/break-glass/{session_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End a break-glass session early (owner) */
+        post: operations["endBreakGlass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/dedicated-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's dedicated instance requests */
+        get: operations["listOrgDedicatedRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/switch-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a V1 project to opaque credentials (V2 §10.2)
+         * @description Creates an opaque owner role with a new password, returned once. The
+         *     V1 role and database name keep working until the grace period ends,
+         *     then stop.
+         */
+        post: operations["switchProjectCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Size against the storage limit, lock state, and the largest tables */
+        get: operations["getProjectStorage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/reclaim-space": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table) */
+        post: operations["reclaimSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/reaped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Statements and idle transactions the reaper ended (V2 §10.4) */
+        get: operations["listReapedSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every organisation with plan, counts, size, and status (platform admin) */
+        get: operations["adminListOrgs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One organisation's plan, limits, allowance, and clusters (platform admin) */
+        get: operations["adminGetOrg"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin) */
+        patch: operations["adminUpdateOrg"];
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend an organisation (platform admin) */
+        post: operations["adminSuspendOrg"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reinstate a suspended organisation (platform admin) */
+        post: operations["adminReinstateOrg"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/cluster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give an organisation its own shared cluster, or take it back (platform admin) */
+        post: operations["adminSetOrgCluster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/break-glass": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start break-glass access to an organisation (platform admin, step-up auth) */
+        post: operations["adminStartBreakGlass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quota plan templates (platform admin) */
+        get: operations["listPlans"];
+        put?: never;
+        /** Add a quota plan template (platform admin) */
+        post: operations["createPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/plans/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a quota plan template (platform admin) */
+        patch: operations["updatePlan"];
+        trace?: never;
+    };
+    "/api/v1/admin/dedicated-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dedicated instance requests from every organisation (platform admin) */
+        get: operations["listDedicatedRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dedicated-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a dedicated request; the promotion starts (platform admin) */
+        post: operations["approveDedicatedRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dedicated-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a dedicated request (platform admin) */
+        post: operations["rejectDedicatedRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage totals per organisation (platform admin) */
+        get: operations["platformUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/shared-clusters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shared clusters and the organisation each is reserved for (platform admin) */
+        get: operations["listSharedClusters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1800,6 +2182,7 @@ export interface components {
             /** @example not_implemented */
             code: string;
             message: string;
+            quota?: components["schemas"]["QuotaItem"];
         };
         /** @enum {string} */
         OperationStatus: "queued" | "running" | "succeeded" | "failed";
@@ -1887,6 +2270,14 @@ export interface components {
             /** Format: uuid */
             org_id: string;
             my_role?: components["schemas"]["ProjectRole"];
+            storage_state?: components["schemas"]["StorageState"];
+            /** @description A V1 project that still uses its V1 owner role (V2 §10.2). */
+            can_switch_credentials?: boolean;
+            /**
+             * Format: date-time
+             * @description The V1 credentials stop working at this time.
+             */
+            legacy_credentials_until?: string | null;
             name: string;
             slug: string;
             db_name: string;
@@ -2365,6 +2756,8 @@ export interface components {
             node_id?: string;
             profile?: string;
             volume_gb?: number;
+            /** @description Why, when the promotion is beyond the organisation's dedicated allowance and becomes a request. */
+            reason?: string;
         };
         SqlRequest: {
             query: string;
@@ -2697,6 +3090,14 @@ export interface components {
             members_can_create_projects: boolean;
             member_count: number;
             project_count: number;
+            suspended_reason?: string | null;
+            /**
+             * Format: date-time
+             * @description Set while the organisation is being deleted.
+             */
+            delete_after?: string | null;
+            /** @description Open break-glass sessions (V2 §2.4), shown to everyone in the organisation. */
+            break_glass?: components["schemas"]["BreakGlassSession"][];
             /** Format: date-time */
             created_at: string;
         };
@@ -2915,6 +3316,271 @@ export interface components {
              */
             test_to: string;
         };
+        QuotaItem: {
+            /** @description The limit's key (V2 §10.3), e.g. projects or project_storage_mb. */
+            limit: string;
+            used: number;
+            /**
+             * Format: int64
+             * @description Absent or null means unlimited.
+             */
+            max?: number | null;
+        };
+        DedicatedAllowance: {
+            instances: number;
+            cpus: number;
+            memory_mb: number;
+            disk_gb: number;
+            /** @description The Unlimited plan has no allowance to stay within. */
+            unlimited?: boolean;
+        };
+        OrgQuotas: {
+            plan: string;
+            items: components["schemas"]["QuotaItem"][];
+            dedicated_allowance: components["schemas"]["DedicatedAllowance"];
+            dedicated_use: components["schemas"]["DedicatedAllowance"];
+        };
+        UsageMetric: {
+            name: string;
+            unit: string;
+            /** @enum {string} */
+            granularity: "hour" | "day";
+        };
+        UsageRecord: {
+            metric: string;
+            /** @enum {string} */
+            granularity: "hour" | "day";
+            /** Format: date-time */
+            period_start: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            /** @description Absent once the project is deleted. */
+            project_name?: string | null;
+            quantity: number;
+        };
+        UsageTotal: {
+            metric: string;
+            quantity: number;
+        };
+        UsageReport: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            metrics: components["schemas"]["UsageMetric"][];
+            records: components["schemas"]["UsageRecord"][];
+            totals: components["schemas"]["UsageTotal"][];
+        };
+        PlatformUsageRow: {
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            metric: string;
+            quantity: number;
+        };
+        PlatformUsage: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            items: components["schemas"]["PlatformUsageRow"][];
+        };
+        DeleteOrgRequest: {
+            /** @description The organisation's name, typed. */
+            confirm: string;
+            /** @description Delete every project too (each gets a final backup). */
+            delete_projects?: boolean;
+        };
+        OrgDeletion: {
+            /** Format: date-time */
+            delete_after: string;
+        };
+        BreakGlassSession: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            admin_email: string;
+            reason: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        BreakGlassRequest: {
+            reason: string;
+            duration_minutes: number;
+        };
+        ReasonRequest: {
+            reason: string;
+        };
+        DedicatedRequest: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string;
+            /** Format: uuid */
+            project_id: string;
+            project_name: string;
+            /** @description The requester's email. */
+            requested_by: string;
+            profile: string;
+            volume_gb: number;
+            /** Format: uuid */
+            node_id?: string | null;
+            reason?: string | null;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "cancelled";
+            decision_note?: string | null;
+            /** Format: date-time */
+            decided_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        DedicatedRequestList: {
+            items: components["schemas"]["DedicatedRequest"][];
+        };
+        DecideRequest: {
+            note?: string;
+            /** @description On approval, raise the organisation's allowance to fit this instance. */
+            raise_allowance?: boolean;
+        };
+        SwitchCredentialsRequest: {
+            /** @description How long the V1 credentials keep working (default 7). */
+            grace_days?: number;
+        };
+        /** @description Shown once. The V1 role works until legacy_until. */
+        SwitchedCredentials: {
+            project: components["schemas"]["Project"];
+            operation: components["schemas"]["Operation"];
+            password: string;
+            connection: components["schemas"]["ConnectionInfo"];
+            /** Format: date-time */
+            legacy_until: string;
+        };
+        TableFootprint: {
+            schema: string;
+            table: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            dead_rows: number;
+        };
+        /**
+         * @description V2 §10.4 storage enforcement.
+         * @enum {string}
+         */
+        StorageState: "none" | "warn" | "soft" | "hard";
+        ProjectStorage: {
+            state: components["schemas"]["StorageState"];
+            /** Format: int64 */
+            size_bytes?: number | null;
+            /** Format: int64 */
+            limit_bytes?: number | null;
+            tables: components["schemas"]["TableFootprint"][];
+        };
+        ReclaimSpaceRequest: {
+            schema: string;
+            table: string;
+        };
+        ReapedSession: {
+            /** @enum {string} */
+            kind: "statement" | "idle_in_transaction";
+            role: string;
+            duration_s: number;
+            query?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReapedSessionList: {
+            items: components["schemas"]["ReapedSession"][];
+        };
+        AdminOrgSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            plan: string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "deleting" | "deleted";
+            suspended_reason?: string | null;
+            personal: boolean;
+            member_count: number;
+            project_count: number;
+            /** Format: int64 */
+            size_bytes: number;
+            outbound_disabled: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AdminOrgList: {
+            items: components["schemas"]["AdminOrgSummary"][];
+        };
+        SharedCluster: {
+            /** Format: uuid */
+            id: string;
+            node_name: string;
+            /** Format: uuid */
+            org_id?: string | null;
+            org_name?: string | null;
+            project_count: number;
+        };
+        SharedClusterList: {
+            items: components["schemas"]["SharedCluster"][];
+        };
+        AdminOrg: {
+            org: components["schemas"]["AdminOrgSummary"];
+            /** Format: uuid */
+            plan_id: string;
+            /** @description Effective limits (plan with overrides); absent keys are unlimited. */
+            limits: {
+                [key: string]: number;
+            };
+            limit_overrides: {
+                [key: string]: number | null;
+            };
+            dedicated_allowance: components["schemas"]["DedicatedAllowance"];
+            clusters: components["schemas"]["SharedCluster"][];
+            /** @description Your open break-glass sessions on this organisation. */
+            break_glass: components["schemas"]["BreakGlassSession"][];
+        };
+        AdminUpdateOrgRequest: {
+            /** Format: uuid */
+            plan_id?: string;
+            /** @description Replaces the overrides. A number sets a limit; null makes it unlimited. */
+            limit_overrides?: {
+                [key: string]: number | null;
+            };
+            dedicated_allowance?: components["schemas"]["DedicatedAllowance"];
+            outbound_disabled?: boolean;
+        };
+        SetOrgClusterRequest: {
+            /** Format: uuid */
+            instance_id: string;
+            /** @description True reserves the cluster for this organisation (default); false releases it. */
+            reserved?: boolean;
+        };
+        Plan: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            limits: {
+                [key: string]: number;
+            };
+            org_count: number;
+        };
+        PlanList: {
+            items: components["schemas"]["Plan"][];
+            /** @description Known limit keys, in display order. */
+            keys: string[];
+        };
+        PlanRequest: {
+            name: string;
+            limits: {
+                [key: string]: number;
+            };
+        };
     };
     responses: {
         /** @description Error response. */
@@ -2928,6 +3594,7 @@ export interface components {
         };
     };
     parameters: {
+        RequestID: string;
         OrgID: string;
         UserID: string;
         InvitationID: string;
@@ -3997,6 +4664,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Beyond the organisation's dedicated allowance, the promotion became a request for the platform admin (V2 §10.6). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedicatedRequest"];
+                };
+            };
             /** @description Promotion queued. */
             202: {
                 headers: {
@@ -4997,6 +5673,33 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    deleteOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description The organisation is offline and will be deleted at delete_after unless an owner cancels. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgDeletion"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateOrg: {
         parameters: {
             query?: never;
@@ -5728,6 +6431,592 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Terms"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgQuotas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Limits and use. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgQuotas"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgUsage: {
+        parameters: {
+            query?: {
+                /** @description Start (inclusive); default the start of this month (UTC). */
+                from?: string;
+                /** @description End (exclusive); default now. */
+                to?: string;
+                metric?: string;
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usage records. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReport"];
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelOrgDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled; the projects accept connections again. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    endBreakGlass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgDedicatedRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedicatedRequestList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    switchProjectCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchCredentialsRequest"];
+            };
+        };
+        responses: {
+            /** @description Switch operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchedCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectStorage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    reclaimSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReclaimSpaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listReapedSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most recent first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReapedSessionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListOrgs: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organisations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrgList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organisation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrg"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUpdateOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUpdateOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrg"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSuspendOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Suspended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminReinstateOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reinstated. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSetOrgCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOrgClusterRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrg"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminStartBreakGlass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakGlassRequest"];
+            };
+        };
+        responses: {
+            /** @description Started; every owner is emailed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakGlassSession"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plans. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDedicatedRequests: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected" | "cancelled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedicatedRequestList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    approveDedicatedRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved; the promotion is queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rejectDedicatedRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideRequest"];
+            };
+        };
+        responses: {
+            /** @description Rejected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    platformUsage: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Totals. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSharedClusters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Clusters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedClusterList"];
                 };
             };
             default: components["responses"]["Error"];

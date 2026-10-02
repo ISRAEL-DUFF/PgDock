@@ -165,6 +165,9 @@ func (s *Server) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 	auditFrom(r.Context()).target("project", id.String())
+	if s.tenancy != nil && !s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), accessFrom(r.Context()).OrgID)) {
+		return
+	}
 	op, err := s.backups.BackupNow(r.Context(), id, userID(r.Context()))
 	if err != nil {
 		s.backupError(w, "backup now", err)
@@ -202,6 +205,15 @@ func (s *Server) RestoreBackup(w http.ResponseWriter, r *http.Request, id gen.Ba
 		// In-place restore is destructive (spec §7.2): step-up auth.
 		if sess, ok := sessionFrom(r.Context()); !ok || !s.auth.RecentlyReauthenticated(sess) {
 			writeError(w, http.StatusForbidden, "reauth_required", "confirm your password and code to continue")
+			return
+		}
+	}
+	if s.tenancy != nil {
+		org := accessFrom(r.Context()).OrgID
+		if mode != backup.ModeInPlace && !s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), org)) {
+			return
+		}
+		if !s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), org)) {
 			return
 		}
 	}
@@ -463,6 +475,10 @@ func (s *Server) CreateImport(w http.ResponseWriter, r *http.Request) {
 	}
 	acc, ok := s.authorizeOrg(w, r, req.OrgId, authz.OrgCreateProject)
 	if !ok {
+		return
+	}
+	if s.tenancy != nil && (!s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), acc.OrgID)) ||
+		!s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), acc.OrgID))) {
 		return
 	}
 	a := auditFrom(r.Context())

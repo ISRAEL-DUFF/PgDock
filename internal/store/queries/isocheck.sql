@@ -7,9 +7,10 @@ ORDER BY n.name, i.created_at;
 -- name: InstanceProjects :many
 -- tenant: system - the platform's isolation checks.
 -- Live projects whose database is on an instance.
-SELECT id, db_name, owner_role FROM projects
-WHERE instance_id = @instance_id AND deleted_at IS NULL AND status NOT IN ('provisioning', 'deleting', 'error')
-ORDER BY db_name;
+SELECT p.id, p.db_name, p.owner_role, p.legacy_owner_role, p.storage_state, o.status AS org_status
+FROM projects p JOIN organizations o ON o.id = p.org_id
+WHERE p.instance_id = @instance_id AND p.deleted_at IS NULL AND p.status NOT IN ('provisioning', 'deleting', 'error')
+ORDER BY p.db_name;
 
 -- name: LatestIsolationChecks :many
 -- tenant: system - the platform's isolation checks.

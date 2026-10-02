@@ -13,15 +13,19 @@ import (
 )
 
 const instanceProjects = `-- name: InstanceProjects :many
-SELECT id, db_name, owner_role FROM projects
-WHERE instance_id = $1 AND deleted_at IS NULL AND status NOT IN ('provisioning', 'deleting', 'error')
-ORDER BY db_name
+SELECT p.id, p.db_name, p.owner_role, p.legacy_owner_role, p.storage_state, o.status AS org_status
+FROM projects p JOIN organizations o ON o.id = p.org_id
+WHERE p.instance_id = $1 AND p.deleted_at IS NULL AND p.status NOT IN ('provisioning', 'deleting', 'error')
+ORDER BY p.db_name
 `
 
 type InstanceProjectsRow struct {
-	ID        uuid.UUID
-	DbName    string
-	OwnerRole string
+	ID              uuid.UUID
+	DbName          string
+	OwnerRole       string
+	LegacyOwnerRole *string
+	StorageState    string
+	OrgStatus       string
 }
 
 // tenant: system - the platform's isolation checks.
@@ -35,7 +39,14 @@ func (q *Queries) InstanceProjects(ctx context.Context, instanceID uuid.UUID) ([
 	var items []InstanceProjectsRow
 	for rows.Next() {
 		var i InstanceProjectsRow
-		if err := rows.Scan(&i.ID, &i.DbName, &i.OwnerRole); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.DbName,
+			&i.OwnerRole,
+			&i.LegacyOwnerRole,
+			&i.StorageState,
+			&i.OrgStatus,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

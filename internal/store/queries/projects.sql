@@ -33,15 +33,18 @@ UPDATE projects SET status = @status, deleted_at = now() WHERE id = @id;
 
 -- PoolerRoutes lists every project the pooler should route to, with the
 -- backend address the pooler uses and the SCRAM verifier for its auth file.
+-- A suspended organisation's projects get no routes (V2 s10.8).
 -- name: PoolerRoutes :many
 -- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
-SELECT p.db_name, p.owner_role, p.scram_verifier, p.settings,
-       COALESCE(i.host, n.private_addr)::text AS host, i.port
+SELECT p.db_name, p.alias_db_name, p.owner_role, p.scram_verifier, p.legacy_owner_role, p.legacy_scram_verifier,
+       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id
+JOIN organizations o ON o.id = p.org_id
 WHERE p.deleted_at IS NULL
   AND p.status IN ('provisioning', 'active', 'promoting', 'restoring')
+  AND o.status <> 'suspended'
 ORDER BY p.db_name;
 
 -- name: UpdateProjectMeta :one
@@ -49,3 +52,37 @@ ORDER BY p.db_name;
 UPDATE projects SET name = @name, description = sqlc.narg(description), settings = @settings
 WHERE id = @id
 RETURNING *;
+
+-- name: ProjectsToRename :many
+-- V1 projects whose backend database still has a descriptive name (V2 s10.2).
+-- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+SELECT * FROM projects
+WHERE deleted_at IS NULL AND status = 'active' AND db_name !~ '^p_[a-z2-7]{10}$'
+ORDER BY created_at;
+
+-- name: SetProjectBackendName :exec
+-- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+UPDATE projects SET db_name = @db_name, alias_db_name = sqlc.narg(alias_db_name) WHERE id = @id;
+
+-- name: SwitchProjectCredentials :exec
+-- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+UPDATE projects SET owner_role = @owner_role, scram_verifier = @scram_verifier,
+  legacy_owner_role = sqlc.narg(legacy_owner_role), legacy_scram_verifier = sqlc.narg(legacy_scram_verifier),
+  legacy_until = sqlc.narg(legacy_until)
+WHERE id = @id;
+
+-- name: ProjectsLegacyExpired :many
+-- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+SELECT * FROM projects
+WHERE deleted_at IS NULL AND legacy_until IS NOT NULL AND legacy_until <= @now::timestamptz
+ORDER BY legacy_until;
+
+-- name: ClearProjectLegacy :exec
+-- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+UPDATE projects SET legacy_owner_role = NULL, legacy_scram_verifier = NULL, legacy_until = NULL, alias_db_name = NULL
+WHERE id = @id;
+
+-- name: DBNameTaken :one
+-- A name in use as any project's backend database or alias.
+-- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+SELECT EXISTS (SELECT 1 FROM projects WHERE db_name = @name OR alias_db_name = @name);

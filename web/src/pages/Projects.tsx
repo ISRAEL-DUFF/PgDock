@@ -16,6 +16,7 @@ import {
 import { formatDate, relativeTime } from "../lib/format";
 import { canManageOrg, useCurrentOrg } from "../lib/org";
 import { backupIsStale } from "./ProjectBackups";
+import { QuotasCard } from "./Usage";
 
 export function ProjectsPage() {
   const { org } = useCurrentOrg();
@@ -26,6 +27,7 @@ export function ProjectsPage() {
     enabled: !!org,
   });
   const canCreate = canManageOrg(org) || !!org?.members_can_create_projects;
+  const quotas = useQuery({ queryKey: ["org", org?.id, "quotas"], queryFn: () => api.orgQuotas(org!.id), enabled: !!org });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [tier, setTier] = useState("");
@@ -67,6 +69,11 @@ export function ProjectsPage() {
           )
         }
       />
+      {quotas.data && (
+        <div className="mb-4">
+          <QuotasCard quotas={quotas.data} compact />
+        </div>
+      )}
       <div className="mb-3 flex flex-wrap gap-2">
         <Input
           placeholder="Search name or database"

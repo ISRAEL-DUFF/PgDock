@@ -146,6 +146,15 @@ func (b *batch) add(id uuid.UUID, metric string, v float64) {
 // bucket is the 1-minute point a sample at t belongs to.
 func bucket(t time.Time) time.Time { return t.UTC().Truncate(time.Minute) }
 
+// CollectSizes is Collect with database sizes measured now, however recently
+// they were last (tests, and storage enforcement right after Reclaim space).
+func (c *Collector) CollectSizes(ctx context.Context) error {
+	c.mu.Lock()
+	c.lastSize = time.Time{}
+	c.mu.Unlock()
+	return c.Collect(ctx)
+}
+
 // Collect takes one sample of every active project and every node.
 func (c *Collector) Collect(ctx context.Context) error {
 	now := time.Now()
@@ -217,8 +226,12 @@ func (c *Collector) collectProjects(ctx context.Context, now time.Time, b *batch
 			}
 		}
 		for _, p := range ps {
-			b.add(p.ID, PoolerClients, float64(clients[p.DbName]))
-			b.add(p.ID, PoolerWaiting, float64(waiting[p.DbName]))
+			var cl, wt int64
+			for _, name := range store.PoolerNames(p) {
+				cl, wt = cl+clients[name], wt+waiting[name]
+			}
+			b.add(p.ID, PoolerClients, float64(cl))
+			b.add(p.ID, PoolerWaiting, float64(wt))
 		}
 	}
 	return errors.Join(errs...)

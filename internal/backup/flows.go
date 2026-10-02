@@ -182,7 +182,7 @@ func (s *Service) runRestore(ctx context.Context, op store.Operation, log *jobs.
 // replaceContents holds clients off at the pooler (KILL drops them, and new
 // connections wait until RESUME), empties the database, and restores b.
 func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.Backup, log *jobs.StepLogger) error {
-	if err := s.projects.Pooler().Kill(ctx, p.DbName); err != nil {
+	if err := s.projects.Pooler().Kill(ctx, store.PoolerNames(p)...); err != nil {
 		return fmt.Errorf("pooler KILL: %w", err)
 	}
 	if err := log.Info(ctx, "pooler", "clients disconnected; new connections wait"); err != nil {
@@ -202,7 +202,7 @@ func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.
 // reopen resumes the pooler route and marks the project active.
 func (s *Service) reopen(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
 	// "not paused": the route was never held (e.g. rolling back before KILL).
-	if err := s.projects.Pooler().Resume(ctx, p.DbName); err != nil && !strings.Contains(err.Error(), "is not paused") {
+	if err := s.projects.Pooler().Resume(ctx, store.PoolerNames(p)...); err != nil && !strings.Contains(err.Error(), "is not paused") {
 		return fmt.Errorf("pooler RESUME: %w", err)
 	}
 	if err := store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {

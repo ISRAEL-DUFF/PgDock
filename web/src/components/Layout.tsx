@@ -16,7 +16,8 @@ function navFor(platformAdmin: boolean, manager: boolean): { title?: string; ite
     { to: "/operations", label: "Operations" },
     { to: "/org/members", label: "Members" },
   ];
-  if (manager) org.push({ to: "/org/settings", label: "Organisation" }, { to: "/org/audit", label: "Audit log" });
+  if (manager)
+    org.push({ to: "/org/usage", label: "Usage & quotas" }, { to: "/org/settings", label: "Organisation" }, { to: "/org/audit", label: "Audit log" });
   const out: { title?: string; items: NavItem[] }[] = [{ items: org }];
   if (platformAdmin) {
     out.push({
@@ -24,7 +25,10 @@ function navFor(platformAdmin: boolean, manager: boolean): { title?: string; ite
       items: [
         { to: "/nodes", label: "Nodes" },
         { to: "/alerts", label: "Alerts" },
+        { to: "/admin/orgs", label: "Organisations" },
         { to: "/admin/users", label: "Users" },
+        { to: "/admin/plans", label: "Plans" },
+        { to: "/admin/dedicated-requests", label: "Dedicated requests" },
         { to: "/settings", label: "Platform settings" },
         { to: "/audit", label: "Platform audit" },
       ],
@@ -145,6 +149,7 @@ export function AppLayout() {
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
           {platformAdmin && <BackupBanner />}
+          <OrgBanners />
           {orgs.length > 0 && org === undefined ? null : <Outlet />}
         </main>
       </div>
@@ -315,5 +320,71 @@ function BackupBanner() {
         Fix it
       </Link>
     </div>
+  );
+}
+
+/**
+ * The organisation's state, shown to everyone in it (V2 §13 banners): a
+ * suspension and its reason, a pending deletion (owners can cancel), and
+ * open break-glass sessions (owners can end them).
+ */
+function OrgBanners() {
+  const { org } = useCurrentOrg();
+  const qc = useQueryClient();
+  const [err, setErr] = useState<string | null>(null);
+  if (!org) return null;
+  const owner = org.role === "owner";
+  const act = async (f: () => Promise<unknown>) => {
+    setErr(null);
+    try {
+      await f();
+      await qc.invalidateQueries();
+    } catch (e) {
+      setErr(errorMessage(e));
+    }
+  };
+  const banner = "mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm";
+  return (
+    <>
+      {err && (
+        <div className="mb-4">
+          <Alert>{err}</Alert>
+        </div>
+      )}
+      {org.status === "suspended" && (
+        <div className={cx(banner, "border-danger/40 bg-danger/10 text-danger")} role="alert" data-testid="suspended-banner">
+          <span>
+            <strong>{org.name} is suspended</strong>
+            {org.suspended_reason ? `: ${org.suspended_reason}` : ""}. Its databases are offline and its data is kept; you can look around but not change anything.
+          </span>
+        </div>
+      )}
+      {org.status === "deleting" && (
+        <div className={cx(banner, "border-danger/40 bg-danger/10 text-danger")} role="alert" data-testid="deleting-banner">
+          <span>
+            <strong>{org.name} will be deleted</strong>
+            {org.delete_after ? ` on ${new Date(org.delete_after).toLocaleString()}` : ""}. Its databases are offline.
+          </span>
+          {owner && (
+            <Button className="text-xs" onClick={() => act(() => api.cancelOrgDeletion(org.id))} data-testid="cancel-deletion">
+              Cancel the deletion
+            </Button>
+          )}
+        </div>
+      )}
+      {(org.break_glass ?? []).map((b) => (
+        <div key={b.id} className={cx(banner, "border-warn/40 bg-warn/10 text-warn")} role="status" data-testid="break-glass-banner">
+          <span>
+            <strong>Break-glass access:</strong> the platform admin ({b.admin_email}) can act as an admin here until {new Date(b.expires_at).toLocaleString()}. Reason:{" "}
+            {b.reason}
+          </span>
+          {owner && (
+            <Button className="text-xs" onClick={() => act(() => api.endBreakGlass(org.id, b.id))} data-testid="end-break-glass">
+              End the session
+            </Button>
+          )}
+        </div>
+      ))}
+    </>
   );
 }

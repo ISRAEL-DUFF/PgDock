@@ -80,6 +80,18 @@ func (s *Server) RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id g
 	if req.TargetTime != nil {
 		a.set("target_time", req.TargetTime.UTC())
 	}
+	if s.tenancy != nil {
+		org := accessFrom(r.Context()).OrgID
+		if !s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), org)) || !s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), org)) {
+			return
+		}
+		// The recovery runs on a new instance the size of the source's.
+		if src, err := s.tenantProjectLive(r.Context()); err == nil {
+			if inst, err := store.New(s.db).GetInstance(r.Context(), src.InstanceID); err == nil && !s.withinAllowance(w, r, org, instanceSize(inst)) {
+				return
+			}
+		}
+	}
 	c, err := s.backups.PITR(r.Context(), backup.PITRParams{ProjectID: id, TargetTime: req.TargetTime, Name: req.Name, CreatedBy: userID(r.Context()), CreatorRole: creatorRole(accessFrom(r.Context()))})
 	if err != nil {
 		s.backupError(w, "point-in-time recovery", err)
@@ -282,6 +294,19 @@ func (s *Server) PromoteProject(w http.ResponseWriter, r *http.Request, id gen.P
 	}
 	if req.VolumeGb != nil {
 		pp.VolumeGB = *req.VolumeGb
+	}
+	if s.tenancy != nil {
+		org := accessFrom(r.Context()).OrgID
+		ok, err := s.tenancy.WithinAllowance(r.Context(), org, profileSize(pp.Profile, pp.VolumeGB))
+		if err != nil {
+			s.internalError(w, "promote", err)
+			return
+		}
+		if !ok {
+			// Beyond the allowance, the promotion becomes a request (V2 §10.6).
+			s.requestDedicated(w, r, org, id, pp, req.Reason)
+			return
+		}
 	}
 	op, err := ds.Promote(r.Context(), pp)
 	if err != nil {

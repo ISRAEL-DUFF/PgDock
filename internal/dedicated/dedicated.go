@@ -466,16 +466,31 @@ func (s *Service) adoptRestore(ctx context.Context, inst store.Instance, p store
 		if err != nil {
 			return err
 		}
-		if err := renameIfPresent(ctx, conn, "DATABASE", "pg_database", "datname", src.DbName, p.DbName); err != nil {
-			return err
+		// A recovery point from before the source was renamed to an opaque
+		// name (or switched credentials) has its V1 names (V2 §10.2).
+		srcDBs, srcOwners := []string{src.DbName}, []string{src.OwnerRole}
+		if src.AliasDbName != nil {
+			srcDBs = append(srcDBs, *src.AliasDbName)
 		}
-		if err := renameIfPresent(ctx, conn, "ROLE", "pg_roles", "rolname", src.OwnerRole, p.OwnerRole); err != nil {
-			return err
+		if src.LegacyOwnerRole != nil {
+			srcOwners = append(srcOwners, *src.LegacyOwnerRole)
+		}
+		for _, name := range srcDBs {
+			if err := renameIfPresent(ctx, conn, "DATABASE", "pg_database", "datname", name, p.DbName); err != nil {
+				return err
+			}
+		}
+		for _, name := range srcOwners {
+			if err := renameIfPresent(ctx, conn, "ROLE", "pg_roles", "rolname", name, p.OwnerRole); err != nil {
+				return err
+			}
 		}
 		// The source's console login came along in the base backup.
-		if src.DbName != p.DbName {
-			if err := provision.DropConsoleRole(ctx, conn, provision.ConsoleRole(src.DbName), p.DbName); err != nil {
-				return err
+		for _, name := range srcDBs {
+			if name != p.DbName {
+				if err := provision.DropConsoleRole(ctx, conn, provision.ConsoleRole(name), p.DbName); err != nil {
+					return err
+				}
 			}
 		}
 		if err := log.Info(ctx, "restore", "recovery finished and promoted; %s is now %s, owned by %s", src.DbName, p.DbName, p.OwnerRole); err != nil {

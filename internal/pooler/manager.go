@@ -84,6 +84,18 @@ func (m *Manager) Sync(ctx context.Context) error {
 			MaxDBConnections: s.ConnectionLimit,
 		})
 		cfg.Users = append(cfg.Users, User{Name: r.OwnerRole, Secret: r.ScramVerifier})
+		// A V1 project renamed to an opaque database keeps its old name as
+		// an alias, so existing connection strings still work (V2 §10.2).
+		if r.AliasDbName != nil {
+			cfg.Routes = append(cfg.Routes, Route{
+				Database: *r.AliasDbName, BackendDB: r.DbName, Host: r.Host, Port: int(r.Port),
+				PoolSize: s.PoolSize, MaxDBConnections: s.ConnectionLimit,
+			})
+		}
+		// The V1 owner role during a switch to opaque credentials.
+		if r.LegacyOwnerRole != nil && r.LegacyScramVerifier != nil {
+			cfg.Users = append(cfg.Users, User{Name: *r.LegacyOwnerRole, Secret: *r.LegacyScramVerifier})
+		}
 	}
 	members, err := store.New(conn).PoolerDBUsers(ctx)
 	if err != nil {
@@ -133,19 +145,30 @@ func (m *Manager) Reload(ctx context.Context) error {
 	return m.each(ctx, func(a *Admin) error { return a.Reload(ctx) })
 }
 
-// Kill drops all connections to db on every pooler.
-func (m *Manager) Kill(ctx context.Context, db string) error {
-	return m.each(ctx, func(a *Admin) error { return a.Kill(ctx, db) })
+// Kill drops all connections to dbs on every pooler. dbs are a project's
+// pooler names: its database and any V1 alias (store.PoolerNames).
+func (m *Manager) Kill(ctx context.Context, dbs ...string) error {
+	return m.eachDB(ctx, dbs, func(a *Admin, db string) error { return a.Kill(ctx, db) })
 }
 
-// Reconnect recycles db's server connections on every pooler.
-func (m *Manager) Reconnect(ctx context.Context, db string) error {
-	return m.each(ctx, func(a *Admin) error { return a.Reconnect(ctx, db) })
+// Reconnect recycles dbs' server connections on every pooler.
+func (m *Manager) Reconnect(ctx context.Context, dbs ...string) error {
+	return m.eachDB(ctx, dbs, func(a *Admin, db string) error { return a.Reconnect(ctx, db) })
 }
 
-// Pause pauses db on every pooler.
-func (m *Manager) Pause(ctx context.Context, db string) error {
-	return m.each(ctx, func(a *Admin) error { return a.Pause(ctx, db) })
+// Pause pauses dbs on every pooler.
+func (m *Manager) Pause(ctx context.Context, dbs ...string) error {
+	return m.eachDB(ctx, dbs, func(a *Admin, db string) error { return a.Pause(ctx, db) })
+}
+
+func (m *Manager) eachDB(ctx context.Context, dbs []string, f func(*Admin, string) error) error {
+	var errs []error
+	for _, db := range dbs {
+		if err := m.each(ctx, func(a *Admin) error { return f(a, db) }); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // SessionPooler names the session-mode pooler's admin.
@@ -158,7 +181,23 @@ const SessionPooler = "session"
 // disconnect, so PAUSE would wait for them: that pooler gets KILL, which
 // drops them; their reconnects wait. Resume releases both. It returns the
 // poolers that used KILL.
-func (m *Manager) Freeze(ctx context.Context, db string, wait time.Duration) ([]string, error) {
+func (m *Manager) Freeze(ctx context.Context, wait time.Duration, dbs ...string) ([]string, error) {
+	var killed []string
+	var errs []error
+	for _, db := range dbs {
+		k, err := m.freeze(ctx, db, wait)
+		killed = append(killed, k...)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if ctx.Err() != nil {
+			return killed, ctx.Err()
+		}
+	}
+	return killed, errors.Join(errs...)
+}
+
+func (m *Manager) freeze(ctx context.Context, db string, wait time.Duration) ([]string, error) {
 	var killed []string
 	var errs []error
 	for _, a := range m.admins {
@@ -188,9 +227,9 @@ func (m *Manager) Freeze(ctx context.Context, db string, wait time.Duration) ([]
 	return killed, errors.Join(errs...)
 }
 
-// Resume resumes db on every pooler.
-func (m *Manager) Resume(ctx context.Context, db string) error {
-	return m.each(ctx, func(a *Admin) error { return a.Resume(ctx, db) })
+// Resume resumes dbs on every pooler.
+func (m *Manager) Resume(ctx context.Context, dbs ...string) error {
+	return m.eachDB(ctx, dbs, func(a *Admin, db string) error { return a.Resume(ctx, db) })
 }
 
 func (m *Manager) each(ctx context.Context, f func(*Admin) error) error {

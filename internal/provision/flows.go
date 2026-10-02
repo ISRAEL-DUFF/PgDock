@@ -127,8 +127,12 @@ func (s *Service) ensureRole(ctx context.Context, p store.Project, set store.Pro
 		return err
 	}
 	// Attributes are spelled out (spec §7.1), never inherited from defaults.
-	attrs := fmt.Sprintf("LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT CONNECTION LIMIT %d PASSWORD %s",
-		set.ConnectionLimit, literal(p.ScramVerifier))
+	login, err := s.loginAttr(ctx, p)
+	if err != nil {
+		return err
+	}
+	attrs := fmt.Sprintf("%s NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT CONNECTION LIMIT %d PASSWORD %s",
+		login, set.ConnectionLimit, literal(p.ScramVerifier))
 	verb := "CREATE"
 	if exists {
 		verb = "ALTER"
@@ -137,6 +141,9 @@ func (s *Service) ensureRole(ctx context.Context, p store.Project, set store.Pro
 		return fmt.Errorf("%s role: %w", strings.ToLower(verb), err)
 	}
 
+	if _, err := conn.Exec(ctx, tempFileLimit(p.OwnerRole, p.Tier)); err != nil {
+		return fmt.Errorf("set temp_file_limit: %w", err)
+	}
 	for param, val := range map[string]string{
 		"statement_timeout":                   set.StatementTimeout,
 		"idle_in_transaction_session_timeout": set.IdleInTransactionTimeout,
@@ -196,6 +203,11 @@ func (s *Service) hardenDatabase(ctx context.Context, p store.Project, log *jobs
 	} {
 		if _, err := conn.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("harden database: %w", err)
+		}
+	}
+	if p.Tier == TierShared {
+		if err := RestrictActivity(ctx, conn); err != nil {
+			return err
 		}
 	}
 	return log.Info(ctx, "schema", "schema public owned by %s; CREATE revoked from PUBLIC", p.OwnerRole)
@@ -274,7 +286,7 @@ func (s *Service) rollbackCreate(ctx context.Context, op store.Operation, log *j
 // The project must already be in a status the pooler does not route.
 func (s *Service) teardown(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
 	// Drop pooled client connections first, then the route itself.
-	if err := s.pooler.Kill(ctx, p.DbName); err != nil {
+	if err := s.pooler.Kill(ctx, store.PoolerNames(p)...); err != nil {
 		_ = log.Warn(ctx, "pooler", "KILL %s: %v (continuing)", p.DbName, err)
 	}
 	if err := s.syncPooler(ctx, log, "pooler", "route and auth entry removed"); err != nil {

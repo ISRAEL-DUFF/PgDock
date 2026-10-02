@@ -193,6 +193,11 @@ func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUI
 	}
 	setup := "SET ROLE " + provision.Ident(assume) +
 		fmt.Sprintf("; SET statement_timeout = %d; SET lock_timeout = %d", timeout.Milliseconds(), timeout.Milliseconds())
+	if !readOnlyRole {
+		// A soft storage lock makes the database read-only by default; the
+		// console can still write, so a team can delete data (V2 §10.4).
+		setup += "; SET default_transaction_read_only = off"
+	}
 	if err := conn.PgConn().Exec(ctx, setup).Close(); err != nil {
 		sess.close()
 		return nil, err
@@ -241,6 +246,9 @@ func (s *Service) ensureRole(ctx context.Context, p store.Project) error {
 		"GRANT CONNECT ON DATABASE " + provision.Ident(p.DbName) + " TO " + provision.Ident(role),
 		// Top queries show the app's workload, not the console's.
 		"ALTER ROLE " + provision.Ident(role) + " SET pg_stat_statements.track = 'none'",
+	}
+	if p.Tier == provision.TierShared {
+		stmts = append(stmts, "ALTER ROLE "+provision.Ident(role)+" SET temp_file_limit = '"+provision.TempFileLimit+"'")
 	}
 	for _, stmt := range stmts {
 		if _, err := conn.Exec(ctx, stmt); err != nil {

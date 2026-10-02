@@ -14,7 +14,7 @@ import (
 )
 
 const getInstance = `-- name: GetInstance :one
-SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at FROM instances WHERE id = $1
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id FROM instances WHERE id = $1
 `
 
 func (q *Queries) GetInstance(ctx context.Context, id uuid.UUID) (Instance, error) {
@@ -40,6 +40,7 @@ func (q *Queries) GetInstance(ctx context.Context, id uuid.UUID) (Instance, erro
 		&i.WalgPrefix,
 		&i.Error,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
@@ -93,7 +94,7 @@ func (q *Queries) GetInstanceTarget(ctx context.Context, id uuid.UUID) (GetInsta
 const insertInstance = `-- name: InsertInstance :one
 INSERT INTO instances (id, node_id, kind, pg_version, port, cpu_limit, mem_limit_mb, volume_gb, profile, walg_prefix, status)
 VALUES ($1, $2, $3, 18, 5432, $4, $5, $6, $7, $8, 'provisioning')
-RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at
+RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id
 `
 
 type InsertInstanceParams struct {
@@ -139,6 +140,7 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 		&i.WalgPrefix,
 		&i.Error,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
@@ -195,7 +197,7 @@ func (q *Queries) ListInstanceSummaries(ctx context.Context) ([]ListInstanceSumm
 }
 
 const listNodeInstances = `-- name: ListNodeInstances :many
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)::int AS projects
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)::int AS projects
 FROM instances i
 WHERE i.node_id = $1 AND i.deleted_at IS NULL
 ORDER BY i.created_at
@@ -221,6 +223,7 @@ type ListNodeInstancesRow struct {
 	WalgPrefix  *string
 	Error       *string
 	DeletedAt   *time.Time
+	OrgID       *uuid.UUID
 	Projects    int32
 }
 
@@ -254,6 +257,7 @@ func (q *Queries) ListNodeInstances(ctx context.Context, nodeID uuid.UUID) ([]Li
 			&i.WalgPrefix,
 			&i.Error,
 			&i.DeletedAt,
+			&i.OrgID,
 			&i.Projects,
 		); err != nil {
 			return nil, err
@@ -267,7 +271,7 @@ func (q *Queries) ListNodeInstances(ctx context.Context, nodeID uuid.UUID) ([]Li
 }
 
 const listOrphanedInstances = `-- name: ListOrphanedInstances :many
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at FROM instances i
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id FROM instances i
 WHERE i.deleted_at IS NULL
   AND i.created_at < now() - interval '5 minutes'
   AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)
@@ -311,6 +315,7 @@ func (q *Queries) ListOrphanedInstances(ctx context.Context) ([]Instance, error)
 			&i.WalgPrefix,
 			&i.Error,
 			&i.DeletedAt,
+			&i.OrgID,
 		); err != nil {
 			return nil, err
 		}
@@ -329,6 +334,78 @@ UPDATE instances SET status = 'deleted', deleted_at = now() WHERE id = $1
 func (q *Queries) MarkInstanceDeleted(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markInstanceDeleted, id)
 	return err
+}
+
+const orgSharedInstances = `-- name: OrgSharedInstances :many
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, n.name AS node_name FROM instances i JOIN nodes n ON n.id = i.node_id
+WHERE i.kind = 'shared' AND i.deleted_at IS NULL AND i.org_id = $1
+`
+
+type OrgSharedInstancesRow struct {
+	ID          uuid.UUID
+	NodeID      uuid.UUID
+	Kind        string
+	PgVersion   int32
+	Port        int32
+	ContainerID *string
+	CpuLimit    pgtype.Numeric
+	MemLimitMb  *int32
+	VolumeGb    *int32
+	Status      string
+	CreatedAt   time.Time
+	AdminHost   *string
+	AdminPort   *int32
+	Host        *string
+	AdminSecret []byte
+	Profile     *string
+	WalgPrefix  *string
+	Error       *string
+	DeletedAt   *time.Time
+	OrgID       *uuid.UUID
+	NodeName    string
+}
+
+// tenant: system - the shared clusters tagged with one organisation.
+func (q *Queries) OrgSharedInstances(ctx context.Context, orgID *uuid.UUID) ([]OrgSharedInstancesRow, error) {
+	rows, err := q.db.Query(ctx, orgSharedInstances, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrgSharedInstancesRow
+	for rows.Next() {
+		var i OrgSharedInstancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.Kind,
+			&i.PgVersion,
+			&i.Port,
+			&i.ContainerID,
+			&i.CpuLimit,
+			&i.MemLimitMb,
+			&i.VolumeGb,
+			&i.Status,
+			&i.CreatedAt,
+			&i.AdminHost,
+			&i.AdminPort,
+			&i.Host,
+			&i.AdminSecret,
+			&i.Profile,
+			&i.WalgPrefix,
+			&i.Error,
+			&i.DeletedAt,
+			&i.OrgID,
+			&i.NodeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const pickDedicatedNode = `-- name: PickDedicatedNode :one
@@ -365,10 +442,12 @@ func (q *Queries) PickDedicatedNode(ctx context.Context) (Node, error) {
 }
 
 const pickSharedInstance = `-- name: PickSharedInstance :one
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at FROM instances i
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id FROM instances i
 JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
   AND i.deleted_at IS NULL
+  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $1)
+           THEN i.org_id = $1 ELSE i.org_id IS NULL END
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
 LIMIT 1
 `
@@ -376,8 +455,10 @@ LIMIT 1
 // PickSharedInstance chooses the running shared instance hosting the fewest
 // live projects.
 // tenant: system - platform infrastructure (nodes, instances, placement).
-func (q *Queries) PickSharedInstance(ctx context.Context) (Instance, error) {
-	row := q.db.QueryRow(ctx, pickSharedInstance)
+// An organisation with its own shared clusters uses only those; every
+// other organisation uses only the untagged ones (V2 s10.5).
+func (q *Queries) PickSharedInstance(ctx context.Context, orgID *uuid.UUID) (Instance, error) {
+	row := q.db.QueryRow(ctx, pickSharedInstance, orgID)
 	var i Instance
 	err := row.Scan(
 		&i.ID,
@@ -399,6 +480,7 @@ func (q *Queries) PickSharedInstance(ctx context.Context) (Instance, error) {
 		&i.WalgPrefix,
 		&i.Error,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
@@ -415,6 +497,24 @@ type SetInstanceAdminSecretParams struct {
 func (q *Queries) SetInstanceAdminSecret(ctx context.Context, arg SetInstanceAdminSecretParams) error {
 	_, err := q.db.Exec(ctx, setInstanceAdminSecret, arg.AdminSecret, arg.ID)
 	return err
+}
+
+const setInstanceOrg = `-- name: SetInstanceOrg :execrows
+UPDATE instances SET org_id = $1 WHERE id = $2 AND kind = 'shared' AND deleted_at IS NULL
+`
+
+type SetInstanceOrgParams struct {
+	OrgID *uuid.UUID
+	ID    uuid.UUID
+}
+
+// tenant: system - the platform admin assigns a shared cluster to one organisation.
+func (q *Queries) SetInstanceOrg(ctx context.Context, arg SetInstanceOrgParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setInstanceOrg, arg.OrgID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setInstanceRunning = `-- name: SetInstanceRunning :exec
@@ -474,8 +574,25 @@ func (q *Queries) SetNodeAdminSecret(ctx context.Context, arg SetNodeAdminSecret
 	return err
 }
 
+const sharedInstanceForeignProjects = `-- name: SharedInstanceForeignProjects :one
+SELECT count(*)::int FROM projects p WHERE p.instance_id = $1 AND p.deleted_at IS NULL AND p.org_id <> $2
+`
+
+type SharedInstanceForeignProjectsParams struct {
+	InstanceID uuid.UUID
+	OrgID      uuid.UUID
+}
+
+// tenant: system - projects of other organisations already on a shared cluster.
+func (q *Queries) SharedInstanceForeignProjects(ctx context.Context, arg SharedInstanceForeignProjectsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, sharedInstanceForeignProjects, arg.InstanceID, arg.OrgID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const sharedInstanceOnNode = `-- name: SharedInstanceOnNode :one
-SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at FROM instances WHERE node_id = $1 AND kind = 'shared' AND deleted_at IS NULL
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id FROM instances WHERE node_id = $1 AND kind = 'shared' AND deleted_at IS NULL
 `
 
 func (q *Queries) SharedInstanceOnNode(ctx context.Context, nodeID uuid.UUID) (Instance, error) {
@@ -501,6 +618,7 @@ func (q *Queries) SharedInstanceOnNode(ctx context.Context, nodeID uuid.UUID) (I
 		&i.WalgPrefix,
 		&i.Error,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
@@ -555,7 +673,7 @@ VALUES ($1, 'shared', $2, $3, $4, $5, 'running')
 ON CONFLICT (node_id) WHERE kind = 'shared' AND deleted_at IS NULL DO UPDATE
 SET pg_version = EXCLUDED.pg_version, port = EXCLUDED.port,
     admin_host = EXCLUDED.admin_host, admin_port = EXCLUDED.admin_port, status = 'running'
-RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at
+RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id
 `
 
 type UpsertSharedInstanceParams struct {
@@ -595,6 +713,7 @@ func (q *Queries) UpsertSharedInstance(ctx context.Context, arg UpsertSharedInst
 		&i.WalgPrefix,
 		&i.Error,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/version"
 )
 
@@ -51,6 +52,7 @@ type Server struct {
 	alerts    *alerts.Service
 	orgs      *orgs.Service
 	mail      *mail.Service
+	tenancy   *tenancy.Service
 
 	metricsInterval time.Duration
 	metricsToken    string
@@ -102,8 +104,10 @@ type Options struct {
 	IsoChecks *isocheck.Service
 	Alerts    *alerts.Service
 	// Orgs runs organisations and memberships; Mail is the platform SMTP.
-	Orgs            *orgs.Service
-	Mail            *mail.Service
+	Orgs *orgs.Service
+	Mail *mail.Service
+	// Tenancy runs quotas, storage locks, suspension, break-glass, and usage.
+	Tenancy         *tenancy.Service
 	MetricsInterval time.Duration
 	MetricsToken    string
 }
@@ -117,7 +121,7 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 	}
 	if opts.DB != nil && opts.Notifier != nil {

@@ -46,6 +46,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/rotate"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tlscert"
 	"github.com/israel-duff/pgdock/internal/version"
 	"github.com/israel-duff/pgdock/web"
@@ -184,6 +185,20 @@ func run() error {
 	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
 	authSvc.SetHooks(orgSvc.Hooks())
 
+	// Quotas, storage locks, the reaper, usage, suspension (V2 §10).
+	var tenancySvc *tenancy.Service
+	if projects != nil {
+		tenancySvc = tenancy.New(pool, projects, mailSvc, tenancy.Config{PublicURL: cfg.Insight.PublicURL, SweepInterval: cfg.Insight.TenancySweep}, log)
+		if backups != nil {
+			tenancySvc.FinalBackup = func(ctx context.Context, p store.Project) error {
+				_, err := backups.BackupNow(ctx, p.ID, nil)
+				return err
+			}
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); tenancySvc.Run(bgCtx) }()
+	}
+
 	var consoleSvc *console.Service
 	var isoChecks *isocheck.Service
 	var alertSvc *alerts.Service
@@ -259,6 +274,7 @@ func run() error {
 		Alerts:          alertSvc,
 		Orgs:            orgSvc,
 		Mail:            mailSvc,
+		Tenancy:         tenancySvc,
 		MetricsInterval: cfg.Insight.MetricsInterval,
 		MetricsToken:    cfg.Insight.MetricsToken,
 	})

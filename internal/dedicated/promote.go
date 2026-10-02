@@ -292,7 +292,7 @@ func (s *Service) freeze(ctx context.Context, p store.Project, log *jobs.StepLog
 			return fmt.Errorf("freeze: %w", err)
 		}
 	}
-	killed, err := s.projects.Pooler().Freeze(ctx, p.DbName, freezeWait)
+	killed, err := s.projects.Pooler().Freeze(ctx, freezeWait, store.PoolerNames(p)...)
 	if err != nil {
 		return fmt.Errorf("freeze pooler: %w", err)
 	}
@@ -325,7 +325,7 @@ func (s *Service) unfreeze(ctx context.Context, p store.Project, log *jobs.StepL
 			return err
 		}
 	}
-	if err := s.projects.Pooler().Resume(ctx, p.DbName); err != nil && !isNotPaused(err) {
+	if err := s.projects.Pooler().Resume(ctx, store.PoolerNames(p)...); err != nil && !isNotPaused(err) {
 		return err
 	}
 	return log.Warn(ctx, "rollback", "shared copy writable again; route resumed")
@@ -340,7 +340,7 @@ func (s *Service) finishPromotion(ctx context.Context, p store.Project, log *job
 	if err := s.projects.SyncPooler(ctx, log, "pooler", "route switched to the dedicated instance"); err != nil {
 		return err
 	}
-	if err := s.projects.Pooler().Resume(ctx, p.DbName); err != nil && !isNotPaused(err) {
+	if err := s.projects.Pooler().Resume(ctx, store.PoolerNames(p)...); err != nil && !isNotPaused(err) {
 		return fmt.Errorf("pooler RESUME: %w", err)
 	}
 	if err := store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {

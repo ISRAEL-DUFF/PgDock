@@ -117,6 +117,12 @@ type Decision struct {
 	Allowed     bool
 	OrgRole     string // "" when not a member
 	ProjectRole string // effective: org owners and admins are project admins
+	// BreakGlass is set when a platform admin acts through a break-glass
+	// session (V2 §2.4): every such action is flagged in the audit logs.
+	BreakGlass bool
+	// Frozen is set when the organisation is suspended or being deleted
+	// and the action is not a read (V2 §10.8): Allowed is false.
+	Frozen bool
 }
 
 // Queries is the subset of store the checks need.
@@ -124,7 +130,12 @@ type Queries interface {
 	GetOrgMember(ctx context.Context, arg store.GetOrgMemberParams) (store.OrgMember, error)
 	GetProjectMember(ctx context.Context, arg store.GetProjectMemberParams) (store.ProjectMember, error)
 	GetOrg(ctx context.Context, orgID uuid.UUID) (store.Organization, error)
+	ActiveBreakGlass(ctx context.Context, arg store.ActiveBreakGlassParams) (store.BreakGlassSession, error)
 }
+
+// readActions still work in a suspended organisation, so its members can
+// see what happened (V2 §10.8).
+var readActions = map[Action]bool{OrgView: true, OrgAudit: true, ProjectView: true, ProjectAudit: true}
 
 // Can decides whether actor may perform action on res.
 func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resource) (Decision, error) {
@@ -146,15 +157,48 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 	if actor.TokenOrg != nil && *actor.TokenOrg != res.OrgID {
 		return Decision{}, nil // a token acts only in its own organisation
 	}
-	var d Decision
-	m, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: res.OrgID, UserID: actor.UserID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return d, nil
+	d, err := can(ctx, q, actor, action, res)
+	if err != nil || !d.Allowed || readActions[action] {
+		return d, err
 	}
+	o, err := q.GetOrg(ctx, res.OrgID)
 	if err != nil {
 		return d, err
 	}
-	d.OrgRole = m.Role
+	switch o.Status {
+	case "suspended":
+		d.Allowed, d.Frozen = false, true
+	case "deleting":
+		// Only an owner cancelling the deletion.
+		if action != OrgOwnerOnly {
+			d.Allowed, d.Frozen = false, true
+		}
+	}
+	return d, nil
+}
+
+func can(ctx context.Context, q Queries, actor Actor, action Action, res Resource) (Decision, error) {
+	var d Decision
+	m, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: res.OrgID, UserID: actor.UserID})
+	switch {
+	case err == nil:
+		d.OrgRole = m.Role
+	case !errors.Is(err, pgx.ErrNoRows):
+		return d, err
+	case actor.PlatformAdmin && actor.Kind == ActorSession:
+		// Not a member: a platform admin with an open break-glass session
+		// acts as an org admin (V2 §2.4).
+		_, err := q.ActiveBreakGlass(ctx, store.ActiveBreakGlassParams{OrgID: res.OrgID, AdminID: actor.UserID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return d, nil
+		}
+		if err != nil {
+			return d, err
+		}
+		d.OrgRole, d.BreakGlass = OrgAdmin, true
+	default:
+		return d, nil
+	}
 
 	if minRole, ok := projectMin[action]; ok {
 		if res.ProjectID == uuid.Nil {
@@ -165,7 +209,7 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		} else {
 			pm, err := q.GetProjectMember(ctx, store.GetProjectMemberParams{ProjectID: res.ProjectID, UserID: actor.UserID, OrgID: res.OrgID})
 			if errors.Is(err, pgx.ErrNoRows) {
-				return Decision{OrgRole: d.OrgRole}, nil // a member who isn't on the project can't see it
+				return Decision{OrgRole: d.OrgRole, BreakGlass: d.BreakGlass}, nil // a member who isn't on the project can't see it
 			}
 			if err != nil {
 				return d, err

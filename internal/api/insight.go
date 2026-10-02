@@ -101,6 +101,15 @@ func (s *Server) RunSQL(w http.ResponseWriter, r *http.Request, id gen.ProjectID
 		}
 		cr.Timeout = time.Duration(*t) * time.Second
 	}
+	if s.tenancy != nil {
+		// Concurrent console queries per organisation (V2 §10.3).
+		release, err := s.tenancy.AcquireConsole(r.Context(), accessFrom(r.Context()).OrgID)
+		if err != nil {
+			s.tenancyError(w, "run sql", err)
+			return
+		}
+		defer release()
+	}
 	out, err := s.console.Run(r.Context(), id, cr)
 	if err != nil {
 		s.consoleError(w, "run sql", err)

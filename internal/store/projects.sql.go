@@ -8,12 +8,37 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 )
 
+const clearProjectLegacy = `-- name: ClearProjectLegacy :exec
+UPDATE projects SET legacy_owner_role = NULL, legacy_scram_verifier = NULL, legacy_until = NULL, alias_db_name = NULL
+WHERE id = $1
+`
+
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+func (q *Queries) ClearProjectLegacy(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearProjectLegacy, id)
+	return err
+}
+
+const dBNameTaken = `-- name: DBNameTaken :one
+SELECT EXISTS (SELECT 1 FROM projects WHERE db_name = $1 OR alias_db_name = $1)
+`
+
+// A name in use as any project's backend database or alias.
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+func (q *Queries) DBNameTaken(ctx context.Context, name string) (bool, error) {
+	row := q.db.QueryRow(ctx, dBNameTaken, name)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const getLiveProjectForUpdate = `-- name: GetLiveProjectForUpdate :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id FROM projects WHERE id = $1 AND deleted_at IS NULL FOR UPDATE
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects WHERE id = $1 AND deleted_at IS NULL FOR UPDATE
 `
 
 // tenant: system - provisioning workers and the poolers, or a project the request already authorized.
@@ -38,12 +63,18 @@ func (q *Queries) GetLiveProjectForUpdate(ctx context.Context, id uuid.UUID) (Pr
 		&i.CreatedAt,
 		&i.DeletedAt,
 		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id FROM projects WHERE id = $1
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects WHERE id = $1
 `
 
 // tenant: system - provisioning workers and the poolers, or a project the request already authorized.
@@ -68,6 +99,12 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.CreatedAt,
 		&i.DeletedAt,
 		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
 	)
 	return i, err
 }
@@ -75,7 +112,7 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 const insertProject = `-- name: InsertProject :one
 INSERT INTO projects (id, org_id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'provisioning', $10, $11, $12)
-RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id
+RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at
 `
 
 type InsertProjectParams struct {
@@ -127,12 +164,18 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (P
 		&i.CreatedAt,
 		&i.DeletedAt,
 		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
 	)
 	return i, err
 }
 
 const listLiveProjects = `-- name: ListLiveProjects :many
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id FROM projects
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects
 WHERE deleted_at IS NULL
   AND ($1::text IS NULL OR status = $1)
 ORDER BY created_at DESC, id DESC
@@ -172,6 +215,12 @@ func (q *Queries) ListLiveProjects(ctx context.Context, arg ListLiveProjectsPara
 			&i.CreatedAt,
 			&i.DeletedAt,
 			&i.OrgID,
+			&i.AliasDbName,
+			&i.LegacyOwnerRole,
+			&i.LegacyScramVerifier,
+			&i.LegacyUntil,
+			&i.StorageState,
+			&i.StorageStateAt,
 		); err != nil {
 			return nil, err
 		}
@@ -184,27 +233,33 @@ func (q *Queries) ListLiveProjects(ctx context.Context, arg ListLiveProjectsPara
 }
 
 const poolerRoutes = `-- name: PoolerRoutes :many
-SELECT p.db_name, p.owner_role, p.scram_verifier, p.settings,
-       COALESCE(i.host, n.private_addr)::text AS host, i.port
+SELECT p.db_name, p.alias_db_name, p.owner_role, p.scram_verifier, p.legacy_owner_role, p.legacy_scram_verifier,
+       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id
+JOIN organizations o ON o.id = p.org_id
 WHERE p.deleted_at IS NULL
   AND p.status IN ('provisioning', 'active', 'promoting', 'restoring')
+  AND o.status <> 'suspended'
 ORDER BY p.db_name
 `
 
 type PoolerRoutesRow struct {
-	DbName        string
-	OwnerRole     string
-	ScramVerifier string
-	Settings      json.RawMessage
-	Host          string
-	Port          int32
+	DbName              string
+	AliasDbName         *string
+	OwnerRole           string
+	ScramVerifier       string
+	LegacyOwnerRole     *string
+	LegacyScramVerifier *string
+	Settings            json.RawMessage
+	Host                string
+	Port                int32
 }
 
 // PoolerRoutes lists every project the pooler should route to, with the
 // backend address the pooler uses and the SCRAM verifier for its auth file.
+// A suspended organisation's projects get no routes (V2 s10.8).
 // tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) PoolerRoutes(ctx context.Context) ([]PoolerRoutesRow, error) {
 	rows, err := q.db.Query(ctx, poolerRoutes)
@@ -217,8 +272,11 @@ func (q *Queries) PoolerRoutes(ctx context.Context) ([]PoolerRoutesRow, error) {
 		var i PoolerRoutesRow
 		if err := rows.Scan(
 			&i.DbName,
+			&i.AliasDbName,
 			&i.OwnerRole,
 			&i.ScramVerifier,
+			&i.LegacyOwnerRole,
+			&i.LegacyScramVerifier,
 			&i.Settings,
 			&i.Host,
 			&i.Port,
@@ -231,6 +289,125 @@ func (q *Queries) PoolerRoutes(ctx context.Context) ([]PoolerRoutesRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const projectsLegacyExpired = `-- name: ProjectsLegacyExpired :many
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects
+WHERE deleted_at IS NULL AND legacy_until IS NOT NULL AND legacy_until <= $1::timestamptz
+ORDER BY legacy_until
+`
+
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+func (q *Queries) ProjectsLegacyExpired(ctx context.Context, now time.Time) ([]Project, error) {
+	rows, err := q.db.Query(ctx, projectsLegacyExpired, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.DbName,
+			&i.OwnerRole,
+			&i.ScramVerifier,
+			&i.Tier,
+			&i.InstanceID,
+			&i.Status,
+			&i.Settings,
+			&i.StorageTargetID,
+			&i.Extensions,
+			&i.Description,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.DeletedAt,
+			&i.OrgID,
+			&i.AliasDbName,
+			&i.LegacyOwnerRole,
+			&i.LegacyScramVerifier,
+			&i.LegacyUntil,
+			&i.StorageState,
+			&i.StorageStateAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const projectsToRename = `-- name: ProjectsToRename :many
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects
+WHERE deleted_at IS NULL AND status = 'active' AND db_name !~ '^p_[a-z2-7]{10}$'
+ORDER BY created_at
+`
+
+// V1 projects whose backend database still has a descriptive name (V2 s10.2).
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+func (q *Queries) ProjectsToRename(ctx context.Context) ([]Project, error) {
+	rows, err := q.db.Query(ctx, projectsToRename)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.DbName,
+			&i.OwnerRole,
+			&i.ScramVerifier,
+			&i.Tier,
+			&i.InstanceID,
+			&i.Status,
+			&i.Settings,
+			&i.StorageTargetID,
+			&i.Extensions,
+			&i.Description,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.DeletedAt,
+			&i.OrgID,
+			&i.AliasDbName,
+			&i.LegacyOwnerRole,
+			&i.LegacyScramVerifier,
+			&i.LegacyUntil,
+			&i.StorageState,
+			&i.StorageStateAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setProjectBackendName = `-- name: SetProjectBackendName :exec
+UPDATE projects SET db_name = $1, alias_db_name = $2 WHERE id = $3
+`
+
+type SetProjectBackendNameParams struct {
+	DbName      string
+	AliasDbName *string
+	ID          uuid.UUID
+}
+
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+func (q *Queries) SetProjectBackendName(ctx context.Context, arg SetProjectBackendNameParams) error {
+	_, err := q.db.Exec(ctx, setProjectBackendName, arg.DbName, arg.AliasDbName, arg.ID)
+	return err
 }
 
 const setProjectStatus = `-- name: SetProjectStatus :exec
@@ -278,10 +455,39 @@ func (q *Queries) SoftDeleteProject(ctx context.Context, arg SoftDeleteProjectPa
 	return err
 }
 
+const switchProjectCredentials = `-- name: SwitchProjectCredentials :exec
+UPDATE projects SET owner_role = $1, scram_verifier = $2,
+  legacy_owner_role = $3, legacy_scram_verifier = $4,
+  legacy_until = $5
+WHERE id = $6
+`
+
+type SwitchProjectCredentialsParams struct {
+	OwnerRole           string
+	ScramVerifier       string
+	LegacyOwnerRole     *string
+	LegacyScramVerifier *string
+	LegacyUntil         *time.Time
+	ID                  uuid.UUID
+}
+
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
+func (q *Queries) SwitchProjectCredentials(ctx context.Context, arg SwitchProjectCredentialsParams) error {
+	_, err := q.db.Exec(ctx, switchProjectCredentials,
+		arg.OwnerRole,
+		arg.ScramVerifier,
+		arg.LegacyOwnerRole,
+		arg.LegacyScramVerifier,
+		arg.LegacyUntil,
+		arg.ID,
+	)
+	return err
+}
+
 const updateProjectMeta = `-- name: UpdateProjectMeta :one
 UPDATE projects SET name = $1, description = $2, settings = $3
 WHERE id = $4
-RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id
+RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at
 `
 
 type UpdateProjectMetaParams struct {
@@ -318,6 +524,12 @@ func (q *Queries) UpdateProjectMeta(ctx context.Context, arg UpdateProjectMetaPa
 		&i.CreatedAt,
 		&i.DeletedAt,
 		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
 	)
 	return i, err
 }

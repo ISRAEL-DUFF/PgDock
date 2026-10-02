@@ -2,13 +2,13 @@
 
 Each item of spec §7, how PGDock enforces it, and what checks it
 automatically. "CI" means `.github/workflows/ci.yml` on every push (and
-weekly); "live" means pgdock-server's own weekly `isolation_check` operation
+weekly); "live" means pgdock-server's own nightly `isolation_check` operation
 on every shared cluster, whose failure raises an alert.
 
 ## 7.1 Tenant isolation (shared tier)
 
 Every item below is enforced when a project is created and verified by
-`internal/isocheck`, which runs in CI (`test/isolation`) and weekly against
+`internal/isocheck`, which runs in CI (`test/isolation`) and nightly against
 live clusters (`isolation_check`, Settings → Tenant isolation). A failed
 check raises the critical `isolation_check_failed` alert.
 `TestLiveIsolationCheck` breaks each item on purpose and requires the check

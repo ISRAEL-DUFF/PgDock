@@ -146,6 +146,9 @@ func maskBits(m netip.Addr) int {
 // Tenant is a project database and its roles as the audit sees them.
 type Tenant struct {
 	DB, Role string
+	// LoginsOff: the project's organisation is suspended or its storage is
+	// hard-locked, so none of its logins may log in (V2 §10.4, §10.8).
+	LoginsOff bool
 }
 
 // Roles audits project roles (with their console and member logins): no dangerous
@@ -181,10 +184,16 @@ func Roles(ctx context.Context, admin *pgx.Conn, tenants []Tenant) ([]Finding, e
 				out = append(out, Finding{"member logins", fmt.Sprintf("%s is granted %s, outside its project", role, strings.Join(foreign, ", "))})
 			}
 		}
+		logins := map[string]bool{t.Role: true}
+		for _, role := range extra {
+			logins[role] = role != provision.ReadOnlyRole(t.DB)
+		}
 		for _, role := range append([]string{t.Role, provision.ConsoleRole(t.DB)}, extra...) {
-			var exists, super, createdb, createrole, repl, bypass bool
-			err := admin.QueryRow(ctx, `SELECT true, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = $1`, role).
-				Scan(&exists, &super, &createdb, &createrole, &repl, &bypass)
+			var exists, super, createdb, createrole, repl, bypass, canLogin bool
+			var connLimit int
+			err := admin.QueryRow(ctx, `SELECT true, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolcanlogin, rolconnlimit
+				FROM pg_roles WHERE rolname = $1`, role).
+				Scan(&exists, &super, &createdb, &createrole, &repl, &bypass, &canLogin, &connLimit)
 			if errors.Is(err, pgx.ErrNoRows) {
 				if role == t.Role {
 					out = append(out, Finding{"project role", fmt.Sprintf("%s (database %s) does not exist", role, t.DB)})
@@ -202,6 +211,25 @@ func Roles(ctx context.Context, admin *pgx.Conn, tenants []Tenant) ([]Finding, e
 			}
 			if len(bad) > 0 {
 				out = append(out, Finding{"role attributes", fmt.Sprintf("%s has %s", role, strings.Join(bad, ", "))})
+			}
+			if logins[role] {
+				// V2 §10.4: limits a tenant cannot lift themselves.
+				if connLimit < 0 {
+					out = append(out, Finding{"connection limit", role + " has no CONNECTION LIMIT"})
+				}
+				var tempLimit bool
+				if err := admin.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_db_role_setting s JOIN pg_roles r ON r.oid = s.setrole
+					WHERE r.rolname = $1 AND s.setdatabase = 0 AND EXISTS (SELECT 1 FROM unnest(s.setconfig) c WHERE c LIKE 'temp_file_limit=%'))`, role).
+					Scan(&tempLimit); err != nil {
+					return nil, err
+				}
+				if !tempLimit {
+					out = append(out, Finding{"temp_file_limit", role + " has no temp_file_limit"})
+				}
+				// V2 §10.8: a suspended or hard-locked project's logins are off.
+				if t.LoginsOff && canLogin {
+					out = append(out, Finding{"suspended logins", role + " can still log in while its project is suspended or hard-locked"})
+				}
 			}
 			rows, err := admin.Query(ctx, `SELECT r.rolname FROM pg_roles r
 				WHERE r.rolname <> $1 AND pg_has_role($1, r.oid, 'MEMBER')
@@ -271,7 +299,7 @@ func connectAs(ctx context.Context, ps *provision.Service, t store.Project, pass
 
 // Probes are the cross-tenant attempts of spec §7.1, made by tenant a
 // against tenant b. Each must fail.
-func Probes(ctx context.Context, ps *provision.Service, a, b store.Project, aPassword, bPassword string) ([]Finding, error) {
+func Probes(ctx context.Context, ps *provision.Service, a, b store.Project, aPassword, bPassword string, v1Roles []string) ([]Finding, error) {
 	var out []Finding
 	fail := func(what string) { out = append(out, Finding{"cross-tenant", "tenant A could " + what}) }
 
@@ -326,14 +354,36 @@ func Probes(ctx context.Context, ps *provision.Service, a, b store.Project, aPas
 		}
 	}
 
-	// B's queries and data stay invisible.
+	// B's sessions stay invisible: on a shared cluster pg_stat_activity is
+	// not readable by tenants at all (V2 §10.2).
 	var visible int
-	if err := ca.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity WHERE pid = $1 AND query IS NOT NULL AND query <> '<insufficient privilege>'`, bPID).Scan(&visible); err != nil {
+	if err := ca.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity WHERE pid = $1`, bPID).Scan(&visible); err == nil {
+		fail("read pg_stat_activity")
+	} else if !isRefusal(err) {
 		return nil, err
 	}
-	if visible > 0 {
-		fail("see B's queries in pg_stat_activity")
+	if err := ca.QueryRow(ctx, `SELECT count(*) FROM pg_stat_get_activity(NULL) WHERE pid = $1`, bPID).Scan(&visible); err == nil {
+		fail("read other sessions through pg_stat_get_activity")
+	} else if !isRefusal(err) {
+		return nil, err
 	}
+	// Quota bypass attempts (V2 §10.4).
+	for _, at := range []struct{ what, sql string }{
+		{"raise its temp_file_limit", `SET temp_file_limit = '1TB'`},
+		{"lift its connection limit", "ALTER ROLE " + pgx.Identifier{a.OwnerRole}.Sanitize() + " CONNECTION LIMIT -1"},
+		{"lift its temp_file_limit for good", "ALTER ROLE " + pgx.Identifier{a.OwnerRole}.Sanitize() + " RESET temp_file_limit"},
+	} {
+		if _, err := ca.Exec(ctx, at.sql); err == nil {
+			fail(at.what)
+		} else if !isRefusal(err) {
+			return nil, fmt.Errorf("%s: unexpected error: %w", at.what, err)
+		}
+	}
+	leaks, err := Metadata(ctx, ca, v1Roles)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, leaks...)
 	var predefined []string
 	rows, err := ca.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname IN ('pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files',
 		'pg_write_server_files', 'pg_execute_server_program', 'pg_read_all_settings', 'pg_read_all_stats', 'pg_monitor', 'pg_signal_backend')
@@ -346,6 +396,61 @@ func Probes(ctx context.Context, ps *provision.Service, a, b store.Project, aPas
 	}
 	if len(predefined) > 0 {
 		fail("read B's data through " + strings.Join(predefined, ", "))
+	}
+	return out, nil
+}
+
+// GenericRoles are cluster-wide roles with standard names that say nothing
+// about any tenant: the Supabase API roles imports recreate (M3).
+var GenericRoles = []string{"anon", "authenticated", "service_role"}
+
+// Metadata is the V2 §10.2 leak check, from inside a tenant's session:
+// every database and role another tenant can list has an opaque name (or
+// is a probe, a maintenance database, or PGDock's own), except the V1
+// owner roles in allowed, which their own projects have not switched yet.
+func Metadata(ctx context.Context, tenant *pgx.Conn, allowed []string) ([]Finding, error) {
+	var out []Finding
+	rows, err := tenant.Query(ctx, `SELECT datname FROM pg_database ORDER BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	dbs, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
+	}
+	var leaked []string
+	for _, d := range dbs {
+		switch {
+		case d == "postgres" || d == "template0" || d == "template1":
+		case provision.IsOpaque(d), provision.ProbeName.MatchString(d):
+		default:
+			leaked = append(leaked, d)
+		}
+	}
+	if len(leaked) > 0 {
+		out = append(out, Finding{"metadata leak", "pg_database shows descriptive names: " + strings.Join(leaked, ", ")})
+	}
+	ok := map[string]bool{}
+	for _, r := range append(append([]string{}, GenericRoles...), allowed...) {
+		ok[r] = true
+	}
+	rows, err = tenant.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' AND NOT rolsuper ORDER BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	roles, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
+	}
+	leaked = nil
+	for _, r := range roles {
+		if ok[r] || provision.ProbeName.MatchString(r) || provision.IsOpaqueRole(r) {
+			continue
+		}
+		leaked = append(leaked, r)
+	}
+	if len(leaked) > 0 {
+		out = append(out, Finding{"metadata leak", "pg_roles shows descriptive names: " + strings.Join(leaked, ", ")})
 	}
 	return out, nil
 }
@@ -386,8 +491,16 @@ func Instance(ctx context.Context, db store.DBTX, ps *provision.Service, inst st
 		return nil, err
 	}
 	tenants := make([]Tenant, len(ps2))
+	var v1Roles []string
 	for i, p := range ps2 {
-		tenants[i] = Tenant{DB: p.DbName, Role: p.OwnerRole}
+		tenants[i] = Tenant{DB: p.DbName, Role: p.OwnerRole, LoginsOff: p.OrgStatus != "active" || p.StorageState == "hard"}
+		// V1 projects keep their owner role until they switch (V2 §10.2).
+		if p.OwnerRole != provision.OwnerRoleName(p.DbName) {
+			v1Roles = append(v1Roles, p.OwnerRole)
+		}
+		if p.LegacyOwnerRole != nil {
+			v1Roles = append(v1Roles, *p.LegacyOwnerRole)
+		}
 	}
 	fs, err := Roles(ctx, admin, tenants)
 	if err != nil {
@@ -421,12 +534,12 @@ func Instance(ctx context.Context, db store.DBTX, ps *provision.Service, inst st
 	if err != nil {
 		return nil, fmt.Errorf("provision tenant B: %w", err)
 	}
-	fs, err = Roles(ctx, admin, []Tenant{{a.DbName, a.OwnerRole}, {b.DbName, b.OwnerRole}})
+	fs, err = Roles(ctx, admin, []Tenant{{DB: a.DbName, Role: a.OwnerRole}, {DB: b.DbName, Role: b.OwnerRole}})
 	if err != nil {
 		return nil, err
 	}
 	findings = append(findings, fs...)
-	probe, err := Probes(ctx, ps, a, b, aPW, bPW)
+	probe, err := Probes(ctx, ps, a, b, aPW, bPW, v1Roles)
 	if err != nil {
 		return nil, fmt.Errorf("cross-tenant probes: %w", err)
 	}

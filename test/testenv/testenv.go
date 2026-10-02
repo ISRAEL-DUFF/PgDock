@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -59,7 +60,9 @@ import (
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 )
 
 // Env is a running control plane.
@@ -90,6 +93,10 @@ type Env struct {
 	Auth *auth.Service
 	Orgs *orgs.Service
 	SMTP *SMTPServer
+	// Tenancy is the M9 controller; tests tick it (EnforceStorage, Reap,
+	// RecordUsage, Sweep) rather than running its loops. Its clock is real
+	// time plus TenancyAdvance.
+	Tenancy *tenancy.Service
 	// OrgID is the owner's personal organisation, where CreateProject puts
 	// projects.
 	OrgID uuid.UUID
@@ -98,8 +105,9 @@ type Env struct {
 	// S3Link is set with Options.S3Link once ConfigureBackups ran.
 	S3Link *Link
 
-	s3Link   bool
-	agentRun map[string][]string // docker exec arguments per node, for restarts
+	s3Link        bool
+	tenancyOffset atomic.Int64
+	agentRun      map[string][]string // docker exec arguments per node, for restarts
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
@@ -269,8 +277,17 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	orgSvc := orgs.New(db, authSvc, svc, mailSvc, "https://pgdock.test", log)
 	authSvc.SetHooks(orgSvc.Hooks())
+	e := &Env{}
+	tenancySvc := tenancy.New(db, svc, mailSvc, tenancy.Config{
+		PublicURL: "https://pgdock.test",
+		Now:       func() time.Time { return time.Now().Add(time.Duration(e.tenancyOffset.Load())) },
+	}, log)
+	tenancySvc.FinalBackup = func(ctx context.Context, p store.Project) error {
+		_, err := backups.BackupNow(ctx, p.ID, nil)
+		return err
+	}
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Orgs: orgSvc, Mail: mailSvc,
+		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc,
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
 		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, IsoChecks: isoChecks, Alerts: alertSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
@@ -287,8 +304,8 @@ func Start(t testing.TB, opts Options) *Env {
 	ts.Start()
 	jar, _ := cookiejar.New(nil)
 
-	e := &Env{
-		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock,
+	*e = Env{
+		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
@@ -323,6 +340,10 @@ type Clock struct {
 func (c *Clock) Now() time.Time { c.mu.Lock(); defer c.mu.Unlock(); return c.t }
 
 func (c *Clock) advance() { c.mu.Lock(); c.t = c.t.Add(30 * time.Second); c.mu.Unlock() }
+
+// TenancyAdvance moves the tenancy service's clock on (the reaper's
+// "now", usage periods).
+func (e *Env) TenancyAdvance(d time.Duration) { e.tenancyOffset.Add(int64(d)) }
 
 // Advance moves the auth clock on, e.g. past the re-auth window.
 func (e *Env) Advance(d time.Duration) {
@@ -413,7 +434,8 @@ func moduleRelative(t testing.TB, p string) string {
 func (e *Env) dropLeftovers() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	rows, err := e.DB.Query(ctx, `SELECT db_name, owner_role FROM projects`)
+	rows, err := e.DB.Query(ctx, `SELECT db_name, owner_role FROM projects
+		UNION ALL SELECT alias_db_name, legacy_owner_role FROM projects WHERE alias_db_name IS NOT NULL AND legacy_owner_role IS NOT NULL`)
 	if err != nil {
 		return
 	}
@@ -432,6 +454,16 @@ func (e *Env) dropLeftovers() {
 		_, _ = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{n.DB}.Sanitize()+" WITH (FORCE)")
 		_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{n.Role}.Sanitize())
 		_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{provision.ConsoleRole(n.DB)}.Sanitize())
+		// The read-only group role and members' logins (V2 §3.5).
+		if more, err := conn.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname = $1 OR starts_with(rolname, $2)`,
+			provision.ReadOnlyRole(n.DB), n.DB+"_u_"); err == nil {
+			if roles, err := pgx.CollectRows(more, pgx.RowTo[string]); err == nil {
+				for _, r := range roles {
+					_, _ = conn.Exec(ctx, "DROP OWNED BY "+pgx.Identifier{r}.Sanitize())
+					_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{r}.Sanitize())
+				}
+			}
+		}
 	}
 }
 
