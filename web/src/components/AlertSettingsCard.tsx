@@ -135,7 +135,7 @@ export function AlertSettingsCard() {
   );
 }
 
-/** The weekly tenant-isolation checks (spec §7.1). */
+/** The nightly tenant-isolation checks (spec §7.1). */
 export function IsolationChecksCard() {
   const qc = useQueryClient();
   const toast = useOperationToast();

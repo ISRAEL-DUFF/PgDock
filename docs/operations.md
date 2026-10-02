@@ -17,7 +17,7 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
   | Node unreachable | critical | A node's agent has not answered for 2+ minutes |
   | Project disk | warning | A project is larger than its disk warning (Settings → Guardrails) |
   | Pooler down | critical | A PgBouncer's admin console does not answer |
-  | Isolation check | critical | The weekly tenant-isolation check found a problem |
+  | Isolation check | critical | The nightly tenant-isolation check found a problem |
 
 - **Operations** shows every long action with its step log.
 - **Metrics** (per project and per node) charts size, connections, TPS,
@@ -41,10 +41,11 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
 
 ## Security checks
 
-Every shared cluster is checked weekly against the tenant-isolation
+Every shared cluster is checked nightly against the tenant-isolation
 checklist (Settings → Tenant isolation, **Check now** to run it at once):
 cluster settings and `pg_hba.conf`, every project's role and database, and
-two throwaway tenants that try to reach each other. See
+two throwaway tenants that try to reach each other, discover other
+projects' names, get round their quotas, or log in while suspended. See
 [security review](security-review.md).
 
 ## Users and organisations
@@ -67,6 +68,57 @@ platform (Platform audit).
 
 Projects created before V2 are in the platform admin's personal
 organisation, unchanged: same URLs, passwords, and backups.
+
+## Quotas, storage locks and usage
+
+Each organisation has a plan (Organisations → the org → Plan), with
+per-key overrides; Plans lists and edits them. Creating projects, backups,
+restores and console queries past a limit fails with the limit named.
+Owners and admins see their use on **Usage & quotas**, with hourly
+storage and a CSV export; you see every org's on the admin usage API.
+
+Shared-tier projects are measured every minute:
+
+- **90%** of the project's storage limit: a warning email and banner.
+- **100%**: read-only by default. Apps can still delete in a read-write
+  transaction (`BEGIN READ WRITE`), and the SQL console works.
+- **120%** (or 100% with the node's disk 95% full): apps cannot log in.
+  The console and table browser still work; delete data there, then
+  **Reclaim space** (Settings → Storage) to give the space back.
+
+Locks lift at the next check once the project is under the limit.
+Statements running over 10 minutes are cancelled and transactions idle
+over 5 minutes are ended; the project's Metrics page lists them.
+
+Dedicated instances beyond an org's allowance become requests (Dedicated
+requests) for you to approve or reject. An org can be given its own
+shared cluster (Organisations → the org → Shared cluster): its new
+projects go only there, and nobody else's do.
+
+## Suspension, break-glass and deletion
+
+**Suspend** (Organisations → the org, with a reason) stops the org's
+projects accepting connections and its backups, and makes the org
+read-only for its members; **Reinstate** undoes it. **Outbound access**
+is recorded now and enforced when outbound features ship.
+
+To look inside an org (a support case), open a **break-glass** session
+with a reason and a length (up to 4 hours). You act as an org admin; its
+owners and admins are emailed, every action is in its audit log marked
+break-glass, and they see a banner. End it when you are done.
+
+Owners can delete an organisation (Organisation → Delete). It is
+read-only for 7 days and can be cancelled; then each project gets a final
+backup, kept for 30 days, and is deleted.
+
+## Opaque names
+
+New projects' databases and roles are named `p_<random>`, so other
+tenants cannot learn them. Projects from before V2 are renamed on the
+server side and keep their old name as an alias, so their URLs keep
+working; their role name stays visible until an admin uses **Switch to
+opaque credentials** (Settings), which issues new URLs and keeps the old
+ones working for a grace period.
 
 ## Capacity
 
