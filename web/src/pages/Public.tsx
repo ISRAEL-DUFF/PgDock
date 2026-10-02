@@ -118,14 +118,16 @@ export function VerifyEmailPage() {
   const { token } = useSearch({ from: "/verify-email" });
   const [state, setState] = useState<{ ok?: boolean; approved?: boolean; err?: string }>({});
   const started = useRef(false);
+  // After the session query, which hands out the CSRF token this write needs.
+  const { isSuccess: ready } = useQuery(sessionQuery);
   useEffect(() => {
-    if (started.current || !token) return;
+    if (started.current || !token || !ready) return;
     started.current = true;
     api.verifyEmail(token).then(
       (r) => setState({ ok: true, approved: r.approved }),
       (e) => setState({ err: errorMessage(e) }),
     );
-  }, [token]);
+  }, [token, ready]);
   return (
     <AuthShell>
       {!token && <Alert>This link is missing its token.</Alert>}
@@ -209,7 +211,8 @@ export function InvitePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: session } = useQuery(sessionQuery);
-  const preview = useQuery({ queryKey: ["invitation", token], queryFn: () => api.previewInvitation(token ?? ""), enabled: !!token, retry: false });
+  // Waits for the session, which hands out the CSRF token the preview needs.
+  const preview = useQuery({ queryKey: ["invitation", token], queryFn: () => api.previewInvitation(token ?? ""), enabled: !!token && !!session, retry: false });
   const terms = useQuery({ queryKey: ["terms"], queryFn: api.terms });
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");

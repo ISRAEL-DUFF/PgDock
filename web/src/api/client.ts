@@ -84,18 +84,33 @@ export function setCsrfToken(token: string) {
   csrfToken = token;
 }
 
+/**
+ * The CSRF cookie as the browser holds it now. Concurrent first requests can
+ * each be issued a token, and the cookie keeps the last one, so it wins over
+ * the remembered token.
+ */
+function cookieToken(): string {
+  if (typeof document === "undefined") return "";
+  const m = /(?:^|;\s*)(?:__Host-)?pgdock_csrf=([^;]+)/.exec(document.cookie);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export async function request<T>(method: Method, path: string, body?: unknown, fetchFn: typeof fetch = fetch): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  // A page that writes on load (an invitation or email link) may get here
-  // before the session query has handed out the CSRF token.
-  if (method !== "GET" && !csrfToken) {
-    const s = await request<{ csrf_token: string }>("GET", "/api/v1/session", undefined, fetchFn);
-    csrfToken ||= s.csrf_token;
+  if (method !== "GET") {
+    let token = cookieToken() || csrfToken;
+    // A page that writes on load (an invitation or email link) may get here
+    // before anything has handed out a CSRF token.
+    if (!token) {
+      const s = await request<{ csrf_token: string }>("GET", "/api/v1/session", undefined, fetchFn);
+      csrfToken ||= s.csrf_token;
+      token = cookieToken() || csrfToken;
+    }
+    headers["X-CSRF-Token"] = token;
   }
-  if (method !== "GET" && csrfToken) headers["X-CSRF-Token"] = csrfToken;
   const res = await fetchFn(path, {
     method,
     headers,
