@@ -23,6 +23,7 @@ type CutOverProjectParams struct {
 	ID         uuid.UUID
 }
 
+// tenant: system - promotion workers.
 func (q *Queries) CutOverProject(ctx context.Context, arg CutOverProjectParams) error {
 	_, err := q.db.Exec(ctx, cutOverProject, arg.InstanceID, arg.Settings, arg.ID)
 	return err
@@ -32,6 +33,7 @@ const dueRetiredDatabases = `-- name: DueRetiredDatabases :many
 SELECT id, project_id, instance_id, db_name, owner_role, reason, drop_after, dropped_at, created_at FROM retired_databases WHERE dropped_at IS NULL AND drop_after <= now() ORDER BY drop_after
 `
 
+// tenant: system - promotion workers.
 func (q *Queries) DueRetiredDatabases(ctx context.Context) ([]RetiredDatabase, error) {
 	rows, err := q.db.Query(ctx, dueRetiredDatabases)
 	if err != nil {
@@ -77,6 +79,7 @@ type InsertRetiredDatabaseParams struct {
 	DropAfter  time.Time
 }
 
+// tenant: system - promotion workers.
 func (q *Queries) InsertRetiredDatabase(ctx context.Context, arg InsertRetiredDatabaseParams) (RetiredDatabase, error) {
 	row := q.db.QueryRow(ctx, insertRetiredDatabase,
 		arg.ProjectID,
@@ -105,6 +108,7 @@ const liveRetiredForProject = `-- name: LiveRetiredForProject :one
 SELECT id, project_id, instance_id, db_name, owner_role, reason, drop_after, dropped_at, created_at FROM retired_databases WHERE project_id = $1 AND dropped_at IS NULL ORDER BY created_at DESC LIMIT 1
 `
 
+// tenant: system - promotion workers.
 func (q *Queries) LiveRetiredForProject(ctx context.Context, projectID uuid.UUID) (RetiredDatabase, error) {
 	row := q.db.QueryRow(ctx, liveRetiredForProject, projectID)
 	var i RetiredDatabase
@@ -126,6 +130,7 @@ const markRetiredDropped = `-- name: MarkRetiredDropped :exec
 UPDATE retired_databases SET dropped_at = now() WHERE id = $1
 `
 
+// tenant: system - promotion workers.
 func (q *Queries) MarkRetiredDropped(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markRetiredDropped, id)
 	return err

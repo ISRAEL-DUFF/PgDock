@@ -191,7 +191,12 @@ func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.
 	if err := s.projects.RecreateDatabase(ctx, p, log); err != nil {
 		return err
 	}
-	return s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log)
+	if err := s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log); err != nil {
+		return err
+	}
+	// Members' logins live outside the database; their grants inside it
+	// come back here (V2 §3.5).
+	return s.projects.SyncMemberRoles(ctx, p, log)
 }
 
 // reopen resumes the pooler route and marks the project active.

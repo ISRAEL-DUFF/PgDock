@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/israel-duff/pgdock/internal/crypto"
+	pgmail "github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -29,6 +30,18 @@ var (
 	ErrSetupDone          = errors.New("setup has already been completed")
 	ErrBadSetupCode       = errors.New("the setup code is wrong (see the pgdock-server log)")
 	ErrInvalidEmail       = errors.New("enter a valid email address")
+	ErrEmailUnverified    = errors.New("confirm your email address first: we sent you a link")
+	ErrPendingApproval    = errors.New("your account is waiting for the platform admin's approval")
+	ErrSignupClosed       = errors.New("sign-up is by invitation only")
+	ErrDomainNotAllowed   = errors.New("sign-up is not open to this email domain")
+	ErrTermsNotAccepted   = errors.New("accept the current terms of use to continue")
+	ErrTokenInvalid       = errors.New("this link is invalid or has expired")
+)
+
+// Platform roles (V2 §2.2).
+const (
+	RolePlatformAdmin = "platform_admin"
+	RoleUser          = "user"
 )
 
 // Config tunes the service.
@@ -46,6 +59,8 @@ type Config struct {
 	ChallengeTTL time.Duration
 	// Issuer labels the TOTP entry in authenticator apps.
 	Issuer string
+	// PublicURL is the web UI's address, for links in emails.
+	PublicURL string
 	// Now is the clock (tests).
 	Now func() time.Time
 }
@@ -72,12 +87,31 @@ func (c *Config) setDefaults() {
 	if c.Issuer == "" {
 		c.Issuer = "PGDock"
 	}
+	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
 	if c.Now == nil {
 		c.Now = time.Now
 	}
 }
 
-// Service authenticates operators.
+// Mailer sends account email.
+type Mailer interface {
+	Send(ctx context.Context, m pgmail.Message) error
+}
+
+// Hooks let the organisation layer act inside account transactions without
+// auth importing it.
+type Hooks struct {
+	// UserCreated runs in the transaction that creates a user (personal
+	// organisation).
+	UserCreated func(ctx context.Context, tx pgx.Tx, u store.User) error
+	// SetupCompleted runs in the setup transaction after UserCreated
+	// (adopting organisations that predate every user).
+	SetupCompleted func(ctx context.Context, tx pgx.Tx, u store.User) error
+	// UserRemoved runs after a user is disabled (personal DB roles).
+	UserDisabled func(ctx context.Context, userID uuid.UUID) error
+}
+
+// Service authenticates users and runs account flows.
 type Service struct {
 	db        *pgxpool.Pool
 	keyring   *crypto.Keyring
@@ -85,6 +119,8 @@ type Service struct {
 	log       *slog.Logger
 	limiter   *Limiter
 	setupCode string
+	mailer    Mailer
+	hooks     Hooks
 }
 
 // NewService returns a Service. setupCode guards the first-run wizard: it
@@ -95,15 +131,25 @@ func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, cfg Config, setupCode
 	return &Service{db: db, keyring: keyring, cfg: cfg, log: log, limiter: NewLimiter(10, 5*time.Minute), setupCode: setupCode}
 }
 
+// SetMailer sets how account email is sent.
+func (s *Service) SetMailer(m Mailer) { s.mailer = m }
+
+// SetHooks installs the organisation layer's hooks.
+func (s *Service) SetHooks(h Hooks) { s.hooks = h }
+
 // Session is an authenticated browser session.
 type Session struct {
-	ID         string // hashed id, as stored
-	OperatorID uuid.UUID
-	Email      string
-	Role       string
-	ReauthAt   *time.Time
-	CreatedAt  time.Time
+	ID           string // hashed id, as stored
+	UserID       uuid.UUID
+	Email        string
+	Name         string
+	PlatformRole string
+	ReauthAt     *time.Time
+	CreatedAt    time.Time
 }
+
+// PlatformAdmin reports whether the session's user runs the platform.
+func (s Session) PlatformAdmin() bool { return s.PlatformRole == RolePlatformAdmin }
 
 // RecentlyReauthenticated reports whether a step-up auth is still valid.
 func (s *Service) RecentlyReauthenticated(sess Session) bool {
@@ -124,11 +170,13 @@ func (s *Service) Allow(ip string) error {
 	return nil
 }
 
-func totpAAD(operatorID uuid.UUID) []byte {
-	return []byte("operators.totp_secret:" + operatorID.String())
+func totpAAD(userID uuid.UUID) []byte {
+	// The V1 label is kept: secrets sealed before the rename still open.
+	return []byte("operators.totp_secret:" + userID.String())
 }
 
-func normalizeEmail(email string) (string, error) {
+// NormalizeEmail validates an address and returns it trimmed.
+func NormalizeEmail(email string) (string, error) {
 	email = strings.TrimSpace(email)
 	a, err := mail.ParseAddress(email)
 	if err != nil || a.Address != email || len(email) > 254 {
@@ -139,14 +187,14 @@ func normalizeEmail(email string) (string, error) {
 
 // ---- First-run setup -------------------------------------------------------
 
-// SetupNeeded reports whether no operator exists yet.
+// SetupNeeded reports whether no user exists yet.
 func (s *Service) SetupNeeded(ctx context.Context) (bool, error) {
-	n, err := store.New(s.db).CountOperators(ctx)
+	n, err := store.New(s.db).CountUsers(ctx)
 	return n == 0, err
 }
 
-// Enrollment is returned by BeginSetup: the TOTP secret to enrol and a
-// token that CompleteSetup exchanges, with a valid code, for the account.
+// Enrollment is a TOTP secret to enrol, with the token that exchanges a
+// valid code for the account (setup) or the session (first sign-in).
 type Enrollment struct {
 	Token   string
 	Secret  string
@@ -160,9 +208,9 @@ type setupPayload struct {
 	TOTPSecret   string `json:"totp_secret"`
 }
 
-// BeginSetup validates the owner's email and password and prepares TOTP
-// enrolment. Nothing is created until CompleteSetup proves the authenticator
-// works ("TOTP is enforced at first login").
+// BeginSetup validates the platform admin's email and password and prepares
+// TOTP enrolment. Nothing is created until CompleteSetup proves the
+// authenticator works ("TOTP is enforced at first login").
 func (s *Service) BeginSetup(ctx context.Context, setupCode, email, password string) (Enrollment, error) {
 	if setupCode != s.setupCode {
 		return Enrollment{}, ErrBadSetupCode
@@ -174,7 +222,7 @@ func (s *Service) BeginSetup(ctx context.Context, setupCode, email, password str
 	if !needed {
 		return Enrollment{}, ErrSetupDone
 	}
-	email, err = normalizeEmail(email)
+	email, err = NormalizeEmail(email)
 	if err != nil {
 		return Enrollment{}, err
 	}
@@ -210,19 +258,28 @@ func (s *Service) BeginSetup(ctx context.Context, setupCode, email, password str
 	return Enrollment{Token: token, Secret: secret, URI: TOTPURI(secret, email, s.cfg.Issuer), Expires: expires}, nil
 }
 
-// CompleteSetup creates the owner once code proves the authenticator is
-// enrolled, and signs them in.
-func (s *Service) CompleteSetup(ctx context.Context, token, code string, ip *netip.Addr, ua string) (string, Session, error) {
+// SignedIn is a new session, with the recovery codes when this sign-in
+// enrolled TOTP (shown once).
+type SignedIn struct {
+	Token         string
+	Session       Session
+	RecoveryCodes []string
+}
+
+// CompleteSetup creates the platform admin once code proves the
+// authenticator is enrolled, and signs them in. Their address is taken as
+// verified: the setup code proves they run the host, and the wizard's SMTP
+// step sends to it.
+func (s *Service) CompleteSetup(ctx context.Context, token, code string, ip *netip.Addr, ua string) (SignedIn, error) {
 	digest := hashToken(token)
-	var sessionToken string
-	var sess Session
+	var out SignedIn
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
-		// Serialize setup so two browsers cannot both become the owner.
+		// Serialize setup so two browsers cannot both become the admin.
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('pgdock_setup'))`); err != nil {
 			return err
 		}
-		if n, err := q.CountOperators(ctx); err != nil {
+		if n, err := q.CountUsers(ctx); err != nil {
 			return err
 		} else if n > 0 {
 			return ErrSetupDone
@@ -246,131 +303,254 @@ func (s *Service) CompleteSetup(ctx context.Context, token, code string, ip *net
 		if !ok {
 			return ErrInvalidCredentials
 		}
-
-		// The secret is re-sealed with the operator's ID as associated data.
-		id := uuid.New()
-		sealed, err := s.keyring.Encrypt([]byte(p.TOTPSecret), totpAAD(id))
+		now := s.cfg.Now()
+		u, err := q.InsertUser(ctx, store.InsertUserParams{
+			Email: p.Email, PasswordHash: p.PasswordHash, PlatformRole: RolePlatformAdmin,
+			EmailVerifiedAt: &now, ApprovedAt: &now,
+		})
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO operators (id, email, password_hash, totp_secret, role, totp_last_step)
-			VALUES ($1, $2, $3, $4, 'owner', $5)`, id, p.Email, p.PasswordHash, sealed, step); err != nil {
+		codes, err := s.enrolTOTP(ctx, q, u.ID, p.TOTPSecret, step)
+		if err != nil {
+			return err
+		}
+		if err := s.userCreated(ctx, tx, u); err != nil {
+			return err
+		}
+		if s.hooks.SetupCompleted != nil {
+			if err := s.hooks.SetupCompleted(ctx, tx, u); err != nil {
+				return err
+			}
+		}
+		if err := s.acceptCurrentTerms(ctx, q, u.ID, ip); err != nil {
 			return err
 		}
 		if err := q.DeleteChallenge(ctx, digest); err != nil {
 			return err
 		}
-		sessionToken, sess, err = s.newSession(ctx, q, id, ip, ua)
+		tok, sess, err := s.newSession(ctx, q, u.ID, ip, ua)
 		if err != nil {
 			return err
 		}
-		sess.Email, sess.Role = p.Email, "owner"
+		sess.Email, sess.PlatformRole = u.Email, u.PlatformRole
+		out = SignedIn{Token: tok, Session: sess, RecoveryCodes: codes}
 		return nil
 	})
 	if errors.Is(err, ErrInvalidCredentials) {
 		// Count failures against the enrolment so it cannot be brute-forced.
 		if n, berr := store.New(s.db).BumpChallengeAttempts(ctx, digest); berr == nil && n >= 5 {
 			_ = store.New(s.db).DeleteChallenge(ctx, digest)
-			return "", Session{}, ErrChallengeExpired
+			return SignedIn{}, ErrChallengeExpired
 		}
 	}
-	return sessionToken, sess, err
+	return out, err
+}
+
+func (s *Service) userCreated(ctx context.Context, tx pgx.Tx, u store.User) error {
+	if s.hooks.UserCreated == nil {
+		return nil
+	}
+	return s.hooks.UserCreated(ctx, tx, u)
+}
+
+// enrolTOTP stores a verified secret and fresh recovery codes, returning
+// the codes.
+func (s *Service) enrolTOTP(ctx context.Context, q *store.Queries, userID uuid.UUID, secret string, step int64) ([]string, error) {
+	sealed, err := s.keyring.Encrypt([]byte(secret), totpAAD(userID))
+	if err != nil {
+		return nil, err
+	}
+	codes, blob, err := s.newRecoveryCodes(userID)
+	if err != nil {
+		return nil, err
+	}
+	return codes, q.SetUserTOTP(ctx, store.SetUserTOTPParams{ID: userID, TotpSecret: sealed, Step: step, RecoveryCodes: blob})
 }
 
 // ---- Login -----------------------------------------------------------------
 
-// Login checks email and password and returns a short-lived challenge token
-// for the TOTP step. Unknown emails take the same time as wrong passwords.
-func (s *Service) Login(ctx context.Context, email, password string) (string, uuid.UUID, error) {
+// Challenge is the result of a correct password: a token for the second
+// step, and an enrolment when the account has no authenticator yet.
+type Challenge struct {
+	Token  string
+	UserID uuid.UUID
+	Enroll *Enrollment
+}
+
+type enrollPayload struct {
+	TOTPSecret string `json:"totp_secret"`
+}
+
+// Login checks email and password and returns a short-lived challenge for
+// the TOTP step (or TOTP enrolment, on an account's first sign-in).
+// Unknown emails take the same time as wrong passwords.
+func (s *Service) Login(ctx context.Context, email, password string) (Challenge, error) {
 	q := store.New(s.db)
-	op, err := q.GetOperatorByEmail(ctx, strings.TrimSpace(email))
+	u, err := q.GetUserByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
 		_, _ = VerifyPassword(password, dummyHash)
-		return "", uuid.Nil, ErrInvalidCredentials
+		return Challenge{}, ErrInvalidCredentials
 	}
 	if err != nil {
-		return "", uuid.Nil, err
+		return Challenge{}, err
 	}
-	if op.DisabledAt != nil {
+	out := Challenge{UserID: u.ID}
+	if u.DisabledAt != nil {
 		_, _ = VerifyPassword(password, dummyHash)
-		return "", op.ID, ErrInvalidCredentials
+		return out, ErrInvalidCredentials
 	}
-	if op.LockedUntil != nil && op.LockedUntil.After(s.cfg.Now()) {
-		return "", op.ID, ErrLocked
+	if u.LockedUntil != nil && u.LockedUntil.After(s.cfg.Now()) {
+		return out, ErrLocked
 	}
-	ok, err := VerifyPassword(password, op.PasswordHash)
+	ok, err := VerifyPassword(password, u.PasswordHash)
 	if err != nil {
-		return "", op.ID, err
+		return out, err
 	}
 	if !ok {
-		return "", op.ID, s.recordFailure(ctx, op.ID)
+		return out, s.recordFailure(ctx, u.ID)
+	}
+	// Only the right password learns the account's state.
+	if u.EmailVerifiedAt == nil {
+		return out, ErrEmailUnverified
+	}
+	if u.ApprovedAt == nil {
+		return out, ErrPendingApproval
 	}
 	token, digest, err := newToken()
 	if err != nil {
-		return "", op.ID, err
+		return out, err
 	}
-	if err := q.InsertChallenge(ctx, store.InsertChallengeParams{
-		ID: digest, Kind: "login", OperatorID: &op.ID, ExpiresAt: s.cfg.Now().Add(s.cfg.ChallengeTTL),
-	}); err != nil {
-		return "", op.ID, err
+	params := store.InsertChallengeParams{ID: digest, Kind: "login", UserID: &u.ID, ExpiresAt: s.cfg.Now().Add(s.cfg.ChallengeTTL)}
+	if len(u.TotpSecret) == 0 {
+		secret, err := GenerateTOTPSecret()
+		if err != nil {
+			return out, err
+		}
+		b, _ := json.Marshal(enrollPayload{TOTPSecret: secret})
+		if params.Payload, err = s.keyring.Encrypt(b, []byte("auth_challenges.enroll:"+digest)); err != nil {
+			return out, err
+		}
+		params.Kind = "enroll"
+		params.ExpiresAt = s.cfg.Now().Add(15 * time.Minute)
+		out.Enroll = &Enrollment{Token: token, Secret: secret, URI: TOTPURI(secret, u.Email, s.cfg.Issuer), Expires: params.ExpiresAt}
 	}
-	return token, op.ID, nil
+	if err := q.InsertChallenge(ctx, params); err != nil {
+		return out, err
+	}
+	out.Token = token
+	return out, nil
 }
 
-// CompleteLogin checks the TOTP code for a challenge and opens a session.
-func (s *Service) CompleteLogin(ctx context.Context, challenge, code string, ip *netip.Addr, ua string) (string, Session, error) {
+// CompleteLogin checks the code for a challenge (a TOTP code or a recovery
+// code; on enrolment, the first code of the new authenticator) and opens a
+// session.
+func (s *Service) CompleteLogin(ctx context.Context, challenge, code string, ip *netip.Addr, ua string) (SignedIn, error) {
 	q := store.New(s.db)
 	digest := hashToken(challenge)
 	ch, err := q.GetChallenge(ctx, store.GetChallengeParams{ID: digest, Kind: "login"})
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && ch.OperatorID == nil) {
-		return "", Session{}, ErrChallengeExpired
+	if errors.Is(err, pgx.ErrNoRows) {
+		ch, err = q.GetChallenge(ctx, store.GetChallengeParams{ID: digest, Kind: "enroll"})
+	}
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && ch.UserID == nil) {
+		return SignedIn{}, ErrChallengeExpired
 	}
 	if err != nil {
-		return "", Session{}, err
+		return SignedIn{}, err
 	}
-	op, err := q.GetOperator(ctx, *ch.OperatorID)
+	u, err := q.GetUser(ctx, *ch.UserID)
 	if err != nil {
-		return "", Session{}, err
+		return SignedIn{}, err
 	}
-	if op.LockedUntil != nil && op.LockedUntil.After(s.cfg.Now()) {
-		return "", Session{}, ErrLocked
+	if u.DisabledAt != nil {
+		return SignedIn{}, ErrInvalidCredentials
 	}
-	if err := s.checkTOTP(ctx, op, code); err != nil {
-		if n, berr := q.BumpChallengeAttempts(ctx, digest); berr == nil && n >= 3 {
-			_ = q.DeleteChallenge(ctx, digest)
+	if u.LockedUntil != nil && u.LockedUntil.After(s.cfg.Now()) {
+		return SignedIn{}, ErrLocked
+	}
+	var codes []string
+	if ch.Kind == "enroll" {
+		codes, err = s.completeEnrolment(ctx, ch, digest, u, code)
+	} else {
+		err = s.checkSecondFactor(ctx, u, code)
+	}
+	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrLocked) {
+			if n, berr := q.BumpChallengeAttempts(ctx, digest); berr == nil && n >= 3 {
+				_ = q.DeleteChallenge(ctx, digest)
+			}
 		}
-		return "", Session{}, err
+		return SignedIn{}, err
 	}
 	if err := q.DeleteChallenge(ctx, digest); err != nil {
-		return "", Session{}, err
+		return SignedIn{}, err
 	}
-	if err := q.ResetLoginFailures(ctx, op.ID); err != nil {
-		return "", Session{}, err
+	if err := q.ResetLoginFailures(ctx, u.ID); err != nil {
+		return SignedIn{}, err
 	}
-	token, sess, err := s.newSession(ctx, q, op.ID, ip, ua)
-	sess.Email, sess.Role = op.Email, op.Role
-	return token, sess, err
+	token, sess, err := s.newSession(ctx, q, u.ID, ip, ua)
+	sess.Email, sess.PlatformRole = u.Email, u.PlatformRole
+	if u.Name != nil {
+		sess.Name = *u.Name
+	}
+	return SignedIn{Token: token, Session: sess, RecoveryCodes: codes}, err
+}
+
+func (s *Service) completeEnrolment(ctx context.Context, ch store.AuthChallenge, digest string, u store.User, code string) ([]string, error) {
+	if len(u.TotpSecret) > 0 {
+		return nil, ErrChallengeExpired // enrolled meanwhile (another tab)
+	}
+	plain, err := s.keyring.Decrypt(ch.Payload, []byte("auth_challenges.enroll:"+digest))
+	if err != nil {
+		return nil, err
+	}
+	var p enrollPayload
+	if err := json.Unmarshal(plain, &p); err != nil {
+		return nil, err
+	}
+	step, ok := VerifyTOTP(p.TOTPSecret, code, s.cfg.Now())
+	if !ok {
+		return nil, ErrInvalidCredentials
+	}
+	return s.enrolTOTP(ctx, store.New(s.db), u.ID, p.TOTPSecret, step)
+}
+
+// checkSecondFactor accepts a TOTP code or, failing that, an unused
+// recovery code.
+func (s *Service) checkSecondFactor(ctx context.Context, u store.User, code string) error {
+	code = strings.TrimSpace(code)
+	if looksLikeRecoveryCode(code) {
+		ok, err := s.useRecoveryCode(ctx, u, code)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return s.recordFailure(ctx, u.ID)
+		}
+		return nil
+	}
+	return s.checkTOTP(ctx, u, code)
 }
 
 // checkTOTP verifies a code and consumes its time step.
-func (s *Service) checkTOTP(ctx context.Context, op store.Operator, code string) error {
-	if len(op.TotpSecret) == 0 {
+func (s *Service) checkTOTP(ctx context.Context, u store.User, code string) error {
+	if len(u.TotpSecret) == 0 {
 		return ErrInvalidCredentials
 	}
-	secret, err := s.keyring.Decrypt(op.TotpSecret, totpAAD(op.ID))
+	secret, err := s.keyring.Decrypt(u.TotpSecret, totpAAD(u.ID))
 	if err != nil {
 		return fmt.Errorf("decrypt TOTP secret: %w", err)
 	}
 	step, ok := VerifyTOTP(string(secret), code, s.cfg.Now())
 	if !ok {
-		return s.recordFailure(ctx, op.ID)
+		return s.recordFailure(ctx, u.ID)
 	}
-	n, err := store.New(s.db).AdvanceTOTPStep(ctx, store.AdvanceTOTPStepParams{ID: op.ID, Step: step})
+	n, err := store.New(s.db).AdvanceTOTPStep(ctx, store.AdvanceTOTPStepParams{ID: u.ID, Step: step})
 	if err != nil {
 		return err
 	}
 	if n == 0 { // replayed code
-		return s.recordFailure(ctx, op.ID)
+		return s.recordFailure(ctx, u.ID)
 	}
 	return nil
 }
@@ -383,7 +563,7 @@ func (s *Service) recordFailure(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	if row.LockedUntil != nil && row.LockedUntil.After(s.cfg.Now()) {
-		s.log.Warn("operator locked out after repeated failures", "operator_id", id, "until", row.LockedUntil)
+		s.log.Warn("user locked out after repeated failures", "user_id", id, "until", row.LockedUntil)
 		return ErrLocked
 	}
 	return ErrInvalidCredentials
@@ -391,7 +571,7 @@ func (s *Service) recordFailure(ctx context.Context, id uuid.UUID) error {
 
 // ---- Sessions --------------------------------------------------------------
 
-func (s *Service) newSession(ctx context.Context, q *store.Queries, operatorID uuid.UUID, ip *netip.Addr, ua string) (string, Session, error) {
+func (s *Service) newSession(ctx context.Context, q *store.Queries, userID uuid.UUID, ip *netip.Addr, ua string) (string, Session, error) {
 	token, digest, err := newToken()
 	if err != nil {
 		return "", Session{}, err
@@ -404,10 +584,10 @@ func (s *Service) newSession(ctx context.Context, q *store.Queries, operatorID u
 		uaPtr = &ua
 	}
 	now := s.cfg.Now()
-	if err := q.InsertSession(ctx, store.InsertSessionParams{ID: digest, OperatorID: operatorID, Ip: ip, UserAgent: uaPtr, Now: now}); err != nil {
+	if err := q.InsertSession(ctx, store.InsertSessionParams{ID: digest, UserID: userID, Ip: ip, UserAgent: uaPtr, Now: now}); err != nil {
 		return "", Session{}, err
 	}
-	return token, Session{ID: digest, OperatorID: operatorID, ReauthAt: &now, CreatedAt: now}, nil
+	return token, Session{ID: digest, UserID: userID, ReauthAt: &now, CreatedAt: now}, nil
 }
 
 // Authenticate resolves a session token, enforcing the idle timeout and
@@ -426,7 +606,8 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, err
 	}
 	now := s.cfg.Now()
-	if row.DisabledAt != nil || now.Sub(row.LastSeenAt) > s.cfg.IdleTimeout || now.Sub(row.CreatedAt) > s.cfg.MaxLifetime {
+	if row.DisabledAt != nil || row.ApprovedAt == nil || row.EmailVerifiedAt == nil ||
+		now.Sub(row.LastSeenAt) > s.cfg.IdleTimeout || now.Sub(row.CreatedAt) > s.cfg.MaxLifetime {
 		_ = q.DeleteSession(ctx, digest)
 		return Session{}, ErrNoSession
 	}
@@ -434,11 +615,16 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		if err := q.TouchSession(ctx, store.TouchSessionParams{ID: digest, Now: now}); err != nil {
 			return Session{}, err
 		}
+		_ = q.TouchUserActivity(ctx, row.UserID)
 	}
-	return Session{
-		ID: digest, OperatorID: row.OperatorID, Email: row.Email, Role: row.Role,
+	sess := Session{
+		ID: digest, UserID: row.UserID, Email: row.Email, PlatformRole: row.PlatformRole,
 		ReauthAt: row.ReauthAt, CreatedAt: row.CreatedAt,
-	}, nil
+	}
+	if row.Name != nil {
+		sess.Name = *row.Name
+	}
+	return sess, nil
 }
 
 // Logout ends a session.
@@ -450,24 +636,24 @@ func (s *Service) Logout(ctx context.Context, sess Session) error {
 // actions (spec §7.2).
 func (s *Service) Reauthenticate(ctx context.Context, sess Session, password, code string) error {
 	q := store.New(s.db)
-	op, err := q.GetOperator(ctx, sess.OperatorID)
+	u, err := q.GetUser(ctx, sess.UserID)
 	if err != nil {
 		return err
 	}
-	if op.LockedUntil != nil && op.LockedUntil.After(s.cfg.Now()) {
+	if u.LockedUntil != nil && u.LockedUntil.After(s.cfg.Now()) {
 		return ErrLocked
 	}
-	ok, err := VerifyPassword(password, op.PasswordHash)
+	ok, err := VerifyPassword(password, u.PasswordHash)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return s.recordFailure(ctx, op.ID)
+		return s.recordFailure(ctx, u.ID)
 	}
-	if err := s.checkTOTP(ctx, op, code); err != nil {
+	if err := s.checkTOTP(ctx, u, code); err != nil {
 		return err
 	}
-	if err := q.ResetLoginFailures(ctx, op.ID); err != nil {
+	if err := q.ResetLoginFailures(ctx, u.ID); err != nil {
 		return err
 	}
 	return q.SetSessionReauth(ctx, store.SetSessionReauthParams{ID: sess.ID, Now: s.cfg.Now()})

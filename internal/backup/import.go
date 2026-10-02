@@ -217,6 +217,9 @@ func supabaseInternalExtension(name string) bool {
 
 // ImportParams starts an import.
 type ImportParams struct {
+	// OrgID owns the new project; CreatorRole makes CreatedBy its member.
+	OrgID       uuid.UUID
+	CreatorRole string
 	SourceURL   string
 	Name        string
 	Description *string
@@ -275,6 +278,7 @@ func (s *Service) Import(ctx context.Context, p ImportParams) (provision.Created
 	}
 	s.ephemeral.Put(ref, strings.TrimSpace(p.SourceURL), sourceTTL)
 	created, err := s.projects.Create(ctx, provision.CreateParams{
+		OrgID: p.OrgID, CreatorRole: p.CreatorRole,
 		Name: p.Name, Description: p.Description, CreatedBy: p.CreatedBy, Kind: KindImport,
 		Params: map[string]any{"import": params},
 	})

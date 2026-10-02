@@ -80,7 +80,7 @@ func (s *Server) RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id g
 	if req.TargetTime != nil {
 		a.set("target_time", req.TargetTime.UTC())
 	}
-	c, err := s.backups.PITR(r.Context(), backup.PITRParams{ProjectID: id, TargetTime: req.TargetTime, Name: req.Name, CreatedBy: operatorID(r.Context())})
+	c, err := s.backups.PITR(r.Context(), backup.PITRParams{ProjectID: id, TargetTime: req.TargetTime, Name: req.Name, CreatedBy: userID(r.Context()), CreatorRole: creatorRole(accessFrom(r.Context()))})
 	if err != nil {
 		s.backupError(w, "point-in-time recovery", err)
 		return
@@ -102,7 +102,7 @@ func (s *Server) ProjectInstanceAction(w http.ResponseWriter, r *http.Request, i
 	a := auditFrom(r.Context())
 	a.target("project", id.String())
 	a.set("action", string(req.Action))
-	p, err := s.projects.Get(r.Context(), id)
+	p, err := s.tenantProjectLive(r.Context())
 	if err != nil {
 		s.provisionError(w, "instance action", err)
 		return
@@ -212,7 +212,7 @@ func (s *Server) CreateSharedCluster(w http.ResponseWriter, r *http.Request, id 
 	a := auditFrom(r.Context())
 	a.target("node", id.String())
 	a.set("memory_mb", req.MemoryMb)
-	op, err := ds.AddSharedCluster(r.Context(), id, req.MemoryMb, operatorID(r.Context()))
+	op, err := ds.AddSharedCluster(r.Context(), id, req.MemoryMb, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "create shared cluster", err)
 		return
@@ -241,12 +241,12 @@ func (s *Server) UpdateNode(w http.ResponseWriter, r *http.Request, id gen.NodeI
 }
 
 // GetPromotionEstimate implements GET /api/v1/projects/{id}/promote.
-func (s *Server) GetPromotionEstimate(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+func (s *Server) GetPromotionEstimate(w http.ResponseWriter, r *http.Request, _ gen.ProjectID) {
 	ds := s.dedicatedSvc(w)
 	if ds == nil || !s.requireProjects(w) {
 		return
 	}
-	p, err := s.projects.Get(r.Context(), id)
+	p, err := s.tenantProjectLive(r.Context())
 	if err != nil {
 		s.provisionError(w, "promotion estimate", err)
 		return
@@ -275,7 +275,7 @@ func (s *Server) PromoteProject(w http.ResponseWriter, r *http.Request, id gen.P
 	}
 	a := auditFrom(r.Context())
 	a.target("project", id.String())
-	pp := dedicated.PromoteParams{ProjectID: id, NodeID: req.NodeId, CreatedBy: operatorID(r.Context())}
+	pp := dedicated.PromoteParams{ProjectID: id, NodeID: req.NodeId, CreatedBy: userID(r.Context())}
 	if req.Profile != nil {
 		pp.Profile = *req.Profile
 		a.set("profile", pp.Profile)

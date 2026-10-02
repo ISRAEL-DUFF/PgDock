@@ -1,0 +1,160 @@
+package api
+
+import "github.com/israel-duff/pgdock/internal/authz"
+
+// scope says how a route's resource is found before authz.Can runs.
+type scope int
+
+const (
+	scopePublic    scope = iota // no session needed
+	scopeSelf                   // a signed-in user acting on their own account
+	scopePlatform               // platform admin only
+	scopeOrgPath                // {org} in the path
+	scopeOrgQuery               // ?org=, the user's personal organisation by default
+	scopeProject                // {id} is a project
+	scopeBackup                 // {id} is a backup; its project's organisation
+	scopeOperation              // {id} is an operation; its project's organisation
+	scopeBody                   // the organisation is in the request body; the handler checks
+)
+
+// rule is a route's authorization: where its resource is and what action
+// it performs (V2 §2.6: every route declares its action).
+type rule struct {
+	scope  scope
+	action authz.Action
+	// beforeTerms routes work while the user still has to accept new terms.
+	beforeTerms bool
+}
+
+// routeRules covers every route in api/openapi.yaml; TestEveryRouteDeclaresAnAction
+// fails when one is missing, and the guard refuses undeclared routes.
+var routeRules = map[string]rule{
+	// Public.
+	"GET /healthz":                             {scope: scopePublic},
+	"GET /readyz":                              {scope: scopePublic},
+	"GET /api/v1/version":                      {scope: scopePublic},
+	"GET /api/v1/session":                      {scope: scopePublic, beforeTerms: true},
+	"POST /api/v1/auth/login":                  {scope: scopePublic, beforeTerms: true},
+	"POST /api/v1/auth/totp":                   {scope: scopePublic, beforeTerms: true},
+	"POST /api/v1/setup/begin":                 {scope: scopePublic},
+	"POST /api/v1/setup/complete":              {scope: scopePublic},
+	"POST /api/v1/agent/register":              {scope: scopePublic},
+	"POST /api/v1/auth/signup":                 {scope: scopePublic},
+	"POST /api/v1/auth/verify-email":           {scope: scopePublic, beforeTerms: true},
+	"POST /api/v1/auth/verify-email/resend":    {scope: scopePublic, beforeTerms: true},
+	"POST /api/v1/auth/password-reset":         {scope: scopePublic, beforeTerms: true},
+	"POST /api/v1/auth/password-reset/confirm": {scope: scopePublic, beforeTerms: true},
+	"GET /api/v1/terms":                        {scope: scopePublic, beforeTerms: true},
+	"POST /api/v1/invitations/preview":         {scope: scopePublic},
+	"POST /api/v1/invitations/accept":          {scope: scopePublic},
+	// /metrics takes a bearer token instead; the handler checks it or the session.
+	"GET /metrics": {scope: scopePublic},
+
+	// The signed-in user.
+	"POST /api/v1/auth/reauth":                           {scope: scopeSelf, action: authz.Self, beforeTerms: true},
+	"POST /api/v1/auth/logout":                           {scope: scopeSelf, action: authz.Self, beforeTerms: true},
+	"GET /api/v1/me":                                     {scope: scopeSelf, action: authz.Self, beforeTerms: true},
+	"PATCH /api/v1/me":                                   {scope: scopeSelf, action: authz.Self},
+	"POST /api/v1/me/password":                           {scope: scopeSelf, action: authz.Self},
+	"GET /api/v1/me/sessions":                            {scope: scopeSelf, action: authz.Self},
+	"DELETE /api/v1/me/sessions/{session_id}":            {scope: scopeSelf, action: authz.Self},
+	"GET /api/v1/me/recovery-codes":                      {scope: scopeSelf, action: authz.Self},
+	"POST /api/v1/me/recovery-codes":                     {scope: scopeSelf, action: authz.Self},
+	"POST /api/v1/me/terms/accept":                       {scope: scopeSelf, action: authz.Self, beforeTerms: true},
+	"GET /api/v1/me/invitations":                         {scope: scopeSelf, action: authz.Self},
+	"POST /api/v1/me/invitations/{invitation_id}/accept": {scope: scopeSelf, action: authz.Self},
+	"GET /api/v1/orgs":                                   {scope: scopeSelf, action: authz.Self},
+	"POST /api/v1/orgs":                                  {scope: scopeSelf, action: authz.Self},
+	"GET /api/v1/settings/general":                       {scope: scopeSelf, action: authz.Self},
+	"GET /api/v1/profiles":                               {scope: scopeSelf, action: authz.Self},
+	"POST /api/v1/imports/preflight":                     {scope: scopeSelf, action: authz.Self},
+
+	// Organisations.
+	"GET /api/v1/orgs/{org}":                                {scope: scopeOrgPath, action: authz.OrgView},
+	"PATCH /api/v1/orgs/{org}":                              {scope: scopeOrgPath, action: authz.OrgManage},
+	"GET /api/v1/orgs/{org}/members":                        {scope: scopeOrgPath, action: authz.OrgView},
+	"POST /api/v1/orgs/{org}/members":                       {scope: scopeOrgPath, action: authz.OrgManage},
+	"PATCH /api/v1/orgs/{org}/members/{user}":               {scope: scopeOrgPath, action: authz.OrgManage},
+	"DELETE /api/v1/orgs/{org}/members/{user}":              {scope: scopeOrgPath, action: authz.OrgManage},
+	"POST /api/v1/orgs/{org}/leave":                         {scope: scopeOrgPath, action: authz.OrgView},
+	"POST /api/v1/orgs/{org}/transfer-ownership":            {scope: scopeOrgPath, action: authz.OrgOwnerOnly},
+	"GET /api/v1/orgs/{org}/invitations":                    {scope: scopeOrgPath, action: authz.OrgManage},
+	"DELETE /api/v1/orgs/{org}/invitations/{invitation_id}": {scope: scopeOrgPath, action: authz.OrgManage},
+	"GET /api/v1/orgs/{org}/audit":                          {scope: scopeOrgPath, action: authz.OrgAudit},
+	"GET /api/v1/projects":                                  {scope: scopeOrgQuery, action: authz.OrgView},
+	"GET /api/v1/operations":                                {scope: scopeOrgQuery, action: authz.OrgView},
+	"GET /api/v1/backups":                                   {scope: scopeOrgQuery, action: authz.OrgView},
+	"GET /api/v1/backups/overview":                          {scope: scopeOrgQuery, action: authz.OrgView},
+	"POST /api/v1/projects":                                 {scope: scopeBody, action: authz.OrgCreateProject},
+	"POST /api/v1/imports":                                  {scope: scopeBody, action: authz.OrgCreateProject},
+
+	// Projects.
+	"GET /api/v1/projects/{id}":                              {scope: scopeProject, action: authz.ProjectView},
+	"DELETE /api/v1/projects/{id}":                           {scope: scopeProject, action: authz.ProjectDelete},
+	"PATCH /api/v1/projects/{id}/settings":                   {scope: scopeProject, action: authz.ProjectSettings},
+	"POST /api/v1/projects/{id}/rotate-password":             {scope: scopeProject, action: authz.ProjectSettings},
+	"POST /api/v1/projects/{id}/backups":                     {scope: scopeProject, action: authz.BackupCreate},
+	"POST /api/v1/projects/{id}/pitr":                        {scope: scopeProject, action: authz.BackupCreate},
+	"GET /api/v1/projects/{id}/promote":                      {scope: scopeProject, action: authz.ProjectPromote},
+	"POST /api/v1/projects/{id}/promote":                     {scope: scopeProject, action: authz.ProjectPromote},
+	"POST /api/v1/projects/{id}/instance":                    {scope: scopeProject, action: authz.ProjectSettings},
+	"POST /api/v1/projects/{id}/sql":                         {scope: scopeProject, action: authz.ConsoleRead},
+	"POST /api/v1/projects/{id}/sql/cancel":                  {scope: scopeProject, action: authz.ConsoleRead},
+	"GET /api/v1/projects/{id}/schema":                       {scope: scopeProject, action: authz.ConsoleRead},
+	"GET /api/v1/projects/{id}/tables/{schema}/{table}/rows": {scope: scopeProject, action: authz.ConsoleRead},
+	"GET /api/v1/projects/{id}/extensions":                   {scope: scopeProject, action: authz.ProjectView},
+	"POST /api/v1/projects/{id}/extensions":                  {scope: scopeProject, action: authz.ProjectSettings},
+	"GET /api/v1/projects/{id}/metrics":                      {scope: scopeProject, action: authz.ProjectView},
+	"GET /api/v1/projects/{id}/members":                      {scope: scopeProject, action: authz.ProjectView},
+	"POST /api/v1/projects/{id}/members":                     {scope: scopeProject, action: authz.ProjectMembers},
+	"PATCH /api/v1/projects/{id}/members/{user}":             {scope: scopeProject, action: authz.ProjectMembers},
+	"DELETE /api/v1/projects/{id}/members/{user}":            {scope: scopeProject, action: authz.ProjectMembers},
+	"GET /api/v1/projects/{id}/credentials":                  {scope: scopeProject, action: authz.ProjectCredentials},
+	"POST /api/v1/projects/{id}/credentials":                 {scope: scopeProject, action: authz.ProjectCredentials},
+	"POST /api/v1/projects/{id}/transfer":                    {scope: scopeProject, action: authz.ProjectDelete},
+	"GET /api/v1/projects/{id}/audit":                        {scope: scopeProject, action: authz.ProjectAudit},
+	// Restoring in place needs the project admin role; the handler checks
+	// it for that mode.
+	"POST /api/v1/backups/{id}/restore":  {scope: scopeBackup, action: authz.BackupCreate},
+	"GET /api/v1/operations/{id}":        {scope: scopeOperation, action: authz.ProjectView},
+	"GET /api/v1/operations/{id}/stream": {scope: scopeOperation, action: authz.ProjectView},
+
+	// The platform.
+	"PUT /api/v1/settings/db-host":                     {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/settings/db-host/check":              {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/dev/operations":                      {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/restore-tests":                       {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/settings/storage":                     {scope: scopePlatform, action: authz.PlatformManage},
+	"PUT /api/v1/settings/storage":                     {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/settings/storage/test":               {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/settings/backup-key":                  {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/settings/backup-key":                 {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/settings/backup-key/export":          {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/settings/backup-key/confirm":         {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/nodes":                                {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/nodes":                               {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/nodes/{id}":                           {scope: scopePlatform, action: authz.PlatformManage},
+	"PATCH /api/v1/nodes/{id}":                         {scope: scopePlatform, action: authz.PlatformManage},
+	"DELETE /api/v1/nodes/{id}":                        {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/nodes/{id}/shared-cluster":           {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/nodes/{id}/registration-token":       {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/nodes/{id}/metrics":                   {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/security/isolation-checks":            {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/security/isolation-checks":           {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/alerts":                               {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/settings/alerts":                      {scope: scopePlatform, action: authz.PlatformManage},
+	"PUT /api/v1/settings/alerts":                      {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/settings/alerts/test":                {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/audit":                          {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/users":                          {scope: scopePlatform, action: authz.PlatformManage},
+	"PATCH /api/v1/admin/users/{user}":                 {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/admin/users/{user}/reset-2fa":        {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/invitations":                    {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/admin/invitations":                   {scope: scopePlatform, action: authz.PlatformManage},
+	"DELETE /api/v1/admin/invitations/{invitation_id}": {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/settings/signup":                {scope: scopePlatform, action: authz.PlatformManage},
+	"PUT /api/v1/admin/settings/signup":                {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/settings/mail":                  {scope: scopePlatform, action: authz.PlatformManage},
+	"PUT /api/v1/admin/settings/mail":                  {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/admin/settings/terms":                {scope: scopePlatform, action: authz.PlatformManage},
+}

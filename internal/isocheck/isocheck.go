@@ -148,12 +148,40 @@ type Tenant struct {
 	DB, Role string
 }
 
-// Roles audits project roles (and their console logins): no dangerous
+// Roles audits project roles (with their console and member logins): no dangerous
 // attributes and no membership in predefined or privileged roles.
 func Roles(ctx context.Context, admin *pgx.Conn, tenants []Tenant) ([]Finding, error) {
 	var out []Finding
 	for _, t := range tenants {
-		for _, role := range []string{t.Role, provision.ConsoleRole(t.DB)} {
+		// Members' logins and the read-only group role (V2 §3.5) belong to
+		// this project alone: no role of another project, nothing
+		// privileged.
+		rows, err := admin.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname = $1 OR starts_with(rolname, $2) ORDER BY 1`,
+			provision.ReadOnlyRole(t.DB), t.DB+"_u_")
+		if err != nil {
+			return nil, err
+		}
+		extra, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			return nil, err
+		}
+		for _, role := range extra {
+			rows, err := admin.Query(ctx, `SELECT g.rolname FROM pg_auth_members m
+				JOIN pg_roles g ON g.oid = m.roleid JOIN pg_roles u ON u.oid = m.member
+				WHERE u.rolname = $1 AND g.rolname <> ALL($2) ORDER BY 1`,
+				role, []string{t.Role, provision.ReadOnlyRole(t.DB)})
+			if err != nil {
+				return nil, err
+			}
+			foreign, err := pgx.CollectRows(rows, pgx.RowTo[string])
+			if err != nil {
+				return nil, err
+			}
+			if len(foreign) > 0 {
+				out = append(out, Finding{"member logins", fmt.Sprintf("%s is granted %s, outside its project", role, strings.Join(foreign, ", "))})
+			}
+		}
+		for _, role := range append([]string{t.Role, provision.ConsoleRole(t.DB)}, extra...) {
 			var exists, super, createdb, createrole, repl, bypass bool
 			err := admin.QueryRow(ctx, `SELECT true, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = $1`, role).
 				Scan(&exists, &super, &createdb, &createrole, &repl, &bypass)

@@ -36,7 +36,7 @@ type Alert struct {
 
 type AuditLog struct {
 	ID         int64
-	OperatorID *uuid.UUID
+	UserID     *uuid.UUID
 	Action     string
 	TargetType *string
 	TargetID   *string
@@ -45,16 +45,21 @@ type AuditLog struct {
 	UserAgent  *string
 	Outcome    string
 	CreatedAt  time.Time
+	ActorKind  string
+	TokenID    *uuid.UUID
+	OrgID      *uuid.UUID
+	ProjectID  *uuid.UUID
+	BreakGlass bool
 }
 
 type AuthChallenge struct {
-	ID         string
-	Kind       string
-	OperatorID *uuid.UUID
-	Payload    []byte
-	Attempts   int32
-	ExpiresAt  time.Time
-	CreatedAt  time.Time
+	ID        string
+	Kind      string
+	UserID    *uuid.UUID
+	Payload   []byte
+	Attempts  int32
+	ExpiresAt time.Time
+	CreatedAt time.Time
 }
 
 type Backup struct {
@@ -73,6 +78,15 @@ type Backup struct {
 	KeyWrapped      []byte
 	Error           *string
 	DeletedAt       *time.Time
+}
+
+type EmailToken struct {
+	TokenHash string
+	UserID    uuid.UUID
+	Purpose   string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
 }
 
 type Instance struct {
@@ -95,6 +109,22 @@ type Instance struct {
 	WalgPrefix  *string
 	Error       *string
 	DeletedAt   *time.Time
+}
+
+type Invitation struct {
+	ID           uuid.UUID
+	Email        string
+	TokenHash    string
+	Kind         string
+	OrgID        *uuid.UUID
+	OrgRole      *string
+	ProjectRoles json.RawMessage
+	InvitedBy    uuid.UUID
+	ExpiresAt    time.Time
+	AcceptedAt   *time.Time
+	AcceptedBy   *uuid.UUID
+	RevokedAt    *time.Time
+	CreatedAt    time.Time
 }
 
 type MetricPoint struct {
@@ -142,17 +172,27 @@ type Operation struct {
 	FinishedAt *time.Time
 }
 
-type Operator struct {
-	ID           uuid.UUID
-	Email        string
-	PasswordHash string
-	TotpSecret   []byte
-	Role         string
-	CreatedAt    time.Time
-	DisabledAt   *time.Time
-	FailedLogins int32
-	LockedUntil  *time.Time
-	TotpLastStep int64
+type OrgMember struct {
+	OrgID     uuid.UUID
+	UserID    uuid.UUID
+	Role      string
+	CreatedAt time.Time
+}
+
+type Organization struct {
+	ID                 uuid.UUID
+	Name               string
+	Slug               string
+	PersonalOwnerID    *uuid.UUID
+	PlanID             uuid.UUID
+	LimitOverrides     json.RawMessage
+	DedicatedAllowance json.RawMessage
+	Settings           json.RawMessage
+	Status             string
+	SuspendedReason    *string
+	OutboundDisabled   bool
+	DeleteAfter        *time.Time
+	CreatedAt          time.Time
 }
 
 type Project struct {
@@ -172,6 +212,34 @@ type Project struct {
 	CreatedBy       *uuid.UUID
 	CreatedAt       time.Time
 	DeletedAt       *time.Time
+	OrgID           uuid.UUID
+}
+
+type ProjectDbUser struct {
+	ProjectID     uuid.UUID
+	UserID        uuid.UUID
+	OrgID         uuid.UUID
+	RoleName      string
+	ScramVerifier string
+	Access        string
+	CreatedAt     time.Time
+	RotatedAt     *time.Time
+}
+
+type ProjectMember struct {
+	ProjectID uuid.UUID
+	UserID    uuid.UUID
+	OrgID     uuid.UUID
+	Role      string
+	AddedBy   *uuid.UUID
+	CreatedAt time.Time
+}
+
+type QuotaPlan struct {
+	ID        uuid.UUID
+	Name      string
+	Limits    json.RawMessage
+	CreatedAt time.Time
 }
 
 type RetiredDatabase struct {
@@ -188,7 +256,7 @@ type RetiredDatabase struct {
 
 type Session struct {
 	ID         string
-	OperatorID uuid.UUID
+	UserID     uuid.UUID
 	CreatedAt  time.Time
 	LastSeenAt time.Time
 	ReauthAt   *time.Time
@@ -211,4 +279,37 @@ type StorageTarget struct {
 	Credentials []byte
 	IsDefault   bool
 	CreatedAt   time.Time
+}
+
+type TermsAcceptance struct {
+	UserID     uuid.UUID
+	Version    int32
+	AcceptedAt time.Time
+	Ip         *netip.Addr
+}
+
+type TermsVersion struct {
+	Version     int32
+	TermsMd     string
+	PrivacyMd   string
+	PublishedBy *uuid.UUID
+	PublishedAt time.Time
+}
+
+type User struct {
+	ID              uuid.UUID
+	Email           string
+	PasswordHash    string
+	TotpSecret      []byte
+	PlatformRole    string
+	CreatedAt       time.Time
+	DisabledAt      *time.Time
+	FailedLogins    int32
+	LockedUntil     *time.Time
+	TotpLastStep    int64
+	Name            *string
+	EmailVerifiedAt *time.Time
+	ApprovedAt      *time.Time
+	RecoveryCodes   []byte
+	LastActiveAt    *time.Time
 }

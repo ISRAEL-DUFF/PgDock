@@ -365,7 +365,7 @@ func TestUpdateGuardrailsAndDBHost(t *testing.T) {
 
 	// Everything above is in the audit log.
 	var audit gen.AuditList
-	e.Do("GET", "/api/v1/audit?target_id="+id, nil, &audit)
+	e.Do("GET", "/api/v1/orgs/"+e.OrgID.String()+"/audit?target_id="+id, nil, &audit)
 	actions := map[string]bool{}
 	for _, a := range audit.Items {
 		actions[a.Action+":"+string(a.Outcome)] = true

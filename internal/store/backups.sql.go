@@ -24,6 +24,7 @@ type BackupForOperationParams struct {
 	Kind        string
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) BackupForOperation(ctx context.Context, arg BackupForOperationParams) (Backup, error) {
 	row := q.db.QueryRow(ctx, backupForOperation, arg.OperationID, arg.Kind)
 	var i Backup
@@ -61,6 +62,7 @@ type BaseBackupBeforeParams struct {
 
 // BaseBackupBefore is the newest base backup of a project finished at or
 // before a time (the starting point of a point-in-time recovery).
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) BaseBackupBefore(ctx context.Context, arg BaseBackupBeforeParams) (Backup, error) {
 	row := q.db.QueryRow(ctx, baseBackupBefore, arg.ProjectID, arg.Before)
 	var i Backup
@@ -89,6 +91,7 @@ SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finis
 WHERE status = 'succeeded' AND expires_at IS NOT NULL AND expires_at < now()
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) ExpiredBackups(ctx context.Context) ([]Backup, error) {
 	rows, err := q.db.Query(ctx, expiredBackups)
 	if err != nil {
@@ -134,6 +137,7 @@ type FailBackupParams struct {
 	ID    uuid.UUID
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) FailBackup(ctx context.Context, arg FailBackupParams) error {
 	_, err := q.db.Exec(ctx, failBackup, arg.Error, arg.ID)
 	return err
@@ -144,6 +148,7 @@ UPDATE backups SET status = 'failed', error = 'interrupted: the attempt that too
 WHERE operation_id = $1 AND status = 'running'
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 // Backups an earlier attempt of the operation left running (its worker or
 // agent died mid-dump): they never finished.
 func (q *Queries) FailInterruptedBackups(ctx context.Context, operationID *uuid.UUID) (int64, error) {
@@ -160,6 +165,7 @@ WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id = $1
 ORDER BY started_at LIMIT 100
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 // Failed backups whose object may still be in storage: an upload can
 // complete at the bucket after its attempt gave up on it.
 func (q *Queries) FailedBackupObjects(ctx context.Context, storageTargetID *uuid.UUID) ([]Backup, error) {
@@ -210,6 +216,7 @@ type FinishBackupParams struct {
 	ID        uuid.UUID
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) FinishBackup(ctx context.Context, arg FinishBackupParams) (Backup, error) {
 	row := q.db.QueryRow(ctx, finishBackup, arg.SizeBytes, arg.Checksum, arg.ID)
 	var i Backup
@@ -237,6 +244,7 @@ const getBackup = `-- name: GetBackup :one
 SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups WHERE id = $1
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) GetBackup(ctx context.Context, id uuid.UUID) (Backup, error) {
 	row := q.db.QueryRow(ctx, getBackup, id)
 	var i Backup
@@ -296,6 +304,7 @@ type InsertBackupParams struct {
 	ExpiresAt       *time.Time
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) InsertBackup(ctx context.Context, arg InsertBackupParams) (Backup, error) {
 	row := q.db.QueryRow(ctx, insertBackup,
 		arg.ProjectID,
@@ -343,6 +352,7 @@ type InsertBaseBackupParams struct {
 	OperationID     *uuid.UUID
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) InsertBaseBackup(ctx context.Context, arg InsertBaseBackupParams) (Backup, error) {
 	row := q.db.QueryRow(ctx, insertBaseBackup,
 		arg.ProjectID,
@@ -424,6 +434,7 @@ type LastBackupTimesRow struct {
 	LastBackupAt time.Time
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) LastBackupTimes(ctx context.Context) ([]LastBackupTimesRow, error) {
 	rows, err := q.db.Query(ctx, lastBackupTimes)
 	if err != nil {
@@ -448,6 +459,7 @@ const lastOperationOfKind = `-- name: LastOperationOfKind :one
 SELECT id, kind, project_id, params, status, attempts, run_after, locked_by, locked_at, log, error, created_by, created_at, finished_at FROM operations WHERE kind = $1 ORDER BY created_at DESC LIMIT 1
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) LastOperationOfKind(ctx context.Context, kind string) (Operation, error) {
 	row := q.db.QueryRow(ctx, lastOperationOfKind, kind)
 	var i Operation
@@ -477,6 +489,7 @@ ORDER BY finished_at DESC
 LIMIT 1
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 // The newest logical backup (base backups restore only by PITR).
 func (q *Queries) LatestSucceededBackup(ctx context.Context, projectID *uuid.UUID) (Backup, error) {
 	row := q.db.QueryRow(ctx, latestSucceededBackup, projectID)
@@ -535,6 +548,7 @@ type ListAllBackupsRow struct {
 	ProjectDeleted  bool
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 // Backups of live and deleted projects (final backups outlive their project).
 func (q *Queries) ListAllBackups(ctx context.Context, arg ListAllBackupsParams) ([]ListAllBackupsRow, error) {
 	rows, err := q.db.Query(ctx, listAllBackups, arg.Kind, arg.MaxRows)
@@ -578,6 +592,7 @@ const listBaseBackups = `-- name: ListBaseBackups :many
 SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups WHERE project_id = $1 AND kind = 'base' AND status = 'succeeded' ORDER BY finished_at
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) ListBaseBackups(ctx context.Context, projectID *uuid.UUID) ([]Backup, error) {
 	rows, err := q.db.Query(ctx, listBaseBackups, projectID)
 	if err != nil {
@@ -626,6 +641,7 @@ type ListProjectBackupsParams struct {
 	MaxRows   int32
 }
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) ListProjectBackups(ctx context.Context, arg ListProjectBackupsParams) ([]Backup, error) {
 	rows, err := q.db.Query(ctx, listProjectBackups, arg.ProjectID, arg.MaxRows)
 	if err != nil {
@@ -666,6 +682,7 @@ const listRestoreTests = `-- name: ListRestoreTests :many
 SELECT id, kind, project_id, params, status, attempts, run_after, locked_by, locked_at, log, error, created_by, created_at, finished_at FROM operations WHERE kind = 'restore_test' ORDER BY created_at DESC LIMIT $1
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) ListRestoreTests(ctx context.Context, maxRows int32) ([]Operation, error) {
 	rows, err := q.db.Query(ctx, listRestoreTests, maxRows)
 	if err != nil {
@@ -705,6 +722,7 @@ const markBackupDeleted = `-- name: MarkBackupDeleted :exec
 UPDATE backups SET status = 'deleted', deleted_at = now() WHERE id = $1
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) MarkBackupDeleted(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markBackupDeleted, id)
 	return err
@@ -714,13 +732,14 @@ const markFailedBackupCleaned = `-- name: MarkFailedBackupCleaned :exec
 UPDATE backups SET deleted_at = now() WHERE id = $1 AND status = 'failed'
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) MarkFailedBackupCleaned(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markFailedBackupCleaned, id)
 	return err
 }
 
 const projectsDueForBackup = `-- name: ProjectsDueForBackup :many
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at FROM projects p
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < $1
   AND NOT EXISTS (
     SELECT 1 FROM operations o
@@ -732,6 +751,7 @@ WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < $1
   )
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 // Active projects created before the window that opened at @since, with no
 // backup operation since then and no operation in flight (the next tick
 // picks them up). A project created after the window opened waits for the
@@ -762,6 +782,7 @@ func (q *Queries) ProjectsDueForBackup(ctx context.Context, since time.Time) ([]
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.DeletedAt,
+			&i.OrgID,
 		); err != nil {
 			return nil, err
 		}
@@ -774,13 +795,14 @@ func (q *Queries) ProjectsDueForBackup(ctx context.Context, since time.Time) ([]
 }
 
 const randomProjectWithBackup = `-- name: RandomProjectWithBackup :one
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at FROM projects p
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active'
   AND EXISTS (SELECT 1 FROM backups b WHERE b.project_id = p.id AND b.status = 'succeeded' AND b.kind = 'logical')
 ORDER BY random()
 LIMIT 1
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) RandomProjectWithBackup(ctx context.Context) (Project, error) {
 	row := q.db.QueryRow(ctx, randomProjectWithBackup)
 	var i Project
@@ -801,6 +823,7 @@ func (q *Queries) RandomProjectWithBackup(ctx context.Context) (Project, error) 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
@@ -819,6 +842,7 @@ type RetentionCandidatesParams struct {
 
 // RetentionCandidates lists the succeeded backups of one kind for a project
 // (or metadata backups when project_id is null), newest first.
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) RetentionCandidates(ctx context.Context, arg RetentionCandidatesParams) ([]Backup, error) {
 	rows, err := q.db.Query(ctx, retentionCandidates, arg.Kind, arg.ProjectID)
 	if err != nil {
@@ -859,6 +883,7 @@ const staleRunningBackups = `-- name: StaleRunningBackups :many
 SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups WHERE status = 'running' AND started_at < $1
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 func (q *Queries) StaleRunningBackups(ctx context.Context, before time.Time) ([]Backup, error) {
 	rows, err := q.db.Query(ctx, staleRunningBackups, before)
 	if err != nil {
@@ -902,6 +927,7 @@ WHERE b.status = 'running' AND (
   OR (b.operation_id IS NULL AND b.started_at < now() - interval '1 day'))
 `
 
+// tenant: system - backup workers and the scheduler, or a project the request already authorized.
 // Running backups whose operation has finished (or, without one, that
 // started over a day ago) were interrupted.
 func (q *Queries) SweepStaleBackups(ctx context.Context) (int64, error) {

@@ -311,6 +311,9 @@ func (s *Service) teardown(ctx context.Context, p store.Project, log *jobs.StepL
 	if err := DropConsoleRole(ctx, conn, ConsoleRole(p.DbName), p.DbName); err != nil {
 		return fmt.Errorf("drop console role: %w", err)
 	}
+	if err := s.dropMemberRoles(ctx, p); err != nil {
+		return fmt.Errorf("drop member logins: %w", err)
+	}
 	if _, err := conn.Exec(ctx, "DROP ROLE IF EXISTS "+ident(p.OwnerRole)); err != nil {
 		return fmt.Errorf("drop role: %w", err)
 	}

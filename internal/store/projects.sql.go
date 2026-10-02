@@ -13,9 +13,10 @@ import (
 )
 
 const getLiveProjectForUpdate = `-- name: GetLiveProjectForUpdate :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at FROM projects WHERE id = $1 AND deleted_at IS NULL FOR UPDATE
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id FROM projects WHERE id = $1 AND deleted_at IS NULL FOR UPDATE
 `
 
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) GetLiveProjectForUpdate(ctx context.Context, id uuid.UUID) (Project, error) {
 	row := q.db.QueryRow(ctx, getLiveProjectForUpdate, id)
 	var i Project
@@ -36,14 +37,16 @@ func (q *Queries) GetLiveProjectForUpdate(ctx context.Context, id uuid.UUID) (Pr
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at FROM projects WHERE id = $1
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id FROM projects WHERE id = $1
 `
 
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error) {
 	row := q.db.QueryRow(ctx, getProject, id)
 	var i Project
@@ -64,18 +67,20 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
 
 const insertProject = `-- name: InsertProject :one
-INSERT INTO projects (id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'provisioning', $9, $10, $11)
-RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at
+INSERT INTO projects (id, org_id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'provisioning', $10, $11, $12)
+RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id
 `
 
 type InsertProjectParams struct {
 	ID            uuid.UUID
+	OrgID         uuid.UUID
 	Name          string
 	Slug          string
 	DbName        string
@@ -91,6 +96,7 @@ type InsertProjectParams struct {
 func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (Project, error) {
 	row := q.db.QueryRow(ctx, insertProject,
 		arg.ID,
+		arg.OrgID,
 		arg.Name,
 		arg.Slug,
 		arg.DbName,
@@ -120,12 +126,13 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (P
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }
 
 const listLiveProjects = `-- name: ListLiveProjects :many
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at FROM projects
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id FROM projects
 WHERE deleted_at IS NULL
   AND ($1::text IS NULL OR status = $1)
 ORDER BY created_at DESC, id DESC
@@ -137,6 +144,7 @@ type ListLiveProjectsParams struct {
 	MaxRows int32
 }
 
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) ListLiveProjects(ctx context.Context, arg ListLiveProjectsParams) ([]Project, error) {
 	rows, err := q.db.Query(ctx, listLiveProjects, arg.Status, arg.MaxRows)
 	if err != nil {
@@ -163,6 +171,7 @@ func (q *Queries) ListLiveProjects(ctx context.Context, arg ListLiveProjectsPara
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.DeletedAt,
+			&i.OrgID,
 		); err != nil {
 			return nil, err
 		}
@@ -196,6 +205,7 @@ type PoolerRoutesRow struct {
 
 // PoolerRoutes lists every project the pooler should route to, with the
 // backend address the pooler uses and the SCRAM verifier for its auth file.
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) PoolerRoutes(ctx context.Context) ([]PoolerRoutesRow, error) {
 	rows, err := q.db.Query(ctx, poolerRoutes)
 	if err != nil {
@@ -232,6 +242,7 @@ type SetProjectStatusParams struct {
 	ID     uuid.UUID
 }
 
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) SetProjectStatus(ctx context.Context, arg SetProjectStatusParams) error {
 	_, err := q.db.Exec(ctx, setProjectStatus, arg.Status, arg.ID)
 	return err
@@ -246,6 +257,7 @@ type SetProjectVerifierParams struct {
 	ID            uuid.UUID
 }
 
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) SetProjectVerifier(ctx context.Context, arg SetProjectVerifierParams) error {
 	_, err := q.db.Exec(ctx, setProjectVerifier, arg.ScramVerifier, arg.ID)
 	return err
@@ -260,6 +272,7 @@ type SoftDeleteProjectParams struct {
 	ID     uuid.UUID
 }
 
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) SoftDeleteProject(ctx context.Context, arg SoftDeleteProjectParams) error {
 	_, err := q.db.Exec(ctx, softDeleteProject, arg.Status, arg.ID)
 	return err
@@ -268,7 +281,7 @@ func (q *Queries) SoftDeleteProject(ctx context.Context, arg SoftDeleteProjectPa
 const updateProjectMeta = `-- name: UpdateProjectMeta :one
 UPDATE projects SET name = $1, description = $2, settings = $3
 WHERE id = $4
-RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at
+RETURNING id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id
 `
 
 type UpdateProjectMetaParams struct {
@@ -278,6 +291,7 @@ type UpdateProjectMetaParams struct {
 	ID          uuid.UUID
 }
 
+// tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 func (q *Queries) UpdateProjectMeta(ctx context.Context, arg UpdateProjectMetaParams) (Project, error) {
 	row := q.db.QueryRow(ctx, updateProjectMeta,
 		arg.Name,
@@ -303,6 +317,7 @@ func (q *Queries) UpdateProjectMeta(ctx context.Context, arg UpdateProjectMetaPa
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.OrgID,
 	)
 	return i, err
 }

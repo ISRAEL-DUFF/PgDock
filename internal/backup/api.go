@@ -56,6 +56,9 @@ type PITRParams struct {
 	TargetTime *time.Time
 	Name       string
 	CreatedBy  *uuid.UUID
+	// CreatorRole makes CreatedBy a member of the new project (see
+	// provision.CreateParams).
+	CreatorRole string
 }
 
 // PITR queues a point-in-time recovery into a new dedicated project on the
@@ -83,6 +86,7 @@ func (s *Service) PITR(ctx context.Context, p PITRParams) (provision.Created, er
 		return provision.Created{}, err
 	}
 	cp := provision.CreateParams{
+		OrgID: src.OrgID, CreatorRole: p.CreatorRole,
 		Name: strings.TrimSpace(p.Name), CreatedBy: p.CreatedBy, Kind: KindRestore,
 		Tier: provision.TierDedicated, NodeID: &inst.NodeID,
 		Params: map[string]any{"mode": ModePITR, "pitr": plan},
@@ -103,8 +107,9 @@ type RestoreParams struct {
 	// Name of the new project (ModeNew).
 	Name string
 	// Confirm must equal the project's name (ModeInPlace).
-	Confirm   string
-	CreatedBy *uuid.UUID
+	Confirm     string
+	CreatedBy   *uuid.UUID
+	CreatorRole string
 }
 
 // Restore queues a restore. For ModeNew it also returns the new project's
@@ -128,7 +133,7 @@ func (s *Service) Restore(ctx context.Context, p RestoreParams) (store.Operation
 		if p.Mode == ModeInPlace {
 			return store.Operation{}, nil, fmt.Errorf("%w: dedicated projects restore into a new project", ErrInvalid)
 		}
-		c, err := s.PITR(ctx, PITRParams{ProjectID: *b.ProjectID, TargetTime: b.FinishedAt, Name: p.Name, CreatedBy: p.CreatedBy})
+		c, err := s.PITR(ctx, PITRParams{ProjectID: *b.ProjectID, TargetTime: b.FinishedAt, Name: p.Name, CreatedBy: p.CreatedBy, CreatorRole: p.CreatorRole})
 		if err != nil {
 			return store.Operation{}, nil, err
 		}
@@ -142,7 +147,13 @@ func (s *Service) Restore(ctx context.Context, p RestoreParams) (store.Operation
 		if name == "" {
 			return store.Operation{}, nil, fmt.Errorf("%w: name the new project", ErrInvalid)
 		}
+		// The source may be deleted: final backups outlive their project.
+		src, err := store.New(s.db).GetProject(ctx, *b.ProjectID)
+		if err != nil {
+			return store.Operation{}, nil, err
+		}
 		c, err := s.projects.Create(ctx, provision.CreateParams{
+			OrgID: src.OrgID, CreatorRole: p.CreatorRole,
 			Name: name, CreatedBy: p.CreatedBy, Kind: KindRestore,
 			Params: map[string]any{"mode": params.Mode, "backup_id": params.BackupID},
 		})

@@ -3,6 +3,8 @@ package integration
 import (
 	"context"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/israel-duff/pgdock/internal/crypto"
@@ -24,6 +26,14 @@ func TestMasterKeyRotation(t *testing.T) {
 		t.Fatalf("alerts: %d", code)
 	}
 	e.CreateProject("Keyed")
+	host, port, _ := strings.Cut(e.SMTP.Addr, ":")
+	portN, _ := strconv.Atoi(port)
+	if code := e.Do("PUT", "/api/v1/admin/settings/mail", map[string]any{
+		"host": host, "port": portN, "tls": "none", "from": "pgdock@pgdock.test", "username": "u", "password": "smtp-secret",
+		"test_to": "owner@example.com",
+	}, nil); code != http.StatusOK {
+		t.Fatalf("mail settings: %d", code)
+	}
 
 	newKey, err := crypto.GenerateKey()
 	if err != nil {
@@ -37,8 +47,8 @@ func TestMasterKeyRotation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, what := range []string{"operator TOTP secret", "storage credentials", "node admin credential", "agent CA key", "backup key",
-		"alert webhook secret", "alert SMTP password"} {
+	for _, what := range []string{"user TOTP secret", "recovery codes", "storage credentials", "node admin credential", "agent CA key", "backup key",
+		"alert webhook secret", "alert SMTP password", "SMTP password"} {
 		if res.Rewrapped[what] == 0 || res.Rewrapped[what] != res.Checked[what] {
 			t.Errorf("%s: rewrapped %d of %d", what, res.Rewrapped[what], res.Checked[what])
 		}

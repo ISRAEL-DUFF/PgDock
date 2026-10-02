@@ -24,17 +24,28 @@ func (s *Server) ListOperations(w http.ResponseWriter, r *http.Request, params g
 		}
 		limit = *params.Limit
 	}
-	arg := store.ListOperationsParams{Kind: params.Kind, ProjectID: params.ProjectId, MaxRows: int32(limit)}
+	var status *string
 	if params.Status != nil {
 		if !params.Status.Valid() {
 			writeError(w, http.StatusBadRequest, "bad_request", "unknown status")
 			return
 		}
 		st := string(*params.Status)
-		arg.Status = &st
+		status = &st
 	}
-
-	ops, err := store.New(s.db).ListOperations(r.Context(), arg)
+	q := store.New(s.db)
+	var ops []store.Operation
+	var err error
+	if params.Platform != nil && *params.Platform && params.Org == nil {
+		ops, err = q.ListPlatformOperations(r.Context(), store.ListPlatformOperationsParams{Status: status, Kind: params.Kind, MaxRows: int32(limit)})
+	} else {
+		acc := accessFrom(r.Context())
+		seeAll, ids := s.visibleProjects(r.Context(), acc)
+		ops, err = q.ListOrgOperations(r.Context(), store.ListOrgOperationsParams{
+			OrgID: acc.OrgID, Status: status, Kind: params.Kind, ProjectID: params.ProjectId,
+			SeeAll: seeAll, ProjectIds: ids, MaxRows: int32(limit),
+		})
+	}
 	if err != nil {
 		s.internalError(w, "list operations", err)
 		return
@@ -111,7 +122,7 @@ func (s *Server) CreateDevOperation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	op, err := jobs.Enqueue(r.Context(), s.db, jobs.EnqueueParams{Kind: jobs.KindNoop, Params: params, CreatedBy: operatorID(r.Context())})
+	op, err := jobs.Enqueue(r.Context(), s.db, jobs.EnqueueParams{Kind: jobs.KindNoop, Params: params, CreatedBy: userID(r.Context())})
 	if err != nil {
 		s.internalError(w, "enqueue operation", err)
 		return

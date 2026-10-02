@@ -19,6 +19,12 @@ var migrations embed.FS
 // Migrate applies all pending migrations. A Postgres advisory lock
 // serializes concurrent callers, so several servers can start at once.
 func Migrate(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) error {
+	return MigrateTo(ctx, pool, -1, log)
+}
+
+// MigrateTo migrates up or down to version (-1: the latest). Tests use it
+// to load data in an older schema and upgrade it.
+func MigrateTo(ctx context.Context, pool *pgxpool.Pool, version int64, log *slog.Logger) error {
 	fsys, err := fs.Sub(migrations, "migrations")
 	if err != nil {
 		return err
@@ -34,7 +40,20 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("migrations: %w", err)
 	}
-	results, err := p.Up(ctx)
+	var results []*goose.MigrationResult
+	if version < 0 {
+		results, err = p.Up(ctx)
+	} else {
+		cur, verr := p.GetDBVersion(ctx)
+		if verr != nil {
+			return fmt.Errorf("migrations: %w", verr)
+		}
+		if version >= cur {
+			results, err = p.UpTo(ctx, version)
+		} else {
+			results, err = p.DownTo(ctx, version)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("migrations: %w", err)
 	}

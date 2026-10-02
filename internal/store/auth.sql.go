@@ -13,8 +13,35 @@ import (
 	"github.com/google/uuid"
 )
 
+const acceptTerms = `-- name: AcceptTerms :exec
+INSERT INTO terms_acceptances (user_id, version, ip) VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING
+`
+
+type AcceptTermsParams struct {
+	UserID  uuid.UUID
+	Version int32
+	Ip      *netip.Addr
+}
+
+func (q *Queries) AcceptTerms(ctx context.Context, arg AcceptTermsParams) error {
+	_, err := q.db.Exec(ctx, acceptTerms, arg.UserID, arg.Version, arg.Ip)
+	return err
+}
+
+const acceptedTermsVersion = `-- name: AcceptedTermsVersion :one
+SELECT COALESCE(max(version), 0)::int FROM terms_acceptances WHERE user_id = $1
+`
+
+func (q *Queries) AcceptedTermsVersion(ctx context.Context, userID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, acceptedTermsVersion, userID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const advanceTOTPStep = `-- name: AdvanceTOTPStep :execrows
-UPDATE operators SET totp_last_step = $1 WHERE id = $2 AND totp_last_step < $1
+UPDATE users SET totp_last_step = $1 WHERE id = $2 AND totp_last_step < $1
 `
 
 type AdvanceTOTPStepParams struct {
@@ -31,6 +58,33 @@ func (q *Queries) AdvanceTOTPStep(ctx context.Context, arg AdvanceTOTPStepParams
 	return result.RowsAffected(), nil
 }
 
+const approveUser = `-- name: ApproveUser :one
+UPDATE users SET approved_at = COALESCE(approved_at, now()) WHERE id = $1 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+`
+
+func (q *Queries) ApproveUser(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, approveUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.PlatformRole,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.FailedLogins,
+		&i.LockedUntil,
+		&i.TotpLastStep,
+		&i.Name,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.RecoveryCodes,
+		&i.LastActiveAt,
+	)
+	return i, err
+}
+
 const bumpChallengeAttempts = `-- name: BumpChallengeAttempts :one
 UPDATE auth_challenges SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts
 `
@@ -42,12 +96,41 @@ func (q *Queries) BumpChallengeAttempts(ctx context.Context, id string) (int32, 
 	return attempts, err
 }
 
-const countOperators = `-- name: CountOperators :one
-SELECT count(*) FROM operators
+const consumeEmailToken = `-- name: ConsumeEmailToken :one
+UPDATE email_tokens SET used_at = now()
+WHERE token_hash = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > now()
+RETURNING user_id
 `
 
-func (q *Queries) CountOperators(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countOperators)
+type ConsumeEmailTokenParams struct {
+	TokenHash string
+	Purpose   string
+}
+
+func (q *Queries) ConsumeEmailToken(ctx context.Context, arg ConsumeEmailTokenParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, consumeEmailToken, arg.TokenHash, arg.Purpose)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const countPlatformAdmins = `-- name: CountPlatformAdmins :one
+SELECT count(*) FROM users WHERE platform_role = 'platform_admin' AND disabled_at IS NULL
+`
+
+func (q *Queries) CountPlatformAdmins(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countPlatformAdmins)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countUsers = `-- name: CountUsers :one
+SELECT count(*) FROM users
+`
+
+func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsers)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -94,8 +177,40 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteUserSession = `-- name: DeleteUserSession :execrows
+DELETE FROM sessions WHERE user_id = $1 AND id = $2
+`
+
+type DeleteUserSessionParams struct {
+	UserID uuid.UUID
+	ID     string
+}
+
+func (q *Queries) DeleteUserSession(ctx context.Context, arg DeleteUserSessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUserSession, arg.UserID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteUserSessions = `-- name: DeleteUserSessions :exec
+DELETE FROM sessions WHERE user_id = $1 AND ($2::text IS NULL OR id <> $2)
+`
+
+type DeleteUserSessionsParams struct {
+	UserID uuid.UUID
+	Keep   *string
+}
+
+// Ends every session of a user (except @keep, the caller's own, when set).
+func (q *Queries) DeleteUserSessions(ctx context.Context, arg DeleteUserSessionsParams) error {
+	_, err := q.db.Exec(ctx, deleteUserSessions, arg.UserID, arg.Keep)
+	return err
+}
+
 const getChallenge = `-- name: GetChallenge :one
-SELECT id, kind, operator_id, payload, attempts, expires_at, created_at FROM auth_challenges WHERE id = $1 AND kind = $2 AND expires_at > now()
+SELECT id, kind, user_id, payload, attempts, expires_at, created_at FROM auth_challenges WHERE id = $1 AND kind = $2 AND expires_at > now()
 `
 
 type GetChallengeParams struct {
@@ -109,7 +224,7 @@ func (q *Queries) GetChallenge(ctx context.Context, arg GetChallengeParams) (Aut
 	err := row.Scan(
 		&i.ID,
 		&i.Kind,
-		&i.OperatorID,
+		&i.UserID,
 		&i.Payload,
 		&i.Attempts,
 		&i.ExpiresAt,
@@ -118,66 +233,25 @@ func (q *Queries) GetChallenge(ctx context.Context, arg GetChallengeParams) (Aut
 	return i, err
 }
 
-const getOperator = `-- name: GetOperator :one
-SELECT id, email, password_hash, totp_secret, role, created_at, disabled_at, failed_logins, locked_until, totp_last_step FROM operators WHERE id = $1
-`
-
-func (q *Queries) GetOperator(ctx context.Context, id uuid.UUID) (Operator, error) {
-	row := q.db.QueryRow(ctx, getOperator, id)
-	var i Operator
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.TotpSecret,
-		&i.Role,
-		&i.CreatedAt,
-		&i.DisabledAt,
-		&i.FailedLogins,
-		&i.LockedUntil,
-		&i.TotpLastStep,
-	)
-	return i, err
-}
-
-const getOperatorByEmail = `-- name: GetOperatorByEmail :one
-SELECT id, email, password_hash, totp_secret, role, created_at, disabled_at, failed_logins, locked_until, totp_last_step FROM operators WHERE email = $1
-`
-
-func (q *Queries) GetOperatorByEmail(ctx context.Context, email string) (Operator, error) {
-	row := q.db.QueryRow(ctx, getOperatorByEmail, email)
-	var i Operator
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.TotpSecret,
-		&i.Role,
-		&i.CreatedAt,
-		&i.DisabledAt,
-		&i.FailedLogins,
-		&i.LockedUntil,
-		&i.TotpLastStep,
-	)
-	return i, err
-}
-
 const getSession = `-- name: GetSession :one
-SELECT s.id, s.operator_id, s.created_at, s.last_seen_at, s.reauth_at,
-       o.email, o.role, o.disabled_at
-FROM sessions s JOIN operators o ON o.id = s.operator_id
+SELECT s.id, s.user_id, s.created_at, s.last_seen_at, s.reauth_at,
+       o.email, o.platform_role, o.disabled_at, o.email_verified_at, o.approved_at, o.name
+FROM sessions s JOIN users o ON o.id = s.user_id
 WHERE s.id = $1
 `
 
 type GetSessionRow struct {
-	ID         string
-	OperatorID uuid.UUID
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-	ReauthAt   *time.Time
-	Email      string
-	Role       string
-	DisabledAt *time.Time
+	ID              string
+	UserID          uuid.UUID
+	CreatedAt       time.Time
+	LastSeenAt      time.Time
+	ReauthAt        *time.Time
+	Email           string
+	PlatformRole    string
+	DisabledAt      *time.Time
+	EmailVerifiedAt *time.Time
+	ApprovedAt      *time.Time
+	Name            *string
 }
 
 func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, error) {
@@ -185,88 +259,130 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 	var i GetSessionRow
 	err := row.Scan(
 		&i.ID,
-		&i.OperatorID,
+		&i.UserID,
 		&i.CreatedAt,
 		&i.LastSeenAt,
 		&i.ReauthAt,
 		&i.Email,
-		&i.Role,
+		&i.PlatformRole,
 		&i.DisabledAt,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.Name,
+	)
+	return i, err
+}
+
+const getUser = `-- name: GetUser :one
+SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at FROM users WHERE id = $1
+`
+
+func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.PlatformRole,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.FailedLogins,
+		&i.LockedUntil,
+		&i.TotpLastStep,
+		&i.Name,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.RecoveryCodes,
+		&i.LastActiveAt,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at FROM users WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.PlatformRole,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.FailedLogins,
+		&i.LockedUntil,
+		&i.TotpLastStep,
+		&i.Name,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.RecoveryCodes,
+		&i.LastActiveAt,
 	)
 	return i, err
 }
 
 const insertChallenge = `-- name: InsertChallenge :exec
-INSERT INTO auth_challenges (id, kind, operator_id, payload, expires_at)
+INSERT INTO auth_challenges (id, kind, user_id, payload, expires_at)
 VALUES ($1, $2, $3, $4, $5)
 `
 
 type InsertChallengeParams struct {
-	ID         string
-	Kind       string
-	OperatorID *uuid.UUID
-	Payload    []byte
-	ExpiresAt  time.Time
+	ID        string
+	Kind      string
+	UserID    *uuid.UUID
+	Payload   []byte
+	ExpiresAt time.Time
 }
 
 func (q *Queries) InsertChallenge(ctx context.Context, arg InsertChallengeParams) error {
 	_, err := q.db.Exec(ctx, insertChallenge,
 		arg.ID,
 		arg.Kind,
-		arg.OperatorID,
+		arg.UserID,
 		arg.Payload,
 		arg.ExpiresAt,
 	)
 	return err
 }
 
-const insertOperator = `-- name: InsertOperator :one
-INSERT INTO operators (email, password_hash, totp_secret, role)
-VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, totp_secret, role, created_at, disabled_at, failed_logins, locked_until, totp_last_step
+const insertEmailToken = `-- name: InsertEmailToken :exec
+INSERT INTO email_tokens (token_hash, user_id, purpose, expires_at) VALUES ($1, $2, $3, $4)
 `
 
-type InsertOperatorParams struct {
-	Email        string
-	PasswordHash string
-	TotpSecret   []byte
-	Role         string
+type InsertEmailTokenParams struct {
+	TokenHash string
+	UserID    uuid.UUID
+	Purpose   string
+	ExpiresAt time.Time
 }
 
-func (q *Queries) InsertOperator(ctx context.Context, arg InsertOperatorParams) (Operator, error) {
-	row := q.db.QueryRow(ctx, insertOperator,
-		arg.Email,
-		arg.PasswordHash,
-		arg.TotpSecret,
-		arg.Role,
+func (q *Queries) InsertEmailToken(ctx context.Context, arg InsertEmailTokenParams) error {
+	_, err := q.db.Exec(ctx, insertEmailToken,
+		arg.TokenHash,
+		arg.UserID,
+		arg.Purpose,
+		arg.ExpiresAt,
 	)
-	var i Operator
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.TotpSecret,
-		&i.Role,
-		&i.CreatedAt,
-		&i.DisabledAt,
-		&i.FailedLogins,
-		&i.LockedUntil,
-		&i.TotpLastStep,
-	)
-	return i, err
+	return err
 }
 
 const insertSession = `-- name: InsertSession :exec
-INSERT INTO sessions (id, operator_id, ip, user_agent, created_at, last_seen_at, reauth_at)
+INSERT INTO sessions (id, user_id, ip, user_agent, created_at, last_seen_at, reauth_at)
 VALUES ($1, $2, $3, $4, $5, $5, $5)
 `
 
 type InsertSessionParams struct {
-	ID         string
-	OperatorID uuid.UUID
-	Ip         *netip.Addr
-	UserAgent  *string
-	Now        time.Time
+	ID        string
+	UserID    uuid.UUID
+	Ip        *netip.Addr
+	UserAgent *string
+	Now       time.Time
 }
 
 // Session timestamps come from the auth service's clock, which is also
@@ -274,7 +390,7 @@ type InsertSessionParams struct {
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
 	_, err := q.db.Exec(ctx, insertSession,
 		arg.ID,
-		arg.OperatorID,
+		arg.UserID,
 		arg.Ip,
 		arg.UserAgent,
 		arg.Now,
@@ -282,8 +398,228 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 	return err
 }
 
+const insertTerms = `-- name: InsertTerms :one
+INSERT INTO terms_versions (version, terms_md, privacy_md, published_by)
+VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), $1, $2, $3)
+RETURNING version, terms_md, privacy_md, published_by, published_at
+`
+
+type InsertTermsParams struct {
+	TermsMd     string
+	PrivacyMd   string
+	PublishedBy *uuid.UUID
+}
+
+func (q *Queries) InsertTerms(ctx context.Context, arg InsertTermsParams) (TermsVersion, error) {
+	row := q.db.QueryRow(ctx, insertTerms, arg.TermsMd, arg.PrivacyMd, arg.PublishedBy)
+	var i TermsVersion
+	err := row.Scan(
+		&i.Version,
+		&i.TermsMd,
+		&i.PrivacyMd,
+		&i.PublishedBy,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
+const insertUser = `-- name: InsertUser :one
+INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+`
+
+type InsertUserParams struct {
+	Email           string
+	PasswordHash    string
+	Name            *string
+	PlatformRole    string
+	EmailVerifiedAt *time.Time
+	ApprovedAt      *time.Time
+}
+
+func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, insertUser,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Name,
+		arg.PlatformRole,
+		arg.EmailVerifiedAt,
+		arg.ApprovedAt,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.PlatformRole,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.FailedLogins,
+		&i.LockedUntil,
+		&i.TotpLastStep,
+		&i.Name,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.RecoveryCodes,
+		&i.LastActiveAt,
+	)
+	return i, err
+}
+
+const invalidateEmailTokens = `-- name: InvalidateEmailTokens :exec
+UPDATE email_tokens SET used_at = now() WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL
+`
+
+type InvalidateEmailTokensParams struct {
+	UserID  uuid.UUID
+	Purpose string
+}
+
+func (q *Queries) InvalidateEmailTokens(ctx context.Context, arg InvalidateEmailTokensParams) error {
+	_, err := q.db.Exec(ctx, invalidateEmailTokens, arg.UserID, arg.Purpose)
+	return err
+}
+
+const latestTerms = `-- name: LatestTerms :one
+SELECT version, terms_md, privacy_md, published_by, published_at FROM terms_versions ORDER BY version DESC LIMIT 1
+`
+
+func (q *Queries) LatestTerms(ctx context.Context) (TermsVersion, error) {
+	row := q.db.QueryRow(ctx, latestTerms)
+	var i TermsVersion
+	err := row.Scan(
+		&i.Version,
+		&i.TermsMd,
+		&i.PrivacyMd,
+		&i.PublishedBy,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
+const listUserSessions = `-- name: ListUserSessions :many
+SELECT id, created_at, last_seen_at, ip, user_agent FROM sessions WHERE user_id = $1 ORDER BY last_seen_at DESC
+`
+
+type ListUserSessionsRow struct {
+	ID         string
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	Ip         *netip.Addr
+	UserAgent  *string
+}
+
+func (q *Queries) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]ListUserSessionsRow, error) {
+	rows, err := q.db.Query(ctx, listUserSessions, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserSessionsRow
+	for rows.Next() {
+		var i ListUserSessionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.LastSeenAt,
+			&i.Ip,
+			&i.UserAgent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT u.id, u.email, u.password_hash, u.totp_secret, u.platform_role, u.created_at, u.disabled_at, u.failed_logins, u.locked_until, u.totp_last_step, u.name, u.email_verified_at, u.approved_at, u.recovery_codes, u.last_active_at, (SELECT count(*) FROM org_members m WHERE m.user_id = u.id)::int AS org_count
+FROM users u
+WHERE ($1::text IS NULL OR u.email ILIKE '%' || $1 || '%' OR u.name ILIKE '%' || $1 || '%')
+  AND (NOT $2::bool OR (u.approved_at IS NULL AND u.disabled_at IS NULL))
+ORDER BY u.created_at DESC
+LIMIT $3
+`
+
+type ListUsersParams struct {
+	Query       *string
+	PendingOnly bool
+	MaxRows     int32
+}
+
+type ListUsersRow struct {
+	ID              uuid.UUID
+	Email           string
+	PasswordHash    string
+	TotpSecret      []byte
+	PlatformRole    string
+	CreatedAt       time.Time
+	DisabledAt      *time.Time
+	FailedLogins    int32
+	LockedUntil     *time.Time
+	TotpLastStep    int64
+	Name            *string
+	EmailVerifiedAt *time.Time
+	ApprovedAt      *time.Time
+	RecoveryCodes   []byte
+	LastActiveAt    *time.Time
+	OrgCount        int32
+}
+
+// tenant: system - the platform admin's user list.
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
+	rows, err := q.db.Query(ctx, listUsers, arg.Query, arg.PendingOnly, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUsersRow
+	for rows.Next() {
+		var i ListUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.PasswordHash,
+			&i.TotpSecret,
+			&i.PlatformRole,
+			&i.CreatedAt,
+			&i.DisabledAt,
+			&i.FailedLogins,
+			&i.LockedUntil,
+			&i.TotpLastStep,
+			&i.Name,
+			&i.EmailVerifiedAt,
+			&i.ApprovedAt,
+			&i.RecoveryCodes,
+			&i.LastActiveAt,
+			&i.OrgCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markEmailVerified = `-- name: MarkEmailVerified :exec
+UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1
+`
+
+func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markEmailVerified, id)
+	return err
+}
+
 const recordLoginFailure = `-- name: RecordLoginFailure :one
-UPDATE operators
+UPDATE users
 SET failed_logins = CASE WHEN failed_logins + 1 >= $1::int THEN 0 ELSE failed_logins + 1 END,
     locked_until  = CASE WHEN failed_logins + 1 >= $1::int THEN now() + make_interval(secs => $2::int) ELSE locked_until END
 WHERE id = $3
@@ -311,11 +647,34 @@ func (q *Queries) RecordLoginFailure(ctx context.Context, arg RecordLoginFailure
 }
 
 const resetLoginFailures = `-- name: ResetLoginFailures :exec
-UPDATE operators SET failed_logins = 0, locked_until = NULL WHERE id = $1
+UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = $1
 `
 
 func (q *Queries) ResetLoginFailures(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, resetLoginFailures, id)
+	return err
+}
+
+const resetUserTOTP = `-- name: ResetUserTOTP :exec
+UPDATE users SET totp_secret = NULL, totp_last_step = 0, recovery_codes = NULL WHERE id = $1
+`
+
+func (q *Queries) ResetUserTOTP(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, resetUserTOTP, id)
+	return err
+}
+
+const setRecoveryCodes = `-- name: SetRecoveryCodes :exec
+UPDATE users SET recovery_codes = $1 WHERE id = $2
+`
+
+type SetRecoveryCodesParams struct {
+	RecoveryCodes []byte
+	ID            uuid.UUID
+}
+
+func (q *Queries) SetRecoveryCodes(ctx context.Context, arg SetRecoveryCodesParams) error {
+	_, err := q.db.Exec(ctx, setRecoveryCodes, arg.RecoveryCodes, arg.ID)
 	return err
 }
 
@@ -333,6 +692,76 @@ func (q *Queries) SetSessionReauth(ctx context.Context, arg SetSessionReauthPara
 	return err
 }
 
+const setUserDisabled = `-- name: SetUserDisabled :one
+UPDATE users SET disabled_at = CASE WHEN $1::bool THEN COALESCE(disabled_at, now()) ELSE NULL END
+WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+`
+
+type SetUserDisabledParams struct {
+	Disabled bool
+	ID       uuid.UUID
+}
+
+func (q *Queries) SetUserDisabled(ctx context.Context, arg SetUserDisabledParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUserDisabled, arg.Disabled, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.PlatformRole,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.FailedLogins,
+		&i.LockedUntil,
+		&i.TotpLastStep,
+		&i.Name,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.RecoveryCodes,
+		&i.LastActiveAt,
+	)
+	return i, err
+}
+
+const setUserPassword = `-- name: SetUserPassword :exec
+UPDATE users SET password_hash = $1, failed_logins = 0, locked_until = NULL WHERE id = $2
+`
+
+type SetUserPasswordParams struct {
+	PasswordHash string
+	ID           uuid.UUID
+}
+
+func (q *Queries) SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, setUserPassword, arg.PasswordHash, arg.ID)
+	return err
+}
+
+const setUserTOTP = `-- name: SetUserTOTP :exec
+UPDATE users SET totp_secret = $1, totp_last_step = $2, recovery_codes = $3
+WHERE id = $4
+`
+
+type SetUserTOTPParams struct {
+	TotpSecret    []byte
+	Step          int64
+	RecoveryCodes []byte
+	ID            uuid.UUID
+}
+
+// Enrols TOTP (and its recovery codes) once: an enrolled account keeps its secret.
+func (q *Queries) SetUserTOTP(ctx context.Context, arg SetUserTOTPParams) error {
+	_, err := q.db.Exec(ctx, setUserTOTP,
+		arg.TotpSecret,
+		arg.Step,
+		arg.RecoveryCodes,
+		arg.ID,
+	)
+	return err
+}
+
 const touchSession = `-- name: TouchSession :exec
 UPDATE sessions SET last_seen_at = $1 WHERE id = $2
 `
@@ -345,4 +774,46 @@ type TouchSessionParams struct {
 func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
 	_, err := q.db.Exec(ctx, touchSession, arg.Now, arg.ID)
 	return err
+}
+
+const touchUserActivity = `-- name: TouchUserActivity :exec
+UPDATE users SET last_active_at = now()
+WHERE id = $1 AND (last_active_at IS NULL OR last_active_at < now() - interval '5 minutes')
+`
+
+func (q *Queries) TouchUserActivity(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, touchUserActivity, id)
+	return err
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users SET name = $1 WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+`
+
+type UpdateUserProfileParams struct {
+	Name *string
+	ID   uuid.UUID
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile, arg.Name, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.PlatformRole,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.FailedLogins,
+		&i.LockedUntil,
+		&i.TotpLastStep,
+		&i.Name,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.RecoveryCodes,
+		&i.LastActiveAt,
+	)
+	return i, err
 }

@@ -55,11 +55,12 @@ func setupOwner(t *testing.T, s *auth.Service, c *clock) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tok, sess, err := s.CompleteSetup(ctx, enr.Token, code(t, enr.Secret, c), nil, "test")
+	in, err := s.CompleteSetup(ctx, enr.Token, code(t, enr.Secret, c), nil, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tok == "" || sess.Email != email || sess.Role != "owner" {
+	tok, sess := in.Token, in.Session
+	if tok == "" || sess.Email != email || sess.PlatformRole != auth.RolePlatformAdmin || len(in.RecoveryCodes) != auth.RecoveryCodeCount {
 		t.Fatalf("setup session: %q %+v", tok, sess)
 	}
 	c.Step()
@@ -69,16 +70,16 @@ func setupOwner(t *testing.T, s *auth.Service, c *clock) string {
 func login(t *testing.T, s *auth.Service, c *clock, secret string) (string, auth.Session) {
 	t.Helper()
 	ctx := context.Background()
-	ch, _, err := s.Login(ctx, email, password)
+	ch, err := s.Login(ctx, email, password)
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	tok, sess, err := s.CompleteLogin(ctx, ch, code(t, secret, c), nil, "test")
+	in, err := s.CompleteLogin(ctx, ch.Token, code(t, secret, c), nil, "test")
 	if err != nil {
 		t.Fatalf("totp: %v", err)
 	}
 	c.Step()
-	return tok, sess
+	return in.Token, in.Session
 }
 
 func TestSetupFlow(t *testing.T) {
@@ -102,13 +103,13 @@ func TestSetupFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.CompleteSetup(ctx, enr.Token, "000000", nil, ""); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.CompleteSetup(ctx, enr.Token, "000000", nil, ""); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("wrong enrolment code: %v", err)
 	}
 	if needed, _ := s.SetupNeeded(ctx); !needed {
 		t.Fatal("account created before TOTP was proven")
 	}
-	if _, _, err := s.CompleteSetup(ctx, enr.Token, code(t, enr.Secret, c), nil, ""); err != nil {
+	if _, err := s.CompleteSetup(ctx, enr.Token, code(t, enr.Secret, c), nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if needed, _ := s.SetupNeeded(ctx); needed {
@@ -124,16 +125,16 @@ func TestLoginSessionLogout(t *testing.T) {
 	ctx := context.Background()
 	secret := setupOwner(t, s, c)
 
-	if _, _, err := s.Login(ctx, email, "wrong password!!"); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.Login(ctx, email, "wrong password!!"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("wrong password: %v", err)
 	}
-	if _, _, err := s.Login(ctx, "nobody@example.com", password); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.Login(ctx, "nobody@example.com", password); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("unknown email: %v", err)
 	}
 
 	tok, sess := login(t, s, c, secret)
 	got, err := s.Authenticate(ctx, tok)
-	if err != nil || got.OperatorID != sess.OperatorID || got.Email != email {
+	if err != nil || got.UserID != sess.UserID || got.Email != email {
 		t.Fatalf("authenticate: %+v %v", got, err)
 	}
 	if !s.RecentlyReauthenticated(got) {
@@ -155,22 +156,22 @@ func TestTOTPReplayAndChallengeExpiry(t *testing.T) {
 	ctx := context.Background()
 	secret := setupOwner(t, s, c)
 
-	ch, _, err := s.Login(ctx, email, password)
+	ch, err := s.Login(ctx, email, password)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cd := code(t, secret, c)
-	if _, _, err := s.CompleteLogin(ctx, ch, cd, nil, ""); err != nil {
+	if _, err := s.CompleteLogin(ctx, ch.Token, cd, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	// The same code cannot be used again, even with a new challenge.
-	ch2, _, _ := s.Login(ctx, email, password)
-	if _, _, err := s.CompleteLogin(ctx, ch2, cd, nil, ""); !errors.Is(err, auth.ErrInvalidCredentials) {
+	ch2, _ := s.Login(ctx, email, password)
+	if _, err := s.CompleteLogin(ctx, ch2.Token, cd, nil, ""); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("replayed code: %v", err)
 	}
 	// A challenge is single-use.
 	c.Step()
-	if _, _, err := s.CompleteLogin(ctx, ch, code(t, secret, c), nil, ""); !errors.Is(err, auth.ErrChallengeExpired) {
+	if _, err := s.CompleteLogin(ctx, ch.Token, code(t, secret, c), nil, ""); !errors.Is(err, auth.ErrChallengeExpired) {
 		t.Fatalf("reused challenge: %v", err)
 	}
 }
@@ -181,15 +182,15 @@ func TestLockout(t *testing.T) {
 	secret := setupOwner(t, s, c)
 
 	for i := range 2 {
-		if _, _, err := s.Login(ctx, email, "wrong password!!"); !errors.Is(err, auth.ErrInvalidCredentials) {
+		if _, err := s.Login(ctx, email, "wrong password!!"); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Fatalf("attempt %d: %v", i, err)
 		}
 	}
-	if _, _, err := s.Login(ctx, email, "wrong password!!"); !errors.Is(err, auth.ErrLocked) {
+	if _, err := s.Login(ctx, email, "wrong password!!"); !errors.Is(err, auth.ErrLocked) {
 		t.Fatalf("third failure should lock: %v", err)
 	}
 	// Even the right password is refused while locked.
-	if _, _, err := s.Login(ctx, email, password); !errors.Is(err, auth.ErrLocked) {
+	if _, err := s.Login(ctx, email, password); !errors.Is(err, auth.ErrLocked) {
 		t.Fatalf("locked account accepted the right password: %v", err)
 	}
 	_ = secret
@@ -200,14 +201,14 @@ func TestWrongTOTPCountsTowardLockout(t *testing.T) {
 	ctx := context.Background()
 	setupOwner(t, s, c)
 
-	ch, _, err := s.Login(ctx, email, password)
+	ch, err := s.Login(ctx, email, password)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.CompleteLogin(ctx, ch, "000001", nil, ""); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.CompleteLogin(ctx, ch.Token, "000001", nil, ""); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("first wrong code: %v", err)
 	}
-	if _, _, err := s.CompleteLogin(ctx, ch, "000002", nil, ""); !errors.Is(err, auth.ErrLocked) {
+	if _, err := s.CompleteLogin(ctx, ch.Token, "000002", nil, ""); !errors.Is(err, auth.ErrLocked) {
 		t.Fatalf("second wrong code should lock: %v", err)
 	}
 }
