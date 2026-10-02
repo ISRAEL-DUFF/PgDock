@@ -273,6 +273,7 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 	p := strings.NewReplacer(
 		"{id}", id, "{org}", w.orgA.String(), "{user}", w.users[rMember].String(),
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
+		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(),
 	).Replace(pattern)
 	if rl := routeRules["GET "+pattern]; rl.scope == scopeOrgQuery {
 		p += "?org=" + w.orgA.String()
@@ -399,6 +400,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.ProjectView: {
 		"GET /api/v1/projects/{id}", "GET /api/v1/projects/{id}/metrics", "GET /api/v1/projects/{id}/extensions",
 		"GET /api/v1/projects/{id}/members", "GET /api/v1/operations/{id}", "GET /api/v1/operations/{id}/stream",
+		// §10.4: storage against the limit, and the reaper's log
+		"GET /api/v1/projects/{id}/storage", "GET /api/v1/projects/{id}/reaped",
 	},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
@@ -413,6 +416,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.ProjectSettings: {
 		"PATCH /api/v1/projects/{id}/settings", "POST /api/v1/projects/{id}/rotate-password",
 		"POST /api/v1/projects/{id}/extensions", "POST /api/v1/projects/{id}/instance",
+		// §10.2 switch to opaque credentials (a new app password), §10.4 Reclaim space
+		"POST /api/v1/projects/{id}/switch-credentials", "POST /api/v1/projects/{id}/reclaim-space",
 	},
 	// "Manage project members"
 	authz.ProjectMembers: {
@@ -428,6 +433,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgView: {
 		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "POST /api/v1/orgs/{org}/leave",
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
+		// §13 "projects list ... with quota usage bars": every member sees the limits
+		"GET /api/v1/orgs/{org}/quotas",
 	},
 	// "Create projects, import"
 	authz.OrgCreateProject: {"POST /api/v1/projects", "POST /api/v1/imports"},
@@ -437,9 +444,13 @@ var specMatrix = map[authz.Action][]string{
 		"DELETE /api/v1/orgs/{org}/members/{user}", "GET /api/v1/orgs/{org}/invitations", "DELETE /api/v1/orgs/{org}/invitations/{invitation_id}",
 	},
 	// "View org usage and quotas, org audit log"
-	authz.OrgAudit: {"GET /api/v1/orgs/{org}/audit"},
+	authz.OrgAudit: {"GET /api/v1/orgs/{org}/audit", "GET /api/v1/orgs/{org}/usage", "GET /api/v1/orgs/{org}/dedicated-requests"},
 	// "Add/remove owners, delete org, transfer projects out"
-	authz.OrgOwnerOnly: {"POST /api/v1/orgs/{org}/transfer-ownership"},
+	authz.OrgOwnerOnly: {
+		"POST /api/v1/orgs/{org}/transfer-ownership", "DELETE /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/cancel-deletion",
+		// §2.4 "any org owner can end the session early"
+		"POST /api/v1/orgs/{org}/break-glass/{session_id}/end",
+	},
 	// The signed-in user's own account
 	authz.Self: {
 		"POST /api/v1/auth/reauth", "POST /api/v1/auth/logout", "GET /api/v1/me", "PATCH /api/v1/me", "POST /api/v1/me/password",
@@ -462,6 +473,13 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/admin/users/{user}/reset-2fa", "GET /api/v1/admin/invitations", "POST /api/v1/admin/invitations",
 		"DELETE /api/v1/admin/invitations/{invitation_id}", "GET /api/v1/admin/settings/signup", "PUT /api/v1/admin/settings/signup",
 		"GET /api/v1/admin/settings/mail", "PUT /api/v1/admin/settings/mail", "POST /api/v1/admin/settings/terms",
+		// §2.4 "assign quota plans and dedicated allowances; approve dedicated requests", "suspend and reinstate", break-glass
+		"GET /api/v1/admin/orgs", "GET /api/v1/admin/orgs/{org}", "PATCH /api/v1/admin/orgs/{org}",
+		"POST /api/v1/admin/orgs/{org}/suspend", "POST /api/v1/admin/orgs/{org}/reinstate", "POST /api/v1/admin/orgs/{org}/cluster",
+		"POST /api/v1/admin/orgs/{org}/break-glass", "GET /api/v1/admin/plans", "POST /api/v1/admin/plans",
+		"PATCH /api/v1/admin/plans/{plan_id}", "GET /api/v1/admin/dedicated-requests",
+		"POST /api/v1/admin/dedicated-requests/{request_id}/approve", "POST /api/v1/admin/dedicated-requests/{request_id}/reject",
+		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
 	},
 }
 

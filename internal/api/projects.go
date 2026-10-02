@@ -99,6 +99,14 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	if req.VolumeGb != nil {
 		cp.VolumeGB = *req.VolumeGb
 	}
+	if s.tenancy != nil {
+		if !s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), acc.OrgID)) {
+			return
+		}
+		if cp.Tier == provision.TierDedicated && !s.withinAllowance(w, r, acc.OrgID, profileSize(cp.Profile, cp.VolumeGB)) {
+			return
+		}
+	}
 	c, err := s.projects.Create(r.Context(), cp)
 	if err != nil {
 		s.provisionError(w, "create project", err)
@@ -213,7 +221,7 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 		OrgId:       p.OrgID,
 		Name:        p.Name,
 		Slug:        p.Slug,
-		DbName:      p.DbName,
+		DbName:      store.ClientDBName(p),
 		OwnerRole:   p.OwnerRole,
 		Tier:        gen.ProjectTier(p.Tier),
 		Status:      gen.ProjectStatus(p.Status),
@@ -228,6 +236,9 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 			ConsoleReadOnly:                 set.ConsoleReadOnly,
 		},
 		Connection: toAPIConnection(s.projects.ConnectionFor(p), ""),
+		StorageState:           ptrTo(gen.StorageState(p.StorageState)),
+		CanSwitchCredentials:   ptrTo(provision.CanSwitchCredentials(p)),
+		LegacyCredentialsUntil: p.LegacyUntil,
 	}, nil
 }
 

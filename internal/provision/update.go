@@ -163,7 +163,7 @@ func (s *Service) runApplySettings(ctx context.Context, op store.Operation, log 
 		return err
 	}
 	// Pooled server connections keep the settings they started with.
-	if err := s.pooler.Reconnect(ctx, p.DbName); err != nil {
+	if err := s.pooler.Reconnect(ctx, store.PoolerNames(p)...); err != nil {
 		return fmt.Errorf("recycle pooled connections: %w", err)
 	}
 	if err := log.Info(ctx, "pooler", "pooled server connections recycled"); err != nil {

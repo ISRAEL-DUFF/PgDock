@@ -129,6 +129,9 @@ func userID(ctx context.Context) *uuid.UUID {
 // auditInfo is filled in by handlers while a mutating request runs.
 type auditInfo struct {
 	skip       bool
+	// breakGlass marks a platform admin acting through a break-glass
+	// session: the row shows in the org's log and the platform's (V2 §2.4).
+	breakGlass bool
 	userID     *uuid.UUID
 	orgID      uuid.UUID
 	projectID  uuid.UUID
@@ -260,7 +263,7 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 	}
 	params := store.InsertAuditParams{
 		UserID: uid, Action: action, Detail: b, Ip: ipFrom(r.Context()),
-		Outcome: outcomeFor(status), ActorKind: authz.ActorSession,
+		Outcome: outcomeFor(status), ActorKind: authz.ActorSession, BreakGlass: info.breakGlass,
 	}
 	if info.orgID != uuid.Nil {
 		params.OrgID = &info.orgID
@@ -304,6 +307,9 @@ var reauthRequired = map[string]bool{
 	"POST /api/v1/admin/users/{user}/reset-2fa":  true,
 	"POST /api/v1/projects/{id}/transfer":        true,
 	"POST /api/v1/orgs/{org}/transfer-ownership": true,
+	"DELETE /api/v1/orgs/{org}":                  true,
+	"POST /api/v1/admin/orgs/{org}/break-glass":  true,
+	"POST /api/v1/admin/orgs/{org}/suspend":      true,
 	// POST /api/v1/backups/{id}/restore checks it for mode in_place only.
 }
 
@@ -405,13 +411,16 @@ func (s *Server) guard(next http.Handler) http.Handler {
 				if status == http.StatusNotFound {
 					ww.Header().Set("X-PGDock-Authz", "hidden")
 					writeError(ww, status, "not_found", "not found")
+				} else if acc.Frozen {
+					ww.Header().Set("X-PGDock-Authz", "denied")
+					writeError(ww, status, "org_suspended", "the organisation is suspended or being deleted; only viewing works")
 				} else {
 					ww.Header().Set("X-PGDock-Authz", "denied")
 					writeError(ww, status, "forbidden", "you don't have permission to do this")
 				}
 				return
 			}
-			info.orgID, info.projectID = acc.OrgID, acc.ProjectID
+			info.orgID, info.projectID, info.breakGlass = acc.OrgID, acc.ProjectID, acc.BreakGlass
 			ctx = context.WithValue(ctx, keyAccess, acc)
 			r = r.WithContext(ctx)
 		}

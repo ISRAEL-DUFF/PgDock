@@ -102,6 +102,10 @@ type Service struct {
 	FinalBackup func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
 	// Instances runs dedicated instances; nil disables the dedicated tier.
 	Instances InstanceManager
+	// LoginGate, when set, reports whether a project's logins may connect:
+	// false while its storage is hard-locked or its organisation is
+	// suspended (V2 §10.4, §10.8). The tenancy service sets it.
+	LoginGate func(ctx context.Context, p store.Project) (bool, error)
 }
 
 // ErrNoDedicated means the dedicated tier is not available.
@@ -115,7 +119,7 @@ func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, pm *pooler.Manager, c
 
 // Kinds returns the operation kinds this service handles.
 func (s *Service) Kinds() map[string]jobs.Kind {
-	return map[string]jobs.Kind{
+	kinds := map[string]jobs.Kind{
 		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3},
 		KindRotate: {Handler: s.runRotate, OnFail: s.rollbackRotate, MaxAttempts: 3},
 		KindDelete: {Handler: s.runDelete, OnFail: s.failDelete, MaxAttempts: 5},
@@ -123,6 +127,10 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindApplySettings: {Handler: s.runApplySettings, MaxAttempts: 5},
 		KindDropDBUser:    {Handler: s.runDropDBUser, MaxAttempts: 10},
 	}
+	for k, v := range s.opaqueKinds() {
+		kinds[k] = v
+	}
+	return kinds
 }
 
 // Connection is how clients reach a project. URLs carry no password.
@@ -145,7 +153,7 @@ func (s *Service) ConnectionFor(p store.Project) Connection {
 	}
 	return Connection{
 		Host: host, SessionPort: s.cfg.SessionPort, PooledPort: s.cfg.PooledPort,
-		Database: p.DbName, User: p.OwnerRole, SSLMode: s.cfg.SSLMode,
+		Database: store.ClientDBName(p), User: p.OwnerRole, SSLMode: s.cfg.SSLMode,
 	}
 }
 
@@ -299,7 +307,7 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	defaults := store.DefaultSharedSettings()
 	switch tier {
 	case TierShared:
-		inst, err = store.New(s.db).PickSharedInstance(ctx)
+		inst, err = store.New(s.db).PickSharedInstance(ctx, &p.OrgID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Created{}, ErrNoCapacity
 		}
@@ -326,9 +334,9 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	if kind == "" {
 		kind = KindCreate
 	}
-	// The random suffix rarely collides; retry with a fresh one if it does.
+	// A random name rarely collides; retry with a fresh one if it does.
 	for attempt := 0; ; attempt++ {
-		dbName, role, err := Names(slug)
+		dbName, role, err := Names()
 		if err != nil {
 			return Created{}, err
 		}

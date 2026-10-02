@@ -22,6 +22,10 @@ type access struct {
 	ProjectID   uuid.UUID
 	OrgRole     string
 	ProjectRole string
+	// BreakGlass: a platform admin acting through break-glass (V2 §2.4).
+	BreakGlass bool
+	// Frozen: refused because the organisation is suspended or deleting.
+	Frozen bool
 }
 
 func accessFrom(ctx context.Context) access {
@@ -133,6 +137,7 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 		return acc, 0, err
 	}
 	acc.OrgID, acc.ProjectID, acc.OrgRole, acc.ProjectRole = res.OrgID, res.ProjectID, d.OrgRole, d.ProjectRole
+	acc.BreakGlass, acc.Frozen = d.BreakGlass, d.Frozen
 	switch {
 	case !d.Visible:
 		return acc, http.StatusNotFound, nil
@@ -175,9 +180,13 @@ func (s *Server) authorizeOrg(w http.ResponseWriter, r *http.Request, orgID *uui
 		s.internalError(w, "authorize", err)
 		return acc, false
 	}
-	acc.OrgID, acc.OrgRole = *orgID, d.OrgRole
+	acc.OrgID, acc.OrgRole, acc.BreakGlass = *orgID, d.OrgRole, d.BreakGlass
 	if !d.Visible {
 		writeError(w, http.StatusNotFound, "not_found", "not found")
+		return acc, false
+	}
+	if d.Frozen {
+		writeError(w, http.StatusForbidden, "org_suspended", "the organisation is suspended or being deleted; only viewing works")
 		return acc, false
 	}
 	if !d.Allowed {
@@ -185,7 +194,7 @@ func (s *Server) authorizeOrg(w http.ResponseWriter, r *http.Request, orgID *uui
 		return acc, false
 	}
 	a := auditFrom(ctx)
-	a.orgID = *orgID
+	a.orgID, a.breakGlass = *orgID, d.BreakGlass
 	return acc, true
 }
 

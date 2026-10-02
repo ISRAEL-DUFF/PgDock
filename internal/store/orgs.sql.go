@@ -187,7 +187,7 @@ func (q *Queries) GetInvitationByToken(ctx context.Context, tokenHash string) (G
 }
 
 const getOrg = `-- name: GetOrg :one
-SELECT id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at FROM organizations WHERE id = $1 AND status <> 'deleted'
+SELECT id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at, suspended_at, delete_requested_by FROM organizations WHERE id = $1 AND status <> 'deleted'
 `
 
 func (q *Queries) GetOrg(ctx context.Context, orgID uuid.UUID) (Organization, error) {
@@ -207,12 +207,14 @@ func (q *Queries) GetOrg(ctx context.Context, orgID uuid.UUID) (Organization, er
 		&i.OutboundDisabled,
 		&i.DeleteAfter,
 		&i.CreatedAt,
+		&i.SuspendedAt,
+		&i.DeleteRequestedBy,
 	)
 	return i, err
 }
 
 const getOrgBySlug = `-- name: GetOrgBySlug :one
-SELECT id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at FROM organizations WHERE slug = $1 AND status <> 'deleted'
+SELECT id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at, suspended_at, delete_requested_by FROM organizations WHERE slug = $1 AND status <> 'deleted'
 `
 
 // tenant: system - the organisation row itself, or the caller's own personal organisation.
@@ -233,6 +235,8 @@ func (q *Queries) GetOrgBySlug(ctx context.Context, slug string) (Organization, 
 		&i.OutboundDisabled,
 		&i.DeleteAfter,
 		&i.CreatedAt,
+		&i.SuspendedAt,
+		&i.DeleteRequestedBy,
 	)
 	return i, err
 }
@@ -259,7 +263,7 @@ func (q *Queries) GetOrgMember(ctx context.Context, arg GetOrgMemberParams) (Org
 }
 
 const getOrgProject = `-- name: GetOrgProject :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id FROM projects WHERE id = $1 AND org_id = $2
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects WHERE id = $1 AND org_id = $2
 `
 
 type GetOrgProjectParams struct {
@@ -288,12 +292,18 @@ func (q *Queries) GetOrgProject(ctx context.Context, arg GetOrgProjectParams) (P
 		&i.CreatedAt,
 		&i.DeletedAt,
 		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
 	)
 	return i, err
 }
 
 const getPersonalOrg = `-- name: GetPersonalOrg :one
-SELECT id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at FROM organizations WHERE personal_owner_id = $1
+SELECT id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at, suspended_at, delete_requested_by FROM organizations WHERE personal_owner_id = $1
 `
 
 // tenant: system - the organisation row itself, or the caller's own personal organisation.
@@ -314,6 +324,8 @@ func (q *Queries) GetPersonalOrg(ctx context.Context, userID *uuid.UUID) (Organi
 		&i.OutboundDisabled,
 		&i.DeleteAfter,
 		&i.CreatedAt,
+		&i.SuspendedAt,
+		&i.DeleteRequestedBy,
 	)
 	return i, err
 }
@@ -441,7 +453,7 @@ const insertOrg = `-- name: InsertOrg :one
 
 INSERT INTO organizations (name, slug, personal_owner_id, plan_id, settings)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at
+RETURNING id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at, suspended_at, delete_requested_by
 `
 
 type InsertOrgParams struct {
@@ -480,6 +492,8 @@ func (q *Queries) InsertOrg(ctx context.Context, arg InsertOrgParams) (Organizat
 		&i.OutboundDisabled,
 		&i.DeleteAfter,
 		&i.CreatedAt,
+		&i.SuspendedAt,
+		&i.DeleteRequestedBy,
 	)
 	return i, err
 }
@@ -868,7 +882,7 @@ func (q *Queries) ListOrgProjectMemberships(ctx context.Context, orgID uuid.UUID
 }
 
 const listOrgProjects = `-- name: ListOrgProjects :many
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id FROM projects p
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at FROM projects p
 WHERE p.org_id = $1 AND p.deleted_at IS NULL
   AND ($2::text IS NULL OR p.status = $2)
   AND ($3::bool OR EXISTS (
@@ -921,6 +935,12 @@ func (q *Queries) ListOrgProjects(ctx context.Context, arg ListOrgProjectsParams
 			&i.CreatedAt,
 			&i.DeletedAt,
 			&i.OrgID,
+			&i.AliasDbName,
+			&i.LegacyOwnerRole,
+			&i.LegacyScramVerifier,
+			&i.LegacyUntil,
+			&i.StorageState,
+			&i.StorageStateAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1169,7 +1189,7 @@ func (q *Queries) ListUserDBUsersInOrg(ctx context.Context, arg ListUserDBUsersI
 }
 
 const listUserOrgs = `-- name: ListUserOrgs :many
-SELECT o.id, o.name, o.slug, o.personal_owner_id, o.plan_id, o.limit_overrides, o.dedicated_allowance, o.settings, o.status, o.suspended_reason, o.outbound_disabled, o.delete_after, o.created_at, m.role AS member_role,
+SELECT o.id, o.name, o.slug, o.personal_owner_id, o.plan_id, o.limit_overrides, o.dedicated_allowance, o.settings, o.status, o.suspended_reason, o.outbound_disabled, o.delete_after, o.created_at, o.suspended_at, o.delete_requested_by, m.role AS member_role,
        (SELECT count(*) FROM org_members x WHERE x.org_id = o.id)::int AS member_count,
        (SELECT count(*) FROM projects p WHERE p.org_id = o.id AND p.deleted_at IS NULL)::int AS project_count
 FROM organizations o JOIN org_members m ON m.org_id = o.id
@@ -1191,6 +1211,8 @@ type ListUserOrgsRow struct {
 	OutboundDisabled   bool
 	DeleteAfter        *time.Time
 	CreatedAt          time.Time
+	SuspendedAt        *time.Time
+	DeleteRequestedBy  *uuid.UUID
 	MemberRole         string
 	MemberCount        int32
 	ProjectCount       int32
@@ -1220,6 +1242,8 @@ func (q *Queries) ListUserOrgs(ctx context.Context, userID uuid.UUID) ([]ListUse
 			&i.OutboundDisabled,
 			&i.DeleteAfter,
 			&i.CreatedAt,
+			&i.SuspendedAt,
+			&i.DeleteRequestedBy,
 			&i.MemberRole,
 			&i.MemberCount,
 			&i.ProjectCount,
@@ -1369,6 +1393,22 @@ func (q *Queries) PoolerDBUsers(ctx context.Context) ([]PoolerDBUsersRow, error)
 	return items, nil
 }
 
+const renameProjectDBUser = `-- name: RenameProjectDBUser :exec
+UPDATE project_db_users SET role_name = $1 WHERE project_id = $2 AND role_name = $3
+`
+
+type RenameProjectDBUserParams struct {
+	NewName   string
+	ProjectID uuid.UUID
+	OldName   string
+}
+
+// tenant: system - the rename_opaque operation renames a project's own logins.
+func (q *Queries) RenameProjectDBUser(ctx context.Context, arg RenameProjectDBUserParams) error {
+	_, err := q.db.Exec(ctx, renameProjectDBUser, arg.NewName, arg.ProjectID, arg.OldName)
+	return err
+}
+
 const resolveProjectOrg = `-- name: ResolveProjectOrg :one
 
 SELECT org_id FROM projects WHERE id = $1
@@ -1474,7 +1514,7 @@ func (q *Queries) SetProjectOrg(ctx context.Context, arg SetProjectOrgParams) er
 const updateOrg = `-- name: UpdateOrg :one
 UPDATE organizations SET name = $1, slug = $2, settings = $3
 WHERE id = $4
-RETURNING id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at
+RETURNING id, name, slug, personal_owner_id, plan_id, limit_overrides, dedicated_allowance, settings, status, suspended_reason, outbound_disabled, delete_after, created_at, suspended_at, delete_requested_by
 `
 
 type UpdateOrgParams struct {
@@ -1506,6 +1546,8 @@ func (q *Queries) UpdateOrg(ctx context.Context, arg UpdateOrgParams) (Organizat
 		&i.OutboundDisabled,
 		&i.DeleteAfter,
 		&i.CreatedAt,
+		&i.SuspendedAt,
+		&i.DeleteRequestedBy,
 	)
 	return i, err
 }

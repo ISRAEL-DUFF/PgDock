@@ -15,8 +15,7 @@ import (
 
 const (
 	maxNameLen = 64
-	maxSlugLen = 40 // slug_xxxx_owner stays well under Postgres's 63-byte limit
-	suffixLen  = 4
+	maxSlugLen = 40 // the slug lives only in PGDock's metadata
 )
 
 // ErrInvalid wraps validation failures that are the caller's fault.
@@ -73,15 +72,46 @@ func randomSuffix(n int) (string, error) {
 	return string(b), nil
 }
 
-// Names returns the database and owner role names for a slug, e.g.
-// blog_k2f9 and blog_k2f9_owner.
-func Names(slug string) (dbName, ownerRole string, err error) {
-	suffix, err := randomSuffix(suffixLen)
-	if err != nil {
+// opaqueAlphabet is lowercase base32: 5 bits per character, no bias.
+const opaqueAlphabet = "abcdefghijklmnopqrstuvwxyz234567"
+
+// opaqueLen is the random part of an opaque database name (50 bits).
+const opaqueLen = 10
+
+var opaqueRe = regexp.MustCompile(`^p_[a-z2-7]{10}$`)
+
+// IsOpaque reports whether dbName is an opaque database name (V2 §10.2).
+func IsOpaque(dbName string) bool { return opaqueRe.MatchString(dbName) }
+
+// OpaqueDBName returns a new database name like p_7f3k9x2m4q. Nothing about
+// the project is in it, so other tenants reading pg_database learn nothing
+// (V2 §10.2).
+func OpaqueDBName() (string, error) {
+	b := make([]byte, opaqueLen)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	for i := range b {
+		b[i] = opaqueAlphabet[b[i]&31]
+	}
+	return "p_" + string(b), nil
+}
+
+var opaqueRoleRe = regexp.MustCompile(`^p_[a-z2-7]{10}(_owner|_ro|_console|_u_[a-z0-9]{6})$`)
+
+// IsOpaqueRole reports whether role is one of an opaque project's roles.
+func IsOpaqueRole(role string) bool { return opaqueRoleRe.MatchString(role) }
+
+// OwnerRoleName is a project's owner (login) role for dbName.
+func OwnerRoleName(dbName string) string { return dbName + "_owner" }
+
+// Names returns a new project's opaque database and owner role names, e.g.
+// p_7f3k9x2m4q and p_7f3k9x2m4q_owner.
+func Names() (dbName, ownerRole string, err error) {
+	if dbName, err = OpaqueDBName(); err != nil {
 		return "", "", err
 	}
-	dbName = slug + "_" + suffix
-	return dbName, dbName + "_owner", nil
+	return dbName, OwnerRoleName(dbName), nil
 }
 
 // GeneratePassword returns a password from 32 random bytes, URL-safe so it

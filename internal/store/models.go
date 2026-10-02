@@ -80,6 +80,31 @@ type Backup struct {
 	DeletedAt       *time.Time
 }
 
+type BreakGlassSession struct {
+	ID        uuid.UUID
+	OrgID     uuid.UUID
+	AdminID   uuid.UUID
+	Reason    string
+	StartsAt  time.Time
+	ExpiresAt time.Time
+	EndedAt   *time.Time
+	EndedBy   *uuid.UUID
+}
+
+type DedicatedRequest struct {
+	ID           uuid.UUID
+	OrgID        uuid.UUID
+	ProjectID    uuid.UUID
+	RequestedBy  uuid.UUID
+	Profile      json.RawMessage
+	Reason       *string
+	Status       string
+	DecidedBy    *uuid.UUID
+	DecidedAt    *time.Time
+	DecisionNote *string
+	CreatedAt    time.Time
+}
+
 type EmailToken struct {
 	TokenHash string
 	UserID    uuid.UUID
@@ -109,6 +134,7 @@ type Instance struct {
 	WalgPrefix  *string
 	Error       *string
 	DeletedAt   *time.Time
+	OrgID       *uuid.UUID
 }
 
 type Invitation struct {
@@ -193,26 +219,34 @@ type Organization struct {
 	OutboundDisabled   bool
 	DeleteAfter        *time.Time
 	CreatedAt          time.Time
+	SuspendedAt        *time.Time
+	DeleteRequestedBy  *uuid.UUID
 }
 
 type Project struct {
-	ID              uuid.UUID
-	Name            string
-	Slug            string
-	DbName          string
-	OwnerRole       string
-	ScramVerifier   string
-	Tier            string
-	InstanceID      uuid.UUID
-	Status          string
-	Settings        json.RawMessage
-	StorageTargetID *uuid.UUID
-	Extensions      []string
-	Description     *string
-	CreatedBy       *uuid.UUID
-	CreatedAt       time.Time
-	DeletedAt       *time.Time
-	OrgID           uuid.UUID
+	ID                  uuid.UUID
+	Name                string
+	Slug                string
+	DbName              string
+	OwnerRole           string
+	ScramVerifier       string
+	Tier                string
+	InstanceID          uuid.UUID
+	Status              string
+	Settings            json.RawMessage
+	StorageTargetID     *uuid.UUID
+	Extensions          []string
+	Description         *string
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	DeletedAt           *time.Time
+	OrgID               uuid.UUID
+	AliasDbName         *string
+	LegacyOwnerRole     *string
+	LegacyScramVerifier *string
+	LegacyUntil         *time.Time
+	StorageState        string
+	StorageStateAt      *time.Time
 }
 
 type ProjectDbUser struct {
@@ -239,6 +273,17 @@ type QuotaPlan struct {
 	ID        uuid.UUID
 	Name      string
 	Limits    json.RawMessage
+	CreatedAt time.Time
+}
+
+type ReapedSession struct {
+	ID        int64
+	ProjectID uuid.UUID
+	OrgID     uuid.UUID
+	Kind      string
+	RoleName  string
+	DurationS int32
+	Query     *string
 	CreatedAt time.Time
 }
 
@@ -294,6 +339,16 @@ type TermsVersion struct {
 	PrivacyMd   string
 	PublishedBy *uuid.UUID
 	PublishedAt time.Time
+}
+
+type UsageRecord struct {
+	OrgID       uuid.UUID
+	ProjectID   uuid.UUID
+	Metric      string
+	Granularity string
+	PeriodStart time.Time
+	Quantity    pgtype.Numeric
+	PlanID      uuid.UUID
 }
 
 type User struct {

@@ -883,6 +883,12 @@ paths:
             schema:
               $ref: "#/components/schemas/PromoteRequest"
       responses:
+        "201":
+          description: Beyond the organisation's dedicated allowance, the promotion became a request for the platform admin (V2 §10.6).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DedicatedRequest"
         "202":
           description: Promotion queued.
           content:
@@ -1677,6 +1683,27 @@ paths:
                 $ref: "#/components/schemas/Org"
         default:
           $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteOrg
+      summary: Delete an organisation after a 7-day grace period (owner, step-up auth)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteOrgRequest"
+      responses:
+        "202":
+          description: The organisation is offline and will be deleted at delete_after unless an owner cancels.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgDeletion"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/members:
     get:
       operationId: listOrgMembers
@@ -2182,8 +2209,486 @@ paths:
                 $ref: "#/components/schemas/Terms"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/quotas:
+    get:
+      operationId: getOrgQuotas
+      summary: The organisation's plan, limits, and current use (V2 §10.3)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Limits and use.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgQuotas"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/usage:
+    get:
+      operationId: getOrgUsage
+      summary: Recorded usage (V2 §10.9), as JSON or CSV
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: from
+          in: query
+          description: Start (inclusive); default the start of this month (UTC).
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End (exclusive); default now.
+          schema:
+            type: string
+            format: date-time
+        - name: metric
+          in: query
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: Usage records.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageReport"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/cancel-deletion:
+    post:
+      operationId: cancelOrgDeletion
+      summary: Cancel a pending organisation deletion (owner)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "204":
+          description: Cancelled; the projects accept connections again.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/break-glass/{session_id}/end:
+    post:
+      operationId: endBreakGlass
+      summary: End a break-glass session early (owner)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Ended.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/dedicated-requests:
+    get:
+      operationId: listOrgDedicatedRequests
+      summary: The organisation's dedicated instance requests
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DedicatedRequestList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/switch-credentials:
+    post:
+      operationId: switchProjectCredentials
+      summary: Switch a V1 project to opaque credentials (V2 §10.2)
+      description: |
+        Creates an opaque owner role with a new password, returned once. The
+        V1 role and database name keep working until the grace period ends,
+        then stop.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchCredentialsRequest"
+      responses:
+        "202":
+          description: Switch operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwitchedCredentials"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/storage:
+    get:
+      operationId: getProjectStorage
+      summary: Size against the storage limit, lock state, and the largest tables
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Storage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStorage"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/reclaim-space:
+    post:
+      operationId: reclaimSpace
+      summary: Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReclaimSpaceRequest"
+      responses:
+        "202":
+          description: Operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/reaped:
+    get:
+      operationId: listReapedSessions
+      summary: Statements and idle transactions the reaper ended (V2 §10.4)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Most recent first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReapedSessionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs:
+    get:
+      operationId: adminListOrgs
+      summary: Every organisation with plan, counts, size, and status (platform admin)
+      tags: [admin]
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Organisations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrgList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}:
+    get:
+      operationId: adminGetOrg
+      summary: One organisation's plan, limits, allowance, and clusters (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The organisation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrg"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: adminUpdateOrg
+      summary: Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateOrgRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrg"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/suspend:
+    post:
+      operationId: adminSuspendOrg
+      summary: Suspend an organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "204":
+          description: Suspended.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/reinstate:
+    post:
+      operationId: adminReinstateOrg
+      summary: Reinstate a suspended organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "204":
+          description: Reinstated.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/cluster:
+    post:
+      operationId: adminSetOrgCluster
+      summary: Give an organisation its own shared cluster, or take it back (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOrgClusterRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrg"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/break-glass:
+    post:
+      operationId: adminStartBreakGlass
+      summary: Start break-glass access to an organisation (platform admin, step-up auth)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BreakGlassRequest"
+      responses:
+        "201":
+          description: Started; every owner is emailed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassSession"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/plans:
+    get:
+      operationId: listPlans
+      summary: Quota plan templates (platform admin)
+      tags: [admin]
+      responses:
+        "200":
+          description: Plans.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createPlan
+      summary: Add a quota plan template (platform admin)
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/plans/{plan_id}:
+    patch:
+      operationId: updatePlan
+      summary: Change a quota plan template (platform admin)
+      tags: [admin]
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/dedicated-requests:
+    get:
+      operationId: listDedicatedRequests
+      summary: Dedicated instance requests from every organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, cancelled]
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DedicatedRequestList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/dedicated-requests/{request_id}/approve:
+    post:
+      operationId: approveDedicatedRequest
+      summary: Approve a dedicated request; the promotion starts (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideRequest"
+      responses:
+        "202":
+          description: Approved; the promotion is queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/dedicated-requests/{request_id}/reject:
+    post:
+      operationId: rejectDedicatedRequest
+      summary: Reject a dedicated request (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideRequest"
+      responses:
+        "204":
+          description: Rejected.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/usage:
+    get:
+      operationId: platformUsage
+      summary: Usage totals per organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Totals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformUsage"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/shared-clusters:
+    get:
+      operationId: listSharedClusters
+      summary: Shared clusters and the organisation each is reserved for (platform admin)
+      tags: [admin]
+      responses:
+        "200":
+          description: Clusters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedClusterList"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
+    RequestID:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     OrgID:
       name: org
       in: path
@@ -2374,6 +2879,8 @@ components:
           example: not_implemented
         message:
           type: string
+        quota:
+          $ref: "#/components/schemas/QuotaItem"
     OperationStatus:
       type: string
       enum: [queued, running, succeeded, failed]
@@ -2518,6 +3025,16 @@ components:
           format: uuid
         my_role:
           $ref: "#/components/schemas/ProjectRole"
+        storage_state:
+          $ref: "#/components/schemas/StorageState"
+        can_switch_credentials:
+          type: boolean
+          description: A V1 project that still uses its V1 owner role (V2 §10.2).
+        legacy_credentials_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: The V1 credentials stop working at this time.
         name:
           type: string
         slug:
@@ -3439,6 +3956,9 @@ components:
           type: integer
           minimum: 1
           maximum: 16384
+        reason:
+          type: string
+          description: Why, when the promotion is beyond the organisation's dedicated allowance and becomes a request.
     SqlRequest:
       type: object
       required: [query, query_id]
@@ -4091,6 +4611,19 @@ components:
           type: integer
         project_count:
           type: integer
+        suspended_reason:
+          type: string
+          nullable: true
+        delete_after:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set while the organisation is being deleted.
+        break_glass:
+          type: array
+          description: Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
+          items:
+            $ref: "#/components/schemas/BreakGlassSession"
         created_at:
           type: string
           format: date-time
@@ -4510,3 +5043,508 @@ components:
           type: string
           format: email
           description: Where to send the test message.
+    QuotaItem:
+      type: object
+      required: [limit, used]
+      properties:
+        limit:
+          type: string
+          description: The limit's key (V2 §10.3), e.g. projects or project_storage_mb.
+        used:
+          type: number
+        max:
+          type: integer
+          format: int64
+          nullable: true
+          description: Absent or null means unlimited.
+    DedicatedAllowance:
+      type: object
+      required: [instances, cpus, memory_mb, disk_gb]
+      properties:
+        instances:
+          type: integer
+        cpus:
+          type: number
+        memory_mb:
+          type: integer
+        disk_gb:
+          type: integer
+        unlimited:
+          type: boolean
+          description: The Unlimited plan has no allowance to stay within.
+    OrgQuotas:
+      type: object
+      required: [plan, items, dedicated_allowance, dedicated_use]
+      properties:
+        plan:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuotaItem"
+        dedicated_allowance:
+          $ref: "#/components/schemas/DedicatedAllowance"
+        dedicated_use:
+          $ref: "#/components/schemas/DedicatedAllowance"
+    UsageMetric:
+      type: object
+      required: [name, unit, granularity]
+      properties:
+        name:
+          type: string
+        unit:
+          type: string
+        granularity:
+          type: string
+          enum: [hour, day]
+    UsageRecord:
+      type: object
+      required: [metric, granularity, period_start, quantity]
+      properties:
+        metric:
+          type: string
+        granularity:
+          type: string
+          enum: [hour, day]
+        period_start:
+          type: string
+          format: date-time
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        project_name:
+          type: string
+          nullable: true
+          description: Absent once the project is deleted.
+        quantity:
+          type: number
+    UsageTotal:
+      type: object
+      required: [metric, quantity]
+      properties:
+        metric:
+          type: string
+        quantity:
+          type: number
+    UsageReport:
+      type: object
+      required: [from, to, metrics, records, totals]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageMetric"
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageRecord"
+        totals:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageTotal"
+    PlatformUsageRow:
+      type: object
+      required: [org_id, org_name, metric, quantity]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        metric:
+          type: string
+        quantity:
+          type: number
+    PlatformUsage:
+      type: object
+      required: [from, to, items]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformUsageRow"
+    DeleteOrgRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          description: The organisation's name, typed.
+        delete_projects:
+          type: boolean
+          description: Delete every project too (each gets a final backup).
+    OrgDeletion:
+      type: object
+      required: [delete_after]
+      properties:
+        delete_after:
+          type: string
+          format: date-time
+    BreakGlassSession:
+      type: object
+      required: [id, org_id, admin_email, reason, starts_at, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        admin_email:
+          type: string
+        reason:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    BreakGlassRequest:
+      type: object
+      required: [reason, duration_minutes]
+      properties:
+        reason:
+          type: string
+        duration_minutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+    DedicatedRequest:
+      type: object
+      required: [id, org_id, project_id, project_name, requested_by, profile, volume_gb, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+        requested_by:
+          type: string
+          description: The requester's email.
+        profile:
+          type: string
+        volume_gb:
+          type: integer
+        node_id:
+          type: string
+          format: uuid
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected, cancelled]
+        decision_note:
+          type: string
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    DedicatedRequestList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DedicatedRequest"
+    DecideRequest:
+      type: object
+      properties:
+        note:
+          type: string
+        raise_allowance:
+          type: boolean
+          description: On approval, raise the organisation's allowance to fit this instance.
+    SwitchCredentialsRequest:
+      type: object
+      properties:
+        grace_days:
+          type: integer
+          minimum: 1
+          maximum: 90
+          description: How long the V1 credentials keep working (default 7).
+    SwitchedCredentials:
+      type: object
+      description: Shown once. The V1 role works until legacy_until.
+      required: [project, operation, password, connection, legacy_until]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        operation:
+          $ref: "#/components/schemas/Operation"
+        password:
+          type: string
+        connection:
+          $ref: "#/components/schemas/ConnectionInfo"
+        legacy_until:
+          type: string
+          format: date-time
+    TableFootprint:
+      type: object
+      required: [schema, table, bytes, dead_rows]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        bytes:
+          type: integer
+          format: int64
+        dead_rows:
+          type: integer
+          format: int64
+    StorageState:
+      type: string
+      description: V2 §10.4 storage enforcement.
+      enum: [none, warn, soft, hard]
+    ProjectStorage:
+      type: object
+      required: [state, tables]
+      properties:
+        state:
+          $ref: "#/components/schemas/StorageState"
+        size_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        limit_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableFootprint"
+    ReclaimSpaceRequest:
+      type: object
+      required: [schema, table]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+    ReapedSession:
+      type: object
+      required: [kind, role, duration_s, created_at]
+      properties:
+        kind:
+          type: string
+          enum: [statement, idle_in_transaction]
+        role:
+          type: string
+        duration_s:
+          type: integer
+        query:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    ReapedSessionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReapedSession"
+    AdminOrgSummary:
+      type: object
+      required: [id, name, slug, plan, status, personal, member_count, project_count, size_bytes, outbound_disabled, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        plan:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, deleting, deleted]
+        suspended_reason:
+          type: string
+          nullable: true
+        personal:
+          type: boolean
+        member_count:
+          type: integer
+        project_count:
+          type: integer
+        size_bytes:
+          type: integer
+          format: int64
+        outbound_disabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    AdminOrgList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminOrgSummary"
+    SharedCluster:
+      type: object
+      required: [id, node_name, project_count]
+      properties:
+        id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+        org_name:
+          type: string
+          nullable: true
+        project_count:
+          type: integer
+    SharedClusterList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedCluster"
+    AdminOrg:
+      type: object
+      required: [org, plan_id, limits, limit_overrides, dedicated_allowance, clusters, break_glass]
+      properties:
+        org:
+          $ref: "#/components/schemas/AdminOrgSummary"
+        plan_id:
+          type: string
+          format: uuid
+        limits:
+          type: object
+          description: Effective limits (plan with overrides); absent keys are unlimited.
+          additionalProperties:
+            type: integer
+            format: int64
+        limit_overrides:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            nullable: true
+        dedicated_allowance:
+          $ref: "#/components/schemas/DedicatedAllowance"
+        clusters:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedCluster"
+        break_glass:
+          type: array
+          description: Your open break-glass sessions on this organisation.
+          items:
+            $ref: "#/components/schemas/BreakGlassSession"
+    AdminUpdateOrgRequest:
+      type: object
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+        limit_overrides:
+          type: object
+          description: Replaces the overrides. A number sets a limit; null makes it unlimited.
+          additionalProperties:
+            type: integer
+            format: int64
+            nullable: true
+        dedicated_allowance:
+          $ref: "#/components/schemas/DedicatedAllowance"
+        outbound_disabled:
+          type: boolean
+    SetOrgClusterRequest:
+      type: object
+      required: [instance_id]
+      properties:
+        instance_id:
+          type: string
+          format: uuid
+        reserved:
+          type: boolean
+          description: True reserves the cluster for this organisation (default); false releases it.
+    Plan:
+      type: object
+      required: [id, name, limits, org_count]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        limits:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        org_count:
+          type: integer
+    PlanList:
+      type: object
+      required: [items, keys]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Plan"
+        keys:
+          type: array
+          description: Known limit keys, in display order.
+          items:
+            type: string
+    PlanRequest:
+      type: object
+      required: [name, limits]
+      properties:
+        name:
+          type: string
+        limits:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64

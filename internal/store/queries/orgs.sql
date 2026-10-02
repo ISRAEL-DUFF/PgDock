@@ -259,3 +259,7 @@ WHERE project_id IS NULL
   AND (sqlc.narg(kind)::text IS NULL OR kind = sqlc.narg(kind))
 ORDER BY created_at DESC, id DESC
 LIMIT @max_rows;
+
+-- name: RenameProjectDBUser :exec
+-- tenant: system - the rename_opaque operation renames a project's own logins.
+UPDATE project_db_users SET role_name = @new_name WHERE project_id = @project_id AND role_name = @old_name;

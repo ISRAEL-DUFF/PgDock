@@ -282,8 +282,12 @@ func (s *Service) applyDBUser(ctx context.Context, p store.Project, u store.Proj
 	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, u.RoleName).Scan(&exists); err != nil {
 		return err
 	}
-	attrs := fmt.Sprintf("LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT CONNECTION LIMIT %d PASSWORD %s",
-		set.ConnectionLimit, literal(u.ScramVerifier))
+	login, err := s.loginAttr(ctx, p)
+	if err != nil {
+		return err
+	}
+	attrs := fmt.Sprintf("%s NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT CONNECTION LIMIT %d PASSWORD %s",
+		login, set.ConnectionLimit, literal(u.ScramVerifier))
 	verb := "CREATE"
 	if exists {
 		verb = "ALTER"
@@ -302,6 +306,7 @@ func (s *Service) applyDBUser(ctx context.Context, p store.Project, u store.Proj
 			"ALTER ROLE "+role+" RESET role",
 			"ALTER ROLE "+role+" SET default_transaction_read_only = on")
 	}
+	stmts = append(stmts, tempFileLimit(u.RoleName, p.Tier))
 	for param, val := range map[string]string{
 		"statement_timeout":                   set.StatementTimeout,
 		"idle_in_transaction_session_timeout": set.IdleInTransactionTimeout,

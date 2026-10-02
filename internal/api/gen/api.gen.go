@@ -14,6 +14,30 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdminOrgSummaryStatus.
+const (
+	AdminOrgSummaryStatusActive    AdminOrgSummaryStatus = "active"
+	AdminOrgSummaryStatusDeleted   AdminOrgSummaryStatus = "deleted"
+	AdminOrgSummaryStatusDeleting  AdminOrgSummaryStatus = "deleting"
+	AdminOrgSummaryStatusSuspended AdminOrgSummaryStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the AdminOrgSummaryStatus enum.
+func (e AdminOrgSummaryStatus) Valid() bool {
+	switch e {
+	case AdminOrgSummaryStatusActive:
+		return true
+	case AdminOrgSummaryStatusDeleted:
+		return true
+	case AdminOrgSummaryStatusDeleting:
+		return true
+	case AdminOrgSummaryStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminUserPlatformRole.
 const (
 	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
@@ -242,6 +266,30 @@ func (e DbTableKind) Valid() bool {
 	case Table:
 		return true
 	case View:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DedicatedRequestStatus.
+const (
+	DedicatedRequestStatusApproved  DedicatedRequestStatus = "approved"
+	DedicatedRequestStatusCancelled DedicatedRequestStatus = "cancelled"
+	DedicatedRequestStatusPending   DedicatedRequestStatus = "pending"
+	DedicatedRequestStatusRejected  DedicatedRequestStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the DedicatedRequestStatus enum.
+func (e DedicatedRequestStatus) Valid() bool {
+	switch e {
+	case DedicatedRequestStatusApproved:
+		return true
+	case DedicatedRequestStatusCancelled:
+		return true
+	case DedicatedRequestStatusPending:
+		return true
+	case DedicatedRequestStatusRejected:
 		return true
 	default:
 		return false
@@ -614,6 +662,24 @@ func (e ProjectTier) Valid() bool {
 	}
 }
 
+// Defines values for ReapedSessionKind.
+const (
+	IdleInTransaction ReapedSessionKind = "idle_in_transaction"
+	Statement         ReapedSessionKind = "statement"
+)
+
+// Valid indicates whether the value is a known member of the ReapedSessionKind enum.
+func (e ReapedSessionKind) Valid() bool {
+	switch e {
+	case IdleInTransaction:
+		return true
+	case Statement:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RestoreRequestMode.
 const (
 	InPlace RestoreRequestMode = "in_place"
@@ -668,6 +734,30 @@ func (e SignupSettingsMode) Valid() bool {
 	case SignupSettingsModeInviteOnly:
 		return true
 	case SignupSettingsModeOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StorageState.
+const (
+	StorageStateHard StorageState = "hard"
+	StorageStateNone StorageState = "none"
+	StorageStateSoft StorageState = "soft"
+	StorageStateWarn StorageState = "warn"
+)
+
+// Valid indicates whether the value is a known member of the StorageState enum.
+func (e StorageState) Valid() bool {
+	switch e {
+	case StorageStateHard:
+		return true
+	case StorageStateNone:
+		return true
+	case StorageStateSoft:
+		return true
+	case StorageStateWarn:
 		return true
 	default:
 		return false
@@ -764,6 +854,42 @@ func (e UpdateNodeRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for UsageMetricGranularity.
+const (
+	UsageMetricGranularityDay  UsageMetricGranularity = "day"
+	UsageMetricGranularityHour UsageMetricGranularity = "hour"
+)
+
+// Valid indicates whether the value is a known member of the UsageMetricGranularity enum.
+func (e UsageMetricGranularity) Valid() bool {
+	switch e {
+	case UsageMetricGranularityDay:
+		return true
+	case UsageMetricGranularityHour:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UsageRecordGranularity.
+const (
+	UsageRecordGranularityDay  UsageRecordGranularity = "day"
+	UsageRecordGranularityHour UsageRecordGranularity = "hour"
+)
+
+// Valid indicates whether the value is a known member of the UsageRecordGranularity enum.
+func (e UsageRecordGranularity) Valid() bool {
+	switch e {
+	case UsageRecordGranularityDay:
+		return true
+	case UsageRecordGranularityHour:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UserPlatformRole.
 const (
 	UserPlatformRolePlatformAdmin UserPlatformRole = "platform_admin"
@@ -845,6 +971,30 @@ func (e ListPlatformAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for ListDedicatedRequestsParamsStatus.
+const (
+	ListDedicatedRequestsParamsStatusApproved  ListDedicatedRequestsParamsStatus = "approved"
+	ListDedicatedRequestsParamsStatusCancelled ListDedicatedRequestsParamsStatus = "cancelled"
+	ListDedicatedRequestsParamsStatusPending   ListDedicatedRequestsParamsStatus = "pending"
+	ListDedicatedRequestsParamsStatusRejected  ListDedicatedRequestsParamsStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListDedicatedRequestsParamsStatus enum.
+func (e ListDedicatedRequestsParamsStatus) Valid() bool {
+	switch e {
+	case ListDedicatedRequestsParamsStatusApproved:
+		return true
+	case ListDedicatedRequestsParamsStatusCancelled:
+		return true
+	case ListDedicatedRequestsParamsStatusPending:
+		return true
+	case ListDedicatedRequestsParamsStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAlertsParamsStatus.
 const (
 	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
@@ -899,6 +1049,24 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	case ListOrgAuditParamsOutcomeFailure:
 		return true
 	case ListOrgAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetOrgUsageParamsFormat.
+const (
+	Csv  GetOrgUsageParamsFormat = "csv"
+	Json GetOrgUsageParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the GetOrgUsageParamsFormat enum.
+func (e GetOrgUsageParamsFormat) Valid() bool {
+	switch e {
+	case Csv:
+		return true
+	case Json:
 		return true
 	default:
 		return false
@@ -964,6 +1132,54 @@ type AcceptInvitationResult struct {
 // AcceptTermsRequest defines model for AcceptTermsRequest.
 type AcceptTermsRequest struct {
 	Version int `json:"version"`
+}
+
+// AdminOrg defines model for AdminOrg.
+type AdminOrg struct {
+	// BreakGlass Your open break-glass sessions on this organisation.
+	BreakGlass         []BreakGlassSession `json:"break_glass"`
+	Clusters           []SharedCluster     `json:"clusters"`
+	DedicatedAllowance DedicatedAllowance  `json:"dedicated_allowance"`
+	LimitOverrides     map[string]*int64   `json:"limit_overrides"`
+
+	// Limits Effective limits (plan with overrides); absent keys are unlimited.
+	Limits map[string]int64   `json:"limits"`
+	Org    AdminOrgSummary    `json:"org"`
+	PlanId openapi_types.UUID `json:"plan_id"`
+}
+
+// AdminOrgList defines model for AdminOrgList.
+type AdminOrgList struct {
+	Items []AdminOrgSummary `json:"items"`
+}
+
+// AdminOrgSummary defines model for AdminOrgSummary.
+type AdminOrgSummary struct {
+	CreatedAt        time.Time             `json:"created_at"`
+	Id               openapi_types.UUID    `json:"id"`
+	MemberCount      int                   `json:"member_count"`
+	Name             string                `json:"name"`
+	OutboundDisabled bool                  `json:"outbound_disabled"`
+	Personal         bool                  `json:"personal"`
+	Plan             string                `json:"plan"`
+	ProjectCount     int                   `json:"project_count"`
+	SizeBytes        int64                 `json:"size_bytes"`
+	Slug             string                `json:"slug"`
+	Status           AdminOrgSummaryStatus `json:"status"`
+	SuspendedReason  *string               `json:"suspended_reason,omitempty"`
+}
+
+// AdminOrgSummaryStatus defines model for AdminOrgSummary.Status.
+type AdminOrgSummaryStatus string
+
+// AdminUpdateOrgRequest defines model for AdminUpdateOrgRequest.
+type AdminUpdateOrgRequest struct {
+	DedicatedAllowance *DedicatedAllowance `json:"dedicated_allowance,omitempty"`
+
+	// LimitOverrides Replaces the overrides. A number sets a limit; null makes it unlimited.
+	LimitOverrides   *map[string]*int64  `json:"limit_overrides,omitempty"`
+	OutboundDisabled *bool               `json:"outbound_disabled,omitempty"`
+	PlanId           *openapi_types.UUID `json:"plan_id,omitempty"`
 }
 
 // AdminUser defines model for AdminUser.
@@ -1190,6 +1406,22 @@ type BackupOverview struct {
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
 
+// BreakGlassRequest defines model for BreakGlassRequest.
+type BreakGlassRequest struct {
+	DurationMinutes int    `json:"duration_minutes"`
+	Reason          string `json:"reason"`
+}
+
+// BreakGlassSession defines model for BreakGlassSession.
+type BreakGlassSession struct {
+	AdminEmail string             `json:"admin_email"`
+	ExpiresAt  time.Time          `json:"expires_at"`
+	Id         openapi_types.UUID `json:"id"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	Reason     string             `json:"reason"`
+	StartsAt   time.Time          `json:"starts_at"`
+}
+
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
@@ -1318,6 +1550,62 @@ type DbTable struct {
 // DbTableKind defines model for DbTable.Kind.
 type DbTableKind string
 
+// DecideRequest defines model for DecideRequest.
+type DecideRequest struct {
+	Note *string `json:"note,omitempty"`
+
+	// RaiseAllowance On approval, raise the organisation's allowance to fit this instance.
+	RaiseAllowance *bool `json:"raise_allowance,omitempty"`
+}
+
+// DedicatedAllowance defines model for DedicatedAllowance.
+type DedicatedAllowance struct {
+	Cpus      float32 `json:"cpus"`
+	DiskGb    int     `json:"disk_gb"`
+	Instances int     `json:"instances"`
+	MemoryMb  int     `json:"memory_mb"`
+
+	// Unlimited The Unlimited plan has no allowance to stay within.
+	Unlimited *bool `json:"unlimited,omitempty"`
+}
+
+// DedicatedRequest defines model for DedicatedRequest.
+type DedicatedRequest struct {
+	CreatedAt    time.Time           `json:"created_at"`
+	DecidedAt    *time.Time          `json:"decided_at,omitempty"`
+	DecisionNote *string             `json:"decision_note,omitempty"`
+	Id           openapi_types.UUID  `json:"id"`
+	NodeId       *openapi_types.UUID `json:"node_id,omitempty"`
+	OrgId        openapi_types.UUID  `json:"org_id"`
+	OrgName      *string             `json:"org_name,omitempty"`
+	Profile      string              `json:"profile"`
+	ProjectId    openapi_types.UUID  `json:"project_id"`
+	ProjectName  string              `json:"project_name"`
+	Reason       *string             `json:"reason,omitempty"`
+
+	// RequestedBy The requester's email.
+	RequestedBy string                 `json:"requested_by"`
+	Status      DedicatedRequestStatus `json:"status"`
+	VolumeGb    int                    `json:"volume_gb"`
+}
+
+// DedicatedRequestStatus defines model for DedicatedRequest.Status.
+type DedicatedRequestStatus string
+
+// DedicatedRequestList defines model for DedicatedRequestList.
+type DedicatedRequestList struct {
+	Items []DedicatedRequest `json:"items"`
+}
+
+// DeleteOrgRequest defines model for DeleteOrgRequest.
+type DeleteOrgRequest struct {
+	// Confirm The organisation's name, typed.
+	Confirm string `json:"confirm"`
+
+	// DeleteProjects Delete every project too (each gets a final backup).
+	DeleteProjects *bool `json:"delete_projects,omitempty"`
+}
+
 // DnsCheck defines model for DnsCheck.
 type DnsCheck struct {
 	Addresses  []string `json:"addresses"`
@@ -1342,8 +1630,9 @@ type EnableExtensionRequest struct {
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_implemented
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string     `json:"code"`
+	Message string     `json:"message"`
+	Quota   *QuotaItem `json:"quota,omitempty"`
 }
 
 // Extension defines model for Extension.
@@ -1727,23 +2016,34 @@ type OperationStatus string
 
 // Org defines model for Org.
 type Org struct {
-	CreatedAt                time.Time          `json:"created_at"`
+	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
+	BreakGlass *[]BreakGlassSession `json:"break_glass,omitempty"`
+	CreatedAt  time.Time            `json:"created_at"`
+
+	// DeleteAfter Set while the organisation is being deleted.
+	DeleteAfter              *time.Time         `json:"delete_after,omitempty"`
 	Id                       openapi_types.UUID `json:"id"`
 	MemberCount              int                `json:"member_count"`
 	MembersCanCreateProjects bool               `json:"members_can_create_projects"`
 	Name                     string             `json:"name"`
 
 	// Personal The signed-in user's personal organisation.
-	Personal     bool      `json:"personal"`
-	Plan         string    `json:"plan"`
-	ProjectCount int       `json:"project_count"`
-	Role         OrgRole   `json:"role"`
-	Slug         string    `json:"slug"`
-	Status       OrgStatus `json:"status"`
+	Personal        bool      `json:"personal"`
+	Plan            string    `json:"plan"`
+	ProjectCount    int       `json:"project_count"`
+	Role            OrgRole   `json:"role"`
+	Slug            string    `json:"slug"`
+	Status          OrgStatus `json:"status"`
+	SuspendedReason *string   `json:"suspended_reason,omitempty"`
 }
 
 // OrgStatus defines model for Org.Status.
 type OrgStatus string
+
+// OrgDeletion defines model for OrgDeletion.
+type OrgDeletion struct {
+	DeleteAfter time.Time `json:"delete_after"`
+}
 
 // OrgList defines model for OrgList.
 type OrgList struct {
@@ -1766,6 +2066,14 @@ type OrgMember struct {
 // OrgMemberList defines model for OrgMemberList.
 type OrgMemberList struct {
 	Items []OrgMember `json:"items"`
+}
+
+// OrgQuotas defines model for OrgQuotas.
+type OrgQuotas struct {
+	DedicatedAllowance DedicatedAllowance `json:"dedicated_allowance"`
+	DedicatedUse       DedicatedAllowance `json:"dedicated_use"`
+	Items              []QuotaItem        `json:"items"`
+	Plan               string             `json:"plan"`
 }
 
 // OrgRole defines model for OrgRole.
@@ -1820,6 +2128,43 @@ type PitrWindow struct {
 	To   time.Time `json:"to"`
 }
 
+// Plan defines model for Plan.
+type Plan struct {
+	Id       openapi_types.UUID `json:"id"`
+	Limits   map[string]int64   `json:"limits"`
+	Name     string             `json:"name"`
+	OrgCount int                `json:"org_count"`
+}
+
+// PlanList defines model for PlanList.
+type PlanList struct {
+	Items []Plan `json:"items"`
+
+	// Keys Known limit keys, in display order.
+	Keys []string `json:"keys"`
+}
+
+// PlanRequest defines model for PlanRequest.
+type PlanRequest struct {
+	Limits map[string]int64 `json:"limits"`
+	Name   string           `json:"name"`
+}
+
+// PlatformUsage defines model for PlatformUsage.
+type PlatformUsage struct {
+	From  time.Time          `json:"from"`
+	Items []PlatformUsageRow `json:"items"`
+	To    time.Time          `json:"to"`
+}
+
+// PlatformUsageRow defines model for PlatformUsageRow.
+type PlatformUsageRow struct {
+	Metric   string             `json:"metric"`
+	OrgId    openapi_types.UUID `json:"org_id"`
+	OrgName  string             `json:"org_name"`
+	Quantity float32            `json:"quantity"`
+}
+
 // Profile defines model for Profile.
 type Profile struct {
 	Cpus     float32 `json:"cpus"`
@@ -1836,19 +2181,24 @@ type ProfileList struct {
 
 // Project defines model for Project.
 type Project struct {
-	Connection  ConnectionInfo     `json:"connection"`
-	CreatedAt   time.Time          `json:"created_at"`
-	DbName      string             `json:"db_name"`
-	Description *string            `json:"description,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
-	Instance    *InstanceSummary   `json:"instance,omitempty"`
+	// CanSwitchCredentials A V1 project that still uses its V1 owner role (V2 §10.2).
+	CanSwitchCredentials *bool              `json:"can_switch_credentials,omitempty"`
+	Connection           ConnectionInfo     `json:"connection"`
+	CreatedAt            time.Time          `json:"created_at"`
+	DbName               string             `json:"db_name"`
+	Description          *string            `json:"description,omitempty"`
+	Id                   openapi_types.UUID `json:"id"`
+	Instance             *InstanceSummary   `json:"instance,omitempty"`
 
 	// LastBackupAt When the latest backup of this project finished.
-	LastBackupAt *time.Time         `json:"last_backup_at,omitempty"`
-	MyRole       *ProjectRole       `json:"my_role,omitempty"`
-	Name         string             `json:"name"`
-	OrgId        openapi_types.UUID `json:"org_id"`
-	OwnerRole    string             `json:"owner_role"`
+	LastBackupAt *time.Time `json:"last_backup_at,omitempty"`
+
+	// LegacyCredentialsUntil The V1 credentials stop working at this time.
+	LegacyCredentialsUntil *time.Time         `json:"legacy_credentials_until,omitempty"`
+	MyRole                 *ProjectRole       `json:"my_role,omitempty"`
+	Name                   string             `json:"name"`
+	OrgId                  openapi_types.UUID `json:"org_id"`
+	OwnerRole              string             `json:"owner_role"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
@@ -1858,7 +2208,10 @@ type Project struct {
 	Settings         ProjectSettings `json:"settings"`
 	Slug             string          `json:"slug"`
 	Status           ProjectStatus   `json:"status"`
-	Tier             ProjectTier     `json:"tier"`
+
+	// StorageState V2 §10.4 storage enforcement.
+	StorageState *StorageState `json:"storage_state,omitempty"`
+	Tier         ProjectTier   `json:"tier"`
 }
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
@@ -1945,6 +2298,16 @@ type ProjectSettingsPatch struct {
 // ProjectStatus defines model for ProjectStatus.
 type ProjectStatus string
 
+// ProjectStorage defines model for ProjectStorage.
+type ProjectStorage struct {
+	LimitBytes *int64 `json:"limit_bytes,omitempty"`
+	SizeBytes  *int64 `json:"size_bytes,omitempty"`
+
+	// State V2 §10.4 storage enforcement.
+	State  StorageState     `json:"state"`
+	Tables []TableFootprint `json:"tables"`
+}
+
 // ProjectTier defines model for ProjectTier.
 type ProjectTier string
 
@@ -1956,9 +2319,12 @@ type ProjectUpdated struct {
 
 // PromoteRequest defines model for PromoteRequest.
 type PromoteRequest struct {
-	NodeId   *openapi_types.UUID `json:"node_id,omitempty"`
-	Profile  *string             `json:"profile,omitempty"`
-	VolumeGb *int                `json:"volume_gb,omitempty"`
+	NodeId  *openapi_types.UUID `json:"node_id,omitempty"`
+	Profile *string             `json:"profile,omitempty"`
+
+	// Reason Why, when the promotion is beyond the organisation's dedicated allowance and becomes a request.
+	Reason   *string `json:"reason,omitempty"`
+	VolumeGb *int    `json:"volume_gb,omitempty"`
 }
 
 // PromotionEstimate defines model for PromotionEstimate.
@@ -1974,10 +2340,48 @@ type PublishTermsRequest struct {
 	TermsMd   string `json:"terms_md"`
 }
 
+// QuotaItem defines model for QuotaItem.
+type QuotaItem struct {
+	// Limit The limit's key (V2 §10.3), e.g. projects or project_storage_mb.
+	Limit string `json:"limit"`
+
+	// Max Absent or null means unlimited.
+	Max  *int64  `json:"max,omitempty"`
+	Used float32 `json:"used"`
+}
+
+// ReapedSession defines model for ReapedSession.
+type ReapedSession struct {
+	CreatedAt time.Time         `json:"created_at"`
+	DurationS int               `json:"duration_s"`
+	Kind      ReapedSessionKind `json:"kind"`
+	Query     *string           `json:"query,omitempty"`
+	Role      string            `json:"role"`
+}
+
+// ReapedSessionKind defines model for ReapedSession.Kind.
+type ReapedSessionKind string
+
+// ReapedSessionList defines model for ReapedSessionList.
+type ReapedSessionList struct {
+	Items []ReapedSession `json:"items"`
+}
+
+// ReasonRequest defines model for ReasonRequest.
+type ReasonRequest struct {
+	Reason string `json:"reason"`
+}
+
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
 	Code     string `json:"code"`
 	Password string `json:"password"`
+}
+
+// ReclaimSpaceRequest defines model for ReclaimSpaceRequest.
+type ReclaimSpaceRequest struct {
+	Schema string `json:"schema"`
+	Table  string `json:"table"`
 }
 
 // RecoveryCodes defines model for RecoveryCodes.
@@ -2055,6 +2459,14 @@ type SessionState struct {
 // SessionStateSignupMode defines model for SessionState.SignupMode.
 type SessionStateSignupMode string
 
+// SetOrgClusterRequest defines model for SetOrgClusterRequest.
+type SetOrgClusterRequest struct {
+	InstanceId openapi_types.UUID `json:"instance_id"`
+
+	// Reserved True reserves the cluster for this organisation (default); false releases it.
+	Reserved *bool `json:"reserved,omitempty"`
+}
+
 // SetupBeginRequest defines model for SetupBeginRequest.
 type SetupBeginRequest struct {
 	Email     openapi_types.Email `json:"email"`
@@ -2074,6 +2486,20 @@ type SetupEnrollment struct {
 	ExpiresAt       time.Time `json:"expires_at"`
 	TotpSecret      string    `json:"totp_secret"`
 	TotpUri         string    `json:"totp_uri"`
+}
+
+// SharedCluster defines model for SharedCluster.
+type SharedCluster struct {
+	Id           openapi_types.UUID  `json:"id"`
+	NodeName     string              `json:"node_name"`
+	OrgId        *openapi_types.UUID `json:"org_id,omitempty"`
+	OrgName      *string             `json:"org_name,omitempty"`
+	ProjectCount int                 `json:"project_count"`
+}
+
+// SharedClusterList defines model for SharedClusterList.
+type SharedClusterList struct {
+	Items []SharedCluster `json:"items"`
 }
 
 // SharedClusterRequest defines model for SharedClusterRequest.
@@ -2184,6 +2610,9 @@ type StorageSettings struct {
 	Region     *string `json:"region,omitempty"`
 }
 
+// StorageState V2 §10.4 storage enforcement.
+type StorageState string
+
 // StorageTestResult defines model for StorageTestResult.
 type StorageTestResult struct {
 	Ok    bool              `json:"ok"`
@@ -2197,6 +2626,29 @@ type StorageTestStep struct {
 	Ok     bool    `json:"ok"`
 	Step   string  `json:"step"`
 	TookMs int     `json:"took_ms"`
+}
+
+// SwitchCredentialsRequest defines model for SwitchCredentialsRequest.
+type SwitchCredentialsRequest struct {
+	// GraceDays How long the V1 credentials keep working (default 7).
+	GraceDays *int `json:"grace_days,omitempty"`
+}
+
+// SwitchedCredentials Shown once. The V1 role works until legacy_until.
+type SwitchedCredentials struct {
+	Connection  ConnectionInfo `json:"connection"`
+	LegacyUntil time.Time      `json:"legacy_until"`
+	Operation   Operation      `json:"operation"`
+	Password    string         `json:"password"`
+	Project     Project        `json:"project"`
+}
+
+// TableFootprint defines model for TableFootprint.
+type TableFootprint struct {
+	Bytes    int64  `json:"bytes"`
+	DeadRows int64  `json:"dead_rows"`
+	Schema   string `json:"schema"`
+	Table    string `json:"table"`
 }
 
 // TablePage defines model for TablePage.
@@ -2308,6 +2760,46 @@ type UpdateUserRequest struct {
 	Disabled *bool `json:"disabled,omitempty"`
 }
 
+// UsageMetric defines model for UsageMetric.
+type UsageMetric struct {
+	Granularity UsageMetricGranularity `json:"granularity"`
+	Name        string                 `json:"name"`
+	Unit        string                 `json:"unit"`
+}
+
+// UsageMetricGranularity defines model for UsageMetric.Granularity.
+type UsageMetricGranularity string
+
+// UsageRecord defines model for UsageRecord.
+type UsageRecord struct {
+	Granularity UsageRecordGranularity `json:"granularity"`
+	Metric      string                 `json:"metric"`
+	PeriodStart time.Time              `json:"period_start"`
+	ProjectId   *openapi_types.UUID    `json:"project_id,omitempty"`
+
+	// ProjectName Absent once the project is deleted.
+	ProjectName *string `json:"project_name,omitempty"`
+	Quantity    float32 `json:"quantity"`
+}
+
+// UsageRecordGranularity defines model for UsageRecord.Granularity.
+type UsageRecordGranularity string
+
+// UsageReport defines model for UsageReport.
+type UsageReport struct {
+	From    time.Time     `json:"from"`
+	Metrics []UsageMetric `json:"metrics"`
+	Records []UsageRecord `json:"records"`
+	To      time.Time     `json:"to"`
+	Totals  []UsageTotal  `json:"totals"`
+}
+
+// UsageTotal defines model for UsageTotal.
+type UsageTotal struct {
+	Metric   string  `json:"metric"`
+	Quantity float32 `json:"quantity"`
+}
+
 // User defines model for User.
 type User struct {
 	Email        openapi_types.Email `json:"email"`
@@ -2388,6 +2880,9 @@ type OrgQuery = openapi_types.UUID
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
 
+// RequestID defines model for RequestID.
+type RequestID = openapi_types.UUID
+
 // UserID defines model for UserID.
 type UserID = openapi_types.UUID
 
@@ -2405,6 +2900,25 @@ type ListPlatformAuditParams struct {
 
 // ListPlatformAuditParamsOutcome defines parameters for ListPlatformAudit.
 type ListPlatformAuditParamsOutcome string
+
+// ListDedicatedRequestsParams defines parameters for ListDedicatedRequests.
+type ListDedicatedRequestsParams struct {
+	Status *ListDedicatedRequestsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
+type ListDedicatedRequestsParamsStatus string
+
+// AdminListOrgsParams defines parameters for AdminListOrgs.
+type AdminListOrgsParams struct {
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// PlatformUsageParams defines parameters for PlatformUsage.
+type PlatformUsageParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
 
 // ListUsersParams defines parameters for ListUsers.
 type ListUsersParams struct {
@@ -2478,6 +2992,20 @@ type ListOrgAuditParams struct {
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
 
+// GetOrgUsageParams defines parameters for GetOrgUsage.
+type GetOrgUsageParams struct {
+	// From Start (inclusive); default the start of this month (UTC).
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To End (exclusive); default now.
+	To     *time.Time               `form:"to,omitempty" json:"to,omitempty"`
+	Metric *string                  `form:"metric,omitempty" json:"metric,omitempty"`
+	Format *GetOrgUsageParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetOrgUsageParamsFormat defines parameters for GetOrgUsage.
+type GetOrgUsageParamsFormat string
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
 	// Org The organisation to list; your personal organisation when omitted.
@@ -2529,8 +3057,32 @@ type RunRestoreTestParams struct {
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
+// ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
+type ApproveDedicatedRequestJSONRequestBody = DecideRequest
+
+// RejectDedicatedRequestJSONRequestBody defines body for RejectDedicatedRequest for application/json ContentType.
+type RejectDedicatedRequestJSONRequestBody = DecideRequest
+
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
+
+// AdminUpdateOrgJSONRequestBody defines body for AdminUpdateOrg for application/json ContentType.
+type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
+
+// AdminStartBreakGlassJSONRequestBody defines body for AdminStartBreakGlass for application/json ContentType.
+type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
+
+// AdminSetOrgClusterJSONRequestBody defines body for AdminSetOrgCluster for application/json ContentType.
+type AdminSetOrgClusterJSONRequestBody = SetOrgClusterRequest
+
+// AdminSuspendOrgJSONRequestBody defines body for AdminSuspendOrg for application/json ContentType.
+type AdminSuspendOrgJSONRequestBody = ReasonRequest
+
+// CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
+type CreatePlanJSONRequestBody = PlanRequest
+
+// UpdatePlanJSONRequestBody defines body for UpdatePlan for application/json ContentType.
+type UpdatePlanJSONRequestBody = PlanRequest
 
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
@@ -2610,6 +3162,9 @@ type CreateSharedClusterJSONRequestBody = SharedClusterRequest
 // CreateOrgJSONRequestBody defines body for CreateOrg for application/json ContentType.
 type CreateOrgJSONRequestBody = CreateOrgRequest
 
+// DeleteOrgJSONRequestBody defines body for DeleteOrg for application/json ContentType.
+type DeleteOrgJSONRequestBody = DeleteOrgRequest
+
 // UpdateOrgJSONRequestBody defines body for UpdateOrg for application/json ContentType.
 type UpdateOrgJSONRequestBody = UpdateOrgRequest
 
@@ -2643,6 +3198,9 @@ type RestoreProjectPITRJSONRequestBody = PitrRequest
 // PromoteProjectJSONRequestBody defines body for PromoteProject for application/json ContentType.
 type PromoteProjectJSONRequestBody = PromoteRequest
 
+// ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
+type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
+
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
@@ -2651,6 +3209,9 @@ type RunSQLJSONRequestBody = SqlRequest
 
 // CancelSQLJSONRequestBody defines body for CancelSQL for application/json ContentType.
 type CancelSQLJSONRequestBody = SqlCancelRequest
+
+// SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
+type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
 
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
@@ -2684,6 +3245,15 @@ type ServerInterface interface {
 	// ListPlatformAudit The platform audit log, newest first (platform admin)
 	// (GET /api/v1/admin/audit)
 	ListPlatformAudit(w http.ResponseWriter, r *http.Request, params ListPlatformAuditParams)
+	// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
+	// (GET /api/v1/admin/dedicated-requests)
+	ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams)
+	// ApproveDedicatedRequest Approve a dedicated request; the promotion starts (platform admin)
+	// (POST /api/v1/admin/dedicated-requests/{request_id}/approve)
+	ApproveDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
+	// RejectDedicatedRequest Reject a dedicated request (platform admin)
+	// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
+	RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
 	// ListPlatformInvitations Pending platform invitations (platform admin)
 	// (GET /api/v1/admin/invitations)
 	ListPlatformInvitations(w http.ResponseWriter, r *http.Request)
@@ -2693,6 +3263,36 @@ type ServerInterface interface {
 	// RevokePlatformInvitation Revoke a platform invitation (platform admin)
 	// (DELETE /api/v1/admin/invitations/{invitation_id})
 	RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID)
+	// AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
+	// (GET /api/v1/admin/orgs)
+	AdminListOrgs(w http.ResponseWriter, r *http.Request, params AdminListOrgsParams)
+	// AdminGetOrg One organisation's plan, limits, allowance, and clusters (platform admin)
+	// (GET /api/v1/admin/orgs/{org})
+	AdminGetOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
+	// (PATCH /api/v1/admin/orgs/{org})
+	AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
+	// (POST /api/v1/admin/orgs/{org}/break-glass)
+	AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
+	// (POST /api/v1/admin/orgs/{org}/cluster)
+	AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminReinstateOrg Reinstate a suspended organisation (platform admin)
+	// (POST /api/v1/admin/orgs/{org}/reinstate)
+	AdminReinstateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSuspendOrg Suspend an organisation (platform admin)
+	// (POST /api/v1/admin/orgs/{org}/suspend)
+	AdminSuspendOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListPlans Quota plan templates (platform admin)
+	// (GET /api/v1/admin/plans)
+	ListPlans(w http.ResponseWriter, r *http.Request)
+	// CreatePlan Add a quota plan template (platform admin)
+	// (POST /api/v1/admin/plans)
+	CreatePlan(w http.ResponseWriter, r *http.Request)
+	// UpdatePlan Change a quota plan template (platform admin)
+	// (PATCH /api/v1/admin/plans/{plan_id})
+	UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID)
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	// (GET /api/v1/admin/settings/mail)
 	GetMailSettings(w http.ResponseWriter, r *http.Request)
@@ -2708,6 +3308,12 @@ type ServerInterface interface {
 	// PublishTerms Publish a new version of the terms and privacy notice (platform admin)
 	// (POST /api/v1/admin/settings/terms)
 	PublishTerms(w http.ResponseWriter, r *http.Request)
+	// ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
+	// (GET /api/v1/admin/shared-clusters)
+	ListSharedClusters(w http.ResponseWriter, r *http.Request)
+	// PlatformUsage Usage totals per organisation (platform admin)
+	// (GET /api/v1/admin/usage)
+	PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams)
 	// ListUsers Every account (platform admin)
 	// (GET /api/v1/admin/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, params ListUsersParams)
@@ -2843,6 +3449,9 @@ type ServerInterface interface {
 	// CreateOrg Create an organisation; you become its owner
 	// (POST /api/v1/orgs)
 	CreateOrg(w http.ResponseWriter, r *http.Request)
+	// DeleteOrg Delete an organisation after a 7-day grace period (owner, step-up auth)
+	// (DELETE /api/v1/orgs/{org})
+	DeleteOrg(w http.ResponseWriter, r *http.Request, org OrgID)
 	// GetOrg One organisation
 	// (GET /api/v1/orgs/{org})
 	GetOrg(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -2852,6 +3461,15 @@ type ServerInterface interface {
 	// ListOrgAudit The organisation's audit log, newest first
 	// (GET /api/v1/orgs/{org}/audit)
 	ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams)
+	// EndBreakGlass End a break-glass session early (owner)
+	// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
+	EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID)
+	// CancelOrgDeletion Cancel a pending organisation deletion (owner)
+	// (POST /api/v1/orgs/{org}/cancel-deletion)
+	CancelOrgDeletion(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgDedicatedRequests The organisation's dedicated instance requests
+	// (GET /api/v1/orgs/{org}/dedicated-requests)
+	ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListOrgInvitations Pending invitations
 	// (GET /api/v1/orgs/{org}/invitations)
 	ListOrgInvitations(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -2873,9 +3491,15 @@ type ServerInterface interface {
 	// UpdateOrgMember Change a member's organisation role
 	// (PATCH /api/v1/orgs/{org}/members/{user})
 	UpdateOrgMember(w http.ResponseWriter, r *http.Request, org OrgID, user UserID)
+	// GetOrgQuotas The organisation's plan, limits, and current use (V2 §10.3)
+	// (GET /api/v1/orgs/{org}/quotas)
+	GetOrgQuotas(w http.ResponseWriter, r *http.Request, org OrgID)
 	// TransferOrgOwnership Make another member an owner and step down to admin
 	// (POST /api/v1/orgs/{org}/transfer-ownership)
 	TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
+	// (GET /api/v1/orgs/{org}/usage)
+	GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams)
 	// ListProfiles Dedicated instance sizes
 	// (GET /api/v1/profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
@@ -2936,6 +3560,12 @@ type ServerInterface interface {
 	// PromoteProject Promote a shared project to a dedicated instance
 	// (POST /api/v1/projects/{id}/promote)
 	PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
+	// (GET /api/v1/projects/{id}/reaped)
+	ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
+	// (POST /api/v1/projects/{id}/reclaim-space)
+	ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -2951,6 +3581,12 @@ type ServerInterface interface {
 	// CancelSQL Cancel a running console query
 	// (POST /api/v1/projects/{id}/sql/cancel)
 	CancelSQL(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectStorage Size against the storage limit, lock state, and the largest tables
+	// (GET /api/v1/projects/{id}/storage)
+	GetProjectStorage(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
+	// (POST /api/v1/projects/{id}/switch-credentials)
+	SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetTableRows A page of a table's rows (read-only)
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
 	GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams)
@@ -3041,6 +3677,24 @@ func (_ Unimplemented) ListPlatformAudit(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
+// (GET /api/v1/admin/dedicated-requests)
+func (_ Unimplemented) ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveDedicatedRequest Approve a dedicated request; the promotion starts (platform admin)
+// (POST /api/v1/admin/dedicated-requests/{request_id}/approve)
+func (_ Unimplemented) ApproveDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectDedicatedRequest Reject a dedicated request (platform admin)
+// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
+func (_ Unimplemented) RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListPlatformInvitations Pending platform invitations (platform admin)
 // (GET /api/v1/admin/invitations)
 func (_ Unimplemented) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
@@ -3056,6 +3710,66 @@ func (_ Unimplemented) CreatePlatformInvitation(w http.ResponseWriter, r *http.R
 // RevokePlatformInvitation Revoke a platform invitation (platform admin)
 // (DELETE /api/v1/admin/invitations/{invitation_id})
 func (_ Unimplemented) RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
+// (GET /api/v1/admin/orgs)
+func (_ Unimplemented) AdminListOrgs(w http.ResponseWriter, r *http.Request, params AdminListOrgsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetOrg One organisation's plan, limits, allowance, and clusters (platform admin)
+// (GET /api/v1/admin/orgs/{org})
+func (_ Unimplemented) AdminGetOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
+// (PATCH /api/v1/admin/orgs/{org})
+func (_ Unimplemented) AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
+// (POST /api/v1/admin/orgs/{org}/break-glass)
+func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
+// (POST /api/v1/admin/orgs/{org}/cluster)
+func (_ Unimplemented) AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminReinstateOrg Reinstate a suspended organisation (platform admin)
+// (POST /api/v1/admin/orgs/{org}/reinstate)
+func (_ Unimplemented) AdminReinstateOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSuspendOrg Suspend an organisation (platform admin)
+// (POST /api/v1/admin/orgs/{org}/suspend)
+func (_ Unimplemented) AdminSuspendOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPlans Quota plan templates (platform admin)
+// (GET /api/v1/admin/plans)
+func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreatePlan Add a quota plan template (platform admin)
+// (POST /api/v1/admin/plans)
+func (_ Unimplemented) CreatePlan(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePlan Change a quota plan template (platform admin)
+// (PATCH /api/v1/admin/plans/{plan_id})
+func (_ Unimplemented) UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3086,6 +3800,18 @@ func (_ Unimplemented) PutSignupSettings(w http.ResponseWriter, r *http.Request)
 // PublishTerms Publish a new version of the terms and privacy notice (platform admin)
 // (POST /api/v1/admin/settings/terms)
 func (_ Unimplemented) PublishTerms(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
+// (GET /api/v1/admin/shared-clusters)
+func (_ Unimplemented) ListSharedClusters(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PlatformUsage Usage totals per organisation (platform admin)
+// (GET /api/v1/admin/usage)
+func (_ Unimplemented) PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3359,6 +4085,12 @@ func (_ Unimplemented) CreateOrg(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// DeleteOrg Delete an organisation after a 7-day grace period (owner, step-up auth)
+// (DELETE /api/v1/orgs/{org})
+func (_ Unimplemented) DeleteOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetOrg One organisation
 // (GET /api/v1/orgs/{org})
 func (_ Unimplemented) GetOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -3374,6 +4106,24 @@ func (_ Unimplemented) UpdateOrg(w http.ResponseWriter, r *http.Request, org Org
 // ListOrgAudit The organisation's audit log, newest first
 // (GET /api/v1/orgs/{org}/audit)
 func (_ Unimplemented) ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EndBreakGlass End a break-glass session early (owner)
+// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
+func (_ Unimplemented) EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CancelOrgDeletion Cancel a pending organisation deletion (owner)
+// (POST /api/v1/orgs/{org}/cancel-deletion)
+func (_ Unimplemented) CancelOrgDeletion(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgDedicatedRequests The organisation's dedicated instance requests
+// (GET /api/v1/orgs/{org}/dedicated-requests)
+func (_ Unimplemented) ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3419,9 +4169,21 @@ func (_ Unimplemented) UpdateOrgMember(w http.ResponseWriter, r *http.Request, o
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetOrgQuotas The organisation's plan, limits, and current use (V2 §10.3)
+// (GET /api/v1/orgs/{org}/quotas)
+func (_ Unimplemented) GetOrgQuotas(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // TransferOrgOwnership Make another member an owner and step down to admin
 // (POST /api/v1/orgs/{org}/transfer-ownership)
 func (_ Unimplemented) TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
+// (GET /api/v1/orgs/{org}/usage)
+func (_ Unimplemented) GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3545,6 +4307,18 @@ func (_ Unimplemented) PromoteProject(w http.ResponseWriter, r *http.Request, id
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
+// (GET /api/v1/projects/{id}/reaped)
+func (_ Unimplemented) ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
+// (POST /api/v1/projects/{id}/reclaim-space)
+func (_ Unimplemented) ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // RotateProjectPassword Rotate the project password
 // (POST /api/v1/projects/{id}/rotate-password)
 func (_ Unimplemented) RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -3572,6 +4346,18 @@ func (_ Unimplemented) RunSQL(w http.ResponseWriter, r *http.Request, id Project
 // CancelSQL Cancel a running console query
 // (POST /api/v1/projects/{id}/sql/cancel)
 func (_ Unimplemented) CancelSQL(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProjectStorage Size against the storage limit, lock state, and the largest tables
+// (GET /api/v1/projects/{id}/storage)
+func (_ Unimplemented) GetProjectStorage(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
+// (POST /api/v1/projects/{id}/switch-credentials)
+func (_ Unimplemented) SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3825,6 +4611,91 @@ func (siw *ServerInterfaceWrapper) ListPlatformAudit(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListDedicatedRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListDedicatedRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDedicatedRequestsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDedicatedRequests(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveDedicatedRequest operation middleware
+func (siw *ServerInterfaceWrapper) ApproveDedicatedRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId RequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveDedicatedRequest(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectDedicatedRequest operation middleware
+func (siw *ServerInterfaceWrapper) RejectDedicatedRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId RequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectDedicatedRequest(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlatformInvitations operation middleware
 func (siw *ServerInterfaceWrapper) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
 
@@ -3870,6 +4741,249 @@ func (siw *ServerInterfaceWrapper) RevokePlatformInvitation(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokePlatformInvitation(w, r, invitationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListOrgs operation middleware
+func (siw *ServerInterfaceWrapper) AdminListOrgs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListOrgsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListOrgs(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminUpdateOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminUpdateOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUpdateOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminStartBreakGlass operation middleware
+func (siw *ServerInterfaceWrapper) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminStartBreakGlass(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSetOrgCluster operation middleware
+func (siw *ServerInterfaceWrapper) AdminSetOrgCluster(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSetOrgCluster(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminReinstateOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminReinstateOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminReinstateOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSuspendOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminSuspendOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSuspendOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPlans operation middleware
+func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPlans(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePlan operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlan(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePlan(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePlan operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePlan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "plan_id" -------------
+	var planId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "plan_id", chi.URLParam(r, "plan_id"), &planId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "plan_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePlan(w, r, planId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3940,6 +5054,66 @@ func (siw *ServerInterfaceWrapper) PublishTerms(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PublishTerms(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSharedClusters operation middleware
+func (siw *ServerInterfaceWrapper) ListSharedClusters(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSharedClusters(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlatformUsage operation middleware
+func (siw *ServerInterfaceWrapper) PlatformUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PlatformUsageParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlatformUsage(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4989,6 +6163,32 @@ func (siw *ServerInterfaceWrapper) CreateOrg(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteOrg operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetOrg operation middleware
 func (siw *ServerInterfaceWrapper) GetOrg(w http.ResponseWriter, r *http.Request) {
 
@@ -5126,6 +6326,93 @@ func (siw *ServerInterfaceWrapper) ListOrgAudit(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListOrgAudit(w, r, org, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EndBreakGlass operation middleware
+func (siw *ServerInterfaceWrapper) EndBreakGlass(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "session_id" -------------
+	var sessionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "session_id", chi.URLParam(r, "session_id"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "session_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EndBreakGlass(w, r, org, sessionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelOrgDeletion operation middleware
+func (siw *ServerInterfaceWrapper) CancelOrgDeletion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelOrgDeletion(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgDedicatedRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgDedicatedRequests(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5344,6 +6631,32 @@ func (siw *ServerInterfaceWrapper) UpdateOrgMember(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetOrgQuotas operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgQuotas(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgQuotas(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // TransferOrgOwnership operation middleware
 func (siw *ServerInterfaceWrapper) TransferOrgOwnership(w http.ResponseWriter, r *http.Request) {
 
@@ -5361,6 +6674,87 @@ func (siw *ServerInterfaceWrapper) TransferOrgOwnership(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TransferOrgOwnership(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgUsage operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrgUsageParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "metric" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "metric", r.URL.Query(), &params.Metric, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "metric"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "metric", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgUsage(w, r, org, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6043,6 +7437,58 @@ func (siw *ServerInterfaceWrapper) PromoteProject(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListReapedSessions operation middleware
+func (siw *ServerInterfaceWrapper) ListReapedSessions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListReapedSessions(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReclaimSpace operation middleware
+func (siw *ServerInterfaceWrapper) ReclaimSpace(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReclaimSpace(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RotateProjectPassword operation middleware
 func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, r *http.Request) {
 
@@ -6164,6 +7610,58 @@ func (siw *ServerInterfaceWrapper) CancelSQL(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelSQL(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectStorage operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectStorage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectStorage(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SwitchProjectCredentials operation middleware
+func (siw *ServerInterfaceWrapper) SwitchProjectCredentials(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SwitchProjectCredentials(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6996,6 +8494,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/orgs", wrapper.CreateOrg)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}", wrapper.DeleteOrg)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}", wrapper.GetOrg)
 	})
 	r.Group(func(r chi.Router) {
@@ -7087,6 +8588,78 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/settings/terms", wrapper.PublishTerms)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/quotas", wrapper.GetOrgQuotas)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/usage", wrapper.GetOrgUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/cancel-deletion", wrapper.CancelOrgDeletion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/break-glass/{session_id}/end", wrapper.EndBreakGlass)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/dedicated-requests", wrapper.ListOrgDedicatedRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/switch-credentials", wrapper.SwitchProjectCredentials)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/storage", wrapper.GetProjectStorage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/reclaim-space", wrapper.ReclaimSpace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/reaped", wrapper.ListReapedSessions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs", wrapper.AdminListOrgs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs/{org}", wrapper.AdminGetOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/orgs/{org}", wrapper.AdminUpdateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/suspend", wrapper.AdminSuspendOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/reinstate", wrapper.AdminReinstateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/cluster", wrapper.AdminSetOrgCluster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/break-glass", wrapper.AdminStartBreakGlass)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/plans", wrapper.ListPlans)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/plans", wrapper.CreatePlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/plans/{plan_id}", wrapper.UpdatePlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/dedicated-requests", wrapper.ListDedicatedRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/dedicated-requests/{request_id}/approve", wrapper.ApproveDedicatedRequest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/dedicated-requests/{request_id}/reject", wrapper.RejectDedicatedRequest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/usage", wrapper.PlatformUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/shared-clusters", wrapper.ListSharedClusters)
 	})
 
 	return r

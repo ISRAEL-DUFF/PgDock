@@ -132,6 +132,9 @@ func (s *Service) adminConfig(ctx context.Context, instanceID uuid.UUID, databas
 	}
 	cfg.User, cfg.Password, cfg.Database = t.Secret.User, t.Secret.Password, database
 	cfg.RuntimeParams["application_name"] = "pgdock-server"
+	// A soft storage lock makes the database read-only by default (V2
+	// §10.4); PGDock's own work, and the console, must still write.
+	cfg.RuntimeParams["default_transaction_read_only"] = "off"
 	cfg.ConnectTimeout = 10 * time.Second
 	return cfg, t.NodeName, nil
 }

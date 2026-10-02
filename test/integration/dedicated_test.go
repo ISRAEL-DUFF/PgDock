@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
 
@@ -84,7 +85,7 @@ func TestDedicatedProjectAndPITR(t *testing.T) {
 		urlShape(t, c.Connection.SessionUrl) != urlShape(t, shared.Connection.SessionUrl) {
 		t.Fatalf("dedicated URLs differ in shape:\n%s\n%s", testenv.RedactURL(c.Connection.PooledUrl), testenv.RedactURL(shared.Connection.PooledUrl))
 	}
-	if !strings.HasPrefix(c.Project.DbName, "shop_pro_") || c.Project.Tier != gen.ProjectTierDedicated {
+	if !provision.IsOpaque(c.Project.DbName) || c.Project.Tier != gen.ProjectTierDedicated {
 		t.Fatalf("project: %+v", c.Project)
 	}
 
