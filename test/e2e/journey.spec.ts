@@ -970,4 +970,81 @@ test.describe("with the saved session", () => {
     await page.getByRole("link", { name: "Metered team" }).click();
     await expect(page.getByRole("heading", { name: "Metered team" })).toBeVisible();
   });
+
+  test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
+    await signedIn(page);
+    // Calls the API as a CI job would: a bearer token, no cookies.
+    const bearer = (token: string, method: string, path: string, body?: unknown) =>
+      page.evaluate(
+        async ([token, method, path, body]) => {
+          const r = await fetch(path as string, {
+            method: method as string,
+            credentials: "omit",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: body === undefined ? undefined : JSON.stringify(body),
+          });
+          return { status: r.status, body: await r.json().catch(() => null) };
+        },
+        [token, method, path, body] as const,
+      );
+    const sessionGet = (path: string) => page.evaluate(async (p) => (await fetch(p)).json(), path);
+    const mine = (await sessionGet("/api/v1/projects")) as { items: { id: string; name: string }[] };
+    const team = mine.items.find((p) => p.name === "Team data")!;
+    const orgs = (await sessionGet("/api/v1/orgs")) as { items: { id: string; name: string; personal: boolean }[] };
+    const metered = orgs.items.find((o) => o.name === "Metered team")!;
+    const other = ((await sessionGet(`/api/v1/projects?org=${metered.id}`)) as { items: { id: string }[] }).items[0];
+
+    // Account → API tokens: write scope, only "Team data".
+    await page.goto("/account");
+    await page.getByTestId("new-token").click();
+    await page.getByLabel("Name").fill("GitHub Actions — team data");
+    await page.getByTestId("scope-write").check();
+    await page.getByTestId("token-some-projects").check();
+    await page.getByTestId("token-project-Team data").check();
+    await page.getByTestId("create-token").click();
+    const token = await revealedValue(page, "token-secret");
+    expect(token).toMatch(/^pgd_[0-9A-Za-z]{43}$/);
+    await shot(page, "37-token-created");
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByTestId("token-GitHub Actions — team data")).toContainText("1 only");
+
+    // It runs SQL on its project...
+    const sql = await bearer(token, "POST", `/api/v1/projects/${team.id}/sql`, { query: "SELECT body FROM facts", query_id: crypto.randomUUID() });
+    expect(sql.status).toBe(200);
+    expect(sql.body.results[0].rows).toEqual([["shared"]]);
+    // ...gets 404 for a project in another organisation...
+    expect((await bearer(token, "GET", `/api/v1/projects/${other.id}`)).status).toBe(404);
+    // ...and is refused deleting its own project.
+    const del = await bearer(token, "DELETE", `/api/v1/projects/${team.id}?confirm=Team%20data`);
+    expect(del.status).toBe(403);
+    expect(del.body.code).toBe("insufficient_scope");
+
+    // The CLI's device login, approved here for the Metered team org.
+    const start = await page.evaluate(async () => {
+      const r = await fetch("/api/v1/auth/device", { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_name: "pgdock CLI on ci-runner" }) });
+      return r.json();
+    });
+    await page.goto(new URL(start.verification_uri_complete).pathname + new URL(start.verification_uri_complete).search);
+    await expect(page.getByText("ci-runner")).toBeVisible();
+    await page.getByTestId("device-org").selectOption(metered.id);
+    await shot(page, "38-device-login");
+    await page.getByTestId("device-approve").click();
+    await expect(page.getByTestId("device-approved")).toBeVisible();
+    const collected = await page.evaluate(async (device) => {
+      const r = await fetch("/api/v1/auth/device/token", { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_code: device }) });
+      return { status: r.status, body: await r.json() };
+    }, start.device_code);
+    expect(collected.status).toBe(200);
+    const me = await bearer(collected.body.secret, "GET", "/api/v1/me");
+    expect(me.body.token.org_id).toBe(metered.id);
+
+    // The org's owners see every token scoped to it, and can revoke one.
+    await page.getByTestId("org-switcher").selectOption(metered.id);
+    await page.goto("/org/settings");
+    await expect(page.getByTestId("org-tokens")).toContainText("pgdock CLI on ci-runner");
+    page.once("dialog", (d) => void d.accept());
+    await page.getByTestId("revoke-token-pgdock CLI on ci-runner").click();
+    await expect(page.getByTestId("org-tokens")).toContainText("revoked");
+    expect((await bearer(collected.body.secret, "GET", "/api/v1/me")).status).toBe(401);
+  });
 });

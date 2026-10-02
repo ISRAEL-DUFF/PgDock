@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, CopyField, EmptyState, Field, Input, Modal,
 import { formatDate, relativeTime } from "../lib/format";
 import { canManageOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { sessionQuery } from "../lib/session";
+import { OrgTokensCard } from "../components/Tokens";
 
 const orgRoles: OrgRole[] = ["owner", "admin", "member"];
 const projectRoles: { id: ProjectRole; label: string }[] = [
@@ -342,6 +343,7 @@ export function OrgSettingsPage() {
             {org.plan} plan. Ask the platform admin to change it.
           </p>
         </Card>
+        <OrgTokensCard orgId={org.id} />
         {err && <Alert>{err}</Alert>}
         {org.role === "owner" && !org.personal && org.status === "active" && <DeleteOrgCard org={org} />}
       </div>

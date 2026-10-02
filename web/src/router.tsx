@@ -5,6 +5,7 @@ import { ToastProvider } from "./components/Toasts";
 import { sessionQuery } from "./lib/session";
 import { AlertsPage } from "./pages/Alerts";
 import { AccountPage } from "./pages/Account";
+import { DevicePage } from "./pages/Device";
 import { AdminUsersPage } from "./pages/AdminUsers";
 import { AdminOrgPage, AdminOrgsPage, AdminPlansPage, DedicatedRequestsPage } from "./pages/AdminOrgs";
 import { UsagePage } from "./pages/Usage";
@@ -103,6 +104,12 @@ const projectBackups = createRoute({ getParentRoute: () => project, path: "/back
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
 const projectMembers = createRoute({ getParentRoute: () => project, path: "/members", component: ProjectMembersPage });
 const account = createRoute({ getParentRoute: () => app, path: "/account", component: AccountPage });
+const device = createRoute({
+  getParentRoute: () => app,
+  path: "/device",
+  validateSearch: (s: Record<string, unknown>): { code?: string } => ({ code: typeof s.code === "string" && s.code ? s.code : undefined }),
+  component: DevicePage,
+});
 const orgMembers = createRoute({ getParentRoute: () => app, path: "/org/members", component: OrgMembersPage });
 const orgSettings = createRoute({ getParentRoute: () => app, path: "/org/settings", component: OrgSettingsPage });
 const orgAudit = createRoute({ getParentRoute: () => app, path: "/org/audit", component: OrgAuditPage });
@@ -134,6 +141,7 @@ const routeTree = root.addChildren([
     importProject,
     project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups, projectMetrics, projectMembers, projectSettings]),
     account,
+    device,
     orgMembers,
     orgSettings,
     orgAudit,

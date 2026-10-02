@@ -6,6 +6,7 @@ import { formatDate } from "../lib/format";
 import { AlertSettingsCard, IsolationChecksCard } from "../components/AlertSettingsCard";
 import { BackupKeyPanel, StorageForm } from "../components/BackupSetup";
 import { MailCard, SignupCard, TermsCard } from "../components/PlatformCards";
+import { TokenSettingsCard } from "../components/Tokens";
 import { HostStep } from "./Setup";
 
 export function SettingsPage() {
@@ -101,6 +102,7 @@ export function SettingsPage() {
         <IsolationChecksCard />
         <MailCard />
         <SignupCard />
+        <TokenSettingsCard />
         <TermsCard />
       </div>
     </>
