@@ -1,37 +1,50 @@
 import { QueryClient } from "@tanstack/react-query";
-import { createRootRouteWithContext, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
+import { createRootRouteWithContext, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from "@tanstack/react-router";
 import { AppShell } from "./components/shell/AppShell";
 import { ToastProvider } from "./components/Toasts";
 import { sessionQuery } from "./lib/session";
-import { AlertsPage } from "./pages/Alerts";
-import { AccountPage } from "./pages/Account";
-import { DevicePage } from "./pages/Device";
-import { AdminUsersPage } from "./pages/AdminUsers";
-import { AdminOrgPage, AdminOrgsPage, AdminPlansPage, DedicatedRequestsPage } from "./pages/AdminOrgs";
-import { UsagePage } from "./pages/Usage";
-import { AuditPage, OrgAuditPage } from "./pages/Audit";
-import { OrgMembersPage, OrgSettingsPage } from "./pages/Org";
-import { ProjectMembersPage } from "./pages/ProjectMembers";
-import { InvitePage, ResetPasswordPage, SignupPage, VerifyEmailPage } from "./pages/Public";
 import { LoginPage } from "./pages/Login";
-import { NewProjectPage } from "./pages/NewProject";
-import { OperationDetailPage, OperationsPage } from "./pages/Operations";
-import { ImportProjectPage } from "./pages/ImportProject";
-import { NodeDetailPage, NodesPage } from "./pages/Nodes";
-import { ProjectBackupsPage } from "./pages/ProjectBackups";
-import { ProjectBranchesPage } from "./pages/ProjectBranches";
-import { ProjectJobsPage } from "./pages/ProjectJobs";
-import { ProjectWebhooksPage } from "./pages/ProjectWebhooks";
-import { ProjectConnectPage } from "./pages/ProjectConnect";
-import { ProjectLayout, ProjectOverviewPage } from "./pages/ProjectOverview";
-import { ProjectMetricsPage } from "./pages/ProjectMetrics";
-import { ProjectSettingsPage } from "./pages/ProjectSettings";
-import { ProjectSqlPage } from "./pages/ProjectSql";
-import { ProjectTablesPage } from "./pages/ProjectTables";
-import { ProjectsPage } from "./pages/Projects";
-import { SettingsPage } from "./pages/Settings";
 import { SetupPage } from "./pages/Setup";
 import { NotFound } from "./pages/NotFound";
+
+// Pages load on first visit; the shell and sign-in pages are in the main bundle.
+const AlertsPage = lazyRouteComponent(() => import("./pages/Alerts"), "AlertsPage");
+const AccountPage = lazyRouteComponent(() => import("./pages/Account"), "AccountPage");
+const DevicePage = lazyRouteComponent(() => import("./pages/Device"), "DevicePage");
+const AdminUsersPage = lazyRouteComponent(() => import("./pages/AdminUsers"), "AdminUsersPage");
+const AdminOrgPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "AdminOrgPage");
+const AdminOrgsPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "AdminOrgsPage");
+const AdminPlansPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "AdminPlansPage");
+const DedicatedRequestsPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "DedicatedRequestsPage");
+const UsagePage = lazyRouteComponent(() => import("./pages/Usage"), "UsagePage");
+const AuditPage = lazyRouteComponent(() => import("./pages/Audit"), "AuditPage");
+const OrgAuditPage = lazyRouteComponent(() => import("./pages/Audit"), "OrgAuditPage");
+const OrgMembersPage = lazyRouteComponent(() => import("./pages/Org"), "OrgMembersPage");
+const OrgSettingsPage = lazyRouteComponent(() => import("./pages/Org"), "OrgSettingsPage");
+const ProjectMembersPage = lazyRouteComponent(() => import("./pages/ProjectMembers"), "ProjectMembersPage");
+const InvitePage = lazyRouteComponent(() => import("./pages/Public"), "InvitePage");
+const ResetPasswordPage = lazyRouteComponent(() => import("./pages/Public"), "ResetPasswordPage");
+const SignupPage = lazyRouteComponent(() => import("./pages/Public"), "SignupPage");
+const VerifyEmailPage = lazyRouteComponent(() => import("./pages/Public"), "VerifyEmailPage");
+const NewProjectPage = lazyRouteComponent(() => import("./pages/NewProject"), "NewProjectPage");
+const OperationDetailPage = lazyRouteComponent(() => import("./pages/Operations"), "OperationDetailPage");
+const OperationsPage = lazyRouteComponent(() => import("./pages/Operations"), "OperationsPage");
+const ImportProjectPage = lazyRouteComponent(() => import("./pages/ImportProject"), "ImportProjectPage");
+const NodeDetailPage = lazyRouteComponent(() => import("./pages/Nodes"), "NodeDetailPage");
+const NodesPage = lazyRouteComponent(() => import("./pages/Nodes"), "NodesPage");
+const ProjectBackupsPage = lazyRouteComponent(() => import("./pages/ProjectBackups"), "ProjectBackupsPage");
+const ProjectBranchesPage = lazyRouteComponent(() => import("./pages/ProjectBranches"), "ProjectBranchesPage");
+const ProjectJobsPage = lazyRouteComponent(() => import("./pages/ProjectJobs"), "ProjectJobsPage");
+const ProjectWebhooksPage = lazyRouteComponent(() => import("./pages/ProjectWebhooks"), "ProjectWebhooksPage");
+const ProjectConnectPage = lazyRouteComponent(() => import("./pages/ProjectConnect"), "ProjectConnectPage");
+const ProjectLayout = lazyRouteComponent(() => import("./pages/ProjectOverview"), "ProjectLayout");
+const ProjectOverviewPage = lazyRouteComponent(() => import("./pages/ProjectOverview"), "ProjectOverviewPage");
+const ProjectMetricsPage = lazyRouteComponent(() => import("./pages/ProjectMetrics"), "ProjectMetricsPage");
+const ProjectSettingsPage = lazyRouteComponent(() => import("./pages/ProjectSettings"), "ProjectSettingsPage");
+const ProjectSqlPage = lazyRouteComponent(() => import("./pages/ProjectSql"), "ProjectSqlPage");
+const ProjectTablesPage = lazyRouteComponent(() => import("./pages/ProjectTables"), "ProjectTablesPage");
+const ProjectsPage = lazyRouteComponent(() => import("./pages/Projects"), "ProjectsPage");
+const SettingsPage = lazyRouteComponent(() => import("./pages/Settings"), "SettingsPage");
 
 type Ctx = { queryClient: QueryClient };
 
@@ -133,7 +146,15 @@ const adminOrg = createRoute({ getParentRoute: () => app, path: "/admin/orgs/$id
 const adminPlans = createRoute({ getParentRoute: () => app, path: "/admin/plans", component: AdminPlansPage });
 const adminRequests = createRoute({ getParentRoute: () => app, path: "/admin/dedicated-requests", component: DedicatedRequestsPage });
 
+// The component gallery, in development builds only.
+const uiGallery = createRoute({
+  getParentRoute: () => root,
+  path: "/_ui",
+  component: lazyRouteComponent(() => import("./pages/UiGallery"), "UiGalleryPage"),
+});
+
 const routeTree = root.addChildren([
+  ...(import.meta.env.DEV ? [uiGallery] : []),
   setup,
   login,
   signup,
