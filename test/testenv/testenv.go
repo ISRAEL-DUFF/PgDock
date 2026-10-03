@@ -321,9 +321,6 @@ func Start(t testing.TB, opts Options) *Env {
 	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	jobSvc := schedjobs.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall
-	wg.Add(2)
-	go func() { defer wg.Done(); webhookSvc.Run(ctx) }()
-	go func() { defer wg.Done(); jobSvc.Run(ctx) }()
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
@@ -354,6 +351,10 @@ func Start(t testing.TB, opts Options) *Env {
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
 		admin: adminCreds{"pgdock", adminPW}, log: log, s3Link: opts.S3Link, MasterKey: key,
 	}
+	// After *e is set: the loops read e.automationOffset.
+	wg.Add(2)
+	go func() { defer wg.Done(); webhookSvc.Run(ctx) }()
+	go func() { defer wg.Done(); jobSvc.Run(ctx) }()
 	t.Cleanup(func() {
 		ts.Close()
 		cancel()
