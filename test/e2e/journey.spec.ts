@@ -1385,7 +1385,7 @@ test.describe("with the saved session", () => {
     const jd = page.getByRole("dialog");
     await jd.getByLabel("Name").fill("count-orders");
     await jd.getByRole("button", { name: "Every day at 03:00" }).click();
-    await jd.getByLabel("SQL").fill("INSERT INTO order_counts (n) SELECT count(*) FROM orders");
+    await jd.getByRole("textbox", { name: "SQL" }).fill("INSERT INTO order_counts (n) SELECT count(*) FROM orders");
     await jd.getByRole("button", { name: "Create job" }).click();
     await expect(page.getByTestId("job-row").filter({ hasText: "count-orders" })).toBeVisible();
     await expect(page.getByTestId("job-upcoming").locator("li")).toHaveCount(5);
