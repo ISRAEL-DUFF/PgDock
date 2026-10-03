@@ -57,7 +57,7 @@ people (V2 §14 M16):
 ## Weekly
 
 - **Capacity** (Nodes, and the [capacity notes](operations.md#capacity)):
-  add a shared node before one passes about 150 projects, its disk 70%,
+  add a shared node before one passes about 200 projects, its disk 70%,
   or its peak client backends 60% of `max_connections`. The
   [load check](load-test.md#v2-load-check) peaked at 311 of 500 backends
   with 150 busy projects on each of two nodes.
