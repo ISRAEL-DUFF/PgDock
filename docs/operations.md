@@ -120,6 +120,21 @@ working; their role name stays visible until an admin uses **Switch to
 opaque credentials** (Settings), which issues new URLs and keeps the old
 ones working for a grace period.
 
+## The table editor
+
+Project members edit data and schema under **Tables** (developers and
+above; read-only members browse and export). Rows: filter, sort,
+double-click to edit, then **Save**; everything in one save commits or
+none of it, and if someone changed a row since you loaded it you see a
+conflict instead of overwriting their change. Tables need a primary key
+to be editable. **Structure**: every change shows its SQL and risk notes
+first, such as "Rewrites the table and blocks writes" for a type change,
+and runs with a 5-second lock timeout, so it fails fast rather than
+queueing behind a long transaction. Indexes build concurrently. Schema
+changes are in the project's audit log with their SQL. **Save as
+migration** exports the change as plain SQL, goose or dbmate, to apply
+to other environments.
+
 ## API tokens and the CLI
 
 Members use the `pgdock` CLI ([CLI guide](cli.md)) and API tokens for

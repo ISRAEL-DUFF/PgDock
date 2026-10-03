@@ -5,6 +5,20 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Visual table editing (V2 M11)
+- The table browser filters (equals, contains, ranges, null, lists),
+  sorts by any column, opens foreign-key rows in a side panel, and
+  exports up to 100,000 rows as CSV or JSON.
+- Row editing for tables with a primary key: staged inline edits, new
+  rows and deletes saved in one transaction, with type-aware inputs.
+  If someone changed a row since you loaded it, the save stops with a
+  conflict showing their version instead of overwriting it.
+- A schema editor for tables, columns, constraints, foreign keys,
+  indexes, schemas and enums. Every change previews its SQL with risk
+  notes (table rewrites, NOT NULL scans, volatile defaults), runs with a
+  5-second lock timeout (indexes concurrently), is audited with its SQL,
+  and exports as a plain SQL, goose or dbmate migration.
+
 ### API tokens and the CLI (V2 M10)
 - API tokens for scripts and CI: one organisation each, read/write/admin
   scopes, an optional project restriction, and a required expiry (90
