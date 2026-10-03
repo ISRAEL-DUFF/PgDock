@@ -385,8 +385,10 @@ func (s *Server) ListReapedSessions(w http.ResponseWriter, r *http.Request, id g
 // ---- Platform admin (V2 §2.4, §12) --------------------------------------------
 
 func genAdminOrgSummary(o store.AdminListOrgsRow) gen.AdminOrgSummary {
+	orgTargets := int(o.OrgTargetProjects)
 	return gen.AdminOrgSummary{
-		Id: o.ID, Name: o.Name, Slug: o.Slug, Plan: o.PlanName, Status: gen.AdminOrgSummaryStatus(o.Status),
+		OrgTargetProjects: &orgTargets,
+		Id:                o.ID, Name: o.Name, Slug: o.Slug, Plan: o.PlanName, Status: gen.AdminOrgSummaryStatus(o.Status),
 		SuspendedReason: o.SuspendedReason, Personal: o.PersonalOwnerID != nil, MemberCount: int(o.MemberCount),
 		ProjectCount: int(o.ProjectCount), SizeBytes: int64(o.SizeBytes), OutboundDisabled: o.OutboundDisabled, CreatedAt: o.CreatedAt,
 	}

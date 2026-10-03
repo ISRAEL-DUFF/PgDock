@@ -643,7 +643,7 @@ paths:
     put:
       operationId: putStorageSettings
       summary: Save the backup storage target after a live test
-      description: Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+      description: Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
       tags: [settings]
       requestBody:
         required: true
@@ -663,7 +663,7 @@ paths:
   /api/v1/settings/storage/test:
     post:
       operationId: testStorageSettings
-      summary: Run the live write/read/delete test without saving
+      summary: Run the live write/read/list/delete test without saving
       tags: [settings]
       requestBody:
         required: true
@@ -6995,6 +6995,9 @@ components:
         size_bytes:
           type: integer
           format: int64
+        org_target_projects:
+          type: integer
+          description: Live projects whose backups go to one of the organisation's own targets (which the platform admin doesn't see, V2 §6).
         outbound_disabled:
           type: boolean
         created_at:

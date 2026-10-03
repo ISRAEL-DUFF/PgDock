@@ -540,7 +540,7 @@ export interface paths {
         get: operations["getStorageSettings"];
         /**
          * Save the backup storage target after a live test
-         * @description Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+         * @description Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
          */
         put: operations["putStorageSettings"];
         post?: never;
@@ -559,7 +559,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Run the live write/read/delete test without saving */
+        /** Run the live write/read/list/delete test without saving */
         post: operations["testStorageSettings"];
         delete?: never;
         options?: never;
@@ -4426,6 +4426,8 @@ export interface components {
             project_count: number;
             /** Format: int64 */
             size_bytes: number;
+            /** @description Live projects whose backups go to one of the organisation's own targets (which the platform admin doesn't see, V2 §6). */
+            org_target_projects?: number;
             outbound_disabled: boolean;
             /** Format: date-time */
             created_at: string;

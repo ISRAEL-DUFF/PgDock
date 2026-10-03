@@ -1116,4 +1116,67 @@ test.describe("with the saved session", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("column-id")).toContainText("integer");
   });
+  // The M12 "done when", through the browser: the organisation brings its
+  // own bucket, a project gets its own key and sends its backups there, and
+  // the key downloads (after re-authentication) with the restore README.
+  // Restoring from that file with gpg and pg_restore alone is covered by
+  // the integration suite.
+  test("backup storage: the organisation's own bucket and a project key", async ({ page }) => {
+    test.skip(!s3Endpoint, "needs the e2e bundle's fake S3");
+    await signedIn(page);
+
+    // An org target, saved only once its live test passes.
+    await page.goto("/org/settings");
+    const panel = page.getByTestId("org-storage-targets");
+    await panel.getByRole("button", { name: "Add a target" }).click();
+    await panel.getByLabel("Name").fill("Our bucket");
+    await panel.getByLabel("Endpoint").fill(s3Endpoint!);
+    await panel.getByLabel("Region").fill("us-east-1");
+    await panel.getByLabel("Bucket").fill("no-such-bucket");
+    await panel.getByLabel("Access key").fill("e2e-access");
+    await panel.getByLabel("Secret key").fill("e2e-secret");
+    await panel.getByLabel(/Path-style addressing/).check();
+    await panel.getByRole("button", { name: "Test and save" }).click();
+    await expect(panel.getByText("Live test failed; not saved")).toBeVisible();
+    await panel.getByLabel("Bucket").fill("org-e2e");
+    await panel.getByRole("button", { name: "Test and save" }).click();
+    await expect(panel.getByTestId("storage-target-row").filter({ hasText: "Our bucket" })).toBeVisible();
+    await shot(page, "41-org-storage-targets");
+
+    // A project of that organisation, with its own key, backing up there.
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Vault");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    const storage = page.getByTestId("project-storage");
+    await expect(storage.getByTestId("project-storage-target")).toContainText("counts toward your backup quota");
+    await storage.getByRole("button", { name: "Use a project key" }).click();
+    await expect(storage.getByTestId("project-backup-key")).toContainText("this project's own key");
+    await storage.getByTestId("storage-choice").selectOption({ label: "Our bucket (organisation)" });
+    await storage.getByLabel("Also copy existing backups there").check();
+    await storage.getByRole("button", { name: "Switch storage" }).click();
+    await expect(storage.getByTestId("project-storage-target")).toContainText("Our bucket");
+    await expect(storage.getByTestId("project-storage-target")).toContainText("doesn't count toward your backup quota");
+
+    await page.getByRole("button", { name: "Back up now" }).click();
+    const row = page.getByTestId("backup-row").first();
+    await expect(row).toContainText("succeeded", { timeout: 60_000 });
+    await expect(row.getByTestId("backup-storage")).toContainText("Our bucket");
+    await expect(row.getByTestId("backup-storage")).toContainText("project key");
+    await shot(page, "42-project-storage");
+
+    // The key file, after confirming it's you.
+    await storage.getByRole("button", { name: "Download key…" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Your password").fill(password);
+    await dialog.getByLabel("Authenticator code").fill(await freshTotp(totpSecret));
+    const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download" }).click()]);
+    const keyFile = readFileSync((await download.path())!, "utf8");
+    expect(keyFile).toContain("-----BEGIN PGP PRIVATE KEY BLOCK-----");
+    expect(keyFile).toContain("gpg --batch --decrypt backup.dump.gpg > backup.dump");
+    expect(keyFile).toContain("pg_restore --no-owner --no-acl");
+  });
 });

@@ -1635,18 +1635,21 @@ type AdminOrgList struct {
 
 // AdminOrgSummary defines model for AdminOrgSummary.
 type AdminOrgSummary struct {
-	CreatedAt        time.Time             `json:"created_at"`
-	Id               openapi_types.UUID    `json:"id"`
-	MemberCount      int                   `json:"member_count"`
-	Name             string                `json:"name"`
-	OutboundDisabled bool                  `json:"outbound_disabled"`
-	Personal         bool                  `json:"personal"`
-	Plan             string                `json:"plan"`
-	ProjectCount     int                   `json:"project_count"`
-	SizeBytes        int64                 `json:"size_bytes"`
-	Slug             string                `json:"slug"`
-	Status           AdminOrgSummaryStatus `json:"status"`
-	SuspendedReason  *string               `json:"suspended_reason,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Id          openapi_types.UUID `json:"id"`
+	MemberCount int                `json:"member_count"`
+	Name        string             `json:"name"`
+
+	// OrgTargetProjects Live projects whose backups go to one of the organisation's own targets (which the platform admin doesn't see, V2 §6).
+	OrgTargetProjects *int                  `json:"org_target_projects,omitempty"`
+	OutboundDisabled  bool                  `json:"outbound_disabled"`
+	Personal          bool                  `json:"personal"`
+	Plan              string                `json:"plan"`
+	ProjectCount      int                   `json:"project_count"`
+	SizeBytes         int64                 `json:"size_bytes"`
+	Slug              string                `json:"slug"`
+	Status            AdminOrgSummaryStatus `json:"status"`
+	SuspendedReason   *string               `json:"suspended_reason,omitempty"`
 }
 
 // AdminOrgSummaryStatus defines model for AdminOrgSummary.Status.
@@ -6110,7 +6113,7 @@ type ClientInterface interface {
 
 	// PutStorageSettingsWithBody Save the backup storage target after a live test
 	//
-	// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+	// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -6119,21 +6122,21 @@ type ClientInterface interface {
 
 	// PutStorageSettings Save the backup storage target after a live test
 	//
-	// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+	// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with PUT /api/v1/settings/storage (the `PutStorageSettings` operationId).
 	PutStorageSettings(ctx context.Context, body PutStorageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// TestStorageSettingsWithBody Run the live write/read/delete test without saving
+	// TestStorageSettingsWithBody Run the live write/read/list/delete test without saving
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/settings/storage/test (the `TestStorageSettings` operationId).
 	TestStorageSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// TestStorageSettings Run the live write/read/delete test without saving
+	// TestStorageSettings Run the live write/read/list/delete test without saving
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -10301,7 +10304,7 @@ func (c *Client) GetStorageSettings(ctx context.Context, reqEditors ...RequestEd
 
 // PutStorageSettingsWithBody Save the backup storage target after a live test
 //
-// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 //
 // Takes any type of body and a specified content type.
 //
@@ -10320,7 +10323,7 @@ func (c *Client) PutStorageSettingsWithBody(ctx context.Context, contentType str
 
 // PutStorageSettings Save the backup storage target after a live test
 //
-// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -10337,7 +10340,7 @@ func (c *Client) PutStorageSettings(ctx context.Context, body PutStorageSettings
 	return c.Client.Do(req)
 }
 
-// TestStorageSettingsWithBody Run the live write/read/delete test without saving
+// TestStorageSettingsWithBody Run the live write/read/list/delete test without saving
 //
 // Takes any type of body and a specified content type.
 //
@@ -10354,7 +10357,7 @@ func (c *Client) TestStorageSettingsWithBody(ctx context.Context, contentType st
 	return c.Client.Do(req)
 }
 
-// TestStorageSettings Run the live write/read/delete test without saving
+// TestStorageSettings Run the live write/read/list/delete test without saving
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20093,7 +20096,7 @@ type ClientWithResponsesInterface interface {
 
 	// PutStorageSettingsWithBodyWithResponse Save the backup storage target after a live test
 	//
-	// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+	// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -20102,21 +20105,21 @@ type ClientWithResponsesInterface interface {
 
 	// PutStorageSettingsWithResponse Save the backup storage target after a live test
 	//
-	// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+	// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /api/v1/settings/storage (the `PutStorageSettings` operationId).
 	PutStorageSettingsWithResponse(ctx context.Context, body PutStorageSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutStorageSettingsResponse, error)
 
-	// TestStorageSettingsWithBodyWithResponse Run the live write/read/delete test without saving
+	// TestStorageSettingsWithBodyWithResponse Run the live write/read/list/delete test without saving
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/settings/storage/test (the `TestStorageSettings` operationId).
 	TestStorageSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestStorageSettingsResponse, error)
 
-	// TestStorageSettingsWithResponse Run the live write/read/delete test without saving
+	// TestStorageSettingsWithResponse Run the live write/read/list/delete test without saving
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -31699,7 +31702,7 @@ func (c *ClientWithResponses) GetStorageSettingsWithResponse(ctx context.Context
 
 // PutStorageSettingsWithBodyWithResponse Save the backup storage target after a live test
 //
-// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -31714,7 +31717,7 @@ func (c *ClientWithResponses) PutStorageSettingsWithBodyWithResponse(ctx context
 
 // PutStorageSettingsWithResponse Save the backup storage target after a live test
 //
-// Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+// Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -31727,7 +31730,7 @@ func (c *ClientWithResponses) PutStorageSettingsWithResponse(ctx context.Context
 	return ParsePutStorageSettingsResponse(rsp)
 }
 
-// TestStorageSettingsWithBodyWithResponse Run the live write/read/delete test without saving
+// TestStorageSettingsWithBodyWithResponse Run the live write/read/list/delete test without saving
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -31740,7 +31743,7 @@ func (c *ClientWithResponses) TestStorageSettingsWithBodyWithResponse(ctx contex
 	return ParseTestStorageSettingsResponse(rsp)
 }
 
-// TestStorageSettingsWithResponse Run the live write/read/delete test without saving
+// TestStorageSettingsWithResponse Run the live write/read/list/delete test without saving
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

@@ -77,7 +77,9 @@ SELECT o.id, o.name, o.slug, o.status, o.suspended_reason, o.outbound_disabled, 
        (SELECT count(*) FROM projects p WHERE p.org_id = o.id AND p.deleted_at IS NULL)::int AS project_count,
        COALESCE((SELECT sum((SELECT m.value FROM metric_points m WHERE m.scope = 'project' AND m.scope_id = p.id
                   AND m.metric = 'size_bytes' AND m.resolution = '1m' ORDER BY m.ts DESC LIMIT 1))
-                 FROM projects p WHERE p.org_id = o.id AND p.deleted_at IS NULL), 0)::float8 AS size_bytes
+                 FROM projects p WHERE p.org_id = o.id AND p.deleted_at IS NULL), 0)::float8 AS size_bytes,
+       (SELECT count(*) FROM projects p JOIN storage_targets t ON t.id = p.storage_target_id
+        WHERE p.org_id = o.id AND p.deleted_at IS NULL AND t.org_id IS NOT NULL)::int AS org_target_projects
 FROM organizations o JOIN quota_plans q ON q.id = o.plan_id
 WHERE o.status <> 'deleted'
   AND ($1::text IS NULL OR o.name ILIKE '%' || $1 || '%' OR o.slug ILIKE '%' || $1 || '%')
@@ -85,18 +87,19 @@ ORDER BY o.created_at DESC LIMIT 500
 `
 
 type AdminListOrgsRow struct {
-	ID               uuid.UUID
-	Name             string
-	Slug             string
-	Status           string
-	SuspendedReason  *string
-	OutboundDisabled bool
-	CreatedAt        time.Time
-	PersonalOwnerID  *uuid.UUID
-	PlanName         string
-	MemberCount      int32
-	ProjectCount     int32
-	SizeBytes        float64
+	ID                uuid.UUID
+	Name              string
+	Slug              string
+	Status            string
+	SuspendedReason   *string
+	OutboundDisabled  bool
+	CreatedAt         time.Time
+	PersonalOwnerID   *uuid.UUID
+	PlanName          string
+	MemberCount       int32
+	ProjectCount      int32
+	SizeBytes         float64
+	OrgTargetProjects int32
 }
 
 // tenant: system - the platform admin's organisation list: names, counts, sizes, statuses only.
@@ -122,6 +125,7 @@ func (q *Queries) AdminListOrgs(ctx context.Context, search *string) ([]AdminLis
 			&i.MemberCount,
 			&i.ProjectCount,
 			&i.SizeBytes,
+			&i.OrgTargetProjects,
 		); err != nil {
 			return nil, err
 		}

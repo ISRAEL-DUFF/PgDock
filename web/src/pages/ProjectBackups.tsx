@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Backup, type Project, type ProjectCredentials } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { ProvisionProgress } from "../components/ProvisionProgress";
+import { ProjectStorageCard } from "../components/StorageTargets";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Spinner, StatusBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
@@ -101,7 +102,7 @@ export function ProjectBackupsPage() {
               </dd>
               <dt className="text-muted">Encryption</dt>
               <dd>
-                {p.tier === "dedicated" ? "OpenPGP (WAL-G), key derived from the backup key" : "AES-256-GCM before upload"}
+                {p.tier === "dedicated" ? "OpenPGP (WAL-G)" : "Encrypted before upload"}, with the instance backup key unless the project has its own (Storage below)
                 {ov.key.fingerprint && <span className="ml-1 font-mono text-xs text-muted">(key {ov.key.fingerprint})</span>}
               </dd>
             </>
@@ -113,12 +114,13 @@ export function ProjectBackupsPage() {
           </div>
         )}
       </Card>
+      <ProjectStorageCard p={p} canManage={p.my_role === "admin"} />
       {p.tier === "dedicated" && <PITRCard p={p} onCreated={setCreated} />}
       {list.isPending && <Spinner />}
       {list.isError && <Alert>{errorMessage(list.error)}</Alert>}
       {list.data && list.data.items.length === 0 && <EmptyState title="No backups yet">The first nightly backup runs tonight, or back up now.</EmptyState>}
       {list.data && list.data.items.length > 0 && (
-        <Table head={["Taken", "Kind", "Status", "Size", "Expires", ""]}>
+        <Table head={["Taken", "Kind", "Status", "Stored on", "Size", "Expires", ""]}>
           {list.data.items.map((b) => (
             <tr key={b.id} data-testid="backup-row">
               <td className="px-3 py-2">{formatDate(b.finished_at ?? b.started_at)}</td>
@@ -128,6 +130,14 @@ export function ProjectBackupsPage() {
               <td className="px-3 py-2">
                 <StatusBadge status={b.status} />
                 {b.error && <p className="mt-1 max-w-xs truncate text-xs text-danger" title={b.error}>{b.error}</p>}
+              </td>
+              <td className="px-3 py-2 text-muted" data-testid="backup-storage">
+                {b.storage_target ?? "—"}
+                {b.encryption === "project" && (
+                  <span className="ml-1" title={`Encrypted with the project's key ${b.key_fingerprint ?? ""}`}>
+                    <Badge tone="accent">project key</Badge>
+                  </span>
+                )}
               </td>
               <td className="px-3 py-2 text-muted">{b.size_bytes != null ? formatBytes(b.size_bytes) : "—"}</td>
               <td className="px-3 py-2 text-muted">{b.expires_at ? formatDate(b.expires_at) : "by retention"}</td>

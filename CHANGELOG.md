@@ -5,6 +5,24 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Backup storage targets (V2 M12)
+- Platform storage targets (one is the default) and organisation targets:
+  buckets an organisation brings itself, invisible to everyone else and
+  not counted against its backup quota. Every target is live-tested
+  (write, read, list, delete) before it's saved; credentials are never
+  shown again.
+- A project chooses where its new backups go; existing ones stay
+  restorable where they are, or are copied over, verified by checksum.
+  Dedicated projects move their WAL-G archive and take a fresh base
+  backup at once.
+- Per-project backup keys: backups become standard OpenPGP messages, and
+  the downloaded key file (re-authentication, audited) restores them with
+  gpg and pg_restore alone.
+- Backup storage on platform targets counts toward the `backup_storage_mb`
+  quota.
+- Point-in-time recovery reads WAL with the source archive's own
+  credentials and key.
+
 ### Visual table editing (V2 M11)
 - The table browser filters (equals, contains, ranges, null, lists),
   sorts by any column, opens foreign-key rows in a side panel, and

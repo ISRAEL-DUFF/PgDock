@@ -1631,18 +1631,21 @@ type AdminOrgList struct {
 
 // AdminOrgSummary defines model for AdminOrgSummary.
 type AdminOrgSummary struct {
-	CreatedAt        time.Time             `json:"created_at"`
-	Id               openapi_types.UUID    `json:"id"`
-	MemberCount      int                   `json:"member_count"`
-	Name             string                `json:"name"`
-	OutboundDisabled bool                  `json:"outbound_disabled"`
-	Personal         bool                  `json:"personal"`
-	Plan             string                `json:"plan"`
-	ProjectCount     int                   `json:"project_count"`
-	SizeBytes        int64                 `json:"size_bytes"`
-	Slug             string                `json:"slug"`
-	Status           AdminOrgSummaryStatus `json:"status"`
-	SuspendedReason  *string               `json:"suspended_reason,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Id          openapi_types.UUID `json:"id"`
+	MemberCount int                `json:"member_count"`
+	Name        string             `json:"name"`
+
+	// OrgTargetProjects Live projects whose backups go to one of the organisation's own targets (which the platform admin doesn't see, V2 §6).
+	OrgTargetProjects *int                  `json:"org_target_projects,omitempty"`
+	OutboundDisabled  bool                  `json:"outbound_disabled"`
+	Personal          bool                  `json:"personal"`
+	Plan              string                `json:"plan"`
+	ProjectCount      int                   `json:"project_count"`
+	SizeBytes         int64                 `json:"size_bytes"`
+	Slug              string                `json:"slug"`
+	Status            AdminOrgSummaryStatus `json:"status"`
+	SuspendedReason   *string               `json:"suspended_reason,omitempty"`
 }
 
 // AdminOrgSummaryStatus defines model for AdminOrgSummary.Status.
@@ -4802,7 +4805,7 @@ type ServerInterface interface {
 	// PutStorageSettings Save the backup storage target after a live test
 	// (PUT /api/v1/settings/storage)
 	PutStorageSettings(w http.ResponseWriter, r *http.Request)
-	// TestStorageSettings Run the live write/read/delete test without saving
+	// TestStorageSettings Run the live write/read/list/delete test without saving
 	// (POST /api/v1/settings/storage/test)
 	TestStorageSettings(w http.ResponseWriter, r *http.Request)
 	// BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
@@ -5816,7 +5819,7 @@ func (_ Unimplemented) PutStorageSettings(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// TestStorageSettings Run the live write/read/delete test without saving
+// TestStorageSettings Run the live write/read/list/delete test without saving
 // (POST /api/v1/settings/storage/test)
 func (_ Unimplemented) TestStorageSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)

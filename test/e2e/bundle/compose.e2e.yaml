@@ -58,7 +58,7 @@ services:
 
   fakes3:
     image: pgdock-fakes3:local
-    command: ["-listen", ":9000", "-buckets", "pgdock-e2e"]
+    command: ["-listen", ":9000", "-buckets", "pgdock-e2e,org-e2e"]
 
   # Account email: the wizard points SMTP here; tests read the inbox over HTTP.
   fakesmtp:

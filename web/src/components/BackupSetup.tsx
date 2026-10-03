@@ -6,7 +6,7 @@ import { Alert, Badge, Button, CodeBlock, CopyField, Field, Input, Modal, Spinne
 
 // ---- S3 storage ------------------------------------------------------------
 
-/** S3 settings with the live write/read/delete test (spec §8.2 step 3). */
+/** S3 settings with the live write/read/list/delete test (spec §8.2 step 3). */
 export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSaved?: () => void; submitLabel?: string }) {
   const qc = useQueryClient();
   const current = useQuery({ queryKey: ["settings", "storage"], queryFn: api.storage });
