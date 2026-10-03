@@ -29,10 +29,15 @@ What happens:
    before it serves anything; a migration that fails leaves the old schema
    in place and the server refuses to start, so the old version can be
    started again.
-3. The poolers keep running unless their configuration changed. When they
-   restart, connected clients reconnect (a second or two).
+3. The installer recreates the poolers so they read this version's
+   configuration (their config files are bind-mounted, and a checkout
+   replaces them, which compose doesn't notice). Connected clients
+   reconnect (a second or two).
 4. The bundled agent restarts with the new version. Running operations are
    resumed by the new server: every step is idempotent.
+5. Migrations may queue one-off `apply_settings` operations (for example,
+   00018 gives older shared projects their `temp_file_limit`); they finish
+   in the background and show on Operations.
 
 Check afterwards: `docker compose exec pgdock-server
 pgdock-server -version` shows the new version, Nodes shows every agent
@@ -40,10 +45,11 @@ healthy, and Operations shows nothing failed.
 
 ## Remote nodes
 
-Agents on other nodes must run the same **major** version as pgdock-server.
-pgdock-server sends no work to an agent of another major version and shows
-it on the Nodes page; minor and patch versions may differ while you roll
-out. Replace the agent binary (or image) on each node and restart it; its
+Agents on other nodes must run the same **major** version as pgdock-server
+and a minor version at least as new: upgrade the agents first, then the
+server. pgdock-server sends no work to an agent of another major version or
+an older minor (an older agent doesn't know the new work) and shows it on
+the Nodes page; a newer minor or any patch version is fine. Replace the agent binary (or image) on each node and restart it; its
 state directory keeps its identity, so it needs no new registration.
 
 ## PostgreSQL minor versions
