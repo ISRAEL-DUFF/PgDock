@@ -131,6 +131,7 @@ type DumpOptions struct {
 	ExcludeSchemas []string `json:"exclude_schemas,omitempty"` // -N
 	NoOwner        bool     `json:"no_owner,omitempty"`
 	NoACL          bool     `json:"no_acl,omitempty"`
+	SchemaOnly     bool     `json:"schema_only,omitempty"` // branches (V2 §8.2)
 }
 
 // RestoreOptions control pg_restore. Objects are restored without their
@@ -144,6 +145,9 @@ type RestoreOptions struct {
 	// KeepOwners restores owners and grants as dumped (promotion: the same
 	// roles exist on the target), instead of handing everything to Role.
 	KeepOwners bool `json:"keep_owners,omitempty"`
+	// SchemaOnly restores definitions without data (schema-only branches
+	// from a backup).
+	SchemaOnly bool `json:"schema_only,omitempty"`
 }
 
 // DumpRequest is POST /v1/dump: pg_dump -Fc of PG, encrypted, to Upload.

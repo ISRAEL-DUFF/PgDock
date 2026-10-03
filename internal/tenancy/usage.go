@@ -22,6 +22,8 @@ const (
 	MetricDedicatedDisk = "dedicated_disk_gb_hours"
 	MetricBackupStorage = "backup_storage_gb_hours" // recorded daily
 	MetricPoolerTraffic = "pooler_transfer_gb"
+	MetricBranchHours   = "branch_hours"
+	MetricBranchStorage = "branch_gb_hours"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -32,6 +34,8 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricDedicatedDisk, "GB-disk-hours", "hour"},
 	{MetricBackupStorage, "GB-hours", "day"},
 	{MetricPoolerTraffic, "GB", "hour"},
+	{MetricBranchHours, "branch-hours", "hour"},
+	{MetricBranchStorage, "GB-hours", "hour"},
 }
 
 const (
@@ -124,6 +128,20 @@ func (s *Service) recordHours(ctx context.Context, from, to time.Time) error {
 	}
 	for _, r := range storage {
 		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, MetricSharedStorage, "hour", r.PeriodStart, r.AvgBytes/gb); err != nil {
+			return err
+		}
+		if r.IsBranch {
+			if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, MetricBranchStorage, "hour", r.PeriodStart, r.AvgBytes/gb); err != nil {
+				return err
+			}
+		}
+	}
+	branches, err := q.HourlyBranches(ctx, store.HourlyBranchesParams{FromTs: from, LastHour: to.Add(-time.Hour)})
+	if err != nil {
+		return fmt.Errorf("branches: %w", err)
+	}
+	for _, r := range branches {
+		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, MetricBranchHours, "hour", r.PeriodStart, max(0, min(1, r.Fraction))); err != nil {
 			return err
 		}
 	}

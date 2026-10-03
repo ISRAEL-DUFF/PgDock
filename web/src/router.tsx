@@ -19,6 +19,7 @@ import { OperationDetailPage, OperationsPage } from "./pages/Operations";
 import { ImportProjectPage } from "./pages/ImportProject";
 import { NodeDetailPage, NodesPage } from "./pages/Nodes";
 import { ProjectBackupsPage } from "./pages/ProjectBackups";
+import { ProjectBranchesPage } from "./pages/ProjectBranches";
 import { ProjectConnectPage } from "./pages/ProjectConnect";
 import { ProjectLayout, ProjectOverviewPage } from "./pages/ProjectOverview";
 import { ProjectMetricsPage } from "./pages/ProjectMetrics";
@@ -101,6 +102,7 @@ const projectSql = createRoute({ getParentRoute: () => project, path: "/sql", co
 const projectTables = createRoute({ getParentRoute: () => project, path: "/tables", component: ProjectTablesPage });
 const projectMetrics = createRoute({ getParentRoute: () => project, path: "/metrics", component: ProjectMetricsPage });
 const projectBackups = createRoute({ getParentRoute: () => project, path: "/backups", component: ProjectBackupsPage });
+const projectBranches = createRoute({ getParentRoute: () => project, path: "/branches", component: ProjectBranchesPage });
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
 const projectMembers = createRoute({ getParentRoute: () => project, path: "/members", component: ProjectMembersPage });
 const account = createRoute({ getParentRoute: () => app, path: "/account", component: AccountPage });
@@ -139,7 +141,8 @@ const routeTree = root.addChildren([
     projects,
     newProject,
     importProject,
-    project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups, projectMetrics, projectMembers, projectSettings]),
+    project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups,
+    projectBranches, projectMetrics, projectMembers, projectSettings]),
     account,
     device,
     orgMembers,

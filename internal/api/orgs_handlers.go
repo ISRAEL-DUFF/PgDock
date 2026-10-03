@@ -27,7 +27,7 @@ func (s *Server) genOrg(r *http.Request, o store.Organization, role string, memb
 	g := gen.Org{
 		Id: o.ID, Name: o.Name, Slug: o.Slug, Personal: o.PersonalOwnerID != nil && *o.PersonalOwnerID == sess.UserID,
 		Role: gen.OrgRole(role), Plan: plan, Status: gen.OrgStatus(o.Status),
-		MembersCanCreateProjects: set.MembersCanCreateProjects, MemberCount: members, ProjectCount: projects, CreatedAt: o.CreatedAt,
+		MembersCanCreateProjects: set.MembersCanCreateProjects, SensitiveByDefault: &set.SensitiveByDefault, MemberCount: members, ProjectCount: projects, CreatedAt: o.CreatedAt,
 		SuspendedReason: o.SuspendedReason, DeleteAfter: o.DeleteAfter,
 	}
 	// Everyone in the organisation sees open break-glass sessions (V2 §2.4).
@@ -154,7 +154,7 @@ func (s *Server) UpdateOrg(w http.ResponseWriter, r *http.Request, org gen.OrgID
 		return
 	}
 	auditFrom(r.Context()).target("org", org.String())
-	if _, err := s.orgs.Update(r.Context(), org, orgs.Patch{Name: req.Name, Slug: req.Slug, MembersCanCreateProjects: req.MembersCanCreateProjects}); err != nil {
+	if _, err := s.orgs.Update(r.Context(), org, orgs.Patch{Name: req.Name, Slug: req.Slug, MembersCanCreateProjects: req.MembersCanCreateProjects, SensitiveByDefault: req.SensitiveByDefault}); err != nil {
 		s.orgError(w, "update org", err)
 		return
 	}

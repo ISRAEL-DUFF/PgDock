@@ -37,6 +37,7 @@ export function ProjectLayout() {
     { to: "/projects/$id/sql", label: "SQL" },
     { to: "/projects/$id/tables", label: "Tables" },
     { to: "/projects/$id/backups", label: "Backups" },
+    { to: "/projects/$id/branches", label: p.parent_project_id ? "Branch" : "Branches" },
     { to: "/projects/$id/metrics", label: "Metrics" },
     { to: "/projects/$id/members", label: "Members" },
     ...(admin ? [{ to: "/projects/$id/settings", label: "Settings" } as const] : []),
@@ -53,6 +54,8 @@ export function ProjectLayout() {
           <span className="flex items-center gap-2">
             <span className="font-mono">{p.db_name}</span>
             {p.my_role && <Badge>{p.my_role.replace("_", "-")}</Badge>}
+            {p.parent_project_id && <Badge tone="accent">branch</Badge>}
+            {p.sensitive_data && <Badge tone="warn">sensitive data</Badge>}
           </span>
         }
       />

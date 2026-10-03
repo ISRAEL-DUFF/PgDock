@@ -63,6 +63,7 @@ var actionScope = map[Action]string{
 	OrgOwnerOnly:       ScopeAdmin,
 	RestoreInPlace:     ScopeAdmin,
 	BackupStorage:      ScopeAdmin,
+	BranchManage:       ScopeWrite,
 	ProjectSettings:    ScopeAdmin,
 	ProjectMembers:     ScopeAdmin,
 	ProjectPromote:     ScopeAdmin,
@@ -147,6 +148,7 @@ const (
 	BackupCreate       Action = "project.backup"          // developer: back up, restore into a new project
 	RestoreInPlace     Action = "project.restore_inplace" // admin
 	BackupStorage      Action = "project.backup_storage"  // admin: storage target, backup key and its download (V2 s6)
+	BranchManage       Action = "project.branch"          // developer: create, reset, detach and delete branches (V2 s8)
 	ProjectSettings    Action = "project.settings"        // admin: rotate, settings, extensions, PITR
 	ProjectMembers     Action = "project.members"         // admin
 	ProjectPromote     Action = "project.promote"         // admin
@@ -164,6 +166,7 @@ var projectMin = map[Action]string{
 	BackupCreate:       ProjectDeveloper,
 	RestoreInPlace:     ProjectAdmin,
 	BackupStorage:      ProjectAdmin,
+	BranchManage:       ProjectDeveloper,
 	ProjectSettings:    ProjectAdmin,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,
@@ -182,6 +185,9 @@ var orgRank = map[string]int{OrgMember: 1, OrgAdmin: 2, OrgOwner: 3}
 type Resource struct {
 	OrgID     uuid.UUID
 	ProjectID uuid.UUID
+	// ParentID is a branch's parent: a token restricted to the parent
+	// covers its branches (V2 §8: a CI token creates and uses them).
+	ParentID uuid.UUID
 }
 
 // Decision is the outcome of a check, with the roles it was based on.
@@ -234,7 +240,8 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 	if token && (actor.TokenOrg == nil || *actor.TokenOrg != res.OrgID) {
 		return Decision{}, nil // a token acts only in its own organisation
 	}
-	if token && res.ProjectID != uuid.Nil && !actor.AllowsProject(res.ProjectID) {
+	if token && res.ProjectID != uuid.Nil && !actor.AllowsProject(res.ProjectID) &&
+		(res.ParentID == uuid.Nil || !actor.AllowsProject(res.ParentID)) {
 		return Decision{}, nil // nor outside its projects
 	}
 	d, err := can(ctx, q, actor, action, res)

@@ -58,6 +58,9 @@ func dumpArgs(o agentapi.DumpOptions) []string {
 	if o.NoACL {
 		args = append(args, "--no-acl")
 	}
+	if o.SchemaOnly {
+		args = append(args, "--schema-only")
+	}
 	return args
 }
 
@@ -68,6 +71,9 @@ func restoreArgs(o agentapi.RestoreOptions, db string) []string {
 	}
 	if o.Role != "" {
 		args = append(args, "--role="+o.Role)
+	}
+	if o.SchemaOnly {
+		args = append(args, "--schema-only")
 	}
 	if !o.AllowErrors {
 		args = append(args, "--exit-on-error", "--single-transaction")

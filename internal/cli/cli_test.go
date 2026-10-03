@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGlobalFlagsAnywhere(t *testing.T) {
@@ -93,5 +94,16 @@ func TestUsage(t *testing.T) {
 	}
 	if code := a.Run([]string{"projects", "delete", "x"}); code != ExitUsage {
 		t.Fatalf("not logged in: %d", code)
+	}
+}
+
+func TestParseTTL(t *testing.T) {
+	for in, want := range map[string]time.Duration{"72h": 72 * time.Hour, "7d": 7 * 24 * time.Hour, "90m": 90 * time.Minute, "0": 0} {
+		if got, err := parseTTL(in); err != nil || got != want {
+			t.Errorf("parseTTL(%q) = %v, %v; want %v", in, got, err, want)
+		}
+	}
+	if _, err := parseTTL("soon"); err == nil {
+		t.Error("parseTTL accepted soon")
 	}
 }

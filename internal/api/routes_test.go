@@ -103,6 +103,7 @@ var expected = map[authz.Action][]string{
 	authz.BackupCreate:       {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.RestoreInPlace:     {rOwner, rAdmin, rProjAdmin},
 	authz.BackupStorage:      {rOwner, rAdmin, rProjAdmin},
+	authz.BranchManage:       {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.ProjectSettings:    {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectMembers:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
@@ -410,6 +411,8 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects/{id}/storage", "GET /api/v1/projects/{id}/reaped",
 		// V2 §6: where the project's backups go (choosing is BackupStorage)
 		"GET /api/v1/projects/{id}/storage-target",
+		// V2 §8 Project → Branches
+		"GET /api/v1/projects/{id}/branches",
 	},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
@@ -427,6 +430,9 @@ var specMatrix = map[authz.Action][]string{
 	authz.TableEdit: {"POST /api/v1/projects/{id}/tables/{schema}/{table}/changes", "POST /api/v1/projects/{id}/schema/apply"},
 	// "Create backup, restore into new project" (in place re-checked)
 	authz.BackupCreate: {"POST /api/v1/projects/{id}/backups", "POST /api/v1/projects/{id}/pitr", "POST /api/v1/backups/{id}/restore"},
+	// "Create / reset / delete branches" (deleting a branch is DELETE
+	// /projects/{id} with the branch action; detaching keeps one)
+	authz.BranchManage: {"POST /api/v1/projects/{id}/branches", "POST /api/v1/projects/{id}/reset", "POST /api/v1/projects/{id}/detach"},
 	// "Choose project's storage target, download backup key" (V2 §6)
 	authz.BackupStorage: {
 		"PUT /api/v1/projects/{id}/storage-target", "POST /api/v1/projects/{id}/backup-key",

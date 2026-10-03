@@ -291,6 +291,60 @@ func (e BackupKind) Valid() bool {
 	}
 }
 
+// Defines values for BranchInfoSource.
+const (
+	BranchInfoSourceBackup BranchInfoSource = "backup"
+	BranchInfoSourceLive   BranchInfoSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchInfoSource enum.
+func (e BranchInfoSource) Valid() bool {
+	switch e {
+	case BranchInfoSourceBackup:
+		return true
+	case BranchInfoSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BranchRequestSource.
+const (
+	BranchRequestSourceBackup BranchRequestSource = "backup"
+	BranchRequestSourceLive   BranchRequestSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchRequestSource enum.
+func (e BranchRequestSource) Valid() bool {
+	switch e {
+	case BranchRequestSourceBackup:
+		return true
+	case BranchRequestSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BranchResetRequestSource.
+const (
+	BranchResetRequestSourceBackup BranchResetRequestSource = "backup"
+	BranchResetRequestSourceLive   BranchResetRequestSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchResetRequestSource enum.
+func (e BranchResetRequestSource) Valid() bool {
+	switch e {
+	case BranchResetRequestSourceBackup:
+		return true
+	case BranchResetRequestSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateNodeRequestRole.
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
@@ -1902,6 +1956,44 @@ type BackupOverview struct {
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
 
+// BranchInfo defines model for BranchInfo.
+type BranchInfo struct {
+	// Backups Whether it takes nightly backups.
+	Backups bool `json:"backups"`
+
+	// ExpiresAt When the branch deletes itself; null keeps it.
+	ExpiresAt  *time.Time       `json:"expires_at,omitempty"`
+	SchemaOnly bool             `json:"schema_only"`
+	Source     BranchInfoSource `json:"source"`
+}
+
+// BranchInfoSource defines model for BranchInfo.Source.
+type BranchInfoSource string
+
+// BranchRequest defines model for BranchRequest.
+type BranchRequest struct {
+	Name string `json:"name"`
+
+	// SchemaOnly Defaults to whether the parent contains sensitive data.
+	SchemaOnly *bool                `json:"schema_only,omitempty"`
+	Source     *BranchRequestSource `json:"source,omitempty"`
+
+	// TtlHours Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168.
+	TtlHours *int `json:"ttl_hours,omitempty"`
+}
+
+// BranchRequestSource defines model for BranchRequest.Source.
+type BranchRequestSource string
+
+// BranchResetRequest defines model for BranchResetRequest.
+type BranchResetRequest struct {
+	// Source Defaults to the source the branch was created from.
+	Source *BranchResetRequestSource `json:"source,omitempty"`
+}
+
+// BranchResetRequestSource Defaults to the source the branch was created from.
+type BranchResetRequestSource string
+
 // BreakGlassRequest defines model for BreakGlassRequest.
 type BreakGlassRequest struct {
 	DurationMinutes int    `json:"duration_minutes"`
@@ -2640,13 +2732,16 @@ type Org struct {
 	Name                     string             `json:"name"`
 
 	// Personal The signed-in user's personal organisation.
-	Personal        bool      `json:"personal"`
-	Plan            string    `json:"plan"`
-	ProjectCount    int       `json:"project_count"`
-	Role            OrgRole   `json:"role"`
-	Slug            string    `json:"slug"`
-	Status          OrgStatus `json:"status"`
-	SuspendedReason *string   `json:"suspended_reason,omitempty"`
+	Personal     bool    `json:"personal"`
+	Plan         string  `json:"plan"`
+	ProjectCount int     `json:"project_count"`
+	Role         OrgRole `json:"role"`
+
+	// SensitiveByDefault New projects start marked as containing sensitive data (V2 §8.5).
+	SensitiveByDefault *bool     `json:"sensitive_by_default,omitempty"`
+	Slug               string    `json:"slug"`
+	Status             OrgStatus `json:"status"`
+	SuspendedReason    *string   `json:"suspended_reason,omitempty"`
 }
 
 // OrgStatus defines model for Org.Status.
@@ -2793,6 +2888,11 @@ type ProfileList struct {
 
 // Project defines model for Project.
 type Project struct {
+	Branch *BranchInfo `json:"branch,omitempty"`
+
+	// BranchCount Live branches of this project.
+	BranchCount *int `json:"branch_count,omitempty"`
+
 	// CanSwitchCredentials A V1 project that still uses its V1 owner role (V2 §10.2).
 	CanSwitchCredentials *bool              `json:"can_switch_credentials,omitempty"`
 	Connection           ConnectionInfo     `json:"connection"`
@@ -2812,11 +2912,15 @@ type Project struct {
 	OrgId                  openapi_types.UUID `json:"org_id"`
 	OwnerRole              string             `json:"owner_role"`
 
+	// ParentProjectId Set for a branch (V2 §8).
+	ParentProjectId *openapi_types.UUID `json:"parent_project_id,omitempty"`
+
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
 
 	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped.
 	RetiredCopyUntil *time.Time      `json:"retired_copy_until,omitempty"`
+	SensitiveData    *bool           `json:"sensitive_data,omitempty"`
 	Settings         ProjectSettings `json:"settings"`
 	Slug             string          `json:"slug"`
 	Status           ProjectStatus   `json:"status"`
@@ -3719,14 +3823,26 @@ type UpdateNodeRequestRole string
 type UpdateOrgRequest struct {
 	MembersCanCreateProjects *bool   `json:"members_can_create_projects,omitempty"`
 	Name                     *string `json:"name,omitempty"`
+	SensitiveByDefault       *bool   `json:"sensitive_by_default,omitempty"`
 	Slug                     *string `json:"slug,omitempty"`
 }
 
 // UpdateProjectRequest defines model for UpdateProjectRequest.
 type UpdateProjectRequest struct {
-	Description *string               `json:"description,omitempty"`
-	Name        *string               `json:"name,omitempty"`
-	Settings    *ProjectSettingsPatch `json:"settings,omitempty"`
+	// BranchBackups Branches only. Take nightly backups (off by default).
+	BranchBackups *bool   `json:"branch_backups,omitempty"`
+	Description   *string `json:"description,omitempty"`
+
+	// ExpiresAt Branches only. When the branch deletes itself, within 30 days.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Name      *string    `json:"name,omitempty"`
+
+	// NoExpiry Branches only. Keep the branch until deleted.
+	NoExpiry *bool `json:"no_expiry,omitempty"`
+
+	// SensitiveData The project contains sensitive data; its branches default to schema only (project admins).
+	SensitiveData *bool                 `json:"sensitive_data,omitempty"`
+	Settings      *ProjectSettingsPatch `json:"settings,omitempty"`
 }
 
 // UpdateUserRequest defines model for UpdateUserRequest.
@@ -4240,6 +4356,9 @@ type CreateProjectJSONRequestBody = CreateProjectRequest
 // EnableProjectBackupKeyJSONRequestBody defines body for EnableProjectBackupKey for application/json ContentType.
 type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
 
+// CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
+type CreateBranchJSONRequestBody = BranchRequest
+
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
@@ -4260,6 +4379,9 @@ type PromoteProjectJSONRequestBody = PromoteRequest
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
+
+// ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
+type ResetBranchJSONRequestBody = BranchResetRequest
 
 // ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
 type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
@@ -5560,6 +5682,43 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/backups (the `CreateProjectBackup` operationId).
 	CreateProjectBackup(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListBranches The project's branches (V2 §8)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/branches (the `ListBranches` operationId).
+	ListBranches(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBranchWithBody Branch the project
+	//
+	// A new shared-tier project copied from this one's latest backup
+	// (`source: backup`, the default) or live, schema only or with data,
+	// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+	// Returns the branch's credentials once. Webhooks and scheduled jobs
+	// are not copied. A project marked as containing sensitive data
+	// branches schema only by default, and a full copy needs the project
+	// admin role. 409 `quota_exceeded` past the organisation's branch or
+	// storage quota.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+	CreateBranchWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBranch Branch the project
+	//
+	// A new shared-tier project copied from this one's latest backup
+	// (`source: backup`, the default) or live, schema only or with data,
+	// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+	// Returns the branch's credentials once. Webhooks and scheduled jobs
+	// are not copied. A project marked as containing sensitive data
+	// branches schema only by default, and a full copy needs the project
+	// admin role. 409 `quota_exceeded` past the organisation's branch or
+	// storage quota.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+	CreateBranch(ctx context.Context, id ProjectID, body CreateBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMyCredentials Your personal database login on this project, if any (no password)
 	//
 	// Corresponds with GET /api/v1/projects/{id}/credentials (the `GetMyCredentials` operationId).
@@ -5569,6 +5728,13 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 	IssueMyCredentials(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DetachBranch Detach a branch into a standalone project
+	//
+	// It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/detach (the `DetachBranch` operationId).
+	DetachBranch(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetEditorPreferences Your table-editor preferences for this project
 	//
@@ -5726,6 +5892,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/reclaim-space (the `ReclaimSpace` operationId).
 	ReclaimSpace(ctx context.Context, id ProjectID, body ReclaimSpaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResetBranchWithBody Reset a branch from its parent
+	//
+	// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+	ResetBranchWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResetBranch Reset a branch from its parent
+	//
+	// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+	ResetBranch(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RotateProjectPassword Rotate the project password
 	//
@@ -9061,6 +9245,73 @@ func (c *Client) CreateProjectBackup(ctx context.Context, id ProjectID, reqEdito
 	return c.Client.Do(req)
 }
 
+// ListBranches The project's branches (V2 §8)
+//
+// Corresponds with GET /api/v1/projects/{id}/branches (the `ListBranches` operationId).
+func (c *Client) ListBranches(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBranchesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateBranchWithBody Branch the project
+//
+// A new shared-tier project copied from this one's latest backup
+// (`source: backup`, the default) or live, schema only or with data,
+// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+// Returns the branch's credentials once. Webhooks and scheduled jobs
+// are not copied. A project marked as containing sensitive data
+// branches schema only by default, and a full copy needs the project
+// admin role. 409 `quota_exceeded` past the organisation's branch or
+// storage quota.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+func (c *Client) CreateBranchWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBranchRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateBranch Branch the project
+//
+// A new shared-tier project copied from this one's latest backup
+// (`source: backup`, the default) or live, schema only or with data,
+// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+// Returns the branch's credentials once. Webhooks and scheduled jobs
+// are not copied. A project marked as containing sensitive data
+// branches schema only by default, and a full copy needs the project
+// admin role. 409 `quota_exceeded` past the organisation's branch or
+// storage quota.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+func (c *Client) CreateBranch(ctx context.Context, id ProjectID, body CreateBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBranchRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetMyCredentials Your personal database login on this project, if any (no password)
 //
 // Corresponds with GET /api/v1/projects/{id}/credentials (the `GetMyCredentials` operationId).
@@ -9081,6 +9332,23 @@ func (c *Client) GetMyCredentials(ctx context.Context, id ProjectID, reqEditors 
 // Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 func (c *Client) IssueMyCredentials(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewIssueMyCredentialsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DetachBranch Detach a branch into a standalone project
+//
+// It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+//
+// Corresponds with POST /api/v1/projects/{id}/detach (the `DetachBranch` operationId).
+func (c *Client) DetachBranch(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetachBranchRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -9448,6 +9716,44 @@ func (c *Client) ReclaimSpaceWithBody(ctx context.Context, id ProjectID, content
 // Corresponds with POST /api/v1/projects/{id}/reclaim-space (the `ReclaimSpace` operationId).
 func (c *Client) ReclaimSpace(ctx context.Context, id ProjectID, body ReclaimSpaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewReclaimSpaceRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResetBranchWithBody Reset a branch from its parent
+//
+// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+func (c *Client) ResetBranchWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResetBranchRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResetBranch Reset a branch from its parent
+//
+// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+func (c *Client) ResetBranch(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResetBranchRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -15617,6 +15923,87 @@ func NewCreateProjectBackupRequest(server string, id ProjectID) (*http.Request, 
 	return req, nil
 }
 
+// NewListBranchesRequest constructs an http.Request for the ListBranches method
+func NewListBranchesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/branches", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateBranchRequest calls the generic CreateBranch builder with application/json body
+func NewCreateBranchRequest(server string, id ProjectID, body CreateBranchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBranchRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateBranchRequestWithBody constructs an http.Request for the CreateBranch method, with any body, and a specified content type
+func NewCreateBranchRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/branches", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetMyCredentialsRequest constructs an http.Request for the GetMyCredentials method
 func NewGetMyCredentialsRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -15668,6 +16055,40 @@ func NewIssueMyCredentialsRequest(server string, id ProjectID) (*http.Request, e
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/projects/%s/credentials", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDetachBranchRequest constructs an http.Request for the DetachBranch method
+func NewDetachBranchRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/detach", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -16286,6 +16707,53 @@ func NewReclaimSpaceRequestWithBody(server string, id ProjectID, contentType str
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/projects/%s/reclaim-space", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewResetBranchRequest calls the generic ResetBranch builder with application/json body
+func NewResetBranchRequest(server string, id ProjectID, body ResetBranchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewResetBranchRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewResetBranchRequestWithBody constructs an http.Request for the ResetBranch method, with any body, and a specified content type
+func NewResetBranchRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/reset", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -19489,6 +19957,45 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/backups (the `CreateProjectBackup` operationId).
 	CreateProjectBackupWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*CreateProjectBackupResponse, error)
 
+	// ListBranchesWithResponse The project's branches (V2 §8)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/branches (the `ListBranches` operationId).
+	ListBranchesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListBranchesResponse, error)
+
+	// CreateBranchWithBodyWithResponse Branch the project
+	//
+	// A new shared-tier project copied from this one's latest backup
+	// (`source: backup`, the default) or live, schema only or with data,
+	// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+	// Returns the branch's credentials once. Webhooks and scheduled jobs
+	// are not copied. A project marked as containing sensitive data
+	// branches schema only by default, and a full copy needs the project
+	// admin role. 409 `quota_exceeded` past the organisation's branch or
+	// storage quota.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+	CreateBranchWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBranchResponse, error)
+
+	// CreateBranchWithResponse Branch the project
+	//
+	// A new shared-tier project copied from this one's latest backup
+	// (`source: backup`, the default) or live, schema only or with data,
+	// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+	// Returns the branch's credentials once. Webhooks and scheduled jobs
+	// are not copied. A project marked as containing sensitive data
+	// branches schema only by default, and a full copy needs the project
+	// admin role. 409 `quota_exceeded` past the organisation's branch or
+	// storage quota.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+	CreateBranchWithResponse(ctx context.Context, id ProjectID, body CreateBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBranchResponse, error)
+
 	// GetMyCredentialsWithResponse Your personal database login on this project, if any (no password)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -19502,6 +20009,15 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 	IssueMyCredentialsWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*IssueMyCredentialsResponse, error)
+
+	// DetachBranchWithResponse Detach a branch into a standalone project
+	//
+	// It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/detach (the `DetachBranch` operationId).
+	DetachBranchWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DetachBranchResponse, error)
 
 	// GetEditorPreferencesWithResponse Your table-editor preferences for this project
 	//
@@ -19673,6 +20189,24 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/reclaim-space (the `ReclaimSpace` operationId).
 	ReclaimSpaceWithResponse(ctx context.Context, id ProjectID, body ReclaimSpaceJSONRequestBody, reqEditors ...RequestEditorFn) (*ReclaimSpaceResponse, error)
+
+	// ResetBranchWithBodyWithResponse Reset a branch from its parent
+	//
+	// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+	ResetBranchWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ResetBranchResponse, error)
+
+	// ResetBranchWithResponse Reset a branch from its parent
+	//
+	// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+	ResetBranchWithResponse(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*ResetBranchResponse, error)
 
 	// RotateProjectPasswordWithResponse Rotate the project password
 	//
@@ -25512,6 +26046,102 @@ func (r CreateProjectBackupResponse) ContentType() string {
 	return ""
 }
 
+type ListBranchesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListBranchesResponse) GetJSON200() *ProjectList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListBranchesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListBranchesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListBranchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListBranchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListBranchesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateBranchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *ProjectCredentials
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CreateBranchResponse) GetJSON202() *ProjectCredentials {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateBranchResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateBranchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateBranchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMyCredentialsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -25602,6 +26232,54 @@ func (r IssueMyCredentialsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r IssueMyCredentialsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DetachBranchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Project
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DetachBranchResponse) GetJSON200() *Project {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DetachBranchResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DetachBranchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DetachBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DetachBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DetachBranchResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -26267,6 +26945,54 @@ func (r ReclaimSpaceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ReclaimSpaceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ResetBranchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ResetBranchResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ResetBranchResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ResetBranchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ResetBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResetBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResetBranchResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -30681,6 +31407,63 @@ func (c *ClientWithResponses) CreateProjectBackupWithResponse(ctx context.Contex
 	return ParseCreateProjectBackupResponse(rsp)
 }
 
+// ListBranchesWithResponse The project's branches (V2 §8)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/branches (the `ListBranches` operationId).
+func (c *ClientWithResponses) ListBranchesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListBranchesResponse, error) {
+	rsp, err := c.ListBranches(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListBranchesResponse(rsp)
+}
+
+// CreateBranchWithBodyWithResponse Branch the project
+//
+// A new shared-tier project copied from this one's latest backup
+// (`source: backup`, the default) or live, schema only or with data,
+// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+// Returns the branch's credentials once. Webhooks and scheduled jobs
+// are not copied. A project marked as containing sensitive data
+// branches schema only by default, and a full copy needs the project
+// admin role. 409 `quota_exceeded` past the organisation's branch or
+// storage quota.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+func (c *ClientWithResponses) CreateBranchWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBranchResponse, error) {
+	rsp, err := c.CreateBranchWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBranchResponse(rsp)
+}
+
+// CreateBranchWithResponse Branch the project
+//
+// A new shared-tier project copied from this one's latest backup
+// (`source: backup`, the default) or live, schema only or with data,
+// that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+// Returns the branch's credentials once. Webhooks and scheduled jobs
+// are not copied. A project marked as containing sensitive data
+// branches schema only by default, and a full copy needs the project
+// admin role. 409 `quota_exceeded` past the organisation's branch or
+// storage quota.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/branches (the `CreateBranch` operationId).
+func (c *ClientWithResponses) CreateBranchWithResponse(ctx context.Context, id ProjectID, body CreateBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBranchResponse, error) {
+	rsp, err := c.CreateBranch(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBranchResponse(rsp)
+}
+
 // GetMyCredentialsWithResponse Your personal database login on this project, if any (no password)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -30705,6 +31488,21 @@ func (c *ClientWithResponses) IssueMyCredentialsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseIssueMyCredentialsResponse(rsp)
+}
+
+// DetachBranchWithResponse Detach a branch into a standalone project
+//
+// It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/detach (the `DetachBranch` operationId).
+func (c *ClientWithResponses) DetachBranchWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DetachBranchResponse, error) {
+	rsp, err := c.DetachBranch(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetachBranchResponse(rsp)
 }
 
 // GetEditorPreferencesWithResponse Your table-editor preferences for this project
@@ -31002,6 +31800,36 @@ func (c *ClientWithResponses) ReclaimSpaceWithResponse(ctx context.Context, id P
 		return nil, err
 	}
 	return ParseReclaimSpaceResponse(rsp)
+}
+
+// ResetBranchWithBodyWithResponse Reset a branch from its parent
+//
+// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+func (c *ClientWithResponses) ResetBranchWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ResetBranchResponse, error) {
+	rsp, err := c.ResetBranchWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResetBranchResponse(rsp)
+}
+
+// ResetBranchWithResponse Reset a branch from its parent
+//
+// Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
+func (c *ClientWithResponses) ResetBranchWithResponse(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*ResetBranchResponse, error) {
+	rsp, err := c.ResetBranch(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResetBranchResponse(rsp)
 }
 
 // RotateProjectPasswordWithResponse Rotate the project password
@@ -35617,6 +36445,72 @@ func ParseCreateProjectBackupResponse(rsp *http.Response) (*CreateProjectBackupR
 	return response, nil
 }
 
+// ParseListBranchesResponse parses an HTTP response from a ListBranchesWithResponse call
+func ParseListBranchesResponse(rsp *http.Response) (*ListBranchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListBranchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateBranchResponse parses an HTTP response from a CreateBranchWithResponse call
+func ParseCreateBranchResponse(rsp *http.Response) (*CreateBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ProjectCredentials
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetMyCredentialsResponse parses an HTTP response from a GetMyCredentialsWithResponse call
 func ParseGetMyCredentialsResponse(rsp *http.Response) (*GetMyCredentialsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -35666,6 +36560,39 @@ func ParseIssueMyCredentialsResponse(rsp *http.Response) (*IssueMyCredentialsRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PersonalCredentials
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDetachBranchResponse parses an HTTP response from a DetachBranchWithResponse call
+func ParseDetachBranchResponse(rsp *http.Response) (*DetachBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DetachBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Project
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36120,6 +37047,39 @@ func ParseReclaimSpaceResponse(rsp *http.Response) (*ReclaimSpaceResponse, error
 	}
 
 	response := &ReclaimSpaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResetBranchResponse parses an HTTP response from a ResetBranchWithResponse call
+func ParseResetBranchResponse(rsp *http.Response) (*ResetBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResetBranchResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

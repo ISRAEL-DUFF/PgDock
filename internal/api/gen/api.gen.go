@@ -287,6 +287,60 @@ func (e BackupKind) Valid() bool {
 	}
 }
 
+// Defines values for BranchInfoSource.
+const (
+	BranchInfoSourceBackup BranchInfoSource = "backup"
+	BranchInfoSourceLive   BranchInfoSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchInfoSource enum.
+func (e BranchInfoSource) Valid() bool {
+	switch e {
+	case BranchInfoSourceBackup:
+		return true
+	case BranchInfoSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BranchRequestSource.
+const (
+	BranchRequestSourceBackup BranchRequestSource = "backup"
+	BranchRequestSourceLive   BranchRequestSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchRequestSource enum.
+func (e BranchRequestSource) Valid() bool {
+	switch e {
+	case BranchRequestSourceBackup:
+		return true
+	case BranchRequestSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BranchResetRequestSource.
+const (
+	BranchResetRequestSourceBackup BranchResetRequestSource = "backup"
+	BranchResetRequestSourceLive   BranchResetRequestSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchResetRequestSource enum.
+func (e BranchResetRequestSource) Valid() bool {
+	switch e {
+	case BranchResetRequestSourceBackup:
+		return true
+	case BranchResetRequestSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateNodeRequestRole.
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
@@ -1898,6 +1952,44 @@ type BackupOverview struct {
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
 
+// BranchInfo defines model for BranchInfo.
+type BranchInfo struct {
+	// Backups Whether it takes nightly backups.
+	Backups bool `json:"backups"`
+
+	// ExpiresAt When the branch deletes itself; null keeps it.
+	ExpiresAt  *time.Time       `json:"expires_at,omitempty"`
+	SchemaOnly bool             `json:"schema_only"`
+	Source     BranchInfoSource `json:"source"`
+}
+
+// BranchInfoSource defines model for BranchInfo.Source.
+type BranchInfoSource string
+
+// BranchRequest defines model for BranchRequest.
+type BranchRequest struct {
+	Name string `json:"name"`
+
+	// SchemaOnly Defaults to whether the parent contains sensitive data.
+	SchemaOnly *bool                `json:"schema_only,omitempty"`
+	Source     *BranchRequestSource `json:"source,omitempty"`
+
+	// TtlHours Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168.
+	TtlHours *int `json:"ttl_hours,omitempty"`
+}
+
+// BranchRequestSource defines model for BranchRequest.Source.
+type BranchRequestSource string
+
+// BranchResetRequest defines model for BranchResetRequest.
+type BranchResetRequest struct {
+	// Source Defaults to the source the branch was created from.
+	Source *BranchResetRequestSource `json:"source,omitempty"`
+}
+
+// BranchResetRequestSource Defaults to the source the branch was created from.
+type BranchResetRequestSource string
+
 // BreakGlassRequest defines model for BreakGlassRequest.
 type BreakGlassRequest struct {
 	DurationMinutes int    `json:"duration_minutes"`
@@ -2636,13 +2728,16 @@ type Org struct {
 	Name                     string             `json:"name"`
 
 	// Personal The signed-in user's personal organisation.
-	Personal        bool      `json:"personal"`
-	Plan            string    `json:"plan"`
-	ProjectCount    int       `json:"project_count"`
-	Role            OrgRole   `json:"role"`
-	Slug            string    `json:"slug"`
-	Status          OrgStatus `json:"status"`
-	SuspendedReason *string   `json:"suspended_reason,omitempty"`
+	Personal     bool    `json:"personal"`
+	Plan         string  `json:"plan"`
+	ProjectCount int     `json:"project_count"`
+	Role         OrgRole `json:"role"`
+
+	// SensitiveByDefault New projects start marked as containing sensitive data (V2 §8.5).
+	SensitiveByDefault *bool     `json:"sensitive_by_default,omitempty"`
+	Slug               string    `json:"slug"`
+	Status             OrgStatus `json:"status"`
+	SuspendedReason    *string   `json:"suspended_reason,omitempty"`
 }
 
 // OrgStatus defines model for Org.Status.
@@ -2789,6 +2884,11 @@ type ProfileList struct {
 
 // Project defines model for Project.
 type Project struct {
+	Branch *BranchInfo `json:"branch,omitempty"`
+
+	// BranchCount Live branches of this project.
+	BranchCount *int `json:"branch_count,omitempty"`
+
 	// CanSwitchCredentials A V1 project that still uses its V1 owner role (V2 §10.2).
 	CanSwitchCredentials *bool              `json:"can_switch_credentials,omitempty"`
 	Connection           ConnectionInfo     `json:"connection"`
@@ -2808,11 +2908,15 @@ type Project struct {
 	OrgId                  openapi_types.UUID `json:"org_id"`
 	OwnerRole              string             `json:"owner_role"`
 
+	// ParentProjectId Set for a branch (V2 §8).
+	ParentProjectId *openapi_types.UUID `json:"parent_project_id,omitempty"`
+
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
 
 	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped.
 	RetiredCopyUntil *time.Time      `json:"retired_copy_until,omitempty"`
+	SensitiveData    *bool           `json:"sensitive_data,omitempty"`
 	Settings         ProjectSettings `json:"settings"`
 	Slug             string          `json:"slug"`
 	Status           ProjectStatus   `json:"status"`
@@ -3715,14 +3819,26 @@ type UpdateNodeRequestRole string
 type UpdateOrgRequest struct {
 	MembersCanCreateProjects *bool   `json:"members_can_create_projects,omitempty"`
 	Name                     *string `json:"name,omitempty"`
+	SensitiveByDefault       *bool   `json:"sensitive_by_default,omitempty"`
 	Slug                     *string `json:"slug,omitempty"`
 }
 
 // UpdateProjectRequest defines model for UpdateProjectRequest.
 type UpdateProjectRequest struct {
-	Description *string               `json:"description,omitempty"`
-	Name        *string               `json:"name,omitempty"`
-	Settings    *ProjectSettingsPatch `json:"settings,omitempty"`
+	// BranchBackups Branches only. Take nightly backups (off by default).
+	BranchBackups *bool   `json:"branch_backups,omitempty"`
+	Description   *string `json:"description,omitempty"`
+
+	// ExpiresAt Branches only. When the branch deletes itself, within 30 days.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Name      *string    `json:"name,omitempty"`
+
+	// NoExpiry Branches only. Keep the branch until deleted.
+	NoExpiry *bool `json:"no_expiry,omitempty"`
+
+	// SensitiveData The project contains sensitive data; its branches default to schema only (project admins).
+	SensitiveData *bool                 `json:"sensitive_data,omitempty"`
+	Settings      *ProjectSettingsPatch `json:"settings,omitempty"`
 }
 
 // UpdateUserRequest defines model for UpdateUserRequest.
@@ -4236,6 +4352,9 @@ type CreateProjectJSONRequestBody = CreateProjectRequest
 // EnableProjectBackupKeyJSONRequestBody defines body for EnableProjectBackupKey for application/json ContentType.
 type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
 
+// CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
+type CreateBranchJSONRequestBody = BranchRequest
+
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
@@ -4256,6 +4375,9 @@ type PromoteProjectJSONRequestBody = PromoteRequest
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
+
+// ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
+type ResetBranchJSONRequestBody = BranchResetRequest
 
 // ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
 type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
@@ -4658,12 +4780,21 @@ type ServerInterface interface {
 	// CreateProjectBackup Back up a project now
 	// (POST /api/v1/projects/{id}/backups)
 	CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListBranches The project's branches (V2 §8)
+	// (GET /api/v1/projects/{id}/branches)
+	ListBranches(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateBranch Branch the project
+	// (POST /api/v1/projects/{id}/branches)
+	CreateBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetMyCredentials Your personal database login on this project, if any (no password)
 	// (GET /api/v1/projects/{id}/credentials)
 	GetMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// IssueMyCredentials Create or rotate your personal database login; the password is shown once
 	// (POST /api/v1/projects/{id}/credentials)
 	IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DetachBranch Detach a branch into a standalone project
+	// (POST /api/v1/projects/{id}/detach)
+	DetachBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetEditorPreferences Your table-editor preferences for this project
 	// (GET /api/v1/projects/{id}/editor-preferences)
 	GetEditorPreferences(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -4706,6 +4837,9 @@ type ServerInterface interface {
 	// ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
 	// (POST /api/v1/projects/{id}/reclaim-space)
 	ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ResetBranch Reset a branch from its parent
+	// (POST /api/v1/projects/{id}/reset)
+	ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5525,6 +5659,18 @@ func (_ Unimplemented) CreateProjectBackup(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListBranches The project's branches (V2 §8)
+// (GET /api/v1/projects/{id}/branches)
+func (_ Unimplemented) ListBranches(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateBranch Branch the project
+// (POST /api/v1/projects/{id}/branches)
+func (_ Unimplemented) CreateBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetMyCredentials Your personal database login on this project, if any (no password)
 // (GET /api/v1/projects/{id}/credentials)
 func (_ Unimplemented) GetMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -5534,6 +5680,12 @@ func (_ Unimplemented) GetMyCredentials(w http.ResponseWriter, r *http.Request, 
 // IssueMyCredentials Create or rotate your personal database login; the password is shown once
 // (POST /api/v1/projects/{id}/credentials)
 func (_ Unimplemented) IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DetachBranch Detach a branch into a standalone project
+// (POST /api/v1/projects/{id}/detach)
+func (_ Unimplemented) DetachBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5618,6 +5770,12 @@ func (_ Unimplemented) ListReapedSessions(w http.ResponseWriter, r *http.Request
 // ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
 // (POST /api/v1/projects/{id}/reclaim-space)
 func (_ Unimplemented) ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResetBranch Reset a branch from its parent
+// (POST /api/v1/projects/{id}/reset)
+func (_ Unimplemented) ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8930,6 +9088,58 @@ func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListBranches operation middleware
+func (siw *ServerInterfaceWrapper) ListBranches(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBranches(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBranch operation middleware
+func (siw *ServerInterfaceWrapper) CreateBranch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBranch(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMyCredentials operation middleware
 func (siw *ServerInterfaceWrapper) GetMyCredentials(w http.ResponseWriter, r *http.Request) {
 
@@ -8973,6 +9183,32 @@ func (siw *ServerInterfaceWrapper) IssueMyCredentials(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.IssueMyCredentials(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DetachBranch operation middleware
+func (siw *ServerInterfaceWrapper) DetachBranch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DetachBranch(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9384,6 +9620,32 @@ func (siw *ServerInterfaceWrapper) ReclaimSpace(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ReclaimSpace(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResetBranch operation middleware
+func (siw *ServerInterfaceWrapper) ResetBranch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResetBranch(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10659,6 +10921,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/rotate-password", wrapper.RotateProjectPassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/branches", wrapper.ListBranches)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/branches", wrapper.CreateBranch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/reset", wrapper.ResetBranch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/detach", wrapper.DetachBranch)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/backups", wrapper.CreateProjectBackup)

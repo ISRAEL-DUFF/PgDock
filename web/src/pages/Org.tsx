@@ -338,6 +338,19 @@ export function OrgSettingsPage() {
               <span className="block text-muted">They become the admin of what they create.</span>
             </span>
           </label>
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={!!org.sensitive_by_default}
+              onChange={(e) => void save({ sensitive_by_default: e.target.checked })}
+              className="mt-1"
+              data-testid="sensitive-by-default"
+            />
+            <span>
+              <span className="font-medium">New projects contain sensitive data</span>
+              <span className="block text-muted">Their branches copy the schema only unless a project admin asks for the data.</span>
+            </span>
+          </label>
         </Card>
         <Card title="Plan">
           <p className="text-sm">

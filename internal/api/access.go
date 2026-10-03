@@ -21,6 +21,7 @@ type access struct {
 	Actor       authz.Actor
 	OrgID       uuid.UUID
 	ProjectID   uuid.UUID
+	ParentID    uuid.UUID // a branch's parent
 	OrgRole     string
 	ProjectRole string
 	// BreakGlass: a platform admin acting through break-glass (V2 §2.4).
@@ -112,14 +113,20 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 		if err != nil {
 			return acc, http.StatusNotFound, nil
 		}
-		org, err := q.ResolveProjectOrg(ctx, id)
+		rp, err := q.ResolveProject(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return acc, http.StatusNotFound, nil
 		}
 		if err != nil {
 			return acc, 0, err
 		}
-		res = authz.Resource{OrgID: org, ProjectID: id}
+		res = authz.Resource{OrgID: rp.OrgID, ProjectID: id}
+		if rp.ParentProjectID != nil {
+			res.ParentID = *rp.ParentProjectID
+			if rl.branchAction != "" {
+				action = rl.branchAction
+			}
+		}
 	case scopeBackup, scopeOperation:
 		id, err := uuid.Parse(params["id"])
 		if err != nil {
@@ -153,20 +160,23 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 			}
 			return acc, 0, nil
 		}
-		org, err := q.ResolveProjectOrg(ctx, *project)
+		rp, err := q.ResolveProject(ctx, *project)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return acc, http.StatusNotFound, nil
 		}
 		if err != nil {
 			return acc, 0, err
 		}
-		res = authz.Resource{OrgID: org, ProjectID: *project}
+		res = authz.Resource{OrgID: rp.OrgID, ProjectID: *project}
+		if rp.ParentProjectID != nil {
+			res.ParentID = *rp.ParentProjectID
+		}
 	}
 	d, err := authz.Can(ctx, q, acc.Actor, action, res)
 	if err != nil {
 		return acc, 0, err
 	}
-	acc.OrgID, acc.ProjectID, acc.OrgRole, acc.ProjectRole = res.OrgID, res.ProjectID, d.OrgRole, d.ProjectRole
+	acc.OrgID, acc.ProjectID, acc.ParentID, acc.OrgRole, acc.ProjectRole = res.OrgID, res.ProjectID, res.ParentID, d.OrgRole, d.ProjectRole
 	acc.BreakGlass, acc.Frozen, acc.NeedScope = d.BreakGlass, d.Frozen, d.NeedScope
 	switch {
 	case !d.Visible:
@@ -181,7 +191,7 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 // writes in the console, restoring in place).
 func (s *Server) can(ctx context.Context, action authz.Action) (bool, error) {
 	acc := accessFrom(ctx)
-	d, err := authz.Can(ctx, store.New(s.db), acc.Actor, action, authz.Resource{OrgID: acc.OrgID, ProjectID: acc.ProjectID})
+	d, err := authz.Can(ctx, store.New(s.db), acc.Actor, action, authz.Resource{OrgID: acc.OrgID, ProjectID: acc.ProjectID, ParentID: acc.ParentID})
 	return d.Allowed, err
 }
 

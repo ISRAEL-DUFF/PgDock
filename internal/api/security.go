@@ -254,6 +254,9 @@ var auditActions = map[string]string{
 	"PUT /api/v1/projects/{id}/storage-target":                   "project.storage_target",
 	"POST /api/v1/projects/{id}/backup-key":                      "project.backup_key.enable",
 	"GET /api/v1/projects/{id}/backup-key/download":              "project.backup_key.download",
+	"POST /api/v1/projects/{id}/branches":                        "branch.create",
+	"POST /api/v1/projects/{id}/reset":                           "branch.reset",
+	"POST /api/v1/projects/{id}/detach":                          "branch.detach",
 }
 
 // auditedReads are GET routes audited like mutations: handing out a

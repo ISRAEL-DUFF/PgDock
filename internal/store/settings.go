@@ -65,6 +65,9 @@ type OrgSettings struct {
 	// MembersCanCreateProjects lets org members create projects, becoming
 	// their admin (V2 §2.2). On unless turned off.
 	MembersCanCreateProjects bool `json:"members_can_create_projects"`
+	// SensitiveByDefault marks new projects "contains sensitive data" (V2
+	// §8.5): their branches default to schema only.
+	SensitiveByDefault bool `json:"sensitive_by_default,omitempty"`
 }
 
 // DefaultOrgSettings are the settings of a new organisation.

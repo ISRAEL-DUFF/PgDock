@@ -305,6 +305,13 @@ type Project struct {
 	StorageState        string
 	StorageStateAt      *time.Time
 	BackupKeyID         *uuid.UUID
+	ParentProjectID     *uuid.UUID
+	BranchSource        *string
+	BranchSchemaOnly    *bool
+	ExpiresAt           *time.Time
+	ExpiryNotifiedAt    *time.Time
+	BranchBackups       bool
+	SensitiveData       bool
 }
 
 type ProjectDbUser struct {

@@ -428,6 +428,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's branches (V2 §8) */
+        get: operations["listBranches"];
+        put?: never;
+        /**
+         * Branch the project
+         * @description A new shared-tier project copied from this one's latest backup
+         *     (`source: backup`, the default) or live, schema only or with data,
+         *     that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+         *     Returns the branch's credentials once. Webhooks and scheduled jobs
+         *     are not copied. A project marked as containing sensitive data
+         *     branches schema only by default, and a full copy needs the project
+         *     admin role. 409 `quota_exceeded` past the organisation's branch or
+         *     storage quota.
+         */
+        post: operations["createBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a branch from its parent
+         * @description Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+         */
+        post: operations["resetBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detach a branch into a standalone project
+         * @description It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+         */
+        post: operations["detachBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/backups": {
         parameters: {
             query?: never;
@@ -2764,6 +2832,15 @@ export interface components {
             session_url: string;
         };
         Project: {
+            /**
+             * Format: uuid
+             * @description Set for a branch (V2 §8).
+             */
+            parent_project_id?: string | null;
+            branch?: components["schemas"]["BranchInfo"];
+            sensitive_data?: boolean;
+            /** @description Live branches of this project. */
+            branch_count?: number;
             /** Format: uuid */
             id: string;
             /** Format: uuid */
@@ -2938,10 +3015,52 @@ export interface components {
             sslmode: string;
             tls: components["schemas"]["TlsStatus"];
         };
+        BranchInfo: {
+            /** @enum {string} */
+            source: "backup" | "live";
+            schema_only: boolean;
+            /**
+             * Format: date-time
+             * @description When the branch deletes itself; null keeps it.
+             */
+            expires_at?: string | null;
+            /** @description Whether it takes nightly backups. */
+            backups: boolean;
+        };
+        BranchRequest: {
+            name: string;
+            /**
+             * @default backup
+             * @enum {string}
+             */
+            source: "backup" | "live";
+            /** @description Defaults to whether the parent contains sensitive data. */
+            schema_only?: boolean;
+            /** @description Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168. */
+            ttl_hours?: number;
+        };
+        BranchResetRequest: {
+            /**
+             * @description Defaults to the source the branch was created from.
+             * @enum {string}
+             */
+            source?: "backup" | "live";
+        };
         UpdateProjectRequest: {
             name?: string;
             description?: string | null;
             settings?: components["schemas"]["ProjectSettingsPatch"];
+            /** @description The project contains sensitive data; its branches default to schema only (project admins). */
+            sensitive_data?: boolean;
+            /**
+             * Format: date-time
+             * @description Branches only. When the branch deletes itself, within 30 days.
+             */
+            expires_at?: string;
+            /** @description Branches only. Keep the branch until deleted. */
+            no_expiry?: boolean;
+            /** @description Branches only. Take nightly backups (off by default). */
+            branch_backups?: boolean;
         };
         ProjectSettingsPatch: {
             connection_limit?: number;
@@ -4002,6 +4121,8 @@ export interface components {
             /** @enum {string} */
             status: "active" | "suspended" | "deleting" | "deleted";
             members_can_create_projects: boolean;
+            /** @description New projects start marked as containing sensitive data (V2 §8.5). */
+            sensitive_by_default?: boolean;
             member_count: number;
             project_count: number;
             suspended_reason?: string | null;
@@ -4025,6 +4146,7 @@ export interface components {
             name?: string;
             slug?: string;
             members_can_create_projects?: boolean;
+            sensitive_by_default?: boolean;
         };
         ProjectMembership: {
             /** Format: uuid */
@@ -5139,6 +5261,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBranches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Branches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchRequest"];
+            };
+        };
+        responses: {
+            /** @description Branch creation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resetBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BranchResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Reset queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    detachBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Detached. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
                 };
             };
             default: components["responses"]["Error"];

@@ -50,8 +50,14 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 	last := s.lastBackups(r.Context())
 	insts := s.instanceSummaries(r.Context())
 	roles := s.myProjectRoles(r.Context(), acc, sess.UserID)
+	counts := map[uuid.UUID]int{}
 	for _, p := range ps {
-		if !acc.Actor.AllowsProject(p.ID) {
+		if p.ParentProjectID != nil {
+			counts[*p.ParentProjectID]++
+		}
+	}
+	for _, p := range ps {
+		if !tokenAllows(acc.Actor, p) {
 			continue // outside a restricted token's projects
 		}
 		gp, err := s.toAPIProject(p)
@@ -68,6 +74,9 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 		}
 		if i, ok := insts[p.InstanceID]; ok {
 			gp.Instance = &i
+		}
+		if n, ok := counts[p.ID]; ok {
+			gp.BranchCount = &n
 		}
 		out.Items = append(out.Items, gp)
 	}
@@ -92,6 +101,11 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	a.set("name", req.Name)
 	cp := provision.CreateParams{OrgID: acc.OrgID, CreatorRole: creatorRole(acc),
 		Name: req.Name, Description: req.Description, CreatedBy: userID(r.Context()), NodeID: req.NodeId}
+	if o, err := store.New(s.db).GetOrg(r.Context(), acc.OrgID); err == nil {
+		if set, err := store.DecodeOrgSettings(o.Settings); err == nil {
+			cp.Sensitive = set.SensitiveByDefault // V2 §8.5
+		}
+	}
 	if req.Tier != nil {
 		cp.Tier = string(*req.Tier)
 		a.set("tier", cp.Tier)
@@ -145,6 +159,10 @@ func (s *Server) GetProject(w http.ResponseWriter, r *http.Request, _ gen.Projec
 	}
 	if i, ok := s.instanceSummaries(r.Context())[p.InstanceID]; ok {
 		gp.Instance = &i
+	}
+	if n, err := store.New(s.db).CountLiveBranches(r.Context(), &p.ID); err == nil && n > 0 {
+		bn := int(n)
+		gp.BranchCount = &bn
 	}
 	if rc, err := store.New(s.db).LiveRetiredForProject(r.Context(), p.ID); err == nil {
 		gp.RetiredCopyUntil = &rc.DropAfter
@@ -219,7 +237,7 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 	if err != nil {
 		return gen.Project{}, err
 	}
-	return gen.Project{
+	gp := gen.Project{
 		Id:          p.ID,
 		OrgId:       p.OrgID,
 		Name:        p.Name,
@@ -242,7 +260,9 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 		StorageState:           ptrTo(gen.StorageState(p.StorageState)),
 		CanSwitchCredentials:   ptrTo(provision.CanSwitchCredentials(p)),
 		LegacyCredentialsUntil: p.LegacyUntil,
-	}, nil
+	}
+	branchFields(&gp, p)
+	return gp, nil
 }
 
 func toAPIConnection(c provision.Connection, password string) gen.ConnectionInfo {
