@@ -426,6 +426,7 @@ var specMatrix = map[authz.Action][]string{
 		// §4.1 the grid's table details and export; previewing a schema
 		// change and rendering it as a migration change nothing
 		"GET /api/v1/projects/{id}/tables/{schema}/{table}", "GET /api/v1/projects/{id}/tables/{schema}/{table}/export",
+		"GET /api/v1/projects/{id}/tables/{schema}/{table}/count", "GET /api/v1/projects/{id}/tables/{schema}/{table}/definition",
 		"POST /api/v1/projects/{id}/schema/preview", "POST /api/v1/projects/{id}/schema/migration",
 		"GET /api/v1/projects/{id}/editor-preferences",
 	},

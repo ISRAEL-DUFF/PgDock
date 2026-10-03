@@ -345,6 +345,60 @@ func (e BranchResetRequestSource) Valid() bool {
 	}
 }
 
+// Defines values for ColumnRefOnDelete.
+const (
+	ColumnRefOnDeleteCASCADE    ColumnRefOnDelete = "CASCADE"
+	ColumnRefOnDeleteNOACTION   ColumnRefOnDelete = "NO ACTION"
+	ColumnRefOnDeleteRESTRICT   ColumnRefOnDelete = "RESTRICT"
+	ColumnRefOnDeleteSETDEFAULT ColumnRefOnDelete = "SET DEFAULT"
+	ColumnRefOnDeleteSETNULL    ColumnRefOnDelete = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the ColumnRefOnDelete enum.
+func (e ColumnRefOnDelete) Valid() bool {
+	switch e {
+	case ColumnRefOnDeleteCASCADE:
+		return true
+	case ColumnRefOnDeleteNOACTION:
+		return true
+	case ColumnRefOnDeleteRESTRICT:
+		return true
+	case ColumnRefOnDeleteSETDEFAULT:
+		return true
+	case ColumnRefOnDeleteSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ColumnRefOnUpdate.
+const (
+	ColumnRefOnUpdateCASCADE    ColumnRefOnUpdate = "CASCADE"
+	ColumnRefOnUpdateNOACTION   ColumnRefOnUpdate = "NO ACTION"
+	ColumnRefOnUpdateRESTRICT   ColumnRefOnUpdate = "RESTRICT"
+	ColumnRefOnUpdateSETDEFAULT ColumnRefOnUpdate = "SET DEFAULT"
+	ColumnRefOnUpdateSETNULL    ColumnRefOnUpdate = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the ColumnRefOnUpdate enum.
+func (e ColumnRefOnUpdate) Valid() bool {
+	switch e {
+	case ColumnRefOnUpdateCASCADE:
+		return true
+	case ColumnRefOnUpdateNOACTION:
+		return true
+	case ColumnRefOnUpdateRESTRICT:
+		return true
+	case ColumnRefOnUpdateSETDEFAULT:
+		return true
+	case ColumnRefOnUpdateSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateNodeRequestRole.
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
@@ -1109,6 +1163,7 @@ const (
 	AddForeignKey  SchemaChangeKind = "add_foreign_key"
 	AddUnique      SchemaChangeKind = "add_unique"
 	AlterColumn    SchemaChangeKind = "alter_column"
+	Batch          SchemaChangeKind = "batch"
 	CreateEnum     SchemaChangeKind = "create_enum"
 	CreateIndex    SchemaChangeKind = "create_index"
 	CreateSchema   SchemaChangeKind = "create_schema"
@@ -1118,8 +1173,10 @@ const (
 	DropIndex      SchemaChangeKind = "drop_index"
 	DropSchema     SchemaChangeKind = "drop_schema"
 	DropTable      SchemaChangeKind = "drop_table"
+	DuplicateTable SchemaChangeKind = "duplicate_table"
 	RenameColumn   SchemaChangeKind = "rename_column"
 	RenameTable    SchemaChangeKind = "rename_table"
+	SetComment     SchemaChangeKind = "set_comment"
 )
 
 // Valid indicates whether the value is a known member of the SchemaChangeKind enum.
@@ -1136,6 +1193,8 @@ func (e SchemaChangeKind) Valid() bool {
 	case AddUnique:
 		return true
 	case AlterColumn:
+		return true
+	case Batch:
 		return true
 	case CreateEnum:
 		return true
@@ -1155,9 +1214,13 @@ func (e SchemaChangeKind) Valid() bool {
 		return true
 	case DropTable:
 		return true
+	case DuplicateTable:
+		return true
 	case RenameColumn:
 		return true
 	case RenameTable:
+		return true
+	case SetComment:
 		return true
 	default:
 		return false
@@ -2303,6 +2366,23 @@ type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password"`
 }
+
+// ColumnRef A column's foreign key.
+type ColumnRef struct {
+	Column   string             `json:"column"`
+	OnDelete *ColumnRefOnDelete `json:"on_delete,omitempty"`
+	OnUpdate *ColumnRefOnUpdate `json:"on_update,omitempty"`
+
+	// Schema Defaults to the table's schema.
+	Schema *string `json:"schema,omitempty"`
+	Table  string  `json:"table"`
+}
+
+// ColumnRefOnDelete defines model for ColumnRef.OnDelete.
+type ColumnRefOnDelete string
+
+// ColumnRefOnUpdate defines model for ColumnRef.OnUpdate.
+type ColumnRefOnUpdate string
 
 // ConnectionInfo defines model for ConnectionInfo.
 type ConnectionInfo struct {
@@ -3706,6 +3786,12 @@ type RowConflict struct {
 	Xmin  *string `json:"xmin,omitempty"`
 }
 
+// RowCount defines model for RowCount.
+type RowCount struct {
+	Count     *int64 `json:"count"`
+	Estimated bool   `json:"estimated"`
+}
+
 // SaveRowsRequest defines model for SaveRowsRequest.
 type SaveRowsRequest struct {
 	Changes []RowChange `json:"changes"`
@@ -3750,8 +3836,11 @@ type SchemaApplyRequest struct {
 
 // SchemaChange One change (V2 §4.3); which fields apply depends on `kind`.
 type SchemaChange struct {
-	BeforeValue  *string             `json:"before_value,omitempty"`
-	Cascade      *bool               `json:"cascade,omitempty"`
+	BeforeValue *string `json:"before_value,omitempty"`
+	Cascade     *bool   `json:"cascade,omitempty"`
+
+	// Changes batch - changes to one table, run in one transaction; a rename comes last.
+	Changes      *[]SchemaChange     `json:"changes,omitempty"`
 	Column       *SchemaColumnDef    `json:"column,omitempty"`
 	ColumnName   *string             `json:"column_name,omitempty"`
 	Columns      *[]SchemaColumnDef  `json:"columns,omitempty"`
@@ -3782,6 +3871,9 @@ type SchemaChange struct {
 	Value      *string               `json:"value,omitempty"`
 	Values     *[]string             `json:"values,omitempty"`
 	Where      *string               `json:"where,omitempty"`
+
+	// WithData duplicate_table - copy the rows too.
+	WithData *bool `json:"with_data,omitempty"`
 }
 
 // SchemaChangeKind defines model for SchemaChange.Kind.
@@ -3798,6 +3890,8 @@ type SchemaChangeOnUpdate string
 
 // SchemaColumnDef defines model for SchemaColumnDef.
 type SchemaColumnDef struct {
+	// Check A CHECK expression on the column.
+	Check   *string `json:"check,omitempty"`
 	Comment *string `json:"comment,omitempty"`
 
 	// Default An SQL expression, e.g. now() or 'draft'.
@@ -3806,8 +3900,12 @@ type SchemaColumnDef struct {
 	Nullable   *bool   `json:"nullable,omitempty"`
 	PrimaryKey *bool   `json:"primary_key,omitempty"`
 
+	// References A column's foreign key.
+	References *ColumnRef `json:"references,omitempty"`
+
 	// Type Example: text
-	Type string `json:"type"`
+	Type   string `json:"type"`
+	Unique *bool  `json:"unique,omitempty"`
 }
 
 // SchemaMigration defines model for SchemaMigration.
@@ -4168,6 +4266,11 @@ type TableConstraint struct {
 
 // TableConstraintKind defines model for TableConstraint.Kind.
 type TableConstraintKind string
+
+// TableDefinition defines model for TableDefinition.
+type TableDefinition struct {
+	Sql string `json:"sql"`
+}
 
 // TableFootprint defines model for TableFootprint.
 type TableFootprint struct {
@@ -4777,13 +4880,24 @@ type GetProjectMetricsParams struct {
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
 
+// CountTableRowsParams defines parameters for CountTableRows.
+type CountTableRowsParams struct {
+	// Filter Repeatable, as for the rows.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
 // ExportTableRowsParams defines parameters for ExportTableRows.
 type ExportTableRowsParams struct {
 	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
-	Filter *[]string                    `form:"filter,omitempty" json:"filter,omitempty"`
-	Sort   *string                      `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc   *bool                        `form:"desc,omitempty" json:"desc,omitempty"`
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+	Sort   *string   `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc   *bool     `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+	// several sort by each column in turn. Takes the place of sort and
+	// desc.
+	Order  *[]string                    `form:"order,omitempty" json:"order,omitempty"`
 	Format *ExportTableRowsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
 }
 
@@ -4798,10 +4912,18 @@ type GetTableRowsParams struct {
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
 
 	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
-	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
-	After *string `form:"after,omitempty" json:"after,omitempty"`
-	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc *bool   `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+	// several sort by each column in turn. Takes the place of sort and
+	// desc.
+	Order *[]string `form:"order,omitempty" json:"order,omitempty"`
+	After *string   `form:"after,omitempty" json:"after,omitempty"`
+
+	// Offset Numbered pages - offset paging from this row, whatever the table's keys.
+	Offset *int64 `form:"offset,omitempty" json:"offset,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListWebhookDeliveriesParams defines parameters for ListWebhookDeliveries.
@@ -6951,6 +7073,19 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
 	SaveTableChanges(ctx context.Context, id ProjectID, schema SchemaName, table TableName, body SaveTableChangesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CountTableRows How many rows the grid holds, filtered
+	//
+	// Exact, unless the table is big and unfiltered (the planner's
+	// estimate) or counting takes over 5 seconds.
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/count (the `CountTableRows` operationId).
+	CountTableRows(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *CountTableRowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTableDefinition The table, view or materialized view as DDL
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/definition (the `GetTableDefinition` operationId).
+	GetTableDefinition(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
 	//
 	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/export (the `ExportTableRows` operationId).
@@ -6958,8 +7093,8 @@ type ClientInterface interface {
 
 	// GetTableRows A page of a table's rows, filtered and sorted
 	//
-	// 50 rows per page, keyset-paginated on the primary key where there is
-	// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+	// 50 rows per page by default (up to 1,000), keyset-paginated on the
+	// primary key where there is one (spec §8.6), or by offset when asked. Pass the previous page's `next` as `after`. Editable
 	// tables return each row's `xmin`, for the row editor's conflict
 	// detection (V2 §4.2).
 	//
@@ -11468,6 +11603,39 @@ func (c *Client) SaveTableChanges(ctx context.Context, id ProjectID, schema Sche
 	return c.Client.Do(req)
 }
 
+// CountTableRows How many rows the grid holds, filtered
+//
+// Exact, unless the table is big and unfiltered (the planner's
+// estimate) or counting takes over 5 seconds.
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/count (the `CountTableRows` operationId).
+func (c *Client) CountTableRows(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *CountTableRowsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCountTableRowsRequest(c.Server, id, schema, table, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTableDefinition The table, view or materialized view as DDL
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/definition (the `GetTableDefinition` operationId).
+func (c *Client) GetTableDefinition(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTableDefinitionRequest(c.Server, id, schema, table)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
 //
 // Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/export (the `ExportTableRows` operationId).
@@ -11485,8 +11653,8 @@ func (c *Client) ExportTableRows(ctx context.Context, id ProjectID, schema Schem
 
 // GetTableRows A page of a table's rows, filtered and sorted
 //
-// 50 rows per page, keyset-paginated on the primary key where there is
-// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+// 50 rows per page by default (up to 1,000), keyset-paginated on the
+// primary key where there is one (spec §8.6), or by offset when asked. Pass the previous page's `next` as `after`. Editable
 // tables return each row's `xmin`, for the row editor's conflict
 // detection (V2 §4.2).
 //
@@ -19387,6 +19555,129 @@ func NewSaveTableChangesRequestWithBody(server string, id ProjectID, schema Sche
 	return req, nil
 }
 
+// NewCountTableRowsRequest constructs an http.Request for the CountTableRows method
+func NewCountTableRowsRequest(server string, id ProjectID, schema SchemaName, table TableName, params *CountTableRowsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "schema", schema, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "table", table, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/tables/%s/%s/count", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetTableDefinitionRequest constructs an http.Request for the GetTableDefinition method
+func NewGetTableDefinitionRequest(server string, id ProjectID, schema SchemaName, table TableName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "schema", schema, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "table", table, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/tables/%s/%s/definition", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewExportTableRowsRequest constructs an http.Request for the ExportTableRows method
 func NewExportTableRowsRequest(server string, id ProjectID, schema SchemaName, table TableName, params *ExportTableRowsParams) (*http.Request, error) {
 	var err error
@@ -19463,6 +19754,18 @@ func NewExportTableRowsRequest(server string, id ProjectID, schema SchemaName, t
 		if params.Desc != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "desc", *params.Desc, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -19583,9 +19886,33 @@ func NewGetTableRowsRequest(server string, id ProjectID, schema string, table st
 
 		}
 
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.After != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "after", *params.After, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -23058,6 +23385,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
 	SaveTableChangesWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, body SaveTableChangesJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveTableChangesResponse, error)
 
+	// CountTableRowsWithResponse How many rows the grid holds, filtered
+	//
+	// Exact, unless the table is big and unfiltered (the planner's
+	// estimate) or counting takes over 5 seconds.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/count (the `CountTableRows` operationId).
+	CountTableRowsWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *CountTableRowsParams, reqEditors ...RequestEditorFn) (*CountTableRowsResponse, error)
+
+	// GetTableDefinitionWithResponse The table, view or materialized view as DDL
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/definition (the `GetTableDefinition` operationId).
+	GetTableDefinitionWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*GetTableDefinitionResponse, error)
+
 	// ExportTableRowsWithResponse Export filtered, sorted rows as CSV or JSON (at most 100,000)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -23067,8 +23411,8 @@ type ClientWithResponsesInterface interface {
 
 	// GetTableRowsWithResponse A page of a table's rows, filtered and sorted
 	//
-	// 50 rows per page, keyset-paginated on the primary key where there is
-	// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+	// 50 rows per page by default (up to 1,000), keyset-paginated on the
+	// primary key where there is one (spec §8.6), or by offset when asked. Pass the previous page's `next` as `after`. Editable
 	// tables return each row's `xmin`, for the row editor's conflict
 	// detection (V2 §4.2).
 	//
@@ -30963,6 +31307,102 @@ func (r SaveTableChangesResponse) ContentType() string {
 	return ""
 }
 
+type CountTableRowsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RowCount
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CountTableRowsResponse) GetJSON200() *RowCount {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CountTableRowsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CountTableRowsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CountTableRowsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CountTableRowsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CountTableRowsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetTableDefinitionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TableDefinition
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTableDefinitionResponse) GetJSON200() *TableDefinition {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetTableDefinitionResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTableDefinitionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTableDefinitionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTableDefinitionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTableDefinitionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ExportTableRowsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36199,6 +36639,35 @@ func (c *ClientWithResponses) SaveTableChangesWithResponse(ctx context.Context, 
 	return ParseSaveTableChangesResponse(rsp)
 }
 
+// CountTableRowsWithResponse How many rows the grid holds, filtered
+//
+// Exact, unless the table is big and unfiltered (the planner's
+// estimate) or counting takes over 5 seconds.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/count (the `CountTableRows` operationId).
+func (c *ClientWithResponses) CountTableRowsWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *CountTableRowsParams, reqEditors ...RequestEditorFn) (*CountTableRowsResponse, error) {
+	rsp, err := c.CountTableRows(ctx, id, schema, table, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCountTableRowsResponse(rsp)
+}
+
+// GetTableDefinitionWithResponse The table, view or materialized view as DDL
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/definition (the `GetTableDefinition` operationId).
+func (c *ClientWithResponses) GetTableDefinitionWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*GetTableDefinitionResponse, error) {
+	rsp, err := c.GetTableDefinition(ctx, id, schema, table, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTableDefinitionResponse(rsp)
+}
+
 // ExportTableRowsWithResponse Export filtered, sorted rows as CSV or JSON (at most 100,000)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -36214,8 +36683,8 @@ func (c *ClientWithResponses) ExportTableRowsWithResponse(ctx context.Context, i
 
 // GetTableRowsWithResponse A page of a table's rows, filtered and sorted
 //
-// 50 rows per page, keyset-paginated on the primary key where there is
-// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+// 50 rows per page by default (up to 1,000), keyset-paginated on the
+// primary key where there is one (spec §8.6), or by offset when asked. Pass the previous page's `next` as `after`. Editable
 // tables return each row's `xmin`, for the row editor's conflict
 // detection (V2 §4.2).
 //
@@ -42119,6 +42588,72 @@ func ParseSaveTableChangesResponse(rsp *http.Response) (*SaveTableChangesRespons
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCountTableRowsResponse parses an HTTP response from a CountTableRowsWithResponse call
+func ParseCountTableRowsResponse(rsp *http.Response) (*CountTableRowsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CountTableRowsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RowCount
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTableDefinitionResponse parses an HTTP response from a GetTableDefinitionWithResponse call
+func ParseGetTableDefinitionResponse(rsp *http.Response) (*GetTableDefinitionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTableDefinitionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TableDefinition
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

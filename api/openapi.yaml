@@ -1326,6 +1326,16 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: order
+          in: query
+          description: |
+            Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+            several sort by each column in turn. Takes the place of sort and
+            desc.
+          schema:
+            type: array
+            items:
+              type: string
         - name: format
           in: query
           schema:
@@ -1344,6 +1354,52 @@ paths:
                 type: array
                 items:
                   type: object
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/count:
+    get:
+      operationId: countTableRows
+      summary: How many rows the grid holds, filtered
+      description: |
+        Exact, unless the table is big and unfiltered (the planner's
+        estimate) or counting takes over 5 seconds.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+        - name: filter
+          in: query
+          description: Repeatable, as for the rows.
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: The count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RowCount"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/definition:
+    get:
+      operationId: getTableDefinition
+      summary: The table, view or materialized view as DDL
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+      responses:
+        "200":
+          description: The definition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TableDefinition"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/tables/{schema}/{table}/changes:
@@ -1482,8 +1538,8 @@ paths:
       operationId: getTableRows
       summary: A page of a table's rows, filtered and sorted
       description: |
-        50 rows per page, keyset-paginated on the primary key where there is
-        one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+        50 rows per page by default (up to 1,000), keyset-paginated on the
+        primary key where there is one (spec §8.6), or by offset when asked. Pass the previous page's `next` as `after`. Editable
         tables return each row's `xmin`, for the row editor's conflict
         detection (V2 §4.2).
       tags: [console]
@@ -1518,16 +1574,33 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: order
+          in: query
+          description: |
+            Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+            several sort by each column in turn. Takes the place of sort and
+            desc.
+          schema:
+            type: array
+            items:
+              type: string
         - name: after
           in: query
           schema:
             type: string
+        - name: offset
+          in: query
+          description: Numbered pages - offset paging from this row, whatever the table's keys.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
         - name: limit
           in: query
           schema:
             type: integer
             minimum: 1
-            maximum: 50
+            maximum: 1000
       responses:
         "200":
           description: The page.
@@ -6194,6 +6267,22 @@ components:
           type: boolean
         unique:
           type: boolean
+    RowCount:
+      type: object
+      required: [count, estimated]
+      properties:
+        count:
+          type: integer
+          format: int64
+          nullable: true
+        estimated:
+          type: boolean
+    TableDefinition:
+      type: object
+      required: [sql]
+      properties:
+        sql:
+          type: string
     TablePage:
       type: object
       required: [columns, rows, order, key_columns]
@@ -6439,6 +6528,31 @@ components:
           type: boolean
         comment:
           type: string
+        unique:
+          type: boolean
+        check:
+          type: string
+          description: A CHECK expression on the column.
+        references:
+          $ref: "#/components/schemas/ColumnRef"
+    ColumnRef:
+      type: object
+      required: [table, column]
+      description: A column's foreign key.
+      properties:
+        schema:
+          type: string
+          description: Defaults to the table's schema.
+        table:
+          type: string
+        column:
+          type: string
+        on_delete:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
+        on_update:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
     SchemaChange:
       type: object
       required: [kind]
@@ -6446,7 +6560,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [create_schema, drop_schema, create_table, rename_table, drop_table, add_column, rename_column, drop_column, alter_column, add_check, add_unique, add_foreign_key, drop_constraint, create_index, drop_index, create_enum, add_enum_value]
+          enum: [create_schema, drop_schema, create_table, rename_table, drop_table, add_column, rename_column, drop_column, alter_column, add_check, add_unique, add_foreign_key, drop_constraint, create_index, drop_index, create_enum, add_enum_value, set_comment, duplicate_table, batch]
         schema:
           type: string
           default: public
@@ -6519,6 +6633,14 @@ components:
           type: string
         before_value:
           type: string
+        with_data:
+          type: boolean
+          description: duplicate_table - copy the rows too.
+        changes:
+          type: array
+          description: batch - changes to one table, run in one transaction; a rename comes last.
+          items:
+            $ref: "#/components/schemas/SchemaChange"
     SchemaPreviewRequest:
       type: object
       required: [change]

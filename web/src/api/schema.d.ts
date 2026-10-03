@@ -1085,6 +1085,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/tables/{schema}/{table}/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many rows the grid holds, filtered
+         * @description Exact, unless the table is big and unfiltered (the planner's
+         *     estimate) or counting takes over 5 seconds.
+         */
+        get: operations["countTableRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/tables/{schema}/{table}/definition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The table, view or materialized view as DDL */
+        get: operations["getTableDefinition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/tables/{schema}/{table}/changes": {
         parameters: {
             query?: never;
@@ -1194,8 +1232,8 @@ export interface paths {
         };
         /**
          * A page of a table's rows, filtered and sorted
-         * @description 50 rows per page, keyset-paginated on the primary key where there is
-         *     one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+         * @description 50 rows per page by default (up to 1,000), keyset-paginated on the
+         *     primary key where there is one (spec §8.6), or by offset when asked. Pass the previous page's `next` as `after`. Editable
          *     tables return each row's `xmin`, for the row editor's conflict
          *     detection (V2 §4.2).
          */
@@ -4133,6 +4171,14 @@ export interface components {
             primary: boolean;
             unique: boolean;
         };
+        RowCount: {
+            /** Format: int64 */
+            count: number | null;
+            estimated: boolean;
+        };
+        TableDefinition: {
+            sql: string;
+        };
         TablePage: {
             columns: components["schemas"]["SqlColumn"][];
             rows: (string | null)[][];
@@ -4244,11 +4290,26 @@ export interface components {
             default?: string;
             primary_key?: boolean;
             comment?: string;
+            unique?: boolean;
+            /** @description A CHECK expression on the column. */
+            check?: string;
+            references?: components["schemas"]["ColumnRef"];
+        };
+        /** @description A column's foreign key. */
+        ColumnRef: {
+            /** @description Defaults to the table's schema. */
+            schema?: string;
+            table: string;
+            column: string;
+            /** @enum {string} */
+            on_delete?: "NO ACTION" | "RESTRICT" | "CASCADE" | "SET NULL" | "SET DEFAULT";
+            /** @enum {string} */
+            on_update?: "NO ACTION" | "RESTRICT" | "CASCADE" | "SET NULL" | "SET DEFAULT";
         };
         /** @description One change (V2 §4.3); which fields apply depends on `kind`. */
         SchemaChange: {
             /** @enum {string} */
-            kind: "create_schema" | "drop_schema" | "create_table" | "rename_table" | "drop_table" | "add_column" | "rename_column" | "drop_column" | "alter_column" | "add_check" | "add_unique" | "add_foreign_key" | "drop_constraint" | "create_index" | "drop_index" | "create_enum" | "add_enum_value";
+            kind: "create_schema" | "drop_schema" | "create_table" | "rename_table" | "drop_table" | "add_column" | "rename_column" | "drop_column" | "alter_column" | "add_check" | "add_unique" | "add_foreign_key" | "drop_constraint" | "create_index" | "drop_index" | "create_enum" | "add_enum_value" | "set_comment" | "duplicate_table" | "batch";
             /** @default public */
             schema: string;
             table?: string;
@@ -4284,6 +4345,10 @@ export interface components {
             values?: string[];
             value?: string;
             before_value?: string;
+            /** @description duplicate_table - copy the rows too. */
+            with_data?: boolean;
+            /** @description batch - changes to one table, run in one transaction; a rename comes last. */
+            changes?: components["schemas"]["SchemaChange"][];
         };
         SchemaPreviewRequest: {
             change: components["schemas"]["SchemaChange"];
@@ -6773,6 +6838,12 @@ export interface operations {
                 filter?: string[];
                 sort?: string;
                 desc?: boolean;
+                /**
+                 * @description Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+                 *     several sort by each column in turn. Takes the place of sort and
+                 *     desc.
+                 */
+                order?: string[];
                 format?: "csv" | "json";
             };
             header?: never;
@@ -6793,6 +6864,59 @@ export interface operations {
                 content: {
                     "text/csv": string;
                     "application/json": Record<string, never>[];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    countTableRows: {
+        parameters: {
+            query?: {
+                /** @description Repeatable, as for the rows. */
+                filter?: string[];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The count. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowCount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTableDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The definition. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableDefinition"];
                 };
             };
             default: components["responses"]["Error"];
@@ -6961,7 +7085,15 @@ export interface operations {
                 /** @description A column. Sorting by the primary key pages by keyset; any other column by offset. */
                 sort?: string;
                 desc?: boolean;
+                /**
+                 * @description Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+                 *     several sort by each column in turn. Takes the place of sort and
+                 *     desc.
+                 */
+                order?: string[];
                 after?: string;
+                /** @description Numbered pages - offset paging from this row, whatever the table's keys. */
+                offset?: number;
                 limit?: number;
             };
             header?: never;

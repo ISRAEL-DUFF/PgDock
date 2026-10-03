@@ -12,6 +12,9 @@ import (
 // PageSize is the table browser's page (spec §8.6).
 const PageSize = 50
 
+// MaxPageSize is the largest page the table editor asks for.
+const MaxPageSize = 1000
+
 // ErrNoTable means the schema or table does not exist (or is not one the
 // browser shows).
 var ErrNoTable = errors.New("no such table or view")

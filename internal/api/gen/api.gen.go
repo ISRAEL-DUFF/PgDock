@@ -341,6 +341,60 @@ func (e BranchResetRequestSource) Valid() bool {
 	}
 }
 
+// Defines values for ColumnRefOnDelete.
+const (
+	ColumnRefOnDeleteCASCADE    ColumnRefOnDelete = "CASCADE"
+	ColumnRefOnDeleteNOACTION   ColumnRefOnDelete = "NO ACTION"
+	ColumnRefOnDeleteRESTRICT   ColumnRefOnDelete = "RESTRICT"
+	ColumnRefOnDeleteSETDEFAULT ColumnRefOnDelete = "SET DEFAULT"
+	ColumnRefOnDeleteSETNULL    ColumnRefOnDelete = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the ColumnRefOnDelete enum.
+func (e ColumnRefOnDelete) Valid() bool {
+	switch e {
+	case ColumnRefOnDeleteCASCADE:
+		return true
+	case ColumnRefOnDeleteNOACTION:
+		return true
+	case ColumnRefOnDeleteRESTRICT:
+		return true
+	case ColumnRefOnDeleteSETDEFAULT:
+		return true
+	case ColumnRefOnDeleteSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ColumnRefOnUpdate.
+const (
+	ColumnRefOnUpdateCASCADE    ColumnRefOnUpdate = "CASCADE"
+	ColumnRefOnUpdateNOACTION   ColumnRefOnUpdate = "NO ACTION"
+	ColumnRefOnUpdateRESTRICT   ColumnRefOnUpdate = "RESTRICT"
+	ColumnRefOnUpdateSETDEFAULT ColumnRefOnUpdate = "SET DEFAULT"
+	ColumnRefOnUpdateSETNULL    ColumnRefOnUpdate = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the ColumnRefOnUpdate enum.
+func (e ColumnRefOnUpdate) Valid() bool {
+	switch e {
+	case ColumnRefOnUpdateCASCADE:
+		return true
+	case ColumnRefOnUpdateNOACTION:
+		return true
+	case ColumnRefOnUpdateRESTRICT:
+		return true
+	case ColumnRefOnUpdateSETDEFAULT:
+		return true
+	case ColumnRefOnUpdateSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateNodeRequestRole.
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
@@ -1105,6 +1159,7 @@ const (
 	AddForeignKey  SchemaChangeKind = "add_foreign_key"
 	AddUnique      SchemaChangeKind = "add_unique"
 	AlterColumn    SchemaChangeKind = "alter_column"
+	Batch          SchemaChangeKind = "batch"
 	CreateEnum     SchemaChangeKind = "create_enum"
 	CreateIndex    SchemaChangeKind = "create_index"
 	CreateSchema   SchemaChangeKind = "create_schema"
@@ -1114,8 +1169,10 @@ const (
 	DropIndex      SchemaChangeKind = "drop_index"
 	DropSchema     SchemaChangeKind = "drop_schema"
 	DropTable      SchemaChangeKind = "drop_table"
+	DuplicateTable SchemaChangeKind = "duplicate_table"
 	RenameColumn   SchemaChangeKind = "rename_column"
 	RenameTable    SchemaChangeKind = "rename_table"
+	SetComment     SchemaChangeKind = "set_comment"
 )
 
 // Valid indicates whether the value is a known member of the SchemaChangeKind enum.
@@ -1132,6 +1189,8 @@ func (e SchemaChangeKind) Valid() bool {
 	case AddUnique:
 		return true
 	case AlterColumn:
+		return true
+	case Batch:
 		return true
 	case CreateEnum:
 		return true
@@ -1151,9 +1210,13 @@ func (e SchemaChangeKind) Valid() bool {
 		return true
 	case DropTable:
 		return true
+	case DuplicateTable:
+		return true
 	case RenameColumn:
 		return true
 	case RenameTable:
+		return true
+	case SetComment:
 		return true
 	default:
 		return false
@@ -2299,6 +2362,23 @@ type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password"`
 }
+
+// ColumnRef A column's foreign key.
+type ColumnRef struct {
+	Column   string             `json:"column"`
+	OnDelete *ColumnRefOnDelete `json:"on_delete,omitempty"`
+	OnUpdate *ColumnRefOnUpdate `json:"on_update,omitempty"`
+
+	// Schema Defaults to the table's schema.
+	Schema *string `json:"schema,omitempty"`
+	Table  string  `json:"table"`
+}
+
+// ColumnRefOnDelete defines model for ColumnRef.OnDelete.
+type ColumnRefOnDelete string
+
+// ColumnRefOnUpdate defines model for ColumnRef.OnUpdate.
+type ColumnRefOnUpdate string
 
 // ConnectionInfo defines model for ConnectionInfo.
 type ConnectionInfo struct {
@@ -3702,6 +3782,12 @@ type RowConflict struct {
 	Xmin  *string `json:"xmin,omitempty"`
 }
 
+// RowCount defines model for RowCount.
+type RowCount struct {
+	Count     *int64 `json:"count"`
+	Estimated bool   `json:"estimated"`
+}
+
 // SaveRowsRequest defines model for SaveRowsRequest.
 type SaveRowsRequest struct {
 	Changes []RowChange `json:"changes"`
@@ -3746,8 +3832,11 @@ type SchemaApplyRequest struct {
 
 // SchemaChange One change (V2 §4.3); which fields apply depends on `kind`.
 type SchemaChange struct {
-	BeforeValue  *string             `json:"before_value,omitempty"`
-	Cascade      *bool               `json:"cascade,omitempty"`
+	BeforeValue *string `json:"before_value,omitempty"`
+	Cascade     *bool   `json:"cascade,omitempty"`
+
+	// Changes batch - changes to one table, run in one transaction; a rename comes last.
+	Changes      *[]SchemaChange     `json:"changes,omitempty"`
 	Column       *SchemaColumnDef    `json:"column,omitempty"`
 	ColumnName   *string             `json:"column_name,omitempty"`
 	Columns      *[]SchemaColumnDef  `json:"columns,omitempty"`
@@ -3778,6 +3867,9 @@ type SchemaChange struct {
 	Value      *string               `json:"value,omitempty"`
 	Values     *[]string             `json:"values,omitempty"`
 	Where      *string               `json:"where,omitempty"`
+
+	// WithData duplicate_table - copy the rows too.
+	WithData *bool `json:"with_data,omitempty"`
 }
 
 // SchemaChangeKind defines model for SchemaChange.Kind.
@@ -3794,6 +3886,8 @@ type SchemaChangeOnUpdate string
 
 // SchemaColumnDef defines model for SchemaColumnDef.
 type SchemaColumnDef struct {
+	// Check A CHECK expression on the column.
+	Check   *string `json:"check,omitempty"`
 	Comment *string `json:"comment,omitempty"`
 
 	// Default An SQL expression, e.g. now() or 'draft'.
@@ -3802,8 +3896,12 @@ type SchemaColumnDef struct {
 	Nullable   *bool   `json:"nullable,omitempty"`
 	PrimaryKey *bool   `json:"primary_key,omitempty"`
 
+	// References A column's foreign key.
+	References *ColumnRef `json:"references,omitempty"`
+
 	// Type Example: text
-	Type string `json:"type"`
+	Type   string `json:"type"`
+	Unique *bool  `json:"unique,omitempty"`
 }
 
 // SchemaMigration defines model for SchemaMigration.
@@ -4164,6 +4262,11 @@ type TableConstraint struct {
 
 // TableConstraintKind defines model for TableConstraint.Kind.
 type TableConstraintKind string
+
+// TableDefinition defines model for TableDefinition.
+type TableDefinition struct {
+	Sql string `json:"sql"`
+}
 
 // TableFootprint defines model for TableFootprint.
 type TableFootprint struct {
@@ -4773,13 +4876,24 @@ type GetProjectMetricsParams struct {
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
 
+// CountTableRowsParams defines parameters for CountTableRows.
+type CountTableRowsParams struct {
+	// Filter Repeatable, as for the rows.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
 // ExportTableRowsParams defines parameters for ExportTableRows.
 type ExportTableRowsParams struct {
 	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
-	Filter *[]string                    `form:"filter,omitempty" json:"filter,omitempty"`
-	Sort   *string                      `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc   *bool                        `form:"desc,omitempty" json:"desc,omitempty"`
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+	Sort   *string   `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc   *bool     `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+	// several sort by each column in turn. Takes the place of sort and
+	// desc.
+	Order  *[]string                    `form:"order,omitempty" json:"order,omitempty"`
 	Format *ExportTableRowsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
 }
 
@@ -4794,10 +4908,18 @@ type GetTableRowsParams struct {
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
 
 	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
-	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
-	After *string `form:"after,omitempty" json:"after,omitempty"`
-	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc *bool   `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+	// several sort by each column in turn. Takes the place of sort and
+	// desc.
+	Order *[]string `form:"order,omitempty" json:"order,omitempty"`
+	After *string   `form:"after,omitempty" json:"after,omitempty"`
+
+	// Offset Numbered pages - offset paging from this row, whatever the table's keys.
+	Offset *int64 `form:"offset,omitempty" json:"offset,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListWebhookDeliveriesParams defines parameters for ListWebhookDeliveries.
@@ -5558,6 +5680,12 @@ type ServerInterface interface {
 	// SaveTableChanges Save staged row edits in one transaction
 	// (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
 	SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
+	// CountTableRows How many rows the grid holds, filtered
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/count)
+	CountTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params CountTableRowsParams)
+	// GetTableDefinition The table, view or materialized view as DDL
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/definition)
+	GetTableDefinition(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
 	// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/export)
 	ExportTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params ExportTableRowsParams)
@@ -6635,6 +6763,18 @@ func (_ Unimplemented) GetTableInfo(w http.ResponseWriter, r *http.Request, id P
 // SaveTableChanges Save staged row edits in one transaction
 // (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
 func (_ Unimplemented) SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CountTableRows How many rows the grid holds, filtered
+// (GET /api/v1/projects/{id}/tables/{schema}/{table}/count)
+func (_ Unimplemented) CountTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params CountTableRowsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTableDefinition The table, view or materialized view as DDL
+// (GET /api/v1/projects/{id}/tables/{schema}/{table}/definition)
+func (_ Unimplemented) GetTableDefinition(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11257,6 +11397,110 @@ func (siw *ServerInterfaceWrapper) SaveTableChanges(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// CountTableRows operation middleware
+func (siw *ServerInterfaceWrapper) CountTableRows(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CountTableRowsParams
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", r.URL.Query(), &params.Filter, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CountTableRows(w, r, id, schema, table, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTableDefinition operation middleware
+func (siw *ServerInterfaceWrapper) GetTableDefinition(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTableDefinition(w, r, id, schema, table)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ExportTableRows operation middleware
 func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *http.Request) {
 
@@ -11328,6 +11572,19 @@ func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "desc"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "desc", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", r.URL.Query(), &params.Order, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
 		}
 		return
 	}
@@ -11431,6 +11688,19 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", r.URL.Query(), &params.Order, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "after" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", r.URL.Query(), &params.After, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -11440,6 +11710,19 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "after"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
 		}
 		return
 	}
@@ -12566,6 +12849,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/export", wrapper.ExportTableRows)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/count", wrapper.CountTableRows)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/definition", wrapper.GetTableDefinition)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/changes", wrapper.SaveTableChanges)

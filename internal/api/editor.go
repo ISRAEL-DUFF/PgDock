@@ -18,24 +18,41 @@ import (
 
 // The table editor (V2 §4): the grid, row edits, and schema changes.
 
-func gridQuery(filters *[]string, sort *string, desc *bool) (console.GridQuery, error) {
+func gridQuery(filters *[]string, sort *string, desc *bool, order *[]string) (console.GridQuery, error) {
 	var q console.GridQuery
+	var err error
+	if q.Filters, err = gridFilters(filters); err != nil {
+		return q, err
+	}
+	if order != nil && len(*order) > 0 {
+		for _, raw := range *order {
+			var so console.Sort
+			if err := json.Unmarshal([]byte(raw), &so); err != nil {
+				return q, fmt.Errorf("%w: an order is a JSON object: %w", console.ErrBadQuery, err)
+			}
+			q.Sorts = append(q.Sorts, so)
+		}
+	} else if sort != nil && *sort != "" {
+		q.Sorts = []console.Sort{{Column: *sort, Desc: desc != nil && *desc}}
+	}
+	return q, nil
+}
+
+func gridFilters(filters *[]string) ([]console.Filter, error) {
+	var out []console.Filter
 	if filters != nil {
 		for _, raw := range *filters {
 			var f console.Filter
 			if err := json.Unmarshal([]byte(raw), &f); err != nil {
-				return q, fmt.Errorf("%w: a filter is a JSON object: %w", console.ErrBadQuery, err)
+				return nil, fmt.Errorf("%w: a filter is a JSON object: %w", console.ErrBadQuery, err)
 			}
-			q.Filters = append(q.Filters, f)
+			out = append(out, f)
 		}
-		if len(q.Filters) > 20 {
-			return q, fmt.Errorf("%w: at most 20 filters", console.ErrBadQuery)
+		if len(out) > 20 {
+			return nil, fmt.Errorf("%w: at most 20 filters", console.ErrBadQuery)
 		}
 	}
-	if sort != nil && *sort != "" {
-		q.Sort = &console.Sort{Column: *sort, Desc: desc != nil && *desc}
-	}
-	return q, nil
+	return out, nil
 }
 
 // editorError maps the editors' errors to HTTP.
@@ -84,7 +101,7 @@ func (s *Server) GetTableRows(w http.ResponseWriter, r *http.Request, id gen.Pro
 	if !s.requireConsole(w) {
 		return
 	}
-	q, err := gridQuery(params.Filter, params.Sort, params.Desc)
+	q, err := gridQuery(params.Filter, params.Sort, params.Desc, params.Order)
 	if err != nil {
 		s.editorError(w, "table rows", err)
 		return
@@ -92,9 +109,16 @@ func (s *Server) GetTableRows(w http.ResponseWriter, r *http.Request, id gen.Pro
 	if params.After != nil {
 		q.After = *params.After
 	}
+	if params.Offset != nil {
+		if *params.Offset < 0 {
+			writeError(w, http.StatusBadRequest, "bad_request", "offset must not be negative")
+			return
+		}
+		q.Offset = params.Offset
+	}
 	if params.Limit != nil {
-		if *params.Limit < 1 || *params.Limit > console.PageSize {
-			writeError(w, http.StatusBadRequest, "bad_request", "limit must be between 1 and 50")
+		if *params.Limit < 1 || *params.Limit > console.MaxPageSize {
+			writeError(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("limit must be between 1 and %d", console.MaxPageSize))
 			return
 		}
 		q.Limit = *params.Limit
@@ -130,12 +154,43 @@ func (s *Server) GetTableInfo(w http.ResponseWriter, r *http.Request, id gen.Pro
 	writeJSON(w, http.StatusOK, info)
 }
 
+// CountTableRows implements GET /api/v1/projects/{id}/tables/{schema}/{table}/count.
+func (s *Server) CountTableRows(w http.ResponseWriter, r *http.Request, id gen.ProjectID, schema, table string, params gen.CountTableRowsParams) {
+	if !s.requireConsole(w) {
+		return
+	}
+	filters, err := gridFilters(params.Filter)
+	if err != nil {
+		s.editorError(w, "count rows", err)
+		return
+	}
+	n, err := s.console.Count(r.Context(), id, schema, table, filters)
+	if err != nil {
+		s.editorError(w, "count rows", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, n)
+}
+
+// GetTableDefinition implements GET /api/v1/projects/{id}/tables/{schema}/{table}/definition.
+func (s *Server) GetTableDefinition(w http.ResponseWriter, r *http.Request, id gen.ProjectID, schema, table string) {
+	if !s.requireConsole(w) {
+		return
+	}
+	sql, err := s.console.Definition(r.Context(), id, schema, table)
+	if err != nil {
+		s.editorError(w, "table definition", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, gen.TableDefinition{Sql: sql})
+}
+
 // ExportTableRows implements GET /api/v1/projects/{id}/tables/{schema}/{table}/export.
 func (s *Server) ExportTableRows(w http.ResponseWriter, r *http.Request, id gen.ProjectID, schema, table string, params gen.ExportTableRowsParams) {
 	if !s.requireConsole(w) {
 		return
 	}
-	q, err := gridQuery(params.Filter, params.Sort, params.Desc)
+	q, err := gridQuery(params.Filter, params.Sort, params.Desc, params.Order)
 	if err != nil {
 		s.editorError(w, "export", err)
 		return

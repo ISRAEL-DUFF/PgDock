@@ -42,11 +42,22 @@ const (
 	DropIndex      = "drop_index"
 	CreateEnum     = "create_enum"
 	AddEnumValue   = "add_enum_value"
+	SetComment     = "set_comment"
+	DuplicateTable = "duplicate_table"
+	// Batch runs several table changes together, in one transaction (the
+	// table editor's "Edit table" panel).
+	Batch = "batch"
 )
 
 // Kinds lists every supported change.
 var Kinds = []string{CreateSchema, DropSchema, CreateTable, RenameTable, DropTable, AddColumn, RenameColumn, DropColumn,
-	AlterColumn, AddCheck, AddUnique, AddForeignKey, DropConstraint, CreateIndex, DropIndex, CreateEnum, AddEnumValue}
+	AlterColumn, AddCheck, AddUnique, AddForeignKey, DropConstraint, CreateIndex, DropIndex, CreateEnum, AddEnumValue,
+	SetComment, DuplicateTable, Batch}
+
+// batchKinds are the changes a batch may hold: transactional changes to
+// one table.
+var batchKinds = []string{RenameTable, AddColumn, RenameColumn, DropColumn, AlterColumn, AddCheck, AddUnique, AddForeignKey,
+	DropConstraint, SetComment}
 
 // ColumnDef is a new column.
 type ColumnDef struct {
@@ -56,6 +67,19 @@ type ColumnDef struct {
 	Default    *string `json:"default,omitempty"`
 	PrimaryKey bool    `json:"primary_key,omitempty"`
 	Comment    *string `json:"comment,omitempty"`
+	// Column constraints, written inline.
+	Unique     bool       `json:"unique,omitempty"`
+	Check      *string    `json:"check,omitempty"`
+	References *ColumnRef `json:"references,omitempty"`
+}
+
+// ColumnRef is a column's foreign key.
+type ColumnRef struct {
+	Schema   string `json:"schema,omitempty"` // default: the table's
+	Table    string `json:"table"`
+	Column   string `json:"column"`
+	OnDelete string `json:"on_delete,omitempty"`
+	OnUpdate string `json:"on_update,omitempty"`
 }
 
 func (c ColumnDef) nullable() bool { return c.Nullable == nil || *c.Nullable }
@@ -101,6 +125,8 @@ type Change struct {
 	Values      []string `json:"values,omitempty"`       // create_enum
 	Value       string   `json:"value,omitempty"`        // add_enum_value
 	BeforeValue string   `json:"before_value,omitempty"`
+	WithData    bool     `json:"with_data,omitempty"` // duplicate_table
+	Changes     []Change `json:"changes,omitempty"`   // batch
 }
 
 // State is what the planner needs to know about the database.
@@ -120,6 +146,14 @@ type State struct {
 	VolatileDefault bool
 	// The definition of the constraint or index dropped, for Down.
 	ObjectDef string
+	// Comment is the table's or column's comment now (set_comment).
+	OldComment *string
+	// The table's columns that can be inserted into, and its identity
+	// columns (duplicate_table).
+	CopyColumns     []string
+	IdentityColumns []string
+	// Batch holds each change's state, in order.
+	Batch []State
 }
 
 // Statement is one DDL statement.
@@ -269,6 +303,9 @@ var indexMethods = []string{"", "btree", "gin", "gist", "brin", "hash"}
 
 // Build turns c into a plan, given the database state.
 func Build(c Change, st State) (Plan, error) {
+	if c.Kind == Batch {
+		return buildBatch(c, st)
+	}
 	p := Plan{Risks: []Risk{}, Down: []string{}, DownTODO: []string{}}
 	tx := func(sql string) { p.Statements = append(p.Statements, Statement{SQL: sql, Transactional: true}) }
 	risk := func(level, msg string) { p.Risks = append(p.Risks, Risk{Level: level, Message: msg}) }
@@ -320,7 +357,7 @@ func Build(c Change, st State) (Plan, error) {
 				return p, fmt.Errorf("%w: column %s appears twice", ErrInvalid, col.Name)
 			}
 			seen[col.Name] = true
-			def, err := columnSQL(col)
+			def, err := columnSQL(col, c.Schema)
 			if err != nil {
 				return p, err
 			}
@@ -386,7 +423,7 @@ func Build(c Change, st State) (Plan, error) {
 		if col.PrimaryKey {
 			return p, fmt.Errorf("%w: add a primary key with a unique constraint instead", ErrInvalid)
 		}
-		def, err := columnSQL(col)
+		def, err := columnSQL(col, c.Schema)
 		if err != nil {
 			return p, err
 		}
@@ -401,6 +438,9 @@ func Build(c Change, st State) (Plan, error) {
 			risk("danger", "The column is NOT NULL without a default, so this fails: the table already has rows. Give it a default, or add it nullable and backfill first.")
 		default:
 			risk("info", "Adding a column with no default or a constant one doesn't rewrite the table.")
+		}
+		if (col.Unique || col.References != nil || col.Check != nil) && st.Rows > 0 {
+			risk(lockLevel(st), "Its constraints check every existing row while holding a lock that blocks writes.")
 		}
 		p.Down = append(p.Down, "ALTER TABLE "+rel+" DROP COLUMN "+Ident(col.Name))
 		p.Slug = "add_column_" + slugPart(c.Table) + "_" + slugPart(col.Name)
@@ -697,9 +737,118 @@ func Build(c Change, st State) (Plan, error) {
 		p.DownTODO = append(p.DownTODO, "Postgres can't remove an enum value; recreate the type without "+c.Value+" if you need to")
 		p.Slug = "add_enum_value_" + slugPart(c.Name)
 
+	case SetComment:
+		if err := needTable(); err != nil {
+			return p, err
+		}
+		target := "TABLE " + rel
+		if c.ColumnName != "" {
+			target = "COLUMN " + rel + "." + Ident(c.ColumnName)
+		}
+		tx("COMMENT ON " + target + " IS " + commentSQL(c.Comment))
+		p.Down = append(p.Down, "COMMENT ON "+target+" IS "+commentSQL(st.OldComment))
+		p.Slug = "comment_" + slugPart(c.Table)
+		if c.ColumnName != "" {
+			p.Slug += "_" + slugPart(c.ColumnName)
+		}
+
+	case DuplicateTable:
+		if err := needTable(); err != nil {
+			return p, err
+		}
+		if err := checkName("table", c.NewName); err != nil {
+			return p, err
+		}
+		dst := qrel(c.Schema, c.NewName)
+		tx("CREATE TABLE " + dst + " (LIKE " + rel + " INCLUDING ALL)")
+		if c.WithData {
+			if len(st.CopyColumns) == 0 {
+				return p, fmt.Errorf("%w: %s has no columns to copy", ErrInvalid, c.Table)
+			}
+			cols := idents(st.CopyColumns)
+			tx("INSERT INTO " + dst + " (" + cols + ") OVERRIDING SYSTEM VALUE SELECT " + cols + " FROM " + rel)
+			for _, col := range st.IdentityColumns {
+				tx("SELECT setval(pg_get_serial_sequence(" + Literal(dst) + ", " + Literal(col) + "), COALESCE(max(" + Ident(col) + "), 0) + 1, false) FROM " + dst)
+			}
+			if st.SizeBytes > 0 {
+				risk(lockLevel(st), "Copies "+HumanBytes(st.SizeBytes)+" of rows; writes to "+c.Table+" carry on, but the copy takes a while on a big table.")
+			}
+		}
+		risk("info", "Copies columns, defaults, constraints and indexes. Foreign keys, triggers and grants aren't copied.")
+		p.Down = append(p.Down, "DROP TABLE "+dst)
+		p.Slug = "duplicate_table_" + slugPart(c.Table)
+
 	default:
 		return p, fmt.Errorf("%w: unknown kind %q", ErrInvalid, c.Kind)
 	}
+	p.Hash = hash(p.Statements)
+	return p, nil
+}
+
+func commentSQL(c *string) string {
+	if c == nil || *c == "" {
+		return "NULL"
+	}
+	return Literal(*c)
+}
+
+// buildBatch plans each change of a batch and joins them: one transaction,
+// every risk, and the reverse in reverse order. A batch changes one table;
+// a rename, if any, must come last.
+func buildBatch(c Change, st State) (Plan, error) {
+	p := Plan{Risks: []Risk{}, Down: []string{}, DownTODO: []string{}}
+	if len(c.Changes) == 0 {
+		return p, fmt.Errorf("%w: nothing to change", ErrInvalid)
+	}
+	if len(c.Changes) > 100 {
+		return p, fmt.Errorf("%w: at most 100 changes at once", ErrInvalid)
+	}
+	if len(st.Batch) != len(c.Changes) {
+		return p, fmt.Errorf("%w: missing state for the batch", ErrInvalid)
+	}
+	var confirms []string
+	for i, sub := range c.Changes {
+		if !slices.Contains(batchKinds, sub.Kind) {
+			return p, fmt.Errorf("%w: %s can't be part of a batch", ErrInvalid, sub.Kind)
+		}
+		if sub.Kind == RenameTable && i != len(c.Changes)-1 {
+			return p, fmt.Errorf("%w: rename the table last", ErrInvalid)
+		}
+		if sub.Schema == "" {
+			sub.Schema = c.Schema
+		}
+		if sub.Table == "" {
+			sub.Table = c.Table
+		}
+		if sub.Schema != c.Schema || sub.Table != c.Table {
+			return p, fmt.Errorf("%w: a batch changes one table", ErrInvalid)
+		}
+		sp, err := Build(sub, st.Batch[i])
+		if err != nil {
+			return p, err
+		}
+		p.Statements = append(p.Statements, sp.Statements...)
+		p.Risks = append(p.Risks, sp.Risks...)
+		p.Down = append(slices.Clone(sp.Down), p.Down...)
+		p.DownTODO = append(p.DownTODO, sp.DownTODO...)
+		if sp.Confirm != "" {
+			confirms = append(confirms, sp.Confirm)
+		}
+	}
+	if !p.Transactional() {
+		return p, fmt.Errorf("%w: a batch must run in one transaction", ErrInvalid)
+	}
+	switch len(confirms) {
+	case 0:
+	case 1:
+		p.Confirm = confirms[0]
+	default:
+		p.Confirm = c.Table
+	}
+	if c.Schema == "" {
+		c.Schema = "public"
+	}
+	p.Slug = "alter_table_" + slugPart(c.Table)
 	p.Hash = hash(p.Statements)
 	return p, nil
 }
@@ -711,7 +860,7 @@ func lockLevel(st State) string {
 	return "info"
 }
 
-func columnSQL(col ColumnDef) (string, error) {
+func columnSQL(col ColumnDef, schema string) (string, error) {
 	if err := checkType(col.Type); err != nil {
 		return "", err
 	}
@@ -724,6 +873,39 @@ func columnSQL(col ColumnDef) (string, error) {
 			return "", err
 		}
 		def += " DEFAULT " + *col.Default
+	}
+	if col.Unique && !col.PrimaryKey {
+		def += " UNIQUE"
+	}
+	if col.Check != nil && strings.TrimSpace(*col.Check) != "" {
+		if err := checkExpr("check", *col.Check); err != nil {
+			return "", err
+		}
+		def += " CHECK (" + *col.Check + ")"
+	}
+	if ref := col.References; ref != nil {
+		if err := checkName("referenced table", ref.Table); err != nil {
+			return "", err
+		}
+		if err := checkName("referenced column", ref.Column); err != nil {
+			return "", err
+		}
+		for _, a := range []string{ref.OnDelete, ref.OnUpdate} {
+			if !slices.Contains(fkActions, strings.ToUpper(a)) {
+				return "", fmt.Errorf("%w: unknown action %q", ErrInvalid, a)
+			}
+		}
+		refSchema := ref.Schema
+		if refSchema == "" {
+			refSchema = schema
+		}
+		def += " REFERENCES " + qrel(refSchema, ref.Table) + " (" + Ident(ref.Column) + ")"
+		if ref.OnDelete != "" {
+			def += " ON DELETE " + strings.ToUpper(ref.OnDelete)
+		}
+		if ref.OnUpdate != "" {
+			def += " ON UPDATE " + strings.ToUpper(ref.OnUpdate)
+		}
 	}
 	return def, nil
 }
