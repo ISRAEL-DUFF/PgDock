@@ -3,11 +3,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage } from "../api/client";
 import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Spinner, Table } from "../components/ui";
+import { TokensCard } from "../components/Tokens";
 import { formatDate, relativeTime } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
 import { refreshSession, sessionQuery } from "../lib/session";
 
-/** Profile, password, two-factor, sessions, and invitations (V2 §13). */
+/** Profile, password, two-factor, sessions, tokens, and invitations (V2 §13). */
 export function AccountPage() {
   const { data: session } = useQuery(sessionQuery);
   if (!session?.user) return <Spinner />;
@@ -20,6 +21,7 @@ export function AccountPage() {
         <PasswordCard />
         <RecoveryCard />
         <SessionsCard />
+        <TokensCard />
       </div>
     </>
   );

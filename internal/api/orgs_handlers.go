@@ -59,6 +59,9 @@ func (s *Server) ListOrgs(w http.ResponseWriter, r *http.Request) {
 	}
 	out := gen.OrgList{Items: make([]gen.Org, 0, len(rows))}
 	for _, row := range rows {
+		if sess.Token != nil && row.ID != sess.Token.OrgID {
+			continue // a token sees only its organisation
+		}
 		o := store.Organization{ID: row.ID, Name: row.Name, Slug: row.Slug, PersonalOwnerID: row.PersonalOwnerID,
 			PlanID: row.PlanID, Settings: row.Settings, Status: row.Status, CreatedAt: row.CreatedAt,
 			SuspendedReason: row.SuspendedReason, DeleteAfter: row.DeleteAfter}
@@ -296,6 +299,16 @@ func (s *Server) TransferOrgOwnership(w http.ResponseWriter, r *http.Request, or
 	}
 	sess, _ := sessionFrom(r.Context())
 	auditFrom(r.Context()).target("user", req.UserId.String())
+	if sess.Token != nil {
+		o, err := store.New(s.db).GetOrg(r.Context(), org)
+		if err != nil {
+			s.internalError(w, "transfer ownership", err)
+			return
+		}
+		if !tokenConfirmed(w, r, o.Name, req.Confirm) {
+			return
+		}
+	}
 	if err := s.orgs.TransferOwnership(r.Context(), org, sess.UserID, req.UserId); err != nil {
 		s.orgError(w, "transfer ownership", err)
 		return

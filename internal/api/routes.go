@@ -24,6 +24,10 @@ type rule struct {
 	action authz.Action
 	// beforeTerms routes work while the user still has to accept new terms.
 	beforeTerms bool
+	// token is the scope an API token needs on a scopeSelf route; empty
+	// means the route is for browser sessions only. Other scopes are
+	// checked by authz.Can (V2 §7.2).
+	token string
 }
 
 // routeRules covers every route in api/openapi.yaml; TestEveryRouteDeclaresAnAction
@@ -47,13 +51,16 @@ var routeRules = map[string]rule{
 	"GET /api/v1/terms":                        {scope: scopePublic, beforeTerms: true},
 	"POST /api/v1/invitations/preview":         {scope: scopePublic},
 	"POST /api/v1/invitations/accept":          {scope: scopePublic},
+	// The CLI's device login; the approval itself needs a session.
+	"POST /api/v1/auth/device":       {scope: scopePublic},
+	"POST /api/v1/auth/device/token": {scope: scopePublic},
 	// /metrics takes a bearer token instead; the handler checks it or the session.
 	"GET /metrics": {scope: scopePublic},
 
 	// The signed-in user.
 	"POST /api/v1/auth/reauth":                           {scope: scopeSelf, action: authz.Self, beforeTerms: true},
 	"POST /api/v1/auth/logout":                           {scope: scopeSelf, action: authz.Self, beforeTerms: true},
-	"GET /api/v1/me":                                     {scope: scopeSelf, action: authz.Self, beforeTerms: true},
+	"GET /api/v1/me":                                     {scope: scopeSelf, action: authz.Self, beforeTerms: true, token: authz.ScopeRead},
 	"PATCH /api/v1/me":                                   {scope: scopeSelf, action: authz.Self},
 	"POST /api/v1/me/password":                           {scope: scopeSelf, action: authz.Self},
 	"GET /api/v1/me/sessions":                            {scope: scopeSelf, action: authz.Self},
@@ -63,11 +70,18 @@ var routeRules = map[string]rule{
 	"POST /api/v1/me/terms/accept":                       {scope: scopeSelf, action: authz.Self, beforeTerms: true},
 	"GET /api/v1/me/invitations":                         {scope: scopeSelf, action: authz.Self},
 	"POST /api/v1/me/invitations/{invitation_id}/accept": {scope: scopeSelf, action: authz.Self},
-	"GET /api/v1/orgs":                                   {scope: scopeSelf, action: authz.Self},
+	"GET /api/v1/orgs":                                   {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
 	"POST /api/v1/orgs":                                  {scope: scopeSelf, action: authz.Self},
-	"GET /api/v1/settings/general":                       {scope: scopeSelf, action: authz.Self},
-	"GET /api/v1/profiles":                               {scope: scopeSelf, action: authz.Self},
+	"GET /api/v1/settings/general":                       {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
+	"GET /api/v1/profiles":                               {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
 	"POST /api/v1/imports/preflight":                     {scope: scopeSelf, action: authz.Self},
+	// API tokens (V2 §7.2): a token may manage its user's tokens in its own
+	// organisation, never exceeding itself (the handlers check).
+	"GET /api/v1/tokens":                           {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
+	"POST /api/v1/tokens":                          {scope: scopeSelf, action: authz.Self, token: authz.ScopeWrite},
+	"DELETE /api/v1/tokens/{token_id}":             {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
+	"GET /api/v1/auth/device/requests/{user_code}": {scope: scopeSelf, action: authz.Self},
+	"POST /api/v1/auth/device/approve":             {scope: scopeSelf, action: authz.Self},
 
 	// Organisations.
 	"GET /api/v1/orgs/{org}":                                {scope: scopeOrgPath, action: authz.OrgView},
@@ -87,6 +101,8 @@ var routeRules = map[string]rule{
 	"GET /api/v1/orgs/{org}/quotas":                         {scope: scopeOrgPath, action: authz.OrgView},
 	"GET /api/v1/orgs/{org}/usage":                          {scope: scopeOrgPath, action: authz.OrgAudit},
 	"GET /api/v1/orgs/{org}/dedicated-requests":             {scope: scopeOrgPath, action: authz.OrgAudit},
+	"GET /api/v1/orgs/{org}/tokens":                         {scope: scopeOrgPath, action: authz.OrgManage},
+	"DELETE /api/v1/orgs/{org}/tokens/{token_id}":           {scope: scopeOrgPath, action: authz.OrgManage},
 	"GET /api/v1/projects":                                  {scope: scopeOrgQuery, action: authz.OrgView},
 	"GET /api/v1/operations":                                {scope: scopeOrgQuery, action: authz.OrgView},
 	"GET /api/v1/backups":                                   {scope: scopeOrgQuery, action: authz.OrgView},
@@ -182,4 +198,6 @@ var routeRules = map[string]rule{
 	"POST /api/v1/admin/dedicated-requests/{request_id}/reject":  {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/usage":                                    {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/shared-clusters":                          {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/settings/tokens":                          {scope: scopePlatform, action: authz.PlatformManage},
+	"PUT /api/v1/admin/settings/tokens":                          {scope: scopePlatform, action: authz.PlatformManage},
 }

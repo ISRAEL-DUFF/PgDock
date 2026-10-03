@@ -35,6 +35,7 @@ jobs:
         run: |
           ./dist/pgdock-server-${GITHUB_REF_NAME}-linux-amd64 -require-ui
           ./dist/pgdock-server-${GITHUB_REF_NAME}-linux-amd64 -version | grep -F "${GITHUB_REF_NAME}"
+          ./dist/pgdock-cli-${GITHUB_REF_NAME}-linux-amd64 version | grep -F "${GITHUB_REF_NAME}"
 
       - name: Release notes from CHANGELOG.md
         run: |

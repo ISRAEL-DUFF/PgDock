@@ -2,6 +2,10 @@ import type { components } from "./schema";
 
 type S = components["schemas"];
 export type Version = S["Version"];
+export type APIToken = S["APIToken"];
+export type TokenScope = S["TokenScope"];
+export type CreatedToken = S["CreatedToken"];
+export type DeviceRequest = S["DeviceRequest"];
 export type ApiErrorBody = S["Error"];
 export type SessionState = S["SessionState"];
 export type Project = S["Project"];
@@ -192,6 +196,16 @@ export const api = {
   regenerateRecoveryCodes: () => request<S["RecoveryCodes"]>("POST", "/api/v1/me/recovery-codes"),
   myInvitations: () => getJSON<S["MyInvitationList"]>("/api/v1/me/invitations"),
   acceptMyInvitation: (id: string) => request<S["AcceptInvitationResult"]>("POST", `/api/v1/me/invitations/${id}/accept`),
+
+  myTokens: () => getJSON<S["APITokenList"]>("/api/v1/tokens"),
+  createToken: (b: S["CreateTokenRequest"]) => request<CreatedToken>("POST", "/api/v1/tokens", b),
+  revokeMyToken: (id: string) => request<void>("DELETE", `/api/v1/tokens/${id}`),
+  orgTokens: (org: string) => getJSON<S["APITokenList"]>(`/api/v1/orgs/${org}/tokens`),
+  revokeOrgToken: (org: string, id: string) => request<void>("DELETE", `/api/v1/orgs/${org}/tokens/${id}`),
+  deviceRequest: (code: string) => getJSON<DeviceRequest>(`/api/v1/auth/device/requests/${encodeURIComponent(code)}`),
+  approveDevice: (b: S["DeviceApproveRequest"]) => request<APIToken | undefined>("POST", "/api/v1/auth/device/approve", b),
+  tokenSettings: () => getJSON<S["TokenSettings"]>("/api/v1/admin/settings/tokens"),
+  putTokenSettings: (b: S["TokenSettings"]) => request<S["TokenSettings"]>("PUT", "/api/v1/admin/settings/tokens", b),
 
   orgs: () => getJSON<S["OrgList"]>("/api/v1/orgs"),
   createOrg: (name: string) => request<Org>("POST", "/api/v1/orgs", { name }),

@@ -1240,6 +1240,178 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your API tokens (only the calling token's organisation, with a token) */
+        get: operations["listMyTokens"];
+        put?: never;
+        /**
+         * Create an API token, shown once
+         * @description A token acts in one organisation, with additive scopes (read, write,
+         *     admin; admin requires write), optionally restricted to some
+         *     projects, until it expires (default 90 days, at most the platform
+         *     maximum). Created with a token, the new one can't exceed the
+         *     caller's scopes, projects, or expiry.
+         */
+        post: operations["createToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke one of your tokens */
+        delete: operations["revokeMyToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every token scoped to the organisation (owners and admins) */
+        get: operations["listOrgTokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke any token scoped to the organisation (owners and admins) */
+        delete: operations["revokeOrgToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a CLI device login
+         * @description The CLI shows `user_code` and opens `verification_uri_complete`; a
+         *     signed-in user approves it, choosing the organisation and scopes,
+         *     and the CLI polls `/api/v1/auth/device/token` for the token.
+         */
+        post: operations["startDeviceLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Collect a device login's token
+         * @description Answers 400 with code `authorization_pending` until approved
+         *     (`slow_down` when polled too often), then the token exactly once;
+         *     `access_denied` or `expired_token` end the login.
+         */
+        post: operations["pollDeviceLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/requests/{user_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pending device login, for the approval page */
+        get: operations["getDeviceLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve (or deny) a device login */
+        post: operations["approveDeviceLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform-wide token rules */
+        get: operations["getTokenSettings"];
+        /** Change the platform-wide token rules */
+        put: operations["putTokenSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/sessions": {
         parameters: {
             query?: never;
@@ -2995,6 +3167,111 @@ export interface components {
                 error?: string;
             }[];
         };
+        /** @enum {string} */
+        TokenScope: "read" | "write" | "admin";
+        APIToken: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string;
+            /** Format: uuid */
+            user_id?: string;
+            user_email?: string;
+            /** @description The token's first characters, for recognising it. */
+            prefix: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /** @description The projects the token is restricted to; null for all the user's projects. */
+            project_ids?: string[] | null;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            last_used_ip?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            created_via: "ui" | "device" | "api";
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+        };
+        APITokenList: {
+            items: components["schemas"]["APIToken"][];
+        };
+        CreateTokenRequest: {
+            name: string;
+            /** Format: uuid */
+            org_id: string;
+            scopes: components["schemas"]["TokenScope"][];
+            project_ids?: string[] | null;
+            /** @description Defaults to 90. */
+            expires_in_days?: number;
+        };
+        CreatedToken: {
+            /** @description The token itself (`pgd_…`), shown only once. */
+            secret: string;
+            token: components["schemas"]["APIToken"];
+        };
+        DeviceStartRequest: {
+            /** @description Shown on the approval page, e.g. "pgdock CLI on laptop". */
+            client_name?: string;
+            /** @description The most the CLI wants; the user may narrow them. Default read and write. */
+            scopes?: components["schemas"]["TokenScope"][];
+        };
+        DeviceAuthorization: {
+            device_code: string;
+            /** @example BCDF-GHJK */
+            user_code: string;
+            verification_uri: string;
+            verification_uri_complete: string;
+            /** @description Seconds. */
+            expires_in: number;
+            /** @description Seconds between polls. */
+            interval: number;
+        };
+        DevicePollRequest: {
+            device_code: string;
+        };
+        DeviceRequest: {
+            user_code: string;
+            client_name: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /** Format: date-time */
+            expires_at: string;
+        };
+        DeviceApproveRequest: {
+            user_code: string;
+            /**
+             * @description false denies the login.
+             * @default true
+             */
+            approve: boolean;
+            /** Format: uuid */
+            org_id?: string;
+            name?: string;
+            scopes?: components["schemas"]["TokenScope"][];
+            project_ids?: string[] | null;
+            expires_in_days?: number;
+        };
+        /** @description The API token a request was made with. */
+        TokenGrant: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            org_id: string;
+            scopes: components["schemas"]["TokenScope"][];
+            project_ids?: string[] | null;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        TokenSettings: {
+            /** @description The longest expiry a new token may have. */
+            max_days: number;
+        };
         User: {
             /** Format: uuid */
             id: string;
@@ -3003,6 +3280,7 @@ export interface components {
             name?: string | null;
             /** @enum {string} */
             platform_role: "platform_admin" | "user";
+            token?: components["schemas"]["TokenGrant"];
         };
         UpdateMeRequest: {
             name?: string;
@@ -3208,6 +3486,8 @@ export interface components {
         TransferOwnershipRequest: {
             /** Format: uuid */
             user_id: string;
+            /** @description The organisation's name, typed; required with an API token. */
+            confirm?: string;
         };
         ProjectMember: {
             /** Format: uuid */
@@ -3594,6 +3874,7 @@ export interface components {
         };
     };
     parameters: {
+        TokenID: string;
         RequestID: string;
         OrgID: string;
         UserID: string;
@@ -5449,6 +5730,269 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMyTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APITokenList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedToken"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeMyToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: components["parameters"]["TokenID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APITokenList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeOrgToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                token_id: components["parameters"]["TokenID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Started. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceAuthorization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    pollDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevicePollRequest"];
+            };
+        };
+        responses: {
+            /** @description The token. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedToken"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRequest"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    approveDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved; the CLI collects the token. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIToken"];
+                };
+            };
+            /** @description Denied. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTokenSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putTokenSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSettings"];
+                };
             };
             default: components["responses"]["Error"];
         };

@@ -43,6 +43,10 @@ AUTHORIZATION`, `set_config('role')`, `pg_authid`, `CREATE ROLE`, and
 | Re-authentication for delete, in-place restore, master key rotation, node removal | `reauthRequired` (10 min window); master key rotation is a host CLI (`-rotate-master-key`), which needs the key | `TestReauthAndIdleTimeout`, backups and nodes integration tests |
 | Rate limiting and lockout | 10 sign-ins per 5 min per address; account lockout after 5 failures for 15 min | `TestLimiter`, `TestLoginRateLimit`, `TestLockout`, `TestWrongTOTPCountsTowardLockout` |
 | Single operator in V1, `operators.role` kept | Setup creates one `owner` | `TestSetupFlow` |
+| API tokens (V2 §7.2): hashed, scoped to one org, scopes, project restriction, expiry | `internal/tokens`; the guard's bearer path skips cookies and CSRF; `authz.ScopeFor` per action; platform and session-only routes refuse tokens | `TestRestrictedWriteTokenInCI`, `TestAPITokens`, `TestCLIJobWithRestrictedWriteToken` |
+| Tokens follow their user and org | Revoked on removal or disable; disabled while the org is suspended | `TestAPITokens` |
+| Token rate limits | 600/min per token, 1,200/min per org | `TestTokenRateLimit` |
+| CLI device login | 10-minute codes, approval in a signed-in browser, scopes never widened, the token sealed until collected once | `TestDeviceLogin`, `TestCLIDeviceLogin` |
 
 ## 7.3 Secrets
 

@@ -120,6 +120,18 @@ working; their role name stays visible until an admin uses **Switch to
 opaque credentials** (Settings), which issues new URLs and keeps the old
 ones working for a grace period.
 
+## API tokens and the CLI
+
+Members use the `pgdock` CLI ([CLI guide](cli.md)) and API tokens for
+scripts and CI. Tokens act in one organisation with read, write or admin
+scope, optionally restricted to some projects, and expire within a year.
+Set a lower maximum under **Settings → API tokens**. Organisation owners
+and admins revoke their members' tokens under **Organisation → API
+tokens**; suspending an organisation disables its tokens, and removing
+someone revokes theirs. You can't see other people's tokens, and a
+platform admin's own tokens can't manage the platform: use the browser
+for that.
+
 ## Capacity
 
 - The shared cluster's tuning is in `compose.yaml` (`SHARED_PG_SHARED_BUFFERS`,

@@ -5,6 +5,18 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### API tokens and the CLI (V2 M10)
+- API tokens for scripts and CI: one organisation each, read/write/admin
+  scopes, an optional project restriction, and a required expiry (90
+  days by default, at most a year). Shown once; revocable by their owner
+  and by the organisation's owners and admins; disabled when the
+  organisation is suspended and revoked when their user leaves it.
+- The `pgdock` CLI for linux, macOS and Windows: device login in the
+  browser, contexts for several servers and organisations,
+  `PGDOCK_TOKEN` for CI, `--json` everywhere, and commands for
+  organisations, projects, SQL, connecting, backups, promotion, members,
+  tokens and operations. See [docs/cli.md](docs/cli.md).
+
 ### Tenancy hardening, quotas and usage (V2 M9)
 - Opaque database and role names for new projects; existing projects are
   renamed behind an alias (same URLs) and can switch to opaque

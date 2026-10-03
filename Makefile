@@ -79,10 +79,11 @@ generate:
 
 ## check-generated: fail if generated code is out of date (used by CI).
 check-generated: generate
-	@git diff --exit-code -- internal/api/gen internal/store web/src/api/schema.d.ts \
+	@git diff --exit-code -- internal/api/gen internal/api/client internal/store web/src/api/schema.d.ts \
 		|| { echo "generated code is stale; run 'make generate' and commit"; exit 1; }
 
-## build: build the UI, then pgdock-server (UI embedded) and pgdock-agent.
+## build: build the UI, then pgdock-server (UI embedded), pgdock-agent, and
+## the pgdock CLI.
 build: build-ui build-go
 
 build-ui: clean-ui
@@ -91,13 +92,16 @@ build-ui: clean-ui
 build-go:
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-server ./cmd/server
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-agent ./cmd/agent
+	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock ./cmd/cli
 
 ## release-check: fail if the server binary embeds only the placeholder UI.
 release-check:
 	$(BIN)/pgdock-server -require-ui
 
-## release: linux/amd64 and linux/arm64 binaries (UI embedded), the install
-## bundle (source at this commit), and SHA256SUMS, in dist/.
+## release: linux/amd64 and linux/arm64 server and agent binaries (UI
+## embedded), the pgdock CLI for linux, darwin and windows on amd64 and
+## arm64, the install bundle (source at this commit), and SHA256SUMS, in
+## dist/.
 DIST := dist
 release: build-ui
 	rm -rf $(DIST) && mkdir -p $(DIST)
@@ -105,6 +109,13 @@ release: build-ui
 		for cmd in server agent; do \
 			CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
 				-o $(DIST)/pgdock-$$cmd-$(VERSION)-linux-$$arch ./cmd/$$cmd; \
+		done; \
+	done
+	for os in linux darwin windows; do \
+		for arch in amd64 arm64; do \
+			ext=; [ $$os = windows ] && ext=.exe; \
+			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
+				-o $(DIST)/pgdock-cli-$(VERSION)-$$os-$$arch$$ext ./cmd/cli; \
 		done; \
 	done
 	git archive --format=tar.gz --prefix=pgdock-$(VERSION)/ -o $(DIST)/pgdock-$(VERSION).tar.gz HEAD

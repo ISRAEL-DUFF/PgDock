@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,6 +27,10 @@ type access struct {
 	BreakGlass bool
 	// Frozen: refused because the organisation is suspended or deleting.
 	Frozen bool
+	// NeedScope: an API token was refused for lacking this scope ("session":
+	// the route takes no tokens; "unrestricted": a project-restricted token
+	// tried an organisation action).
+	NeedScope string
 }
 
 func accessFrom(ctx context.Context) access {
@@ -36,7 +41,13 @@ func accessFrom(ctx context.Context) access {
 }
 
 func actorFor(sess auth.Session) authz.Actor {
-	return authz.Actor{Kind: authz.ActorSession, UserID: sess.UserID, PlatformAdmin: sess.PlatformAdmin()}
+	a := authz.Actor{Kind: authz.ActorSession, UserID: sess.UserID, PlatformAdmin: sess.PlatformAdmin()}
+	if t := sess.Token; t != nil {
+		a.Kind = authz.ActorToken
+		a.TokenID, a.TokenOrg = &t.ID, &t.OrgID
+		a.TokenScopes, a.TokenProjects = t.Scopes, t.Projects
+	}
+	return a
 }
 
 // authorize resolves rl's resource and checks the action. A non-zero
@@ -48,7 +59,23 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 	res := authz.Resource{}
 	action := rl.action
 	switch rl.scope {
-	case scopeSelf, scopePlatform:
+	case scopeSelf:
+		if sess.Token != nil {
+			switch {
+			case rl.token == "":
+				acc.NeedScope = "session"
+				return acc, http.StatusForbidden, nil
+			case !authz.HasScope(sess.Token.Scopes, rl.token):
+				acc.NeedScope = rl.token
+				return acc, http.StatusForbidden, nil
+			}
+			return acc, 0, nil
+		}
+	case scopePlatform:
+		if sess.Token != nil {
+			acc.NeedScope = "session"
+			return acc, http.StatusForbidden, nil
+		}
 	case scopeBody:
 		// The handler names the organisation (authorizeOrg).
 		return acc, 0, nil
@@ -59,15 +86,18 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 		}
 		res.OrgID = id
 	case scopeOrgQuery:
-		if v := r.URL.Query().Get("org"); v != "" {
+		switch v := r.URL.Query().Get("org"); {
+		case v != "":
 			id, err := uuid.Parse(v)
 			if err != nil {
 				return acc, http.StatusNotFound, nil
 			}
 			res.OrgID = id
-		} else if r.URL.Query().Get("platform") == "true" {
+		case r.URL.Query().Get("platform") == "true":
 			action = authz.PlatformManage
-		} else {
+		case sess.Token != nil:
+			res.OrgID = sess.Token.OrgID // a token's organisation
+		default:
 			o, err := q.GetPersonalOrg(ctx, &sess.UserID)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return acc, http.StatusNotFound, nil
@@ -118,7 +148,7 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 		if project == nil {
 			// Platform work (node, metadata backup, restore test): the
 			// platform admin's, and invisible to everyone else.
-			if !sess.PlatformAdmin() {
+			if !sess.PlatformAdmin() { // never a token
 				return acc, http.StatusNotFound, nil
 			}
 			return acc, 0, nil
@@ -137,7 +167,7 @@ func (s *Server) authorize(ctx context.Context, sess auth.Session, rl rule, para
 		return acc, 0, err
 	}
 	acc.OrgID, acc.ProjectID, acc.OrgRole, acc.ProjectRole = res.OrgID, res.ProjectID, d.OrgRole, d.ProjectRole
-	acc.BreakGlass, acc.Frozen = d.BreakGlass, d.Frozen
+	acc.BreakGlass, acc.Frozen, acc.NeedScope = d.BreakGlass, d.Frozen, d.NeedScope
 	switch {
 	case !d.Visible:
 		return acc, http.StatusNotFound, nil
@@ -163,6 +193,9 @@ func (s *Server) authorizeOrg(w http.ResponseWriter, r *http.Request, orgID *uui
 	sess, _ := sessionFrom(ctx)
 	acc := access{Actor: actorFor(sess)}
 	q := store.New(s.db)
+	if orgID == nil && sess.Token != nil {
+		orgID = &sess.Token.OrgID
+	}
 	if orgID == nil {
 		o, err := q.GetPersonalOrg(ctx, &sess.UserID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -187,6 +220,10 @@ func (s *Server) authorizeOrg(w http.ResponseWriter, r *http.Request, orgID *uui
 	}
 	if d.Frozen {
 		writeError(w, http.StatusForbidden, "org_suspended", "the organisation is suspended or being deleted; only viewing works")
+		return acc, false
+	}
+	if d.NeedScope != "" {
+		writeScopeError(w, d.NeedScope)
 		return acc, false
 	}
 	if !d.Allowed {
@@ -217,6 +254,18 @@ func (s *Server) tenantProject(ctx context.Context) (store.Project, error) {
 // visibleProjects says which of acc's organisation's projects the actor
 // sees: all of them for owners and admins, otherwise their memberships.
 func (s *Server) visibleProjects(ctx context.Context, acc access) (bool, []uuid.UUID) {
+	if acc.Actor.Restricted() {
+		// A project-restricted token sees its projects (those its user
+		// still can).
+		all, ids := s.visibleProjects(ctx, access{Actor: authz.Actor{Kind: authz.ActorSession, UserID: acc.Actor.UserID}, OrgID: acc.OrgID, OrgRole: acc.OrgRole})
+		out := []uuid.UUID{}
+		for _, id := range acc.Actor.TokenProjects {
+			if all || slices.Contains(ids, id) {
+				out = append(out, id)
+			}
+		}
+		return false, out
+	}
 	if acc.OrgRole == authz.OrgOwner || acc.OrgRole == authz.OrgAdmin {
 		return true, []uuid.UUID{}
 	}

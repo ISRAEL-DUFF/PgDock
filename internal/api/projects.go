@@ -51,6 +51,9 @@ func (s *Server) ListProjects(w http.ResponseWriter, r *http.Request, params gen
 	insts := s.instanceSummaries(r.Context())
 	roles := s.myProjectRoles(r.Context(), acc, sess.UserID)
 	for _, p := range ps {
+		if !acc.Actor.AllowsProject(p.ID) {
+			continue // outside a restricted token's projects
+		}
 		gp, err := s.toAPIProject(p)
 		if err != nil {
 			s.internalError(w, "list projects", err)

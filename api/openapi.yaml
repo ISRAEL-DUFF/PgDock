@@ -1510,6 +1510,209 @@ paths:
           description: Changed.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/tokens:
+    get:
+      operationId: listMyTokens
+      summary: Your API tokens (only the calling token's organisation, with a token)
+      tags: [tokens]
+      responses:
+        "200":
+          description: Tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APITokenList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createToken
+      summary: Create an API token, shown once
+      description: |
+        A token acts in one organisation, with additive scopes (read, write,
+        admin; admin requires write), optionally restricted to some
+        projects, until it expires (default 90 days, at most the platform
+        maximum). Created with a token, the new one can't exceed the
+        caller's scopes, projects, or expiry.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedToken"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/tokens/{token_id}:
+    delete:
+      operationId: revokeMyToken
+      summary: Revoke one of your tokens
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/TokenID"
+      responses:
+        "204":
+          description: Revoked.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/tokens:
+    get:
+      operationId: listOrgTokens
+      summary: Every token scoped to the organisation (owners and admins)
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APITokenList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/tokens/{token_id}:
+    delete:
+      operationId: revokeOrgToken
+      summary: Revoke any token scoped to the organisation (owners and admins)
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TokenID"
+      responses:
+        "204":
+          description: Revoked.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device:
+    post:
+      operationId: startDeviceLogin
+      summary: Start a CLI device login
+      description: |
+        The CLI shows `user_code` and opens `verification_uri_complete`; a
+        signed-in user approves it, choosing the organisation and scopes,
+        and the CLI polls `/api/v1/auth/device/token` for the token.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceStartRequest"
+      responses:
+        "200":
+          description: Started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthorization"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device/token:
+    post:
+      operationId: pollDeviceLogin
+      summary: Collect a device login's token
+      description: |
+        Answers 400 with code `authorization_pending` until approved
+        (`slow_down` when polled too often), then the token exactly once;
+        `access_denied` or `expired_token` end the login.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevicePollRequest"
+      responses:
+        "200":
+          description: The token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedToken"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device/requests/{user_code}:
+    get:
+      operationId: getDeviceLogin
+      summary: A pending device login, for the approval page
+      tags: [tokens]
+      parameters:
+        - name: user_code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceRequest"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device/approve:
+    post:
+      operationId: approveDeviceLogin
+      summary: Approve (or deny) a device login
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceApproveRequest"
+      responses:
+        "200":
+          description: Approved; the CLI collects the token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIToken"
+        "204":
+          description: Denied.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/settings/tokens:
+    get:
+      operationId: getTokenSettings
+      summary: Platform-wide token rules
+      tags: [admin]
+      responses:
+        "200":
+          description: Settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putTokenSettings
+      summary: Change the platform-wide token rules
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenSettings"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/me/sessions:
     get:
       operationId: listMySessions
@@ -2682,6 +2885,13 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   parameters:
+    TokenID:
+      name: token_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     RequestID:
       name: request_id
       in: path
@@ -4427,6 +4637,225 @@ components:
                 type: boolean
               error:
                 type: string
+    TokenScope:
+      type: string
+      enum: [read, write, admin]
+    APIToken:
+      type: object
+      required: [id, name, org_id, prefix, scopes, expires_at, created_at, created_via, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        user_email:
+          type: string
+        prefix:
+          type: string
+          description: The token's first characters, for recognising it.
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          description: The projects the token is restricted to; null for all the user's projects.
+          items:
+            type: string
+            format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_ip:
+          type: string
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_via:
+          type: string
+          enum: [ui, device, api]
+        status:
+          type: string
+          enum: [active, expired, revoked]
+    APITokenList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/APIToken"
+    CreateTokenRequest:
+      type: object
+      required: [name, org_id, scopes]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        org_id:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        expires_in_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: Defaults to 90.
+    CreatedToken:
+      type: object
+      required: [token, secret]
+      properties:
+        secret:
+          type: string
+          description: The token itself (`pgd_…`), shown only once.
+        token:
+          $ref: "#/components/schemas/APIToken"
+    DeviceStartRequest:
+      type: object
+      properties:
+        client_name:
+          type: string
+          maxLength: 100
+          description: Shown on the approval page, e.g. "pgdock CLI on laptop".
+        scopes:
+          type: array
+          description: The most the CLI wants; the user may narrow them. Default read and write.
+          items:
+            $ref: "#/components/schemas/TokenScope"
+    DeviceAuthorization:
+      type: object
+      required: [device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval]
+      properties:
+        device_code:
+          type: string
+        user_code:
+          type: string
+          example: BCDF-GHJK
+        verification_uri:
+          type: string
+        verification_uri_complete:
+          type: string
+        expires_in:
+          type: integer
+          description: Seconds.
+        interval:
+          type: integer
+          description: Seconds between polls.
+    DevicePollRequest:
+      type: object
+      required: [device_code]
+      properties:
+        device_code:
+          type: string
+    DeviceRequest:
+      type: object
+      required: [user_code, client_name, scopes, expires_at]
+      properties:
+        user_code:
+          type: string
+        client_name:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        expires_at:
+          type: string
+          format: date-time
+    DeviceApproveRequest:
+      type: object
+      required: [user_code]
+      properties:
+        user_code:
+          type: string
+        approve:
+          type: boolean
+          default: true
+          description: false denies the login.
+        org_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        expires_in_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+    TokenGrant:
+      type: object
+      description: The API token a request was made with.
+      required: [id, name, org_id, scopes, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        expires_at:
+          type: string
+          format: date-time
+    TokenSettings:
+      type: object
+      required: [max_days]
+      properties:
+        max_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: The longest expiry a new token may have.
     User:
       type: object
       required: [id, email, platform_role]
@@ -4443,6 +4872,8 @@ components:
         platform_role:
           type: string
           enum: [platform_admin, user]
+        token:
+          $ref: "#/components/schemas/TokenGrant"
     UpdateMeRequest:
       type: object
       properties:
@@ -4848,6 +5279,9 @@ components:
         user_id:
           type: string
           format: uuid
+        confirm:
+          type: string
+          description: The organisation's name, typed; required with an API token.
     ProjectMember:
       type: object
       required: [user_id, email, role, implicit]

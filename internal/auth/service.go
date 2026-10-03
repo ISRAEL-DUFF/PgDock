@@ -141,7 +141,8 @@ func (s *Service) SetMailer(m Mailer) { s.mailer = m }
 // SetHooks installs the organisation layer's hooks.
 func (s *Service) SetHooks(h Hooks) { s.hooks = h }
 
-// Session is an authenticated browser session.
+// Session is an authenticated browser session, or a request made with an
+// API token (Token set; ID empty).
 type Session struct {
 	ID           string // hashed id, as stored
 	UserID       uuid.UUID
@@ -150,10 +151,21 @@ type Session struct {
 	PlatformRole string
 	ReauthAt     *time.Time
 	CreatedAt    time.Time
+	Token        *TokenGrant
+}
+
+// TokenGrant is what an API token allows (V2 §7.2).
+type TokenGrant struct {
+	ID     uuid.UUID
+	OrgID  uuid.UUID
+	Name   string
+	Scopes []string
+	// Projects restricts the token; nil means all the user's projects.
+	Projects []uuid.UUID
 }
 
 // PlatformAdmin reports whether the session's user runs the platform.
-func (s Session) PlatformAdmin() bool { return s.PlatformRole == RolePlatformAdmin }
+func (s Session) PlatformAdmin() bool { return s.Token == nil && s.PlatformRole == RolePlatformAdmin }
 
 // RecentlyReauthenticated reports whether a step-up auth is still valid.
 func (s *Service) RecentlyReauthenticated(sess Session) bool {
