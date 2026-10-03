@@ -1150,6 +1150,7 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
     await page.getByLabel("I've saved the password somewhere safe").check();
     await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
     await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
     const storage = page.getByTestId("project-storage");
     await expect(storage.getByTestId("project-storage-target")).toContainText("counts toward your backup quota");
