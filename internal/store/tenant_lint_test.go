@@ -14,6 +14,7 @@ var tenantTables = []string{
 	"backups", "operations", "audit_log", "retired_databases", "alerts", "metric_points",
 	"usage_records", "reaped_sessions", "break_glass_sessions", "dedicated_requests",
 	"api_tokens", "device_auth_requests", "editor_preferences", "storage_targets", "backup_keys",
+	"webhooks", "webhook_deliveries", "scheduled_jobs", "job_runs", "outbound_allowlist", "outbound_counters",
 }
 
 // TestTenantQueriesAreScoped is the V2 §2.6 lint: every query on a tenant

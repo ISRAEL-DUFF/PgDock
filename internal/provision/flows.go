@@ -354,6 +354,10 @@ func (s *Service) runDelete(ctx context.Context, op store.Operation, log *jobs.S
 	if err := s.teardown(ctx, p, log); err != nil {
 		return err
 	}
+	// Webhooks and jobs go with the project (V2 §9.3).
+	if err := s.DropAutomation(ctx, p); err != nil {
+		return err
+	}
 	if err := store.New(s.db).SoftDeleteProject(ctx, store.SoftDeleteProjectParams{ID: p.ID, Status: StatusDeleted}); err != nil {
 		return err
 	}

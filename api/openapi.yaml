@@ -3351,6 +3351,364 @@ paths:
           description: Reinstated.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks:
+    get:
+      operationId: listWebhooks
+      summary: A project's webhooks, with their health and backlog
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The webhooks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createWebhook
+      summary: Send a table's changes to a URL
+      description: |
+        Installs triggers that write each change to an outbox in the
+        project's database, in the same transaction (V2 §9.1): rolled-back
+        changes never produce an event. The URL must be https:// (http://
+        only to a host the platform admin allow-listed) and resolve to a
+        public address. The signing secret is returned once.
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookCreated"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}:
+    get:
+      operationId: getWebhook
+      summary: A webhook
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "200":
+          description: The webhook.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateWebhook
+      summary: Change, pause or resume a webhook
+      description: Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookUpdate"
+      responses:
+        "200":
+          description: The webhook.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteWebhook
+      summary: Delete a webhook, its triggers and its queued events
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/test:
+    post:
+      operationId: testWebhook
+      summary: Send a test event now
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "200":
+          description: What the receiver answered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookTestResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret:
+    post:
+      operationId: rotateWebhookSecret
+      summary: Replace the signing secret (returned once)
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "200":
+          description: The new secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSecret"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      summary: The delivery log (7 days), or the dead letters
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+        - name: dead
+          in: query
+          description: Only dead letters not yet replayed.
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/replay:
+    post:
+      operationId: replayWebhook
+      summary: Queue dead letters again
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayRequest"
+      responses:
+        "200":
+          description: How many were queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs:
+    get:
+      operationId: listJobs
+      summary: A project's scheduled jobs
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The jobs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createJob
+      summary: Run SQL or call a URL on a schedule
+      description: |
+        SQL runs as the project owner in a transaction, with the job's
+        timeout as statement_timeout; HTTP calls go through the same
+        outbound rules as webhooks and are signed. The plan limits the
+        number of jobs and the shortest interval (409 quota_exceeded).
+        An HTTP job's signing secret is returned once.
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCreated"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs/{job_id}:
+    get:
+      operationId: getJob
+      summary: A scheduled job
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateJob
+      summary: Change, pause or resume a job
+      description: Fields left out keep their values.
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobUpdate"
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteJob
+      summary: Delete a job and its history
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs/{job_id}/run:
+    post:
+      operationId: runJob
+      summary: Run a job now
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "202":
+          description: The run (running, queued behind the current one, or skipped with the reason).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRun"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs/{job_id}/runs:
+    get:
+      operationId: listJobRuns
+      summary: A job's history (30 days, at most 1,000 runs)
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRunList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/outbound:
+    get:
+      operationId: adminGetOrgOutbound
+      summary: An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The allow-list and counters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgOutbound"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: adminSetOrgOutboundAllowlist
+      summary: Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+      description: |
+        Hosts (names or IP addresses) on the list may be private or
+        loopback addresses and may use plain http://. Link-local and cloud
+        metadata addresses can never be allowed. Tenants can't change it.
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutboundAllowlist"
+      responses:
+        "200":
+          description: The allow-list and counters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgOutbound"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/orgs/{org}/cluster:
     post:
       operationId: adminSetOrgCluster
@@ -3568,6 +3926,20 @@ components:
       required: true
       schema:
         type: string
+    WebhookID:
+      name: webhook_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobID:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     TargetID:
       name: target_id
       in: path
@@ -5198,6 +5570,422 @@ components:
         retain_hours:
           type: integer
           description: How long the stopped dedicated instance is kept before it is destroyed.
+    WebhookRequest:
+      type: object
+      required: [name, tables, events, url]
+      properties:
+        name:
+          type: string
+        tables:
+          type: array
+          description: Tables as schema.table (or table, in public).
+          items:
+            type: string
+        events:
+          type: array
+          items:
+            type: string
+            enum: [INSERT, UPDATE, DELETE]
+        columns:
+          type: array
+          description: For UPDATE, fire only when one of these columns changed.
+          items:
+            type: string
+        url:
+          type: string
+        headers:
+          type: object
+          description: Static headers sent with each request (stored encrypted, never returned).
+          additionalProperties:
+            type: string
+        enabled:
+          type: boolean
+          default: true
+    WebhookUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        tables:
+          type: array
+          items:
+            type: string
+        events:
+          type: array
+          items:
+            type: string
+            enum: [INSERT, UPDATE, DELETE]
+        columns:
+          type: array
+          nullable: true
+          items:
+            type: string
+        url:
+          type: string
+        headers:
+          type: object
+          description: Replaces the stored headers; {} removes them.
+          additionalProperties:
+            type: string
+        enabled:
+          type: boolean
+    Webhook:
+      type: object
+      required: [id, project_id, name, tables, events, url, header_names, enabled, status, consecutive_failures, backlog, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tables:
+          type: array
+          items:
+            type: string
+        events:
+          type: array
+          items:
+            type: string
+        columns:
+          type: array
+          items:
+            type: string
+        url:
+          type: string
+        header_names:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+        status:
+          type: string
+          enum: [healthy, failing, paused, broken]
+        status_reason:
+          type: string
+          nullable: true
+        consecutive_failures:
+          type: integer
+        backlog:
+          type: integer
+          format: int64
+          description: Events waiting in the outbox.
+        created_at:
+          type: string
+          format: date-time
+    WebhookList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Webhook"
+    WebhookCreated:
+      type: object
+      required: [webhook, secret]
+      properties:
+        webhook:
+          $ref: "#/components/schemas/Webhook"
+        secret:
+          type: string
+          description: The signing secret, shown once.
+    WebhookSecret:
+      type: object
+      required: [secret]
+      properties:
+        secret:
+          type: string
+    WebhookTestResult:
+      type: object
+      required: [event_id, ok]
+      properties:
+        event_id:
+          type: string
+        ok:
+          type: boolean
+        status_code:
+          type: integer
+        latency_ms:
+          type: integer
+        response:
+          type: string
+        error:
+          type: string
+    WebhookDelivery:
+      type: object
+      required: [id, event_id, attempt, succeeded, dead_lettered, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        event_id:
+          type: string
+        attempt:
+          type: integer
+        status_code:
+          type: integer
+          nullable: true
+        latency_ms:
+          type: integer
+          nullable: true
+        response:
+          type: string
+          nullable: true
+          description: The response body, truncated to 4 KB.
+        error:
+          type: string
+          nullable: true
+        succeeded:
+          type: boolean
+        dead_lettered:
+          type: boolean
+        replayed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    WebhookDeliveryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+    ReplayRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        all:
+          type: boolean
+    ReplayResult:
+      type: object
+      required: [queued]
+      properties:
+        queued:
+          type: integer
+    HttpJobSpec:
+      type: object
+      required: [url]
+      properties:
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          default: POST
+        url:
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        body:
+          type: string
+    JobRequest:
+      type: object
+      required: [name, cron, kind]
+      properties:
+        name:
+          type: string
+        cron:
+          type: string
+          description: A 5-field cron expression (or @hourly, @daily, ...).
+        timezone:
+          type: string
+          description: An IANA time zone (default UTC).
+        kind:
+          type: string
+          enum: [sql, http]
+        sql:
+          type: string
+        http:
+          $ref: "#/components/schemas/HttpJobSpec"
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        overlap:
+          type: string
+          enum: [skip, queue]
+          default: skip
+        enabled:
+          type: boolean
+          default: true
+    JobUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        cron:
+          type: string
+        timezone:
+          type: string
+        sql:
+          type: string
+        http:
+          $ref: "#/components/schemas/HttpJobSpec"
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        overlap:
+          type: string
+          enum: [skip, queue]
+        enabled:
+          type: boolean
+    Job:
+      type: object
+      required: [id, project_id, name, cron, timezone, kind, timeout_seconds, overlap, enabled, consecutive_failures, upcoming, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cron:
+          type: string
+        timezone:
+          type: string
+        kind:
+          type: string
+          enum: [sql, http]
+        sql:
+          type: string
+        http:
+          $ref: "#/components/schemas/HttpJobSpec"
+        timeout_seconds:
+          type: integer
+        overlap:
+          type: string
+          enum: [skip, queue]
+        enabled:
+          type: boolean
+        next_run_at:
+          type: string
+          format: date-time
+          nullable: true
+        upcoming:
+          type: array
+          description: The next five run times.
+          items:
+            type: string
+            format: date-time
+        consecutive_failures:
+          type: integer
+        last_run:
+          $ref: "#/components/schemas/JobRun"
+        created_at:
+          type: string
+          format: date-time
+    JobList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+    JobCreated:
+      type: object
+      required: [job]
+      properties:
+        job:
+          $ref: "#/components/schemas/Job"
+        secret:
+          type: string
+          description: An HTTP job's signing secret, shown once.
+    JobRun:
+      type: object
+      required: [id, scheduled_for, status, trigger]
+      properties:
+        id:
+          type: integer
+          format: int64
+        scheduled_for:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, timed_out, skipped]
+        rows_affected:
+          type: integer
+          format: int64
+          nullable: true
+        status_code:
+          type: integer
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        trigger:
+          type: string
+          enum: [schedule, manual]
+    JobRunList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobRun"
+    OutboundAllowlist:
+      type: object
+      required: [hosts]
+      properties:
+        hosts:
+          type: array
+          items:
+            type: string
+    OrgOutbound:
+      type: object
+      required: [allowlist, outbound_disabled, hosts]
+      properties:
+        allowlist:
+          type: array
+          items:
+            type: string
+        outbound_disabled:
+          type: boolean
+        hosts:
+          type: array
+          description: Requests by destination host over the last 30 days.
+          items:
+            $ref: "#/components/schemas/OutboundHost"
+    OutboundHost:
+      type: object
+      required: [host, requests, failures, last_day]
+      properties:
+        host:
+          type: string
+        requests:
+          type: integer
+          format: int64
+        failures:
+          type: integer
+          format: int64
+        last_day:
+          type: string
+          format: date
     PromoteRequest:
       type: object
       properties:

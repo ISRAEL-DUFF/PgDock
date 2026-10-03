@@ -528,6 +528,33 @@ func (e ExtensionTier) Valid() bool {
 	}
 }
 
+// Defines values for HttpJobSpecMethod.
+const (
+	HttpJobSpecMethodDELETE HttpJobSpecMethod = "DELETE"
+	HttpJobSpecMethodGET    HttpJobSpecMethod = "GET"
+	HttpJobSpecMethodPATCH  HttpJobSpecMethod = "PATCH"
+	HttpJobSpecMethodPOST   HttpJobSpecMethod = "POST"
+	HttpJobSpecMethodPUT    HttpJobSpecMethod = "PUT"
+)
+
+// Valid indicates whether the value is a known member of the HttpJobSpecMethod enum.
+func (e HttpJobSpecMethod) Valid() bool {
+	switch e {
+	case HttpJobSpecMethodDELETE:
+		return true
+	case HttpJobSpecMethodGET:
+		return true
+	case HttpJobSpecMethodPATCH:
+		return true
+	case HttpJobSpecMethodPOST:
+		return true
+	case HttpJobSpecMethodPUT:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ImportPreflightRoleReferencesKind.
 const (
 	Grant  ImportPreflightRoleReferencesKind = "grant"
@@ -615,6 +642,144 @@ func (e InvitationPreviewKind) Valid() bool {
 	case InvitationPreviewKindOrg:
 		return true
 	case InvitationPreviewKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobKind.
+const (
+	JobKindHttp JobKind = "http"
+	JobKindSql  JobKind = "sql"
+)
+
+// Valid indicates whether the value is a known member of the JobKind enum.
+func (e JobKind) Valid() bool {
+	switch e {
+	case JobKindHttp:
+		return true
+	case JobKindSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobOverlap.
+const (
+	JobOverlapQueue JobOverlap = "queue"
+	JobOverlapSkip  JobOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobOverlap enum.
+func (e JobOverlap) Valid() bool {
+	switch e {
+	case JobOverlapQueue:
+		return true
+	case JobOverlapSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRequestKind.
+const (
+	JobRequestKindHttp JobRequestKind = "http"
+	JobRequestKindSql  JobRequestKind = "sql"
+)
+
+// Valid indicates whether the value is a known member of the JobRequestKind enum.
+func (e JobRequestKind) Valid() bool {
+	switch e {
+	case JobRequestKindHttp:
+		return true
+	case JobRequestKindSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRequestOverlap.
+const (
+	JobRequestOverlapQueue JobRequestOverlap = "queue"
+	JobRequestOverlapSkip  JobRequestOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobRequestOverlap enum.
+func (e JobRequestOverlap) Valid() bool {
+	switch e {
+	case JobRequestOverlapQueue:
+		return true
+	case JobRequestOverlapSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRunStatus.
+const (
+	JobRunStatusFailed    JobRunStatus = "failed"
+	JobRunStatusQueued    JobRunStatus = "queued"
+	JobRunStatusRunning   JobRunStatus = "running"
+	JobRunStatusSkipped   JobRunStatus = "skipped"
+	JobRunStatusSucceeded JobRunStatus = "succeeded"
+	JobRunStatusTimedOut  JobRunStatus = "timed_out"
+)
+
+// Valid indicates whether the value is a known member of the JobRunStatus enum.
+func (e JobRunStatus) Valid() bool {
+	switch e {
+	case JobRunStatusFailed:
+		return true
+	case JobRunStatusQueued:
+		return true
+	case JobRunStatusRunning:
+		return true
+	case JobRunStatusSkipped:
+		return true
+	case JobRunStatusSucceeded:
+		return true
+	case JobRunStatusTimedOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRunTrigger.
+const (
+	Manual   JobRunTrigger = "manual"
+	Schedule JobRunTrigger = "schedule"
+)
+
+// Valid indicates whether the value is a known member of the JobRunTrigger enum.
+func (e JobRunTrigger) Valid() bool {
+	switch e {
+	case Manual:
+		return true
+	case Schedule:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobUpdateOverlap.
+const (
+	JobUpdateOverlapQueue JobUpdateOverlap = "queue"
+	JobUpdateOverlapSkip  JobUpdateOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobUpdateOverlap enum.
+func (e JobUpdateOverlap) Valid() bool {
+	switch e {
+	case JobUpdateOverlapQueue:
+		return true
+	case JobUpdateOverlapSkip:
 		return true
 	default:
 		return false
@@ -1440,6 +1605,72 @@ func (e UserPlatformRole) Valid() bool {
 	case UserPlatformRolePlatformAdmin:
 		return true
 	case UserPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookStatus.
+const (
+	Broken  WebhookStatus = "broken"
+	Failing WebhookStatus = "failing"
+	Healthy WebhookStatus = "healthy"
+	Paused  WebhookStatus = "paused"
+)
+
+// Valid indicates whether the value is a known member of the WebhookStatus enum.
+func (e WebhookStatus) Valid() bool {
+	switch e {
+	case Broken:
+		return true
+	case Failing:
+		return true
+	case Healthy:
+		return true
+	case Paused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookRequestEvents.
+const (
+	WebhookRequestEventsDELETE WebhookRequestEvents = "DELETE"
+	WebhookRequestEventsINSERT WebhookRequestEvents = "INSERT"
+	WebhookRequestEventsUPDATE WebhookRequestEvents = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the WebhookRequestEvents enum.
+func (e WebhookRequestEvents) Valid() bool {
+	switch e {
+	case WebhookRequestEventsDELETE:
+		return true
+	case WebhookRequestEventsINSERT:
+		return true
+	case WebhookRequestEventsUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookUpdateEvents.
+const (
+	WebhookUpdateEventsDELETE WebhookUpdateEvents = "DELETE"
+	WebhookUpdateEventsINSERT WebhookUpdateEvents = "INSERT"
+	WebhookUpdateEventsUPDATE WebhookUpdateEvents = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the WebhookUpdateEvents enum.
+func (e WebhookUpdateEvents) Valid() bool {
+	switch e {
+	case WebhookUpdateEventsDELETE:
+		return true
+	case WebhookUpdateEventsINSERT:
+		return true
+	case WebhookUpdateEventsUPDATE:
 		return true
 	default:
 		return false
@@ -2491,6 +2722,17 @@ type Health struct {
 	Status string `json:"status"`
 }
 
+// HttpJobSpec defines model for HttpJobSpec.
+type HttpJobSpec struct {
+	Body    *string            `json:"body,omitempty"`
+	Headers *map[string]string `json:"headers,omitempty"`
+	Method  *HttpJobSpecMethod `json:"method,omitempty"`
+	Url     string             `json:"url"`
+}
+
+// HttpJobSpecMethod defines model for HttpJobSpec.Method.
+type HttpJobSpecMethod string
+
 // ImportPreflight defines model for ImportPreflight.
 type ImportPreflight struct {
 	DefaultSchemas []string `json:"default_schemas"`
@@ -2657,6 +2899,108 @@ type IsolationCheckRun struct {
 	OperationId openapi_types.UUID `json:"operation_id"`
 	Status      string             `json:"status"`
 }
+
+// Job defines model for Job.
+type Job struct {
+	ConsecutiveFailures int                `json:"consecutive_failures"`
+	CreatedAt           time.Time          `json:"created_at"`
+	Cron                string             `json:"cron"`
+	Enabled             bool               `json:"enabled"`
+	Http                *HttpJobSpec       `json:"http,omitempty"`
+	Id                  openapi_types.UUID `json:"id"`
+	Kind                JobKind            `json:"kind"`
+	LastRun             *JobRun            `json:"last_run,omitempty"`
+	Name                string             `json:"name"`
+	NextRunAt           *time.Time         `json:"next_run_at,omitempty"`
+	Overlap             JobOverlap         `json:"overlap"`
+	ProjectId           openapi_types.UUID `json:"project_id"`
+	Sql                 *string            `json:"sql,omitempty"`
+	TimeoutSeconds      int                `json:"timeout_seconds"`
+	Timezone            string             `json:"timezone"`
+
+	// Upcoming The next five run times.
+	Upcoming []time.Time `json:"upcoming"`
+}
+
+// JobKind defines model for Job.Kind.
+type JobKind string
+
+// JobOverlap defines model for Job.Overlap.
+type JobOverlap string
+
+// JobCreated defines model for JobCreated.
+type JobCreated struct {
+	Job Job `json:"job"`
+
+	// Secret An HTTP job's signing secret, shown once.
+	Secret *string `json:"secret,omitempty"`
+}
+
+// JobList defines model for JobList.
+type JobList struct {
+	Items []Job `json:"items"`
+}
+
+// JobRequest defines model for JobRequest.
+type JobRequest struct {
+	// Cron A 5-field cron expression (or @hourly, @daily, ...).
+	Cron           string             `json:"cron"`
+	Enabled        *bool              `json:"enabled,omitempty"`
+	Http           *HttpJobSpec       `json:"http,omitempty"`
+	Kind           JobRequestKind     `json:"kind"`
+	Name           string             `json:"name"`
+	Overlap        *JobRequestOverlap `json:"overlap,omitempty"`
+	Sql            *string            `json:"sql,omitempty"`
+	TimeoutSeconds *int               `json:"timeout_seconds,omitempty"`
+
+	// Timezone An IANA time zone (default UTC).
+	Timezone *string `json:"timezone,omitempty"`
+}
+
+// JobRequestKind defines model for JobRequest.Kind.
+type JobRequestKind string
+
+// JobRequestOverlap defines model for JobRequest.Overlap.
+type JobRequestOverlap string
+
+// JobRun defines model for JobRun.
+type JobRun struct {
+	Error        *string       `json:"error,omitempty"`
+	FinishedAt   *time.Time    `json:"finished_at,omitempty"`
+	Id           int64         `json:"id"`
+	RowsAffected *int64        `json:"rows_affected,omitempty"`
+	ScheduledFor time.Time     `json:"scheduled_for"`
+	StartedAt    *time.Time    `json:"started_at,omitempty"`
+	Status       JobRunStatus  `json:"status"`
+	StatusCode   *int          `json:"status_code,omitempty"`
+	Trigger      JobRunTrigger `json:"trigger"`
+}
+
+// JobRunStatus defines model for JobRun.Status.
+type JobRunStatus string
+
+// JobRunTrigger defines model for JobRun.Trigger.
+type JobRunTrigger string
+
+// JobRunList defines model for JobRunList.
+type JobRunList struct {
+	Items []JobRun `json:"items"`
+}
+
+// JobUpdate defines model for JobUpdate.
+type JobUpdate struct {
+	Cron           *string           `json:"cron,omitempty"`
+	Enabled        *bool             `json:"enabled,omitempty"`
+	Http           *HttpJobSpec      `json:"http,omitempty"`
+	Name           *string           `json:"name,omitempty"`
+	Overlap        *JobUpdateOverlap `json:"overlap,omitempty"`
+	Sql            *string           `json:"sql,omitempty"`
+	TimeoutSeconds *int              `json:"timeout_seconds,omitempty"`
+	Timezone       *string           `json:"timezone,omitempty"`
+}
+
+// JobUpdateOverlap defines model for JobUpdate.Overlap.
+type JobUpdateOverlap string
 
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
@@ -2888,6 +3232,15 @@ type OrgMemberList struct {
 	Items []OrgMember `json:"items"`
 }
 
+// OrgOutbound defines model for OrgOutbound.
+type OrgOutbound struct {
+	Allowlist []string `json:"allowlist"`
+
+	// Hosts Requests by destination host over the last 30 days.
+	Hosts            []OutboundHost `json:"hosts"`
+	OutboundDisabled bool           `json:"outbound_disabled"`
+}
+
 // OrgQuotas defines model for OrgQuotas.
 type OrgQuotas struct {
 	DedicatedAllowance DedicatedAllowance `json:"dedicated_allowance"`
@@ -2902,6 +3255,19 @@ type OrgRole string
 // OrgRoleRequest defines model for OrgRoleRequest.
 type OrgRoleRequest struct {
 	Role OrgRole `json:"role"`
+}
+
+// OutboundAllowlist defines model for OutboundAllowlist.
+type OutboundAllowlist struct {
+	Hosts []string `json:"hosts"`
+}
+
+// OutboundHost defines model for OutboundHost.
+type OutboundHost struct {
+	Failures int64              `json:"failures"`
+	Host     string             `json:"host"`
+	LastDay  openapi_types.Date `json:"last_day"`
+	Requests int64              `json:"requests"`
 }
 
 // PasswordResetConfirm defines model for PasswordResetConfirm.
@@ -3281,6 +3647,17 @@ type RegistrationToken struct {
 	Command   string    `json:"command"`
 	ExpiresAt time.Time `json:"expires_at"`
 	Token     string    `json:"token"`
+}
+
+// ReplayRequest defines model for ReplayRequest.
+type ReplayRequest struct {
+	All *bool    `json:"all,omitempty"`
+	Ids *[]int64 `json:"ids,omitempty"`
+}
+
+// ReplayResult defines model for ReplayResult.
+type ReplayResult struct {
+	Queued int `json:"queued"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -4048,6 +4425,112 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// Webhook defines model for Webhook.
+type Webhook struct {
+	// Backlog Events waiting in the outbox.
+	Backlog             int64              `json:"backlog"`
+	Columns             *[]string          `json:"columns,omitempty"`
+	ConsecutiveFailures int                `json:"consecutive_failures"`
+	CreatedAt           time.Time          `json:"created_at"`
+	Enabled             bool               `json:"enabled"`
+	Events              []string           `json:"events"`
+	HeaderNames         []string           `json:"header_names"`
+	Id                  openapi_types.UUID `json:"id"`
+	Name                string             `json:"name"`
+	ProjectId           openapi_types.UUID `json:"project_id"`
+	Status              WebhookStatus      `json:"status"`
+	StatusReason        *string            `json:"status_reason,omitempty"`
+	Tables              []string           `json:"tables"`
+	Url                 string             `json:"url"`
+}
+
+// WebhookStatus defines model for Webhook.Status.
+type WebhookStatus string
+
+// WebhookCreated defines model for WebhookCreated.
+type WebhookCreated struct {
+	// Secret The signing secret, shown once.
+	Secret  string  `json:"secret"`
+	Webhook Webhook `json:"webhook"`
+}
+
+// WebhookDelivery defines model for WebhookDelivery.
+type WebhookDelivery struct {
+	Attempt      int        `json:"attempt"`
+	CreatedAt    time.Time  `json:"created_at"`
+	DeadLettered bool       `json:"dead_lettered"`
+	Error        *string    `json:"error,omitempty"`
+	EventId      string     `json:"event_id"`
+	Id           int64      `json:"id"`
+	LatencyMs    *int       `json:"latency_ms,omitempty"`
+	ReplayedAt   *time.Time `json:"replayed_at,omitempty"`
+
+	// Response The response body, truncated to 4 KB.
+	Response   *string `json:"response,omitempty"`
+	StatusCode *int    `json:"status_code,omitempty"`
+	Succeeded  bool    `json:"succeeded"`
+}
+
+// WebhookDeliveryList defines model for WebhookDeliveryList.
+type WebhookDeliveryList struct {
+	Items []WebhookDelivery `json:"items"`
+}
+
+// WebhookList defines model for WebhookList.
+type WebhookList struct {
+	Items []Webhook `json:"items"`
+}
+
+// WebhookRequest defines model for WebhookRequest.
+type WebhookRequest struct {
+	// Columns For UPDATE, fire only when one of these columns changed.
+	Columns *[]string              `json:"columns,omitempty"`
+	Enabled *bool                  `json:"enabled,omitempty"`
+	Events  []WebhookRequestEvents `json:"events"`
+
+	// Headers Static headers sent with each request (stored encrypted, never returned).
+	Headers *map[string]string `json:"headers,omitempty"`
+	Name    string             `json:"name"`
+
+	// Tables Tables as schema.table (or table, in public).
+	Tables []string `json:"tables"`
+	Url    string   `json:"url"`
+}
+
+// WebhookRequestEvents defines model for WebhookRequest.Events.
+type WebhookRequestEvents string
+
+// WebhookSecret defines model for WebhookSecret.
+type WebhookSecret struct {
+	Secret string `json:"secret"`
+}
+
+// WebhookTestResult defines model for WebhookTestResult.
+type WebhookTestResult struct {
+	Error      *string `json:"error,omitempty"`
+	EventId    string  `json:"event_id"`
+	LatencyMs  *int    `json:"latency_ms,omitempty"`
+	Ok         bool    `json:"ok"`
+	Response   *string `json:"response,omitempty"`
+	StatusCode *int    `json:"status_code,omitempty"`
+}
+
+// WebhookUpdate defines model for WebhookUpdate.
+type WebhookUpdate struct {
+	Columns *[]string              `json:"columns,omitempty"`
+	Enabled *bool                  `json:"enabled,omitempty"`
+	Events  *[]WebhookUpdateEvents `json:"events,omitempty"`
+
+	// Headers Replaces the stored headers; {} removes them.
+	Headers *map[string]string `json:"headers,omitempty"`
+	Name    *string            `json:"name,omitempty"`
+	Tables  *[]string          `json:"tables,omitempty"`
+	Url     *string            `json:"url,omitempty"`
+}
+
+// WebhookUpdateEvents defines model for WebhookUpdate.Events.
+type WebhookUpdateEvents string
+
 // AcceptUnrestorable defines model for AcceptUnrestorable.
 type AcceptUnrestorable = bool
 
@@ -4071,6 +4554,9 @@ type BackupID = openapi_types.UUID
 
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
+
+// JobID defines model for JobID.
+type JobID = openapi_types.UUID
 
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
@@ -4110,6 +4596,9 @@ type TokenID = openapi_types.UUID
 
 // UserID defines model for UserID.
 type UserID = openapi_types.UUID
+
+// WebhookID defines model for WebhookID.
+type WebhookID = openapi_types.UUID
 
 // ListPlatformAuditParams defines parameters for ListPlatformAudit.
 type ListPlatformAuditParams struct {
@@ -4272,6 +4761,11 @@ type ListProjectAuditParams struct {
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
 
+// ListJobRunsParams defines parameters for ListJobRuns.
+type ListJobRunsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // GetProjectMetricsParams defines parameters for GetProjectMetrics.
 type GetProjectMetricsParams struct {
 	Range *GetProjectMetricsParamsRange `form:"range,omitempty" json:"range,omitempty"`
@@ -4310,6 +4804,13 @@ type GetTableRowsParams struct {
 	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListWebhookDeliveriesParams defines parameters for ListWebhookDeliveries.
+type ListWebhookDeliveriesParams struct {
+	// Dead Only dead letters not yet replayed.
+	Dead  *bool `form:"dead,omitempty" json:"dead,omitempty"`
+	Limit *int  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // RunRestoreTestParams defines parameters for RunRestoreTest.
 type RunRestoreTestParams struct {
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
@@ -4338,6 +4839,9 @@ type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 
 // AdminSetOrgClusterJSONRequestBody defines body for AdminSetOrgCluster for application/json ContentType.
 type AdminSetOrgClusterJSONRequestBody = SetOrgClusterRequest
+
+// AdminSetOrgOutboundAllowlistJSONRequestBody defines body for AdminSetOrgOutboundAllowlist for application/json ContentType.
+type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
 
 // AdminSuspendOrgJSONRequestBody defines body for AdminSuspendOrg for application/json ContentType.
 type AdminSuspendOrgJSONRequestBody = ReasonRequest
@@ -4486,6 +4990,12 @@ type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
 
+// CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
+type CreateJobJSONRequestBody = JobRequest
+
+// UpdateJobJSONRequestBody defines body for UpdateJob for application/json ContentType.
+type UpdateJobJSONRequestBody = JobUpdate
+
 // AddProjectMemberJSONRequestBody defines body for AddProjectMember for application/json ContentType.
 type AddProjectMemberJSONRequestBody = ProjectMemberRequest
 
@@ -4533,6 +5043,15 @@ type SaveTableChangesJSONRequestBody = SaveRowsRequest
 
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
+
+// CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
+type CreateWebhookJSONRequestBody = WebhookRequest
+
+// UpdateWebhookJSONRequestBody defines body for UpdateWebhook for application/json ContentType.
+type UpdateWebhookJSONRequestBody = WebhookUpdate
+
+// ReplayWebhookJSONRequestBody defines body for ReplayWebhook for application/json ContentType.
+type ReplayWebhookJSONRequestBody = ReplayRequest
 
 // PutAlertSettingsJSONRequestBody defines body for PutAlertSettings for application/json ContentType.
 type PutAlertSettingsJSONRequestBody = AlertSettingsRequest
@@ -4751,6 +5270,33 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/orgs/{org}/cluster (the `AdminSetOrgCluster` operationId).
 	AdminSetOrgCluster(ctx context.Context, org OrgID, body AdminSetOrgClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+	//
+	// Corresponds with GET /api/v1/admin/orgs/{org}/outbound (the `AdminGetOrgOutbound` operationId).
+	AdminGetOrgOutbound(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminSetOrgOutboundAllowlistWithBody Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+	//
+	// Hosts (names or IP addresses) on the list may be private or
+	// loopback addresses and may use plain http://. Link-local and cloud
+	// metadata addresses can never be allowed. Tenants can't change it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+	AdminSetOrgOutboundAllowlistWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminSetOrgOutboundAllowlist Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+	//
+	// Hosts (names or IP addresses) on the list may be private or
+	// loopback addresses and may use plain http://. Link-local and cloud
+	// metadata addresses can never be allowed. Tenants can't change it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+	AdminSetOrgOutboundAllowlist(ctx context.Context, org OrgID, body AdminSetOrgOutboundAllowlistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminReinstateOrg Reinstate a suspended organisation (platform admin)
 	//
@@ -5965,6 +6511,75 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/instance (the `ProjectInstanceAction` operationId).
 	ProjectInstanceAction(ctx context.Context, id ProjectID, body ProjectInstanceActionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListJobs A project's scheduled jobs
+	//
+	// Corresponds with GET /api/v1/projects/{id}/jobs (the `ListJobs` operationId).
+	ListJobs(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateJobWithBody Run SQL or call a URL on a schedule
+	//
+	// SQL runs as the project owner in a transaction, with the job's
+	// timeout as statement_timeout; HTTP calls go through the same
+	// outbound rules as webhooks and are signed. The plan limits the
+	// number of jobs and the shortest interval (409 quota_exceeded).
+	// An HTTP job's signing secret is returned once.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+	CreateJobWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateJob Run SQL or call a URL on a schedule
+	//
+	// SQL runs as the project owner in a transaction, with the job's
+	// timeout as statement_timeout; HTTP calls go through the same
+	// outbound rules as webhooks and are signed. The plan limits the
+	// number of jobs and the shortest interval (409 quota_exceeded).
+	// An HTTP job's signing secret is returned once.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+	CreateJob(ctx context.Context, id ProjectID, body CreateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteJob Delete a job and its history
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/jobs/{job_id} (the `DeleteJob` operationId).
+	DeleteJob(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetJob A scheduled job
+	//
+	// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id} (the `GetJob` operationId).
+	GetJob(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateJobWithBody Change, pause or resume a job
+	//
+	// Fields left out keep their values.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+	UpdateJobWithBody(ctx context.Context, id ProjectID, jobId JobID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateJob Change, pause or resume a job
+	//
+	// Fields left out keep their values.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+	UpdateJob(ctx context.Context, id ProjectID, jobId JobID, body UpdateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RunJob Run a job now
+	//
+	// Corresponds with POST /api/v1/projects/{id}/jobs/{job_id}/run (the `RunJob` operationId).
+	RunJob(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListJobRuns A job's history (30 days, at most 1,000 runs)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id}/runs (the `ListJobRuns` operationId).
+	ListJobRuns(ctx context.Context, id ProjectID, jobId JobID, params *ListJobRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProjectMembers Project members (org owners and admins are implicit admins)
 	//
 	// Corresponds with GET /api/v1/projects/{id}/members (the `ListProjectMembers` operationId).
@@ -6354,6 +6969,94 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/transfer (the `TransferProject` operationId).
 	TransferProject(ctx context.Context, id ProjectID, body TransferProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWebhooks A project's webhooks, with their health and backlog
+	//
+	// Corresponds with GET /api/v1/projects/{id}/webhooks (the `ListWebhooks` operationId).
+	ListWebhooks(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWebhookWithBody Send a table's changes to a URL
+	//
+	// Installs triggers that write each change to an outbox in the
+	// project's database, in the same transaction (V2 §9.1): rolled-back
+	// changes never produce an event. The URL must be https:// (http://
+	// only to a host the platform admin allow-listed) and resolve to a
+	// public address. The signing secret is returned once.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+	CreateWebhookWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWebhook Send a table's changes to a URL
+	//
+	// Installs triggers that write each change to an outbox in the
+	// project's database, in the same transaction (V2 §9.1): rolled-back
+	// changes never produce an event. The URL must be https:// (http://
+	// only to a host the platform admin allow-listed) and resolve to a
+	// public address. The signing secret is returned once.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+	CreateWebhook(ctx context.Context, id ProjectID, body CreateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteWebhook Delete a webhook, its triggers and its queued events
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/webhooks/{webhook_id} (the `DeleteWebhook` operationId).
+	DeleteWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWebhook A webhook
+	//
+	// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id} (the `GetWebhook` operationId).
+	GetWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateWebhookWithBody Change, pause or resume a webhook
+	//
+	// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+	UpdateWebhookWithBody(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateWebhook Change, pause or resume a webhook
+	//
+	// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+	UpdateWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, body UpdateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWebhookDeliveries The delivery log (7 days), or the dead letters
+	//
+	// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries (the `ListWebhookDeliveries` operationId).
+	ListWebhookDeliveries(ctx context.Context, id ProjectID, webhookId WebhookID, params *ListWebhookDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplayWebhookWithBody Queue dead letters again
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+	ReplayWebhookWithBody(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplayWebhook Queue dead letters again
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+	ReplayWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, body ReplayWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateWebhookSecret Replace the signing secret (returned once)
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+	RotateWebhookSecret(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestWebhook Send a test event now
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/test (the `TestWebhook` operationId).
+	TestWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RunRestoreTest Run the restore test now
 	//
@@ -6925,6 +7628,63 @@ func (c *Client) AdminSetOrgClusterWithBody(ctx context.Context, org OrgID, cont
 // Corresponds with POST /api/v1/admin/orgs/{org}/cluster (the `AdminSetOrgCluster` operationId).
 func (c *Client) AdminSetOrgCluster(ctx context.Context, org OrgID, body AdminSetOrgClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminSetOrgClusterRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+//
+// Corresponds with GET /api/v1/admin/orgs/{org}/outbound (the `AdminGetOrgOutbound` operationId).
+func (c *Client) AdminGetOrgOutbound(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminGetOrgOutboundRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminSetOrgOutboundAllowlistWithBody Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+//
+// Hosts (names or IP addresses) on the list may be private or
+// loopback addresses and may use plain http://. Link-local and cloud
+// metadata addresses can never be allowed. Tenants can't change it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+func (c *Client) AdminSetOrgOutboundAllowlistWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminSetOrgOutboundAllowlistRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminSetOrgOutboundAllowlist Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+//
+// Hosts (names or IP addresses) on the list may be private or
+// loopback addresses and may use plain http://. Link-local and cloud
+// metadata addresses can never be allowed. Tenants can't change it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+func (c *Client) AdminSetOrgOutboundAllowlist(ctx context.Context, org OrgID, body AdminSetOrgOutboundAllowlistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminSetOrgOutboundAllowlistRequest(c.Server, org, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9758,6 +10518,165 @@ func (c *Client) ProjectInstanceAction(ctx context.Context, id ProjectID, body P
 	return c.Client.Do(req)
 }
 
+// ListJobs A project's scheduled jobs
+//
+// Corresponds with GET /api/v1/projects/{id}/jobs (the `ListJobs` operationId).
+func (c *Client) ListJobs(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListJobsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateJobWithBody Run SQL or call a URL on a schedule
+//
+// SQL runs as the project owner in a transaction, with the job's
+// timeout as statement_timeout; HTTP calls go through the same
+// outbound rules as webhooks and are signed. The plan limits the
+// number of jobs and the shortest interval (409 quota_exceeded).
+// An HTTP job's signing secret is returned once.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+func (c *Client) CreateJobWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateJobRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateJob Run SQL or call a URL on a schedule
+//
+// SQL runs as the project owner in a transaction, with the job's
+// timeout as statement_timeout; HTTP calls go through the same
+// outbound rules as webhooks and are signed. The plan limits the
+// number of jobs and the shortest interval (409 quota_exceeded).
+// An HTTP job's signing secret is returned once.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+func (c *Client) CreateJob(ctx context.Context, id ProjectID, body CreateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateJobRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteJob Delete a job and its history
+//
+// Corresponds with DELETE /api/v1/projects/{id}/jobs/{job_id} (the `DeleteJob` operationId).
+func (c *Client) DeleteJob(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteJobRequest(c.Server, id, jobId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetJob A scheduled job
+//
+// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id} (the `GetJob` operationId).
+func (c *Client) GetJob(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetJobRequest(c.Server, id, jobId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateJobWithBody Change, pause or resume a job
+//
+// Fields left out keep their values.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+func (c *Client) UpdateJobWithBody(ctx context.Context, id ProjectID, jobId JobID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateJobRequestWithBody(c.Server, id, jobId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateJob Change, pause or resume a job
+//
+// Fields left out keep their values.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+func (c *Client) UpdateJob(ctx context.Context, id ProjectID, jobId JobID, body UpdateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateJobRequest(c.Server, id, jobId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RunJob Run a job now
+//
+// Corresponds with POST /api/v1/projects/{id}/jobs/{job_id}/run (the `RunJob` operationId).
+func (c *Client) RunJob(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRunJobRequest(c.Server, id, jobId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListJobRuns A job's history (30 days, at most 1,000 runs)
+//
+// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id}/runs (the `ListJobRuns` operationId).
+func (c *Client) ListJobRuns(ctx context.Context, id ProjectID, jobId JobID, params *ListJobRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListJobRunsRequest(c.Server, id, jobId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListProjectMembers Project members (org owners and admins are implicit admins)
 //
 // Corresponds with GET /api/v1/projects/{id}/members (the `ListProjectMembers` operationId).
@@ -10578,6 +11497,214 @@ func (c *Client) TransferProjectWithBody(ctx context.Context, id ProjectID, cont
 // Corresponds with POST /api/v1/projects/{id}/transfer (the `TransferProject` operationId).
 func (c *Client) TransferProject(ctx context.Context, id ProjectID, body TransferProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTransferProjectRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListWebhooks A project's webhooks, with their health and backlog
+//
+// Corresponds with GET /api/v1/projects/{id}/webhooks (the `ListWebhooks` operationId).
+func (c *Client) ListWebhooks(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWebhooksRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWebhookWithBody Send a table's changes to a URL
+//
+// Installs triggers that write each change to an outbox in the
+// project's database, in the same transaction (V2 §9.1): rolled-back
+// changes never produce an event. The URL must be https:// (http://
+// only to a host the platform admin allow-listed) and resolve to a
+// public address. The signing secret is returned once.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+func (c *Client) CreateWebhookWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWebhookRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateWebhook Send a table's changes to a URL
+//
+// Installs triggers that write each change to an outbox in the
+// project's database, in the same transaction (V2 §9.1): rolled-back
+// changes never produce an event. The URL must be https:// (http://
+// only to a host the platform admin allow-listed) and resolve to a
+// public address. The signing secret is returned once.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+func (c *Client) CreateWebhook(ctx context.Context, id ProjectID, body CreateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWebhookRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteWebhook Delete a webhook, its triggers and its queued events
+//
+// Corresponds with DELETE /api/v1/projects/{id}/webhooks/{webhook_id} (the `DeleteWebhook` operationId).
+func (c *Client) DeleteWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWebhookRequest(c.Server, id, webhookId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetWebhook A webhook
+//
+// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id} (the `GetWebhook` operationId).
+func (c *Client) GetWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWebhookRequest(c.Server, id, webhookId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateWebhookWithBody Change, pause or resume a webhook
+//
+// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+func (c *Client) UpdateWebhookWithBody(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWebhookRequestWithBody(c.Server, id, webhookId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateWebhook Change, pause or resume a webhook
+//
+// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+func (c *Client) UpdateWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, body UpdateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWebhookRequest(c.Server, id, webhookId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListWebhookDeliveries The delivery log (7 days), or the dead letters
+//
+// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries (the `ListWebhookDeliveries` operationId).
+func (c *Client) ListWebhookDeliveries(ctx context.Context, id ProjectID, webhookId WebhookID, params *ListWebhookDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWebhookDeliveriesRequest(c.Server, id, webhookId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplayWebhookWithBody Queue dead letters again
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+func (c *Client) ReplayWebhookWithBody(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplayWebhookRequestWithBody(c.Server, id, webhookId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplayWebhook Queue dead letters again
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+func (c *Client) ReplayWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, body ReplayWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplayWebhookRequest(c.Server, id, webhookId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RotateWebhookSecret Replace the signing secret (returned once)
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+func (c *Client) RotateWebhookSecret(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateWebhookSecretRequest(c.Server, id, webhookId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// TestWebhook Send a test event now
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/test (the `TestWebhook` operationId).
+func (c *Client) TestWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestWebhookRequest(c.Server, id, webhookId)
 	if err != nil {
 		return nil, err
 	}
@@ -11824,6 +12951,87 @@ func NewAdminSetOrgClusterRequestWithBody(server string, org OrgID, contentType 
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminGetOrgOutboundRequest constructs an http.Request for the AdminGetOrgOutbound method
+func NewAdminGetOrgOutboundRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/orgs/%s/outbound", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminSetOrgOutboundAllowlistRequest calls the generic AdminSetOrgOutboundAllowlist builder with application/json body
+func NewAdminSetOrgOutboundAllowlistRequest(server string, org OrgID, body AdminSetOrgOutboundAllowlistJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminSetOrgOutboundAllowlistRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewAdminSetOrgOutboundAllowlistRequestWithBody constructs an http.Request for the AdminSetOrgOutboundAllowlist method, with any body, and a specified content type
+func NewAdminSetOrgOutboundAllowlistRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/orgs/%s/outbound", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -16663,6 +17871,332 @@ func NewProjectInstanceActionRequestWithBody(server string, id ProjectID, conten
 	return req, nil
 }
 
+// NewListJobsRequest constructs an http.Request for the ListJobs method
+func NewListJobsRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateJobRequest calls the generic CreateJob builder with application/json body
+func NewCreateJobRequest(server string, id ProjectID, body CreateJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateJobRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateJobRequestWithBody constructs an http.Request for the CreateJob method, with any body, and a specified content type
+func NewCreateJobRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteJobRequest constructs an http.Request for the DeleteJob method
+func NewDeleteJobRequest(server string, id ProjectID, jobId JobID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "job_id", jobId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetJobRequest constructs an http.Request for the GetJob method
+func NewGetJobRequest(server string, id ProjectID, jobId JobID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "job_id", jobId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateJobRequest calls the generic UpdateJob builder with application/json body
+func NewUpdateJobRequest(server string, id ProjectID, jobId JobID, body UpdateJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateJobRequestWithBody(server, id, jobId, "application/json", bodyReader)
+}
+
+// NewUpdateJobRequestWithBody constructs an http.Request for the UpdateJob method, with any body, and a specified content type
+func NewUpdateJobRequestWithBody(server string, id ProjectID, jobId JobID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "job_id", jobId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRunJobRequest constructs an http.Request for the RunJob method
+func NewRunJobRequest(server string, id ProjectID, jobId JobID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "job_id", jobId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/jobs/%s/run", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListJobRunsRequest constructs an http.Request for the ListJobRuns method
+func NewListJobRunsRequest(server string, id ProjectID, jobId JobID, params *ListJobRunsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "job_id", jobId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/jobs/%s/runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProjectMembersRequest constructs an http.Request for the ListProjectMembers method
 func NewListProjectMembersRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -18070,6 +19604,439 @@ func NewTransferProjectRequestWithBody(server string, id ProjectID, contentType 
 	return req, nil
 }
 
+// NewListWebhooksRequest constructs an http.Request for the ListWebhooks method
+func NewListWebhooksRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateWebhookRequest calls the generic CreateWebhook builder with application/json body
+func NewCreateWebhookRequest(server string, id ProjectID, body CreateWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateWebhookRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateWebhookRequestWithBody constructs an http.Request for the CreateWebhook method, with any body, and a specified content type
+func NewCreateWebhookRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteWebhookRequest constructs an http.Request for the DeleteWebhook method
+func NewDeleteWebhookRequest(server string, id ProjectID, webhookId WebhookID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhook_id", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetWebhookRequest constructs an http.Request for the GetWebhook method
+func NewGetWebhookRequest(server string, id ProjectID, webhookId WebhookID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhook_id", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateWebhookRequest calls the generic UpdateWebhook builder with application/json body
+func NewUpdateWebhookRequest(server string, id ProjectID, webhookId WebhookID, body UpdateWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateWebhookRequestWithBody(server, id, webhookId, "application/json", bodyReader)
+}
+
+// NewUpdateWebhookRequestWithBody constructs an http.Request for the UpdateWebhook method, with any body, and a specified content type
+func NewUpdateWebhookRequestWithBody(server string, id ProjectID, webhookId WebhookID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhook_id", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListWebhookDeliveriesRequest constructs an http.Request for the ListWebhookDeliveries method
+func NewListWebhookDeliveriesRequest(server string, id ProjectID, webhookId WebhookID, params *ListWebhookDeliveriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhook_id", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks/%s/deliveries", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Dead != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dead", *params.Dead, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReplayWebhookRequest calls the generic ReplayWebhook builder with application/json body
+func NewReplayWebhookRequest(server string, id ProjectID, webhookId WebhookID, body ReplayWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplayWebhookRequestWithBody(server, id, webhookId, "application/json", bodyReader)
+}
+
+// NewReplayWebhookRequestWithBody constructs an http.Request for the ReplayWebhook method, with any body, and a specified content type
+func NewReplayWebhookRequestWithBody(server string, id ProjectID, webhookId WebhookID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhook_id", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks/%s/replay", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRotateWebhookSecretRequest constructs an http.Request for the RotateWebhookSecret method
+func NewRotateWebhookSecretRequest(server string, id ProjectID, webhookId WebhookID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhook_id", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks/%s/rotate-secret", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewTestWebhookRequest constructs an http.Request for the TestWebhook method
+func NewTestWebhookRequest(server string, id ProjectID, webhookId WebhookID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhook_id", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/webhooks/%s/test", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRunRestoreTestRequest constructs an http.Request for the RunRestoreTest method
 func NewRunRestoreTestRequest(server string, params *RunRestoreTestParams) (*http.Request, error) {
 	var err error
@@ -19186,6 +21153,35 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/orgs/{org}/cluster (the `AdminSetOrgCluster` operationId).
 	AdminSetOrgClusterWithResponse(ctx context.Context, org OrgID, body AdminSetOrgClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminSetOrgClusterResponse, error)
+
+	// AdminGetOrgOutboundWithResponse An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/orgs/{org}/outbound (the `AdminGetOrgOutbound` operationId).
+	AdminGetOrgOutboundWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*AdminGetOrgOutboundResponse, error)
+
+	// AdminSetOrgOutboundAllowlistWithBodyWithResponse Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+	//
+	// Hosts (names or IP addresses) on the list may be private or
+	// loopback addresses and may use plain http://. Link-local and cloud
+	// metadata addresses can never be allowed. Tenants can't change it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+	AdminSetOrgOutboundAllowlistWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminSetOrgOutboundAllowlistResponse, error)
+
+	// AdminSetOrgOutboundAllowlistWithResponse Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+	//
+	// Hosts (names or IP addresses) on the list may be private or
+	// loopback addresses and may use plain http://. Link-local and cloud
+	// metadata addresses can never be allowed. Tenants can't change it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+	AdminSetOrgOutboundAllowlistWithResponse(ctx context.Context, org OrgID, body AdminSetOrgOutboundAllowlistJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminSetOrgOutboundAllowlistResponse, error)
 
 	// AdminReinstateOrgWithResponse Reinstate a suspended organisation (platform admin)
 	//
@@ -20526,6 +22522,85 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/instance (the `ProjectInstanceAction` operationId).
 	ProjectInstanceActionWithResponse(ctx context.Context, id ProjectID, body ProjectInstanceActionJSONRequestBody, reqEditors ...RequestEditorFn) (*ProjectInstanceActionResponse, error)
 
+	// ListJobsWithResponse A project's scheduled jobs
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/jobs (the `ListJobs` operationId).
+	ListJobsWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListJobsResponse, error)
+
+	// CreateJobWithBodyWithResponse Run SQL or call a URL on a schedule
+	//
+	// SQL runs as the project owner in a transaction, with the job's
+	// timeout as statement_timeout; HTTP calls go through the same
+	// outbound rules as webhooks and are signed. The plan limits the
+	// number of jobs and the shortest interval (409 quota_exceeded).
+	// An HTTP job's signing secret is returned once.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+	CreateJobWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJobResponse, error)
+
+	// CreateJobWithResponse Run SQL or call a URL on a schedule
+	//
+	// SQL runs as the project owner in a transaction, with the job's
+	// timeout as statement_timeout; HTTP calls go through the same
+	// outbound rules as webhooks and are signed. The plan limits the
+	// number of jobs and the shortest interval (409 quota_exceeded).
+	// An HTTP job's signing secret is returned once.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+	CreateJobWithResponse(ctx context.Context, id ProjectID, body CreateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJobResponse, error)
+
+	// DeleteJobWithResponse Delete a job and its history
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/jobs/{job_id} (the `DeleteJob` operationId).
+	DeleteJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*DeleteJobResponse, error)
+
+	// GetJobWithResponse A scheduled job
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id} (the `GetJob` operationId).
+	GetJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*GetJobResponse, error)
+
+	// UpdateJobWithBodyWithResponse Change, pause or resume a job
+	//
+	// Fields left out keep their values.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+	UpdateJobWithBodyWithResponse(ctx context.Context, id ProjectID, jobId JobID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateJobResponse, error)
+
+	// UpdateJobWithResponse Change, pause or resume a job
+	//
+	// Fields left out keep their values.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+	UpdateJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, body UpdateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateJobResponse, error)
+
+	// RunJobWithResponse Run a job now
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/jobs/{job_id}/run (the `RunJob` operationId).
+	RunJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*RunJobResponse, error)
+
+	// ListJobRunsWithResponse A job's history (30 days, at most 1,000 runs)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id}/runs (the `ListJobRuns` operationId).
+	ListJobRunsWithResponse(ctx context.Context, id ProjectID, jobId JobID, params *ListJobRunsParams, reqEditors ...RequestEditorFn) (*ListJobRunsResponse, error)
+
 	// ListProjectMembersWithResponse Project members (org owners and admins are implicit admins)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -20939,6 +23014,106 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/transfer (the `TransferProject` operationId).
 	TransferProjectWithResponse(ctx context.Context, id ProjectID, body TransferProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*TransferProjectResponse, error)
+
+	// ListWebhooksWithResponse A project's webhooks, with their health and backlog
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/webhooks (the `ListWebhooks` operationId).
+	ListWebhooksWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListWebhooksResponse, error)
+
+	// CreateWebhookWithBodyWithResponse Send a table's changes to a URL
+	//
+	// Installs triggers that write each change to an outbox in the
+	// project's database, in the same transaction (V2 §9.1): rolled-back
+	// changes never produce an event. The URL must be https:// (http://
+	// only to a host the platform admin allow-listed) and resolve to a
+	// public address. The signing secret is returned once.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+	CreateWebhookWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWebhookResponse, error)
+
+	// CreateWebhookWithResponse Send a table's changes to a URL
+	//
+	// Installs triggers that write each change to an outbox in the
+	// project's database, in the same transaction (V2 §9.1): rolled-back
+	// changes never produce an event. The URL must be https:// (http://
+	// only to a host the platform admin allow-listed) and resolve to a
+	// public address. The signing secret is returned once.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+	CreateWebhookWithResponse(ctx context.Context, id ProjectID, body CreateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWebhookResponse, error)
+
+	// DeleteWebhookWithResponse Delete a webhook, its triggers and its queued events
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/webhooks/{webhook_id} (the `DeleteWebhook` operationId).
+	DeleteWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*DeleteWebhookResponse, error)
+
+	// GetWebhookWithResponse A webhook
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id} (the `GetWebhook` operationId).
+	GetWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*GetWebhookResponse, error)
+
+	// UpdateWebhookWithBodyWithResponse Change, pause or resume a webhook
+	//
+	// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+	UpdateWebhookWithBodyWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWebhookResponse, error)
+
+	// UpdateWebhookWithResponse Change, pause or resume a webhook
+	//
+	// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+	UpdateWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, body UpdateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWebhookResponse, error)
+
+	// ListWebhookDeliveriesWithResponse The delivery log (7 days), or the dead letters
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries (the `ListWebhookDeliveries` operationId).
+	ListWebhookDeliveriesWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, params *ListWebhookDeliveriesParams, reqEditors ...RequestEditorFn) (*ListWebhookDeliveriesResponse, error)
+
+	// ReplayWebhookWithBodyWithResponse Queue dead letters again
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+	ReplayWebhookWithBodyWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplayWebhookResponse, error)
+
+	// ReplayWebhookWithResponse Queue dead letters again
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+	ReplayWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, body ReplayWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplayWebhookResponse, error)
+
+	// RotateWebhookSecretWithResponse Replace the signing secret (returned once)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+	RotateWebhookSecretWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error)
+
+	// TestWebhookWithResponse Send a test event now
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/test (the `TestWebhook` operationId).
+	TestWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*TestWebhookResponse, error)
 
 	// RunRestoreTestWithResponse Run the restore test now
 	//
@@ -21818,6 +23993,102 @@ func (r AdminSetOrgClusterResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AdminSetOrgClusterResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminGetOrgOutboundResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *OrgOutbound
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminGetOrgOutboundResponse) GetJSON200() *OrgOutbound {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminGetOrgOutboundResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminGetOrgOutboundResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminGetOrgOutboundResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminGetOrgOutboundResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminGetOrgOutboundResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminSetOrgOutboundAllowlistResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *OrgOutbound
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminSetOrgOutboundAllowlistResponse) GetJSON200() *OrgOutbound {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminSetOrgOutboundAllowlistResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminSetOrgOutboundAllowlistResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminSetOrgOutboundAllowlistResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminSetOrgOutboundAllowlistResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminSetOrgOutboundAllowlistResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -27039,6 +29310,335 @@ func (r ProjectInstanceActionResponse) ContentType() string {
 	return ""
 }
 
+type ListJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *JobList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListJobsResponse) GetJSON200() *JobList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListJobsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *JobCreated
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateJobResponse) GetJSON201() *JobCreated {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateJobResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteJobResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Job
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetJobResponse) GetJSON200() *Job {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetJobResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Job
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateJobResponse) GetJSON200() *Job {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateJobResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RunJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *JobRun
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RunJobResponse) GetJSON202() *JobRun {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RunJobResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RunJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RunJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RunJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RunJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListJobRunsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *JobRunList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListJobRunsResponse) GetJSON200() *JobRunList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListJobRunsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListJobRunsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListJobRunsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListJobRunsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListJobRunsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -28384,6 +30984,431 @@ func (r TransferProjectResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r TransferProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListWebhooksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WebhookList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWebhooksResponse) GetJSON200() *WebhookList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListWebhooksResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWebhooksResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWebhooksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWebhooksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWebhooksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *WebhookCreated
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateWebhookResponse) GetJSON201() *WebhookCreated {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Webhook
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetWebhookResponse) GetJSON200() *Webhook {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Webhook
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateWebhookResponse) GetJSON200() *Webhook {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListWebhookDeliveriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WebhookDeliveryList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListWebhookDeliveriesResponse) GetJSON200() *WebhookDeliveryList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListWebhookDeliveriesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListWebhookDeliveriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWebhookDeliveriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWebhookDeliveriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListWebhookDeliveriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReplayWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReplayResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReplayWebhookResponse) GetJSON200() *ReplayResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ReplayWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ReplayWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplayWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplayWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReplayWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RotateWebhookSecretResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WebhookSecret
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RotateWebhookSecretResponse) GetJSON200() *WebhookSecret {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RotateWebhookSecretResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RotateWebhookSecretResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateWebhookSecretResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateWebhookSecretResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RotateWebhookSecretResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type TestWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WebhookTestResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r TestWebhookResponse) GetJSON200() *WebhookTestResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r TestWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r TestWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r TestWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r TestWebhookResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -29931,6 +32956,53 @@ func (c *ClientWithResponses) AdminSetOrgClusterWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseAdminSetOrgClusterResponse(rsp)
+}
+
+// AdminGetOrgOutboundWithResponse An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/orgs/{org}/outbound (the `AdminGetOrgOutbound` operationId).
+func (c *ClientWithResponses) AdminGetOrgOutboundWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*AdminGetOrgOutboundResponse, error) {
+	rsp, err := c.AdminGetOrgOutbound(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminGetOrgOutboundResponse(rsp)
+}
+
+// AdminSetOrgOutboundAllowlistWithBodyWithResponse Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+//
+// Hosts (names or IP addresses) on the list may be private or
+// loopback addresses and may use plain http://. Link-local and cloud
+// metadata addresses can never be allowed. Tenants can't change it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+func (c *ClientWithResponses) AdminSetOrgOutboundAllowlistWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminSetOrgOutboundAllowlistResponse, error) {
+	rsp, err := c.AdminSetOrgOutboundAllowlistWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminSetOrgOutboundAllowlistResponse(rsp)
+}
+
+// AdminSetOrgOutboundAllowlistWithResponse Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+//
+// Hosts (names or IP addresses) on the list may be private or
+// loopback addresses and may use plain http://. Link-local and cloud
+// metadata addresses can never be allowed. Tenants can't change it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/outbound (the `AdminSetOrgOutboundAllowlist` operationId).
+func (c *ClientWithResponses) AdminSetOrgOutboundAllowlistWithResponse(ctx context.Context, org OrgID, body AdminSetOrgOutboundAllowlistJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminSetOrgOutboundAllowlistResponse, error) {
+	rsp, err := c.AdminSetOrgOutboundAllowlist(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminSetOrgOutboundAllowlistResponse(rsp)
 }
 
 // AdminReinstateOrgWithResponse Reinstate a suspended organisation (platform admin)
@@ -32238,6 +35310,139 @@ func (c *ClientWithResponses) ProjectInstanceActionWithResponse(ctx context.Cont
 	return ParseProjectInstanceActionResponse(rsp)
 }
 
+// ListJobsWithResponse A project's scheduled jobs
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/jobs (the `ListJobs` operationId).
+func (c *ClientWithResponses) ListJobsWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListJobsResponse, error) {
+	rsp, err := c.ListJobs(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListJobsResponse(rsp)
+}
+
+// CreateJobWithBodyWithResponse Run SQL or call a URL on a schedule
+//
+// SQL runs as the project owner in a transaction, with the job's
+// timeout as statement_timeout; HTTP calls go through the same
+// outbound rules as webhooks and are signed. The plan limits the
+// number of jobs and the shortest interval (409 quota_exceeded).
+// An HTTP job's signing secret is returned once.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+func (c *ClientWithResponses) CreateJobWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJobResponse, error) {
+	rsp, err := c.CreateJobWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateJobResponse(rsp)
+}
+
+// CreateJobWithResponse Run SQL or call a URL on a schedule
+//
+// SQL runs as the project owner in a transaction, with the job's
+// timeout as statement_timeout; HTTP calls go through the same
+// outbound rules as webhooks and are signed. The plan limits the
+// number of jobs and the shortest interval (409 quota_exceeded).
+// An HTTP job's signing secret is returned once.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/jobs (the `CreateJob` operationId).
+func (c *ClientWithResponses) CreateJobWithResponse(ctx context.Context, id ProjectID, body CreateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJobResponse, error) {
+	rsp, err := c.CreateJob(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateJobResponse(rsp)
+}
+
+// DeleteJobWithResponse Delete a job and its history
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/jobs/{job_id} (the `DeleteJob` operationId).
+func (c *ClientWithResponses) DeleteJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*DeleteJobResponse, error) {
+	rsp, err := c.DeleteJob(ctx, id, jobId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteJobResponse(rsp)
+}
+
+// GetJobWithResponse A scheduled job
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id} (the `GetJob` operationId).
+func (c *ClientWithResponses) GetJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*GetJobResponse, error) {
+	rsp, err := c.GetJob(ctx, id, jobId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetJobResponse(rsp)
+}
+
+// UpdateJobWithBodyWithResponse Change, pause or resume a job
+//
+// Fields left out keep their values.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+func (c *ClientWithResponses) UpdateJobWithBodyWithResponse(ctx context.Context, id ProjectID, jobId JobID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateJobResponse, error) {
+	rsp, err := c.UpdateJobWithBody(ctx, id, jobId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateJobResponse(rsp)
+}
+
+// UpdateJobWithResponse Change, pause or resume a job
+//
+// Fields left out keep their values.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/jobs/{job_id} (the `UpdateJob` operationId).
+func (c *ClientWithResponses) UpdateJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, body UpdateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateJobResponse, error) {
+	rsp, err := c.UpdateJob(ctx, id, jobId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateJobResponse(rsp)
+}
+
+// RunJobWithResponse Run a job now
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/jobs/{job_id}/run (the `RunJob` operationId).
+func (c *ClientWithResponses) RunJobWithResponse(ctx context.Context, id ProjectID, jobId JobID, reqEditors ...RequestEditorFn) (*RunJobResponse, error) {
+	rsp, err := c.RunJob(ctx, id, jobId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRunJobResponse(rsp)
+}
+
+// ListJobRunsWithResponse A job's history (30 days, at most 1,000 runs)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/jobs/{job_id}/runs (the `ListJobRuns` operationId).
+func (c *ClientWithResponses) ListJobRunsWithResponse(ctx context.Context, id ProjectID, jobId JobID, params *ListJobRunsParams, reqEditors ...RequestEditorFn) (*ListJobRunsResponse, error) {
+	rsp, err := c.ListJobRuns(ctx, id, jobId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListJobRunsResponse(rsp)
+}
+
 // ListProjectMembersWithResponse Project members (org owners and admins are implicit admins)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -32914,6 +36119,178 @@ func (c *ClientWithResponses) TransferProjectWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseTransferProjectResponse(rsp)
+}
+
+// ListWebhooksWithResponse A project's webhooks, with their health and backlog
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/webhooks (the `ListWebhooks` operationId).
+func (c *ClientWithResponses) ListWebhooksWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListWebhooksResponse, error) {
+	rsp, err := c.ListWebhooks(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWebhooksResponse(rsp)
+}
+
+// CreateWebhookWithBodyWithResponse Send a table's changes to a URL
+//
+// Installs triggers that write each change to an outbox in the
+// project's database, in the same transaction (V2 §9.1): rolled-back
+// changes never produce an event. The URL must be https:// (http://
+// only to a host the platform admin allow-listed) and resolve to a
+// public address. The signing secret is returned once.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+func (c *ClientWithResponses) CreateWebhookWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWebhookResponse, error) {
+	rsp, err := c.CreateWebhookWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWebhookResponse(rsp)
+}
+
+// CreateWebhookWithResponse Send a table's changes to a URL
+//
+// Installs triggers that write each change to an outbox in the
+// project's database, in the same transaction (V2 §9.1): rolled-back
+// changes never produce an event. The URL must be https:// (http://
+// only to a host the platform admin allow-listed) and resolve to a
+// public address. The signing secret is returned once.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks (the `CreateWebhook` operationId).
+func (c *ClientWithResponses) CreateWebhookWithResponse(ctx context.Context, id ProjectID, body CreateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWebhookResponse, error) {
+	rsp, err := c.CreateWebhook(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWebhookResponse(rsp)
+}
+
+// DeleteWebhookWithResponse Delete a webhook, its triggers and its queued events
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/webhooks/{webhook_id} (the `DeleteWebhook` operationId).
+func (c *ClientWithResponses) DeleteWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*DeleteWebhookResponse, error) {
+	rsp, err := c.DeleteWebhook(ctx, id, webhookId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWebhookResponse(rsp)
+}
+
+// GetWebhookWithResponse A webhook
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id} (the `GetWebhook` operationId).
+func (c *ClientWithResponses) GetWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*GetWebhookResponse, error) {
+	rsp, err := c.GetWebhook(ctx, id, webhookId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWebhookResponse(rsp)
+}
+
+// UpdateWebhookWithBodyWithResponse Change, pause or resume a webhook
+//
+// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+func (c *ClientWithResponses) UpdateWebhookWithBodyWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWebhookResponse, error) {
+	rsp, err := c.UpdateWebhookWithBody(ctx, id, webhookId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateWebhookResponse(rsp)
+}
+
+// UpdateWebhookWithResponse Change, pause or resume a webhook
+//
+// Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/webhooks/{webhook_id} (the `UpdateWebhook` operationId).
+func (c *ClientWithResponses) UpdateWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, body UpdateWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWebhookResponse, error) {
+	rsp, err := c.UpdateWebhook(ctx, id, webhookId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateWebhookResponse(rsp)
+}
+
+// ListWebhookDeliveriesWithResponse The delivery log (7 days), or the dead letters
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries (the `ListWebhookDeliveries` operationId).
+func (c *ClientWithResponses) ListWebhookDeliveriesWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, params *ListWebhookDeliveriesParams, reqEditors ...RequestEditorFn) (*ListWebhookDeliveriesResponse, error) {
+	rsp, err := c.ListWebhookDeliveries(ctx, id, webhookId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWebhookDeliveriesResponse(rsp)
+}
+
+// ReplayWebhookWithBodyWithResponse Queue dead letters again
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+func (c *ClientWithResponses) ReplayWebhookWithBodyWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplayWebhookResponse, error) {
+	rsp, err := c.ReplayWebhookWithBody(ctx, id, webhookId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplayWebhookResponse(rsp)
+}
+
+// ReplayWebhookWithResponse Queue dead letters again
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
+func (c *ClientWithResponses) ReplayWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, body ReplayWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplayWebhookResponse, error) {
+	rsp, err := c.ReplayWebhook(ctx, id, webhookId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplayWebhookResponse(rsp)
+}
+
+// RotateWebhookSecretWithResponse Replace the signing secret (returned once)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+func (c *ClientWithResponses) RotateWebhookSecretWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error) {
+	rsp, err := c.RotateWebhookSecret(ctx, id, webhookId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateWebhookSecretResponse(rsp)
+}
+
+// TestWebhookWithResponse Send a test event now
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/test (the `TestWebhook` operationId).
+func (c *ClientWithResponses) TestWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*TestWebhookResponse, error) {
+	rsp, err := c.TestWebhook(ctx, id, webhookId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestWebhookResponse(rsp)
 }
 
 // RunRestoreTestWithResponse Run the restore test now
@@ -33836,6 +37213,72 @@ func ParseAdminSetOrgClusterResponse(rsp *http.Response) (*AdminSetOrgClusterRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AdminOrg
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminGetOrgOutboundResponse parses an HTTP response from a AdminGetOrgOutboundWithResponse call
+func ParseAdminGetOrgOutboundResponse(rsp *http.Response) (*AdminGetOrgOutboundResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminGetOrgOutboundResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrgOutbound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminSetOrgOutboundAllowlistResponse parses an HTTP response from a AdminSetOrgOutboundAllowlistWithResponse call
+func ParseAdminSetOrgOutboundAllowlistResponse(rsp *http.Response) (*AdminSetOrgOutboundAllowlistResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminSetOrgOutboundAllowlistResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrgOutbound
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37463,6 +40906,233 @@ func ParseProjectInstanceActionResponse(rsp *http.Response) (*ProjectInstanceAct
 	return response, nil
 }
 
+// ParseListJobsResponse parses an HTTP response from a ListJobsWithResponse call
+func ParseListJobsResponse(rsp *http.Response) (*ListJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest JobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateJobResponse parses an HTTP response from a CreateJobWithResponse call
+func ParseCreateJobResponse(rsp *http.Response) (*CreateJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest JobCreated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteJobResponse parses an HTTP response from a DeleteJobWithResponse call
+func ParseDeleteJobResponse(rsp *http.Response) (*DeleteJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetJobResponse parses an HTTP response from a GetJobWithResponse call
+func ParseGetJobResponse(rsp *http.Response) (*GetJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateJobResponse parses an HTTP response from a UpdateJobWithResponse call
+func ParseUpdateJobResponse(rsp *http.Response) (*UpdateJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRunJobResponse parses an HTTP response from a RunJobWithResponse call
+func ParseRunJobResponse(rsp *http.Response) (*RunJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RunJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest JobRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListJobRunsResponse parses an HTTP response from a ListJobRunsWithResponse call
+func ParseListJobRunsResponse(rsp *http.Response) (*ListJobRunsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListJobRunsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest JobRunList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListProjectMembersResponse parses an HTTP response from a ListProjectMembersWithResponse call
 func ParseListProjectMembersResponse(rsp *http.Response) (*ListProjectMembersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -38386,6 +42056,299 @@ func ParseTransferProjectResponse(rsp *http.Response) (*TransferProjectResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Project
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWebhooksResponse parses an HTTP response from a ListWebhooksWithResponse call
+func ParseListWebhooksResponse(rsp *http.Response) (*ListWebhooksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWebhooksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WebhookList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateWebhookResponse parses an HTTP response from a CreateWebhookWithResponse call
+func ParseCreateWebhookResponse(rsp *http.Response) (*CreateWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest WebhookCreated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteWebhookResponse parses an HTTP response from a DeleteWebhookWithResponse call
+func ParseDeleteWebhookResponse(rsp *http.Response) (*DeleteWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWebhookResponse parses an HTTP response from a GetWebhookWithResponse call
+func ParseGetWebhookResponse(rsp *http.Response) (*GetWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Webhook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateWebhookResponse parses an HTTP response from a UpdateWebhookWithResponse call
+func ParseUpdateWebhookResponse(rsp *http.Response) (*UpdateWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Webhook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWebhookDeliveriesResponse parses an HTTP response from a ListWebhookDeliveriesWithResponse call
+func ParseListWebhookDeliveriesResponse(rsp *http.Response) (*ListWebhookDeliveriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWebhookDeliveriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WebhookDeliveryList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReplayWebhookResponse parses an HTTP response from a ReplayWebhookWithResponse call
+func ParseReplayWebhookResponse(rsp *http.Response) (*ReplayWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplayWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReplayResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateWebhookSecretResponse parses an HTTP response from a RotateWebhookSecretWithResponse call
+func ParseRotateWebhookSecretResponse(rsp *http.Response) (*RotateWebhookSecretResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateWebhookSecretResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WebhookSecret
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestWebhookResponse parses an HTTP response from a TestWebhookWithResponse call
+func ParseTestWebhookResponse(rsp *http.Response) (*TestWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WebhookTestResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

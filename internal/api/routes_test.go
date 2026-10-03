@@ -104,6 +104,7 @@ var expected = map[authz.Action][]string{
 	authz.RestoreInPlace:     {rOwner, rAdmin, rProjAdmin},
 	authz.BackupStorage:      {rOwner, rAdmin, rProjAdmin},
 	authz.BranchManage:       {rOwner, rAdmin, rProjAdmin, rDev},
+	authz.AutomationManage:   {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.ProjectSettings:    {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectMembers:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
@@ -277,6 +278,7 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 		"{id}", id, "{org}", w.orgA.String(), "{user}", w.users[rMember].String(),
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
 		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(), "{target_id}", uuid.NewString(),
+		"{webhook_id}", uuid.NewString(), "{job_id}", uuid.NewString(),
 		"{user_code}", "BCDF-GHJK",
 	).Replace(pattern)
 	for _, m := range []string{"GET", "POST"} {
@@ -433,6 +435,16 @@ var specMatrix = map[authz.Action][]string{
 	// "Create / reset / delete branches" (deleting a branch is DELETE
 	// /projects/{id} with the branch action; detaching keeps one)
 	authz.BranchManage: {"POST /api/v1/projects/{id}/branches", "POST /api/v1/projects/{id}/reset", "POST /api/v1/projects/{id}/detach"},
+	// "Manage webhooks and scheduled jobs"
+	authz.AutomationManage: {
+		"GET /api/v1/projects/{id}/webhooks", "POST /api/v1/projects/{id}/webhooks", "GET /api/v1/projects/{id}/webhooks/{webhook_id}",
+		"PATCH /api/v1/projects/{id}/webhooks/{webhook_id}", "DELETE /api/v1/projects/{id}/webhooks/{webhook_id}",
+		"POST /api/v1/projects/{id}/webhooks/{webhook_id}/test", "POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret",
+		"GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries", "POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay",
+		"GET /api/v1/projects/{id}/jobs", "POST /api/v1/projects/{id}/jobs", "GET /api/v1/projects/{id}/jobs/{job_id}",
+		"PATCH /api/v1/projects/{id}/jobs/{job_id}", "DELETE /api/v1/projects/{id}/jobs/{job_id}",
+		"POST /api/v1/projects/{id}/jobs/{job_id}/run", "GET /api/v1/projects/{id}/jobs/{job_id}/runs",
+	},
 	// "Choose project's storage target, download backup key" (V2 §6)
 	authz.BackupStorage: {
 		"PUT /api/v1/projects/{id}/storage-target", "POST /api/v1/projects/{id}/backup-key",
@@ -514,6 +526,7 @@ var specMatrix = map[authz.Action][]string{
 		// §2.4 "assign quota plans and dedicated allowances; approve dedicated requests", "suspend and reinstate", break-glass
 		"GET /api/v1/admin/orgs", "GET /api/v1/admin/orgs/{org}", "PATCH /api/v1/admin/orgs/{org}",
 		"POST /api/v1/admin/orgs/{org}/suspend", "POST /api/v1/admin/orgs/{org}/reinstate", "POST /api/v1/admin/orgs/{org}/cluster",
+		"GET /api/v1/admin/orgs/{org}/outbound", "PUT /api/v1/admin/orgs/{org}/outbound",
 		"POST /api/v1/admin/orgs/{org}/break-glass", "GET /api/v1/admin/plans", "POST /api/v1/admin/plans",
 		"PATCH /api/v1/admin/plans/{plan_id}", "GET /api/v1/admin/dedicated-requests",
 		"POST /api/v1/admin/dedicated-requests/{request_id}/approve", "POST /api/v1/admin/dedicated-requests/{request_id}/reject",

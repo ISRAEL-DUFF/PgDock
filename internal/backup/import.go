@@ -368,6 +368,9 @@ func (s *Service) runImport(ctx context.Context, op store.Operation, log *jobs.S
 	if err := s.verifyImport(ctx, sourceURL, p, params.Schemas, log); err != nil {
 		return err
 	}
+	if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
+		return err
+	}
 	if err := s.projects.Publish(ctx, p, password, log); err != nil {
 		return err
 	}

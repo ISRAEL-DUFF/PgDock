@@ -42,15 +42,18 @@ import (
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
+	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/rotate"
+	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tlscert"
 	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/pgdock/internal/webhooks"
 	"github.com/israel-duff/pgdock/web"
 )
 
@@ -217,6 +220,20 @@ func run() error {
 		go func() { defer bg.Done(); branchSvc.Run(bgCtx, 10*time.Minute) }()
 	}
 
+	// Database webhooks, scheduled jobs and their outbound requests (V2 §9).
+	var webhookSvc *webhooks.Service
+	var jobSvc *schedjobs.Service
+	var outboundSvc *outbound.Service
+	if projects != nil && tenancySvc != nil {
+		outboundSvc = outbound.New(pool, outbound.Config{Blocked: cfg.Insight.OutboundBlock}, log)
+		webhookSvc = webhooks.New(pool, keyring, projects, outboundSvc, tenancySvc, mailSvc, webhooks.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		jobSvc = schedjobs.New(pool, keyring, projects, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		projects.RefreshWebhooks = webhookSvc.Reinstall
+		bg.Add(2)
+		go func() { defer bg.Done(); webhookSvc.Run(bgCtx) }()
+		go func() { defer bg.Done(); jobSvc.Run(bgCtx) }()
+	}
+
 	var consoleSvc *console.Service
 	var isoChecks *isocheck.Service
 	var alertSvc *alerts.Service
@@ -294,6 +311,9 @@ func run() error {
 		Mail:            mailSvc,
 		Tenancy:         tenancySvc,
 		Branches:        branchSvc,
+		Webhooks:        webhookSvc,
+		Jobs:            jobSvc,
+		Outbound:        outboundSvc,
 		Tokens:          tokenSvc,
 		PublicURL:       cfg.Insight.PublicURL,
 		MetricsInterval: cfg.Insight.MetricsInterval,

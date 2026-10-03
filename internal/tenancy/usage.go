@@ -24,6 +24,10 @@ const (
 	MetricPoolerTraffic = "pooler_transfer_gb"
 	MetricBranchHours   = "branch_hours"
 	MetricBranchStorage = "branch_gb_hours"
+	MetricWebhookTries  = "webhook_delivery_attempts"
+	MetricWebhookSent   = "webhook_deliveries"
+	MetricJobRunsSQL    = "job_runs_sql"
+	MetricJobRunsHTTP   = "job_runs_http"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -36,6 +40,10 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricPoolerTraffic, "GB", "hour"},
 	{MetricBranchHours, "branch-hours", "hour"},
 	{MetricBranchStorage, "GB-hours", "hour"},
+	{MetricWebhookTries, "attempts", "hour"},
+	{MetricWebhookSent, "deliveries", "hour"},
+	{MetricJobRunsSQL, "runs", "hour"},
+	{MetricJobRunsHTTP, "runs", "hour"},
 }
 
 const (
@@ -142,6 +150,31 @@ func (s *Service) recordHours(ctx context.Context, from, to time.Time) error {
 	}
 	for _, r := range branches {
 		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, MetricBranchHours, "hour", r.PeriodStart, max(0, min(1, r.Fraction))); err != nil {
+			return err
+		}
+	}
+	hooks, err := q.HourlyWebhookDeliveries(ctx, store.HourlyWebhookDeliveriesParams{FromTs: from, ToTs: to})
+	if err != nil {
+		return fmt.Errorf("webhook deliveries: %w", err)
+	}
+	for _, r := range hooks {
+		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, MetricWebhookTries, "hour", r.PeriodStart, float64(r.Attempts)); err != nil {
+			return err
+		}
+		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, MetricWebhookSent, "hour", r.PeriodStart, float64(r.Successes)); err != nil {
+			return err
+		}
+	}
+	runs, err := q.HourlyJobRuns(ctx, store.HourlyJobRunsParams{FromTs: from, ToTs: to})
+	if err != nil {
+		return fmt.Errorf("job runs: %w", err)
+	}
+	for _, r := range runs {
+		metric := MetricJobRunsSQL
+		if r.Kind == "http" {
+			metric = MetricJobRunsHTTP
+		}
+		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, metric, "hour", r.PeriodStart, float64(r.Runs)); err != nil {
 			return err
 		}
 	}

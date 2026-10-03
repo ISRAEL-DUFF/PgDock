@@ -2601,6 +2601,225 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's webhooks, with their health and backlog */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Send a table's changes to a URL
+         * @description Installs triggers that write each change to an outbox in the
+         *     project's database, in the same transaction (V2 §9.1): rolled-back
+         *     changes never produce an event. The URL must be https:// (http://
+         *     only to a host the platform admin allow-listed) and resolve to a
+         *     public address. The signing secret is returned once.
+         */
+        post: operations["createWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A webhook */
+        get: operations["getWebhook"];
+        put?: never;
+        post?: never;
+        /** Delete a webhook, its triggers and its queued events */
+        delete: operations["deleteWebhook"];
+        options?: never;
+        head?: never;
+        /**
+         * Change, pause or resume a webhook
+         * @description Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+         */
+        patch: operations["updateWebhook"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a test event now */
+        post: operations["testWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace the signing secret (returned once) */
+        post: operations["rotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The delivery log (7 days), or the dead letters */
+        get: operations["listWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue dead letters again */
+        post: operations["replayWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's scheduled jobs */
+        get: operations["listJobs"];
+        put?: never;
+        /**
+         * Run SQL or call a URL on a schedule
+         * @description SQL runs as the project owner in a transaction, with the job's
+         *     timeout as statement_timeout; HTTP calls go through the same
+         *     outbound rules as webhooks and are signed. The plan limits the
+         *     number of jobs and the shortest interval (409 quota_exceeded).
+         *     An HTTP job's signing secret is returned once.
+         */
+        post: operations["createJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A scheduled job */
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        /** Delete a job and its history */
+        delete: operations["deleteJob"];
+        options?: never;
+        head?: never;
+        /**
+         * Change, pause or resume a job
+         * @description Fields left out keep their values.
+         */
+        patch: operations["updateJob"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs/{job_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a job now */
+        post: operations["runJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs/{job_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A job's history (30 days, at most 1,000 runs) */
+        get: operations["listJobRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/outbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An organisation's outbound allow-list and request counts by host, 30 days (platform admin) */
+        get: operations["adminGetOrgOutbound"];
+        /**
+         * Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+         * @description Hosts (names or IP addresses) on the list may be private or
+         *     loopback addresses and may use plain http://. Link-local and cloud
+         *     metadata addresses can never be allowed. Tenants can't change it.
+         */
+        put: operations["adminSetOrgOutboundAllowlist"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/orgs/{org}/cluster": {
         parameters: {
             query?: never;
@@ -3589,6 +3808,217 @@ export interface components {
             resets: string[];
             /** @description How long the stopped dedicated instance is kept before it is destroyed. */
             retain_hours: number;
+        };
+        WebhookRequest: {
+            name: string;
+            /** @description Tables as schema.table (or table, in public). */
+            tables: string[];
+            events: ("INSERT" | "UPDATE" | "DELETE")[];
+            /** @description For UPDATE, fire only when one of these columns changed. */
+            columns?: string[];
+            url: string;
+            /** @description Static headers sent with each request (stored encrypted, never returned). */
+            headers?: {
+                [key: string]: string;
+            };
+            /** @default true */
+            enabled: boolean;
+        };
+        WebhookUpdate: {
+            name?: string;
+            tables?: string[];
+            events?: ("INSERT" | "UPDATE" | "DELETE")[];
+            columns?: string[] | null;
+            url?: string;
+            /** @description Replaces the stored headers; {} removes them. */
+            headers?: {
+                [key: string]: string;
+            };
+            enabled?: boolean;
+        };
+        Webhook: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            tables: string[];
+            events: string[];
+            columns?: string[];
+            url: string;
+            header_names: string[];
+            enabled: boolean;
+            /** @enum {string} */
+            status: "healthy" | "failing" | "paused" | "broken";
+            status_reason?: string | null;
+            consecutive_failures: number;
+            /**
+             * Format: int64
+             * @description Events waiting in the outbox.
+             */
+            backlog: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        WebhookList: {
+            items: components["schemas"]["Webhook"][];
+        };
+        WebhookCreated: {
+            webhook: components["schemas"]["Webhook"];
+            /** @description The signing secret, shown once. */
+            secret: string;
+        };
+        WebhookSecret: {
+            secret: string;
+        };
+        WebhookTestResult: {
+            event_id: string;
+            ok: boolean;
+            status_code?: number;
+            latency_ms?: number;
+            response?: string;
+            error?: string;
+        };
+        WebhookDelivery: {
+            /** Format: int64 */
+            id: number;
+            event_id: string;
+            attempt: number;
+            status_code?: number | null;
+            latency_ms?: number | null;
+            /** @description The response body, truncated to 4 KB. */
+            response?: string | null;
+            error?: string | null;
+            succeeded: boolean;
+            dead_lettered: boolean;
+            /** Format: date-time */
+            replayed_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        WebhookDeliveryList: {
+            items: components["schemas"]["WebhookDelivery"][];
+        };
+        ReplayRequest: {
+            ids?: number[];
+            all?: boolean;
+        };
+        ReplayResult: {
+            queued: number;
+        };
+        HttpJobSpec: {
+            /**
+             * @default POST
+             * @enum {string}
+             */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            url: string;
+            headers?: {
+                [key: string]: string;
+            };
+            body?: string;
+        };
+        JobRequest: {
+            name: string;
+            /** @description A 5-field cron expression (or @hourly, @daily, ...). */
+            cron: string;
+            /** @description An IANA time zone (default UTC). */
+            timezone?: string;
+            /** @enum {string} */
+            kind: "sql" | "http";
+            sql?: string;
+            http?: components["schemas"]["HttpJobSpec"];
+            timeout_seconds?: number;
+            /**
+             * @default skip
+             * @enum {string}
+             */
+            overlap: "skip" | "queue";
+            /** @default true */
+            enabled: boolean;
+        };
+        JobUpdate: {
+            name?: string;
+            cron?: string;
+            timezone?: string;
+            sql?: string;
+            http?: components["schemas"]["HttpJobSpec"];
+            timeout_seconds?: number;
+            /** @enum {string} */
+            overlap?: "skip" | "queue";
+            enabled?: boolean;
+        };
+        Job: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            cron: string;
+            timezone: string;
+            /** @enum {string} */
+            kind: "sql" | "http";
+            sql?: string;
+            http?: components["schemas"]["HttpJobSpec"];
+            timeout_seconds: number;
+            /** @enum {string} */
+            overlap: "skip" | "queue";
+            enabled: boolean;
+            /** Format: date-time */
+            next_run_at?: string | null;
+            /** @description The next five run times. */
+            upcoming: string[];
+            consecutive_failures: number;
+            last_run?: components["schemas"]["JobRun"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        JobList: {
+            items: components["schemas"]["Job"][];
+        };
+        JobCreated: {
+            job: components["schemas"]["Job"];
+            /** @description An HTTP job's signing secret, shown once. */
+            secret?: string;
+        };
+        JobRun: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            scheduled_for: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed" | "timed_out" | "skipped";
+            /** Format: int64 */
+            rows_affected?: number | null;
+            status_code?: number | null;
+            error?: string | null;
+            /** @enum {string} */
+            trigger: "schedule" | "manual";
+        };
+        JobRunList: {
+            items: components["schemas"]["JobRun"][];
+        };
+        OutboundAllowlist: {
+            hosts: string[];
+        };
+        OrgOutbound: {
+            allowlist: string[];
+            outbound_disabled: boolean;
+            /** @description Requests by destination host over the last 30 days. */
+            hosts: components["schemas"]["OutboundHost"][];
+        };
+        OutboundHost: {
+            host: string;
+            /** Format: int64 */
+            requests: number;
+            /** Format: int64 */
+            failures: number;
+            /** Format: date */
+            last_day: string;
         };
         PromoteRequest: {
             /** Format: uuid */
@@ -4740,6 +5170,8 @@ export interface components {
     parameters: {
         SchemaName: string;
         TableName: string;
+        WebhookID: string;
+        JobID: string;
         TargetID: string;
         /** @description Delete even though the target holds unexpired backups, which become unrestorable. */
         AcceptUnrestorable: boolean;
@@ -8951,6 +9383,458 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The webhooks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The webhook. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookUpdate"];
+            };
+        };
+        responses: {
+            /** @description The webhook. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the receiver answered. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookTestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new secret. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecret"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listWebhookDeliveries: {
+        parameters: {
+            query?: {
+                /** @description Only dead letters not yet replayed. */
+                dead?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replayWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description How many were queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobUpdate"];
+            };
+        };
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    runJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run (running, queued behind the current one, or skipped with the reason). */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRun"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listJobRuns: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRunList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetOrgOutbound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The allow-list and counters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgOutbound"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSetOrgOutboundAllowlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutboundAllowlist"];
+            };
+        };
+        responses: {
+            /** @description The allow-list and counters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgOutbound"];
+                };
             };
             default: components["responses"]["Error"];
         };

@@ -524,6 +524,33 @@ func (e ExtensionTier) Valid() bool {
 	}
 }
 
+// Defines values for HttpJobSpecMethod.
+const (
+	HttpJobSpecMethodDELETE HttpJobSpecMethod = "DELETE"
+	HttpJobSpecMethodGET    HttpJobSpecMethod = "GET"
+	HttpJobSpecMethodPATCH  HttpJobSpecMethod = "PATCH"
+	HttpJobSpecMethodPOST   HttpJobSpecMethod = "POST"
+	HttpJobSpecMethodPUT    HttpJobSpecMethod = "PUT"
+)
+
+// Valid indicates whether the value is a known member of the HttpJobSpecMethod enum.
+func (e HttpJobSpecMethod) Valid() bool {
+	switch e {
+	case HttpJobSpecMethodDELETE:
+		return true
+	case HttpJobSpecMethodGET:
+		return true
+	case HttpJobSpecMethodPATCH:
+		return true
+	case HttpJobSpecMethodPOST:
+		return true
+	case HttpJobSpecMethodPUT:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ImportPreflightRoleReferencesKind.
 const (
 	Grant  ImportPreflightRoleReferencesKind = "grant"
@@ -611,6 +638,144 @@ func (e InvitationPreviewKind) Valid() bool {
 	case InvitationPreviewKindOrg:
 		return true
 	case InvitationPreviewKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobKind.
+const (
+	JobKindHttp JobKind = "http"
+	JobKindSql  JobKind = "sql"
+)
+
+// Valid indicates whether the value is a known member of the JobKind enum.
+func (e JobKind) Valid() bool {
+	switch e {
+	case JobKindHttp:
+		return true
+	case JobKindSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobOverlap.
+const (
+	JobOverlapQueue JobOverlap = "queue"
+	JobOverlapSkip  JobOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobOverlap enum.
+func (e JobOverlap) Valid() bool {
+	switch e {
+	case JobOverlapQueue:
+		return true
+	case JobOverlapSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRequestKind.
+const (
+	JobRequestKindHttp JobRequestKind = "http"
+	JobRequestKindSql  JobRequestKind = "sql"
+)
+
+// Valid indicates whether the value is a known member of the JobRequestKind enum.
+func (e JobRequestKind) Valid() bool {
+	switch e {
+	case JobRequestKindHttp:
+		return true
+	case JobRequestKindSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRequestOverlap.
+const (
+	JobRequestOverlapQueue JobRequestOverlap = "queue"
+	JobRequestOverlapSkip  JobRequestOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobRequestOverlap enum.
+func (e JobRequestOverlap) Valid() bool {
+	switch e {
+	case JobRequestOverlapQueue:
+		return true
+	case JobRequestOverlapSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRunStatus.
+const (
+	JobRunStatusFailed    JobRunStatus = "failed"
+	JobRunStatusQueued    JobRunStatus = "queued"
+	JobRunStatusRunning   JobRunStatus = "running"
+	JobRunStatusSkipped   JobRunStatus = "skipped"
+	JobRunStatusSucceeded JobRunStatus = "succeeded"
+	JobRunStatusTimedOut  JobRunStatus = "timed_out"
+)
+
+// Valid indicates whether the value is a known member of the JobRunStatus enum.
+func (e JobRunStatus) Valid() bool {
+	switch e {
+	case JobRunStatusFailed:
+		return true
+	case JobRunStatusQueued:
+		return true
+	case JobRunStatusRunning:
+		return true
+	case JobRunStatusSkipped:
+		return true
+	case JobRunStatusSucceeded:
+		return true
+	case JobRunStatusTimedOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRunTrigger.
+const (
+	Manual   JobRunTrigger = "manual"
+	Schedule JobRunTrigger = "schedule"
+)
+
+// Valid indicates whether the value is a known member of the JobRunTrigger enum.
+func (e JobRunTrigger) Valid() bool {
+	switch e {
+	case Manual:
+		return true
+	case Schedule:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobUpdateOverlap.
+const (
+	JobUpdateOverlapQueue JobUpdateOverlap = "queue"
+	JobUpdateOverlapSkip  JobUpdateOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobUpdateOverlap enum.
+func (e JobUpdateOverlap) Valid() bool {
+	switch e {
+	case JobUpdateOverlapQueue:
+		return true
+	case JobUpdateOverlapSkip:
 		return true
 	default:
 		return false
@@ -1436,6 +1601,72 @@ func (e UserPlatformRole) Valid() bool {
 	case UserPlatformRolePlatformAdmin:
 		return true
 	case UserPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookStatus.
+const (
+	Broken  WebhookStatus = "broken"
+	Failing WebhookStatus = "failing"
+	Healthy WebhookStatus = "healthy"
+	Paused  WebhookStatus = "paused"
+)
+
+// Valid indicates whether the value is a known member of the WebhookStatus enum.
+func (e WebhookStatus) Valid() bool {
+	switch e {
+	case Broken:
+		return true
+	case Failing:
+		return true
+	case Healthy:
+		return true
+	case Paused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookRequestEvents.
+const (
+	WebhookRequestEventsDELETE WebhookRequestEvents = "DELETE"
+	WebhookRequestEventsINSERT WebhookRequestEvents = "INSERT"
+	WebhookRequestEventsUPDATE WebhookRequestEvents = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the WebhookRequestEvents enum.
+func (e WebhookRequestEvents) Valid() bool {
+	switch e {
+	case WebhookRequestEventsDELETE:
+		return true
+	case WebhookRequestEventsINSERT:
+		return true
+	case WebhookRequestEventsUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookUpdateEvents.
+const (
+	WebhookUpdateEventsDELETE WebhookUpdateEvents = "DELETE"
+	WebhookUpdateEventsINSERT WebhookUpdateEvents = "INSERT"
+	WebhookUpdateEventsUPDATE WebhookUpdateEvents = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the WebhookUpdateEvents enum.
+func (e WebhookUpdateEvents) Valid() bool {
+	switch e {
+	case WebhookUpdateEventsDELETE:
+		return true
+	case WebhookUpdateEventsINSERT:
+		return true
+	case WebhookUpdateEventsUPDATE:
 		return true
 	default:
 		return false
@@ -2487,6 +2718,17 @@ type Health struct {
 	Status string `json:"status"`
 }
 
+// HttpJobSpec defines model for HttpJobSpec.
+type HttpJobSpec struct {
+	Body    *string            `json:"body,omitempty"`
+	Headers *map[string]string `json:"headers,omitempty"`
+	Method  *HttpJobSpecMethod `json:"method,omitempty"`
+	Url     string             `json:"url"`
+}
+
+// HttpJobSpecMethod defines model for HttpJobSpec.Method.
+type HttpJobSpecMethod string
+
 // ImportPreflight defines model for ImportPreflight.
 type ImportPreflight struct {
 	DefaultSchemas []string `json:"default_schemas"`
@@ -2653,6 +2895,108 @@ type IsolationCheckRun struct {
 	OperationId openapi_types.UUID `json:"operation_id"`
 	Status      string             `json:"status"`
 }
+
+// Job defines model for Job.
+type Job struct {
+	ConsecutiveFailures int                `json:"consecutive_failures"`
+	CreatedAt           time.Time          `json:"created_at"`
+	Cron                string             `json:"cron"`
+	Enabled             bool               `json:"enabled"`
+	Http                *HttpJobSpec       `json:"http,omitempty"`
+	Id                  openapi_types.UUID `json:"id"`
+	Kind                JobKind            `json:"kind"`
+	LastRun             *JobRun            `json:"last_run,omitempty"`
+	Name                string             `json:"name"`
+	NextRunAt           *time.Time         `json:"next_run_at,omitempty"`
+	Overlap             JobOverlap         `json:"overlap"`
+	ProjectId           openapi_types.UUID `json:"project_id"`
+	Sql                 *string            `json:"sql,omitempty"`
+	TimeoutSeconds      int                `json:"timeout_seconds"`
+	Timezone            string             `json:"timezone"`
+
+	// Upcoming The next five run times.
+	Upcoming []time.Time `json:"upcoming"`
+}
+
+// JobKind defines model for Job.Kind.
+type JobKind string
+
+// JobOverlap defines model for Job.Overlap.
+type JobOverlap string
+
+// JobCreated defines model for JobCreated.
+type JobCreated struct {
+	Job Job `json:"job"`
+
+	// Secret An HTTP job's signing secret, shown once.
+	Secret *string `json:"secret,omitempty"`
+}
+
+// JobList defines model for JobList.
+type JobList struct {
+	Items []Job `json:"items"`
+}
+
+// JobRequest defines model for JobRequest.
+type JobRequest struct {
+	// Cron A 5-field cron expression (or @hourly, @daily, ...).
+	Cron           string             `json:"cron"`
+	Enabled        *bool              `json:"enabled,omitempty"`
+	Http           *HttpJobSpec       `json:"http,omitempty"`
+	Kind           JobRequestKind     `json:"kind"`
+	Name           string             `json:"name"`
+	Overlap        *JobRequestOverlap `json:"overlap,omitempty"`
+	Sql            *string            `json:"sql,omitempty"`
+	TimeoutSeconds *int               `json:"timeout_seconds,omitempty"`
+
+	// Timezone An IANA time zone (default UTC).
+	Timezone *string `json:"timezone,omitempty"`
+}
+
+// JobRequestKind defines model for JobRequest.Kind.
+type JobRequestKind string
+
+// JobRequestOverlap defines model for JobRequest.Overlap.
+type JobRequestOverlap string
+
+// JobRun defines model for JobRun.
+type JobRun struct {
+	Error        *string       `json:"error,omitempty"`
+	FinishedAt   *time.Time    `json:"finished_at,omitempty"`
+	Id           int64         `json:"id"`
+	RowsAffected *int64        `json:"rows_affected,omitempty"`
+	ScheduledFor time.Time     `json:"scheduled_for"`
+	StartedAt    *time.Time    `json:"started_at,omitempty"`
+	Status       JobRunStatus  `json:"status"`
+	StatusCode   *int          `json:"status_code,omitempty"`
+	Trigger      JobRunTrigger `json:"trigger"`
+}
+
+// JobRunStatus defines model for JobRun.Status.
+type JobRunStatus string
+
+// JobRunTrigger defines model for JobRun.Trigger.
+type JobRunTrigger string
+
+// JobRunList defines model for JobRunList.
+type JobRunList struct {
+	Items []JobRun `json:"items"`
+}
+
+// JobUpdate defines model for JobUpdate.
+type JobUpdate struct {
+	Cron           *string           `json:"cron,omitempty"`
+	Enabled        *bool             `json:"enabled,omitempty"`
+	Http           *HttpJobSpec      `json:"http,omitempty"`
+	Name           *string           `json:"name,omitempty"`
+	Overlap        *JobUpdateOverlap `json:"overlap,omitempty"`
+	Sql            *string           `json:"sql,omitempty"`
+	TimeoutSeconds *int              `json:"timeout_seconds,omitempty"`
+	Timezone       *string           `json:"timezone,omitempty"`
+}
+
+// JobUpdateOverlap defines model for JobUpdate.Overlap.
+type JobUpdateOverlap string
 
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
@@ -2884,6 +3228,15 @@ type OrgMemberList struct {
 	Items []OrgMember `json:"items"`
 }
 
+// OrgOutbound defines model for OrgOutbound.
+type OrgOutbound struct {
+	Allowlist []string `json:"allowlist"`
+
+	// Hosts Requests by destination host over the last 30 days.
+	Hosts            []OutboundHost `json:"hosts"`
+	OutboundDisabled bool           `json:"outbound_disabled"`
+}
+
 // OrgQuotas defines model for OrgQuotas.
 type OrgQuotas struct {
 	DedicatedAllowance DedicatedAllowance `json:"dedicated_allowance"`
@@ -2898,6 +3251,19 @@ type OrgRole string
 // OrgRoleRequest defines model for OrgRoleRequest.
 type OrgRoleRequest struct {
 	Role OrgRole `json:"role"`
+}
+
+// OutboundAllowlist defines model for OutboundAllowlist.
+type OutboundAllowlist struct {
+	Hosts []string `json:"hosts"`
+}
+
+// OutboundHost defines model for OutboundHost.
+type OutboundHost struct {
+	Failures int64              `json:"failures"`
+	Host     string             `json:"host"`
+	LastDay  openapi_types.Date `json:"last_day"`
+	Requests int64              `json:"requests"`
 }
 
 // PasswordResetConfirm defines model for PasswordResetConfirm.
@@ -3277,6 +3643,17 @@ type RegistrationToken struct {
 	Command   string    `json:"command"`
 	ExpiresAt time.Time `json:"expires_at"`
 	Token     string    `json:"token"`
+}
+
+// ReplayRequest defines model for ReplayRequest.
+type ReplayRequest struct {
+	All *bool    `json:"all,omitempty"`
+	Ids *[]int64 `json:"ids,omitempty"`
+}
+
+// ReplayResult defines model for ReplayResult.
+type ReplayResult struct {
+	Queued int `json:"queued"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -4044,6 +4421,112 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// Webhook defines model for Webhook.
+type Webhook struct {
+	// Backlog Events waiting in the outbox.
+	Backlog             int64              `json:"backlog"`
+	Columns             *[]string          `json:"columns,omitempty"`
+	ConsecutiveFailures int                `json:"consecutive_failures"`
+	CreatedAt           time.Time          `json:"created_at"`
+	Enabled             bool               `json:"enabled"`
+	Events              []string           `json:"events"`
+	HeaderNames         []string           `json:"header_names"`
+	Id                  openapi_types.UUID `json:"id"`
+	Name                string             `json:"name"`
+	ProjectId           openapi_types.UUID `json:"project_id"`
+	Status              WebhookStatus      `json:"status"`
+	StatusReason        *string            `json:"status_reason,omitempty"`
+	Tables              []string           `json:"tables"`
+	Url                 string             `json:"url"`
+}
+
+// WebhookStatus defines model for Webhook.Status.
+type WebhookStatus string
+
+// WebhookCreated defines model for WebhookCreated.
+type WebhookCreated struct {
+	// Secret The signing secret, shown once.
+	Secret  string  `json:"secret"`
+	Webhook Webhook `json:"webhook"`
+}
+
+// WebhookDelivery defines model for WebhookDelivery.
+type WebhookDelivery struct {
+	Attempt      int        `json:"attempt"`
+	CreatedAt    time.Time  `json:"created_at"`
+	DeadLettered bool       `json:"dead_lettered"`
+	Error        *string    `json:"error,omitempty"`
+	EventId      string     `json:"event_id"`
+	Id           int64      `json:"id"`
+	LatencyMs    *int       `json:"latency_ms,omitempty"`
+	ReplayedAt   *time.Time `json:"replayed_at,omitempty"`
+
+	// Response The response body, truncated to 4 KB.
+	Response   *string `json:"response,omitempty"`
+	StatusCode *int    `json:"status_code,omitempty"`
+	Succeeded  bool    `json:"succeeded"`
+}
+
+// WebhookDeliveryList defines model for WebhookDeliveryList.
+type WebhookDeliveryList struct {
+	Items []WebhookDelivery `json:"items"`
+}
+
+// WebhookList defines model for WebhookList.
+type WebhookList struct {
+	Items []Webhook `json:"items"`
+}
+
+// WebhookRequest defines model for WebhookRequest.
+type WebhookRequest struct {
+	// Columns For UPDATE, fire only when one of these columns changed.
+	Columns *[]string              `json:"columns,omitempty"`
+	Enabled *bool                  `json:"enabled,omitempty"`
+	Events  []WebhookRequestEvents `json:"events"`
+
+	// Headers Static headers sent with each request (stored encrypted, never returned).
+	Headers *map[string]string `json:"headers,omitempty"`
+	Name    string             `json:"name"`
+
+	// Tables Tables as schema.table (or table, in public).
+	Tables []string `json:"tables"`
+	Url    string   `json:"url"`
+}
+
+// WebhookRequestEvents defines model for WebhookRequest.Events.
+type WebhookRequestEvents string
+
+// WebhookSecret defines model for WebhookSecret.
+type WebhookSecret struct {
+	Secret string `json:"secret"`
+}
+
+// WebhookTestResult defines model for WebhookTestResult.
+type WebhookTestResult struct {
+	Error      *string `json:"error,omitempty"`
+	EventId    string  `json:"event_id"`
+	LatencyMs  *int    `json:"latency_ms,omitempty"`
+	Ok         bool    `json:"ok"`
+	Response   *string `json:"response,omitempty"`
+	StatusCode *int    `json:"status_code,omitempty"`
+}
+
+// WebhookUpdate defines model for WebhookUpdate.
+type WebhookUpdate struct {
+	Columns *[]string              `json:"columns,omitempty"`
+	Enabled *bool                  `json:"enabled,omitempty"`
+	Events  *[]WebhookUpdateEvents `json:"events,omitempty"`
+
+	// Headers Replaces the stored headers; {} removes them.
+	Headers *map[string]string `json:"headers,omitempty"`
+	Name    *string            `json:"name,omitempty"`
+	Tables  *[]string          `json:"tables,omitempty"`
+	Url     *string            `json:"url,omitempty"`
+}
+
+// WebhookUpdateEvents defines model for WebhookUpdate.Events.
+type WebhookUpdateEvents string
+
 // AcceptUnrestorable defines model for AcceptUnrestorable.
 type AcceptUnrestorable = bool
 
@@ -4067,6 +4550,9 @@ type BackupID = openapi_types.UUID
 
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
+
+// JobID defines model for JobID.
+type JobID = openapi_types.UUID
 
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
@@ -4106,6 +4592,9 @@ type TokenID = openapi_types.UUID
 
 // UserID defines model for UserID.
 type UserID = openapi_types.UUID
+
+// WebhookID defines model for WebhookID.
+type WebhookID = openapi_types.UUID
 
 // ListPlatformAuditParams defines parameters for ListPlatformAudit.
 type ListPlatformAuditParams struct {
@@ -4268,6 +4757,11 @@ type ListProjectAuditParams struct {
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
 
+// ListJobRunsParams defines parameters for ListJobRuns.
+type ListJobRunsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // GetProjectMetricsParams defines parameters for GetProjectMetrics.
 type GetProjectMetricsParams struct {
 	Range *GetProjectMetricsParamsRange `form:"range,omitempty" json:"range,omitempty"`
@@ -4306,6 +4800,13 @@ type GetTableRowsParams struct {
 	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListWebhookDeliveriesParams defines parameters for ListWebhookDeliveries.
+type ListWebhookDeliveriesParams struct {
+	// Dead Only dead letters not yet replayed.
+	Dead  *bool `form:"dead,omitempty" json:"dead,omitempty"`
+	Limit *int  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // RunRestoreTestParams defines parameters for RunRestoreTest.
 type RunRestoreTestParams struct {
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
@@ -4334,6 +4835,9 @@ type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 
 // AdminSetOrgClusterJSONRequestBody defines body for AdminSetOrgCluster for application/json ContentType.
 type AdminSetOrgClusterJSONRequestBody = SetOrgClusterRequest
+
+// AdminSetOrgOutboundAllowlistJSONRequestBody defines body for AdminSetOrgOutboundAllowlist for application/json ContentType.
+type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
 
 // AdminSuspendOrgJSONRequestBody defines body for AdminSuspendOrg for application/json ContentType.
 type AdminSuspendOrgJSONRequestBody = ReasonRequest
@@ -4482,6 +4986,12 @@ type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
 
+// CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
+type CreateJobJSONRequestBody = JobRequest
+
+// UpdateJobJSONRequestBody defines body for UpdateJob for application/json ContentType.
+type UpdateJobJSONRequestBody = JobUpdate
+
 // AddProjectMemberJSONRequestBody defines body for AddProjectMember for application/json ContentType.
 type AddProjectMemberJSONRequestBody = ProjectMemberRequest
 
@@ -4529,6 +5039,15 @@ type SaveTableChangesJSONRequestBody = SaveRowsRequest
 
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
+
+// CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
+type CreateWebhookJSONRequestBody = WebhookRequest
+
+// UpdateWebhookJSONRequestBody defines body for UpdateWebhook for application/json ContentType.
+type UpdateWebhookJSONRequestBody = WebhookUpdate
+
+// ReplayWebhookJSONRequestBody defines body for ReplayWebhook for application/json ContentType.
+type ReplayWebhookJSONRequestBody = ReplayRequest
 
 // PutAlertSettingsJSONRequestBody defines body for PutAlertSettings for application/json ContentType.
 type PutAlertSettingsJSONRequestBody = AlertSettingsRequest
@@ -4598,6 +5117,12 @@ type ServerInterface interface {
 	// AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
 	// (POST /api/v1/admin/orgs/{org}/cluster)
 	AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+	// (GET /api/v1/admin/orgs/{org}/outbound)
+	AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSetOrgOutboundAllowlist Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+	// (PUT /api/v1/admin/orgs/{org}/outbound)
+	AdminSetOrgOutboundAllowlist(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminReinstateOrg Reinstate a suspended organisation (platform admin)
 	// (POST /api/v1/admin/orgs/{org}/reinstate)
 	AdminReinstateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -4934,6 +5459,27 @@ type ServerInterface interface {
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListJobs A project's scheduled jobs
+	// (GET /api/v1/projects/{id}/jobs)
+	ListJobs(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateJob Run SQL or call a URL on a schedule
+	// (POST /api/v1/projects/{id}/jobs)
+	CreateJob(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteJob Delete a job and its history
+	// (DELETE /api/v1/projects/{id}/jobs/{job_id})
+	DeleteJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// GetJob A scheduled job
+	// (GET /api/v1/projects/{id}/jobs/{job_id})
+	GetJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// UpdateJob Change, pause or resume a job
+	// (PATCH /api/v1/projects/{id}/jobs/{job_id})
+	UpdateJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// RunJob Run a job now
+	// (POST /api/v1/projects/{id}/jobs/{job_id}/run)
+	RunJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// ListJobRuns A job's history (30 days, at most 1,000 runs)
+	// (GET /api/v1/projects/{id}/jobs/{job_id}/runs)
+	ListJobRuns(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID, params ListJobRunsParams)
 	// ListProjectMembers Project members (org owners and admins are implicit admins)
 	// (GET /api/v1/projects/{id}/members)
 	ListProjectMembers(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5018,6 +5564,33 @@ type ServerInterface interface {
 	// TransferProject Move the project to another organisation (owner of both)
 	// (POST /api/v1/projects/{id}/transfer)
 	TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListWebhooks A project's webhooks, with their health and backlog
+	// (GET /api/v1/projects/{id}/webhooks)
+	ListWebhooks(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateWebhook Send a table's changes to a URL
+	// (POST /api/v1/projects/{id}/webhooks)
+	CreateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteWebhook Delete a webhook, its triggers and its queued events
+	// (DELETE /api/v1/projects/{id}/webhooks/{webhook_id})
+	DeleteWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// GetWebhook A webhook
+	// (GET /api/v1/projects/{id}/webhooks/{webhook_id})
+	GetWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// UpdateWebhook Change, pause or resume a webhook
+	// (PATCH /api/v1/projects/{id}/webhooks/{webhook_id})
+	UpdateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// ListWebhookDeliveries The delivery log (7 days), or the dead letters
+	// (GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries)
+	ListWebhookDeliveries(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID, params ListWebhookDeliveriesParams)
+	// ReplayWebhook Queue dead letters again
+	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay)
+	ReplayWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// RotateWebhookSecret Replace the signing secret (returned once)
+	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret)
+	RotateWebhookSecret(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// TestWebhook Send a test event now
+	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
+	TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
 	// RunRestoreTest Run the restore test now
 	// (POST /api/v1/restore-tests)
 	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
@@ -5177,6 +5750,18 @@ func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Reque
 // AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
 // (POST /api/v1/admin/orgs/{org}/cluster)
 func (_ Unimplemented) AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+// (GET /api/v1/admin/orgs/{org}/outbound)
+func (_ Unimplemented) AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSetOrgOutboundAllowlist Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+// (PUT /api/v1/admin/orgs/{org}/outbound)
+func (_ Unimplemented) AdminSetOrgOutboundAllowlist(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5852,6 +6437,48 @@ func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListJobs A project's scheduled jobs
+// (GET /api/v1/projects/{id}/jobs)
+func (_ Unimplemented) ListJobs(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateJob Run SQL or call a URL on a schedule
+// (POST /api/v1/projects/{id}/jobs)
+func (_ Unimplemented) CreateJob(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteJob Delete a job and its history
+// (DELETE /api/v1/projects/{id}/jobs/{job_id})
+func (_ Unimplemented) DeleteJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetJob A scheduled job
+// (GET /api/v1/projects/{id}/jobs/{job_id})
+func (_ Unimplemented) GetJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateJob Change, pause or resume a job
+// (PATCH /api/v1/projects/{id}/jobs/{job_id})
+func (_ Unimplemented) UpdateJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RunJob Run a job now
+// (POST /api/v1/projects/{id}/jobs/{job_id}/run)
+func (_ Unimplemented) RunJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListJobRuns A job's history (30 days, at most 1,000 runs)
+// (GET /api/v1/projects/{id}/jobs/{job_id}/runs)
+func (_ Unimplemented) ListJobRuns(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID, params ListJobRunsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListProjectMembers Project members (org owners and admins are implicit admins)
 // (GET /api/v1/projects/{id}/members)
 func (_ Unimplemented) ListProjectMembers(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -6017,6 +6644,60 @@ func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id P
 // TransferProject Move the project to another organisation (owner of both)
 // (POST /api/v1/projects/{id}/transfer)
 func (_ Unimplemented) TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListWebhooks A project's webhooks, with their health and backlog
+// (GET /api/v1/projects/{id}/webhooks)
+func (_ Unimplemented) ListWebhooks(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateWebhook Send a table's changes to a URL
+// (POST /api/v1/projects/{id}/webhooks)
+func (_ Unimplemented) CreateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteWebhook Delete a webhook, its triggers and its queued events
+// (DELETE /api/v1/projects/{id}/webhooks/{webhook_id})
+func (_ Unimplemented) DeleteWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetWebhook A webhook
+// (GET /api/v1/projects/{id}/webhooks/{webhook_id})
+func (_ Unimplemented) GetWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateWebhook Change, pause or resume a webhook
+// (PATCH /api/v1/projects/{id}/webhooks/{webhook_id})
+func (_ Unimplemented) UpdateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListWebhookDeliveries The delivery log (7 days), or the dead letters
+// (GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries)
+func (_ Unimplemented) ListWebhookDeliveries(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID, params ListWebhookDeliveriesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReplayWebhook Queue dead letters again
+// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay)
+func (_ Unimplemented) ReplayWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RotateWebhookSecret Replace the signing secret (returned once)
+// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret)
+func (_ Unimplemented) RotateWebhookSecret(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestWebhook Send a test event now
+// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
+func (_ Unimplemented) TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6549,6 +7230,58 @@ func (siw *ServerInterfaceWrapper) AdminSetOrgCluster(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminSetOrgCluster(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetOrgOutbound operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetOrgOutbound(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSetOrgOutboundAllowlist operation middleware
+func (siw *ServerInterfaceWrapper) AdminSetOrgOutboundAllowlist(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSetOrgOutboundAllowlist(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9513,6 +10246,249 @@ func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// ListJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListJobs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobs(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateJob operation middleware
+func (siw *ServerInterfaceWrapper) CreateJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteJob operation middleware
+func (siw *ServerInterfaceWrapper) DeleteJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetJob operation middleware
+func (siw *ServerInterfaceWrapper) GetJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateJob operation middleware
+func (siw *ServerInterfaceWrapper) UpdateJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunJob operation middleware
+func (siw *ServerInterfaceWrapper) RunJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListJobRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListJobRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListJobRunsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobRuns(w, r, id, jobId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProjectMembers operation middleware
 func (siw *ServerInterfaceWrapper) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
 
@@ -10474,6 +11450,332 @@ func (siw *ServerInterfaceWrapper) TransferProject(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TransferProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListWebhooks operation middleware
+func (siw *ServerInterfaceWrapper) ListWebhooks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWebhooks(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateWebhook operation middleware
+func (siw *ServerInterfaceWrapper) CreateWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWebhook(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteWebhook operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWebhook operation middleware
+func (siw *ServerInterfaceWrapper) GetWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateWebhook operation middleware
+func (siw *ServerInterfaceWrapper) UpdateWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListWebhookDeliveries operation middleware
+func (siw *ServerInterfaceWrapper) ListWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWebhookDeliveriesParams
+
+	// ------------- Optional query parameter "dead" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "dead", r.URL.Query(), &params.Dead, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "dead"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dead", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWebhookDeliveries(w, r, id, webhookId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplayWebhook operation middleware
+func (siw *ServerInterfaceWrapper) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplayWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateWebhookSecret operation middleware
+func (siw *ServerInterfaceWrapper) RotateWebhookSecret(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateWebhookSecret(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestWebhook operation middleware
+func (siw *ServerInterfaceWrapper) TestWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestWebhook(w, r, id, webhookId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -11547,6 +12849,60 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/reinstate", wrapper.AdminReinstateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/webhooks", wrapper.ListWebhooks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks", wrapper.CreateWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}", wrapper.DeleteWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}", wrapper.GetWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}", wrapper.UpdateWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/test", wrapper.TestWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret", wrapper.RotateWebhookSecret)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/deliveries", wrapper.ListWebhookDeliveries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/replay", wrapper.ReplayWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/jobs", wrapper.ListJobs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/jobs", wrapper.CreateJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}", wrapper.DeleteJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}", wrapper.GetJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}", wrapper.UpdateJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}/run", wrapper.RunJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}/runs", wrapper.ListJobRuns)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs/{org}/outbound", wrapper.AdminGetOrgOutbound)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/orgs/{org}/outbound", wrapper.AdminSetOrgOutboundAllowlist)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/cluster", wrapper.AdminSetOrgCluster)

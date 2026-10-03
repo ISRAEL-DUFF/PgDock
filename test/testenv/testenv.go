@@ -57,14 +57,17 @@ import (
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
+	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tokens"
+	"github.com/israel-duff/pgdock/internal/webhooks"
 )
 
 // Env is a running control plane.
@@ -104,6 +107,10 @@ type Env struct {
 	// Branches runs branching; tests call Branches.Sweep, whose clock is
 	// the tenancy clock (TenancyAdvance).
 	Branches *branching.Service
+	// Webhooks, Jobs and Outbound run V2 §9 on the automation clock.
+	Webhooks *webhooks.Service
+	Jobs     *schedjobs.Service
+	Outbound *outbound.Service
 	// OrgID is the owner's personal organisation, where CreateProject puts
 	// projects.
 	OrgID uuid.UUID
@@ -114,7 +121,9 @@ type Env struct {
 
 	s3Link        bool
 	tenancyOffset atomic.Int64
-	agentRun      map[string][]string // docker exec arguments per node, for restarts
+	// automationOffset moves the webhooks', jobs' and outbound clock.
+	automationOffset atomic.Int64
+	agentRun         map[string][]string // docker exec arguments per node, for restarts
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
@@ -305,9 +314,20 @@ func Start(t testing.TB, opts Options) *Env {
 		return err
 	}
 	ded.Quotas = tenancySvc
+	// Webhooks and jobs, on a clock tests move (AutomationAdvance), polling
+	// every 200ms.
+	autoNow := func() time.Time { return time.Now().Add(time.Duration(e.automationOffset.Load())) }
+	outboundSvc := outbound.New(db, outbound.Config{Now: autoNow}, log)
+	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
+	jobSvc := schedjobs.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
+	svc.RefreshWebhooks = webhookSvc.Reinstall
+	wg.Add(2)
+	go func() { defer wg.Done(); webhookSvc.Run(ctx) }()
+	go func() { defer wg.Done(); jobSvc.Run(ctx) }()
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
@@ -327,6 +347,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
@@ -365,6 +386,10 @@ func (c *Clock) advance() { c.mu.Lock(); c.t = c.t.Add(30 * time.Second); c.mu.U
 // TenancyAdvance moves the tenancy service's clock on (the reaper's
 // "now", usage periods).
 func (e *Env) TenancyAdvance(d time.Duration) { e.tenancyOffset.Add(int64(d)) }
+
+// AutomationAdvance moves the webhooks', jobs' and outbound clock by d
+// (retries come due, rate buckets refill).
+func (e *Env) AutomationAdvance(d time.Duration) { e.automationOffset.Add(int64(d)) }
 
 // Advance moves the auth clock on, e.g. past the re-auth window.
 func (e *Env) Advance(d time.Duration) {

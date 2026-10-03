@@ -263,7 +263,12 @@ func (s *Service) fill(ctx context.Context, p store.Project, params fillParams, 
 		if err != nil {
 			return jobs.Permanent(fmt.Errorf("copy from the parent: %w", err))
 		}
-		return log.Info(ctx, "copy", "copied in %s", (time.Duration(res.DurationMS) * time.Millisecond).Round(time.Millisecond))
+		if err := log.Info(ctx, "copy", "copied in %s", (time.Duration(res.DurationMS) * time.Millisecond).Round(time.Millisecond)); err != nil {
+			return err
+		}
+		// The parent's webhooks are not copied (V2 §8.1); a branch's own
+		// come back after a reset.
+		return s.projects.ResetWebhooks(ctx, p, log)
 	default:
 		b, err := store.New(s.db).LatestSucceededBackup(ctx, &parent.ID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -275,7 +280,10 @@ func (s *Service) fill(ctx context.Context, p store.Project, params fillParams, 
 		if err := log.Info(ctx, "restore", "restoring %s's backup of %s (%s)", parent.Name, b.StartedAt.UTC().Format(time.RFC3339), what); err != nil {
 			return err
 		}
-		return s.backups.RestoreInto(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, params.SchemaOnly, log)
+		if err := s.backups.RestoreInto(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, params.SchemaOnly, log); err != nil {
+			return err
+		}
+		return s.projects.ResetWebhooks(ctx, p, log)
 	}
 }
 
