@@ -14,9 +14,9 @@ ON CONFLICT DO NOTHING;
 DELETE FROM outbound_allowlist WHERE org_id = @org_id AND host = @host;
 
 -- name: CountOutbound :exec
-INSERT INTO outbound_counters (org_id, host, day, requests, failures) VALUES (@org_id, @host, @day::date, 1, @failures)
+INSERT INTO outbound_counters (org_id, host, day, requests, failures) VALUES (@org_id, @host, @day::date, @requests, @failures)
 ON CONFLICT (org_id, host, day) DO UPDATE
-SET requests = outbound_counters.requests + 1, failures = outbound_counters.failures + EXCLUDED.failures;
+SET requests = outbound_counters.requests + EXCLUDED.requests, failures = outbound_counters.failures + EXCLUDED.failures;
 
 -- name: ListOutboundCounters :many
 -- The organisation's outbound requests per destination host since @since.

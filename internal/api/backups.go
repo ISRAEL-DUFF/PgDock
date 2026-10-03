@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -640,4 +641,80 @@ func (s *Server) toAPINode(n store.Node) gen.Node {
 		}
 	}
 	return gn
+}
+
+// exportsPerOrg caps an organisation's concurrent backup downloads.
+const exportsPerOrg = 2
+
+// DownloadBackup implements GET /api/v1/backups/{id}/download: the backup
+// as a plain pg_dump archive, for the organisation's owners (V2 §10.10).
+func (s *Server) DownloadBackup(w http.ResponseWriter, r *http.Request, id gen.BackupID) {
+	if !s.requireBackups(w) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("backup", id.String())
+	b, err := store.New(s.db).GetBackup(r.Context(), id)
+	if err != nil {
+		s.backupError(w, "download backup", err)
+		return
+	}
+	if b.ProjectID != nil {
+		a.set("project", b.ProjectID.String())
+	}
+	org := accessFrom(r.Context()).OrgID
+	s.exportMu.Lock()
+	if s.exporting == nil {
+		s.exporting = map[uuid.UUID]int{}
+	}
+	busy := s.exporting[org] >= exportsPerOrg
+	if !busy {
+		s.exporting[org]++
+	}
+	s.exportMu.Unlock()
+	if busy {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "rate_limited", fmt.Sprintf("at most %d backup downloads at a time per organisation", exportsPerOrg))
+		return
+	}
+	defer func() {
+		s.exportMu.Lock()
+		s.exporting[org]--
+		s.exportMu.Unlock()
+	}()
+	cw := &startWriter{w: w, start: func() {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="pgdock-%s-%s.dump"`, b.ID, b.StartedAt.UTC().Format("20060102-1504")))
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+	}}
+	if err := s.backups.Export(r.Context(), b, cw); err != nil {
+		if cw.started {
+			// Mid-stream: the archive is cut short, which pg_restore reports.
+			s.log.Warn("backup download interrupted", "backup_id", b.ID, "err", err)
+			a.set("error", err.Error())
+			return
+		}
+		if errors.Is(err, backup.ErrNotExportable) {
+			writeError(w, http.StatusConflict, "not_exportable", err.Error())
+			return
+		}
+		s.backupError(w, "download backup", err)
+	}
+}
+
+// startWriter sends the response's headers on the first write, so an error
+// before any byte is still a proper error response.
+type startWriter struct {
+	w       io.Writer
+	start   func()
+	started bool
+}
+
+func (s *startWriter) Write(p []byte) (int, error) {
+	if !s.started {
+		s.started = true
+		s.start()
+	}
+	return s.w.Write(p)
 }

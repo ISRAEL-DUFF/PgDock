@@ -320,15 +320,16 @@ func (s *Service) deliverProject(ctx context.Context, conn *pgx.Conn, p store.Pr
 	return nil
 }
 
-func (s *Service) head(ctx context.Context, conn *pgx.Conn, webhook uuid.UUID) (outboxRow, bool, error) {
-	var r outboxRow
-	err := conn.QueryRow(ctx, `SELECT id, table_name, op, old_row, new_row, replay, attempts, next_attempt_at, created_at
-		FROM pgdock.webhook_outbox WHERE webhook_id = $1 ORDER BY id LIMIT 1`, webhook).
-		Scan(&r.ID, &r.Table, &r.Op, &r.Old, &r.New, &r.Replay, &r.Attempts, &r.NextAttempt, &r.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return r, false, nil
+func (s *Service) head(ctx context.Context, conn *pgx.Conn, webhook uuid.UUID, n int) ([]outboxRow, error) {
+	rows, err := conn.Query(ctx, `SELECT id, table_name, op, old_row, new_row, replay, attempts, next_attempt_at, created_at
+		FROM pgdock.webhook_outbox WHERE webhook_id = $1 ORDER BY id LIMIT $2`, webhook, n)
+	if err != nil {
+		return nil, err
 	}
-	return r, err == nil, err
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (outboxRow, error) {
+		var r outboxRow
+		return r, row.Scan(&r.ID, &r.Table, &r.Op, &r.Old, &r.New, &r.Replay, &r.Attempts, &r.NextAttempt, &r.CreatedAt)
+	})
 }
 
 // deliverWebhook sends w's due events in order; a failing event blocks
@@ -343,11 +344,20 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 		return err
 	}
 	q := store.New(s.db)
-	for range batch {
-		r, ok, err := s.head(ctx, conn, w.ID)
-		if err != nil || !ok {
-			return err
-		}
+	due, err := s.head(ctx, conn, w.ID, batch)
+	if err != nil || len(due) == 0 {
+		return err
+	}
+	// The destination is checked once a batch, and each request goes to
+	// the address checked.
+	target, perr := s.out.Prepare(ctx, p.OrgID, w.Url)
+	if errors.Is(perr, outbound.ErrDisabled) {
+		return errQueued
+	}
+	if perr != nil && !errors.Is(perr, outbound.ErrRefused) {
+		return perr
+	}
+	for _, r := range due {
 		now := s.cfg.Now()
 		if r.NextAttempt != nil && r.NextAttempt.After(now) {
 			return nil // waiting for its retry
@@ -363,9 +373,9 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 		h := header(static)
 		h.Set("PGDock-Event-Id", eventID)
 		h.Set("PGDock-Webhook", w.Name)
-		resp, derr := s.out.Do(ctx, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout, Secret: secret})
-		if errors.Is(derr, outbound.ErrDisabled) {
-			return errQueued
+		resp, derr := outbound.Response{}, perr
+		if derr == nil {
+			resp, derr = s.out.Send(ctx, target, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout, Secret: secret})
 		}
 		attempt := r.Attempts + 1
 		d := store.InsertDeliveryParams{WebhookID: w.ID, EventID: eventID, Attempt: int32(attempt), CreatedAt: now}

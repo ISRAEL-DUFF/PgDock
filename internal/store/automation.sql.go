@@ -78,15 +78,16 @@ func (q *Queries) CountOrgJobs(ctx context.Context, orgID uuid.UUID) (int32, err
 }
 
 const countOutbound = `-- name: CountOutbound :exec
-INSERT INTO outbound_counters (org_id, host, day, requests, failures) VALUES ($1, $2, $3::date, 1, $4)
+INSERT INTO outbound_counters (org_id, host, day, requests, failures) VALUES ($1, $2, $3::date, $4, $5)
 ON CONFLICT (org_id, host, day) DO UPDATE
-SET requests = outbound_counters.requests + 1, failures = outbound_counters.failures + EXCLUDED.failures
+SET requests = outbound_counters.requests + EXCLUDED.requests, failures = outbound_counters.failures + EXCLUDED.failures
 `
 
 type CountOutboundParams struct {
 	OrgID    uuid.UUID
 	Host     string
 	Day      pgtype.Date
+	Requests int64
 	Failures int64
 }
 
@@ -95,6 +96,7 @@ func (q *Queries) CountOutbound(ctx context.Context, arg CountOutboundParams) er
 		arg.OrgID,
 		arg.Host,
 		arg.Day,
+		arg.Requests,
 		arg.Failures,
 	)
 	return err

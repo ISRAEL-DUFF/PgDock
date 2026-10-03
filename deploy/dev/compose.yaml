@@ -141,6 +141,27 @@ services:
   # M3 test fixtures (`--profile test`). The agent runs where Postgres 18
   # client tools are, on the Compose network like the poolers; the test
   # harness starts and stops it with `docker exec` (one per test).
+  # The load test's second shared node (`--profile load`, V2 §14 M16).
+  shared-pg-2:
+    image: postgres:18
+    profiles: [load]
+    environment:
+      POSTGRES_USER: pgdock_admin
+      POSTGRES_PASSWORD: pgdock_admin
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
+    command: ["postgres", "-c", "hba_file=/etc/pgdock/pg_hba.conf", "-c", "max_connections=500",
+              "-c", "shared_buffers=256MB", "-c", "log_min_duration_statement=5s"]
+    ports:
+      - "127.0.0.1:${PGDOCK_DEV_LOAD2_PORT:-5443}:5432"
+    volumes:
+      - ./shared-pg-hba.conf:/etc/pgdock/pg_hba.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgdock_admin -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   # A shared cluster whose data directory is a 160 MB tmpfs (WAL lives
   # elsewhere), for the disk-full failure test.
   shared-pg-small:

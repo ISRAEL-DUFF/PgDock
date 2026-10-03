@@ -44,7 +44,7 @@ A token belongs to you and acts in **one organisation**:
 | --- | --- |
 | `read` | Viewing everything you can see in the organisation; read-only SQL |
 | `write` | Creating and changing: SQL that writes, backups, restoring into a new project, creating projects |
-| `admin` | Destructive and settings actions: deleting, promoting and demoting, restoring in place, members, settings (needs `write`) |
+| `admin` | Destructive and settings actions: deleting, promoting and demoting, restoring in place, members, settings, downloading backups (needs `write`) |
 
 A token can be **restricted to some projects**: it then can't see or
 touch anything else in the organisation, even what you can. Every token
@@ -125,6 +125,7 @@ pgdock branch list <p> | create <p> <name> [--from backup|live] [--schema-only|-
 pgdock branch reset <branch> [--from backup|live] | extend <branch> [--ttl 7d] | detach <branch> | delete <branch> --confirm <name>
 
 pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
+pgdock backup download <p> [--backup <id>] [-o file]   # organisation owners: a pg_dump file (a fresh backup by default)
 pgdock promote <p> [--node <id>] [--profile <size>]
 pgdock demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
 

@@ -132,7 +132,7 @@ projects go only there, and nobody else's do.
 **Suspend** (Organisations → the org, with a reason) stops the org's
 projects accepting connections and its backups, and makes the org
 read-only for its members; **Reinstate** undoes it. **Outbound access**
-is recorded now and enforced when outbound features ship.
+can be turned off on its own, without suspending (see Outbound traffic).
 
 To look inside an org (a support case), open a **break-glass** session
 with a reason and a length (up to 4 hours). You act as an org admin; its

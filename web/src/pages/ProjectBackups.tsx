@@ -8,6 +8,7 @@ import { ProjectStorageCard } from "../components/StorageTargets";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Spinner, StatusBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
+import { useCurrentOrg } from "../lib/org";
 import { useProject } from "./ProjectOverview";
 
 const kindLabels: Record<string, string> = {
@@ -25,6 +26,9 @@ export function backupIsStale(lastBackupAt: string | null | undefined, now = Dat
 export function ProjectBackupsPage() {
   const { data: p } = useProject();
   const qc = useQueryClient();
+  const { orgs } = useCurrentOrg();
+  // Org owners can download a backup as a pg_dump file (V2 §10.10).
+  const canExport = !!p && orgs.find((o) => o.id === p.org_id)?.role === "owner";
   const toast = useOperationToast();
   const overview = useQuery({ queryKey: ["backups", "overview", p?.org_id], queryFn: () => api.backupOverview(p?.org_id), enabled: !!p });
   const list = useQuery({
@@ -145,6 +149,17 @@ export function ProjectBackupsPage() {
               <td className="px-3 py-2 text-muted">{b.size_bytes != null ? formatBytes(b.size_bytes) : "—"}</td>
               <td className="px-3 py-2 text-muted">{b.expires_at ? formatDate(b.expires_at) : "by retention"}</td>
               <td className="px-3 py-2 text-right">
+                {b.status === "succeeded" && canExport && b.kind !== "base" && (
+                  <a
+                    className="mr-2 text-xs text-accent hover:underline"
+                    href={`/api/v1/backups/${b.id}/download`}
+                    download
+                    data-testid="backup-download"
+                    title="A pg_dump file, for pg_restore"
+                  >
+                    Download
+                  </a>
+                )}
                 {b.status === "succeeded" && (
                   <Button className="text-xs" onClick={() => setRestoring(b)}>
                     Restore

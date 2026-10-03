@@ -187,6 +187,7 @@ var routeRules = map[string]rule{
 	// Restoring in place needs the project admin role; the handler checks
 	// it for that mode.
 	"POST /api/v1/backups/{id}/restore":  {scope: scopeBackup, action: authz.BackupCreate},
+	"GET /api/v1/backups/{id}/download":  {scope: scopeBackup, action: authz.ProjectExport},
 	"GET /api/v1/operations/{id}":        {scope: scopeOperation, action: authz.ProjectView},
 	"GET /api/v1/operations/{id}/stream": {scope: scopeOperation, action: authz.ProjectView},
 

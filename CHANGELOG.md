@@ -5,6 +5,23 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Hardening (V2 M16)
+- **Security:** scheduled SQL jobs no longer run on a superuser
+  connection, and copying a tenant's data (branches, restores, imports,
+  the restore test, promotion, demotion) no longer runs the tenant's
+  functions as the superuser. NAT64 and 6to4 addresses can't reach
+  internal or metadata addresses. Upgrade before inviting anyone else.
+- Organisation owners can download any backup as a `pg_dump` file
+  (Backups → Download, `pgdock backup download`).
+- Background work survives being stopped half-way: storage locks, the
+  reaper, webhook delivery, the scheduler (runs now end with a stopping
+  server), a member removed mid-session, an org suspended mid-backup.
+- Faster webhook delivery: kept-alive connections, one destination check
+  per batch, batched outbound counters.
+- A V2 load check (300 projects on two nodes, webhooks, jobs, branches),
+  a user guide, a platform admin runbook, an incident process and a terms
+  template.
+
 ### Webhooks and scheduled jobs (V2 M15)
 - Database webhooks: inserts, updates and deletes of chosen tables POSTed
   to a URL, recorded in the same transaction (a rolled-back change never

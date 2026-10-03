@@ -590,6 +590,9 @@ func (s *Server) orgOutbound(r *http.Request, org gen.OrgID) (gen.OrgOutbound, e
 	if err != nil {
 		return gen.OrgOutbound{}, err
 	}
+	if s.outbound != nil {
+		s.outbound.Flush(r.Context()) // the last second's requests too
+	}
 	counters, err := q.ListOutboundCounters(r.Context(), store.ListOutboundCountersParams{OrgID: org, Since: outbound.Day(s.now().AddDate(0, 0, -30))})
 	if err != nil {
 		return gen.OrgOutbound{}, err

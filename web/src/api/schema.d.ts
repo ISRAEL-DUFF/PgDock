@@ -553,6 +553,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backups/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a backup as a plain pg_dump archive (organisation owners)
+         * @description The backup decrypted: a `pg_dump` custom-format archive for
+         *     `pg_restore` (V2 §10.10 data export). Logical, final and safety
+         *     backups of projects only. Organisation owners only; at most two at
+         *     a time per organisation; every download is audited.
+         */
+        get: operations["downloadBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backups/{id}/restore": {
         parameters: {
             query?: never;
@@ -5971,6 +5994,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["BackupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archive. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             default: components["responses"]["Error"];

@@ -115,6 +115,7 @@ var expected = map[authz.Action][]string{
 	authz.OrgManage:          {rOwner, rAdmin},
 	authz.OrgAudit:           {rOwner, rAdmin},
 	authz.OrgOwnerOnly:       {rOwner},
+	authz.ProjectExport:      {rOwner},
 	authz.PlatformManage:     {rPlatform},
 }
 
@@ -498,6 +499,8 @@ var specMatrix = map[authz.Action][]string{
 		// §2.4 "any org owner can end the session early"
 		"POST /api/v1/orgs/{org}/break-glass/{session_id}/end",
 	},
+	// §10.10 "Org owners can export any project as a pg_dump file"
+	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},
 	// The signed-in user's own account
 	authz.Self: {
 		"POST /api/v1/auth/reauth", "POST /api/v1/auth/logout", "GET /api/v1/me", "PATCH /api/v1/me", "POST /api/v1/me/password",
