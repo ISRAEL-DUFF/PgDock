@@ -56,6 +56,7 @@ var actionScope = map[Action]string{
 	ConsoleRead:        ScopeRead,
 	ProjectAudit:       ScopeRead,
 	ConsoleWrite:       ScopeWrite,
+	TableEdit:          ScopeWrite,
 	BackupCreate:       ScopeWrite,
 	OrgCreateProject:   ScopeWrite,
 	OrgManage:          ScopeAdmin,
@@ -141,6 +142,7 @@ const (
 	ProjectCredentials Action = "project.credentials"  // read_only (read-only credentials)
 	ConsoleRead        Action = "project.console_read" // read_only
 	ConsoleWrite       Action = "project.console_write"
+	TableEdit          Action = "project.table_edit"      // developer: the table editor's rows and schema (V2 §4)
 	BackupCreate       Action = "project.backup"          // developer: back up, restore into a new project
 	RestoreInPlace     Action = "project.restore_inplace" // admin
 	ProjectSettings    Action = "project.settings"        // admin: rotate, settings, extensions, PITR
@@ -156,6 +158,7 @@ var projectMin = map[Action]string{
 	ProjectCredentials: ProjectReadOnly,
 	ConsoleRead:        ProjectReadOnly,
 	ConsoleWrite:       ProjectDeveloper,
+	TableEdit:          ProjectDeveloper,
 	BackupCreate:       ProjectDeveloper,
 	RestoreInPlace:     ProjectAdmin,
 	ProjectSettings:    ProjectAdmin,

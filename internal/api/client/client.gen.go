@@ -104,16 +104,16 @@ func (e AdminUserPlatformRole) Valid() bool {
 
 // Defines values for AlertSeverity.
 const (
-	Critical AlertSeverity = "critical"
-	Warning  AlertSeverity = "warning"
+	AlertSeverityCritical AlertSeverity = "critical"
+	AlertSeverityWarning  AlertSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the AlertSeverity enum.
 func (e AlertSeverity) Valid() bool {
 	switch e {
-	case Critical:
+	case AlertSeverityCritical:
 		return true
-	case Warning:
+	case AlertSeverityWarning:
 		return true
 	default:
 		return false
@@ -293,25 +293,25 @@ func (e CreateNodeRequestRole) Valid() bool {
 
 // Defines values for DbTableKind.
 const (
-	ForeignTable     DbTableKind = "foreign_table"
-	MaterializedView DbTableKind = "materialized_view"
-	PartitionedTable DbTableKind = "partitioned_table"
-	Table            DbTableKind = "table"
-	View             DbTableKind = "view"
+	DbTableKindForeignTable     DbTableKind = "foreign_table"
+	DbTableKindMaterializedView DbTableKind = "materialized_view"
+	DbTableKindPartitionedTable DbTableKind = "partitioned_table"
+	DbTableKindTable            DbTableKind = "table"
+	DbTableKindView             DbTableKind = "view"
 )
 
 // Valid indicates whether the value is a known member of the DbTableKind enum.
 func (e DbTableKind) Valid() bool {
 	switch e {
-	case ForeignTable:
+	case DbTableKindForeignTable:
 		return true
-	case MaterializedView:
+	case DbTableKindMaterializedView:
 		return true
-	case PartitionedTable:
+	case DbTableKindPartitionedTable:
 		return true
-	case Table:
+	case DbTableKindTable:
 		return true
-	case View:
+	case DbTableKindView:
 		return true
 	default:
 		return false
@@ -336,6 +336,45 @@ func (e DedicatedRequestStatus) Valid() bool {
 	case DedicatedRequestStatusPending:
 		return true
 	case DedicatedRequestStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EditColumnIdentity.
+const (
+	Always    EditColumnIdentity = "always"
+	ByDefault EditColumnIdentity = "by_default"
+)
+
+// Valid indicates whether the value is a known member of the EditColumnIdentity enum.
+func (e EditColumnIdentity) Valid() bool {
+	switch e {
+	case Always:
+		return true
+	case ByDefault:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EditorPreferencesMigrationFormat.
+const (
+	EditorPreferencesMigrationFormatDbmate EditorPreferencesMigrationFormat = "dbmate"
+	EditorPreferencesMigrationFormatGoose  EditorPreferencesMigrationFormat = "goose"
+	EditorPreferencesMigrationFormatSql    EditorPreferencesMigrationFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the EditorPreferencesMigrationFormat enum.
+func (e EditorPreferencesMigrationFormat) Valid() bool {
+	switch e {
+	case EditorPreferencesMigrationFormatDbmate:
+		return true
+	case EditorPreferencesMigrationFormatGoose:
+		return true
+	case EditorPreferencesMigrationFormatSql:
 		return true
 	default:
 		return false
@@ -744,6 +783,234 @@ func (e RestoreRequestMode) Valid() bool {
 	}
 }
 
+// Defines values for RowChangeOp.
+const (
+	Delete RowChangeOp = "delete"
+	Insert RowChangeOp = "insert"
+	Update RowChangeOp = "update"
+)
+
+// Valid indicates whether the value is a known member of the RowChangeOp enum.
+func (e RowChangeOp) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	case Insert:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeKind.
+const (
+	AddCheck       SchemaChangeKind = "add_check"
+	AddColumn      SchemaChangeKind = "add_column"
+	AddEnumValue   SchemaChangeKind = "add_enum_value"
+	AddForeignKey  SchemaChangeKind = "add_foreign_key"
+	AddUnique      SchemaChangeKind = "add_unique"
+	AlterColumn    SchemaChangeKind = "alter_column"
+	CreateEnum     SchemaChangeKind = "create_enum"
+	CreateIndex    SchemaChangeKind = "create_index"
+	CreateSchema   SchemaChangeKind = "create_schema"
+	CreateTable    SchemaChangeKind = "create_table"
+	DropColumn     SchemaChangeKind = "drop_column"
+	DropConstraint SchemaChangeKind = "drop_constraint"
+	DropIndex      SchemaChangeKind = "drop_index"
+	DropSchema     SchemaChangeKind = "drop_schema"
+	DropTable      SchemaChangeKind = "drop_table"
+	RenameColumn   SchemaChangeKind = "rename_column"
+	RenameTable    SchemaChangeKind = "rename_table"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeKind enum.
+func (e SchemaChangeKind) Valid() bool {
+	switch e {
+	case AddCheck:
+		return true
+	case AddColumn:
+		return true
+	case AddEnumValue:
+		return true
+	case AddForeignKey:
+		return true
+	case AddUnique:
+		return true
+	case AlterColumn:
+		return true
+	case CreateEnum:
+		return true
+	case CreateIndex:
+		return true
+	case CreateSchema:
+		return true
+	case CreateTable:
+		return true
+	case DropColumn:
+		return true
+	case DropConstraint:
+		return true
+	case DropIndex:
+		return true
+	case DropSchema:
+		return true
+	case DropTable:
+		return true
+	case RenameColumn:
+		return true
+	case RenameTable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeMethod.
+const (
+	Brin  SchemaChangeMethod = "brin"
+	Btree SchemaChangeMethod = "btree"
+	Gin   SchemaChangeMethod = "gin"
+	Gist  SchemaChangeMethod = "gist"
+	Hash  SchemaChangeMethod = "hash"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeMethod enum.
+func (e SchemaChangeMethod) Valid() bool {
+	switch e {
+	case Brin:
+		return true
+	case Btree:
+		return true
+	case Gin:
+		return true
+	case Gist:
+		return true
+	case Hash:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeOnDelete.
+const (
+	SchemaChangeOnDeleteCASCADE    SchemaChangeOnDelete = "CASCADE"
+	SchemaChangeOnDeleteNOACTION   SchemaChangeOnDelete = "NO ACTION"
+	SchemaChangeOnDeleteRESTRICT   SchemaChangeOnDelete = "RESTRICT"
+	SchemaChangeOnDeleteSETDEFAULT SchemaChangeOnDelete = "SET DEFAULT"
+	SchemaChangeOnDeleteSETNULL    SchemaChangeOnDelete = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeOnDelete enum.
+func (e SchemaChangeOnDelete) Valid() bool {
+	switch e {
+	case SchemaChangeOnDeleteCASCADE:
+		return true
+	case SchemaChangeOnDeleteNOACTION:
+		return true
+	case SchemaChangeOnDeleteRESTRICT:
+		return true
+	case SchemaChangeOnDeleteSETDEFAULT:
+		return true
+	case SchemaChangeOnDeleteSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeOnUpdate.
+const (
+	SchemaChangeOnUpdateCASCADE    SchemaChangeOnUpdate = "CASCADE"
+	SchemaChangeOnUpdateNOACTION   SchemaChangeOnUpdate = "NO ACTION"
+	SchemaChangeOnUpdateRESTRICT   SchemaChangeOnUpdate = "RESTRICT"
+	SchemaChangeOnUpdateSETDEFAULT SchemaChangeOnUpdate = "SET DEFAULT"
+	SchemaChangeOnUpdateSETNULL    SchemaChangeOnUpdate = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeOnUpdate enum.
+func (e SchemaChangeOnUpdate) Valid() bool {
+	switch e {
+	case SchemaChangeOnUpdateCASCADE:
+		return true
+	case SchemaChangeOnUpdateNOACTION:
+		return true
+	case SchemaChangeOnUpdateRESTRICT:
+		return true
+	case SchemaChangeOnUpdateSETDEFAULT:
+		return true
+	case SchemaChangeOnUpdateSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaMigrationFormat.
+const (
+	SchemaMigrationFormatDbmate SchemaMigrationFormat = "dbmate"
+	SchemaMigrationFormatGoose  SchemaMigrationFormat = "goose"
+	SchemaMigrationFormatSql    SchemaMigrationFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the SchemaMigrationFormat enum.
+func (e SchemaMigrationFormat) Valid() bool {
+	switch e {
+	case SchemaMigrationFormatDbmate:
+		return true
+	case SchemaMigrationFormatGoose:
+		return true
+	case SchemaMigrationFormatSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaMigrationRequestFormat.
+const (
+	SchemaMigrationRequestFormatDbmate SchemaMigrationRequestFormat = "dbmate"
+	SchemaMigrationRequestFormatGoose  SchemaMigrationRequestFormat = "goose"
+	SchemaMigrationRequestFormatSql    SchemaMigrationRequestFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the SchemaMigrationRequestFormat enum.
+func (e SchemaMigrationRequestFormat) Valid() bool {
+	switch e {
+	case SchemaMigrationRequestFormatDbmate:
+		return true
+	case SchemaMigrationRequestFormatGoose:
+		return true
+	case SchemaMigrationRequestFormatSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaRiskLevel.
+const (
+	SchemaRiskLevelDanger  SchemaRiskLevel = "danger"
+	SchemaRiskLevelInfo    SchemaRiskLevel = "info"
+	SchemaRiskLevelWarning SchemaRiskLevel = "warning"
+)
+
+// Valid indicates whether the value is a known member of the SchemaRiskLevel enum.
+func (e SchemaRiskLevel) Valid() bool {
+	switch e {
+	case SchemaRiskLevelDanger:
+		return true
+	case SchemaRiskLevelInfo:
+		return true
+	case SchemaRiskLevelWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionStateSignupMode.
 const (
 	SessionStateSignupModeApproval   SessionStateSignupMode = "approval"
@@ -810,21 +1077,75 @@ func (e StorageState) Valid() bool {
 	}
 }
 
+// Defines values for TableConstraintKind.
+const (
+	TableConstraintKindCheck      TableConstraintKind = "check"
+	TableConstraintKindExclusion  TableConstraintKind = "exclusion"
+	TableConstraintKindForeignKey TableConstraintKind = "foreign_key"
+	TableConstraintKindPrimaryKey TableConstraintKind = "primary_key"
+	TableConstraintKindUnique     TableConstraintKind = "unique"
+)
+
+// Valid indicates whether the value is a known member of the TableConstraintKind enum.
+func (e TableConstraintKind) Valid() bool {
+	switch e {
+	case TableConstraintKindCheck:
+		return true
+	case TableConstraintKindExclusion:
+		return true
+	case TableConstraintKindForeignKey:
+		return true
+	case TableConstraintKindPrimaryKey:
+		return true
+	case TableConstraintKindUnique:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TableInfoKind.
+const (
+	TableInfoKindForeignTable     TableInfoKind = "foreign_table"
+	TableInfoKindMaterializedView TableInfoKind = "materialized_view"
+	TableInfoKindPartitionedTable TableInfoKind = "partitioned_table"
+	TableInfoKindTable            TableInfoKind = "table"
+	TableInfoKindView             TableInfoKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the TableInfoKind enum.
+func (e TableInfoKind) Valid() bool {
+	switch e {
+	case TableInfoKindForeignTable:
+		return true
+	case TableInfoKindMaterializedView:
+		return true
+	case TableInfoKindPartitionedTable:
+		return true
+	case TableInfoKindTable:
+		return true
+	case TableInfoKindView:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TablePageOrder.
 const (
-	Ctid       TablePageOrder = "ctid"
-	Offset     TablePageOrder = "offset"
-	PrimaryKey TablePageOrder = "primary_key"
+	TablePageOrderCtid       TablePageOrder = "ctid"
+	TablePageOrderOffset     TablePageOrder = "offset"
+	TablePageOrderPrimaryKey TablePageOrder = "primary_key"
 )
 
 // Valid indicates whether the value is a known member of the TablePageOrder enum.
 func (e TablePageOrder) Valid() bool {
 	switch e {
-	case Ctid:
+	case TablePageOrderCtid:
 		return true
-	case Offset:
+	case TablePageOrderOffset:
 		return true
-	case PrimaryKey:
+	case TablePageOrderPrimaryKey:
 		return true
 	default:
 		return false
@@ -1124,16 +1445,16 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 
 // Defines values for GetOrgUsageParamsFormat.
 const (
-	Csv  GetOrgUsageParamsFormat = "csv"
-	Json GetOrgUsageParamsFormat = "json"
+	GetOrgUsageParamsFormatCsv  GetOrgUsageParamsFormat = "csv"
+	GetOrgUsageParamsFormatJson GetOrgUsageParamsFormat = "json"
 )
 
 // Valid indicates whether the value is a known member of the GetOrgUsageParamsFormat enum.
 func (e GetOrgUsageParamsFormat) Valid() bool {
 	switch e {
-	case Csv:
+	case GetOrgUsageParamsFormatCsv:
 		return true
-	case Json:
+	case GetOrgUsageParamsFormatJson:
 		return true
 	default:
 		return false
@@ -1176,6 +1497,24 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 	case GetProjectMetricsParamsRangeN24h:
 		return true
 	case GetProjectMetricsParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportTableRowsParamsFormat.
+const (
+	ExportTableRowsParamsFormatCsv  ExportTableRowsParamsFormat = "csv"
+	ExportTableRowsParamsFormatJson ExportTableRowsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the ExportTableRowsParamsFormat enum.
+func (e ExportTableRowsParamsFormat) Valid() bool {
+	switch e {
+	case ExportTableRowsParamsFormatCsv:
+		return true
+	case ExportTableRowsParamsFormatJson:
 		return true
 	default:
 		return false
@@ -1786,6 +2125,32 @@ type DnsCheck struct {
 	ServerAddresses []string `json:"server_addresses"`
 }
 
+// EditColumn defines model for EditColumn.
+type EditColumn struct {
+	BaseType string `json:"base_type"`
+
+	// Category pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…).
+	Category   string              `json:"category"`
+	Default    *string             `json:"default,omitempty"`
+	EnumValues *[]string           `json:"enum_values,omitempty"`
+	Generated  bool                `json:"generated"`
+	Identity   *EditColumnIdentity `json:"identity,omitempty"`
+	Name       string              `json:"name"`
+	Nullable   bool                `json:"nullable"`
+	Type       string              `json:"type"`
+}
+
+// EditColumnIdentity defines model for EditColumn.Identity.
+type EditColumnIdentity string
+
+// EditorPreferences defines model for EditorPreferences.
+type EditorPreferences struct {
+	MigrationFormat EditorPreferencesMigrationFormat `json:"migration_format"`
+}
+
+// EditorPreferencesMigrationFormat defines model for EditorPreferences.MigrationFormat.
+type EditorPreferencesMigrationFormat string
+
 // EmailRequest defines model for EmailRequest.
 type EmailRequest struct {
 	Email openapi_types.Email `json:"email"`
@@ -1799,9 +2164,13 @@ type EnableExtensionRequest struct {
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_implemented
-	Code    string     `json:"code"`
-	Message string     `json:"message"`
-	Quota   *QuotaItem `json:"quota,omitempty"`
+	Code     string     `json:"code"`
+	Message  string     `json:"message"`
+	Quota    *QuotaItem `json:"quota,omitempty"`
+	SqlError *SqlError  `json:"sql_error,omitempty"`
+
+	// Statement The DDL statement Postgres refused.
+	Statement *string `json:"statement,omitempty"`
 }
 
 // Extension defines model for Extension.
@@ -1826,6 +2195,25 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FailedChange defines model for FailedChange.
+type FailedChange struct {
+	Error SqlError `json:"error"`
+
+	// Index The change Postgres refused (-1 for a constraint checked at commit).
+	Index int `json:"index"`
+}
+
+// ForeignKey defines model for ForeignKey.
+type ForeignKey struct {
+	Columns    []string `json:"columns"`
+	Name       string   `json:"name"`
+	OnDelete   string   `json:"on_delete"`
+	OnUpdate   string   `json:"on_update"`
+	RefColumns []string `json:"ref_columns"`
+	RefSchema  string   `json:"ref_schema"`
+	RefTable   string   `json:"ref_table"`
 }
 
 // GeneralSettings defines model for GeneralSettings.
@@ -2591,6 +2979,189 @@ type RestoreResponse struct {
 	Operation   Operation           `json:"operation"`
 }
 
+// RowChange defines model for RowChange.
+type RowChange struct {
+	// Key The row's primary key (update, delete).
+	Key *map[string]*string `json:"key,omitempty"`
+	Op  RowChangeOp         `json:"op"`
+
+	// Values Column values as text, null for NULL. Columns left out of an insert get their default.
+	Values *map[string]*string `json:"values,omitempty"`
+
+	// Xmin The row's xmin when loaded (update, delete).
+	Xmin *string `json:"xmin,omitempty"`
+}
+
+// RowChangeOp defines model for RowChange.Op.
+type RowChangeOp string
+
+// RowConflict defines model for RowConflict.
+type RowConflict struct {
+	Current *[]*string `json:"current,omitempty"`
+	Deleted bool       `json:"deleted"`
+
+	// Index The change that hit a row someone else changed.
+	Index int     `json:"index"`
+	Xmin  *string `json:"xmin,omitempty"`
+}
+
+// SaveRowsRequest defines model for SaveRowsRequest.
+type SaveRowsRequest struct {
+	Changes []RowChange `json:"changes"`
+}
+
+// SaveRowsResult defines model for SaveRowsResult.
+type SaveRowsResult struct {
+	Applied  bool          `json:"applied"`
+	Columns  []SqlColumn   `json:"columns"`
+	Conflict *RowConflict  `json:"conflict,omitempty"`
+	Failed   *FailedChange `json:"failed,omitempty"`
+	Rows     []SavedRow    `json:"rows"`
+
+	// Summary Example: 3 updates, 1 insert, 2 deletes
+	Summary string `json:"summary"`
+}
+
+// SavedRow defines model for SavedRow.
+type SavedRow struct {
+	Index  int       `json:"index"`
+	Values []*string `json:"values"`
+	Xmin   string    `json:"xmin"`
+}
+
+// SchemaApplied defines model for SchemaApplied.
+type SchemaApplied struct {
+	DurationMs int64      `json:"duration_ms"`
+	Plan       SchemaPlan `json:"plan"`
+}
+
+// SchemaApplyRequest defines model for SchemaApplyRequest.
+type SchemaApplyRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange `json:"change"`
+
+	// Confirm The name of what is dropped, typed.
+	Confirm *string `json:"confirm,omitempty"`
+
+	// Hash The preview's hash.
+	Hash string `json:"hash"`
+}
+
+// SchemaChange One change (V2 §4.3); which fields apply depends on `kind`.
+type SchemaChange struct {
+	BeforeValue  *string             `json:"before_value,omitempty"`
+	Cascade      *bool               `json:"cascade,omitempty"`
+	Column       *SchemaColumnDef    `json:"column,omitempty"`
+	ColumnName   *string             `json:"column_name,omitempty"`
+	Columns      *[]SchemaColumnDef  `json:"columns,omitempty"`
+	Comment      *string             `json:"comment,omitempty"`
+	Concurrently *bool               `json:"concurrently,omitempty"`
+	Default      *string             `json:"default,omitempty"`
+	DropDefault  *bool               `json:"drop_default,omitempty"`
+	Expression   *string             `json:"expression,omitempty"`
+	KeyColumns   *[]string           `json:"key_columns,omitempty"`
+	Kind         SchemaChangeKind    `json:"kind"`
+	Method       *SchemaChangeMethod `json:"method,omitempty"`
+
+	// Name The schema, constraint, index or type created or dropped.
+	Name       *string               `json:"name,omitempty"`
+	NewName    *string               `json:"new_name,omitempty"`
+	NotValid   *bool                 `json:"not_valid,omitempty"`
+	Nullable   *bool                 `json:"nullable,omitempty"`
+	OnDelete   *SchemaChangeOnDelete `json:"on_delete,omitempty"`
+	OnUpdate   *SchemaChangeOnUpdate `json:"on_update,omitempty"`
+	RefColumns *[]string             `json:"ref_columns,omitempty"`
+	RefSchema  *string               `json:"ref_schema,omitempty"`
+	RefTable   *string               `json:"ref_table,omitempty"`
+	Schema     *string               `json:"schema,omitempty"`
+	Table      *string               `json:"table,omitempty"`
+	Type       *string               `json:"type,omitempty"`
+	Unique     *bool                 `json:"unique,omitempty"`
+	Using      *string               `json:"using,omitempty"`
+	Value      *string               `json:"value,omitempty"`
+	Values     *[]string             `json:"values,omitempty"`
+	Where      *string               `json:"where,omitempty"`
+}
+
+// SchemaChangeKind defines model for SchemaChange.Kind.
+type SchemaChangeKind string
+
+// SchemaChangeMethod defines model for SchemaChange.Method.
+type SchemaChangeMethod string
+
+// SchemaChangeOnDelete defines model for SchemaChange.OnDelete.
+type SchemaChangeOnDelete string
+
+// SchemaChangeOnUpdate defines model for SchemaChange.OnUpdate.
+type SchemaChangeOnUpdate string
+
+// SchemaColumnDef defines model for SchemaColumnDef.
+type SchemaColumnDef struct {
+	Comment *string `json:"comment,omitempty"`
+
+	// Default An SQL expression, e.g. now() or 'draft'.
+	Default    *string `json:"default,omitempty"`
+	Name       string  `json:"name"`
+	Nullable   *bool   `json:"nullable,omitempty"`
+	PrimaryKey *bool   `json:"primary_key,omitempty"`
+
+	// Type Example: text
+	Type string `json:"type"`
+}
+
+// SchemaMigration defines model for SchemaMigration.
+type SchemaMigration struct {
+	Content  string                `json:"content"`
+	Filename string                `json:"filename"`
+	Format   SchemaMigrationFormat `json:"format"`
+}
+
+// SchemaMigrationFormat defines model for SchemaMigration.Format.
+type SchemaMigrationFormat string
+
+// SchemaMigrationRequest defines model for SchemaMigrationRequest.
+type SchemaMigrationRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange                 `json:"change"`
+	Format SchemaMigrationRequestFormat `json:"format"`
+}
+
+// SchemaMigrationRequestFormat defines model for SchemaMigrationRequest.Format.
+type SchemaMigrationRequestFormat string
+
+// SchemaPlan defines model for SchemaPlan.
+type SchemaPlan struct {
+	// Confirm Type this name to run it.
+	Confirm    *string           `json:"confirm,omitempty"`
+	Down       []string          `json:"down"`
+	DownTodo   []string          `json:"down_todo"`
+	Hash       string            `json:"hash"`
+	Risks      []SchemaRisk      `json:"risks"`
+	Slug       string            `json:"slug"`
+	Statements []SchemaStatement `json:"statements"`
+}
+
+// SchemaPreviewRequest defines model for SchemaPreviewRequest.
+type SchemaPreviewRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange `json:"change"`
+}
+
+// SchemaRisk defines model for SchemaRisk.
+type SchemaRisk struct {
+	Level   SchemaRiskLevel `json:"level"`
+	Message string          `json:"message"`
+}
+
+// SchemaRiskLevel defines model for SchemaRisk.Level.
+type SchemaRiskLevel string
+
+// SchemaStatement defines model for SchemaStatement.
+type SchemaStatement struct {
+	Sql           string `json:"sql"`
+	Transactional bool   `json:"transactional"`
+}
+
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
 	CreatedAt  time.Time `json:"created_at"`
@@ -2812,6 +3383,16 @@ type SwitchedCredentials struct {
 	Project     Project        `json:"project"`
 }
 
+// TableConstraint defines model for TableConstraint.
+type TableConstraint struct {
+	Definition string              `json:"definition"`
+	Kind       TableConstraintKind `json:"kind"`
+	Name       string              `json:"name"`
+}
+
+// TableConstraintKind defines model for TableConstraint.Kind.
+type TableConstraintKind string
+
 // TableFootprint defines model for TableFootprint.
 type TableFootprint struct {
 	Bytes    int64  `json:"bytes"`
@@ -2820,15 +3401,40 @@ type TableFootprint struct {
 	Table    string `json:"table"`
 }
 
+// TableInfo defines model for TableInfo.
+type TableInfo struct {
+	Columns        []EditColumn      `json:"columns"`
+	Constraints    []TableConstraint `json:"constraints"`
+	Editable       bool              `json:"editable"`
+	ForeignKeys    []ForeignKey      `json:"foreign_keys"`
+	Indexes        []DbIndex         `json:"indexes"`
+	Kind           TableInfoKind     `json:"kind"`
+	Name           string            `json:"name"`
+	PrimaryKey     []string          `json:"primary_key"`
+	ReadOnlyReason *string           `json:"read_only_reason,omitempty"`
+	RowEstimate    *int64            `json:"row_estimate,omitempty"`
+	Schema         string            `json:"schema"`
+	SizeBytes      int64             `json:"size_bytes"`
+}
+
+// TableInfoKind defines model for TableInfo.Kind.
+type TableInfoKind string
+
 // TablePage defines model for TablePage.
 type TablePage struct {
 	Columns    []SqlColumn `json:"columns"`
 	KeyColumns []string    `json:"key_columns"`
 
+	// LargeOffset Offset paging this deep is slow; sort by the primary key or filter.
+	LargeOffset *bool `json:"large_offset,omitempty"`
+
 	// Next Cursor of the next page; absent on the last.
 	Next  *string        `json:"next,omitempty"`
 	Order TablePageOrder `json:"order"`
 	Rows  [][]*string    `json:"rows"`
+
+	// Xmin Each row's xmin, for editable tables.
+	Xmin *[]string `json:"xmin,omitempty"`
 }
 
 // TablePageOrder defines model for TablePage.Order.
@@ -3076,6 +3682,12 @@ type ProjectID = openapi_types.UUID
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
 
+// SchemaName defines model for SchemaName.
+type SchemaName = string
+
+// TableName defines model for TableName.
+type TableName = string
+
 // TokenID defines model for TokenID.
 type TokenID = openapi_types.UUID
 
@@ -3242,8 +3854,29 @@ type GetProjectMetricsParams struct {
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
 
+// ExportTableRowsParams defines parameters for ExportTableRows.
+type ExportTableRowsParams struct {
+	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
+	Filter *[]string                    `form:"filter,omitempty" json:"filter,omitempty"`
+	Sort   *string                      `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc   *bool                        `form:"desc,omitempty" json:"desc,omitempty"`
+	Format *ExportTableRowsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// ExportTableRowsParamsFormat defines parameters for ExportTableRows.
+type ExportTableRowsParamsFormat string
+
 // GetTableRowsParams defines parameters for GetTableRows.
 type GetTableRowsParams struct {
+	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
+	// (V2 §4.1). Compiled to a parameterised WHERE clause.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
+	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
 	After *string `form:"after,omitempty" json:"after,omitempty"`
 	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
@@ -3409,6 +4042,15 @@ type PromoteProjectJSONRequestBody = PromoteRequest
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
 
+// ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
+type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
+
+// SchemaMigrationJSONRequestBody defines body for SchemaMigration for application/json ContentType.
+type SchemaMigrationJSONRequestBody = SchemaMigrationRequest
+
+// PreviewSchemaChangeJSONRequestBody defines body for PreviewSchemaChange for application/json ContentType.
+type PreviewSchemaChangeJSONRequestBody = SchemaPreviewRequest
+
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
@@ -3420,6 +4062,9 @@ type CancelSQLJSONRequestBody = SqlCancelRequest
 
 // SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
 type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
+
+// SaveTableChangesJSONRequestBody defines body for SaveTableChanges for application/json ContentType.
+type SaveTableChangesJSONRequestBody = SaveRowsRequest
 
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
@@ -4561,6 +5206,11 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 	IssueMyCredentials(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetEditorPreferences Your table-editor preferences for this project
+	//
+	// Corresponds with GET /api/v1/projects/{id}/editor-preferences (the `GetEditorPreferences` operationId).
+	GetEditorPreferences(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProjectExtensions The extension allow-list and what is installed
 	//
 	// Corresponds with GET /api/v1/projects/{id}/extensions (the `ListProjectExtensions` operationId).
@@ -4726,6 +5376,60 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/schema (the `GetProjectSchema` operationId).
 	GetProjectSchema(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ApplySchemaChangeWithBody Run a previewed schema change
+	//
+	// `hash` must be the preview's: if the change would now produce other
+	// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+	// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+	// CONCURRENTLY runs outside a transaction, everything else in one.
+	// The SQL is written to the audit log.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+	ApplySchemaChangeWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApplySchemaChange Run a previewed schema change
+	//
+	// `hash` must be the preview's: if the change would now produce other
+	// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+	// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+	// CONCURRENTLY runs outside a transaction, everything else in one.
+	// The SQL is written to the audit log.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+	ApplySchemaChange(ctx context.Context, id ProjectID, body ApplySchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SchemaMigrationWithBody Render a schema change as a migration file (plain SQL, goose, or dbmate)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+	SchemaMigrationWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SchemaMigration Render a schema change as a migration file (plain SQL, goose, or dbmate)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+	SchemaMigration(ctx context.Context, id ProjectID, body SchemaMigrationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewSchemaChangeWithBody Turn a schema change into DDL, risk notes, and a reverse
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+	PreviewSchemaChangeWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+	PreviewSchemaChange(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// UpdateProjectWithBody Update a project's name, description, or guardrails
 	//
 	// Changes to guardrails that live on the backend or the pooler
@@ -4819,10 +5523,50 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/switch-credentials (the `SwitchProjectCredentials` operationId).
 	SwitchProjectCredentials(ctx context.Context, id ProjectID, body SwitchProjectCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetTableRows A page of a table's rows (read-only)
+	// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table} (the `GetTableInfo` operationId).
+	GetTableInfo(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveTableChangesWithBody Save staged row edits in one transaction
+	//
+	// Inserts, updates and deletes (at most 500) in one transaction with
+	// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+	// deletes match the row's `xmin` from when it was loaded: if someone
+	// changed or deleted it since, nothing is saved and the answer is 409
+	// with the row as it is now. A change Postgres refuses rolls back the
+	// batch: 422 with the failing change and its error.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+	SaveTableChangesWithBody(ctx context.Context, id ProjectID, schema SchemaName, table TableName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveTableChanges Save staged row edits in one transaction
+	//
+	// Inserts, updates and deletes (at most 500) in one transaction with
+	// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+	// deletes match the row's `xmin` from when it was loaded: if someone
+	// changed or deleted it since, nothing is saved and the answer is 409
+	// with the row as it is now. A change Postgres refuses rolls back the
+	// batch: 422 with the failing change and its error.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+	SaveTableChanges(ctx context.Context, id ProjectID, schema SchemaName, table TableName, body SaveTableChangesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/export (the `ExportTableRows` operationId).
+	ExportTableRows(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *ExportTableRowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTableRows A page of a table's rows, filtered and sorted
 	//
 	// 50 rows per page, keyset-paginated on the primary key where there is
-	// one (spec §8.6). Pass the previous page's `next` as `after`.
+	// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+	// tables return each row's `xmin`, for the row editor's conflict
+	// detection (V2 §4.2).
 	//
 	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/rows (the `GetTableRows` operationId).
 	GetTableRows(ctx context.Context, id ProjectID, schema string, table string, params *GetTableRowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7621,6 +8365,21 @@ func (c *Client) IssueMyCredentials(ctx context.Context, id ProjectID, reqEditor
 	return c.Client.Do(req)
 }
 
+// GetEditorPreferences Your table-editor preferences for this project
+//
+// Corresponds with GET /api/v1/projects/{id}/editor-preferences (the `GetEditorPreferences` operationId).
+func (c *Client) GetEditorPreferences(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEditorPreferencesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListProjectExtensions The extension allow-list and what is installed
 //
 // Corresponds with GET /api/v1/projects/{id}/extensions (the `ListProjectExtensions` operationId).
@@ -8006,6 +8765,120 @@ func (c *Client) GetProjectSchema(ctx context.Context, id ProjectID, reqEditors 
 	return c.Client.Do(req)
 }
 
+// ApplySchemaChangeWithBody Run a previewed schema change
+//
+// `hash` must be the preview's: if the change would now produce other
+// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+// CONCURRENTLY runs outside a transaction, everything else in one.
+// The SQL is written to the audit log.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+func (c *Client) ApplySchemaChangeWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplySchemaChangeRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApplySchemaChange Run a previewed schema change
+//
+// `hash` must be the preview's: if the change would now produce other
+// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+// CONCURRENTLY runs outside a transaction, everything else in one.
+// The SQL is written to the audit log.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+func (c *Client) ApplySchemaChange(ctx context.Context, id ProjectID, body ApplySchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplySchemaChangeRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SchemaMigrationWithBody Render a schema change as a migration file (plain SQL, goose, or dbmate)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+func (c *Client) SchemaMigrationWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSchemaMigrationRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SchemaMigration Render a schema change as a migration file (plain SQL, goose, or dbmate)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+func (c *Client) SchemaMigration(ctx context.Context, id ProjectID, body SchemaMigrationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSchemaMigrationRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewSchemaChangeWithBody Turn a schema change into DDL, risk notes, and a reverse
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+func (c *Client) PreviewSchemaChangeWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewSchemaChangeRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+func (c *Client) PreviewSchemaChange(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewSchemaChangeRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // UpdateProjectWithBody Update a project's name, description, or guardrails
 //
 // Changes to guardrails that live on the backend or the pooler
@@ -8189,10 +9062,90 @@ func (c *Client) SwitchProjectCredentials(ctx context.Context, id ProjectID, bod
 	return c.Client.Do(req)
 }
 
-// GetTableRows A page of a table's rows (read-only)
+// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table} (the `GetTableInfo` operationId).
+func (c *Client) GetTableInfo(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTableInfoRequest(c.Server, id, schema, table)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SaveTableChangesWithBody Save staged row edits in one transaction
+//
+// Inserts, updates and deletes (at most 500) in one transaction with
+// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+// deletes match the row's `xmin` from when it was loaded: if someone
+// changed or deleted it since, nothing is saved and the answer is 409
+// with the row as it is now. A change Postgres refuses rolls back the
+// batch: 422 with the failing change and its error.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+func (c *Client) SaveTableChangesWithBody(ctx context.Context, id ProjectID, schema SchemaName, table TableName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveTableChangesRequestWithBody(c.Server, id, schema, table, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SaveTableChanges Save staged row edits in one transaction
+//
+// Inserts, updates and deletes (at most 500) in one transaction with
+// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+// deletes match the row's `xmin` from when it was loaded: if someone
+// changed or deleted it since, nothing is saved and the answer is 409
+// with the row as it is now. A change Postgres refuses rolls back the
+// batch: 422 with the failing change and its error.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+func (c *Client) SaveTableChanges(ctx context.Context, id ProjectID, schema SchemaName, table TableName, body SaveTableChangesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveTableChangesRequest(c.Server, id, schema, table, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/export (the `ExportTableRows` operationId).
+func (c *Client) ExportTableRows(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *ExportTableRowsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExportTableRowsRequest(c.Server, id, schema, table, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTableRows A page of a table's rows, filtered and sorted
 //
 // 50 rows per page, keyset-paginated on the primary key where there is
-// one (spec §8.6). Pass the previous page's `next` as `after`.
+// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+// tables return each row's `xmin`, for the row editor's conflict
+// detection (V2 §4.2).
 //
 // Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/rows (the `GetTableRows` operationId).
 func (c *Client) GetTableRows(ctx context.Context, id ProjectID, schema string, table string, params *GetTableRowsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -13369,6 +14322,40 @@ func NewIssueMyCredentialsRequest(server string, id ProjectID) (*http.Request, e
 	return req, nil
 }
 
+// NewGetEditorPreferencesRequest constructs an http.Request for the GetEditorPreferences method
+func NewGetEditorPreferencesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/editor-preferences", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProjectExtensionsRequest constructs an http.Request for the ListProjectExtensions method
 func NewListProjectExtensionsRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -14023,6 +15010,147 @@ func NewGetProjectSchemaRequest(server string, id ProjectID) (*http.Request, err
 	return req, nil
 }
 
+// NewApplySchemaChangeRequest calls the generic ApplySchemaChange builder with application/json body
+func NewApplySchemaChangeRequest(server string, id ProjectID, body ApplySchemaChangeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApplySchemaChangeRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewApplySchemaChangeRequestWithBody constructs an http.Request for the ApplySchemaChange method, with any body, and a specified content type
+func NewApplySchemaChangeRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/schema/apply", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSchemaMigrationRequest calls the generic SchemaMigration builder with application/json body
+func NewSchemaMigrationRequest(server string, id ProjectID, body SchemaMigrationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSchemaMigrationRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSchemaMigrationRequestWithBody constructs an http.Request for the SchemaMigration method, with any body, and a specified content type
+func NewSchemaMigrationRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/schema/migration", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPreviewSchemaChangeRequest calls the generic PreviewSchemaChange builder with application/json body
+func NewPreviewSchemaChangeRequest(server string, id ProjectID, body PreviewSchemaChangeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewSchemaChangeRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPreviewSchemaChangeRequestWithBody constructs an http.Request for the PreviewSchemaChange method, with any body, and a specified content type
+func NewPreviewSchemaChangeRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/schema/preview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewUpdateProjectRequest calls the generic UpdateProject builder with application/json body
 func NewUpdateProjectRequest(server string, id ProjectID, body UpdateProjectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -14245,6 +15373,226 @@ func NewSwitchProjectCredentialsRequestWithBody(server string, id ProjectID, con
 	return req, nil
 }
 
+// NewGetTableInfoRequest constructs an http.Request for the GetTableInfo method
+func NewGetTableInfoRequest(server string, id ProjectID, schema SchemaName, table TableName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "schema", schema, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "table", table, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/tables/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSaveTableChangesRequest calls the generic SaveTableChanges builder with application/json body
+func NewSaveTableChangesRequest(server string, id ProjectID, schema SchemaName, table TableName, body SaveTableChangesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSaveTableChangesRequestWithBody(server, id, schema, table, "application/json", bodyReader)
+}
+
+// NewSaveTableChangesRequestWithBody constructs an http.Request for the SaveTableChanges method, with any body, and a specified content type
+func NewSaveTableChangesRequestWithBody(server string, id ProjectID, schema SchemaName, table TableName, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "schema", schema, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "table", table, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/tables/%s/%s/changes", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewExportTableRowsRequest constructs an http.Request for the ExportTableRows method
+func NewExportTableRowsRequest(server string, id ProjectID, schema SchemaName, table TableName, params *ExportTableRowsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "schema", schema, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "table", table, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/tables/%s/%s/export", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Desc != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "desc", *params.Desc, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "format", *params.Format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetTableRowsRequest constructs an http.Request for the GetTableRows method
 func NewGetTableRowsRequest(server string, id ProjectID, schema string, table string, params *GetTableRowsParams) (*http.Request, error) {
 	var err error
@@ -14293,6 +15641,42 @@ func NewGetTableRowsRequest(server string, id ProjectID, schema string, table st
 		// styled parameters, preserving literal commas as delimiters
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Desc != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "desc", *params.Desc, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
 
 		if params.After != nil {
 
@@ -16455,6 +17839,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 	IssueMyCredentialsWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*IssueMyCredentialsResponse, error)
 
+	// GetEditorPreferencesWithResponse Your table-editor preferences for this project
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/editor-preferences (the `GetEditorPreferences` operationId).
+	GetEditorPreferencesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetEditorPreferencesResponse, error)
+
 	// ListProjectExtensionsWithResponse The extension allow-list and what is installed
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -16636,6 +18027,60 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/schema (the `GetProjectSchema` operationId).
 	GetProjectSchemaWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectSchemaResponse, error)
 
+	// ApplySchemaChangeWithBodyWithResponse Run a previewed schema change
+	//
+	// `hash` must be the preview's: if the change would now produce other
+	// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+	// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+	// CONCURRENTLY runs outside a transaction, everything else in one.
+	// The SQL is written to the audit log.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+	ApplySchemaChangeWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplySchemaChangeResponse, error)
+
+	// ApplySchemaChangeWithResponse Run a previewed schema change
+	//
+	// `hash` must be the preview's: if the change would now produce other
+	// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+	// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+	// CONCURRENTLY runs outside a transaction, everything else in one.
+	// The SQL is written to the audit log.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+	ApplySchemaChangeWithResponse(ctx context.Context, id ProjectID, body ApplySchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplySchemaChangeResponse, error)
+
+	// SchemaMigrationWithBodyWithResponse Render a schema change as a migration file (plain SQL, goose, or dbmate)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+	SchemaMigrationWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SchemaMigrationResponse, error)
+
+	// SchemaMigrationWithResponse Render a schema change as a migration file (plain SQL, goose, or dbmate)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+	SchemaMigrationWithResponse(ctx context.Context, id ProjectID, body SchemaMigrationJSONRequestBody, reqEditors ...RequestEditorFn) (*SchemaMigrationResponse, error)
+
+	// PreviewSchemaChangeWithBodyWithResponse Turn a schema change into DDL, risk notes, and a reverse
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+	PreviewSchemaChangeWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewSchemaChangeResponse, error)
+
+	// PreviewSchemaChangeWithResponse Turn a schema change into DDL, risk notes, and a reverse
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+	PreviewSchemaChangeWithResponse(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSchemaChangeResponse, error)
+
 	// UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
 	//
 	// Changes to guardrails that live on the backend or the pooler
@@ -16731,10 +18176,54 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/switch-credentials (the `SwitchProjectCredentials` operationId).
 	SwitchProjectCredentialsWithResponse(ctx context.Context, id ProjectID, body SwitchProjectCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*SwitchProjectCredentialsResponse, error)
 
-	// GetTableRowsWithResponse A page of a table's rows (read-only)
+	// GetTableInfoWithResponse A table's columns, keys, constraints and indexes, and whether its rows can be edited
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table} (the `GetTableInfo` operationId).
+	GetTableInfoWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*GetTableInfoResponse, error)
+
+	// SaveTableChangesWithBodyWithResponse Save staged row edits in one transaction
+	//
+	// Inserts, updates and deletes (at most 500) in one transaction with
+	// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+	// deletes match the row's `xmin` from when it was loaded: if someone
+	// changed or deleted it since, nothing is saved and the answer is 409
+	// with the row as it is now. A change Postgres refuses rolls back the
+	// batch: 422 with the failing change and its error.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+	SaveTableChangesWithBodyWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveTableChangesResponse, error)
+
+	// SaveTableChangesWithResponse Save staged row edits in one transaction
+	//
+	// Inserts, updates and deletes (at most 500) in one transaction with
+	// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+	// deletes match the row's `xmin` from when it was loaded: if someone
+	// changed or deleted it since, nothing is saved and the answer is 409
+	// with the row as it is now. A change Postgres refuses rolls back the
+	// batch: 422 with the failing change and its error.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+	SaveTableChangesWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, body SaveTableChangesJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveTableChangesResponse, error)
+
+	// ExportTableRowsWithResponse Export filtered, sorted rows as CSV or JSON (at most 100,000)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/export (the `ExportTableRows` operationId).
+	ExportTableRowsWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *ExportTableRowsParams, reqEditors ...RequestEditorFn) (*ExportTableRowsResponse, error)
+
+	// GetTableRowsWithResponse A page of a table's rows, filtered and sorted
 	//
 	// 50 rows per page, keyset-paginated on the primary key where there is
-	// one (spec §8.6). Pass the previous page's `next` as `after`.
+	// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+	// tables return each row's `xmin`, for the row editor's conflict
+	// detection (V2 §4.2).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -21831,6 +23320,54 @@ func (r IssueMyCredentialsResponse) ContentType() string {
 	return ""
 }
 
+type GetEditorPreferencesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *EditorPreferences
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetEditorPreferencesResponse) GetJSON200() *EditorPreferences {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetEditorPreferencesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetEditorPreferencesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEditorPreferencesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEditorPreferencesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetEditorPreferencesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectExtensionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -22544,6 +24081,150 @@ func (r GetProjectSchemaResponse) ContentType() string {
 	return ""
 }
 
+type ApplySchemaChangeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SchemaApplied
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApplySchemaChangeResponse) GetJSON200() *SchemaApplied {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ApplySchemaChangeResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ApplySchemaChangeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApplySchemaChangeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApplySchemaChangeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApplySchemaChangeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SchemaMigrationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SchemaMigration
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SchemaMigrationResponse) GetJSON200() *SchemaMigration {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SchemaMigrationResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SchemaMigrationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SchemaMigrationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SchemaMigrationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SchemaMigrationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewSchemaChangeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SchemaPlan
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewSchemaChangeResponse) GetJSON200() *SchemaPlan {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PreviewSchemaChangeResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewSchemaChangeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewSchemaChangeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewSchemaChangeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewSchemaChangeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type UpdateProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -22778,6 +24459,164 @@ func (r SwitchProjectCredentialsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SwitchProjectCredentialsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetTableInfoResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TableInfo
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTableInfoResponse) GetJSON200() *TableInfo {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetTableInfoResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTableInfoResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTableInfoResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTableInfoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTableInfoResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SaveTableChangesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SaveRowsResult
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *SaveRowsResult
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *SaveRowsResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SaveTableChangesResponse) GetJSON200() *SaveRowsResult {
+	return r.JSON200
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r SaveTableChangesResponse) GetJSON409() *SaveRowsResult {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r SaveTableChangesResponse) GetJSON422() *SaveRowsResult {
+	return r.JSON422
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SaveTableChangesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SaveTableChangesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SaveTableChangesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SaveTableChangesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SaveTableChangesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExportTableRowsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]map[string]interface{}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExportTableRowsResponse) GetJSON200() *[]map[string]interface{} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ExportTableRowsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ExportTableRowsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExportTableRowsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExportTableRowsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExportTableRowsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -26181,6 +28020,19 @@ func (c *ClientWithResponses) IssueMyCredentialsWithResponse(ctx context.Context
 	return ParseIssueMyCredentialsResponse(rsp)
 }
 
+// GetEditorPreferencesWithResponse Your table-editor preferences for this project
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/editor-preferences (the `GetEditorPreferences` operationId).
+func (c *ClientWithResponses) GetEditorPreferencesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetEditorPreferencesResponse, error) {
+	rsp, err := c.GetEditorPreferences(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEditorPreferencesResponse(rsp)
+}
+
 // ListProjectExtensionsWithResponse The extension allow-list and what is installed
 //
 // Returns a wrapper object for the known response body format(s).
@@ -26494,6 +28346,96 @@ func (c *ClientWithResponses) GetProjectSchemaWithResponse(ctx context.Context, 
 	return ParseGetProjectSchemaResponse(rsp)
 }
 
+// ApplySchemaChangeWithBodyWithResponse Run a previewed schema change
+//
+// `hash` must be the preview's: if the change would now produce other
+// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+// CONCURRENTLY runs outside a transaction, everything else in one.
+// The SQL is written to the audit log.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+func (c *ClientWithResponses) ApplySchemaChangeWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplySchemaChangeResponse, error) {
+	rsp, err := c.ApplySchemaChangeWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplySchemaChangeResponse(rsp)
+}
+
+// ApplySchemaChangeWithResponse Run a previewed schema change
+//
+// `hash` must be the preview's: if the change would now produce other
+// SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+// object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+// CONCURRENTLY runs outside a transaction, everything else in one.
+// The SQL is written to the audit log.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/apply (the `ApplySchemaChange` operationId).
+func (c *ClientWithResponses) ApplySchemaChangeWithResponse(ctx context.Context, id ProjectID, body ApplySchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplySchemaChangeResponse, error) {
+	rsp, err := c.ApplySchemaChange(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplySchemaChangeResponse(rsp)
+}
+
+// SchemaMigrationWithBodyWithResponse Render a schema change as a migration file (plain SQL, goose, or dbmate)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+func (c *ClientWithResponses) SchemaMigrationWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SchemaMigrationResponse, error) {
+	rsp, err := c.SchemaMigrationWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSchemaMigrationResponse(rsp)
+}
+
+// SchemaMigrationWithResponse Render a schema change as a migration file (plain SQL, goose, or dbmate)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/migration (the `SchemaMigration` operationId).
+func (c *ClientWithResponses) SchemaMigrationWithResponse(ctx context.Context, id ProjectID, body SchemaMigrationJSONRequestBody, reqEditors ...RequestEditorFn) (*SchemaMigrationResponse, error) {
+	rsp, err := c.SchemaMigration(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSchemaMigrationResponse(rsp)
+}
+
+// PreviewSchemaChangeWithBodyWithResponse Turn a schema change into DDL, risk notes, and a reverse
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+func (c *ClientWithResponses) PreviewSchemaChangeWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewSchemaChangeResponse, error) {
+	rsp, err := c.PreviewSchemaChangeWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewSchemaChangeResponse(rsp)
+}
+
+// PreviewSchemaChangeWithResponse Turn a schema change into DDL, risk notes, and a reverse
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
+func (c *ClientWithResponses) PreviewSchemaChangeWithResponse(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSchemaChangeResponse, error) {
+	rsp, err := c.PreviewSchemaChange(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewSchemaChangeResponse(rsp)
+}
+
 // UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
 //
 // Changes to guardrails that live on the backend or the pooler
@@ -26643,10 +28585,78 @@ func (c *ClientWithResponses) SwitchProjectCredentialsWithResponse(ctx context.C
 	return ParseSwitchProjectCredentialsResponse(rsp)
 }
 
-// GetTableRowsWithResponse A page of a table's rows (read-only)
+// GetTableInfoWithResponse A table's columns, keys, constraints and indexes, and whether its rows can be edited
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table} (the `GetTableInfo` operationId).
+func (c *ClientWithResponses) GetTableInfoWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, reqEditors ...RequestEditorFn) (*GetTableInfoResponse, error) {
+	rsp, err := c.GetTableInfo(ctx, id, schema, table, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTableInfoResponse(rsp)
+}
+
+// SaveTableChangesWithBodyWithResponse Save staged row edits in one transaction
+//
+// Inserts, updates and deletes (at most 500) in one transaction with
+// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+// deletes match the row's `xmin` from when it was loaded: if someone
+// changed or deleted it since, nothing is saved and the answer is 409
+// with the row as it is now. A change Postgres refuses rolls back the
+// batch: 422 with the failing change and its error.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+func (c *ClientWithResponses) SaveTableChangesWithBodyWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveTableChangesResponse, error) {
+	rsp, err := c.SaveTableChangesWithBody(ctx, id, schema, table, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSaveTableChangesResponse(rsp)
+}
+
+// SaveTableChangesWithResponse Save staged row edits in one transaction
+//
+// Inserts, updates and deletes (at most 500) in one transaction with
+// statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+// deletes match the row's `xmin` from when it was loaded: if someone
+// changed or deleted it since, nothing is saved and the answer is 409
+// with the row as it is now. A change Postgres refuses rolls back the
+// batch: 422 with the failing change and its error.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/tables/{schema}/{table}/changes (the `SaveTableChanges` operationId).
+func (c *ClientWithResponses) SaveTableChangesWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, body SaveTableChangesJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveTableChangesResponse, error) {
+	rsp, err := c.SaveTableChanges(ctx, id, schema, table, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSaveTableChangesResponse(rsp)
+}
+
+// ExportTableRowsWithResponse Export filtered, sorted rows as CSV or JSON (at most 100,000)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/tables/{schema}/{table}/export (the `ExportTableRows` operationId).
+func (c *ClientWithResponses) ExportTableRowsWithResponse(ctx context.Context, id ProjectID, schema SchemaName, table TableName, params *ExportTableRowsParams, reqEditors ...RequestEditorFn) (*ExportTableRowsResponse, error) {
+	rsp, err := c.ExportTableRows(ctx, id, schema, table, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExportTableRowsResponse(rsp)
+}
+
+// GetTableRowsWithResponse A page of a table's rows, filtered and sorted
 //
 // 50 rows per page, keyset-paginated on the primary key where there is
-// one (spec §8.6). Pass the previous page's `next` as `after`.
+// one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+// tables return each row's `xmin`, for the row editor's conflict
+// detection (V2 §4.2).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -30506,6 +32516,39 @@ func ParseIssueMyCredentialsResponse(rsp *http.Response) (*IssueMyCredentialsRes
 	return response, nil
 }
 
+// ParseGetEditorPreferencesResponse parses an HTTP response from a GetEditorPreferencesWithResponse call
+func ParseGetEditorPreferencesResponse(rsp *http.Response) (*GetEditorPreferencesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEditorPreferencesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EditorPreferences
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListProjectExtensionsResponse parses an HTTP response from a ListProjectExtensionsWithResponse call
 func ParseListProjectExtensionsResponse(rsp *http.Response) (*ListProjectExtensionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -31000,6 +33043,105 @@ func ParseGetProjectSchemaResponse(rsp *http.Response) (*GetProjectSchemaRespons
 	return response, nil
 }
 
+// ParseApplySchemaChangeResponse parses an HTTP response from a ApplySchemaChangeWithResponse call
+func ParseApplySchemaChangeResponse(rsp *http.Response) (*ApplySchemaChangeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApplySchemaChangeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaApplied
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSchemaMigrationResponse parses an HTTP response from a SchemaMigrationWithResponse call
+func ParseSchemaMigrationResponse(rsp *http.Response) (*SchemaMigrationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SchemaMigrationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaMigration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewSchemaChangeResponse parses an HTTP response from a PreviewSchemaChangeWithResponse call
+func ParsePreviewSchemaChangeResponse(rsp *http.Response) (*PreviewSchemaChangeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewSchemaChangeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaPlan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseUpdateProjectResponse parses an HTTP response from a UpdateProjectWithResponse call
 func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -31159,6 +33301,122 @@ func ParseSwitchProjectCredentialsResponse(rsp *http.Response) (*SwitchProjectCr
 			return nil, err
 		}
 		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTableInfoResponse parses an HTTP response from a GetTableInfoWithResponse call
+func ParseGetTableInfoResponse(rsp *http.Response) (*GetTableInfoResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTableInfoResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TableInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSaveTableChangesResponse parses an HTTP response from a SaveTableChangesWithResponse call
+func ParseSaveTableChangesResponse(rsp *http.Response) (*SaveTableChangesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SaveTableChangesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SaveRowsResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SaveRowsResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest SaveRowsResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExportTableRowsResponse parses an HTTP response from a ExportTableRowsWithResponse call
+func ParseExportTableRowsResponse(rsp *http.Response) (*ExportTableRowsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExportTableRowsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/csv) unsupported
 
 	}
 

@@ -161,7 +161,7 @@ func (s *Server) GetOrgUsage(w http.ResponseWriter, r *http.Request, org gen.Org
 	if out.Totals == nil {
 		out.Totals = []gen.UsageTotal{}
 	}
-	if (p.Format != nil && *p.Format == gen.Csv) || strings.Contains(r.Header.Get("Accept"), "text/csv") {
+	if (p.Format != nil && *p.Format == gen.GetOrgUsageParamsFormatCsv) || strings.Contains(r.Header.Get("Accept"), "text/csv") {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="pgdock-usage.csv"`)
 		cw := csv.NewWriter(w)

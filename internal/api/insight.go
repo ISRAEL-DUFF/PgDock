@@ -159,30 +159,6 @@ func (s *Server) GetProjectSchema(w http.ResponseWriter, r *http.Request, id gen
 	writeJSON(w, http.StatusOK, sc)
 }
 
-// GetTableRows implements GET /api/v1/projects/{id}/tables/{schema}/{table}/rows.
-func (s *Server) GetTableRows(w http.ResponseWriter, r *http.Request, id gen.ProjectID, schema, table string, params gen.GetTableRowsParams) {
-	if !s.requireConsole(w) {
-		return
-	}
-	after, limit := "", console.PageSize
-	if params.After != nil {
-		after = *params.After
-	}
-	if params.Limit != nil {
-		if *params.Limit < 1 || *params.Limit > console.PageSize {
-			writeError(w, http.StatusBadRequest, "bad_request", "limit must be between 1 and 50")
-			return
-		}
-		limit = *params.Limit
-	}
-	page, err := s.console.Rows(r.Context(), id, schema, table, after, limit)
-	if err != nil {
-		s.consoleError(w, "table rows", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, page)
-}
-
 func toAPIExtensions(exts []console.Extension) gen.ExtensionList {
 	out := gen.ExtensionList{Items: make([]gen.Extension, 0, len(exts))}
 	for _, e := range exts {

@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage, type DbTable } from "../api/client";
-import { ResultGrid } from "../components/ResultGrid";
-import { Alert, Badge, Button, Card, Spinner, Table, cx } from "../components/ui";
+import { RowEditor } from "../components/RowEditor";
+import { NewObjectButtons, StructureEditor } from "../components/SchemaEditor";
+import { Alert, Badge, Button, Card, Spinner, cx } from "../components/ui";
 import { formatBytes } from "../lib/format";
 import { useProject } from "./ProjectOverview";
 
@@ -14,7 +15,8 @@ const kindLabel: Record<DbTable["kind"], string> = {
   foreign_table: "foreign",
 };
 
-/** The read-only table browser (spec §8.6). */
+/** The table editor: browse, filter and edit rows, and change the schema
+ * (spec §8.6, V2 §4). */
 export function ProjectTablesPage() {
   const { data: p } = useProject();
   const schema = useQuery({ queryKey: ["schema", p?.id], queryFn: () => api.schema(p!.id), enabled: !!p && p.status === "active" });
@@ -29,10 +31,23 @@ export function ProjectTablesPage() {
   const current = sel ?? (schemas[0]?.tables[0] ? { schema: schemas[0].name, table: schemas[0].tables[0].name } : null);
   const table = current && schemas.find((s) => s.name === current.schema)?.tables.find((t) => t.name === current.table);
   const f = filter.trim().toLowerCase();
+  const canEdit = (p.my_role === "admin" || p.my_role === "developer") && !p.settings.console_read_only;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[15rem_1fr]">
       <Card title="Schema" className="h-fit" actions={<Button variant="ghost" className="text-xs" onClick={() => schema.refetch()}>Refresh</Button>}>
+        {canEdit && (
+          <div className="mb-2">
+            <NewObjectButtons
+              projectId={p.id}
+              schemas={schemas.map((x) => x.name)}
+              onCreated={(sc, table) => {
+                void schema.refetch();
+                if (table) setSel({ schema: sc, table });
+              }}
+            />
+          </div>
+        )}
         <input
           type="search"
           placeholder="Filter tables"
@@ -78,10 +93,20 @@ export function ProjectTablesPage() {
       </Card>
       <div className="flex min-w-0 flex-col gap-4">
         {table && current ? (
-          <TableView key={`${current.schema}.${current.table}`} projectId={p.id} schema={current.schema} t={table} />
+          <TableView
+            key={`${current.schema}.${current.table}`}
+            projectId={p.id}
+            schema={current.schema}
+            t={table}
+            canEdit={canEdit}
+            onSelect={(name) => {
+              void schema.refetch();
+              setSel(name ? { schema: current.schema, table: name } : null);
+            }}
+          />
         ) : (
           <Card>
-            <p className="text-sm text-muted">No tables yet. Create some in the SQL console.</p>
+            <p className="text-sm text-muted">No tables yet. Create one with New table, or in the SQL console.</p>
           </Card>
         )}
       </div>
@@ -89,15 +114,9 @@ export function ProjectTablesPage() {
   );
 }
 
-function TableView({ projectId, schema, t }: { projectId: string; schema: string; t: DbTable }) {
-  // Cursors of the pages so far, for Previous.
-  const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
-  const after = cursors[cursors.length - 1];
-  const rows = useQuery({
-    queryKey: ["rows", projectId, schema, t.name, after],
-    queryFn: () => api.tableRows(projectId, schema, t.name, after),
-  });
-  const page = cursors.length;
+function TableView({ projectId, schema, t, canEdit, onSelect }: { projectId: string; schema: string; t: DbTable; canEdit: boolean; onSelect: (table: string | null) => void }) {
+  const [tab, setTab] = useState<"rows" | "structure">("rows");
+  const info = useQuery({ queryKey: ["table-info", projectId, schema, t.name], queryFn: () => api.tableInfo(projectId, schema, t.name) });
   return (
     <>
       <Card
@@ -106,12 +125,25 @@ function TableView({ projectId, schema, t }: { projectId: string; schema: string
             {schema}.{t.name} <Badge>{kindLabel[t.kind]}</Badge>
           </span>
         }
+        actions={
+          <div className="flex gap-1" role="tablist">
+            {(["rows", "structure"] as const).map((x) => (
+              <Button key={x} role="tab" aria-selected={tab === x} variant={tab === x ? "primary" : "ghost"} className="text-xs" onClick={() => setTab(x)} data-testid={`tab-${x}`}>
+                {x === "rows" ? "Rows" : "Structure"}
+              </Button>
+            ))}
+          </div>
+        }
       >
         <dl className="mb-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm" data-testid="table-info">
           <dt className="text-muted">Rows (estimate)</dt>
           <dd>{t.row_estimate == null ? "not analyzed yet" : t.row_estimate.toLocaleString()}</dd>
           <dt className="text-muted">Size</dt>
           <dd>{formatBytes(t.size_bytes)}</dd>
+          <dt className="text-muted">Structure</dt>
+          <dd>
+            {t.columns.length} columns, {t.indexes.length} indexes
+          </dd>
           {t.primary_key.length > 0 && (
             <>
               <dt className="text-muted">Primary key</dt>
@@ -125,69 +157,14 @@ function TableView({ projectId, schema, t }: { projectId: string; schema: string
             </>
           )}
         </dl>
-        <details>
-          <summary className="cursor-pointer text-sm font-medium">
-            {t.columns.length} columns, {t.indexes.length} indexes
-          </summary>
-          <div className="mt-2 flex flex-col gap-3">
-            <Table head={["Column", "Type", "Nullable", "Default"]}>
-              {t.columns.map((c) => (
-                <tr key={c.name}>
-                  <td className="px-3 py-1 font-mono text-xs">{c.name}</td>
-                  <td className="px-3 py-1 font-mono text-xs">{c.type}</td>
-                  <td className="px-3 py-1 text-xs">{c.nullable ? "yes" : "no"}</td>
-                  <td className="px-3 py-1 font-mono text-xs text-muted">{c.default ?? ""}</td>
-                </tr>
-              ))}
-            </Table>
-            {t.indexes.length > 0 && (
-              <Table head={["Index", "Definition"]}>
-                {t.indexes.map((i) => (
-                  <tr key={i.name}>
-                    <td className="px-3 py-1 font-mono text-xs">
-                      {i.name} {i.primary ? <Badge tone="accent">primary</Badge> : i.unique ? <Badge>unique</Badge> : null}
-                    </td>
-                    <td className="px-3 py-1 font-mono text-xs text-muted">{i.definition}</td>
-                  </tr>
-                ))}
-              </Table>
-            )}
-          </div>
-        </details>
-      </Card>
-      <Card
-        title="Data"
-        actions={
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted" data-testid="page-number">
-              Page {page}
-            </span>
-            <Button className="text-xs" disabled={page === 1} onClick={() => setCursors((c) => c.slice(0, -1))}>
-              Previous
-            </Button>
-            <Button
-              className="text-xs"
-              disabled={!rows.data?.next}
-              onClick={() => rows.data?.next && setCursors((c) => [...c, rows.data.next])}
-            >
-              Next
-            </Button>
-          </div>
-        }
-      >
-        {rows.isPending ? (
+        {info.isPending ? (
           <Spinner />
-        ) : rows.isError ? (
-          <Alert>{errorMessage(rows.error)}</Alert>
+        ) : info.isError ? (
+          <Alert>{errorMessage(info.error)}</Alert>
+        ) : tab === "rows" ? (
+          <RowEditor projectId={projectId} schema={schema} table={t.name} info={info.data} />
         ) : (
-          <>
-            <ResultGrid columns={rows.data.columns} rows={rows.data.rows} offset={(page - 1) * 50} testId="table-grid" />
-            {rows.data.order !== "primary_key" && (
-              <p className="mt-2 text-xs text-muted">
-                No primary key: pages follow {rows.data.order === "ctid" ? "physical row order" : "the view's own order"}, which may shift while it changes.
-              </p>
-            )}
-          </>
+          <StructureEditor projectId={projectId} info={info.data} canEdit={canEdit} onRenamed={(n) => onSelect(n)} onDropped={() => onSelect(null)} />
         )}
       </Card>
     </>

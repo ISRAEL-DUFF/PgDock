@@ -37,6 +37,23 @@ func (q *Queries) DBNameTaken(ctx context.Context, name string) (bool, error) {
 	return exists, err
 }
 
+const getEditorPreferences = `-- name: GetEditorPreferences :one
+SELECT migration_format FROM editor_preferences WHERE project_id = $1 AND user_id = $2 AND org_id = $3
+`
+
+type GetEditorPreferencesParams struct {
+	ProjectID uuid.UUID
+	UserID    uuid.UUID
+	OrgID     uuid.UUID
+}
+
+func (q *Queries) GetEditorPreferences(ctx context.Context, arg GetEditorPreferencesParams) (string, error) {
+	row := q.db.QueryRow(ctx, getEditorPreferences, arg.ProjectID, arg.UserID, arg.OrgID)
+	var migration_format string
+	err := row.Scan(&migration_format)
+	return migration_format, err
+}
+
 const getLiveProjectForUpdate = `-- name: GetLiveProjectForUpdate :one
 SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects WHERE id = $1 AND deleted_at IS NULL FOR UPDATE
 `
@@ -392,6 +409,29 @@ func (q *Queries) ProjectsToRename(ctx context.Context) ([]Project, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const putEditorPreferences = `-- name: PutEditorPreferences :exec
+INSERT INTO editor_preferences (project_id, user_id, org_id, migration_format)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (project_id, user_id) DO UPDATE SET migration_format = EXCLUDED.migration_format, org_id = EXCLUDED.org_id, updated_at = now()
+`
+
+type PutEditorPreferencesParams struct {
+	ProjectID       uuid.UUID
+	UserID          uuid.UUID
+	OrgID           uuid.UUID
+	MigrationFormat string
+}
+
+func (q *Queries) PutEditorPreferences(ctx context.Context, arg PutEditorPreferencesParams) error {
+	_, err := q.db.Exec(ctx, putEditorPreferences,
+		arg.ProjectID,
+		arg.UserID,
+		arg.OrgID,
+		arg.MigrationFormat,
+	)
+	return err
 }
 
 const setProjectBackendName = `-- name: SetProjectBackendName :exec

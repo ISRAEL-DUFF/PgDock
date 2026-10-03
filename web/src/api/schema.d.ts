@@ -903,6 +903,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/tables/{schema}/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A table's columns, keys, constraints and indexes, and whether its rows can be edited */
+        get: operations["getTableInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/tables/{schema}/{table}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export filtered, sorted rows as CSV or JSON (at most 100,000) */
+        get: operations["exportTableRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/tables/{schema}/{table}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save staged row edits in one transaction
+         * @description Inserts, updates and deletes (at most 500) in one transaction with
+         *     statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+         *     deletes match the row's `xmin` from when it was loaded: if someone
+         *     changed or deleted it since, nothing is saved and the answer is 409
+         *     with the row as it is now. A change Postgres refuses rolls back the
+         *     batch: 422 with the failing change and its error.
+         */
+        post: operations["saveTableChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/schema/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn a schema change into DDL, risk notes, and a reverse */
+        post: operations["previewSchemaChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/schema/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a previewed schema change
+         * @description `hash` must be the preview's: if the change would now produce other
+         *     SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+         *     object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+         *     CONCURRENTLY runs outside a transaction, everything else in one.
+         *     The SQL is written to the audit log.
+         */
+        post: operations["applySchemaChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/schema/migration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render a schema change as a migration file (plain SQL, goose, or dbmate) */
+        post: operations["schemaMigration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/editor-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your table-editor preferences for this project */
+        get: operations["getEditorPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/tables/{schema}/{table}/rows": {
         parameters: {
             query?: never;
@@ -911,9 +1045,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A page of a table's rows (read-only)
+         * A page of a table's rows, filtered and sorted
          * @description 50 rows per page, keyset-paginated on the primary key where there is
-         *     one (spec §8.6). Pass the previous page's `next` as `after`.
+         *     one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+         *     tables return each row's `xmin`, for the row editor's conflict
+         *     detection (V2 §4.2).
          */
         get: operations["getTableRows"];
         put?: never;
@@ -2355,6 +2491,9 @@ export interface components {
             code: string;
             message: string;
             quota?: components["schemas"]["QuotaItem"];
+            sql_error?: components["schemas"]["SqlError"];
+            /** @description The DDL statement Postgres refused. */
+            statement?: string;
         };
         /** @enum {string} */
         OperationStatus: "queued" | "running" | "succeeded" | "failed";
@@ -3021,6 +3160,198 @@ export interface components {
             /** @enum {string} */
             order: "primary_key" | "ctid" | "offset";
             key_columns: string[];
+            /** @description Each row's xmin, for editable tables. */
+            xmin?: string[];
+            /** @description Offset paging this deep is slow; sort by the primary key or filter. */
+            large_offset?: boolean;
+        };
+        TableInfo: {
+            schema: string;
+            name: string;
+            /** @enum {string} */
+            kind: "table" | "partitioned_table" | "view" | "materialized_view" | "foreign_table";
+            primary_key: string[];
+            columns: components["schemas"]["EditColumn"][];
+            foreign_keys: components["schemas"]["ForeignKey"][];
+            constraints: components["schemas"]["TableConstraint"][];
+            indexes: components["schemas"]["DbIndex"][];
+            /** Format: int64 */
+            size_bytes: number;
+            /** Format: int64 */
+            row_estimate?: number | null;
+            editable: boolean;
+            read_only_reason?: string;
+        };
+        EditColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            default?: string | null;
+            /** @description pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…). */
+            category: string;
+            base_type: string;
+            enum_values?: string[];
+            generated: boolean;
+            /** @enum {string} */
+            identity?: "always" | "by_default";
+        };
+        ForeignKey: {
+            name: string;
+            columns: string[];
+            ref_schema: string;
+            ref_table: string;
+            ref_columns: string[];
+            on_delete: string;
+            on_update: string;
+        };
+        TableConstraint: {
+            name: string;
+            /** @enum {string} */
+            kind: "check" | "unique" | "primary_key" | "foreign_key" | "exclusion";
+            definition: string;
+        };
+        RowChange: {
+            /** @enum {string} */
+            op: "insert" | "update" | "delete";
+            /** @description The row's primary key (update, delete). */
+            key?: {
+                [key: string]: string | null;
+            };
+            /** @description The row's xmin when loaded (update, delete). */
+            xmin?: string;
+            /** @description Column values as text, null for NULL. Columns left out of an insert get their default. */
+            values?: {
+                [key: string]: string | null;
+            };
+        };
+        SaveRowsRequest: {
+            changes: components["schemas"]["RowChange"][];
+        };
+        SaveRowsResult: {
+            applied: boolean;
+            /** @example 3 updates, 1 insert, 2 deletes */
+            summary: string;
+            columns: components["schemas"]["SqlColumn"][];
+            rows: components["schemas"]["SavedRow"][];
+            conflict?: components["schemas"]["RowConflict"];
+            failed?: components["schemas"]["FailedChange"];
+        };
+        SavedRow: {
+            index: number;
+            xmin: string;
+            values: (string | null)[];
+        };
+        RowConflict: {
+            /** @description The change that hit a row someone else changed. */
+            index: number;
+            deleted: boolean;
+            xmin?: string;
+            current?: (string | null)[];
+        };
+        FailedChange: {
+            /** @description The change Postgres refused (-1 for a constraint checked at commit). */
+            index: number;
+            error: components["schemas"]["SqlError"];
+        };
+        SchemaColumnDef: {
+            name: string;
+            /** @example text */
+            type: string;
+            /** @default true */
+            nullable: boolean;
+            /** @description An SQL expression, e.g. now() or 'draft'. */
+            default?: string;
+            primary_key?: boolean;
+            comment?: string;
+        };
+        /** @description One change (V2 §4.3); which fields apply depends on `kind`. */
+        SchemaChange: {
+            /** @enum {string} */
+            kind: "create_schema" | "drop_schema" | "create_table" | "rename_table" | "drop_table" | "add_column" | "rename_column" | "drop_column" | "alter_column" | "add_check" | "add_unique" | "add_foreign_key" | "drop_constraint" | "create_index" | "drop_index" | "create_enum" | "add_enum_value";
+            /** @default public */
+            schema: string;
+            table?: string;
+            /** @description The schema, constraint, index or type created or dropped. */
+            name?: string;
+            new_name?: string;
+            column?: components["schemas"]["SchemaColumnDef"];
+            columns?: components["schemas"]["SchemaColumnDef"][];
+            column_name?: string;
+            comment?: string;
+            type?: string;
+            using?: string;
+            default?: string;
+            drop_default?: boolean;
+            nullable?: boolean;
+            expression?: string;
+            key_columns?: string[];
+            ref_schema?: string;
+            ref_table?: string;
+            ref_columns?: string[];
+            /** @enum {string} */
+            on_delete?: "NO ACTION" | "RESTRICT" | "CASCADE" | "SET NULL" | "SET DEFAULT";
+            /** @enum {string} */
+            on_update?: "NO ACTION" | "RESTRICT" | "CASCADE" | "SET NULL" | "SET DEFAULT";
+            not_valid?: boolean;
+            /** @enum {string} */
+            method?: "btree" | "gin" | "gist" | "brin" | "hash";
+            unique?: boolean;
+            where?: string;
+            /** @default true */
+            concurrently: boolean;
+            cascade?: boolean;
+            values?: string[];
+            value?: string;
+            before_value?: string;
+        };
+        SchemaPreviewRequest: {
+            change: components["schemas"]["SchemaChange"];
+        };
+        SchemaApplyRequest: {
+            change: components["schemas"]["SchemaChange"];
+            /** @description The preview's hash. */
+            hash: string;
+            /** @description The name of what is dropped, typed. */
+            confirm?: string;
+        };
+        SchemaMigrationRequest: {
+            change: components["schemas"]["SchemaChange"];
+            /** @enum {string} */
+            format: "sql" | "goose" | "dbmate";
+        };
+        SchemaStatement: {
+            sql: string;
+            transactional: boolean;
+        };
+        SchemaRisk: {
+            /** @enum {string} */
+            level: "info" | "warning" | "danger";
+            message: string;
+        };
+        SchemaPlan: {
+            statements: components["schemas"]["SchemaStatement"][];
+            risks: components["schemas"]["SchemaRisk"][];
+            /** @description Type this name to run it. */
+            confirm?: string;
+            down: string[];
+            down_todo: string[];
+            slug: string;
+            hash: string;
+        };
+        SchemaApplied: {
+            plan: components["schemas"]["SchemaPlan"];
+            /** Format: int64 */
+            duration_ms: number;
+        };
+        SchemaMigration: {
+            filename: string;
+            content: string;
+            /** @enum {string} */
+            format: "sql" | "goose" | "dbmate";
+        };
+        EditorPreferences: {
+            /** @enum {string} */
+            migration_format: "sql" | "goose" | "dbmate";
         };
         Extension: {
             name: string;
@@ -3874,6 +4205,8 @@ export interface components {
         };
     };
     parameters: {
+        SchemaName: string;
+        TableName: string;
         TokenID: string;
         RequestID: string;
         OrgID: string;
@@ -5237,9 +5570,229 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getTableInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The table. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportTableRows: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+                 *     op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
+                 */
+                filter?: string[];
+                sort?: string;
+                desc?: boolean;
+                format?: "csv" | "json";
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows; X-PGDock-Truncated is true when there were more. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/json": Record<string, never>[];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveTableChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRowsRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveRowsResult"];
+                };
+            };
+            /** @description A row changed since it was loaded; nothing was saved. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveRowsResult"];
+                };
+            };
+            /** @description Postgres refused a change; nothing was saved. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveRowsResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewSchemaChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchemaPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The plan. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchemaPlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    applySchemaChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchemaApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchemaApplied"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    schemaMigration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchemaMigrationRequest"];
+            };
+        };
+        responses: {
+            /** @description The migration; the format becomes your default for this project. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchemaMigration"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEditorPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorPreferences"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getTableRows: {
         parameters: {
             query?: {
+                /**
+                 * @description Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+                 *     op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
+                 *     (V2 §4.1). Compiled to a parameterised WHERE clause.
+                 */
+                filter?: string[];
+                /** @description A column. Sorting by the primary key pages by keyset; any other column by offset. */
+                sort?: string;
+                desc?: boolean;
                 after?: string;
                 limit?: number;
             };

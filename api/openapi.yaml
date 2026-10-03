@@ -1112,13 +1112,210 @@ paths:
                 $ref: "#/components/schemas/DbSchema"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}:
+    get:
+      operationId: getTableInfo
+      summary: A table's columns, keys, constraints and indexes, and whether its rows can be edited
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+      responses:
+        "200":
+          description: The table.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TableInfo"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/export:
+    get:
+      operationId: exportTableRows
+      summary: Export filtered, sorted rows as CSV or JSON (at most 100,000)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+        - name: filter
+          in: query
+          description: |
+            Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+            op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: desc
+          in: query
+          schema:
+            type: boolean
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+      responses:
+        "200":
+          description: The rows; X-PGDock-Truncated is true when there were more.
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/changes:
+    post:
+      operationId: saveTableChanges
+      summary: Save staged row edits in one transaction
+      description: |
+        Inserts, updates and deletes (at most 500) in one transaction with
+        statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+        deletes match the row's `xmin` from when it was loaded: if someone
+        changed or deleted it since, nothing is saved and the answer is 409
+        with the row as it is now. A change Postgres refuses rolls back the
+        batch: 422 with the failing change and its error.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveRowsRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveRowsResult"
+        "409":
+          description: A row changed since it was loaded; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveRowsResult"
+        "422":
+          description: Postgres refused a change; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveRowsResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/schema/preview:
+    post:
+      operationId: previewSchemaChange
+      summary: Turn a schema change into DDL, risk notes, and a reverse
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchemaPreviewRequest"
+      responses:
+        "200":
+          description: The plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaPlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/schema/apply:
+    post:
+      operationId: applySchemaChange
+      summary: Run a previewed schema change
+      description: |
+        `hash` must be the preview's: if the change would now produce other
+        SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+        object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+        CONCURRENTLY runs outside a transaction, everything else in one.
+        The SQL is written to the audit log.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchemaApplyRequest"
+      responses:
+        "200":
+          description: Applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaApplied"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/schema/migration:
+    post:
+      operationId: schemaMigration
+      summary: Render a schema change as a migration file (plain SQL, goose, or dbmate)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchemaMigrationRequest"
+      responses:
+        "200":
+          description: The migration; the format becomes your default for this project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaMigration"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/editor-preferences:
+    get:
+      operationId: getEditorPreferences
+      summary: Your table-editor preferences for this project
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Preferences.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditorPreferences"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/tables/{schema}/{table}/rows:
     get:
       operationId: getTableRows
-      summary: A page of a table's rows (read-only)
+      summary: A page of a table's rows, filtered and sorted
       description: |
         50 rows per page, keyset-paginated on the primary key where there is
-        one (spec §8.6). Pass the previous page's `next` as `after`.
+        one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+        tables return each row's `xmin`, for the row editor's conflict
+        detection (V2 §4.2).
       tags: [console]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -1132,6 +1329,25 @@ paths:
           required: true
           schema:
             type: string
+        - name: filter
+          in: query
+          description: |
+            Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+            op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
+            (V2 §4.1). Compiled to a parameterised WHERE clause.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: sort
+          in: query
+          description: A column. Sorting by the primary key pages by keyset; any other column by offset.
+          schema:
+            type: string
+        - name: desc
+          in: query
+          schema:
+            type: boolean
         - name: after
           in: query
           schema:
@@ -2885,6 +3101,18 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   parameters:
+    SchemaName:
+      name: schema
+      in: path
+      required: true
+      schema:
+        type: string
+    TableName:
+      name: table
+      in: path
+      required: true
+      schema:
+        type: string
     TokenID:
       name: token_id
       in: path
@@ -3091,6 +3319,11 @@ components:
           type: string
         quota:
           $ref: "#/components/schemas/QuotaItem"
+        sql_error:
+          $ref: "#/components/schemas/SqlError"
+        statement:
+          type: string
+          description: The DDL statement Postgres refused.
     OperationStatus:
       type: string
       enum: [queued, running, succeeded, failed]
@@ -4365,6 +4598,404 @@ components:
           type: array
           items:
             type: string
+        xmin:
+          type: array
+          description: Each row's xmin, for editable tables.
+          items:
+            type: string
+        large_offset:
+          type: boolean
+          description: Offset paging this deep is slow; sort by the primary key or filter.
+    TableInfo:
+      type: object
+      required: [schema, name, kind, primary_key, columns, foreign_keys, constraints, indexes, size_bytes, editable]
+      properties:
+        schema:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [table, partitioned_table, view, materialized_view, foreign_table]
+        primary_key:
+          type: array
+          items:
+            type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditColumn"
+        foreign_keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForeignKey"
+        constraints:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableConstraint"
+        indexes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbIndex"
+        size_bytes:
+          type: integer
+          format: int64
+        row_estimate:
+          type: integer
+          format: int64
+          nullable: true
+        editable:
+          type: boolean
+        read_only_reason:
+          type: string
+    EditColumn:
+      type: object
+      required: [name, type, nullable, category, base_type, generated]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        nullable:
+          type: boolean
+        default:
+          type: string
+          nullable: true
+        category:
+          type: string
+          description: pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…).
+        base_type:
+          type: string
+        enum_values:
+          type: array
+          items:
+            type: string
+        generated:
+          type: boolean
+        identity:
+          type: string
+          enum: [always, by_default]
+    ForeignKey:
+      type: object
+      required: [name, columns, ref_schema, ref_table, ref_columns, on_delete, on_update]
+      properties:
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        ref_schema:
+          type: string
+        ref_table:
+          type: string
+        ref_columns:
+          type: array
+          items:
+            type: string
+        on_delete:
+          type: string
+        on_update:
+          type: string
+    TableConstraint:
+      type: object
+      required: [name, kind, definition]
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [check, unique, primary_key, foreign_key, exclusion]
+        definition:
+          type: string
+    RowChange:
+      type: object
+      required: [op]
+      properties:
+        op:
+          type: string
+          enum: [insert, update, delete]
+        key:
+          type: object
+          description: The row's primary key (update, delete).
+          additionalProperties:
+            type: string
+            nullable: true
+        xmin:
+          type: string
+          description: The row's xmin when loaded (update, delete).
+        values:
+          type: object
+          description: Column values as text, null for NULL. Columns left out of an insert get their default.
+          additionalProperties:
+            type: string
+            nullable: true
+    SaveRowsRequest:
+      type: object
+      required: [changes]
+      properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/RowChange"
+    SaveRowsResult:
+      type: object
+      required: [applied, rows, columns, summary]
+      properties:
+        applied:
+          type: boolean
+        summary:
+          type: string
+          example: 3 updates, 1 insert, 2 deletes
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SqlColumn"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedRow"
+        conflict:
+          $ref: "#/components/schemas/RowConflict"
+        failed:
+          $ref: "#/components/schemas/FailedChange"
+    SavedRow:
+      type: object
+      required: [index, xmin, values]
+      properties:
+        index:
+          type: integer
+        xmin:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+            nullable: true
+    RowConflict:
+      type: object
+      required: [index, deleted]
+      properties:
+        index:
+          type: integer
+          description: The change that hit a row someone else changed.
+        deleted:
+          type: boolean
+        xmin:
+          type: string
+        current:
+          type: array
+          items:
+            type: string
+            nullable: true
+    FailedChange:
+      type: object
+      required: [index, error]
+      properties:
+        index:
+          type: integer
+          description: The change Postgres refused (-1 for a constraint checked at commit).
+        error:
+          $ref: "#/components/schemas/SqlError"
+    SchemaColumnDef:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          example: text
+        nullable:
+          type: boolean
+          default: true
+        default:
+          type: string
+          description: An SQL expression, e.g. now() or 'draft'.
+        primary_key:
+          type: boolean
+        comment:
+          type: string
+    SchemaChange:
+      type: object
+      required: [kind]
+      description: One change (V2 §4.3); which fields apply depends on `kind`.
+      properties:
+        kind:
+          type: string
+          enum: [create_schema, drop_schema, create_table, rename_table, drop_table, add_column, rename_column, drop_column, alter_column, add_check, add_unique, add_foreign_key, drop_constraint, create_index, drop_index, create_enum, add_enum_value]
+        schema:
+          type: string
+          default: public
+        table:
+          type: string
+        name:
+          type: string
+          description: The schema, constraint, index or type created or dropped.
+        new_name:
+          type: string
+        column:
+          $ref: "#/components/schemas/SchemaColumnDef"
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaColumnDef"
+        column_name:
+          type: string
+        comment:
+          type: string
+        type:
+          type: string
+        using:
+          type: string
+        default:
+          type: string
+        drop_default:
+          type: boolean
+        nullable:
+          type: boolean
+        expression:
+          type: string
+        key_columns:
+          type: array
+          items:
+            type: string
+        ref_schema:
+          type: string
+        ref_table:
+          type: string
+        ref_columns:
+          type: array
+          items:
+            type: string
+        on_delete:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
+        on_update:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
+        not_valid:
+          type: boolean
+        method:
+          type: string
+          enum: [btree, gin, gist, brin, hash]
+        unique:
+          type: boolean
+        where:
+          type: string
+        concurrently:
+          type: boolean
+          default: true
+        cascade:
+          type: boolean
+        values:
+          type: array
+          items:
+            type: string
+        value:
+          type: string
+        before_value:
+          type: string
+    SchemaPreviewRequest:
+      type: object
+      required: [change]
+      properties:
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+    SchemaApplyRequest:
+      type: object
+      required: [change, hash]
+      properties:
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+        hash:
+          type: string
+          description: The preview's hash.
+        confirm:
+          type: string
+          description: The name of what is dropped, typed.
+    SchemaMigrationRequest:
+      type: object
+      required: [change, format]
+      properties:
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+        format:
+          type: string
+          enum: [sql, goose, dbmate]
+    SchemaStatement:
+      type: object
+      required: [sql, transactional]
+      properties:
+        sql:
+          type: string
+        transactional:
+          type: boolean
+    SchemaRisk:
+      type: object
+      required: [level, message]
+      properties:
+        level:
+          type: string
+          enum: [info, warning, danger]
+        message:
+          type: string
+    SchemaPlan:
+      type: object
+      required: [statements, risks, down, down_todo, slug, hash]
+      properties:
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaStatement"
+        risks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRisk"
+        confirm:
+          type: string
+          description: Type this name to run it.
+        down:
+          type: array
+          items:
+            type: string
+        down_todo:
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+        hash:
+          type: string
+    SchemaApplied:
+      type: object
+      required: [plan, duration_ms]
+      properties:
+        plan:
+          $ref: "#/components/schemas/SchemaPlan"
+        duration_ms:
+          type: integer
+          format: int64
+    SchemaMigration:
+      type: object
+      required: [filename, content, format]
+      properties:
+        filename:
+          type: string
+        content:
+          type: string
+        format:
+          type: string
+          enum: [sql, goose, dbmate]
+    EditorPreferences:
+      type: object
+      required: [migration_format]
+      properties:
+        migration_format:
+          type: string
+          enum: [sql, goose, dbmate]
     Extension:
       type: object
       required: [name, tier, allowed, available]
