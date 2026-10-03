@@ -2698,6 +2698,7 @@ type EditColumn struct {
 
 	// Category pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…).
 	Category   string              `json:"category"`
+	Comment    *string             `json:"comment,omitempty"`
 	Default    *string             `json:"default,omitempty"`
 	EnumValues *[]string           `json:"enum_values,omitempty"`
 	Generated  bool                `json:"generated"`
@@ -4255,6 +4256,7 @@ type SwitchedCredentials struct {
 
 // TableConstraint defines model for TableConstraint.
 type TableConstraint struct {
+	Columns    *[]string           `json:"columns,omitempty"`
 	Definition string              `json:"definition"`
 	Kind       TableConstraintKind `json:"kind"`
 	Name       string              `json:"name"`
@@ -4279,6 +4281,7 @@ type TableFootprint struct {
 // TableInfo defines model for TableInfo.
 type TableInfo struct {
 	Columns        []EditColumn      `json:"columns"`
+	Comment        *string           `json:"comment,omitempty"`
 	Constraints    []TableConstraint `json:"constraints"`
 	Editable       bool              `json:"editable"`
 	ForeignKeys    []ForeignKey      `json:"foreign_keys"`

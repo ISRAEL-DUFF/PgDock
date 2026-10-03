@@ -4206,6 +4206,7 @@ export interface components {
             size_bytes: number;
             /** Format: int64 */
             row_estimate?: number | null;
+            comment?: string | null;
             editable: boolean;
             read_only_reason?: string;
         };
@@ -4221,6 +4222,7 @@ export interface components {
             generated: boolean;
             /** @enum {string} */
             identity?: "always" | "by_default";
+            comment?: string | null;
         };
         ForeignKey: {
             name: string;
@@ -4236,6 +4238,7 @@ export interface components {
             /** @enum {string} */
             kind: "check" | "unique" | "primary_key" | "foreign_key" | "exclusion";
             definition: string;
+            columns?: string[];
         };
         RowChange: {
             /** @enum {string} */

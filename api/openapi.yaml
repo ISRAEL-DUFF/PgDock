@@ -6354,6 +6354,9 @@ components:
           type: integer
           format: int64
           nullable: true
+        comment:
+          type: string
+          nullable: true
         editable:
           type: boolean
         read_only_reason:
@@ -6385,6 +6388,9 @@ components:
         identity:
           type: string
           enum: [always, by_default]
+        comment:
+          type: string
+          nullable: true
     ForeignKey:
       type: object
       required: [name, columns, ref_schema, ref_table, ref_columns, on_delete, on_update]
@@ -6418,6 +6424,10 @@ components:
           enum: [check, unique, primary_key, foreign_key, exclusion]
         definition:
           type: string
+        columns:
+          type: array
+          items:
+            type: string
     RowChange:
       type: object
       required: [op]

@@ -7,17 +7,21 @@ export type EditColumn = S["EditColumn"];
 export type RowChange = S["RowChange"];
 export type SaveRowsResult = S["SaveRowsResult"];
 // Fields with server-side defaults are optional in requests.
-export type SchemaChange = Omit<S["SchemaChange"], "schema" | "concurrently" | "columns" | "column"> & {
+export type SchemaChange = Omit<S["SchemaChange"], "schema" | "concurrently" | "columns" | "column" | "changes"> & {
   schema?: string;
   concurrently?: boolean;
   columns?: SchemaColumnDef[];
   column?: SchemaColumnDef;
+  changes?: SchemaChange[];
 };
+export type ColumnRef = S["ColumnRef"];
+export type RowCount = S["RowCount"];
 export type SchemaColumnDef = Omit<S["SchemaColumnDef"], "nullable"> & { nullable?: boolean };
 export type SchemaPlan = S["SchemaPlan"];
 export type MigrationFormat = S["EditorPreferences"]["migration_format"];
 export type GridFilter = { column: string; op: "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "contains" | "is_null" | "not_null" | "in"; value?: string; values?: string[] };
-export type GridOptions = { filters?: GridFilter[]; sort?: string; desc?: boolean };
+export type GridSort = { column: string; desc: boolean };
+export type GridOptions = { filters?: GridFilter[]; sort?: string; desc?: boolean; order?: GridSort[] };
 
 function tableBase(id: string, schema: string, table: string) {
   return `/api/v1/projects/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}`;
@@ -27,6 +31,7 @@ function tableBase(id: string, schema: string, table: string) {
 function gridQs(g: GridOptions, extra: Record<string, string | undefined>): string {
   const p = new URLSearchParams();
   for (const f of g.filters ?? []) p.append("filter", JSON.stringify(f));
+  for (const o of g.order ?? []) p.append("order", JSON.stringify(o));
   if (g.sort) {
     p.set("sort", g.sort);
     if (g.desc) p.set("desc", "true");
@@ -331,6 +336,12 @@ export const api = {
   tableRows: (id: string, schema: string, table: string, after?: string, grid: GridOptions = {}) =>
     getJSON<TablePage>(`${tableBase(id, schema, table)}/rows${gridQs(grid, { after })}`),
   tableInfo: (id: string, schema: string, table: string) => getJSON<TableInfo>(tableBase(id, schema, table)),
+  /** A numbered page (offset paging) of up to 1,000 rows. */
+  tablePage: (id: string, schema: string, table: string, grid: GridOptions, offset: number, limit: number) =>
+    getJSON<TablePage>(`${tableBase(id, schema, table)}/rows${gridQs(grid, { offset: String(offset), limit: String(limit) })}`),
+  tableCount: (id: string, schema: string, table: string, filters: GridFilter[] = []) =>
+    getJSON<RowCount>(`${tableBase(id, schema, table)}/count${gridQs({ filters }, {})}`),
+  tableDefinition: (id: string, schema: string, table: string) => getJSON<S["TableDefinition"]>(`${tableBase(id, schema, table)}/definition`),
   exportUrl: (id: string, schema: string, table: string, format: "csv" | "json", grid: GridOptions = {}) =>
     `${tableBase(id, schema, table)}/export${gridQs(grid, { format })}`,
   saveRows: (id: string, schema: string, table: string, changes: RowChange[]) =>

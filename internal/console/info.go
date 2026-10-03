@@ -21,6 +21,7 @@ type TableInfo struct {
 	Indexes     []TableIdx `json:"indexes"`
 	SizeBytes   int64      `json:"size_bytes"`
 	RowEstimate *int64     `json:"row_estimate"`
+	Comment     *string    `json:"comment"`
 	// Editable says whether rows can be edited; ReadOnlyReason says why
 	// not.
 	Editable       bool   `json:"editable"`
@@ -40,8 +41,9 @@ type EditCol struct {
 	EnumValues []string `json:"enum_values,omitempty"`
 	// Generated (a stored generated column) and Identity ("always" or
 	// "by_default") are read-only in the editor.
-	Generated bool   `json:"generated"`
-	Identity  string `json:"identity,omitempty"`
+	Generated bool    `json:"generated"`
+	Identity  string  `json:"identity,omitempty"`
+	Comment   *string `json:"comment"`
 }
 
 // FKey is a foreign key.
@@ -57,9 +59,10 @@ type FKey struct {
 
 // Constr is a check or unique constraint.
 type Constr struct {
-	Name       string `json:"name"`
-	Kind       string `json:"kind"` // check, unique, primary_key, foreign_key, exclusion
-	Definition string `json:"definition"`
+	Name       string   `json:"name"`
+	Kind       string   `json:"kind"` // check, unique, primary_key, foreign_key, exclusion
+	Definition string   `json:"definition"`
+	Columns    []string `json:"columns"`
 }
 
 var fkActions = map[string]string{"a": "NO ACTION", "r": "RESTRICT", "c": "CASCADE", "n": "SET NULL", "d": "SET DEFAULT"}
@@ -96,9 +99,10 @@ func tableInfo(ctx context.Context, conn *pgx.Conn, schema, table string) (Table
 	out.Kind, out.PrimaryKey = relKinds[r.kind], r.pk
 	var oid uint32
 	if err := conn.QueryRow(ctx, `
-		SELECT c.oid, pg_total_relation_size(c.oid), CASE WHEN c.reltuples < 0 THEN NULL ELSE c.reltuples::int8 END
+		SELECT c.oid, pg_total_relation_size(c.oid), CASE WHEN c.reltuples < 0 THEN NULL ELSE c.reltuples::int8 END,
+		       obj_description(c.oid, 'pg_class')
 		FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2`,
-		schema, table).Scan(&oid, &out.SizeBytes, &out.RowEstimate); err != nil {
+		schema, table).Scan(&oid, &out.SizeBytes, &out.RowEstimate, &out.Comment); err != nil {
 		return out, err
 	}
 	switch {
@@ -119,7 +123,8 @@ func tableInfo(ctx context.Context, conn *pgx.Conn, schema, table string) (Table
 		       CASE WHEN t.typelem <> 0 AND t.typcategory = 'A' THEN 'A' ELSE COALESCE(bt.typcategory, t.typcategory)::text END,
 		       COALESCE(bt.typname, t.typname)::text, a.attgenerated <> '', a.attidentity::text,
 		       CASE WHEN COALESCE(bt.typtype, t.typtype) = 'e'
-		            THEN (SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid = COALESCE(bt.oid, t.oid)) END
+		            THEN (SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid = COALESCE(bt.oid, t.oid)) END,
+		       col_description(a.attrelid, a.attnum)
 		FROM pg_attribute a
 		JOIN pg_type t ON t.oid = a.atttypid
 		LEFT JOIN pg_type bt ON t.typtype = 'd' AND bt.oid = t.typbasetype
@@ -132,7 +137,7 @@ func tableInfo(ctx context.Context, conn *pgx.Conn, schema, table string) (Table
 	for rows.Next() {
 		var c EditCol
 		var ident string
-		if err := rows.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.Category, &c.BaseType, &c.Generated, &ident, &c.EnumValues); err != nil {
+		if err := rows.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.Category, &c.BaseType, &c.Generated, &ident, &c.EnumValues, &c.Comment); err != nil {
 			rows.Close()
 			return out, err
 		}
@@ -172,7 +177,7 @@ func tableInfo(ctx context.Context, conn *pgx.Conn, schema, table string) (Table
 			rows.Close()
 			return out, err
 		}
-		out.Constraints = append(out.Constraints, Constr{Name: name, Kind: conKinds[kind], Definition: def})
+		out.Constraints = append(out.Constraints, Constr{Name: name, Kind: conKinds[kind], Definition: def, Columns: cols})
 		if kind == "f" {
 			out.ForeignKeys = append(out.ForeignKeys, FKey{Name: name, Columns: cols, RefSchema: refSchema, RefTable: refTable,
 				RefColumns: refCols, OnDelete: fkActions[del], OnUpdate: fkActions[upd]})
