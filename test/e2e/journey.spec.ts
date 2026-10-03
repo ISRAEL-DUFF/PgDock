@@ -47,12 +47,18 @@ const stateFile = "test-results/.session.json";
 const shotDir = process.env.PGDOCK_E2E_SCREENSHOTS;
 async function shot(page: Page, name: string) {
   if (!shotDir) return;
-  await page.screenshot({ path: `${shotDir}/${name}-light.png`, fullPage: true });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await page.waitForTimeout(400); // let colour transitions finish
-  await page.screenshot({ path: `${shotDir}/${name}-dark.png`, fullPage: true });
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.waitForTimeout(400);
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate((t) => {
+      localStorage.setItem("pgdock.theme", t);
+      document.documentElement.dataset.theme = t;
+    }, theme);
+    await page.waitForTimeout(400); // let colour transitions finish
+    await page.screenshot({ path: `${shotDir}/${name}-${theme}.png`, fullPage: true });
+  }
+  await page.evaluate(() => {
+    localStorage.setItem("pgdock.theme", "dark");
+    document.documentElement.dataset.theme = "dark";
+  });
 }
 
 /** Opens the app with the session saved by the first test. */
