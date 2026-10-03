@@ -100,6 +100,24 @@ func (s *Service) runBackup(ctx context.Context, op store.Operation, log *jobs.S
 	return nil
 }
 
+// Snapshot takes a logical backup of p now, outside a backup operation
+// (a demoted project's first, V2 §5.3 step 7). Like the final backup, it
+// is skipped, with a warning, without storage or a key.
+func (s *Service) Snapshot(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
+	pl, err := s.PlacementFor(ctx, p)
+	if errors.Is(err, ErrNoStorage) || errors.Is(err, ErrTargetGone) {
+		return log.Warn(ctx, "backup", "logical backup skipped: %v", err)
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := s.BackupKey(ctx); pl.KeyID == nil && errors.Is(err, ErrNoBackupKey) {
+		return log.Warn(ctx, "backup", "logical backup skipped: %v", err)
+	}
+	_, err = s.backupProject(ctx, p, Logical, nil, log)
+	return err
+}
+
 // finalBackup is the provision.Service hook run by deletes (spec §6.2 step
 // 2). Without storage or a backup key there is nothing to back up to; the
 // delete goes ahead and says so.

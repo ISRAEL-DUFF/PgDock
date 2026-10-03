@@ -413,6 +413,60 @@ func (e DedicatedRequestStatus) Valid() bool {
 	}
 }
 
+// Defines values for DemoteCheckName.
+const (
+	Allowance   DemoteCheckName = "allowance"
+	Capacity    DemoteCheckName = "capacity"
+	Connections DemoteCheckName = "connections"
+	Extensions  DemoteCheckName = "extensions"
+	Roles       DemoteCheckName = "roles"
+	Settings    DemoteCheckName = "settings"
+	Size        DemoteCheckName = "size"
+)
+
+// Valid indicates whether the value is a known member of the DemoteCheckName enum.
+func (e DemoteCheckName) Valid() bool {
+	switch e {
+	case Allowance:
+		return true
+	case Capacity:
+		return true
+	case Connections:
+		return true
+	case Extensions:
+		return true
+	case Roles:
+		return true
+	case Settings:
+		return true
+	case Size:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DemoteCheckStatus.
+const (
+	DemoteCheckStatusBlocked DemoteCheckStatus = "blocked"
+	DemoteCheckStatusOk      DemoteCheckStatus = "ok"
+	DemoteCheckStatusWarning DemoteCheckStatus = "warning"
+)
+
+// Valid indicates whether the value is a known member of the DemoteCheckStatus enum.
+func (e DemoteCheckStatus) Valid() bool {
+	switch e {
+	case DemoteCheckStatusBlocked:
+		return true
+	case DemoteCheckStatusOk:
+		return true
+	case DemoteCheckStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EditColumnIdentity.
 const (
 	Always    EditColumnIdentity = "always"
@@ -774,6 +828,7 @@ func (e ProjectRole) Valid() bool {
 const (
 	ProjectStatusActive       ProjectStatus = "active"
 	ProjectStatusDeleting     ProjectStatus = "deleting"
+	ProjectStatusDemoting     ProjectStatus = "demoting"
 	ProjectStatusError        ProjectStatus = "error"
 	ProjectStatusPromoting    ProjectStatus = "promoting"
 	ProjectStatusProvisioning ProjectStatus = "provisioning"
@@ -786,6 +841,8 @@ func (e ProjectStatus) Valid() bool {
 	case ProjectStatusActive:
 		return true
 	case ProjectStatusDeleting:
+		return true
+	case ProjectStatusDemoting:
 		return true
 	case ProjectStatusError:
 		return true
@@ -2207,6 +2264,62 @@ type DeleteOrgRequest struct {
 	DeleteProjects *bool `json:"delete_projects,omitempty"`
 }
 
+// DemoteCheck defines model for DemoteCheck.
+type DemoteCheck struct {
+	Message string            `json:"message"`
+	Name    DemoteCheckName   `json:"name"`
+	Status  DemoteCheckStatus `json:"status"`
+}
+
+// DemoteCheckName defines model for DemoteCheck.Name.
+type DemoteCheckName string
+
+// DemoteCheckStatus defines model for DemoteCheck.Status.
+type DemoteCheckStatus string
+
+// DemotePreflight defines model for DemotePreflight.
+type DemotePreflight struct {
+	Checks []DemoteCheck `json:"checks"`
+
+	// Eligible No check blocks the demotion (warnings still need accept_warnings).
+	Eligible bool `json:"eligible"`
+
+	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
+	EstimatedDowntimeSeconds int `json:"estimated_downtime_seconds"`
+
+	// Resets The guardrails that change, e.g. "connection limit 90 → 20".
+	Resets []string `json:"resets"`
+
+	// RetainHours How long the stopped dedicated instance is kept before it is destroyed.
+	RetainHours   int             `json:"retain_hours"`
+	SettingsAfter ProjectSettings `json:"settings_after"`
+	SizeBytes     int64           `json:"size_bytes"`
+	Target        *DemoteTarget   `json:"target,omitempty"`
+}
+
+// DemoteRequest defines model for DemoteRequest.
+type DemoteRequest struct {
+	// AcceptWarnings Acknowledge the preflight's warnings (peak connections, settings that reset).
+	AcceptWarnings *bool `json:"accept_warnings,omitempty"`
+
+	// ConsoleWritable Turn the read-only SQL console off (V2 §5.5); otherwise it keeps its current setting.
+	ConsoleWritable *bool `json:"console_writable,omitempty"`
+
+	// NodeId The node whose shared cluster takes the project (default the one with the most free capacity).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+}
+
+// DemoteTarget defines model for DemoteTarget.
+type DemoteTarget struct {
+	// FreeBytes The node's free disk at its last measurement.
+	FreeBytes *int64             `json:"free_bytes,omitempty"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+
+	// OrgCluster The organisation's own shared cluster (V2 §10.5).
+	OrgCluster bool `json:"org_cluster"`
+}
+
 // DeviceApproveRequest defines model for DeviceApproveRequest.
 type DeviceApproveRequest struct {
 	// Approve false denies the login.
@@ -2914,7 +3027,9 @@ type Project struct {
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
 
-	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped.
+	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped;
+	// after a demotion, when the stopped dedicated instance is
+	// destroyed (and the dedicated allowance released).
 	RetiredCopyUntil *time.Time      `json:"retired_copy_until,omitempty"`
 	SensitiveData    *bool           `json:"sensitive_data,omitempty"`
 	Settings         ProjectSettings `json:"settings"`
@@ -4355,6 +4470,12 @@ type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
 // CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
 type CreateBranchJSONRequestBody = BranchRequest
 
+// DemoteProjectJSONRequestBody defines body for DemoteProject for application/json ContentType.
+type DemoteProjectJSONRequestBody = DemoteRequest
+
+// DemotePreflightJSONRequestBody defines body for DemotePreflight for application/json ContentType.
+type DemotePreflightJSONRequestBody = DemoteRequest
+
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
@@ -4792,6 +4913,12 @@ type ServerInterface interface {
 	// IssueMyCredentials Create or rotate your personal database login; the password is shown once
 	// (POST /api/v1/projects/{id}/credentials)
 	IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DemoteProject Demote a dedicated project to the shared tier
+	// (POST /api/v1/projects/{id}/demote)
+	DemoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DemotePreflight Check whether this dedicated project can move back to the shared tier
+	// (POST /api/v1/projects/{id}/demote/preflight)
+	DemotePreflight(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// DetachBranch Detach a branch into a standalone project
 	// (POST /api/v1/projects/{id}/detach)
 	DetachBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5680,6 +5807,18 @@ func (_ Unimplemented) GetMyCredentials(w http.ResponseWriter, r *http.Request, 
 // IssueMyCredentials Create or rotate your personal database login; the password is shown once
 // (POST /api/v1/projects/{id}/credentials)
 func (_ Unimplemented) IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DemoteProject Demote a dedicated project to the shared tier
+// (POST /api/v1/projects/{id}/demote)
+func (_ Unimplemented) DemoteProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DemotePreflight Check whether this dedicated project can move back to the shared tier
+// (POST /api/v1/projects/{id}/demote/preflight)
+func (_ Unimplemented) DemotePreflight(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -9192,6 +9331,58 @@ func (siw *ServerInterfaceWrapper) IssueMyCredentials(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// DemoteProject operation middleware
+func (siw *ServerInterfaceWrapper) DemoteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DemoteProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DemotePreflight operation middleware
+func (siw *ServerInterfaceWrapper) DemotePreflight(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DemotePreflight(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DetachBranch operation middleware
 func (siw *ServerInterfaceWrapper) DetachBranch(w http.ResponseWriter, r *http.Request) {
 
@@ -10990,6 +11181,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.PromoteProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote/preflight", wrapper.DemotePreflight)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote", wrapper.DemoteProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.ProjectInstanceAction)

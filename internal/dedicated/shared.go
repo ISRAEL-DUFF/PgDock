@@ -26,6 +26,7 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 	return map[string]jobs.Kind{
 		KindSharedCluster: {Handler: s.runSharedCluster, OnFail: s.failSharedCluster, MaxAttempts: 3},
 		KindPromote:       {Handler: s.runPromote, OnFail: s.failPromote, MaxAttempts: 2, Timeout: 12 * time.Hour},
+		KindDemote:        {Handler: s.runDemote, OnFail: s.failDemote, MaxAttempts: 2, Timeout: 12 * time.Hour},
 	}
 }
 

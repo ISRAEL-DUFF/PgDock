@@ -36,6 +36,7 @@ const (
 	StatusDeleting     = "deleting"
 	StatusRestoring    = "restoring"
 	StatusPromoting    = "promoting"
+	StatusDemoting     = "demoting"
 	StatusDeleted      = "deleted"
 	StatusError        = "error"
 )

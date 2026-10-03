@@ -105,6 +105,8 @@ export type QuotaItem = S["QuotaItem"];
 export type UsageReport = S["UsageReport"];
 export type UsageRecord = S["UsageRecord"];
 export type DedicatedRequest = S["DedicatedRequest"];
+export type DemotePreflight = S["DemotePreflight"];
+export type DemoteRequest = S["DemoteRequest"];
 export type BreakGlassSession = S["BreakGlassSession"];
 export type ProjectStorage = S["ProjectStorage"];
 export type StorageState = S["StorageState"];
@@ -312,6 +314,8 @@ export const api = {
   promotionEstimate: (id: string) => getJSON<S["PromotionEstimate"]>(`/api/v1/projects/${id}/promote`),
   /** An operation, or a dedicated request when beyond the org's allowance (V2 §10.6). */
   promote: (id: string, b: S["PromoteRequest"]) => request<Operation | DedicatedRequest>("POST", `/api/v1/projects/${id}/promote`, b),
+  demotePreflight: (id: string, b: DemoteRequest) => request<DemotePreflight>("POST", `/api/v1/projects/${id}/demote/preflight`, b),
+  demote: (id: string, b: DemoteRequest) => request<Operation>("POST", `/api/v1/projects/${id}/demote`, b),
   sql: (id: string, b: S["SqlRequest"]) => request<SqlResult>("POST", `/api/v1/projects/${id}/sql`, b),
   cancelSql: (id: string, query_id: string) => request<S["SqlCancelResult"]>("POST", `/api/v1/projects/${id}/sql/cancel`, { query_id }),
   schema: (id: string) => getJSON<DbSchema>(`/api/v1/projects/${id}/schema`),

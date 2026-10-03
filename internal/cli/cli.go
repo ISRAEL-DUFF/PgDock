@@ -185,6 +185,7 @@ func (a *App) commands() []command {
 			{name: "detach", summary: "Make a branch a standalone project: detach <branch>", run: (*App).branchDetach},
 		}},
 		{name: "promote", summary: "Move a project to a dedicated instance: promote <p> [--node <id>] [--profile]", run: (*App).promote},
+		{name: "demote", summary: "Move a dedicated project back to the shared tier: demote <p> [--node <id>] [--check] [--accept-warnings]", run: (*App).demote},
 		{name: "members", summary: "Project members", sub: []command{
 			{name: "list", summary: "List: list <p>", run: (*App).membersList},
 			{name: "invite", summary: "Add: invite <p> <email> --role admin|developer|read_only", run: (*App).membersInvite},

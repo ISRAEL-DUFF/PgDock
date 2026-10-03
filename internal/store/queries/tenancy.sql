@@ -226,11 +226,16 @@ UPDATE backups b SET expires_at = @expires_at
 FROM projects p WHERE p.id = b.project_id AND p.org_id = @org_id AND b.kind = 'final' AND b.status = 'succeeded';
 
 -- name: OrgDedicatedUse :one
--- The org's live dedicated instances and their total size.
+-- The org's live dedicated instances and their total size: its dedicated
+-- projects' instances, and those a demotion keeps stopped for 48 hours (the
+-- allowance is released once they are destroyed, V2 s5.2).
 SELECT count(*)::int AS instances, COALESCE(sum(i.cpu_limit), 0)::float8 AS cpus,
        COALESCE(sum(i.mem_limit_mb), 0)::int AS mem_mb, COALESCE(sum(i.volume_gb), 0)::int AS disk_gb
-FROM projects p JOIN instances i ON i.id = p.instance_id
-WHERE p.org_id = @org_id AND p.deleted_at IS NULL AND p.tier = 'dedicated';
+FROM instances i
+WHERE i.kind = 'dedicated' AND i.deleted_at IS NULL AND (
+  EXISTS (SELECT 1 FROM projects p WHERE p.instance_id = i.id AND p.org_id = @org_id AND p.deleted_at IS NULL AND p.tier = 'dedicated')
+  OR EXISTS (SELECT 1 FROM retired_databases r JOIN projects p ON p.id = r.project_id
+             WHERE r.instance_id = i.id AND r.dropped_at IS NULL AND r.reason = 'demotion' AND p.org_id = @org_id));
 
 -- name: OrgLargestProject :one
 -- tenant: system - the org's largest measured shared project, joined by org_id.

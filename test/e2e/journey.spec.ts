@@ -610,8 +610,9 @@ test.describe("with the saved session", () => {
     await shot(page, "22-node");
   });
   // The M5 "done when" (spec §14): a hobby project is promoted with its URL
-  // unchanged and no lost commits, while an app keeps writing.
-  test("promote a hobby project with a live writer: same URL, no lost commits", async ({ page }) => {
+  // unchanged and no lost commits, while an app keeps writing; then (M14,
+  // V2 §5) demoted back the same way.
+  test("promote a hobby project with a live writer, then demote it: same URL, no lost commits", async ({ page }) => {
     test.skip(!s3Endpoint, "needs the e2e bundle (Docker for instances, fake S3 for WAL-G)");
     await signedIn(page);
 
@@ -684,6 +685,61 @@ test.describe("with the saved session", () => {
     await expect(page.getByText("Promoted to the dedicated tier")).toBeVisible();
     await expect(page.getByTestId("instance-card")).toBeVisible();
     await shot(page, "25-promoted-overview");
+
+    // Demotion: the preflight checklist, what resets, then live progress,
+    // with the writer going again.
+    stop = false;
+    const before = acked.length;
+    const writer2 = (async () => {
+      let w: pg.Client | null = null;
+      for (let n = 1_000_000; !stop; n++) {
+        try {
+          w ??= await connect(pooledURL);
+          await w.query("INSERT INTO events (n) VALUES ($1)", [n]);
+          acked.push(n);
+        } catch (e) {
+          errors.push(String(e));
+          await w?.end().catch(() => {});
+          w = null;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      await w?.end().catch(() => {});
+    })();
+    await expect.poll(() => acked.length).toBeGreaterThan(before + 20);
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("button", { name: "Demote…" }).click();
+    await expect(page.getByTestId("demote-checks").locator("li")).toHaveCount(7);
+    for (const name of ["size", "extensions", "roles", "allowance", "capacity"]) {
+      await expect(page.getByTestId(`demote-check-${name}`)).toHaveAttribute("data-status", "ok");
+    }
+    await expect(page.getByTestId("demote-resets")).toContainText("connection limit 90 → 20");
+    await expect(page.getByText("Point-in-time recovery ends at the demotion")).toBeVisible();
+    await shot(page, "26-demote-wizard");
+    await page.getByRole("button", { name: "Demote now" }).click();
+    await expect(page.getByTestId("demote-done")).toBeVisible({ timeout: 240_000 });
+    await expect(page.getByTestId("operation-log")).toContainText("route switched to the shared cluster");
+    await expect(page.getByTestId("operation-log")).toContainText("dedicated instance stopped");
+    await shot(page, "27-demoted");
+    const after2 = acked.length;
+    await expect.poll(() => acked.length, { timeout: 30_000 }).toBeGreaterThan(after2 + 20);
+    stop = true;
+    await writer2;
+
+    // Same URL, back on the shared cluster, with every acknowledged commit.
+    const d = await connect(pooledURL);
+    expect((await d.query("SELECT current_setting('archive_mode') AS a")).rows[0].a).not.toBe("on");
+    const all = new Set((await d.query("SELECT n FROM events")).rows.map((r: { n: number }) => r.n));
+    expect(acked.filter((n) => !all.has(n))).toEqual([]);
+    await d.end();
+    expect(errors).toEqual([]);
+
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
+    await expect(page.getByText("Demoted to the shared tier")).toBeVisible();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await expect(page.getByTestId("backup-row").filter({ hasText: "Dedicated (pre-demotion)" }).first()).toBeVisible();
+    await shot(page, "28-demoted-backups");
   });
   test("inspect and query a project, and see its size and connection trends, without leaving the UI", async ({ page }) => {
     await signedIn(page);
@@ -1252,6 +1308,9 @@ test.describe("with the saved session", () => {
     await confirm.getByLabel("Your password").fill(password);
     await confirm.getByTestId("confirm-code").fill(await freshTotp(totpSecret));
     await confirm.getByRole("button", { name: "Delete branch" }).click();
+    // The dialog closes once the delete is queued; navigating sooner
+    // abandons the request.
+    await expect(confirm).toBeHidden({ timeout: 30_000 });
     await expect(async () => {
       await page.goto("/projects");
       await expect(page.getByTestId("branch-list-row").filter({ hasText: "try-migration" })).toHaveCount(0);

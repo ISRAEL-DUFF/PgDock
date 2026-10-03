@@ -200,6 +200,7 @@ func run() error {
 				_, err := backups.BackupNow(ctx, p.ID, nil)
 				return err
 			}
+			backups.Dedicated.Quotas = tenancySvc
 		}
 		bg.Add(1)
 		go func() { defer bg.Done(); tenancySvc.Run(bgCtx) }()
@@ -530,6 +531,7 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 	}
 	bs := backup.NewService(pool, keyring, ns, projects, bc, log)
 	ds := dedicated.New(pool, keyring, ns, projects, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
+	ds.Snapshot = bs.Snapshot
 	projects.Instances = ds
 	bs.Dedicated = ds
 	return bs, ns, nil

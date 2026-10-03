@@ -125,7 +125,10 @@ export function ProjectBackupsPage() {
             <tr key={b.id} data-testid="backup-row">
               <td className="px-3 py-2">{formatDate(b.finished_at ?? b.started_at)}</td>
               <td className="px-3 py-2">
-                <Badge tone={b.kind === "logical" ? "muted" : "accent"}>{kindLabels[b.kind] ?? b.kind}</Badge>
+                <Badge tone={b.kind === "logical" ? "muted" : "accent"}>
+                  {/* A shared project's base backups are from before its demotion (V2 §5.4). */}
+                  {b.kind === "base" && p?.tier === "shared" ? "Dedicated (pre-demotion)" : (kindLabels[b.kind] ?? b.kind)}
+                </Badge>
               </td>
               <td className="px-3 py-2">
                 <StatusBadge status={b.status} />

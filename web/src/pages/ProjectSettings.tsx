@@ -7,6 +7,7 @@ import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { CredentialPanel } from "../components/Credentials";
 import { ExtensionsCard } from "../components/ExtensionsCard";
+import { DemoteCard } from "../components/DemoteCard";
 import { PromoteCard } from "../components/PromoteCard";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Button, Card, Field, Input, Select } from "../components/ui";
@@ -27,6 +28,7 @@ export function ProjectSettingsPage() {
       <RotateCard p={p} />
       <SwitchCredentialsCard p={p} />
       {!p.parent_project_id && <PromoteCard p={p} />}
+      <DemoteCard p={p} />
       <TransferCard p={p} />
       <DangerCard p={p} />
     </div>

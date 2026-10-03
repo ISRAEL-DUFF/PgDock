@@ -80,19 +80,39 @@ func (s *Service) CheckCreateBranch(ctx context.Context, orgID uuid.UUID, parent
 			return &QuotaError{Limit: store.LimitBranches, Used: int64(n), Max: limit}
 		}
 	}
-	if parentBytes <= 0 {
+	return s.fitsShared(ctx, l, orgID, parentBytes)
+}
+
+// CheckSharedStorage refuses moving a database of size bytes onto the
+// shared tier when it is larger than the per-project shared storage limit
+// or would take the organisation's shared storage past its quota (V2 §5.2).
+func (s *Service) CheckSharedStorage(ctx context.Context, orgID uuid.UUID, bytes float64) error {
+	l, o, err := s.Limits(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if err := s.orgActive(o); err != nil {
+		return err
+	}
+	return s.fitsShared(ctx, l, orgID, bytes)
+}
+
+// fitsShared checks bytes (<= 0: not measured) against the per-project and
+// total shared storage limits.
+func (s *Service) fitsShared(ctx context.Context, l store.Limits, orgID uuid.UUID, bytes float64) error {
+	if bytes <= 0 {
 		return nil
 	}
-	mb := int64(parentBytes / (1 << 20))
+	mb := int64(bytes / (1 << 20))
 	if limit, ok := l.Get(store.LimitProjectStorageMB); ok && mb > limit {
 		return &QuotaError{Limit: store.LimitProjectStorageMB, Used: mb, Max: limit}
 	}
 	if limit, ok := l.Get(store.LimitSharedStorageMB); ok {
-		used, err := q.OrgSharedStorage(ctx, orgID)
+		used, err := store.New(s.db).OrgSharedStorage(ctx, orgID)
 		if err != nil {
 			return err
 		}
-		if total := int64((used + parentBytes) / (1 << 20)); total > limit {
+		if total := int64((used + bytes) / (1 << 20)); total > limit {
 			return &QuotaError{Limit: store.LimitSharedStorageMB, Used: int64(used / (1 << 20)), Max: limit}
 		}
 	}

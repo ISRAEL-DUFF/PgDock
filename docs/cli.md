@@ -44,7 +44,7 @@ A token belongs to you and acts in **one organisation**:
 | --- | --- |
 | `read` | Viewing everything you can see in the organisation; read-only SQL |
 | `write` | Creating and changing: SQL that writes, backups, restoring into a new project, creating projects |
-| `admin` | Destructive and settings actions: deleting, promoting, restoring in place, members, settings (needs `write`) |
+| `admin` | Destructive and settings actions: deleting, promoting and demoting, restoring in place, members, settings (needs `write`) |
 
 A token can be **restricted to some projects**: it then can't see or
 touch anything else in the organisation, even what you can. Every token
@@ -126,11 +126,19 @@ pgdock branch reset <branch> [--from backup|live] | extend <branch> [--ttl 7d] |
 
 pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
 pgdock promote <p> [--node <id>] [--profile <size>]
+pgdock demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
 
 pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>
 pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
 pgdock operations get <id> [--follow]
 ```
+
+`demote` runs the eligibility checks first and prints them; `--check`
+stops there. Blocked checks (an extension or a role the shared tier
+doesn't allow, the size, no room) refuse the demotion; warnings (peak
+connections, database settings that reset) need `--accept-warnings`.
+`--node` picks the shared cluster by its node's id (by default the one
+with the most free capacity, or the organisation's own).
 
 `<p>` is a project's name or id; `<branch>` is a branch's id, its name,
 or `<parent>/<name>`. `branch create --env` prints `DATABASE_URL=…`,
@@ -142,7 +150,7 @@ time, and remembering it in `~/.config/pgdock/credentials.toml`); `creds
 --rotate` issues a new password.
 
 Every command takes `--json` for scripts. Long operations (create,
-backup, restore, promote, delete) stream their progress; `--no-wait`
+backup, restore, promote, demote, delete) stream their progress; `--no-wait`
 returns the operation at once.
 
 Exit codes: `0` success, `1` error (including "not found"), `2` usage

@@ -56,8 +56,8 @@ type Config struct {
 	RetainFull int
 	// ReadyTimeout bounds waiting for a restored instance to promote.
 	ReadyTimeout time.Duration
-	// AfterFreeze, if set, runs during a promotion right after writes are
-	// frozen; an error fails the promotion there (tests use it to exercise
+	// AfterFreeze, if set, runs during a promotion or demotion right after
+	// writes are frozen; an error fails it there (tests use it to exercise
 	// the rollback).
 	AfterFreeze func(ctx context.Context) error
 }
@@ -71,6 +71,13 @@ type Service struct {
 	secrets  Secrets
 	cfg      Config
 	log      *slog.Logger
+
+	// Quotas, when set, checks organisation limits for demotions (the
+	// tenancy service).
+	Quotas Quotas
+	// Snapshot, when set, takes a logical backup of a project (the backup
+	// service): a demoted project's first (V2 §5.3 step 7).
+	Snapshot func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
 }
 
 // New returns a Service.

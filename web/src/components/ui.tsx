@@ -123,6 +123,7 @@ const statusTones: Record<string, Tone> = {
   queued: "muted",
   pending: "accent",
   promoting: "accent",
+  demoting: "accent",
   restoring: "accent",
   deleting: "warn",
   denied: "warn",

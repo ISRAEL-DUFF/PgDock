@@ -93,9 +93,16 @@ export function ProjectOverviewPage() {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {p.retired_copy_until && (
         <div className="lg:col-span-2">
-          <Alert tone="accent" title="Promoted to the dedicated tier">
-            The previous shared copy is kept read-only until {formatDate(p.retired_copy_until)}, then dropped.
-          </Alert>
+          {p.tier === "dedicated" ? (
+            <Alert tone="accent" title="Promoted to the dedicated tier">
+              The previous shared copy is kept read-only until {formatDate(p.retired_copy_until)}, then dropped.
+            </Alert>
+          ) : (
+            <Alert tone="accent" title="Demoted to the shared tier">
+              The previous dedicated instance is kept stopped until {formatDate(p.retired_copy_until)}, then destroyed, which releases it from the
+              organisation&rsquo;s dedicated allowance.
+            </Alert>
+          )}
         </div>
       )}
       <Card title="Details">

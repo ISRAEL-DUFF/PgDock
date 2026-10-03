@@ -212,6 +212,20 @@ for that.
 - When a project outgrows the shared tier (sustained load, a large
   database), **promote** it (Settings → Promote to dedicated): same URL,
   a short write freeze.
+- When it no longer needs its own instance, **demote** it (Settings →
+  Move back to shared, or `pgdock demote`). The preflight checks the size
+  against the organisation's shared storage limits, extensions against
+  the shared allow-list, custom roles, peak connections, database
+  settings that will reset, and a shared cluster with room for the
+  database plus 20% (the organisation's own when it has one). The URL and
+  every password stay the same; the guardrails go back to the shared
+  defaults, the SQL console stays read-only unless asked, and
+  point-in-time recovery ends: the project takes a logical backup at
+  once and nightly after that, while the old base backups stay restorable
+  for 7 days. The dedicated instance is stopped and kept for 48 hours as
+  a rollback option (an operator can start it again from its volume),
+  then destroyed by the hourly cleanup, which releases it from the
+  organisation's dedicated allowance.
 - Add nodes on the Nodes page; new shared projects go to the least loaded
   shared cluster, dedicated instances to the least loaded dedicated node.
 

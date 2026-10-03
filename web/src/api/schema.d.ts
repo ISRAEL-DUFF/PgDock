@@ -799,6 +799,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/demote/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check whether this dedicated project can move back to the shared tier
+         * @description Runs the demotion eligibility checks (V2 §5.2) without changing
+         *     anything: size against the organisation's shared storage limits,
+         *     extensions on the shared allow-list, no custom roles, the
+         *     dedicated allowance released, peak connections, settings the
+         *     shared tier resets, and a shared cluster with room (the
+         *     organisation's own when it has one). The same checks run again
+         *     when the demotion starts.
+         */
+        post: operations["demotePreflight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/demote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Demote a dedicated project to the shared tier
+         * @description Queues a `demote` operation (V2 §5.3): the database and every
+         *     login are created on a shared cluster with the same SCRAM
+         *     verifiers, writes freeze while the data is copied and verified,
+         *     then the pooler route moves. Connection strings and passwords do
+         *     not change. If anything fails before the route moves, the
+         *     project stays on its dedicated instance untouched. The
+         *     dedicated instance is stopped and kept for 48 hours, then
+         *     destroyed, which releases its share of the dedicated allowance.
+         *     Point-in-time recovery ends at the demotion; the existing base
+         *     backups stay restorable until their retention ends. Refused with
+         *     `409` when a check fails, or when there are warnings and
+         *     `accept_warnings` is not set.
+         */
+        post: operations["demoteProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/instance": {
         parameters: {
             query?: never;
@@ -2804,7 +2861,7 @@ export interface components {
             fail_attempts: number;
         };
         /** @enum {string} */
-        ProjectStatus: "provisioning" | "active" | "promoting" | "restoring" | "deleting" | "error";
+        ProjectStatus: "provisioning" | "active" | "promoting" | "demoting" | "restoring" | "deleting" | "error";
         /** @enum {string} */
         ProjectTier: "shared" | "dedicated";
         ConnectionInfo: {
@@ -2874,7 +2931,9 @@ export interface components {
             pitr_window?: components["schemas"]["PitrWindow"];
             /**
              * Format: date-time
-             * @description After a promotion, when the read-only shared copy is dropped.
+             * @description After a promotion, when the read-only shared copy is dropped;
+             *     after a demotion, when the stopped dedicated instance is
+             *     destroyed (and the dedicated allowance released).
              */
             retired_copy_until?: string | null;
         };
@@ -3485,6 +3544,51 @@ export interface components {
             size_bytes: number;
             /** @description Roughly dump + restore time, while writes wait. */
             estimated_downtime_seconds: number;
+        };
+        DemoteRequest: {
+            /**
+             * Format: uuid
+             * @description The node whose shared cluster takes the project (default the one with the most free capacity).
+             */
+            node_id?: string;
+            /** @description Turn the read-only SQL console off (V2 §5.5); otherwise it keeps its current setting. */
+            console_writable?: boolean;
+            /** @description Acknowledge the preflight's warnings (peak connections, settings that reset). */
+            accept_warnings?: boolean;
+        };
+        DemoteCheck: {
+            /** @enum {string} */
+            name: "size" | "extensions" | "roles" | "allowance" | "connections" | "settings" | "capacity";
+            /** @enum {string} */
+            status: "ok" | "warning" | "blocked";
+            message: string;
+        };
+        DemoteTarget: {
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            /** @description The organisation's own shared cluster (V2 §10.5). */
+            org_cluster: boolean;
+            /**
+             * Format: int64
+             * @description The node's free disk at its last measurement.
+             */
+            free_bytes?: number | null;
+        };
+        DemotePreflight: {
+            /** @description No check blocks the demotion (warnings still need accept_warnings). */
+            eligible: boolean;
+            checks: components["schemas"]["DemoteCheck"][];
+            /** Format: int64 */
+            size_bytes: number;
+            /** @description Roughly dump + restore time, while writes wait. */
+            estimated_downtime_seconds: number;
+            target?: components["schemas"]["DemoteTarget"];
+            settings_after: components["schemas"]["ProjectSettings"];
+            /** @description The guardrails that change, e.g. "connection limit 90 → 20". */
+            resets: string[];
+            /** @description How long the stopped dedicated instance is kept before it is destroyed. */
+            retain_hours: number;
         };
         PromoteRequest: {
             /** Format: uuid */
@@ -5820,6 +5924,60 @@ export interface operations {
                 };
             };
             /** @description Promotion queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    demotePreflight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DemoteRequest"];
+            };
+        };
+        responses: {
+            /** @description The checks and what would change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemotePreflight"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    demoteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DemoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Demotion queued. */
             202: {
                 headers: {
                     [name: string]: unknown;

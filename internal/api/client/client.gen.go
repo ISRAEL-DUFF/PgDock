@@ -417,6 +417,60 @@ func (e DedicatedRequestStatus) Valid() bool {
 	}
 }
 
+// Defines values for DemoteCheckName.
+const (
+	Allowance   DemoteCheckName = "allowance"
+	Capacity    DemoteCheckName = "capacity"
+	Connections DemoteCheckName = "connections"
+	Extensions  DemoteCheckName = "extensions"
+	Roles       DemoteCheckName = "roles"
+	Settings    DemoteCheckName = "settings"
+	Size        DemoteCheckName = "size"
+)
+
+// Valid indicates whether the value is a known member of the DemoteCheckName enum.
+func (e DemoteCheckName) Valid() bool {
+	switch e {
+	case Allowance:
+		return true
+	case Capacity:
+		return true
+	case Connections:
+		return true
+	case Extensions:
+		return true
+	case Roles:
+		return true
+	case Settings:
+		return true
+	case Size:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DemoteCheckStatus.
+const (
+	DemoteCheckStatusBlocked DemoteCheckStatus = "blocked"
+	DemoteCheckStatusOk      DemoteCheckStatus = "ok"
+	DemoteCheckStatusWarning DemoteCheckStatus = "warning"
+)
+
+// Valid indicates whether the value is a known member of the DemoteCheckStatus enum.
+func (e DemoteCheckStatus) Valid() bool {
+	switch e {
+	case DemoteCheckStatusBlocked:
+		return true
+	case DemoteCheckStatusOk:
+		return true
+	case DemoteCheckStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EditColumnIdentity.
 const (
 	Always    EditColumnIdentity = "always"
@@ -778,6 +832,7 @@ func (e ProjectRole) Valid() bool {
 const (
 	ProjectStatusActive       ProjectStatus = "active"
 	ProjectStatusDeleting     ProjectStatus = "deleting"
+	ProjectStatusDemoting     ProjectStatus = "demoting"
 	ProjectStatusError        ProjectStatus = "error"
 	ProjectStatusPromoting    ProjectStatus = "promoting"
 	ProjectStatusProvisioning ProjectStatus = "provisioning"
@@ -790,6 +845,8 @@ func (e ProjectStatus) Valid() bool {
 	case ProjectStatusActive:
 		return true
 	case ProjectStatusDeleting:
+		return true
+	case ProjectStatusDemoting:
 		return true
 	case ProjectStatusError:
 		return true
@@ -2211,6 +2268,62 @@ type DeleteOrgRequest struct {
 	DeleteProjects *bool `json:"delete_projects,omitempty"`
 }
 
+// DemoteCheck defines model for DemoteCheck.
+type DemoteCheck struct {
+	Message string            `json:"message"`
+	Name    DemoteCheckName   `json:"name"`
+	Status  DemoteCheckStatus `json:"status"`
+}
+
+// DemoteCheckName defines model for DemoteCheck.Name.
+type DemoteCheckName string
+
+// DemoteCheckStatus defines model for DemoteCheck.Status.
+type DemoteCheckStatus string
+
+// DemotePreflight defines model for DemotePreflight.
+type DemotePreflight struct {
+	Checks []DemoteCheck `json:"checks"`
+
+	// Eligible No check blocks the demotion (warnings still need accept_warnings).
+	Eligible bool `json:"eligible"`
+
+	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
+	EstimatedDowntimeSeconds int `json:"estimated_downtime_seconds"`
+
+	// Resets The guardrails that change, e.g. "connection limit 90 → 20".
+	Resets []string `json:"resets"`
+
+	// RetainHours How long the stopped dedicated instance is kept before it is destroyed.
+	RetainHours   int             `json:"retain_hours"`
+	SettingsAfter ProjectSettings `json:"settings_after"`
+	SizeBytes     int64           `json:"size_bytes"`
+	Target        *DemoteTarget   `json:"target,omitempty"`
+}
+
+// DemoteRequest defines model for DemoteRequest.
+type DemoteRequest struct {
+	// AcceptWarnings Acknowledge the preflight's warnings (peak connections, settings that reset).
+	AcceptWarnings *bool `json:"accept_warnings,omitempty"`
+
+	// ConsoleWritable Turn the read-only SQL console off (V2 §5.5); otherwise it keeps its current setting.
+	ConsoleWritable *bool `json:"console_writable,omitempty"`
+
+	// NodeId The node whose shared cluster takes the project (default the one with the most free capacity).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+}
+
+// DemoteTarget defines model for DemoteTarget.
+type DemoteTarget struct {
+	// FreeBytes The node's free disk at its last measurement.
+	FreeBytes *int64             `json:"free_bytes,omitempty"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+
+	// OrgCluster The organisation's own shared cluster (V2 §10.5).
+	OrgCluster bool `json:"org_cluster"`
+}
+
 // DeviceApproveRequest defines model for DeviceApproveRequest.
 type DeviceApproveRequest struct {
 	// Approve false denies the login.
@@ -2918,7 +3031,9 @@ type Project struct {
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
 
-	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped.
+	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped;
+	// after a demotion, when the stopped dedicated instance is
+	// destroyed (and the dedicated allowance released).
 	RetiredCopyUntil *time.Time      `json:"retired_copy_until,omitempty"`
 	SensitiveData    *bool           `json:"sensitive_data,omitempty"`
 	Settings         ProjectSettings `json:"settings"`
@@ -4359,6 +4474,12 @@ type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
 // CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
 type CreateBranchJSONRequestBody = BranchRequest
 
+// DemoteProjectJSONRequestBody defines body for DemoteProject for application/json ContentType.
+type DemoteProjectJSONRequestBody = DemoteRequest
+
+// DemotePreflightJSONRequestBody defines body for DemotePreflight for application/json ContentType.
+type DemotePreflightJSONRequestBody = DemoteRequest
+
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
@@ -5728,6 +5849,76 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 	IssueMyCredentials(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DemoteProjectWithBody Demote a dedicated project to the shared tier
+	//
+	// Queues a `demote` operation (V2 §5.3): the database and every
+	// login are created on a shared cluster with the same SCRAM
+	// verifiers, writes freeze while the data is copied and verified,
+	// then the pooler route moves. Connection strings and passwords do
+	// not change. If anything fails before the route moves, the
+	// project stays on its dedicated instance untouched. The
+	// dedicated instance is stopped and kept for 48 hours, then
+	// destroyed, which releases its share of the dedicated allowance.
+	// Point-in-time recovery ends at the demotion; the existing base
+	// backups stay restorable until their retention ends. Refused with
+	// `409` when a check fails, or when there are warnings and
+	// `accept_warnings` is not set.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+	DemoteProjectWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DemoteProject Demote a dedicated project to the shared tier
+	//
+	// Queues a `demote` operation (V2 §5.3): the database and every
+	// login are created on a shared cluster with the same SCRAM
+	// verifiers, writes freeze while the data is copied and verified,
+	// then the pooler route moves. Connection strings and passwords do
+	// not change. If anything fails before the route moves, the
+	// project stays on its dedicated instance untouched. The
+	// dedicated instance is stopped and kept for 48 hours, then
+	// destroyed, which releases its share of the dedicated allowance.
+	// Point-in-time recovery ends at the demotion; the existing base
+	// backups stay restorable until their retention ends. Refused with
+	// `409` when a check fails, or when there are warnings and
+	// `accept_warnings` is not set.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+	DemoteProject(ctx context.Context, id ProjectID, body DemoteProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DemotePreflightWithBody Check whether this dedicated project can move back to the shared tier
+	//
+	// Runs the demotion eligibility checks (V2 §5.2) without changing
+	// anything: size against the organisation's shared storage limits,
+	// extensions on the shared allow-list, no custom roles, the
+	// dedicated allowance released, peak connections, settings the
+	// shared tier resets, and a shared cluster with room (the
+	// organisation's own when it has one). The same checks run again
+	// when the demotion starts.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+	DemotePreflightWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DemotePreflight Check whether this dedicated project can move back to the shared tier
+	//
+	// Runs the demotion eligibility checks (V2 §5.2) without changing
+	// anything: size against the organisation's shared storage limits,
+	// extensions on the shared allow-list, no custom roles, the
+	// dedicated allowance released, peak connections, settings the
+	// shared tier resets, and a shared cluster with room (the
+	// organisation's own when it has one). The same checks run again
+	// when the demotion starts.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+	DemotePreflight(ctx context.Context, id ProjectID, body DemotePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DetachBranch Detach a branch into a standalone project
 	//
@@ -9332,6 +9523,116 @@ func (c *Client) GetMyCredentials(ctx context.Context, id ProjectID, reqEditors 
 // Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 func (c *Client) IssueMyCredentials(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewIssueMyCredentialsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DemoteProjectWithBody Demote a dedicated project to the shared tier
+//
+// Queues a `demote` operation (V2 §5.3): the database and every
+// login are created on a shared cluster with the same SCRAM
+// verifiers, writes freeze while the data is copied and verified,
+// then the pooler route moves. Connection strings and passwords do
+// not change. If anything fails before the route moves, the
+// project stays on its dedicated instance untouched. The
+// dedicated instance is stopped and kept for 48 hours, then
+// destroyed, which releases its share of the dedicated allowance.
+// Point-in-time recovery ends at the demotion; the existing base
+// backups stay restorable until their retention ends. Refused with
+// `409` when a check fails, or when there are warnings and
+// `accept_warnings` is not set.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+func (c *Client) DemoteProjectWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDemoteProjectRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DemoteProject Demote a dedicated project to the shared tier
+//
+// Queues a `demote` operation (V2 §5.3): the database and every
+// login are created on a shared cluster with the same SCRAM
+// verifiers, writes freeze while the data is copied and verified,
+// then the pooler route moves. Connection strings and passwords do
+// not change. If anything fails before the route moves, the
+// project stays on its dedicated instance untouched. The
+// dedicated instance is stopped and kept for 48 hours, then
+// destroyed, which releases its share of the dedicated allowance.
+// Point-in-time recovery ends at the demotion; the existing base
+// backups stay restorable until their retention ends. Refused with
+// `409` when a check fails, or when there are warnings and
+// `accept_warnings` is not set.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+func (c *Client) DemoteProject(ctx context.Context, id ProjectID, body DemoteProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDemoteProjectRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DemotePreflightWithBody Check whether this dedicated project can move back to the shared tier
+//
+// Runs the demotion eligibility checks (V2 §5.2) without changing
+// anything: size against the organisation's shared storage limits,
+// extensions on the shared allow-list, no custom roles, the
+// dedicated allowance released, peak connections, settings the
+// shared tier resets, and a shared cluster with room (the
+// organisation's own when it has one). The same checks run again
+// when the demotion starts.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+func (c *Client) DemotePreflightWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDemotePreflightRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DemotePreflight Check whether this dedicated project can move back to the shared tier
+//
+// Runs the demotion eligibility checks (V2 §5.2) without changing
+// anything: size against the organisation's shared storage limits,
+// extensions on the shared allow-list, no custom roles, the
+// dedicated allowance released, peak connections, settings the
+// shared tier resets, and a shared cluster with room (the
+// organisation's own when it has one). The same checks run again
+// when the demotion starts.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+func (c *Client) DemotePreflight(ctx context.Context, id ProjectID, body DemotePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDemotePreflightRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -16072,6 +16373,100 @@ func NewIssueMyCredentialsRequest(server string, id ProjectID) (*http.Request, e
 	return req, nil
 }
 
+// NewDemoteProjectRequest calls the generic DemoteProject builder with application/json body
+func NewDemoteProjectRequest(server string, id ProjectID, body DemoteProjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDemoteProjectRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewDemoteProjectRequestWithBody constructs an http.Request for the DemoteProject method, with any body, and a specified content type
+func NewDemoteProjectRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/demote", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDemotePreflightRequest calls the generic DemotePreflight builder with application/json body
+func NewDemotePreflightRequest(server string, id ProjectID, body DemotePreflightJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDemotePreflightRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewDemotePreflightRequestWithBody constructs an http.Request for the DemotePreflight method, with any body, and a specified content type
+func NewDemotePreflightRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/demote/preflight", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDetachBranchRequest constructs an http.Request for the DetachBranch method
 func NewDetachBranchRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -20009,6 +20404,76 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/credentials (the `IssueMyCredentials` operationId).
 	IssueMyCredentialsWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*IssueMyCredentialsResponse, error)
+
+	// DemoteProjectWithBodyWithResponse Demote a dedicated project to the shared tier
+	//
+	// Queues a `demote` operation (V2 §5.3): the database and every
+	// login are created on a shared cluster with the same SCRAM
+	// verifiers, writes freeze while the data is copied and verified,
+	// then the pooler route moves. Connection strings and passwords do
+	// not change. If anything fails before the route moves, the
+	// project stays on its dedicated instance untouched. The
+	// dedicated instance is stopped and kept for 48 hours, then
+	// destroyed, which releases its share of the dedicated allowance.
+	// Point-in-time recovery ends at the demotion; the existing base
+	// backups stay restorable until their retention ends. Refused with
+	// `409` when a check fails, or when there are warnings and
+	// `accept_warnings` is not set.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+	DemoteProjectWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DemoteProjectResponse, error)
+
+	// DemoteProjectWithResponse Demote a dedicated project to the shared tier
+	//
+	// Queues a `demote` operation (V2 §5.3): the database and every
+	// login are created on a shared cluster with the same SCRAM
+	// verifiers, writes freeze while the data is copied and verified,
+	// then the pooler route moves. Connection strings and passwords do
+	// not change. If anything fails before the route moves, the
+	// project stays on its dedicated instance untouched. The
+	// dedicated instance is stopped and kept for 48 hours, then
+	// destroyed, which releases its share of the dedicated allowance.
+	// Point-in-time recovery ends at the demotion; the existing base
+	// backups stay restorable until their retention ends. Refused with
+	// `409` when a check fails, or when there are warnings and
+	// `accept_warnings` is not set.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+	DemoteProjectWithResponse(ctx context.Context, id ProjectID, body DemoteProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*DemoteProjectResponse, error)
+
+	// DemotePreflightWithBodyWithResponse Check whether this dedicated project can move back to the shared tier
+	//
+	// Runs the demotion eligibility checks (V2 §5.2) without changing
+	// anything: size against the organisation's shared storage limits,
+	// extensions on the shared allow-list, no custom roles, the
+	// dedicated allowance released, peak connections, settings the
+	// shared tier resets, and a shared cluster with room (the
+	// organisation's own when it has one). The same checks run again
+	// when the demotion starts.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+	DemotePreflightWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DemotePreflightResponse, error)
+
+	// DemotePreflightWithResponse Check whether this dedicated project can move back to the shared tier
+	//
+	// Runs the demotion eligibility checks (V2 §5.2) without changing
+	// anything: size against the organisation's shared storage limits,
+	// extensions on the shared allow-list, no custom roles, the
+	// dedicated allowance released, peak connections, settings the
+	// shared tier resets, and a shared cluster with room (the
+	// organisation's own when it has one). The same checks run again
+	// when the demotion starts.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+	DemotePreflightWithResponse(ctx context.Context, id ProjectID, body DemotePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*DemotePreflightResponse, error)
 
 	// DetachBranchWithResponse Detach a branch into a standalone project
 	//
@@ -26238,6 +26703,102 @@ func (r IssueMyCredentialsResponse) ContentType() string {
 	return ""
 }
 
+type DemoteProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r DemoteProjectResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DemoteProjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DemoteProjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DemoteProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DemoteProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DemoteProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DemotePreflightResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DemotePreflight
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DemotePreflightResponse) GetJSON200() *DemotePreflight {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DemotePreflightResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DemotePreflightResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DemotePreflightResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DemotePreflightResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DemotePreflightResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DetachBranchResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -31490,6 +32051,100 @@ func (c *ClientWithResponses) IssueMyCredentialsWithResponse(ctx context.Context
 	return ParseIssueMyCredentialsResponse(rsp)
 }
 
+// DemoteProjectWithBodyWithResponse Demote a dedicated project to the shared tier
+//
+// Queues a `demote` operation (V2 §5.3): the database and every
+// login are created on a shared cluster with the same SCRAM
+// verifiers, writes freeze while the data is copied and verified,
+// then the pooler route moves. Connection strings and passwords do
+// not change. If anything fails before the route moves, the
+// project stays on its dedicated instance untouched. The
+// dedicated instance is stopped and kept for 48 hours, then
+// destroyed, which releases its share of the dedicated allowance.
+// Point-in-time recovery ends at the demotion; the existing base
+// backups stay restorable until their retention ends. Refused with
+// `409` when a check fails, or when there are warnings and
+// `accept_warnings` is not set.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+func (c *ClientWithResponses) DemoteProjectWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DemoteProjectResponse, error) {
+	rsp, err := c.DemoteProjectWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDemoteProjectResponse(rsp)
+}
+
+// DemoteProjectWithResponse Demote a dedicated project to the shared tier
+//
+// Queues a `demote` operation (V2 §5.3): the database and every
+// login are created on a shared cluster with the same SCRAM
+// verifiers, writes freeze while the data is copied and verified,
+// then the pooler route moves. Connection strings and passwords do
+// not change. If anything fails before the route moves, the
+// project stays on its dedicated instance untouched. The
+// dedicated instance is stopped and kept for 48 hours, then
+// destroyed, which releases its share of the dedicated allowance.
+// Point-in-time recovery ends at the demotion; the existing base
+// backups stay restorable until their retention ends. Refused with
+// `409` when a check fails, or when there are warnings and
+// `accept_warnings` is not set.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/demote (the `DemoteProject` operationId).
+func (c *ClientWithResponses) DemoteProjectWithResponse(ctx context.Context, id ProjectID, body DemoteProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*DemoteProjectResponse, error) {
+	rsp, err := c.DemoteProject(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDemoteProjectResponse(rsp)
+}
+
+// DemotePreflightWithBodyWithResponse Check whether this dedicated project can move back to the shared tier
+//
+// Runs the demotion eligibility checks (V2 §5.2) without changing
+// anything: size against the organisation's shared storage limits,
+// extensions on the shared allow-list, no custom roles, the
+// dedicated allowance released, peak connections, settings the
+// shared tier resets, and a shared cluster with room (the
+// organisation's own when it has one). The same checks run again
+// when the demotion starts.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+func (c *ClientWithResponses) DemotePreflightWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DemotePreflightResponse, error) {
+	rsp, err := c.DemotePreflightWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDemotePreflightResponse(rsp)
+}
+
+// DemotePreflightWithResponse Check whether this dedicated project can move back to the shared tier
+//
+// Runs the demotion eligibility checks (V2 §5.2) without changing
+// anything: size against the organisation's shared storage limits,
+// extensions on the shared allow-list, no custom roles, the
+// dedicated allowance released, peak connections, settings the
+// shared tier resets, and a shared cluster with room (the
+// organisation's own when it has one). The same checks run again
+// when the demotion starts.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/demote/preflight (the `DemotePreflight` operationId).
+func (c *ClientWithResponses) DemotePreflightWithResponse(ctx context.Context, id ProjectID, body DemotePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*DemotePreflightResponse, error) {
+	rsp, err := c.DemotePreflight(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDemotePreflightResponse(rsp)
+}
+
 // DetachBranchWithResponse Detach a branch into a standalone project
 //
 // It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
@@ -36560,6 +37215,72 @@ func ParseIssueMyCredentialsResponse(rsp *http.Response) (*IssueMyCredentialsRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PersonalCredentials
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDemoteProjectResponse parses an HTTP response from a DemoteProjectWithResponse call
+func ParseDemoteProjectResponse(rsp *http.Response) (*DemoteProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DemoteProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDemotePreflightResponse parses an HTTP response from a DemotePreflightWithResponse call
+func ParseDemotePreflightResponse(rsp *http.Response) (*DemotePreflightResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DemotePreflightResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DemotePreflight
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

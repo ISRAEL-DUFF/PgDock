@@ -365,3 +365,90 @@ func (a *App) promote(args []string) error {
 	}
 	return a.emit(op, func(w io.Writer) { fmt.Fprintf(w, "Promoted %s (operation %s).\n", p.Name, op.Id) })
 }
+
+// printChecks writes a demotion preflight as a checklist.
+func printChecks(w io.Writer, pf *client.DemotePreflight) {
+	mark := map[client.DemoteCheckStatus]string{client.DemoteCheckStatusOk: "ok", client.DemoteCheckStatusWarning: "WARN", client.DemoteCheckStatusBlocked: "BLOCKED"}
+	for _, c := range pf.Checks {
+		fmt.Fprintf(w, "  %-7s %-11s %s\n", mark[c.Status], c.Name, c.Message)
+	}
+	fmt.Fprintf(w, "Estimated write freeze: %ds for %s.\n", pf.EstimatedDowntimeSeconds, humanBytes(pf.SizeBytes))
+	if len(pf.Resets) > 0 {
+		fmt.Fprintf(w, "Guardrails reset to the shared defaults: %s.\n", strings.Join(pf.Resets, ", "))
+	}
+	fmt.Fprintf(w, "Point-in-time recovery ends at the demotion; existing base backups stay restorable until their retention ends.\n")
+	fmt.Fprintf(w, "The dedicated instance is stopped and kept for %dh, then destroyed.\n", pf.RetainHours)
+}
+
+func (a *App) demote(args []string) error {
+	fs := flag.NewFlagSet("demote", flag.ContinueOnError)
+	node := fs.String("node", "", "the id of the node whose shared cluster takes it (default: the most free capacity)")
+	checkOnly := fs.Bool("check", false, "only run the eligibility checks")
+	accept := fs.Bool("accept-warnings", false, "go ahead despite the checks' warnings")
+	writable := fs.Bool("console-writable", false, "turn the read-only SQL console off")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 1, "demote <project> [--node <id>] [--check] [--accept-warnings] [--console-writable]"); err != nil {
+		return err
+	}
+	p, err := a.project(pos[0])
+	if err != nil {
+		return err
+	}
+	req := client.DemoteRequest{}
+	if *node != "" {
+		id, err := uuid.Parse(*node)
+		if err != nil {
+			return usageErrorf("--node takes the node's id")
+		}
+		req.NodeId = &id
+	}
+	if *writable {
+		req.ConsoleWritable = writable
+	}
+	c, cancel := ctx()
+	defer cancel()
+	pr, err := a.api.DemotePreflightWithResponse(c, p.Id, req)
+	if err := check(pr, err); err != nil {
+		return err
+	}
+	pf := pr.JSON200
+	if *checkOnly {
+		return a.emit(pf, func(w io.Writer) {
+			fmt.Fprintf(w, "Demoting %s to the shared tier:\n", p.Name)
+			printChecks(w, pf)
+		})
+	}
+	if !a.json {
+		fmt.Fprintf(a.Stderr, "Demoting %s to the shared tier:\n", p.Name)
+		printChecks(a.Stderr, pf)
+	}
+	var warned bool
+	for _, ch := range pf.Checks {
+		warned = warned || ch.Status == client.DemoteCheckStatusWarning
+	}
+	switch {
+	case !pf.Eligible:
+		return &apiError{Status: 409, Code: "conflict", Message: p.Name + " can't be demoted until the blocked checks pass"}
+	case warned && !*accept:
+		return usageErrorf("review the warnings above, then run again with --accept-warnings")
+	}
+	if *accept {
+		req.AcceptWarnings = accept
+	}
+	r, err := a.api.DemoteProjectWithResponse(c, p.Id, req)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	op := r.JSON202
+	if !a.noWait {
+		if err := a.follow(op.Id, !a.json); err != nil {
+			return err
+		}
+	}
+	return a.emit(op, func(w io.Writer) {
+		fmt.Fprintf(w, "Demoted %s to the shared tier (operation %s); its URL and every password are unchanged.\n", p.Name, op.Id)
+	})
+}

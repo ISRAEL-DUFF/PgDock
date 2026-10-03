@@ -982,6 +982,69 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/demote/preflight:
+    post:
+      operationId: demotePreflight
+      summary: Check whether this dedicated project can move back to the shared tier
+      description: |
+        Runs the demotion eligibility checks (V2 §5.2) without changing
+        anything: size against the organisation's shared storage limits,
+        extensions on the shared allow-list, no custom roles, the
+        dedicated allowance released, peak connections, settings the
+        shared tier resets, and a shared cluster with room (the
+        organisation's own when it has one). The same checks run again
+        when the demotion starts.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DemoteRequest"
+      responses:
+        "200":
+          description: The checks and what would change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemotePreflight"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/demote:
+    post:
+      operationId: demoteProject
+      summary: Demote a dedicated project to the shared tier
+      description: |
+        Queues a `demote` operation (V2 §5.3): the database and every
+        login are created on a shared cluster with the same SCRAM
+        verifiers, writes freeze while the data is copied and verified,
+        then the pooler route moves. Connection strings and passwords do
+        not change. If anything fails before the route moves, the
+        project stays on its dedicated instance untouched. The
+        dedicated instance is stopped and kept for 48 hours, then
+        destroyed, which releases its share of the dedicated allowance.
+        Point-in-time recovery ends at the demotion; the existing base
+        backups stay restorable until their retention ends. Refused with
+        `409` when a check fails, or when there are warnings and
+        `accept_warnings` is not set.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DemoteRequest"
+      responses:
+        "202":
+          description: Demotion queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/instance:
     post:
       operationId: projectInstanceAction
@@ -3828,7 +3891,7 @@ components:
           description: Fail the first N attempts to exercise retries.
     ProjectStatus:
       type: string
-      enum: [provisioning, active, promoting, restoring, deleting, error]
+      enum: [provisioning, active, promoting, demoting, restoring, deleting, error]
     ProjectTier:
       type: string
       enum: [shared, dedicated]
@@ -3931,7 +3994,10 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: After a promotion, when the read-only shared copy is dropped.
+          description: |
+            After a promotion, when the read-only shared copy is dropped;
+            after a demotion, when the stopped dedicated instance is
+            destroyed (and the dedicated allowance released).
     ProjectSettings:
       type: object
       required: [connection_limit, pool_size, statement_timeout, idle_in_transaction_session_timeout, disk_warn_bytes, console_read_only]
@@ -5061,6 +5127,77 @@ components:
         estimated_downtime_seconds:
           type: integer
           description: Roughly dump + restore time, while writes wait.
+    DemoteRequest:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+          description: The node whose shared cluster takes the project (default the one with the most free capacity).
+        console_writable:
+          type: boolean
+          description: Turn the read-only SQL console off (V2 §5.5); otherwise it keeps its current setting.
+        accept_warnings:
+          type: boolean
+          description: Acknowledge the preflight's warnings (peak connections, settings that reset).
+    DemoteCheck:
+      type: object
+      required: [name, status, message]
+      properties:
+        name:
+          type: string
+          enum: [size, extensions, roles, allowance, connections, settings, capacity]
+        status:
+          type: string
+          enum: [ok, warning, blocked]
+        message:
+          type: string
+    DemoteTarget:
+      type: object
+      required: [node_id, node_name, org_cluster]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        org_cluster:
+          type: boolean
+          description: The organisation's own shared cluster (V2 §10.5).
+        free_bytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: The node's free disk at its last measurement.
+    DemotePreflight:
+      type: object
+      required: [eligible, checks, size_bytes, estimated_downtime_seconds, settings_after, resets, retain_hours]
+      properties:
+        eligible:
+          type: boolean
+          description: No check blocks the demotion (warnings still need accept_warnings).
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemoteCheck"
+        size_bytes:
+          type: integer
+          format: int64
+        estimated_downtime_seconds:
+          type: integer
+          description: Roughly dump + restore time, while writes wait.
+        target:
+          $ref: "#/components/schemas/DemoteTarget"
+        settings_after:
+          $ref: "#/components/schemas/ProjectSettings"
+        resets:
+          type: array
+          description: The guardrails that change, e.g. "connection limit 90 → 20".
+          items:
+            type: string
+        retain_hours:
+          type: integer
+          description: How long the stopped dedicated instance is kept before it is destroyed.
     PromoteRequest:
       type: object
       properties:
