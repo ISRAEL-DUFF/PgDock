@@ -81,6 +81,10 @@ async function connect(url: string): Promise<pg.Client> {
       ? { ca: readFileSync(caFile, "utf8"), servername: u.hostname, rejectUnauthorized: true }
       : { rejectUnauthorized: false }, // sslmode=require: encrypted, unverified
     connectionTimeoutMillis: 10_000,
+    // A query sent as a reset or restore holds clients at the pooler can
+    // outlive that window on a connection the pooler dropped; fail it so
+    // the caller's retry loop tries again instead of hanging.
+    query_timeout: 15_000,
   });
   // A dropped connection (e.g. the project was deleted) must not crash the run.
   client.on("error", () => {});
