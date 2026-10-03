@@ -44,7 +44,7 @@ import { LogoMark } from "./Logo";
 import type { ShellContext } from "./nav";
 
 const crumb =
-  "flex h-8 max-w-[16rem] items-center gap-2 rounded-md px-2 text-[13px] text-fg hover:bg-surface-2 data-[state=open]:bg-surface-2 outline-none";
+  "flex h-8 max-w-[24rem] min-w-0 items-center gap-2 rounded-md px-2 text-[13px] text-fg hover:bg-surface-2 data-[state=open]:bg-surface-2 outline-none";
 
 function Slash() {
   return (
@@ -165,7 +165,7 @@ function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
           <span className="truncate" data-testid="org-switcher-name">
             {org.name}
           </span>
-          {planBadge(org)}
+          <span className="shrink-0">{planBadge(org)}</span>
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-72">
