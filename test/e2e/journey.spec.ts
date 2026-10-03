@@ -1180,4 +1180,77 @@ test.describe("with the saved session", () => {
     expect(keyFile).toContain("gpg --batch --decrypt backup.dump.gpg > backup.dump");
     expect(keyFile).toContain("pg_restore --no-owner --no-acl");
   });
+  // The M13 "done when", through the browser: branch a project, reset the
+  // branch from its parent with its URL unchanged, keep it, and delete it.
+  // (The per-pull-request workflow and the branch quota run in the
+  // integration suite.)
+  test("branches: create, reset with the same URL, keep, and delete", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Ledger");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const ledgerURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    let db = await connect(ledgerURL);
+    await db.query("CREATE TABLE entries (id serial PRIMARY KEY, memo text NOT NULL)");
+    await db.query("INSERT INTO entries (memo) SELECT 'entry ' || g FROM generate_series(1, 30) g");
+    await db.end();
+
+    // A branch, copied live (there is no backup yet), kept 3 days.
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branches" }).click();
+    await page.getByRole("button", { name: "New branch" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Branch name").fill("try-migration");
+    await expect(dialog.getByLabel(/Live: a fresh dump/)).toBeChecked();
+    await dialog.getByTestId("branch-ttl").selectOption("72");
+    await dialog.getByRole("button", { name: "Create branch" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const branchURL = await revealedValue(page, "credential-pooled-url");
+    expect(branchURL).not.toBe(ledgerURL);
+    expect(await count(branchURL, "SELECT count(*) FROM entries")).toBe(30);
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await shot(page, "43-branch-created");
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+
+    // Diverge, then reset from the parent: the same URL sees the parent's data.
+    db = await connect(branchURL);
+    await db.query("DELETE FROM entries");
+    await db.end();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    const controls = page.getByTestId("branch-controls");
+    await expect(controls.getByTestId("branch-expiry")).toContainText("in ");
+    await controls.getByTestId("reset-branch").click();
+    await page.getByTestId("confirm-reset").click();
+    await expect(async () => {
+      expect(await count(branchURL, "SELECT count(*) FROM entries")).toBe(30);
+    }).toPass({ timeout: 60_000 });
+    await shot(page, "44-branch-controls");
+
+    // Keep it, and see it nested under its parent.
+    await controls.getByTestId("extend-ttl").selectOption("0");
+    await controls.getByTestId("extend-branch").click();
+    await expect(controls.getByText("never")).toBeVisible();
+    await page.goto("/projects");
+    const nested = page.getByTestId("branch-list-row").filter({ hasText: "try-migration" });
+    await expect(nested).toContainText("kept");
+    await shot(page, "45-projects-with-branches");
+
+    // Delete it (re-authentication, like any delete).
+    await nested.getByRole("link", { name: "try-migration" }).click();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    await page.getByRole("button", { name: "Delete branch…" }).click();
+    const confirm = page.getByRole("dialog");
+    await confirm.getByTestId("confirm-name").fill("try-migration");
+    await confirm.getByLabel("Your password").fill(password);
+    await confirm.getByTestId("confirm-code").fill(await freshTotp(totpSecret));
+    await confirm.getByRole("button", { name: "Delete branch" }).click();
+    await expect(async () => {
+      await page.goto("/projects");
+      await expect(page.getByTestId("branch-list-row").filter({ hasText: "try-migration" })).toHaveCount(0);
+    }).toPass({ timeout: 60_000 });
+  });
 });

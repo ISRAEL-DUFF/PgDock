@@ -90,6 +90,25 @@ jobs:
       - run: ./pgdock backup create blog
 ```
 
+### A database branch per pull request
+
+[`examples/github-actions-branch.yml`](examples/github-actions-branch.yml)
+gives every pull request its own copy of the project: each push replaces
+the branch `pr-<number>` with a fresh copy of the latest backup and puts
+its `DATABASE_URL` in the job's environment; the branch deletes itself
+72 hours after the last push, and when the pull request closes. The
+token needs only the `write` scope restricted to the project (it covers
+the project's branches):
+
+```yaml
+- run: pgdock branch create my-app "pr-${{ github.event.number }}" --ttl 72h --replace --env >> "$GITHUB_ENV"
+```
+
+The example also masks the URLs in the job log. To keep one branch per
+pull request with stable credentials instead, create it once and run
+`pgdock branch reset <branch>` on each push: a reset keeps the
+database name, URL and password.
+
 ## Commands
 
 ```
@@ -102,6 +121,9 @@ pgdock connect <p> [--pooled|--session] [--psql]
 pgdock creds <p> [--rotate]
 pgdock sql <p> -c "select …" | -f file.sql [--json|--csv]
 
+pgdock branch list <p> | create <p> <name> [--from backup|live] [--schema-only|--with-data] [--ttl 72h] [--env] [--replace]
+pgdock branch reset <branch> [--from backup|live] | extend <branch> [--ttl 7d] | detach <branch> | delete <branch> --confirm <name>
+
 pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
 pgdock promote <p> [--node <id>] [--profile <size>]
 
@@ -110,7 +132,11 @@ pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 9
 pgdock operations get <id> [--follow]
 ```
 
-`<p>` is a project's name or id. `connect` prints a URL with your
+`<p>` is a project's name or id; `<branch>` is a branch's id, its name,
+or `<parent>/<name>`. `branch create --env` prints `DATABASE_URL=…`,
+`DATABASE_URL_SESSION=…`, `PGDOCK_BRANCH_ID=…` and `PGDOCK_BRANCH=…`
+lines for `$GITHUB_ENV` or a `.env` file; `--replace` deletes a branch
+of the same name first. `connect` prints a URL with your
 **personal** database login for the project (issuing one the first
 time, and remembering it in `~/.config/pgdock/credentials.toml`); `creds
 --rotate` issues a new password.

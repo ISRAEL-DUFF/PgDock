@@ -167,6 +167,29 @@ changes are in the project's audit log with their SQL. **Save as
 migration** exports the change as plain SQL, goose or dbmate, to apply
 to other environments.
 
+## Branches
+
+A branch is a throwaway copy of a project on the shared tier (on the
+organisation's own shared cluster if it has one), from its latest backup
+or live, schema only or with data. Developers and above create them under
+**Project → Branches** or with `pgdock branch create`; they expire after
+7 days unless given another TTL (1 hour to 30 days, or kept), the
+creator is emailed a day before, and an hourly job deletes expired ones
+without a final backup. **Reset** refills a branch from its parent while
+keeping its database name, URL, password and members' logins;
+**Detach** turns it into a standalone project (which can then be
+promoted). A parent can't be deleted while it has branches, and a
+branch can't have branches of its own.
+
+Branches count toward the organisation's branch quota (10 on Personal,
+25 on Team) but not its projects, and toward its shared storage; usage
+records branch-hours and branch GB-hours. They take no nightly backups
+unless a project admin turns them on (**Settings → Data**). Mark a
+project **Contains sensitive data** (or make it the organisation's
+default under **Organisation → Projects**) and its branches copy the
+schema only, unless a project admin asks for the data. Webhooks and
+scheduled jobs are never copied.
+
 ## API tokens and the CLI
 
 Members use the `pgdock` CLI ([CLI guide](cli.md)) and API tokens for

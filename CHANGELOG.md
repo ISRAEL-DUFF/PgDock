@@ -5,6 +5,19 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Database branching (V2 M13)
+- Branches: throwaway copies of a project on the shared tier, from its
+  latest backup or live, schema only or with data, that delete themselves
+  after a TTL (7 days by default) with an email a day before.
+- Reset a branch from its parent without changing its URL, password or
+  members' logins; detach it to keep it as a standalone project.
+- Organisation branch quotas (10 on Personal, 25 on Team), branch-hours
+  and branch GB-hours usage, and "contains sensitive data" projects whose
+  branches copy only the schema by default.
+- `pgdock branch list|create|reset|extend|detach|delete`, with `--env`
+  for `$GITHUB_ENV`, and an example GitHub Actions workflow that gives
+  every pull request its own database.
+
 ### Backup storage targets (V2 M12)
 - Platform storage targets (one is the default) and organisation targets:
   buckets an organisation brings itself, invisible to everyone else and

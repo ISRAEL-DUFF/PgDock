@@ -13,7 +13,7 @@ import {
   StatusBadge,
   Table,
 } from "../components/ui";
-import { formatDate, relativeTime } from "../lib/format";
+import { formatDate, relativeTime, timeUntil } from "../lib/format";
 import { canManageOrg, useCurrentOrg } from "../lib/org";
 import { backupIsStale } from "./ProjectBackups";
 import { QuotasCard } from "./Usage";
@@ -31,15 +31,35 @@ export function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [tier, setTier] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const items = useMemo(() => {
     const s = search.trim().toLowerCase();
-    return (q.data?.items ?? []).filter(
+    const shown = (q.data?.items ?? []).filter(
       (p) =>
         (!status || p.status === status) &&
         (!tier || p.tier === tier) &&
         (!s || p.name.toLowerCase().includes(s) || p.db_name.includes(s)),
     );
-  }, [q.data, search, status, tier]);
+    // Branches nest under their parent (V2 §13); one whose parent isn't
+    // shown stands on its own.
+    const ids = new Set(shown.map((p) => p.id));
+    const kids = new Map<string, typeof shown>();
+    for (const p of shown) {
+      if (p.parent_project_id && ids.has(p.parent_project_id)) {
+        kids.set(p.parent_project_id, [...(kids.get(p.parent_project_id) ?? []), p]);
+      }
+    }
+    return shown
+      .filter((p) => !p.parent_project_id || !ids.has(p.parent_project_id))
+      .flatMap((p) => [p, ...(collapsed.has(p.id) ? [] : (kids.get(p.id) ?? []))]);
+  }, [q.data, search, status, tier, collapsed]);
+  const toggle = (id: string) =>
+    setCollapsed((c) => {
+      const n = new Set(c);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
 
   return (
     <>
@@ -126,8 +146,9 @@ export function ProjectsPage() {
           ]}
         >
           {items.map((p) => (
-            <tr key={p.id} className="hover:bg-surface-2">
-              <td className="px-3 py-2">
+            <tr key={p.id} className="hover:bg-surface-2" data-testid={p.parent_project_id ? "branch-list-row" : "project-row"}>
+              <td className={p.parent_project_id ? "py-2 pl-8 pr-3" : "px-3 py-2"}>
+                {p.parent_project_id && <span className="mr-1 text-muted">↳</span>}
                 <Link
                   to="/projects/$id"
                   params={{ id: p.id }}
@@ -135,6 +156,21 @@ export function ProjectsPage() {
                 >
                   {p.name}
                 </Link>
+                {p.sensitive_data && (
+                  <span className="ml-2">
+                    <Badge tone="warn">sensitive</Badge>
+                  </span>
+                )}
+                {p.parent_project_id && p.branch && (
+                  <span className="ml-2 text-xs text-muted" data-testid="branch-ttl-cell" title={formatDate(p.branch.expires_at)}>
+                    {p.branch.expires_at ? `expires ${timeUntil(p.branch.expires_at)}` : "kept"}
+                  </span>
+                )}
+                {!!p.branch_count && (
+                  <button type="button" className="ml-2 text-xs text-muted hover:text-fg" onClick={() => toggle(p.id)} aria-expanded={!collapsed.has(p.id)}>
+                    {collapsed.has(p.id) ? "▸" : "▾"} {p.branch_count} branch{p.branch_count === 1 ? "" : "es"}
+                  </button>
+                )}
               </td>
               <td className="px-3 py-2 font-mono text-xs text-muted">
                 {p.db_name}

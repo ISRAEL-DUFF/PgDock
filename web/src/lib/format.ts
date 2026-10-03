@@ -39,3 +39,15 @@ export function parseBytes(s: string): number | null {
   const pow: Record<string, number> = { b: 0, kb: 1, kib: 1, mb: 2, mib: 2, gb: 3, gib: 3, tb: 4, tib: 4 };
   return Math.round(parseFloat(m[1]) * 1024 ** pow[(m[2] ?? "b").toLowerCase()]);
 }
+
+/** "in 3d" / "in 5h" / "in 20m" until iso; "overdue" once past. */
+export function timeUntil(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return "—";
+  const s = Math.round((new Date(iso).getTime() - now) / 1000);
+  if (s <= 0) return "overdue";
+  const m = Math.round(s / 60);
+  if (m < 60) return `in ${Math.max(m, 1)}m`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `in ${h}h`;
+  return `in ${Math.round(h / 24)}d`;
+}

@@ -338,6 +338,10 @@ export const api = {
   updateProject: (id: string, b: S["UpdateProjectRequest"]) =>
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
   rotatePassword: (id: string) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/rotate-password`),
+  branches: (id: string) => getJSON<S["ProjectList"]>(`/api/v1/projects/${id}/branches`),
+  createBranch: (id: string, b: S["BranchRequest"]) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/branches`, b),
+  resetBranch: (id: string, b: S["BranchResetRequest"] = {}) => request<Operation>("POST", `/api/v1/projects/${id}/reset`, b),
+  detachBranch: (id: string) => request<Project>("POST", `/api/v1/projects/${id}/detach`),
   deleteProject: (id: string, confirm: string, skipFinalBackup = false) =>
     request<Operation>("DELETE", `/api/v1/projects/${id}${qs({ confirm, skip_final_backup: skipFinalBackup ? "true" : undefined })}`),
 
