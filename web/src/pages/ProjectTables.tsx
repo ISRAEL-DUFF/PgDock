@@ -325,6 +325,9 @@ function TableView({
     queryKey: rowsKey,
     queryFn: () => api.tablePage(p.id, schema, table, grid, page * pageSize, pageSize),
     placeholderData: keepPreviousData,
+    // The grid holds each row's xmin for conflict checks: reload it when
+    // asked (or after a save), not whenever the window regains focus.
+    refetchOnWindowFocus: false,
   });
   const count = useQuery({ queryKey: ["count", p.id, schema, table, filters], queryFn: () => api.tableCount(p.id, schema, table, filters) });
   const definition = useQuery({ queryKey: ["definition", p.id, schema, table], queryFn: () => api.tableDefinition(p.id, schema, table), enabled: mode === "definition" });

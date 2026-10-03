@@ -871,24 +871,25 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("ext-postgis")).toContainText("dedicated tier only");
     await shot(page, "27-extensions");
 
-    // Table browser: the schema tree, table facts, and keyset pages.
+    // Table editor: the sidebar, the record count, numbered pages, and
+    // the table's definition.
     await projectTab(page, "Tables");
-    await page.getByTestId("schema-tree").getByRole("button", { name: "notes" }).click();
-    await expect(page.getByTestId("table-info")).toContainText("Primary key");
-    await expect(page.getByText("2 columns, 1 indexes")).toBeVisible();
+    await page.getByTestId("schema-tree").getByRole("button", { name: "notes", exact: true }).click();
+    await expect(page.getByTestId("record-count")).toHaveText("120 records");
     const grid = page.getByTestId("table-grid");
-    await expect(grid).toContainText("note 50");
-    await expect(grid).not.toContainText("note 51");
-    await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByTestId("page-number")).toHaveText("Page 2");
-    await expect(grid).toContainText("note 51");
-    await expect(grid).toContainText("note 100");
-    await shot(page, "28-table-browser");
-    await page.getByRole("button", { name: "Next" }).click();
+    await expect(grid).toContainText("note 1");
+    await expect(page.getByTestId("page-number")).toHaveText("of 2");
+    await page.getByRole("button", { name: "Next page" }).click();
+    await expect(page.getByTestId("page-input")).toHaveValue("2");
+    await expect(grid).toContainText("note 101");
     await expect(grid).toContainText("note 120");
-    await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
-    await page.getByRole("button", { name: "Previous" }).click();
-    await expect(page.getByTestId("page-number")).toHaveText("Page 2");
+    await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
+    await shot(page, "28-table-browser");
+    await page.getByRole("button", { name: "Previous page" }).click();
+    await expect(page.getByTestId("page-input")).toHaveValue("1");
+    await page.getByRole("radio", { name: "Definition" }).click();
+    await expect(page.getByTestId("table-definition")).toContainText('CREATE TABLE "public"."notes"');
+    await page.getByRole("radio", { name: "Data" }).click();
 
     // Traffic, then the metrics charts: size and connection trends.
     for (let i = 0; i < 30; i++) await app.query("SELECT count(*) FROM notes");
@@ -1173,51 +1174,68 @@ test.describe("with the saved session", () => {
     await signedIn(page);
     const mine = (await page.evaluate(async () => (await fetch("/api/v1/projects")).json())) as { items: { id: string; name: string }[] };
     const team = mine.items.find((p) => p.name === "Team data")!;
-    const openFacts = async (p: Page) => {
+    const openTable = async (p: Page, name: string) => {
       await p.goto(`/projects/${team.id}/tables`);
-      await p.getByTestId("schema-tree").getByRole("button", { name: "facts" }).click();
-      await expect(p.getByTestId("table-grid")).toContainText("shared");
+      await p.getByTestId("schema-tree").getByRole("button", { name, exact: true }).click();
+      await expect(p.getByTestId(`tab-${name}`)).toBeVisible();
     };
+    // Double-click a cell, type, Enter: saved straight away, as in Studio.
     const editBody = async (p: Page, from: string, to: string) => {
       await p.getByTestId("grid-row").filter({ hasText: from }).getByTestId("cell-body").dblclick();
       await p.getByTestId("cell-input-body").fill(to);
-      await p.getByTestId("cell-ok").click();
+      await p.getByTestId("cell-input-body").press("Enter");
     };
-    await openFacts(page);
+    await openTable(page, "facts");
+    await expect(page.getByTestId("table-grid")).toContainText("shared");
 
-    // Edit a cell: staged, highlighted, then saved in one transaction.
     await editBody(page, "shared", "shared (mine)");
-    await expect(page.getByTestId("pending-changes")).toContainText("1 update");
-    await page.getByTestId("save-rows").click();
-    await expect(page.getByTestId("save-summary")).toHaveText("1 update");
-    await page.getByTestId("confirm-save").click();
-    await expect(page.getByTestId("pending-changes")).toHaveCount(0);
+    await expect(page.getByTestId("table-grid")).toContainText("shared (mine)");
+    await page.reload();
     await expect(page.getByTestId("table-grid")).toContainText("shared (mine)");
 
-    // Two sessions edit the same row: the second save is a conflict.
+    // Two sessions edit the same row: the second is told, and nothing of
+    // theirs is overwritten.
     const otherCtx = await browser.newContext({ storageState: stateFile });
     const other = await otherCtx.newPage();
-    await openFacts(other);
-    await editBody(page, "shared (mine)", "mine again");
+    await openTable(other, "facts");
+    await expect(other.getByTestId("table-grid")).toContainText("shared (mine)");
     await editBody(other, "shared (mine)", "theirs");
-    await other.getByTestId("save-rows").click();
-    await other.getByTestId("confirm-save").click();
     await expect(other.getByTestId("table-grid")).toContainText("theirs");
-    await page.getByTestId("save-rows").click();
-    await page.getByTestId("confirm-save").click();
-    await expect(page.getByTestId("row-conflict")).toContainText("theirs");
+    await editBody(page, "shared (mine)", "mine again");
+    await expect(page.getByText("Someone changed this row since you loaded it")).toBeVisible();
     await shot(page, "39-row-conflict");
-    await page.getByTestId("conflict-discard").click();
     await expect(page.getByTestId("table-grid")).toContainText("theirs");
     await otherCtx.close();
 
-    // Add a column: preview the SQL, save it as a goose migration, run it.
-    await page.getByTestId("tab-structure").click();
-    await page.getByTestId("add-column").click();
-    await page.getByRole("dialog").getByLabel("Name").fill("summary");
-    await page.getByRole("dialog").getByLabel("Type").fill("text");
-    await page.getByRole("dialog").getByLabel("Default").fill("''");
-    await page.getByTestId("schema-form-preview").click();
+    // Insert a row from the side panel, filter to it, then delete it.
+    await page.getByTestId("insert-menu").click();
+    await page.getByTestId("insert-row").click();
+    await page.getByTestId("row-field-id").fill("2");
+    await page.getByTestId("row-field-body").fill("from the panel");
+    await page.getByTestId("row-panel-save").click();
+    await expect(page.getByTestId("record-count")).toHaveText("2 records");
+    await page.getByTestId("filter-button").click();
+    await page.getByTestId("add-filter").click();
+    await page.getByLabel("Filter column").selectOption("body");
+    await page.getByLabel("Filter value").fill("from the panel");
+    await page.getByTestId("apply-filter").click();
+    await expect(page.getByTestId("record-count")).toHaveText("1 record");
+    await expect(page.getByTestId("table-grid")).not.toContainText("theirs");
+    await page.getByTestId("grid-row").getByRole("checkbox").check();
+    await page.getByTestId("delete-rows").click();
+    await page.getByTestId("confirm-delete-rows").click();
+    await expect(page.getByTestId("record-count")).toHaveText("0 records");
+    await page.getByTestId("filter-button").click();
+    await page.getByRole("button", { name: "Remove filter" }).click();
+    await page.getByTestId("apply-filter").click();
+    await expect(page.getByTestId("record-count")).toHaveText("1 record");
+
+    // Add a column: review the SQL, save it as a goose migration, run it.
+    await page.getByTestId("insert-menu").click();
+    await page.getByTestId("insert-column").click();
+    await page.getByTestId("column-name").fill("summary");
+    await page.getByTestId("column-panel").getByLabel("Default value").fill("''");
+    await page.getByTestId("column-panel-save").click();
     await expect(page.getByTestId("schema-preview")).toContainText('ADD COLUMN "summary" text DEFAULT');
     await page.getByTestId("migration-format").selectOption("goose");
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("save-migration").click()]);
@@ -1230,12 +1248,43 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("column-summary")).toBeVisible();
 
     // A type change that rewrites the table says so before anything runs.
-    await page.getByTestId("alter-id").click();
-    await page.getByRole("dialog").getByLabel("Type").fill("bigint");
-    await page.getByTestId("schema-form-preview").click();
+    await page.getByTestId("column-menu-id").click();
+    await page.getByRole("menuitem", { name: "Edit column" }).click();
+    await page.getByTestId("column-panel").getByTestId("type-picker").click();
+    await page.getByLabel("Search types").fill("int8");
+    await page.getByTestId("type-int8").click();
+    await page.getByTestId("column-panel-save").click();
     await expect(page.getByTestId("schema-risks")).toContainText("Rewrites the table and blocks writes. Estimated size:");
     await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
     await expect(page.getByTestId("column-id")).toContainText("integer");
+
+    // A new table with a foreign key to facts, then a row that links to it.
+    await page.getByTestId("new-table").click();
+    await page.getByTestId("table-name").fill("fact_notes");
+    await page.getByTestId("table-panel-add-column").click();
+    const fkRow = page.getByTestId("column-row").last();
+    await fkRow.getByLabel("Column name").fill("fact_id");
+    await fkRow.getByTestId("type-picker").click();
+    await page.getByTestId("type-int4").click();
+    await fkRow.getByTestId("add-foreign-key").click();
+    await fkRow.getByLabel("Referenced table").selectOption("facts");
+    await fkRow.getByLabel("Referenced column").selectOption("id");
+    await fkRow.getByLabel("On delete").selectOption("CASCADE");
+    await shot(page, "40b-new-table-panel");
+    await page.getByTestId("table-panel-save").click();
+    await expect(page.getByTestId("schema-preview")).toContainText('REFERENCES "public"."facts" ("id") ON DELETE CASCADE');
+    await page.getByTestId("schema-run").click();
+    await expect(page.getByTestId("tab-fact_notes")).toBeVisible();
+    await expect(page.getByText("This table is empty")).toBeVisible();
+    await page.getByTestId("insert-menu").click();
+    await page.getByTestId("insert-row").click();
+    await page.getByTestId("row-field-fact_id").fill("1");
+    await page.getByTestId("row-panel-save").click();
+    await expect(page.getByTestId("record-count")).toHaveText("1 record");
+    await page.getByTestId("fk-fact_id").click();
+    await expect(page.getByTestId("fk-panel")).toContainText("theirs");
+    await shot(page, "40c-foreign-row");
   });
   // The M12 "done when", through the browser: the organisation brings its
   // own bucket, a project gets its own key and sends its backups there, and
