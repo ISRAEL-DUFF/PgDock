@@ -1356,7 +1356,7 @@ test.describe("with the saved session", () => {
     const secret = await revealedValue(page, "webhook-secret-value");
     expect(secret).toMatch(/^whsec_/);
     await shot(page, "46-webhook-created");
-    await page.getByRole("button", { name: "I've stored it" }).click();
+    await page.getByRole("button", { name: /stored it/ }).click();
 
     // A committed insert arrives, signed with the secret.
     await db.query("INSERT INTO orders (item) VALUES ('kettle')");
