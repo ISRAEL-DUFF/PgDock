@@ -166,7 +166,7 @@ export function ForeignKeyEditor({
 }) {
   if (!col.ref) {
     return (
-      <Button size="tiny" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => onChange({ schema, table: "", column: "", onDelete: "NO ACTION", onUpdate: "NO ACTION" })} data-testid="add-foreign-key">
+      <Button size="tiny" variant="ghost" className="self-start" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => onChange({ schema, table: "", column: "", onDelete: "NO ACTION", onUpdate: "NO ACTION" })} data-testid="add-foreign-key">
         Add foreign key relation
       </Button>
     );

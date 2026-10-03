@@ -68,7 +68,8 @@ export function Grid({
       cols.push({
         key: name,
         name,
-        width: widths[name] ?? Math.min(Math.max(name.length * 9 + 80, 120), 320),
+        // Room for the name and the type, as Studio sizes its headers.
+        width: widths[name] ?? Math.min(Math.max(name.length * 8 + c.type.length * 7 + 64, 120), 320),
         minWidth: 60,
         resizable: true,
         draggable: true,

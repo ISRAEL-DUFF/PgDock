@@ -247,7 +247,7 @@ export function Toolbar({
           )}
           {!editable && info.read_only_reason && (
             <span className="ml-2 truncate text-[12px] text-muted" data-testid="read-only-reason">
-              {canEdit ? info.read_only_reason : "Your role on this project is read-only."}
+              {info.read_only_reason}
             </span>
           )}
           <span className="flex-1" />
