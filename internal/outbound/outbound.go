@@ -62,6 +62,26 @@ func mustPrefixes(ss ...string) []netip.Prefix {
 	return out
 }
 
+var (
+	nat64  = netip.MustParsePrefix("64:ff9b::/96")
+	sixTo4 = netip.MustParsePrefix("2002::/16")
+)
+
+// canon is the address a is checked as: IPv4 for IPv4-mapped, NAT64
+// (64:ff9b::/96) and 6to4 (2002::/16) addresses, which reach the IPv4
+// address they embed (64:ff9b::a9fe:a9fe is 169.254.169.254).
+func canon(a netip.Addr) netip.Addr {
+	a = a.Unmap()
+	b := a.As16()
+	switch {
+	case nat64.Contains(a):
+		return netip.AddrFrom4([4]byte{b[12], b[13], b[14], b[15]})
+	case sixTo4.Contains(a):
+		return netip.AddrFrom4([4]byte{b[2], b[3], b[4], b[5]})
+	}
+	return a
+}
+
 func in(ps []netip.Prefix, a netip.Addr) bool {
 	for _, p := range ps {
 		if p.Contains(a) {
@@ -128,7 +148,7 @@ func NormalizeHost(h string) string {
 func ValidAllowHost(h string) error {
 	h = NormalizeHost(h)
 	if a, err := netip.ParseAddr(h); err == nil {
-		if in(never, a.Unmap()) {
+		if in(never, canon(a)) {
 			return errors.New("link-local and cloud metadata addresses can't be allowed")
 		}
 		return nil
@@ -155,7 +175,7 @@ func (s *Service) Check(ctx context.Context, orgID uuid.UUID, rawURL string) (Ta
 		return Target{}, fmt.Errorf("%w: not an absolute URL", ErrRefused)
 	}
 	host := NormalizeHost(u.Hostname())
-	if a, err := netip.ParseAddr(host); err == nil && in(never, a.Unmap()) {
+	if a, err := netip.ParseAddr(host); err == nil && in(never, canon(a)) {
 		return Target{}, fmt.Errorf("%w: %s is a link-local or cloud metadata address", ErrRefused, a)
 	}
 	allow, err := s.allowed(ctx, orgID, host)
@@ -196,7 +216,7 @@ func (s *Service) Check(ctx context.Context, orgID uuid.UUID, rawURL string) (Ta
 	// Every address must pass, so a host can't mix a public address with
 	// an internal one.
 	for _, a := range addrs {
-		a = a.Unmap()
+		a = canon(a)
 		switch {
 		case in(never, a):
 			return Target{}, fmt.Errorf("%w: %s is a link-local or cloud metadata address", ErrRefused, a)
