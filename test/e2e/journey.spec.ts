@@ -1373,7 +1373,7 @@ test.describe("with the saved session", () => {
     expect(hook!.header["Pgdock-Event-Id"]).toMatch(/^evt_/);
 
     // The delivery log, and a test event.
-    await page.getByTestId("webhook-row").filter({ hasText: "orders-to-shop" }).click();
+    // The new webhook's details are open.
     await expect(page.getByTestId("delivery-row").first()).toContainText("delivered");
     await page.getByTestId("webhook-test").click();
     await expect(page.getByTestId("webhook-message")).toContainText("Test event delivered");
