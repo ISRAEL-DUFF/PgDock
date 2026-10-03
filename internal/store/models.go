@@ -210,6 +210,19 @@ type Invitation struct {
 	CreatedAt    time.Time
 }
 
+type JobRun struct {
+	ID           int64
+	JobID        uuid.UUID
+	ScheduledFor time.Time
+	StartedAt    *time.Time
+	FinishedAt   *time.Time
+	Status       string
+	RowsAffected *int64
+	StatusCode   *int32
+	Error        *string
+	Trigger      string
+}
+
 type MetricPoint struct {
 	Scope      string
 	ScopeID    uuid.UUID
@@ -278,6 +291,21 @@ type Organization struct {
 	CreatedAt          time.Time
 	SuspendedAt        *time.Time
 	DeleteRequestedBy  *uuid.UUID
+}
+
+type OutboundAllowlist struct {
+	OrgID     uuid.UUID
+	Host      string
+	CreatedBy *uuid.UUID
+	CreatedAt time.Time
+}
+
+type OutboundCounter struct {
+	OrgID    uuid.UUID
+	Host     string
+	Day      pgtype.Date
+	Requests int64
+	Failures int64
 }
 
 type Project struct {
@@ -364,6 +392,24 @@ type RetiredDatabase struct {
 	CreatedAt  time.Time
 }
 
+type ScheduledJob struct {
+	ID                  uuid.UUID
+	ProjectID           uuid.UUID
+	Name                string
+	Cron                string
+	Timezone            string
+	Kind                string
+	SpecEnc             []byte
+	TimeoutS            int32
+	Overlap             string
+	Enabled             bool
+	NextRunAt           *time.Time
+	ConsecutiveFailures int32
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
 type Session struct {
 	ID         string
 	UserID     uuid.UUID
@@ -438,4 +484,39 @@ type User struct {
 	ApprovedAt      *time.Time
 	RecoveryCodes   []byte
 	LastActiveAt    *time.Time
+}
+
+type Webhook struct {
+	ID                  uuid.UUID
+	ProjectID           uuid.UUID
+	Name                string
+	Tables              []string
+	Events              []string
+	Columns             []string
+	Url                 string
+	HeadersEnc          []byte
+	SecretEnc           []byte
+	Enabled             bool
+	Status              string
+	StatusReason        *string
+	ConsecutiveFailures int32
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type WebhookDelivery struct {
+	ID              int64
+	WebhookID       uuid.UUID
+	EventID         string
+	Attempt         int32
+	StatusCode      *int32
+	LatencyMs       *int32
+	ResponseSnippet *string
+	Error           *string
+	Succeeded       bool
+	DeadLettered    bool
+	ReplayedAt      *time.Time
+	Payload         []byte
+	CreatedAt       time.Time
 }

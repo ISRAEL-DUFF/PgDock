@@ -176,6 +176,7 @@ test-e2e: e2e-images
 	PGDOCK_E2E_EXPECT_ISSUER=Pebble \
 	PGDOCK_E2E_S3_ENDPOINT=http://fakes3:9000 \
 	PGDOCK_E2E_S3_BUCKET=pgdock-e2e \
+	PGDOCK_E2E_HOOK_API=http://127.0.0.1:18090 \
 	PGDOCK_E2E_SUPABASE_SEED_URL=postgres://postgres:supabase-source@127.0.0.1:15450/postgres \
 	PGDOCK_E2E_SUPABASE_URL=postgres://postgres:supabase-source@src-supabase:5432/postgres?sslmode=disable \
 	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server pgdock-agent caddy pebble; $(E2E_INSTANCES); exit 1; }

@@ -64,6 +64,7 @@ var actionScope = map[Action]string{
 	RestoreInPlace:     ScopeAdmin,
 	BackupStorage:      ScopeAdmin,
 	BranchManage:       ScopeWrite,
+	AutomationManage:   ScopeWrite,
 	ProjectSettings:    ScopeAdmin,
 	ProjectMembers:     ScopeAdmin,
 	ProjectPromote:     ScopeAdmin,
@@ -149,6 +150,7 @@ const (
 	RestoreInPlace     Action = "project.restore_inplace" // admin
 	BackupStorage      Action = "project.backup_storage"  // admin: storage target, backup key and its download (V2 s6)
 	BranchManage       Action = "project.branch"          // developer: create, reset, detach and delete branches (V2 s8)
+	AutomationManage   Action = "project.automation"      // developer: webhooks and scheduled jobs (V2 s9)
 	ProjectSettings    Action = "project.settings"        // admin: rotate, settings, extensions, PITR
 	ProjectMembers     Action = "project.members"         // admin
 	ProjectPromote     Action = "project.promote"         // admin
@@ -167,6 +169,7 @@ var projectMin = map[Action]string{
 	RestoreInPlace:     ProjectAdmin,
 	BackupStorage:      ProjectAdmin,
 	BranchManage:       ProjectDeveloper,
+	AutomationManage:   ProjectDeveloper,
 	ProjectSettings:    ProjectAdmin,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,

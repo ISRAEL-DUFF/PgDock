@@ -104,6 +104,10 @@ type Service struct {
 	FinalBackup func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
 	// Instances runs dedicated instances; nil disables the dedicated tier.
 	Instances InstanceManager
+	// RefreshWebhooks, when set, rebuilds a project's webhook schema after
+	// its database was replaced or copied (the webhooks service). Without
+	// it, whatever came with the data is dropped.
+	RefreshWebhooks func(ctx context.Context, p store.Project) error
 	// LoginGate, when set, reports whether a project's logins may connect:
 	// false while its storage is hard-locked or its organisation is
 	// suspended (V2 §10.4, §10.8). The tenancy service sets it.

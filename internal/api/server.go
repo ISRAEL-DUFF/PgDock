@@ -25,12 +25,15 @@ import (
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
+	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/pgdock/internal/webhooks"
 )
 
 // Server implements gen.ServerInterface. Endpoints that later milestones
@@ -57,6 +60,9 @@ type Server struct {
 	tenancy   *tenancy.Service
 	tokens    *tokens.Service
 	branches  *branching.Service
+	webhooks  *webhooks.Service
+	jobs      *schedjobs.Service
+	outbound  *outbound.Service
 
 	tokenLimit    *auth.Limiter
 	orgTokenLimit *auth.Limiter
@@ -119,6 +125,11 @@ type Options struct {
 	Tenancy *tenancy.Service
 	// Branches runs database branching (V2 §8); nil disables it.
 	Branches *branching.Service
+	// Webhooks, Jobs and Outbound run database webhooks, scheduled jobs and
+	// their outbound requests (V2 §9); nil disables them.
+	Webhooks *webhooks.Service
+	Jobs     *schedjobs.Service
+	Outbound *outbound.Service
 	// Tokens issues and checks API tokens and device logins; nil disables
 	// bearer authentication. TokenRate and OrgTokenRate are requests per
 	// minute per token and per organisation's tokens (defaults 600, 1200).
@@ -144,6 +155,7 @@ func NewHandler(opts Options) http.Handler {
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
 		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches,
+		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
 	}

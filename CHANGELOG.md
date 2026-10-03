@@ -5,6 +5,24 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Webhooks and scheduled jobs (V2 M15)
+- Database webhooks: inserts, updates and deletes of chosen tables POSTed
+  to a URL, recorded in the same transaction (a rolled-back change never
+  sends anything), in commit order per webhook, signed with HMAC-SHA256,
+  retried with backoff for 24 hours, then kept as dead letters you can
+  replay. Column filters for updates, static headers, test events, a
+  7-day delivery log, auto-pause after 50 failures, and broken-trigger
+  detection.
+- Scheduled jobs: SQL as the project owner, or a signed HTTP call, on a
+  cron schedule in your time zone, with timeouts, skip-or-queue overlap,
+  history, run now, and an email after three failures in a row.
+- Outbound safety: requests only to public addresses (resolved, checked,
+  connected to the checked address, no redirects); the platform admin can
+  allow-list internal hosts per organisation, turn its outbound traffic
+  off, and see its requests by host. Per-organisation rate limits queue
+  webhook deliveries rather than dropping them.
+- `pgdock webhooks …` and `pgdock jobs …`; Project → Webhooks and Jobs.
+
 ### Demotion (V2 M14)
 - Move a dedicated project back to the shared tier with its URL, app
   password and every member's personal login unchanged, after a write

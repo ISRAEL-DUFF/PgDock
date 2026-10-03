@@ -38,6 +38,12 @@ export function ProjectLayout() {
     { to: "/projects/$id/tables", label: "Tables" },
     { to: "/projects/$id/backups", label: "Backups" },
     { to: "/projects/$id/branches", label: p.parent_project_id ? "Branch" : "Branches" },
+    ...(admin || p.my_role === "developer"
+      ? ([
+          { to: "/projects/$id/webhooks", label: "Webhooks" },
+          { to: "/projects/$id/jobs", label: "Jobs" },
+        ] as const)
+      : []),
     { to: "/projects/$id/metrics", label: "Metrics" },
     { to: "/projects/$id/members", label: "Members" },
     ...(admin ? [{ to: "/projects/$id/settings", label: "Settings" } as const] : []),

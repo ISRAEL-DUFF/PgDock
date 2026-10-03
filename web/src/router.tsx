@@ -20,6 +20,8 @@ import { ImportProjectPage } from "./pages/ImportProject";
 import { NodeDetailPage, NodesPage } from "./pages/Nodes";
 import { ProjectBackupsPage } from "./pages/ProjectBackups";
 import { ProjectBranchesPage } from "./pages/ProjectBranches";
+import { ProjectJobsPage } from "./pages/ProjectJobs";
+import { ProjectWebhooksPage } from "./pages/ProjectWebhooks";
 import { ProjectConnectPage } from "./pages/ProjectConnect";
 import { ProjectLayout, ProjectOverviewPage } from "./pages/ProjectOverview";
 import { ProjectMetricsPage } from "./pages/ProjectMetrics";
@@ -103,6 +105,8 @@ const projectTables = createRoute({ getParentRoute: () => project, path: "/table
 const projectMetrics = createRoute({ getParentRoute: () => project, path: "/metrics", component: ProjectMetricsPage });
 const projectBackups = createRoute({ getParentRoute: () => project, path: "/backups", component: ProjectBackupsPage });
 const projectBranches = createRoute({ getParentRoute: () => project, path: "/branches", component: ProjectBranchesPage });
+const projectWebhooks = createRoute({ getParentRoute: () => project, path: "/webhooks", component: ProjectWebhooksPage });
+const projectJobs = createRoute({ getParentRoute: () => project, path: "/jobs", component: ProjectJobsPage });
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
 const projectMembers = createRoute({ getParentRoute: () => project, path: "/members", component: ProjectMembersPage });
 const account = createRoute({ getParentRoute: () => app, path: "/account", component: AccountPage });
@@ -142,7 +146,7 @@ const routeTree = root.addChildren([
     newProject,
     importProject,
     project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups,
-    projectBranches, projectMetrics, projectMembers, projectSettings]),
+    projectBranches, projectWebhooks, projectJobs, projectMetrics, projectMembers, projectSettings]),
     account,
     device,
     orgMembers,

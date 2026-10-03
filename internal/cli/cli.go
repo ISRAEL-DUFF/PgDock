@@ -184,6 +184,21 @@ func (a *App) commands() []command {
 			{name: "extend", summary: "Push back the expiry: extend <branch> [--ttl 7d]", run: (*App).branchExtend},
 			{name: "detach", summary: "Make a branch a standalone project: detach <branch>", run: (*App).branchDetach},
 		}},
+		{name: "webhooks", summary: "Database webhooks: table changes POSTed to a URL", sub: []command{
+			{name: "list", summary: "List: list <p>", run: (*App).webhooksList},
+			{name: "create", summary: "create <p> <name> --tables orders --url https://… [--events INSERT,UPDATE] [--columns c] [--header K=V]", run: (*App).webhooksCreate},
+			{name: "delete", summary: "Delete: delete <p> <webhook>", run: (*App).webhooksDelete},
+			{name: "deliveries", summary: "The delivery log: deliveries <p> <webhook> [--dead]", run: (*App).webhooksDeliveries},
+			{name: "replay", summary: "Send dead letters again: replay <p> <webhook> --all | --ids 1,2", run: (*App).webhooksReplay},
+		}},
+		{name: "jobs", summary: "Scheduled jobs: SQL or HTTP on a cron schedule", sub: []command{
+			{name: "list", summary: "List: list <p>", run: (*App).jobsList},
+			{name: "create", summary: "create <p> <name> --cron '0 3 * * *' (--sql '…' | --url https://…) [--tz Europe/Berlin]", run: (*App).jobsCreate},
+			{name: "pause", summary: "Pause: pause <p> <job>", run: (*App).jobsPause},
+			{name: "resume", summary: "Resume: resume <p> <job>", run: (*App).jobsResume},
+			{name: "run", summary: "Run now: run <p> <job>", run: (*App).jobsRun},
+			{name: "history", summary: "Recent runs: history <p> <job>", run: (*App).jobsHistory},
+		}},
 		{name: "promote", summary: "Move a project to a dedicated instance: promote <p> [--node <id>] [--profile]", run: (*App).promote},
 		{name: "demote", summary: "Move a dedicated project back to the shared tier: demote <p> [--node <id>] [--check] [--accept-warnings]", run: (*App).demote},
 		{name: "members", summary: "Project members", sub: []command{

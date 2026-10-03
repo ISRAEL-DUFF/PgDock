@@ -258,6 +258,19 @@ var auditActions = map[string]string{
 	"POST /api/v1/projects/{id}/reset":                           "branch.reset",
 	"POST /api/v1/projects/{id}/detach":                          "branch.detach",
 
+	// Webhooks and scheduled jobs (V2 §9).
+	"POST /api/v1/projects/{id}/webhooks":                            "webhook.create",
+	"PATCH /api/v1/projects/{id}/webhooks/{webhook_id}":              "webhook.update",
+	"DELETE /api/v1/projects/{id}/webhooks/{webhook_id}":             "webhook.delete",
+	"POST /api/v1/projects/{id}/webhooks/{webhook_id}/test":          "webhook.test",
+	"POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret": "webhook.rotate_secret",
+	"POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay":        "webhook.replay",
+	"POST /api/v1/projects/{id}/jobs":                                "job.create",
+	"PATCH /api/v1/projects/{id}/jobs/{job_id}":                      "job.update",
+	"DELETE /api/v1/projects/{id}/jobs/{job_id}":                     "job.delete",
+	"POST /api/v1/projects/{id}/jobs/{job_id}/run":                   "job.run",
+	"PUT /api/v1/admin/orgs/{org}/outbound":                          "admin.org_outbound_allowlist",
+
 	// Demotion (V2 §5).
 	"POST /api/v1/projects/{id}/demote/preflight": "project.demote_preflight",
 	"POST /api/v1/projects/{id}/demote":           "project.demote",

@@ -172,6 +172,10 @@ func (s *Service) runRestore(ctx context.Context, op store.Operation, log *jobs.
 		if err := s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log); err != nil {
 			return err
 		}
+		// Webhooks are not carried into a new project (V2 §9.3).
+		if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
+			return err
+		}
 		if err := s.projects.Publish(ctx, p, password, log); err != nil {
 			return err
 		}
@@ -218,6 +222,11 @@ func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.
 		return err
 	}
 	if err := s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log); err != nil {
+		return err
+	}
+	// Webhook triggers come back from PGDock's configuration, with an
+	// empty outbox (V2 §9.3).
+	if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
 		return err
 	}
 	// Members' logins live outside the database; their grants inside it

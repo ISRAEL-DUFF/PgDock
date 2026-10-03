@@ -563,6 +563,10 @@ func (s *Service) adoptRestore(ctx context.Context, inst store.Instance, p store
 		if err := log.Info(ctx, "restore", "recovery finished and promoted; %s is now %s, owned by %s", src.DbName, p.DbName, p.OwnerRole); err != nil {
 			return err
 		}
+		// The source's webhooks are not carried into the new project.
+		if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
+			return err
+		}
 	}
 	for _, stmt := range []string{
 		"REVOKE CONNECT, TEMPORARY ON DATABASE postgres FROM PUBLIC",
