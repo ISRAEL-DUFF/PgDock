@@ -169,7 +169,7 @@ func (s *Service) runRestore(ctx context.Context, op store.Operation, log *jobs.
 				return err
 			}
 		}
-		if err := s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log); err != nil {
+		if err := s.restoreFrom(ctx, b, p, p.DbName, log); err != nil {
 			return err
 		}
 		// Webhooks are not carried into a new project (V2 §9.3).
@@ -221,7 +221,7 @@ func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.
 	if err := s.projects.RecreateDatabase(ctx, p, log); err != nil {
 		return err
 	}
-	if err := s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log); err != nil {
+	if err := s.restoreFrom(ctx, b, p, p.DbName, log); err != nil {
 		return err
 	}
 	// Webhook triggers come back from PGDock's configuration, with an
@@ -311,7 +311,9 @@ func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *j
 		return err
 	}
 	defer admin.Close(context.Background())
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+provision.Ident(scratch)+" TEMPLATE template0 ENCODING 'UTF8'"); err != nil {
+	// Owned by the project's owner and restored like a real restore (as
+	// the console login): the dump's functions run during the restore.
+	if _, err := admin.Exec(ctx, "CREATE DATABASE "+provision.Ident(scratch)+" OWNER "+provision.Ident(p.OwnerRole)+" TEMPLATE template0 ENCODING 'UTF8'"); err != nil {
 		return fmt.Errorf("create scratch database: %w", err)
 	}
 	defer func() {
@@ -322,7 +324,7 @@ func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *j
 			_ = log.Info(cctx, "cleanup", "dropped %s", scratch)
 		}
 	}()
-	if err := s.restoreFrom(ctx, b, p.InstanceID, scratch, "", log); err != nil {
+	if err := s.restoreFrom(ctx, b, p, scratch, log); err != nil {
 		return jobs.Permanent(err)
 	}
 	conn, err := s.projects.AdminConn(ctx, p.InstanceID, scratch)

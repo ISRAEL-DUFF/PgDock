@@ -75,7 +75,7 @@ func (s *Service) readOnly(ctx context.Context, projectID uuid.UUID, f func(*pgx
 	}
 	ctx, cancel := context.WithTimeout(ctx, DefaultTimeout+15*time.Second)
 	defer cancel()
-	sess, err := s.open(ctx, p, uuid.New(), DefaultTimeout, false)
+	sess, err := s.open(ctx, p, uuid.New(), DefaultTimeout, modeOwner)
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/test/testenv"
@@ -250,5 +252,74 @@ func TestAutomationCLI(t *testing.T) {
 	r = runCLI(t, bin, env, "jobs", "resume", "Cli app", "cleanup")
 	if r.code != 0 || !strings.Contains(r.stdout, "Resumed cleanup") {
 		t.Fatalf("jobs resume: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+}
+
+// TestJobSQLCannotEscalate: a SQL job runs as the project owner and can't
+// leave that role for the superuser that runs the cluster (M16 review).
+func TestJobSQLCannotEscalate(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	ctx := context.Background()
+	c := e.CreateProject("Escalation")
+	other := e.CreateProject("Neighbour")
+	pid := c.Project.Id.String()
+	app := e.MustConnect(c.Connection.SessionUrl)
+	defer app.Close(ctx)
+	if _, err := app.Exec(ctx, `CREATE TABLE who (name text)`); err != nil {
+		t.Fatal(err)
+	}
+	for i, sql := range []string{
+		"RESET ROLE; CREATE ROLE pgdock_escalated SUPERUSER LOGIN",
+		"RESET ROLE; ALTER ROLE " + c.Project.OwnerRole + " SUPERUSER",
+		"RESET ROLE; INSERT INTO who SELECT current_user",
+		"RESET ROLE; SELECT pg_read_file('PG_VERSION')",
+		"SET ROLE " + other.Project.OwnerRole,
+		"SET SESSION AUTHORIZATION DEFAULT; CREATE ROLE pgdock_escalated SUPERUSER",
+		"COMMIT; RESET ROLE; CREATE ROLE pgdock_escalated SUPERUSER",
+	} {
+		var cj gen.JobCreated
+		if code := e.Do("POST", "/api/v1/projects/"+pid+"/jobs", gen.JobRequest{Name: "escape-" + string(rune('a'+i)), Cron: "0 3 * * *", Kind: gen.JobRequestKindSql, Sql: &sql}, &cj); code != http.StatusCreated {
+			t.Fatalf("create: %d", code)
+		}
+		jid := cj.Job.Id.String()
+		e.Do("POST", "/api/v1/projects/"+pid+"/jobs/"+jid+"/run", nil, nil)
+		runs := waitRun(t, e, pid, jid, func(r []gen.JobRun) bool { return len(r) == 1 && finished(r[0]) })
+		if runs[0].Status != gen.JobRunStatusFailed {
+			t.Errorf("%q: %s (%v), want failed", sql, runs[0].Status, deref(runs[0].Error))
+		}
+	}
+	var escalated, super bool
+	admin := e.MustConnect(e.SharedAdminURL)
+	defer admin.Close(ctx)
+	if err := admin.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pgdock_escalated'),
+		(SELECT rolsuper FROM pg_roles WHERE rolname = $1)`, c.Project.OwnerRole).Scan(&escalated, &super); err != nil {
+		t.Fatal(err)
+	}
+	if escalated || super {
+		_, _ = admin.Exec(ctx, `DROP ROLE IF EXISTS pgdock_escalated`)
+		_, _ = admin.Exec(ctx, `ALTER ROLE `+c.Project.OwnerRole+` NOSUPERUSER`)
+		t.Fatalf("a job became the superuser: created role %v, owner superuser %v", escalated, super)
+	}
+	var n int
+	if err := app.QueryRow(ctx, `SELECT count(*) FROM who`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("who: %d %v", n, err)
+	}
+
+	// A soft storage lock (the database read-only by default) applies to
+	// jobs: their writes fail (V2 §10.4).
+	db := pgx.Identifier{c.Project.DbName}.Sanitize()
+	if _, err := admin.Exec(ctx, "ALTER DATABASE "+db+" SET default_transaction_read_only = on"); err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Exec(ctx, "ALTER DATABASE "+db+" RESET default_transaction_read_only") //nolint:errcheck
+	write := "INSERT INTO who VALUES ('locked')"
+	var wj gen.JobCreated
+	if code := e.Do("POST", "/api/v1/projects/"+pid+"/jobs", gen.JobRequest{Name: "locked-write", Cron: "0 3 * * *", Kind: gen.JobRequestKindSql, Sql: &write}, &wj); code != http.StatusCreated {
+		t.Fatalf("create: %d", code)
+	}
+	e.Do("POST", "/api/v1/projects/"+pid+"/jobs/"+wj.Job.Id.String()+"/run", nil, nil)
+	runs := waitRun(t, e, pid, wj.Job.Id.String(), func(r []gen.JobRun) bool { return len(r) == 1 && finished(r[0]) })
+	if runs[0].Status != gen.JobRunStatusFailed || !strings.Contains(deref(runs[0].Error), "read-only") {
+		t.Fatalf("a write under a soft lock: %s %v", runs[0].Status, deref(runs[0].Error))
 	}
 }

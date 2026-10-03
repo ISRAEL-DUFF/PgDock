@@ -52,6 +52,9 @@ func dumpArgs(o agentapi.DumpOptions) []string {
 	for _, n := range o.ExcludeSchemas {
 		args = append(args, "--exclude-schema="+n)
 	}
+	for _, n := range o.ExcludeExtensions {
+		args = append(args, "--exclude-extension="+n)
+	}
 	if o.NoOwner {
 		args = append(args, "--no-owner")
 	}

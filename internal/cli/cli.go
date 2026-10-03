@@ -174,6 +174,7 @@ func (a *App) commands() []command {
 		{name: "backup", summary: "Backups", sub: []command{
 			{name: "list", summary: "List a project's backups: list <p>", run: (*App).backupList},
 			{name: "create", summary: "Back up now: create <p>", run: (*App).backupCreate},
+			{name: "download", summary: "Save as a pg_dump file (owners): download <p> [--backup <id>] [-o file]", run: (*App).backupDownload},
 			{name: "restore", summary: "Restore: restore <p> --backup <id> [--into <name>] | --in-place --confirm <name>", run: (*App).backupRestore},
 		}},
 		{name: "branch", summary: "Branches: throwaway copies of a project", sub: []command{

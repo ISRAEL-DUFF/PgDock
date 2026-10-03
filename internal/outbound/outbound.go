@@ -62,6 +62,26 @@ func mustPrefixes(ss ...string) []netip.Prefix {
 	return out
 }
 
+var (
+	nat64  = netip.MustParsePrefix("64:ff9b::/96")
+	sixTo4 = netip.MustParsePrefix("2002::/16")
+)
+
+// canon is the address a is checked as: IPv4 for IPv4-mapped, NAT64
+// (64:ff9b::/96) and 6to4 (2002::/16) addresses, which reach the IPv4
+// address they embed (64:ff9b::a9fe:a9fe is 169.254.169.254).
+func canon(a netip.Addr) netip.Addr {
+	a = a.Unmap()
+	b := a.As16()
+	switch {
+	case nat64.Contains(a):
+		return netip.AddrFrom4([4]byte{b[12], b[13], b[14], b[15]})
+	case sixTo4.Contains(a):
+		return netip.AddrFrom4([4]byte{b[2], b[3], b[4], b[5]})
+	}
+	return a
+}
+
 func in(ps []netip.Prefix, a netip.Addr) bool {
 	for _, p := range ps {
 		if p.Contains(a) {
@@ -92,7 +112,25 @@ type Service struct {
 
 	mu      sync.Mutex
 	buckets map[string]*bucket
+
+	// transports keep connections alive per checked address and host.
+	tmu        sync.Mutex
+	transports map[string]*http.Transport
+
+	// counts are requests not yet added to outbound_counters (written
+	// about once a second, and by Flush).
+	cmu     sync.Mutex
+	counts  map[countKey]*countVal
+	flusher *time.Timer
 }
+
+type countKey struct {
+	org  uuid.UUID
+	host string
+	day  time.Time
+}
+
+type countVal struct{ requests, failures int64 }
 
 // New returns a Service.
 func New(db *pgxpool.Pool, cfg Config, log *slog.Logger) *Service {
@@ -104,7 +142,7 @@ func New(db *pgxpool.Pool, cfg Config, log *slog.Logger) *Service {
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
-	return &Service{db: db, cfg: cfg, log: log, buckets: map[string]*bucket{}}
+	return &Service{db: db, cfg: cfg, log: log, buckets: map[string]*bucket{}, transports: map[string]*http.Transport{}, counts: map[countKey]*countVal{}}
 }
 
 // Now is the service's clock.
@@ -128,7 +166,7 @@ func NormalizeHost(h string) string {
 func ValidAllowHost(h string) error {
 	h = NormalizeHost(h)
 	if a, err := netip.ParseAddr(h); err == nil {
-		if in(never, a.Unmap()) {
+		if in(never, canon(a)) {
 			return errors.New("link-local and cloud metadata addresses can't be allowed")
 		}
 		return nil
@@ -155,7 +193,7 @@ func (s *Service) Check(ctx context.Context, orgID uuid.UUID, rawURL string) (Ta
 		return Target{}, fmt.Errorf("%w: not an absolute URL", ErrRefused)
 	}
 	host := NormalizeHost(u.Hostname())
-	if a, err := netip.ParseAddr(host); err == nil && in(never, a.Unmap()) {
+	if a, err := netip.ParseAddr(host); err == nil && in(never, canon(a)) {
 		return Target{}, fmt.Errorf("%w: %s is a link-local or cloud metadata address", ErrRefused, a)
 	}
 	allow, err := s.allowed(ctx, orgID, host)
@@ -196,7 +234,7 @@ func (s *Service) Check(ctx context.Context, orgID uuid.UUID, rawURL string) (Ta
 	// Every address must pass, so a host can't mix a public address with
 	// an internal one.
 	for _, a := range addrs {
-		a = a.Unmap()
+		a = canon(a)
 		switch {
 		case in(never, a):
 			return Target{}, fmt.Errorf("%w: %s is a link-local or cloud metadata address", ErrRefused, a)
@@ -280,29 +318,65 @@ func (s *Service) Gate(ctx context.Context, orgID uuid.UUID) error {
 // returns an error without sending; a sent request returns its response
 // (any status) and is counted.
 func (s *Service) Do(ctx context.Context, r Request) (Response, error) {
-	if err := s.Gate(ctx, r.OrgID); err != nil {
-		return Response{}, err
-	}
-	t, err := s.Check(ctx, r.OrgID, r.URL)
+	t, err := s.Prepare(ctx, r.OrgID, r.URL)
 	if err != nil {
 		return Response{}, err
 	}
+	return s.Send(ctx, t, r)
+}
+
+// Prepare checks that orgID may send to rawURL now (Gate, then Check), for
+// Send. A delivery worker prepares once for a batch of requests to one URL.
+func (s *Service) Prepare(ctx context.Context, orgID uuid.UUID, rawURL string) (Target, error) {
+	if err := s.Gate(ctx, orgID); err != nil {
+		return Target{}, err
+	}
+	return s.Check(ctx, orgID, rawURL)
+}
+
+// maxTransports bounds the kept-alive transports; past it they are all
+// dropped and rebuilt as needed.
+const maxTransports = 1000
+
+// transport is the kept-alive transport for t: it dials only t's checked
+// address, without proxies.
+func (s *Service) transport(t Target) *http.Transport {
+	key := t.Addr.String() + "|" + t.Host
+	s.tmu.Lock()
+	defer s.tmu.Unlock()
+	if tr, ok := s.transports[key]; ok {
+		return tr
+	}
+	if len(s.transports) >= maxTransports {
+		for k, tr := range s.transports {
+			tr.CloseIdleConnections()
+			delete(s.transports, k)
+		}
+	}
+	addr := t.Addr.String()
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	tr := &http.Transport{
+		Proxy: nil, // straight to the checked address
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, addr)
+		},
+		TLSHandshakeTimeout: 10 * time.Second,
+		MaxIdleConnsPerHost: 4,
+		IdleConnTimeout:     30 * time.Second,
+	}
+	s.transports[key] = tr
+	return tr
+}
+
+// Send sends r to t (from Prepare): signed, without following redirects,
+// keeping the connection for the next request to the same address.
+func (s *Service) Send(ctx context.Context, t Target, r Request) (Response, error) {
 	timeout := r.Timeout
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
-	dialer := &net.Dialer{Timeout: timeout}
-	transport := &http.Transport{
-		Proxy: nil, // straight to the checked address
-		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			return dialer.DialContext(ctx, network, t.Addr.String())
-		},
-		TLSHandshakeTimeout:   timeout,
-		ResponseHeaderTimeout: timeout,
-		DisableKeepAlives:     true,
-	}
 	client := &http.Client{
-		Transport:     transport,
+		Transport:     s.transport(t),
 		Timeout:       timeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
@@ -327,7 +401,7 @@ func (s *Service) Do(ctx context.Context, r Request) (Response, error) {
 	start := time.Now()
 	resp, err := client.Do(req)
 	latency := time.Since(start)
-	s.count(ctx, r.OrgID, t.Host, err == nil && resp.StatusCode < 400)
+	s.count(r.OrgID, t.Host, err == nil && resp.StatusCode < 400)
 	if err != nil {
 		return Response{Latency: latency}, err
 	}
@@ -338,16 +412,42 @@ func (s *Service) Do(ctx context.Context, r Request) (Response, error) {
 }
 
 // count records one request to host for the organisation (V2 §10.7:
-// hosts and counts only).
-func (s *Service) count(ctx context.Context, orgID uuid.UUID, host string, ok bool) {
-	var failures int64
-	if !ok {
-		failures = 1
+// hosts and counts only), written within about a second.
+func (s *Service) count(orgID uuid.UUID, host string, ok bool) {
+	k := countKey{org: orgID, host: host, day: s.cfg.Now().UTC().Truncate(24 * time.Hour)}
+	s.cmu.Lock()
+	defer s.cmu.Unlock()
+	v := s.counts[k]
+	if v == nil {
+		v = &countVal{}
+		s.counts[k] = v
 	}
-	if err := store.New(s.db).CountOutbound(context.WithoutCancel(ctx), store.CountOutboundParams{
-		OrgID: orgID, Host: host, Day: Day(s.cfg.Now()), Failures: failures,
-	}); err != nil {
-		s.log.Warn("count outbound request", "err", err)
+	v.requests++
+	if !ok {
+		v.failures++
+	}
+	if s.flusher == nil {
+		s.flusher = time.AfterFunc(time.Second, func() { s.Flush(context.Background()) })
+	}
+}
+
+// Flush writes the requests counted so far to outbound_counters.
+func (s *Service) Flush(ctx context.Context) {
+	s.cmu.Lock()
+	pending := s.counts
+	s.counts = map[countKey]*countVal{}
+	if s.flusher != nil {
+		s.flusher.Stop()
+		s.flusher = nil
+	}
+	s.cmu.Unlock()
+	q := store.New(s.db)
+	for k, v := range pending {
+		if err := q.CountOutbound(ctx, store.CountOutboundParams{
+			OrgID: k.org, Host: k.host, Day: Day(k.day), Requests: v.requests, Failures: v.failures,
+		}); err != nil {
+			s.log.Warn("count outbound requests", "err", err)
+		}
 	}
 }
 

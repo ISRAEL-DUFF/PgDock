@@ -123,7 +123,14 @@ type Env struct {
 	tenancyOffset atomic.Int64
 	// automationOffset moves the webhooks', jobs' and outbound clock.
 	automationOffset atomic.Int64
-	agentRun         map[string][]string // docker exec arguments per node, for restarts
+	// automation runs the webhook and job loops (StopAutomation).
+	automation struct {
+		mu     sync.Mutex
+		ctx    context.Context
+		cancel context.CancelFunc
+		wg     sync.WaitGroup
+	}
+	agentRun map[string][]string // docker exec arguments per node, for restarts
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
@@ -319,7 +326,7 @@ func Start(t testing.TB, opts Options) *Env {
 	autoNow := func() time.Time { return time.Now().Add(time.Duration(e.automationOffset.Load())) }
 	outboundSvc := outbound.New(db, outbound.Config{Now: autoNow}, log)
 	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
-	jobSvc := schedjobs.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
+	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
@@ -352,11 +359,11 @@ func Start(t testing.TB, opts Options) *Env {
 		admin: adminCreds{"pgdock", adminPW}, log: log, s3Link: opts.S3Link, MasterKey: key,
 	}
 	// After *e is set: the loops read e.automationOffset.
-	wg.Add(2)
-	go func() { defer wg.Done(); webhookSvc.Run(ctx) }()
-	go func() { defer wg.Done(); jobSvc.Run(ctx) }()
+	e.automation.ctx = ctx
+	e.StartAutomation()
 	t.Cleanup(func() {
 		ts.Close()
+		e.StopAutomation()
 		cancel()
 		wg.Wait()
 		e.dropLeftovers()
@@ -703,4 +710,34 @@ func (e *Env) GetText(path string, header http.Header, withSession bool) (int, s
 	defer res.Body.Close()
 	b, _ := io.ReadAll(res.Body)
 	return res.StatusCode, string(b)
+}
+
+// StartAutomation starts the webhook delivery worker and the job
+// scheduler (Start does; after StopAutomation, as a restarted server would).
+func (e *Env) StartAutomation() {
+	a := &e.automation
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.cancel != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.cancel = cancel
+	a.wg.Add(2)
+	go func() { defer a.wg.Done(); e.Webhooks.Run(ctx) }()
+	go func() { defer a.wg.Done(); e.Jobs.Run(ctx) }()
+}
+
+// StopAutomation stops the delivery worker and the scheduler mid-work, as
+// a killed server would, and waits for them to end.
+func (e *Env) StopAutomation() {
+	a := &e.automation
+	a.mu.Lock()
+	cancel := a.cancel
+	a.cancel = nil
+	a.mu.Unlock()
+	if cancel != nil {
+		cancel()
+		a.wg.Wait()
+	}
 }

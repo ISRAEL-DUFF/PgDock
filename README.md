@@ -21,13 +21,17 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | Guide | |
 | --- | --- |
 | [Install](docs/install.md) | A VPS to a working database |
+| [User guide](docs/user-guide.md) | Organisations, members and roles, your logins, branches, your own backup bucket |
 | [Operations](docs/operations.md) | Alerts, backups, security checks, capacity, secrets |
+| [Platform admin runbook](docs/admin-runbook.md) | Before inviting anyone, the beta, daily and weekly tasks, accounts and organisations |
+| [Incident process](docs/incidents.md) | Detect, contain, notify, recover, follow up |
+| [Terms template](docs/terms-template.md) | Terms of use and privacy notice to adapt |
 | [CLI and API tokens](docs/cli.md) | `pgdock` from a terminal or CI |
 | [Webhooks and scheduled jobs](docs/webhooks.md) | Table changes to a URL, signed; SQL or HTTP on a schedule |
 | [Upgrades](docs/upgrade.md) | New releases, agents, PostgreSQL minor versions |
 | [Disaster recovery](docs/disaster-recovery.md) | Rebuild the control node from backups |
 | [Security review](docs/security-review.md) | Spec §7, item by item, with the tests that check it |
-| [Load test](docs/load-test.md) | 150 projects, results and tuning |
+| [Load test](docs/load-test.md) | 150 projects; the V2 check with 300 projects on two nodes, webhooks, jobs and branches |
 | [Decisions](docs/decisions.md) | Choices made while building, per milestone |
 | [Changelog](CHANGELOG.md) | Releases |
 

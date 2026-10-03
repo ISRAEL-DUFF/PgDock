@@ -5747,6 +5747,16 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/backups/overview (the `GetBackupOverview` operationId).
 	GetBackupOverview(ctx context.Context, params *GetBackupOverviewParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DownloadBackup Download a backup as a plain pg_dump archive (organisation owners)
+	//
+	// The backup decrypted: a `pg_dump` custom-format archive for
+	// `pg_restore` (V2 §10.10 data export). Logical, final and safety
+	// backups of projects only. Organisation owners only; at most two at
+	// a time per organisation; every download is audited.
+	//
+	// Corresponds with GET /api/v1/backups/{id}/download (the `DownloadBackup` operationId).
+	DownloadBackup(ctx context.Context, id BackupID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RestoreBackupWithBody Restore a backup into a new project or in place
 	//
 	// `mode: new` (the default, non-destructive) creates a project named
@@ -8744,6 +8754,26 @@ func (c *Client) ListBackups(ctx context.Context, params *ListBackupsParams, req
 // Corresponds with GET /api/v1/backups/overview (the `GetBackupOverview` operationId).
 func (c *Client) GetBackupOverview(ctx context.Context, params *GetBackupOverviewParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetBackupOverviewRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadBackup Download a backup as a plain pg_dump archive (organisation owners)
+//
+// The backup decrypted: a `pg_dump` custom-format archive for
+// `pg_restore` (V2 §10.10 data export). Logical, final and safety
+// backups of projects only. Organisation owners only; at most two at
+// a time per organisation; every download is audited.
+//
+// Corresponds with GET /api/v1/backups/{id}/download (the `DownloadBackup` operationId).
+func (c *Client) DownloadBackup(ctx context.Context, id BackupID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadBackupRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -14667,6 +14697,40 @@ func NewGetBackupOverviewRequest(server string, params *GetBackupOverviewParams)
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
 		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadBackupRequest constructs an http.Request for the DownloadBackup method
+func NewDownloadBackupRequest(server string, id BackupID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/backups/%s/download", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -21666,6 +21730,18 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/backups/overview (the `GetBackupOverview` operationId).
 	GetBackupOverviewWithResponse(ctx context.Context, params *GetBackupOverviewParams, reqEditors ...RequestEditorFn) (*GetBackupOverviewResponse, error)
 
+	// DownloadBackupWithResponse Download a backup as a plain pg_dump archive (organisation owners)
+	//
+	// The backup decrypted: a `pg_dump` custom-format archive for
+	// `pg_restore` (V2 §10.10 data export). Logical, final and safety
+	// backups of projects only. Organisation owners only; at most two at
+	// a time per organisation; every download is audited.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/backups/{id}/download (the `DownloadBackup` operationId).
+	DownloadBackupWithResponse(ctx context.Context, id BackupID, reqEditors ...RequestEditorFn) (*DownloadBackupResponse, error)
+
 	// RestoreBackupWithBodyWithResponse Restore a backup into a new project or in place
 	//
 	// `mode: new` (the default, non-destructive) creates a project named
@@ -25898,6 +25974,47 @@ func (r GetBackupOverviewResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetBackupOverviewResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadBackupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DownloadBackupResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadBackupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadBackupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadBackupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadBackupResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -33854,6 +33971,24 @@ func (c *ClientWithResponses) GetBackupOverviewWithResponse(ctx context.Context,
 	return ParseGetBackupOverviewResponse(rsp)
 }
 
+// DownloadBackupWithResponse Download a backup as a plain pg_dump archive (organisation owners)
+//
+// The backup decrypted: a `pg_dump` custom-format archive for
+// `pg_restore` (V2 §10.10 data export). Logical, final and safety
+// backups of projects only. Organisation owners only; at most two at
+// a time per organisation; every download is audited.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/backups/{id}/download (the `DownloadBackup` operationId).
+func (c *ClientWithResponses) DownloadBackupWithResponse(ctx context.Context, id BackupID, reqEditors ...RequestEditorFn) (*DownloadBackupResponse, error) {
+	rsp, err := c.DownloadBackup(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadBackupResponse(rsp)
+}
+
 // RestoreBackupWithBodyWithResponse Restore a backup into a new project or in place
 //
 // `mode: new` (the default, non-destructive) creates a project named
@@ -38541,6 +38676,32 @@ func ParseGetBackupOverviewResponse(rsp *http.Response) (*GetBackupOverviewRespo
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadBackupResponse parses an HTTP response from a DownloadBackupWithResponse call
+func ParseDownloadBackupResponse(rsp *http.Response) (*DownloadBackupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadBackupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

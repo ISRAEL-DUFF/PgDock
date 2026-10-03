@@ -1,4 +1,4 @@
-# Security review (spec §7, v1.0.0)
+# Security review (spec §7, v1.0.0; V2 surfaces, M16)
 
 Each item of spec §7, how PGDock enforces it, and what checks it
 automatically. "CI" means `.github/workflows/ci.yml` on every push (and
@@ -82,6 +82,49 @@ and `TRUNCATE` (`TestAuditLogIsAppendOnly`). It is filterable at `/audit`.
   another major version (`nodes.Compatible`, spec §11.3).
 - Webhook alerts can be signed (`X-PGDock-Signature: t=…,v1=HMAC-SHA256`).
 - `/metrics` needs a session or `PGDOCK_METRICS_TOKEN`.
+
+## V2 review (M16)
+
+The surfaces V2 added, how each is enforced, what tests it, and what the
+review found and fixed.
+
+| Surface | Enforced by | Verified by |
+| --- | --- | --- |
+| Permission matrix (V2 §2.3, §2.4) | One `authz.Can`; every route declares an action (`routeRules`), resolved to an organisation before the check; foreign resources answer 404 | `TestEveryRouteDeclaresAnAction`, `TestPermissionMatrix` (every route × every role, platform admin and outsider), `TestMembersCanCreateProjectsSetting` |
+| Org scoping in the data layer (V2 §2.6) | Every query on a tenant table filters by `org_id`, or says why it is system-wide (`-- tenant: system`) | `TestTenantQueriesAreScoped` (CI lint), `TestTwoOrgsSeeOnlyTheirOwn` |
+| Opaque names (V2 §10.2) | `p_<10 base32>` databases and roles; nothing descriptive written into Postgres; PGDock's own sessions use generic `application_name`s | `TestOtherTenantsCannotDiscoverProjectNames` |
+| Quotas and resource limits (V2 §10.3–10.4) | Plans checked before every create; soft and hard storage locks; `temp_file_limit` and statement reaper on the shared tier; a soft lock applies to SQL jobs too | `TestQuotasAndDedicatedRequests`, `TestStorageLimitLocks`, `TestReaperEndsLongStatements`, `TestJobSQLCannotEscalate` |
+| API tokens (V2 §7.2) | Hashed; one org; scopes; project restriction; expiry; refused for disabled or unverified users and suspended orgs; a removed member's tokens fail the membership check | `TestAPITokens`, `TestRestrictedWriteTokenInCI`, `TestTokenRateLimit`, `TestDeviceLogin` |
+| Outbound requests (V2 §9.1, §10.7) | `internal/outbound`: https only (http to allow-listed hosts); every resolved address checked (IPv4-mapped, NAT64 and 6to4 addresses as the IPv4 address they embed); link-local and metadata never, even allow-listed; the request connects to the checked address, without proxies or redirects; per-org rate limits and counters; outbound off per org | `internal/outbound` tests, `TestWebhookDelivery`, `TestScheduledJobs` |
+| Break-glass (V2 §2.4) | Platform admin only, step-up auth, at most 4 h, owners emailed, flagged in both audit logs, any owner can end it | `TestSuspensionAndBreakGlass` |
+| Webhook trigger function (V2 §9.1) | `pgdock.webhook_enqueue()` is `SECURITY DEFINER` with `search_path = pg_catalog, pg_temp`, in a superuser-owned schema with all access revoked from `PUBLIC` (so tenants can't call it or attach it to triggers); a `pgdock` schema anything else owns is dropped first; the worker delivers an outbox row only for one of its own project's webhooks | `TestWebhookDelivery`, `TestWebhooksAcrossCopies` |
+| Personal roles across tier moves (V2 §3.5) | Member logins and the read-only role recreated with the same verifiers on promotion, demotion, restore and import | `TestMemberLoginsSurviveRestoreAndPromotion`, `TestDemotionLiveWriter` |
+| Running tenant SQL | The console, table editor, schema editor and SQL jobs sign in as the project's console login (`NOINHERIT`, may only `SET ROLE` to the project's roles), never an admin login | `TestSQLConsole`, `TestJobSQLCannotEscalate` |
+| Copying a tenant's database | A restore runs the dump's functions (CHECK constraints, generated columns). Branches, restores, imports and the restore test restore as the console login with `--role` the owner; promotion and demotion through a short-lived login that inherits the project's roles but is no superuser (extensions created first, PGDock's webhook schema copied on its own) | `TestCopiesDoNotRunAsSuperuser` |
+
+### Found and fixed
+
+- **SQL jobs ran on the superuser's connection** (critical). A job ran as
+  `SET LOCAL ROLE <owner>` on an admin connection, so `RESET ROLE` in its
+  SQL made it the cluster superuser. Jobs now run through the console
+  login.
+- **Copies ran the tenant's functions as the superuser** (critical). Every
+  restore signed in as the admin and only `SET ROLE` to the owner (or, for
+  promotion, demotion and the restore test, not even that), so a function
+  in a CHECK constraint could `RESET ROLE` during a branch, restore,
+  import, restore test, promotion or demotion. The Postgres documentation
+  is explicit that restoring a dump runs code of the source's choosing; an
+  import's source is the tenant's own server. Fixed as in the table.
+- **NAT64 and 6to4 addresses** reached internal and metadata addresses
+  (`64:ff9b::a9fe:a9fe` is 169.254.169.254 on a NAT64 network). They are
+  now checked as the IPv4 address they embed.
+
+### Before inviting people outside your own projects
+
+Have someone outside the project review tenant isolation, or pay for a short
+penetration test of it (V2 §14 M16): other people's data now depends on it,
+and this review found two critical bugs. Start with the copy paths and
+anything that runs tenant SQL.
 
 ## Dependency audit
 

@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/pgverify"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -529,20 +528,11 @@ func (s *Service) runDemote(ctx context.Context, op store.Operation, log *jobs.S
 	if err != nil {
 		return err
 	}
-	from, err := s.projects.AgentConn(ctx, p.InstanceID, p.DbName)
-	if err != nil {
-		return err
-	}
-	to, err := s.projects.AgentConn(ctx, params.TargetInstance, p.DbName)
-	if err != nil {
-		return err
-	}
-	res, err := agent.Copy(ctx, agentapi.CopyRequest{Source: from, Target: to, Restore: agentapi.RestoreOptions{KeepOwners: true}})
+	took, err := s.copyKeepingOwners(ctx, agent, p, src, params.TargetInstance)
 	if err != nil {
 		return jobs.Permanent(fmt.Errorf("copy: %w", err))
 	}
-	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name,
-		(time.Duration(res.DurationMS) * time.Millisecond).Round(time.Millisecond)); err != nil {
+	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name, took.Round(time.Millisecond)); err != nil {
 		return err
 	}
 
@@ -721,6 +711,11 @@ func (s *Service) dropCopy(ctx context.Context, instanceID uuid.UUID, dbName, ow
 	}
 	defer conn.Close(context.Background())
 	if _, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+provision.Ident(dbName)+" WITH (FORCE)"); err != nil {
+		return err
+	}
+	// An interrupted copy's restore login (it owns nothing once the
+	// database is gone).
+	if _, err := conn.Exec(ctx, "DROP ROLE IF EXISTS "+provision.Ident(provision.RestoreLogin(dbName))); err != nil {
 		return err
 	}
 	if _, err := conn.Exec(ctx, "DROP ROLE IF EXISTS "+provision.Ident(owner)); err != nil {

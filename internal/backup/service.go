@@ -235,15 +235,18 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 		kind, res.SizeBytes, res.DumpBytes, (time.Duration(res.DurationMS) * time.Millisecond).Round(time.Millisecond), res.SHA256[:12])
 }
 
-// restoreFrom restores backup b into database on instance with role
-// owning the objects (empty: the admin).
-func (s *Service) restoreFrom(ctx context.Context, b store.Backup, instanceID uuid.UUID, database, role string, log *jobs.StepLogger) error {
-	return s.RestoreInto(ctx, b, instanceID, database, role, false, log)
+// restoreFrom restores backup b into database on p's instance, with p's
+// owner owning the objects.
+func (s *Service) restoreFrom(ctx context.Context, b store.Backup, p store.Project, database string, log *jobs.StepLogger) error {
+	return s.RestoreInto(ctx, b, p, database, false, log)
 }
 
-// RestoreInto restores backup b into database on an instance, with role
-// owning the objects, optionally schema only (branches, V2 §8.2).
-func (s *Service) RestoreInto(ctx context.Context, b store.Backup, instanceID uuid.UUID, database, role string, schemaOnly bool, log *jobs.StepLogger) error {
+// RestoreInto restores backup b into database on p's instance, with p's
+// owner owning the objects, optionally schema only (branches, V2 §8.2).
+// pg_restore signs in as p's console login (provision.RestoreConn): the
+// dump's functions run during the restore (CHECK constraints, index
+// expressions), and must not run as the superuser.
+func (s *Service) RestoreInto(ctx context.Context, b store.Backup, p store.Project, database string, schemaOnly bool, log *jobs.StepLogger) error {
 	if b.Status != "succeeded" {
 		return jobs.Permanent(fmt.Errorf("backup %s is %s", b.ID, b.Status))
 	}
@@ -251,11 +254,11 @@ func (s *Service) RestoreInto(ctx context.Context, b store.Backup, instanceID uu
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	agent, err := s.nodes.ForInstance(ctx, instanceID)
+	agent, err := s.nodes.ForInstance(ctx, p.InstanceID)
 	if err != nil {
 		return err
 	}
-	pg, err := s.projects.AgentConn(ctx, instanceID, database)
+	pg, err := s.projects.RestoreConn(ctx, p, database)
 	if err != nil {
 		return err
 	}
@@ -264,7 +267,7 @@ func (s *Service) RestoreInto(ctx context.Context, b store.Backup, instanceID uu
 	}
 	res, err := agent.Restore(ctx, agentapi.RestoreRequest{
 		Download: dl,
-		PG:       pg, Options: agentapi.RestoreOptions{Role: role, SchemaOnly: schemaOnly},
+		PG:       pg, Options: agentapi.RestoreOptions{Role: p.OwnerRole, SchemaOnly: schemaOnly},
 	})
 	if err != nil {
 		return err

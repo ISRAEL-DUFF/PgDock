@@ -43,6 +43,9 @@ func TestCheck(t *testing.T) {
 		"node.example":      {"203.0.113.9"},
 		"dev.local":         {"127.0.0.1"},
 		"v6.example":        {"::ffff:10.1.2.3"},
+		"nat64.example":     {"64:ff9b::a9fe:a9fe"},
+		"sixto4.example":    {"2002:0a00:0001::1"},
+		"public64.example":  {"64:ff9b::5db8:d822"},
 	}, "dev.local", "127.0.0.1", "169.254.169.254")
 	org := uuid.New()
 	for _, c := range []struct {
@@ -61,6 +64,10 @@ func TestCheck(t *testing.T) {
 		{"https://localhost/x", false},               // does not resolve here, and not allowed
 		{"https://node.example/x", false},            // the nodes' network
 		{"https://v6.example/x", false},              // IPv4-mapped private
+		{"https://nat64.example/x", false},           // NAT64 of 169.254.169.254
+		{"https://[64:ff9b::a9fe:a9fe]/x", false},    // the same, literally
+		{"https://sixto4.example/x", false},          // 6to4 of 10.0.0.1
+		{"https://public64.example/x", true},         // NAT64 of a public address
 		{"ftp://hooks.example.com/x", false},         // scheme
 		{"https://user:pw@hooks.example.com", false}, // credentials in the URL
 		{"https://[::1]/x", false},

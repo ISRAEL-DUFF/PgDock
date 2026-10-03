@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 
 	"github.com/israel-duff/pgdock/internal/alerts"
 	"github.com/israel-duff/pgdock/internal/api/gen"
@@ -40,6 +42,9 @@ import (
 // implement fall through to gen.Unimplemented (501).
 type Server struct {
 	gen.Unimplemented
+	// exporting counts backup downloads running per organisation.
+	exportMu  sync.Mutex
+	exporting map[uuid.UUID]int
 	log       *slog.Logger
 	db        DB
 	streamer  *jobs.Streamer

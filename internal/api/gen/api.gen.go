@@ -5240,6 +5240,9 @@ type ServerInterface interface {
 	// GetBackupOverview Backup configuration and health at a glance
 	// (GET /api/v1/backups/overview)
 	GetBackupOverview(w http.ResponseWriter, r *http.Request, params GetBackupOverviewParams)
+	// DownloadBackup Download a backup as a plain pg_dump archive (organisation owners)
+	// (GET /api/v1/backups/{id}/download)
+	DownloadBackup(w http.ResponseWriter, r *http.Request, id BackupID)
 	// RestoreBackup Restore a backup into a new project or in place
 	// (POST /api/v1/backups/{id}/restore)
 	RestoreBackup(w http.ResponseWriter, r *http.Request, id BackupID)
@@ -5996,6 +5999,12 @@ func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request, param
 // GetBackupOverview Backup configuration and health at a glance
 // (GET /api/v1/backups/overview)
 func (_ Unimplemented) GetBackupOverview(w http.ResponseWriter, r *http.Request, params GetBackupOverviewParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DownloadBackup Download a backup as a plain pg_dump archive (organisation owners)
+// (GET /api/v1/backups/{id}/download)
+func (_ Unimplemented) DownloadBackup(w http.ResponseWriter, r *http.Request, id BackupID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8125,6 +8134,32 @@ func (siw *ServerInterfaceWrapper) GetBackupOverview(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetBackupOverview(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadBackup operation middleware
+func (siw *ServerInterfaceWrapper) DownloadBackup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id BackupID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadBackup(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12435,6 +12470,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/backups/overview", wrapper.GetBackupOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/backups/{id}/download", wrapper.DownloadBackup)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/backups/{id}/restore", wrapper.RestoreBackup)

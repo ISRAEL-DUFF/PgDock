@@ -225,7 +225,7 @@ func (s *Service) ApplySchema(ctx context.Context, projectID uuid.UUID, c schema
 	}
 	ctx, cancel := context.WithTimeout(ctx, DDLStatementTimeout+30*time.Second)
 	defer cancel()
-	sess, err := s.open(ctx, p, uuid.New(), DDLStatementTimeout, false)
+	sess, err := s.open(ctx, p, uuid.New(), DDLStatementTimeout, modeOwner)
 	if err != nil {
 		return Applied{}, err
 	}

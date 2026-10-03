@@ -662,6 +662,28 @@ paths:
                 $ref: "#/components/schemas/BackupOverview"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/backups/{id}/download:
+    get:
+      operationId: downloadBackup
+      summary: Download a backup as a plain pg_dump archive (organisation owners)
+      description: |
+        The backup decrypted: a `pg_dump` custom-format archive for
+        `pg_restore` (V2 §10.10 data export). Logical, final and safety
+        backups of projects only. Organisation owners only; at most two at
+        a time per organisation; every download is audited.
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/BackupID"
+      responses:
+        "200":
+          description: The archive.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/backups/{id}/restore:
     post:
       operationId: restoreBackup

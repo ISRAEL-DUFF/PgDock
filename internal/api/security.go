@@ -254,6 +254,7 @@ var auditActions = map[string]string{
 	"PUT /api/v1/projects/{id}/storage-target":                   "project.storage_target",
 	"POST /api/v1/projects/{id}/backup-key":                      "project.backup_key.enable",
 	"GET /api/v1/projects/{id}/backup-key/download":              "project.backup_key.download",
+	"GET /api/v1/backups/{id}/download":                          "backup.download",
 	"POST /api/v1/projects/{id}/branches":                        "branch.create",
 	"POST /api/v1/projects/{id}/reset":                           "branch.reset",
 	"POST /api/v1/projects/{id}/detach":                          "branch.detach",
@@ -280,6 +281,7 @@ var auditActions = map[string]string{
 // secret is an event (V2 §6: backup key downloads are audited).
 var auditedReads = map[string]bool{
 	"GET /api/v1/projects/{id}/backup-key/download": true,
+	"GET /api/v1/backups/{id}/download":             true,
 }
 
 func outcomeFor(status int) string {

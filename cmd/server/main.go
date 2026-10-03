@@ -227,7 +227,10 @@ func run() error {
 	if projects != nil && tenancySvc != nil {
 		outboundSvc = outbound.New(pool, outbound.Config{Blocked: cfg.Insight.OutboundBlock}, log)
 		webhookSvc = webhooks.New(pool, keyring, projects, outboundSvc, tenancySvc, mailSvc, webhooks.Config{PublicURL: cfg.Insight.PublicURL}, log)
-		jobSvc = schedjobs.New(pool, keyring, projects, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		// SQL jobs run through the console's login (it holds no privileges
+		// of its own), whether or not the console itself is turned off.
+		jobConsole := console.New(pool, projects, keyring, cfg.Insight.ConsoleDisabled, log)
+		jobSvc = schedjobs.New(pool, keyring, projects, jobConsole, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{PublicURL: cfg.Insight.PublicURL}, log)
 		projects.RefreshWebhooks = webhookSvc.Reinstall
 		bg.Add(2)
 		go func() { defer bg.Done(); webhookSvc.Run(bgCtx) }()

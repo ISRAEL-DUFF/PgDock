@@ -55,6 +55,7 @@ var actionScope = map[Action]string{
 	ProjectCredentials: ScopeRead,
 	ConsoleRead:        ScopeRead,
 	ProjectAudit:       ScopeRead,
+	ProjectExport:      ScopeAdmin,
 	ConsoleWrite:       ScopeWrite,
 	TableEdit:          ScopeWrite,
 	BackupCreate:       ScopeWrite,
@@ -156,6 +157,10 @@ const (
 	ProjectPromote     Action = "project.promote"         // admin
 	ProjectDelete      Action = "project.delete"          // admin
 	ProjectAudit       Action = "project.audit"           // admin
+	// ProjectExport downloads a project's data (a backup as a pg_dump
+	// archive, V2 §10.10): organisation owners only, and like any project
+	// action invisible to those who can't see the project.
+	ProjectExport Action = "project.export"
 )
 
 // projectMin is the least project role for each project action.
@@ -175,6 +180,7 @@ var projectMin = map[Action]string{
 	ProjectPromote:     ProjectAdmin,
 	ProjectDelete:      ProjectAdmin,
 	ProjectAudit:       ProjectAdmin,
+	ProjectExport:      ProjectReadOnly, // visibility; owners only, below
 }
 
 // IsProjectAction reports whether a is checked against a project.
@@ -322,6 +328,9 @@ func can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		}
 		d.Visible = true
 		d.Allowed = projectRank[d.ProjectRole] >= projectRank[minRole]
+		if action == ProjectExport {
+			d.Allowed = d.OrgRole == OrgOwner && !d.BreakGlass
+		}
 		return d, nil
 	}
 

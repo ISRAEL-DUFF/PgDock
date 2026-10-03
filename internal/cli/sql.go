@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -393,5 +394,93 @@ func (a *App) backupRestore(args []string) error {
 			return
 		}
 		fmt.Fprintf(w, "Restored %s in place.\n", p.Name)
+	})
+}
+
+// backupDownload saves a backup as a plain pg_dump archive (organisation
+// owners, V2 §10.10): the one named, or a fresh one.
+func (a *App) backupDownload(args []string) error {
+	fs := flag.NewFlagSet("backup download", flag.ContinueOnError)
+	id := fs.String("backup", "", "the backup's id (default: back up now and download that)")
+	out := fs.String("o", "", "the file to write (default <project>-<time>.dump)")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 1, "backup download <project> [--backup <id>] [-o file]"); err != nil {
+		return err
+	}
+	p, err := a.project(pos[0])
+	if err != nil {
+		return err
+	}
+	if *id == "" {
+		c, cancel := ctx()
+		r, err := a.api.CreateProjectBackupWithResponse(c, p.Id)
+		cancel()
+		if err := check(r, err); err != nil {
+			return err
+		}
+		if err := a.follow(r.JSON202.Id, !a.json); err != nil {
+			return err
+		}
+		c, cancel = ctx()
+		l, err := a.api.ListBackupsWithResponse(c, &client.ListBackupsParams{ProjectId: &p.Id})
+		cancel()
+		if err := check(l, err); err != nil {
+			return err
+		}
+		for _, b := range l.JSON200.Items {
+			if b.OperationId != nil && *b.OperationId == r.JSON202.Id {
+				*id = b.Id.String()
+			}
+		}
+		if *id == "" {
+			return errors.New("the new backup is not listed")
+		}
+	}
+	bid, err := uuid.Parse(*id)
+	if err != nil {
+		return fmt.Errorf("--backup: %w", err)
+	}
+	name := *out
+	if name == "" {
+		name = fmt.Sprintf("%s-%s.dump", p.Name, time.Now().UTC().Format("20060102-1504"))
+		name = strings.Map(func(r rune) rune {
+			if r == '/' || r == '\\' || r == ' ' {
+				return '-'
+			}
+			return r
+		}, name)
+	}
+	c, cancel := context.WithTimeout(context.Background(), 6*time.Hour)
+	defer cancel()
+	resp, err := a.api.DownloadBackup(c, bid)
+	if err != nil {
+		return fmt.Errorf("could not reach the server: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		var e client.Error
+		if json.Unmarshal(body, &e) == nil && e.Message != "" {
+			return &apiError{Status: resp.StatusCode, Code: e.Code, Message: e.Message}
+		}
+		return &apiError{Status: resp.StatusCode, Message: http.StatusText(resp.StatusCode)}
+	}
+	f, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	n, err := io.Copy(f, resp.Body)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(name)
+		return fmt.Errorf("download: %w", err)
+	}
+	return a.emit(map[string]any{"backup": bid, "file": name, "bytes": n}, func(w io.Writer) {
+		fmt.Fprintf(w, "Saved %s (%s): restore it with pg_restore -d <url> %s\n", name, humanBytes(n), name)
 	})
 }

@@ -10,7 +10,6 @@ package console
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -41,8 +40,6 @@ const (
 	// appPrefix tags console sessions in pg_stat_activity, so a cancel can
 	// find the backend from any server.
 	appPrefix = "pgdock-console "
-	// connLimit caps a project's concurrent console sessions.
-	connLimit = 5
 )
 
 // Errors the API maps to client responses.
@@ -123,10 +120,6 @@ type session struct {
 
 func (s *session) close() { _ = s.conn.Close(context.Background()) }
 
-func (s *Service) password(role string) string {
-	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("pgdock console role "+role, 32))
-}
-
 // active loads a project the console may use.
 func (s *Service) active(ctx context.Context, projectID uuid.UUID) (store.Project, error) {
 	if s.disabled {
@@ -146,16 +139,37 @@ func (s *Service) active(ctx context.Context, projectID uuid.UUID) (store.Projec
 // or SET ROLE that fails because the role is missing or stale (first use,
 // a restored or promoted instance, a master key rotation) is repaired and
 // retried once.
-func (s *Service) open(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration, readOnlyRole bool) (*session, error) {
-	sess, err := s.connect(ctx, p, queryID, timeout, readOnlyRole)
+func (s *Service) open(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration, m mode) (*session, error) {
+	sess, err := s.connect(ctx, p, queryID, timeout, m)
 	if err == nil || !repairable(err) {
 		return sess, err
 	}
 	if err := s.ensureRole(ctx, p); err != nil {
 		return nil, fmt.Errorf("prepare console role: %w", err)
 	}
-	return s.connect(ctx, p, queryID, timeout, readOnlyRole)
+	return s.connect(ctx, p, queryID, timeout, m)
 }
+
+func roleMode(readOnlyRole bool) mode {
+	if readOnlyRole {
+		return modeReadOnly
+	}
+	return modeOwner
+}
+
+// mode is what a console session assumes.
+type mode int
+
+const (
+	// modeOwner: the owner, writing even under a soft storage lock (the
+	// console and table editor, so a team can delete data, V2 §10.4).
+	modeOwner mode = iota
+	// modeReadOnly: the project's read-only role.
+	modeReadOnly
+	// modeJob: the owner, under the database's own read-only default (a
+	// scheduled SQL job, V2 §9.2: a soft storage lock applies to it).
+	modeJob
+)
 
 func repairable(err error) bool {
 	var pe *pgconn.PgError
@@ -168,14 +182,20 @@ func repairable(err error) bool {
 	return pe.Code == "28P01" || pe.Code == "42501" || pe.Code == "28000" || pe.Code == "42704"
 }
 
-func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration, readOnlyRole bool) (*session, error) {
+func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUID, timeout time.Duration, m mode) (*session, error) {
 	cfg, err := s.projects.AdminConfig(ctx, p.InstanceID, p.DbName)
 	if err != nil {
 		return nil, err
 	}
 	role := provision.ConsoleRole(p.DbName)
-	cfg.User, cfg.Password = role, s.password(role)
+	cfg.User, cfg.Password = role, s.projects.ConsolePassword(role)
 	cfg.RuntimeParams["application_name"] = appPrefix + queryID.String()
+	if m == modeJob {
+		// The admin connection's read_only=off would override the database's
+		// soft-lock default.
+		cfg.RuntimeParams["application_name"] = "pgdock-job"
+		delete(cfg.RuntimeParams, "default_transaction_read_only")
+	}
 	sess := &session{}
 	cfg.OnNotice = func(_ *pgconn.PgConn, n *pgconn.Notice) {
 		if len(sess.notices) < 100 {
@@ -188,12 +208,12 @@ func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUI
 	}
 	sess.conn = conn
 	assume := p.OwnerRole
-	if readOnlyRole {
+	if m == modeReadOnly {
 		assume = provision.ReadOnlyRole(p.DbName)
 	}
 	setup := "SET ROLE " + provision.Ident(assume) +
 		fmt.Sprintf("; SET statement_timeout = %d; SET lock_timeout = %d", timeout.Milliseconds(), timeout.Milliseconds())
-	if !readOnlyRole {
+	if m == modeOwner {
 		// A soft storage lock makes the database read-only by default; the
 		// console can still write, so a team can delete data (V2 §10.4).
 		setup += "; SET default_transaction_read_only = off"
@@ -217,54 +237,7 @@ func unwrapConnect(err error) error {
 
 // ensureRole creates or repairs the project's console role.
 func (s *Service) ensureRole(ctx context.Context, p store.Project) error {
-	if err := s.projects.EnsureReadOnlyRole(ctx, p); err != nil {
-		return fmt.Errorf("read-only role: %w", err)
-	}
-	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close(context.Background())
-	role := provision.ConsoleRole(p.DbName)
-	verifier, err := crypto.SCRAMVerifier(s.password(role))
-	if err != nil {
-		return err
-	}
-	var exists bool
-	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, role).Scan(&exists); err != nil {
-		return err
-	}
-	verb := "ALTER"
-	if !exists {
-		verb = "CREATE"
-	}
-	stmts := []string{
-		fmt.Sprintf("%s ROLE %s LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT %d PASSWORD '%s'",
-			verb, provision.Ident(role), connLimit, verifier),
-		"GRANT " + provision.Ident(p.OwnerRole) + " TO " + provision.Ident(role) + " WITH INHERIT FALSE, SET TRUE",
-		"GRANT " + provision.Ident(provision.ReadOnlyRole(p.DbName)) + " TO " + provision.Ident(role) + " WITH INHERIT FALSE, SET TRUE",
-		"GRANT CONNECT ON DATABASE " + provision.Ident(p.DbName) + " TO " + provision.Ident(role),
-		// Top queries show the app's workload, not the console's.
-		"ALTER ROLE " + provision.Ident(role) + " SET pg_stat_statements.track = 'none'",
-	}
-	if p.Tier == provision.TierShared {
-		stmts = append(stmts, "ALTER ROLE "+provision.Ident(role)+" SET temp_file_limit = '"+provision.TempFileLimit+"'")
-	}
-	for _, stmt := range stmts {
-		if _, err := conn.Exec(ctx, stmt); err != nil {
-			var pe *pgconn.PgError
-			if verb == "CREATE" && errors.As(err, &pe) && pe.Code == "42710" {
-				// Created concurrently; set the password anyway.
-				stmt = "ALTER" + strings.TrimPrefix(stmt, "CREATE")
-				if _, err = conn.Exec(ctx, stmt); err == nil {
-					continue
-				}
-			}
-			return err
-		}
-	}
-	s.log.Info("console role ready", "project_id", p.ID, "role", role)
-	return nil
+	return s.projects.EnsureConsoleRole(ctx, p)
 }
 
 // Run executes a console submission (spec §8.5). Read-only submissions run
@@ -288,7 +261,7 @@ func (s *Service) Run(ctx context.Context, projectID uuid.UUID, req Request) (Ou
 	ctx, cancel := context.WithTimeout(ctx, timeout+15*time.Second)
 	defer cancel()
 
-	sess, err := s.open(ctx, p, req.QueryID, timeout, req.AsReadOnlyRole)
+	sess, err := s.open(ctx, p, req.QueryID, timeout, roleMode(req.AsReadOnlyRole))
 	if err != nil {
 		return Outcome{}, err
 	}

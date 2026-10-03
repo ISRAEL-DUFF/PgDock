@@ -249,7 +249,7 @@ func (s *Service) fill(ctx context.Context, p store.Project, params fillParams, 
 		if err != nil {
 			return err
 		}
-		to, err := s.projects.AgentConn(ctx, p.InstanceID, p.DbName)
+		to, err := s.projects.RestoreConn(ctx, p, p.DbName)
 		if err != nil {
 			return err
 		}
@@ -280,7 +280,7 @@ func (s *Service) fill(ctx context.Context, p store.Project, params fillParams, 
 		if err := log.Info(ctx, "restore", "restoring %s's backup of %s (%s)", parent.Name, b.StartedAt.UTC().Format(time.RFC3339), what); err != nil {
 			return err
 		}
-		if err := s.backups.RestoreInto(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, params.SchemaOnly, log); err != nil {
+		if err := s.backups.RestoreInto(ctx, b, p, p.DbName, params.SchemaOnly, log); err != nil {
 			return err
 		}
 		return s.projects.ResetWebhooks(ctx, p, log)
