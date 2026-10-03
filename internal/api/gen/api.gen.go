@@ -100,16 +100,16 @@ func (e AdminUserPlatformRole) Valid() bool {
 
 // Defines values for AlertSeverity.
 const (
-	Critical AlertSeverity = "critical"
-	Warning  AlertSeverity = "warning"
+	AlertSeverityCritical AlertSeverity = "critical"
+	AlertSeverityWarning  AlertSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the AlertSeverity enum.
 func (e AlertSeverity) Valid() bool {
 	switch e {
-	case Critical:
+	case AlertSeverityCritical:
 		return true
-	case Warning:
+	case AlertSeverityWarning:
 		return true
 	default:
 		return false
@@ -289,25 +289,25 @@ func (e CreateNodeRequestRole) Valid() bool {
 
 // Defines values for DbTableKind.
 const (
-	ForeignTable     DbTableKind = "foreign_table"
-	MaterializedView DbTableKind = "materialized_view"
-	PartitionedTable DbTableKind = "partitioned_table"
-	Table            DbTableKind = "table"
-	View             DbTableKind = "view"
+	DbTableKindForeignTable     DbTableKind = "foreign_table"
+	DbTableKindMaterializedView DbTableKind = "materialized_view"
+	DbTableKindPartitionedTable DbTableKind = "partitioned_table"
+	DbTableKindTable            DbTableKind = "table"
+	DbTableKindView             DbTableKind = "view"
 )
 
 // Valid indicates whether the value is a known member of the DbTableKind enum.
 func (e DbTableKind) Valid() bool {
 	switch e {
-	case ForeignTable:
+	case DbTableKindForeignTable:
 		return true
-	case MaterializedView:
+	case DbTableKindMaterializedView:
 		return true
-	case PartitionedTable:
+	case DbTableKindPartitionedTable:
 		return true
-	case Table:
+	case DbTableKindTable:
 		return true
-	case View:
+	case DbTableKindView:
 		return true
 	default:
 		return false
@@ -332,6 +332,45 @@ func (e DedicatedRequestStatus) Valid() bool {
 	case DedicatedRequestStatusPending:
 		return true
 	case DedicatedRequestStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EditColumnIdentity.
+const (
+	Always    EditColumnIdentity = "always"
+	ByDefault EditColumnIdentity = "by_default"
+)
+
+// Valid indicates whether the value is a known member of the EditColumnIdentity enum.
+func (e EditColumnIdentity) Valid() bool {
+	switch e {
+	case Always:
+		return true
+	case ByDefault:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EditorPreferencesMigrationFormat.
+const (
+	EditorPreferencesMigrationFormatDbmate EditorPreferencesMigrationFormat = "dbmate"
+	EditorPreferencesMigrationFormatGoose  EditorPreferencesMigrationFormat = "goose"
+	EditorPreferencesMigrationFormatSql    EditorPreferencesMigrationFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the EditorPreferencesMigrationFormat enum.
+func (e EditorPreferencesMigrationFormat) Valid() bool {
+	switch e {
+	case EditorPreferencesMigrationFormatDbmate:
+		return true
+	case EditorPreferencesMigrationFormatGoose:
+		return true
+	case EditorPreferencesMigrationFormatSql:
 		return true
 	default:
 		return false
@@ -740,6 +779,234 @@ func (e RestoreRequestMode) Valid() bool {
 	}
 }
 
+// Defines values for RowChangeOp.
+const (
+	Delete RowChangeOp = "delete"
+	Insert RowChangeOp = "insert"
+	Update RowChangeOp = "update"
+)
+
+// Valid indicates whether the value is a known member of the RowChangeOp enum.
+func (e RowChangeOp) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	case Insert:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeKind.
+const (
+	AddCheck       SchemaChangeKind = "add_check"
+	AddColumn      SchemaChangeKind = "add_column"
+	AddEnumValue   SchemaChangeKind = "add_enum_value"
+	AddForeignKey  SchemaChangeKind = "add_foreign_key"
+	AddUnique      SchemaChangeKind = "add_unique"
+	AlterColumn    SchemaChangeKind = "alter_column"
+	CreateEnum     SchemaChangeKind = "create_enum"
+	CreateIndex    SchemaChangeKind = "create_index"
+	CreateSchema   SchemaChangeKind = "create_schema"
+	CreateTable    SchemaChangeKind = "create_table"
+	DropColumn     SchemaChangeKind = "drop_column"
+	DropConstraint SchemaChangeKind = "drop_constraint"
+	DropIndex      SchemaChangeKind = "drop_index"
+	DropSchema     SchemaChangeKind = "drop_schema"
+	DropTable      SchemaChangeKind = "drop_table"
+	RenameColumn   SchemaChangeKind = "rename_column"
+	RenameTable    SchemaChangeKind = "rename_table"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeKind enum.
+func (e SchemaChangeKind) Valid() bool {
+	switch e {
+	case AddCheck:
+		return true
+	case AddColumn:
+		return true
+	case AddEnumValue:
+		return true
+	case AddForeignKey:
+		return true
+	case AddUnique:
+		return true
+	case AlterColumn:
+		return true
+	case CreateEnum:
+		return true
+	case CreateIndex:
+		return true
+	case CreateSchema:
+		return true
+	case CreateTable:
+		return true
+	case DropColumn:
+		return true
+	case DropConstraint:
+		return true
+	case DropIndex:
+		return true
+	case DropSchema:
+		return true
+	case DropTable:
+		return true
+	case RenameColumn:
+		return true
+	case RenameTable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeMethod.
+const (
+	Brin  SchemaChangeMethod = "brin"
+	Btree SchemaChangeMethod = "btree"
+	Gin   SchemaChangeMethod = "gin"
+	Gist  SchemaChangeMethod = "gist"
+	Hash  SchemaChangeMethod = "hash"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeMethod enum.
+func (e SchemaChangeMethod) Valid() bool {
+	switch e {
+	case Brin:
+		return true
+	case Btree:
+		return true
+	case Gin:
+		return true
+	case Gist:
+		return true
+	case Hash:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeOnDelete.
+const (
+	SchemaChangeOnDeleteCASCADE    SchemaChangeOnDelete = "CASCADE"
+	SchemaChangeOnDeleteNOACTION   SchemaChangeOnDelete = "NO ACTION"
+	SchemaChangeOnDeleteRESTRICT   SchemaChangeOnDelete = "RESTRICT"
+	SchemaChangeOnDeleteSETDEFAULT SchemaChangeOnDelete = "SET DEFAULT"
+	SchemaChangeOnDeleteSETNULL    SchemaChangeOnDelete = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeOnDelete enum.
+func (e SchemaChangeOnDelete) Valid() bool {
+	switch e {
+	case SchemaChangeOnDeleteCASCADE:
+		return true
+	case SchemaChangeOnDeleteNOACTION:
+		return true
+	case SchemaChangeOnDeleteRESTRICT:
+		return true
+	case SchemaChangeOnDeleteSETDEFAULT:
+		return true
+	case SchemaChangeOnDeleteSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeOnUpdate.
+const (
+	SchemaChangeOnUpdateCASCADE    SchemaChangeOnUpdate = "CASCADE"
+	SchemaChangeOnUpdateNOACTION   SchemaChangeOnUpdate = "NO ACTION"
+	SchemaChangeOnUpdateRESTRICT   SchemaChangeOnUpdate = "RESTRICT"
+	SchemaChangeOnUpdateSETDEFAULT SchemaChangeOnUpdate = "SET DEFAULT"
+	SchemaChangeOnUpdateSETNULL    SchemaChangeOnUpdate = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeOnUpdate enum.
+func (e SchemaChangeOnUpdate) Valid() bool {
+	switch e {
+	case SchemaChangeOnUpdateCASCADE:
+		return true
+	case SchemaChangeOnUpdateNOACTION:
+		return true
+	case SchemaChangeOnUpdateRESTRICT:
+		return true
+	case SchemaChangeOnUpdateSETDEFAULT:
+		return true
+	case SchemaChangeOnUpdateSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaMigrationFormat.
+const (
+	SchemaMigrationFormatDbmate SchemaMigrationFormat = "dbmate"
+	SchemaMigrationFormatGoose  SchemaMigrationFormat = "goose"
+	SchemaMigrationFormatSql    SchemaMigrationFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the SchemaMigrationFormat enum.
+func (e SchemaMigrationFormat) Valid() bool {
+	switch e {
+	case SchemaMigrationFormatDbmate:
+		return true
+	case SchemaMigrationFormatGoose:
+		return true
+	case SchemaMigrationFormatSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaMigrationRequestFormat.
+const (
+	SchemaMigrationRequestFormatDbmate SchemaMigrationRequestFormat = "dbmate"
+	SchemaMigrationRequestFormatGoose  SchemaMigrationRequestFormat = "goose"
+	SchemaMigrationRequestFormatSql    SchemaMigrationRequestFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the SchemaMigrationRequestFormat enum.
+func (e SchemaMigrationRequestFormat) Valid() bool {
+	switch e {
+	case SchemaMigrationRequestFormatDbmate:
+		return true
+	case SchemaMigrationRequestFormatGoose:
+		return true
+	case SchemaMigrationRequestFormatSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaRiskLevel.
+const (
+	SchemaRiskLevelDanger  SchemaRiskLevel = "danger"
+	SchemaRiskLevelInfo    SchemaRiskLevel = "info"
+	SchemaRiskLevelWarning SchemaRiskLevel = "warning"
+)
+
+// Valid indicates whether the value is a known member of the SchemaRiskLevel enum.
+func (e SchemaRiskLevel) Valid() bool {
+	switch e {
+	case SchemaRiskLevelDanger:
+		return true
+	case SchemaRiskLevelInfo:
+		return true
+	case SchemaRiskLevelWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionStateSignupMode.
 const (
 	SessionStateSignupModeApproval   SessionStateSignupMode = "approval"
@@ -806,21 +1073,75 @@ func (e StorageState) Valid() bool {
 	}
 }
 
+// Defines values for TableConstraintKind.
+const (
+	TableConstraintKindCheck      TableConstraintKind = "check"
+	TableConstraintKindExclusion  TableConstraintKind = "exclusion"
+	TableConstraintKindForeignKey TableConstraintKind = "foreign_key"
+	TableConstraintKindPrimaryKey TableConstraintKind = "primary_key"
+	TableConstraintKindUnique     TableConstraintKind = "unique"
+)
+
+// Valid indicates whether the value is a known member of the TableConstraintKind enum.
+func (e TableConstraintKind) Valid() bool {
+	switch e {
+	case TableConstraintKindCheck:
+		return true
+	case TableConstraintKindExclusion:
+		return true
+	case TableConstraintKindForeignKey:
+		return true
+	case TableConstraintKindPrimaryKey:
+		return true
+	case TableConstraintKindUnique:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TableInfoKind.
+const (
+	TableInfoKindForeignTable     TableInfoKind = "foreign_table"
+	TableInfoKindMaterializedView TableInfoKind = "materialized_view"
+	TableInfoKindPartitionedTable TableInfoKind = "partitioned_table"
+	TableInfoKindTable            TableInfoKind = "table"
+	TableInfoKindView             TableInfoKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the TableInfoKind enum.
+func (e TableInfoKind) Valid() bool {
+	switch e {
+	case TableInfoKindForeignTable:
+		return true
+	case TableInfoKindMaterializedView:
+		return true
+	case TableInfoKindPartitionedTable:
+		return true
+	case TableInfoKindTable:
+		return true
+	case TableInfoKindView:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TablePageOrder.
 const (
-	Ctid       TablePageOrder = "ctid"
-	Offset     TablePageOrder = "offset"
-	PrimaryKey TablePageOrder = "primary_key"
+	TablePageOrderCtid       TablePageOrder = "ctid"
+	TablePageOrderOffset     TablePageOrder = "offset"
+	TablePageOrderPrimaryKey TablePageOrder = "primary_key"
 )
 
 // Valid indicates whether the value is a known member of the TablePageOrder enum.
 func (e TablePageOrder) Valid() bool {
 	switch e {
-	case Ctid:
+	case TablePageOrderCtid:
 		return true
-	case Offset:
+	case TablePageOrderOffset:
 		return true
-	case PrimaryKey:
+	case TablePageOrderPrimaryKey:
 		return true
 	default:
 		return false
@@ -1120,16 +1441,16 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 
 // Defines values for GetOrgUsageParamsFormat.
 const (
-	Csv  GetOrgUsageParamsFormat = "csv"
-	Json GetOrgUsageParamsFormat = "json"
+	GetOrgUsageParamsFormatCsv  GetOrgUsageParamsFormat = "csv"
+	GetOrgUsageParamsFormatJson GetOrgUsageParamsFormat = "json"
 )
 
 // Valid indicates whether the value is a known member of the GetOrgUsageParamsFormat enum.
 func (e GetOrgUsageParamsFormat) Valid() bool {
 	switch e {
-	case Csv:
+	case GetOrgUsageParamsFormatCsv:
 		return true
-	case Json:
+	case GetOrgUsageParamsFormatJson:
 		return true
 	default:
 		return false
@@ -1172,6 +1493,24 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 	case GetProjectMetricsParamsRangeN24h:
 		return true
 	case GetProjectMetricsParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportTableRowsParamsFormat.
+const (
+	ExportTableRowsParamsFormatCsv  ExportTableRowsParamsFormat = "csv"
+	ExportTableRowsParamsFormatJson ExportTableRowsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the ExportTableRowsParamsFormat enum.
+func (e ExportTableRowsParamsFormat) Valid() bool {
+	switch e {
+	case ExportTableRowsParamsFormatCsv:
+		return true
+	case ExportTableRowsParamsFormatJson:
 		return true
 	default:
 		return false
@@ -1782,6 +2121,32 @@ type DnsCheck struct {
 	ServerAddresses []string `json:"server_addresses"`
 }
 
+// EditColumn defines model for EditColumn.
+type EditColumn struct {
+	BaseType string `json:"base_type"`
+
+	// Category pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…).
+	Category   string              `json:"category"`
+	Default    *string             `json:"default,omitempty"`
+	EnumValues *[]string           `json:"enum_values,omitempty"`
+	Generated  bool                `json:"generated"`
+	Identity   *EditColumnIdentity `json:"identity,omitempty"`
+	Name       string              `json:"name"`
+	Nullable   bool                `json:"nullable"`
+	Type       string              `json:"type"`
+}
+
+// EditColumnIdentity defines model for EditColumn.Identity.
+type EditColumnIdentity string
+
+// EditorPreferences defines model for EditorPreferences.
+type EditorPreferences struct {
+	MigrationFormat EditorPreferencesMigrationFormat `json:"migration_format"`
+}
+
+// EditorPreferencesMigrationFormat defines model for EditorPreferences.MigrationFormat.
+type EditorPreferencesMigrationFormat string
+
 // EmailRequest defines model for EmailRequest.
 type EmailRequest struct {
 	Email openapi_types.Email `json:"email"`
@@ -1795,9 +2160,13 @@ type EnableExtensionRequest struct {
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_implemented
-	Code    string     `json:"code"`
-	Message string     `json:"message"`
-	Quota   *QuotaItem `json:"quota,omitempty"`
+	Code     string     `json:"code"`
+	Message  string     `json:"message"`
+	Quota    *QuotaItem `json:"quota,omitempty"`
+	SqlError *SqlError  `json:"sql_error,omitempty"`
+
+	// Statement The DDL statement Postgres refused.
+	Statement *string `json:"statement,omitempty"`
 }
 
 // Extension defines model for Extension.
@@ -1822,6 +2191,25 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FailedChange defines model for FailedChange.
+type FailedChange struct {
+	Error SqlError `json:"error"`
+
+	// Index The change Postgres refused (-1 for a constraint checked at commit).
+	Index int `json:"index"`
+}
+
+// ForeignKey defines model for ForeignKey.
+type ForeignKey struct {
+	Columns    []string `json:"columns"`
+	Name       string   `json:"name"`
+	OnDelete   string   `json:"on_delete"`
+	OnUpdate   string   `json:"on_update"`
+	RefColumns []string `json:"ref_columns"`
+	RefSchema  string   `json:"ref_schema"`
+	RefTable   string   `json:"ref_table"`
 }
 
 // GeneralSettings defines model for GeneralSettings.
@@ -2587,6 +2975,189 @@ type RestoreResponse struct {
 	Operation   Operation           `json:"operation"`
 }
 
+// RowChange defines model for RowChange.
+type RowChange struct {
+	// Key The row's primary key (update, delete).
+	Key *map[string]*string `json:"key,omitempty"`
+	Op  RowChangeOp         `json:"op"`
+
+	// Values Column values as text, null for NULL. Columns left out of an insert get their default.
+	Values *map[string]*string `json:"values,omitempty"`
+
+	// Xmin The row's xmin when loaded (update, delete).
+	Xmin *string `json:"xmin,omitempty"`
+}
+
+// RowChangeOp defines model for RowChange.Op.
+type RowChangeOp string
+
+// RowConflict defines model for RowConflict.
+type RowConflict struct {
+	Current *[]*string `json:"current,omitempty"`
+	Deleted bool       `json:"deleted"`
+
+	// Index The change that hit a row someone else changed.
+	Index int     `json:"index"`
+	Xmin  *string `json:"xmin,omitempty"`
+}
+
+// SaveRowsRequest defines model for SaveRowsRequest.
+type SaveRowsRequest struct {
+	Changes []RowChange `json:"changes"`
+}
+
+// SaveRowsResult defines model for SaveRowsResult.
+type SaveRowsResult struct {
+	Applied  bool          `json:"applied"`
+	Columns  []SqlColumn   `json:"columns"`
+	Conflict *RowConflict  `json:"conflict,omitempty"`
+	Failed   *FailedChange `json:"failed,omitempty"`
+	Rows     []SavedRow    `json:"rows"`
+
+	// Summary Example: 3 updates, 1 insert, 2 deletes
+	Summary string `json:"summary"`
+}
+
+// SavedRow defines model for SavedRow.
+type SavedRow struct {
+	Index  int       `json:"index"`
+	Values []*string `json:"values"`
+	Xmin   string    `json:"xmin"`
+}
+
+// SchemaApplied defines model for SchemaApplied.
+type SchemaApplied struct {
+	DurationMs int64      `json:"duration_ms"`
+	Plan       SchemaPlan `json:"plan"`
+}
+
+// SchemaApplyRequest defines model for SchemaApplyRequest.
+type SchemaApplyRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange `json:"change"`
+
+	// Confirm The name of what is dropped, typed.
+	Confirm *string `json:"confirm,omitempty"`
+
+	// Hash The preview's hash.
+	Hash string `json:"hash"`
+}
+
+// SchemaChange One change (V2 §4.3); which fields apply depends on `kind`.
+type SchemaChange struct {
+	BeforeValue  *string             `json:"before_value,omitempty"`
+	Cascade      *bool               `json:"cascade,omitempty"`
+	Column       *SchemaColumnDef    `json:"column,omitempty"`
+	ColumnName   *string             `json:"column_name,omitempty"`
+	Columns      *[]SchemaColumnDef  `json:"columns,omitempty"`
+	Comment      *string             `json:"comment,omitempty"`
+	Concurrently *bool               `json:"concurrently,omitempty"`
+	Default      *string             `json:"default,omitempty"`
+	DropDefault  *bool               `json:"drop_default,omitempty"`
+	Expression   *string             `json:"expression,omitempty"`
+	KeyColumns   *[]string           `json:"key_columns,omitempty"`
+	Kind         SchemaChangeKind    `json:"kind"`
+	Method       *SchemaChangeMethod `json:"method,omitempty"`
+
+	// Name The schema, constraint, index or type created or dropped.
+	Name       *string               `json:"name,omitempty"`
+	NewName    *string               `json:"new_name,omitempty"`
+	NotValid   *bool                 `json:"not_valid,omitempty"`
+	Nullable   *bool                 `json:"nullable,omitempty"`
+	OnDelete   *SchemaChangeOnDelete `json:"on_delete,omitempty"`
+	OnUpdate   *SchemaChangeOnUpdate `json:"on_update,omitempty"`
+	RefColumns *[]string             `json:"ref_columns,omitempty"`
+	RefSchema  *string               `json:"ref_schema,omitempty"`
+	RefTable   *string               `json:"ref_table,omitempty"`
+	Schema     *string               `json:"schema,omitempty"`
+	Table      *string               `json:"table,omitempty"`
+	Type       *string               `json:"type,omitempty"`
+	Unique     *bool                 `json:"unique,omitempty"`
+	Using      *string               `json:"using,omitempty"`
+	Value      *string               `json:"value,omitempty"`
+	Values     *[]string             `json:"values,omitempty"`
+	Where      *string               `json:"where,omitempty"`
+}
+
+// SchemaChangeKind defines model for SchemaChange.Kind.
+type SchemaChangeKind string
+
+// SchemaChangeMethod defines model for SchemaChange.Method.
+type SchemaChangeMethod string
+
+// SchemaChangeOnDelete defines model for SchemaChange.OnDelete.
+type SchemaChangeOnDelete string
+
+// SchemaChangeOnUpdate defines model for SchemaChange.OnUpdate.
+type SchemaChangeOnUpdate string
+
+// SchemaColumnDef defines model for SchemaColumnDef.
+type SchemaColumnDef struct {
+	Comment *string `json:"comment,omitempty"`
+
+	// Default An SQL expression, e.g. now() or 'draft'.
+	Default    *string `json:"default,omitempty"`
+	Name       string  `json:"name"`
+	Nullable   *bool   `json:"nullable,omitempty"`
+	PrimaryKey *bool   `json:"primary_key,omitempty"`
+
+	// Type Example: text
+	Type string `json:"type"`
+}
+
+// SchemaMigration defines model for SchemaMigration.
+type SchemaMigration struct {
+	Content  string                `json:"content"`
+	Filename string                `json:"filename"`
+	Format   SchemaMigrationFormat `json:"format"`
+}
+
+// SchemaMigrationFormat defines model for SchemaMigration.Format.
+type SchemaMigrationFormat string
+
+// SchemaMigrationRequest defines model for SchemaMigrationRequest.
+type SchemaMigrationRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange                 `json:"change"`
+	Format SchemaMigrationRequestFormat `json:"format"`
+}
+
+// SchemaMigrationRequestFormat defines model for SchemaMigrationRequest.Format.
+type SchemaMigrationRequestFormat string
+
+// SchemaPlan defines model for SchemaPlan.
+type SchemaPlan struct {
+	// Confirm Type this name to run it.
+	Confirm    *string           `json:"confirm,omitempty"`
+	Down       []string          `json:"down"`
+	DownTodo   []string          `json:"down_todo"`
+	Hash       string            `json:"hash"`
+	Risks      []SchemaRisk      `json:"risks"`
+	Slug       string            `json:"slug"`
+	Statements []SchemaStatement `json:"statements"`
+}
+
+// SchemaPreviewRequest defines model for SchemaPreviewRequest.
+type SchemaPreviewRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange `json:"change"`
+}
+
+// SchemaRisk defines model for SchemaRisk.
+type SchemaRisk struct {
+	Level   SchemaRiskLevel `json:"level"`
+	Message string          `json:"message"`
+}
+
+// SchemaRiskLevel defines model for SchemaRisk.Level.
+type SchemaRiskLevel string
+
+// SchemaStatement defines model for SchemaStatement.
+type SchemaStatement struct {
+	Sql           string `json:"sql"`
+	Transactional bool   `json:"transactional"`
+}
+
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
 	CreatedAt  time.Time `json:"created_at"`
@@ -2808,6 +3379,16 @@ type SwitchedCredentials struct {
 	Project     Project        `json:"project"`
 }
 
+// TableConstraint defines model for TableConstraint.
+type TableConstraint struct {
+	Definition string              `json:"definition"`
+	Kind       TableConstraintKind `json:"kind"`
+	Name       string              `json:"name"`
+}
+
+// TableConstraintKind defines model for TableConstraint.Kind.
+type TableConstraintKind string
+
 // TableFootprint defines model for TableFootprint.
 type TableFootprint struct {
 	Bytes    int64  `json:"bytes"`
@@ -2816,15 +3397,40 @@ type TableFootprint struct {
 	Table    string `json:"table"`
 }
 
+// TableInfo defines model for TableInfo.
+type TableInfo struct {
+	Columns        []EditColumn      `json:"columns"`
+	Constraints    []TableConstraint `json:"constraints"`
+	Editable       bool              `json:"editable"`
+	ForeignKeys    []ForeignKey      `json:"foreign_keys"`
+	Indexes        []DbIndex         `json:"indexes"`
+	Kind           TableInfoKind     `json:"kind"`
+	Name           string            `json:"name"`
+	PrimaryKey     []string          `json:"primary_key"`
+	ReadOnlyReason *string           `json:"read_only_reason,omitempty"`
+	RowEstimate    *int64            `json:"row_estimate,omitempty"`
+	Schema         string            `json:"schema"`
+	SizeBytes      int64             `json:"size_bytes"`
+}
+
+// TableInfoKind defines model for TableInfo.Kind.
+type TableInfoKind string
+
 // TablePage defines model for TablePage.
 type TablePage struct {
 	Columns    []SqlColumn `json:"columns"`
 	KeyColumns []string    `json:"key_columns"`
 
+	// LargeOffset Offset paging this deep is slow; sort by the primary key or filter.
+	LargeOffset *bool `json:"large_offset,omitempty"`
+
 	// Next Cursor of the next page; absent on the last.
 	Next  *string        `json:"next,omitempty"`
 	Order TablePageOrder `json:"order"`
 	Rows  [][]*string    `json:"rows"`
+
+	// Xmin Each row's xmin, for editable tables.
+	Xmin *[]string `json:"xmin,omitempty"`
 }
 
 // TablePageOrder defines model for TablePage.Order.
@@ -3072,6 +3678,12 @@ type ProjectID = openapi_types.UUID
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
 
+// SchemaName defines model for SchemaName.
+type SchemaName = string
+
+// TableName defines model for TableName.
+type TableName = string
+
 // TokenID defines model for TokenID.
 type TokenID = openapi_types.UUID
 
@@ -3238,8 +3850,29 @@ type GetProjectMetricsParams struct {
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
 
+// ExportTableRowsParams defines parameters for ExportTableRows.
+type ExportTableRowsParams struct {
+	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
+	Filter *[]string                    `form:"filter,omitempty" json:"filter,omitempty"`
+	Sort   *string                      `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc   *bool                        `form:"desc,omitempty" json:"desc,omitempty"`
+	Format *ExportTableRowsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// ExportTableRowsParamsFormat defines parameters for ExportTableRows.
+type ExportTableRowsParamsFormat string
+
 // GetTableRowsParams defines parameters for GetTableRows.
 type GetTableRowsParams struct {
+	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
+	// (V2 §4.1). Compiled to a parameterised WHERE clause.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
+	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
 	After *string `form:"after,omitempty" json:"after,omitempty"`
 	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
@@ -3405,6 +4038,15 @@ type PromoteProjectJSONRequestBody = PromoteRequest
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
 
+// ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
+type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
+
+// SchemaMigrationJSONRequestBody defines body for SchemaMigration for application/json ContentType.
+type SchemaMigrationJSONRequestBody = SchemaMigrationRequest
+
+// PreviewSchemaChangeJSONRequestBody defines body for PreviewSchemaChange for application/json ContentType.
+type PreviewSchemaChangeJSONRequestBody = SchemaPreviewRequest
+
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
@@ -3416,6 +4058,9 @@ type CancelSQLJSONRequestBody = SqlCancelRequest
 
 // SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
 type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
+
+// SaveTableChangesJSONRequestBody defines body for SaveTableChanges for application/json ContentType.
+type SaveTableChangesJSONRequestBody = SaveRowsRequest
 
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
@@ -3758,6 +4403,9 @@ type ServerInterface interface {
 	// IssueMyCredentials Create or rotate your personal database login; the password is shown once
 	// (POST /api/v1/projects/{id}/credentials)
 	IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetEditorPreferences Your table-editor preferences for this project
+	// (GET /api/v1/projects/{id}/editor-preferences)
+	GetEditorPreferences(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ListProjectExtensions The extension allow-list and what is installed
 	// (GET /api/v1/projects/{id}/extensions)
 	ListProjectExtensions(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -3803,6 +4451,15 @@ type ServerInterface interface {
 	// GetProjectSchema Schemas, tables and views, with columns and indexes
 	// (GET /api/v1/projects/{id}/schema)
 	GetProjectSchema(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ApplySchemaChange Run a previewed schema change
+	// (POST /api/v1/projects/{id}/schema/apply)
+	ApplySchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SchemaMigration Render a schema change as a migration file (plain SQL, goose, or dbmate)
+	// (POST /api/v1/projects/{id}/schema/migration)
+	SchemaMigration(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
+	// (POST /api/v1/projects/{id}/schema/preview)
+	PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -3818,7 +4475,16 @@ type ServerInterface interface {
 	// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
 	// (POST /api/v1/projects/{id}/switch-credentials)
 	SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
-	// GetTableRows A page of a table's rows (read-only)
+	// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table})
+	GetTableInfo(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
+	// SaveTableChanges Save staged row edits in one transaction
+	// (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
+	SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
+	// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/export)
+	ExportTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params ExportTableRowsParams)
+	// GetTableRows A page of a table's rows, filtered and sorted
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
 	GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams)
 	// TransferProject Move the project to another organisation (owner of both)
@@ -4529,6 +5195,12 @@ func (_ Unimplemented) IssueMyCredentials(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetEditorPreferences Your table-editor preferences for this project
+// (GET /api/v1/projects/{id}/editor-preferences)
+func (_ Unimplemented) GetEditorPreferences(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListProjectExtensions The extension allow-list and what is installed
 // (GET /api/v1/projects/{id}/extensions)
 func (_ Unimplemented) ListProjectExtensions(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -4619,6 +5291,24 @@ func (_ Unimplemented) GetProjectSchema(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ApplySchemaChange Run a previewed schema change
+// (POST /api/v1/projects/{id}/schema/apply)
+func (_ Unimplemented) ApplySchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SchemaMigration Render a schema change as a migration file (plain SQL, goose, or dbmate)
+// (POST /api/v1/projects/{id}/schema/migration)
+func (_ Unimplemented) SchemaMigration(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
+// (POST /api/v1/projects/{id}/schema/preview)
+func (_ Unimplemented) PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // UpdateProject Update a project's name, description, or guardrails
 // (PATCH /api/v1/projects/{id}/settings)
 func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -4649,7 +5339,25 @@ func (_ Unimplemented) SwitchProjectCredentials(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// GetTableRows A page of a table's rows (read-only)
+// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
+// (GET /api/v1/projects/{id}/tables/{schema}/{table})
+func (_ Unimplemented) GetTableInfo(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SaveTableChanges Save staged row edits in one transaction
+// (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
+func (_ Unimplemented) SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
+// (GET /api/v1/projects/{id}/tables/{schema}/{table}/export)
+func (_ Unimplemented) ExportTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params ExportTableRowsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTableRows A page of a table's rows, filtered and sorted
 // (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
 func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -7567,6 +8275,32 @@ func (siw *ServerInterfaceWrapper) IssueMyCredentials(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetEditorPreferences operation middleware
+func (siw *ServerInterfaceWrapper) GetEditorPreferences(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEditorPreferences(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProjectExtensions operation middleware
 func (siw *ServerInterfaceWrapper) ListProjectExtensions(w http.ResponseWriter, r *http.Request) {
 
@@ -8004,6 +8738,84 @@ func (siw *ServerInterfaceWrapper) GetProjectSchema(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ApplySchemaChange operation middleware
+func (siw *ServerInterfaceWrapper) ApplySchemaChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplySchemaChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SchemaMigration operation middleware
+func (siw *ServerInterfaceWrapper) SchemaMigration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SchemaMigration(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewSchemaChange operation middleware
+func (siw *ServerInterfaceWrapper) PreviewSchemaChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewSchemaChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateProject operation middleware
 func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.Request) {
 
@@ -8134,6 +8946,193 @@ func (siw *ServerInterfaceWrapper) SwitchProjectCredentials(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// GetTableInfo operation middleware
+func (siw *ServerInterfaceWrapper) GetTableInfo(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTableInfo(w, r, id, schema, table)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveTableChanges operation middleware
+func (siw *ServerInterfaceWrapper) SaveTableChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveTableChanges(w, r, id, schema, table)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportTableRows operation middleware
+func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportTableRowsParams
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", r.URL.Query(), &params.Filter, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "desc" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "desc", r.URL.Query(), &params.Desc, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "desc"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "desc", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportTableRows(w, r, id, schema, table, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTableRows operation middleware
 func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.Request) {
 
@@ -8169,6 +9168,45 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetTableRowsParams
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", r.URL.Query(), &params.Filter, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "desc" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "desc", r.URL.Query(), &params.Desc, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "desc"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "desc", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "after" -------------
 
@@ -8919,6 +9957,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/schema", wrapper.GetProjectSchema)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}", wrapper.GetTableInfo)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/export", wrapper.ExportTableRows)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/changes", wrapper.SaveTableChanges)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/preview", wrapper.PreviewSchemaChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/apply", wrapper.ApplySchemaChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/migration", wrapper.SchemaMigration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/editor-preferences", wrapper.GetEditorPreferences)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/rows", wrapper.GetTableRows)

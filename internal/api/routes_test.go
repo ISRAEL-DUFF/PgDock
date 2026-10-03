@@ -99,6 +99,7 @@ var expected = map[authz.Action][]string{
 	authz.ProjectCredentials: {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly},
 	authz.ConsoleRead:        {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly},
 	authz.ConsoleWrite:       {rOwner, rAdmin, rProjAdmin, rDev},
+	authz.TableEdit:          {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.BackupCreate:       {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.RestoreInPlace:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectSettings:    {rOwner, rAdmin, rProjAdmin},
@@ -410,7 +411,14 @@ var specMatrix = map[authz.Action][]string{
 	authz.ConsoleRead: {
 		"POST /api/v1/projects/{id}/sql", "POST /api/v1/projects/{id}/sql/cancel",
 		"GET /api/v1/projects/{id}/schema", "GET /api/v1/projects/{id}/tables/{schema}/{table}/rows",
+		// §4.1 the grid's table details and export; previewing a schema
+		// change and rendering it as a migration change nothing
+		"GET /api/v1/projects/{id}/tables/{schema}/{table}", "GET /api/v1/projects/{id}/tables/{schema}/{table}/export",
+		"POST /api/v1/projects/{id}/schema/preview", "POST /api/v1/projects/{id}/schema/migration",
+		"GET /api/v1/projects/{id}/editor-preferences",
 	},
+	// "Table editor — rows and schema"
+	authz.TableEdit: {"POST /api/v1/projects/{id}/tables/{schema}/{table}/changes", "POST /api/v1/projects/{id}/schema/apply"},
 	// "Create backup, restore into new project" (in place re-checked)
 	authz.BackupCreate: {"POST /api/v1/projects/{id}/backups", "POST /api/v1/projects/{id}/pitr", "POST /api/v1/backups/{id}/restore"},
 	// "Rotate app password, settings/guardrails, extensions"

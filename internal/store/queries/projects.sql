@@ -86,3 +86,11 @@ WHERE id = @id;
 -- A name in use as any project's backend database or alias.
 -- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 SELECT EXISTS (SELECT 1 FROM projects WHERE db_name = @name OR alias_db_name = @name);
+
+-- name: GetEditorPreferences :one
+SELECT migration_format FROM editor_preferences WHERE project_id = @project_id AND user_id = @user_id AND org_id = @org_id;
+
+-- name: PutEditorPreferences :exec
+INSERT INTO editor_preferences (project_id, user_id, org_id, migration_format)
+VALUES (@project_id, @user_id, @org_id, @migration_format)
+ON CONFLICT (project_id, user_id) DO UPDATE SET migration_format = EXCLUDED.migration_format, org_id = EXCLUDED.org_id, updated_at = now();

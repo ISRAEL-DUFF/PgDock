@@ -139,6 +139,14 @@ type DeviceAuthRequest struct {
 	CreatedAt       time.Time
 }
 
+type EditorPreference struct {
+	ProjectID       uuid.UUID
+	UserID          uuid.UUID
+	OrgID           uuid.UUID
+	MigrationFormat string
+	UpdatedAt       time.Time
+}
+
 type EmailToken struct {
 	TokenHash string
 	UserID    uuid.UUID
