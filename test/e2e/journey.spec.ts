@@ -92,6 +92,14 @@ async function platformNav(page: Page, label: string) {
   await page.mouse.move(900, 500);
 }
 
+// The organisation's pages: leave the project through the logo first.
+async function orgNav(page: Page, label: string) {
+  const nav = page.getByRole("navigation", { name: "Organisation" });
+  if (!(await nav.isVisible())) await page.getByLabel("PGDock home").click();
+  await nav.getByRole("link", { name: label, exact: true }).click();
+  await page.mouse.move(900, 500);
+}
+
 async function signOut(page: Page) {
   await page.getByTestId("user-menu").click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
@@ -393,11 +401,11 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await page.getByRole("button", { name: "Done" }).click();
 
   // 9. Operations and the audit log recorded it all.
-  await page.getByRole("link", { name: "Operations", exact: true }).click();
+  await orgNav(page, "Operations");
   await expect(page.getByRole("link", { name: "rotate" }).first()).toBeVisible();
   await page.getByRole("link", { name: "create" }).first().click();
   await expect(page.getByTestId("operation-log")).toContainText("is active");
-  await page.getByRole("link", { name: "Audit log" }).click();
+  await orgNav(page, "Audit log");
   for (const action of ["project.create", "project.update", "project.rotate_password"]) {
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
