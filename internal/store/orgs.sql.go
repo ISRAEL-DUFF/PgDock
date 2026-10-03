@@ -1394,7 +1394,7 @@ func (q *Queries) OrphanOrgs(ctx context.Context) ([]uuid.UUID, error) {
 const poolerDBUsers = `-- name: PoolerDBUsers :many
 SELECT d.role_name, d.scram_verifier
 FROM project_db_users d JOIN projects p ON p.id = d.project_id
-WHERE p.deleted_at IS NULL AND p.status IN ('provisioning', 'active', 'promoting', 'restoring')
+WHERE p.deleted_at IS NULL AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'restoring')
 ORDER BY d.role_name
 `
 

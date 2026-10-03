@@ -450,7 +450,10 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/projects/{id}/members", "PATCH /api/v1/projects/{id}/members/{user}", "DELETE /api/v1/projects/{id}/members/{user}",
 	},
 	// "Promote / demote"
-	authz.ProjectPromote: {"GET /api/v1/projects/{id}/promote", "POST /api/v1/projects/{id}/promote"},
+	authz.ProjectPromote: {
+		"GET /api/v1/projects/{id}/promote", "POST /api/v1/projects/{id}/promote",
+		"POST /api/v1/projects/{id}/demote/preflight", "POST /api/v1/projects/{id}/demote",
+	},
 	// "Delete project" (transfer also needs owner of both orgs, checked in the handler)
 	authz.ProjectDelete: {"DELETE /api/v1/projects/{id}", "POST /api/v1/projects/{id}/transfer"},
 	// Project audit log, for project admins (§2.7)

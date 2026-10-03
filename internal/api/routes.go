@@ -129,6 +129,8 @@ var routeRules = map[string]rule{
 	"POST /api/v1/projects/{id}/pitr":                            {scope: scopeProject, action: authz.BackupCreate},
 	"GET /api/v1/projects/{id}/promote":                          {scope: scopeProject, action: authz.ProjectPromote},
 	"POST /api/v1/projects/{id}/promote":                         {scope: scopeProject, action: authz.ProjectPromote},
+	"POST /api/v1/projects/{id}/demote/preflight":                {scope: scopeProject, action: authz.ProjectPromote},
+	"POST /api/v1/projects/{id}/demote":                          {scope: scopeProject, action: authz.ProjectPromote},
 	"POST /api/v1/projects/{id}/instance":                        {scope: scopeProject, action: authz.ProjectSettings},
 	"POST /api/v1/projects/{id}/sql":                             {scope: scopeProject, action: authz.ConsoleRead},
 	"POST /api/v1/projects/{id}/sql/cancel":                      {scope: scopeProject, action: authz.ConsoleRead},

@@ -5,6 +5,21 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Demotion (V2 M14)
+- Move a dedicated project back to the shared tier with its URL, app
+  password and every member's personal login unchanged, after a write
+  freeze while the data is copied and verified. A failure before the
+  switch leaves it on its dedicated instance.
+- A preflight checklist (also `pgdock demote --check`): size against the
+  organisation's shared storage limits, extensions, custom roles, peak
+  connections, database settings that reset, and a shared cluster with
+  room, the organisation's own when it has one.
+- Guardrails go back to the shared defaults; point-in-time recovery ends,
+  with a logical backup at once, and the old base backups stay
+  restorable for 7 days. The stopped dedicated instance is kept for 48
+  hours, then destroyed, which releases it from the dedicated allowance.
+- `pgdock demote` and Settings → Move back to shared.
+
 ### Database branching (V2 M13)
 - Branches: throwaway copies of a project on the shared tier, from its
   latest backup or live, schema only or with data, that delete themselves

@@ -257,6 +257,10 @@ var auditActions = map[string]string{
 	"POST /api/v1/projects/{id}/branches":                        "branch.create",
 	"POST /api/v1/projects/{id}/reset":                           "branch.reset",
 	"POST /api/v1/projects/{id}/detach":                          "branch.detach",
+
+	// Demotion (V2 §5).
+	"POST /api/v1/projects/{id}/demote/preflight": "project.demote_preflight",
+	"POST /api/v1/projects/{id}/demote":           "project.demote",
 }
 
 // auditedReads are GET routes audited like mutations: handing out a

@@ -91,6 +91,8 @@ SELECT i.* FROM instances i
 WHERE i.deleted_at IS NULL
   AND i.created_at < now() - interval '5 minutes'
   AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)
+  -- A demoted project's stopped instance, kept as a rollback option.
+  AND NOT EXISTS (SELECT 1 FROM retired_databases r WHERE r.instance_id = i.id AND r.dropped_at IS NULL)
   AND (i.kind = 'dedicated' OR (i.kind = 'shared' AND i.status = 'error'))
 ORDER BY i.created_at;
 
