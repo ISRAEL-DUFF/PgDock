@@ -13,7 +13,11 @@ expanded navigation rail of Supabase Studio, as of late 2026.
 | 2 | Supabase features PGDock has no backend for (RLS and the "Role" switch, auth, storage, edge functions, realtime, AI filters, CSV import, charts of results) are **left out**, not shown disabled. |
 | 3 | Dark theme by default, with a light theme and "system" in the user menu. **Purple** accent. |
 | 4 | Layout, density and interaction follow Supabase closely. Supabase's logo, name and green brand are not used: PGDock keeps its own mark. |
-| 5 | Same stack (React 19, Vite, Tailwind 4, TanStack Router and Query, CodeMirror 6). New libraries, all MIT: Radix UI primitives with shadcn-style components, `react-data-grid` (what Supabase's grid is built on), `lucide-react` icons, `cmdk` (the ⌘K menu), `sonner` (toasts). The font is Inter, bundled with `@fontsource` so installs need no outside network access. |
+| 5 | Same stack (React 19, Vite, Tailwind 4, TanStack Router and Query). New libraries, all MIT: Radix UI primitives with shadcn-style components, `react-data-grid` (what Supabase's grid is built on), `lucide-react` icons, `cmdk` (the ⌘K menu), `sonner` (toasts), and **Monaco** (`monaco-editor`, the editor Supabase uses) in place of CodeMirror. The font is Inter, bundled with `@fontsource` so installs need no outside network access; Monaco is bundled too (no CDN loader), in its own chunk. |
+| 7 | SQL queries are saved on the server (question 1, option a): per project, private or shared with the project's members, with per-user favourites (phase 3). |
+| 8 | PGDock gets a simple SVG mark of its own, drawn in phase 1. |
+| 9 | The branch switcher works like Supabase's: `main` carries a `PRODUCTION` badge, branches a `PREVIEW` badge; the menu searches branches and has "Create branch" and "Manage branches". The project's tier shows on the Overview and in Settings, not in the switcher. |
+| 10 | Branches, backups, webhooks, scheduled jobs, extensions and migrations live under the rail's Database section. |
 | 6 | No API changes, except small additions a phase can't do without; each is listed in its phase. |
 
 ## Design system (phase 1)
@@ -66,9 +70,10 @@ Laid out as in the screenshots:
     `UNLIMITED`). The menu lists organisations and has "New organisation".
   - **Project**, with a menu that searches the organisation's projects
     and has "New project".
-  - **Branch**: `main` (the project itself) with its tier as a badge
-    (`SHARED`, `DEDICATED`), and the project's branches below it. This is
-    where Supabase shows `main PRODUCTION`.
+  - **Branch**, as in Supabase: `main` (the project itself) with a
+    `PRODUCTION` badge, or the branch's name with a `PREVIEW` badge. The
+    menu searches the project's branches and ends with "Create branch" and
+    "Manage branches". Choosing a branch opens the same page on it.
   - **Connect** button, which opens the connection dialog (the current
     Connect page, as a dialog).
 
@@ -196,9 +201,11 @@ Matches the second screenshot:
   Favorites; see question 1), and Templates (common snippets PGDock
   ships).
 - **Tabs** for open queries.
-- **Editor:** CodeMirror 6, themed like Supabase's editor: line numbers,
-  SQL highlighting, completion of tables and columns, format (⌘⇧F), and
-  run (⌘↵ for all, or the selection). The toolbar has Saved, Format, a
+- **Editor:** Monaco, as in Supabase, with a theme to match: line
+  numbers, SQL highlighting, completion of schemas, tables and columns
+  from the project's schema, format (⌘⇧F), and run (⌘↵ for all, or the
+  selection). The table editor's Definition view and JSON cell editor use
+  Monaco too (read-only and JSON mode). The toolbar has Saved, Format, a
   favourite toggle, the console's read-only role switch (our nearest
   match to Supabase's role picker), and Run.
 - **Results pane** in a resizable split: the result grid (the Table
@@ -206,8 +213,23 @@ Matches the second screenshot:
   the position highlighted, Export CSV/JSON, and Cancel for long queries.
   There is no "Chart" tab (out of scope).
 
-**Done when:** queries run, cancel and export as today; saved queries
-behave as decided in question 1; the e2e SQL journey passes.
+**Saved queries (API addition):**
+
+- `saved_queries`: project, org, owner, name, SQL, visibility (`private`
+  or `shared`), timestamps.
+- `saved_query_favorites`: user and query.
+- Routes: `GET/POST /projects/{id}/queries` and
+  `GET/PATCH/DELETE /projects/{id}/queries/{query_id}`, plus a favourite
+  toggle.
+- Permissions: anyone who can read the console sees their own queries and
+  the shared ones. Owners edit and delete their own; project admins may
+  also delete shared ones.
+- Org-scoped like every tenant table (the lint applies). Queries are
+  deleted with the project and moved with a transfer. Saved by debounce
+  as you type ("Saved" in the toolbar).
+
+**Done when:** queries run, cancel and export as today; queries save,
+share, favourite and reopen across devices; the e2e SQL journey passes.
 
 ### Phase 4: Project pages
 
