@@ -19,6 +19,13 @@ describe("api client", () => {
     await expect(getVersion(fakeFetch(200, v))).resolves.toEqual(v);
   });
 
+  it("accepts a successful response with an empty body", async () => {
+    const empty = (status: number): typeof fetch => (async () => new Response(null, { status })) as typeof fetch;
+    await expect(request("POST", "/api/v1/auth/signup", {}, empty(202))).resolves.toBeUndefined();
+    await expect(request("DELETE", "/x", undefined, empty(204))).resolves.toBeUndefined();
+    await expect(request("POST", "/x", {}, empty(200))).resolves.toBeUndefined();
+  });
+
   it("throws ApiRequestError with the server code and message", async () => {
     const err = await request<never>("DELETE", "/x", undefined, fakeFetch(403, { code: "reauth_required", message: "confirm" })).catch(
       (e: unknown) => e as ApiRequestError,
