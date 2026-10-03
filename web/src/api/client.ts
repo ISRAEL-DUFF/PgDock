@@ -2,6 +2,39 @@ import type { components } from "./schema";
 
 type S = components["schemas"];
 export type Version = S["Version"];
+export type TableInfo = S["TableInfo"];
+export type EditColumn = S["EditColumn"];
+export type RowChange = S["RowChange"];
+export type SaveRowsResult = S["SaveRowsResult"];
+// Fields with server-side defaults are optional in requests.
+export type SchemaChange = Omit<S["SchemaChange"], "schema" | "concurrently" | "columns" | "column"> & {
+  schema?: string;
+  concurrently?: boolean;
+  columns?: SchemaColumnDef[];
+  column?: SchemaColumnDef;
+};
+export type SchemaColumnDef = Omit<S["SchemaColumnDef"], "nullable"> & { nullable?: boolean };
+export type SchemaPlan = S["SchemaPlan"];
+export type MigrationFormat = S["EditorPreferences"]["migration_format"];
+export type GridFilter = { column: string; op: "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "contains" | "is_null" | "not_null" | "in"; value?: string; values?: string[] };
+export type GridOptions = { filters?: GridFilter[]; sort?: string; desc?: boolean };
+
+function tableBase(id: string, schema: string, table: string) {
+  return `/api/v1/projects/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}`;
+}
+
+/** The grid's query string: repeated filter=JSON, sort, desc, and extras. */
+function gridQs(g: GridOptions, extra: Record<string, string | undefined>): string {
+  const p = new URLSearchParams();
+  for (const f of g.filters ?? []) p.append("filter", JSON.stringify(f));
+  if (g.sort) {
+    p.set("sort", g.sort);
+    if (g.desc) p.set("desc", "true");
+  }
+  for (const [k, v] of Object.entries(extra)) if (v !== undefined) p.set(k, v);
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
 export type APIToken = S["APIToken"];
 export type TokenScope = S["TokenScope"];
 export type CreatedToken = S["CreatedToken"];
@@ -280,8 +313,19 @@ export const api = {
   sql: (id: string, b: S["SqlRequest"]) => request<SqlResult>("POST", `/api/v1/projects/${id}/sql`, b),
   cancelSql: (id: string, query_id: string) => request<S["SqlCancelResult"]>("POST", `/api/v1/projects/${id}/sql/cancel`, { query_id }),
   schema: (id: string) => getJSON<DbSchema>(`/api/v1/projects/${id}/schema`),
-  tableRows: (id: string, schema: string, table: string, after?: string) =>
-    getJSON<TablePage>(`/api/v1/projects/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/rows${qs({ after })}`),
+  tableRows: (id: string, schema: string, table: string, after?: string, grid: GridOptions = {}) =>
+    getJSON<TablePage>(`${tableBase(id, schema, table)}/rows${gridQs(grid, { after })}`),
+  tableInfo: (id: string, schema: string, table: string) => getJSON<TableInfo>(tableBase(id, schema, table)),
+  exportUrl: (id: string, schema: string, table: string, format: "csv" | "json", grid: GridOptions = {}) =>
+    `${tableBase(id, schema, table)}/export${gridQs(grid, { format })}`,
+  saveRows: (id: string, schema: string, table: string, changes: RowChange[]) =>
+    request<SaveRowsResult>("POST", `${tableBase(id, schema, table)}/changes`, { changes }),
+  previewSchema: (id: string, change: SchemaChange) => request<SchemaPlan>("POST", `/api/v1/projects/${id}/schema/preview`, { change }),
+  applySchema: (id: string, change: SchemaChange, hash: string, confirm?: string) =>
+    request<S["SchemaApplied"]>("POST", `/api/v1/projects/${id}/schema/apply`, { change, hash, confirm }),
+  schemaMigration: (id: string, change: SchemaChange, format: MigrationFormat) =>
+    request<S["SchemaMigration"]>("POST", `/api/v1/projects/${id}/schema/migration`, { change, format }),
+  editorPreferences: (id: string) => getJSON<S["EditorPreferences"]>(`/api/v1/projects/${id}/editor-preferences`),
   extensions: (id: string) => getJSON<S["ExtensionList"]>(`/api/v1/projects/${id}/extensions`),
   enableExtension: (id: string, name: string) => request<S["ExtensionList"]>("POST", `/api/v1/projects/${id}/extensions`, { name }),
   projectMetrics: (id: string, range: MetricRange) => getJSON<MetricsResponse>(`/api/v1/projects/${id}/metrics${qs({ range })}`),

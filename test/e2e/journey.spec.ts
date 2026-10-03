@@ -1047,4 +1047,73 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("org-tokens")).toContainText("revoked");
     expect((await bearer(collected.body.secret, "GET", "/api/v1/me")).status).toBe(401);
   });
+
+  test("table editor: edit rows, see a conflict, change the schema and export a migration", async ({ page, browser }) => {
+    await signedIn(page);
+    const mine = (await page.evaluate(async () => (await fetch("/api/v1/projects")).json())) as { items: { id: string; name: string }[] };
+    const team = mine.items.find((p) => p.name === "Team data")!;
+    const openFacts = async (p: Page) => {
+      await p.goto(`/projects/${team.id}/tables`);
+      await p.getByTestId("schema-tree").getByRole("button", { name: "facts" }).click();
+      await expect(p.getByTestId("table-grid")).toContainText("shared");
+    };
+    const editBody = async (p: Page, from: string, to: string) => {
+      await p.getByTestId("grid-row").filter({ hasText: from }).getByTestId("cell-body").dblclick();
+      await p.getByTestId("cell-input-body").fill(to);
+      await p.getByTestId("cell-ok").click();
+    };
+    await openFacts(page);
+
+    // Edit a cell: staged, highlighted, then saved in one transaction.
+    await editBody(page, "shared", "shared (mine)");
+    await expect(page.getByTestId("pending-changes")).toContainText("1 update");
+    await page.getByTestId("save-rows").click();
+    await expect(page.getByTestId("save-summary")).toHaveText("1 update");
+    await page.getByTestId("confirm-save").click();
+    await expect(page.getByTestId("pending-changes")).toHaveCount(0);
+    await expect(page.getByTestId("table-grid")).toContainText("shared (mine)");
+
+    // Two sessions edit the same row: the second save is a conflict.
+    const otherCtx = await browser.newContext({ storageState: stateFile });
+    const other = await otherCtx.newPage();
+    await openFacts(other);
+    await editBody(page, "shared (mine)", "mine again");
+    await editBody(other, "shared (mine)", "theirs");
+    await other.getByTestId("save-rows").click();
+    await other.getByTestId("confirm-save").click();
+    await expect(other.getByTestId("table-grid")).toContainText("theirs");
+    await page.getByTestId("save-rows").click();
+    await page.getByTestId("confirm-save").click();
+    await expect(page.getByTestId("row-conflict")).toContainText("theirs");
+    await shot(page, "39-row-conflict");
+    await page.getByTestId("conflict-discard").click();
+    await expect(page.getByTestId("table-grid")).toContainText("theirs");
+    await otherCtx.close();
+
+    // Add a column: preview the SQL, save it as a goose migration, run it.
+    await page.getByTestId("tab-structure").click();
+    await page.getByTestId("add-column").click();
+    await page.getByRole("dialog").getByLabel("Name").fill("summary");
+    await page.getByRole("dialog").getByLabel("Type").fill("text");
+    await page.getByRole("dialog").getByLabel("Default").fill("''");
+    await page.getByTestId("schema-form-preview").click();
+    await expect(page.getByTestId("schema-preview")).toContainText('ADD COLUMN "summary" text DEFAULT');
+    await page.getByTestId("migration-format").selectOption("goose");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("save-migration").click()]);
+    expect(download.suggestedFilename()).toMatch(/^\d{14}_add_column_facts_summary\.sql$/);
+    const migration = readFileSync(await download.path(), "utf8");
+    expect(migration).toContain("-- +goose Up");
+    expect(migration).toContain('ALTER TABLE "public"."facts" DROP COLUMN "summary";');
+    await shot(page, "40-schema-preview");
+    await page.getByTestId("schema-run").click();
+    await expect(page.getByTestId("column-summary")).toBeVisible();
+
+    // A type change that rewrites the table says so before anything runs.
+    await page.getByTestId("alter-id").click();
+    await page.getByRole("dialog").getByLabel("Type").fill("bigint");
+    await page.getByTestId("schema-form-preview").click();
+    await expect(page.getByTestId("schema-risks")).toContainText("Rewrites the table and blocks writes. Estimated size:");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("column-id")).toContainText("integer");
+  });
 });
