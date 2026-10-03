@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
-import { AppLayout } from "./components/Layout";
+import { AppShell } from "./components/shell/AppShell";
 import { ToastProvider } from "./components/Toasts";
 import { sessionQuery } from "./lib/session";
 import { AlertsPage } from "./pages/Alerts";
@@ -83,7 +83,7 @@ const app = createRoute({
     if (s.setup_required) throw redirect({ to: "/setup" });
     if (!s.authenticated) throw redirect({ to: "/login", search: { next: location.href } });
   },
-  component: AppLayout,
+  component: AppShell,
 });
 
 const index = createRoute({

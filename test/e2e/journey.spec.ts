@@ -56,6 +56,52 @@ async function shot(page: Page, name: string) {
 }
 
 /** Opens the app with the session saved by the first test. */
+// The shell's navigation (docs/ui-redesign.md): a project's old tabs are
+// now rail sections, some with their own sidebar.
+const projectSections: Record<string, [string, string?]> = {
+  Overview: ["overview"],
+  Connect: ["settings", "Connection"],
+  Settings: ["settings", "General"],
+  Members: ["settings", "Members"],
+  SQL: ["sql"],
+  Tables: ["tables"],
+  Metrics: ["reports"],
+  Backups: ["database", "Backups"],
+  Branches: ["database", "Branches"],
+  Branch: ["database", "Branch"],
+  Webhooks: ["database", "Webhooks"],
+  Jobs: ["database", "Scheduled jobs"],
+};
+
+async function projectTab(page: Page, tab: string) {
+  const [rail, link] = projectSections[tab];
+  await page.getByTestId(`rail-${rail}`).click();
+  // The rail expands over the page while hovered.
+  await page.mouse.move(900, 500);
+  if (link) await page.getByTestId("section-sidebar").getByRole("link", { name: link, exact: true }).click();
+}
+
+/** A platform admin page, switching to the platform area first. */
+async function platformNav(page: Page, label: string) {
+  const nav = page.getByRole("navigation", { name: "Platform" });
+  if (!(await nav.isVisible())) {
+    await page.getByTestId("org-switcher").click();
+    await page.getByTestId("platform-link").click();
+  }
+  await nav.getByRole("link", { name: label, exact: true }).click();
+  await page.mouse.move(900, 500);
+}
+
+async function signOut(page: Page) {
+  await page.getByTestId("user-menu").click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+}
+
+async function switchOrg(page: Page, id: string) {
+  await page.getByTestId("org-switcher").click();
+  await page.getByTestId(`org-option-${id}`).click();
+}
+
 async function signedIn(page: Page) {
   await page.goto("/projects");
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
@@ -317,13 +363,12 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await shot(page, "04-overview");
 
   // 6. Connect page snippets carry the real host and database.
-  const projectTabs = page.getByRole("navigation", { name: "Project" });
-  await projectTabs.getByRole("link", { name: "Connect" }).click();
+  await projectTab(page, "Connect");
   await expect(page.getByText(`psql 'postgresql://${rows[0].db}_owner:YOUR_PASSWORD@${dbHost}`)).toBeVisible();
   await shot(page, "05-connect");
 
   // 7. Change a guardrail; it applies to the live database.
-  await projectTabs.getByRole("link", { name: "Settings" }).click();
+  await projectTab(page, "Settings");
   await page.getByLabel("Statement timeout").fill("15s");
   await page.getByRole("button", { name: "Save guardrails" }).click();
   await expect(page.getByText("Saved; applying to the database and pooler.")).toBeVisible();
@@ -357,11 +402,11 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
   await shot(page, "06-audit");
-  await page.getByRole("link", { name: "Platform audit" }).click();
+  await platformNav(page, "Platform audit");
   await expect(page.getByRole("cell", { name: "setup.complete", exact: true }).first()).toBeVisible();
 
   // 10. Sign out and back in with password + TOTP.
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login/);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("wrong password, clearly");
@@ -375,7 +420,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
 
   // 11. Delete needs the typed name plus password and code.
   await page.getByRole("link", { name: "My Blog", exact: true }).click();
-  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+  await projectTab(page, "Settings");
   await page.getByRole("button", { name: "Delete project" }).click();
   const dialog = page.getByRole("dialog");
   const confirm = dialog.getByRole("button", { name: "Delete project" });
@@ -427,8 +472,7 @@ test.describe("with the saved session", () => {
 
     // 2. Back it up from the Backups tab.
     await page.getByRole("link", { name: "Open the project" }).click();
-    const tabs = page.getByRole("navigation", { name: "Project" });
-    await tabs.getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await expect(page.getByTestId("last-backup")).toHaveText("never");
     await page.getByRole("button", { name: "Back up now" }).click();
     await expect(page.getByTestId("backup-row").first()).toContainText("succeeded", { timeout: 60_000 });
@@ -461,7 +505,7 @@ test.describe("with the saved session", () => {
     // 5. Restore in place: typed name, password and code; same URL afterwards.
     await page.goto("/projects");
     await page.getByRole("link", { name: "Notes", exact: true }).click();
-    await tabs.getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await page.getByTestId("backup-row").last().getByRole("button", { name: "Restore" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Restore in place instead…" }).click();
     const confirm = page.getByRole("dialog").getByRole("button", { name: "Restore in place" });
@@ -583,7 +627,7 @@ test.describe("with the saved session", () => {
     await shot(page, "19-dedicated-overview");
 
     // 4. Point-in-time recovery into a new project, from the Backups tab.
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await expect(page.getByTestId("backup-row").first()).toContainText("Base backup (WAL-G)");
     await expect(page.getByTestId("pitr-window")).toBeVisible();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -606,7 +650,7 @@ test.describe("with the saved session", () => {
     await page.getByRole("button", { name: "Done" }).click();
 
     // 5. The node page lists both dedicated instances.
-    await page.getByRole("link", { name: "Nodes", exact: true }).click();
+    await platformNav(page, "Nodes");
     await page.getByRole("link", { name: "local" }).click();
     await expect(page.getByTestId("node-docker")).toHaveText("ok");
     await expect(page.getByTestId("instance-row").filter({ hasText: "dedicated" })).toHaveCount(2);
@@ -656,7 +700,7 @@ test.describe("with the saved session", () => {
 
     // The wizard: target, size, the estimate, then live progress.
     await page.getByRole("link", { name: "Open the project" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+    await projectTab(page, "Settings");
     await page.getByRole("button", { name: "Promote…" }).click();
     await expect(page.getByText(/Estimated write freeze: about \d+ s/)).toBeVisible();
     await expect(page.getByTestId("promote-estimate")).toContainText("The database is");
@@ -684,7 +728,7 @@ test.describe("with the saved session", () => {
     await c.end();
     expect(errors).toEqual([]); // the pooled URL waited out the freeze
 
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
+    await projectTab(page, "Overview");
     await expect(page.getByText("Promoted to the dedicated tier")).toBeVisible();
     await expect(page.getByTestId("instance-card")).toBeVisible();
     await shot(page, "25-promoted-overview");
@@ -711,7 +755,7 @@ test.describe("with the saved session", () => {
       await w?.end().catch(() => {});
     })();
     await expect.poll(() => acked.length).toBeGreaterThan(before + 20);
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+    await projectTab(page, "Settings");
     await page.getByRole("button", { name: "Demote…" }).click();
     await expect(page.getByTestId("demote-checks").locator("li")).toHaveCount(7);
     for (const name of ["size", "extensions", "roles", "allowance", "capacity"]) {
@@ -738,9 +782,9 @@ test.describe("with the saved session", () => {
     await d.end();
     expect(errors).toEqual([]);
 
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
+    await projectTab(page, "Overview");
     await expect(page.getByText("Demoted to the shared tier")).toBeVisible();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await expect(page.getByTestId("backup-row").filter({ hasText: "Dedicated (pre-demotion)" }).first()).toBeVisible();
     await shot(page, "28-demoted-backups");
   });
@@ -756,7 +800,6 @@ test.describe("with the saved session", () => {
     // An app holding a pooled connection, for the connection charts.
     const app = await connect(pooledURL);
     await page.getByRole("link", { name: "Open the project" }).click();
-    const tabs = page.getByRole("navigation", { name: "Project" });
 
     // SQL console: run statements as the project role (Ctrl+Enter).
     const editor = page.getByTestId("sql-editor");
@@ -766,7 +809,7 @@ test.describe("with the saved session", () => {
       await page.keyboard.insertText(sql);
       await page.keyboard.press("ControlOrMeta+Enter");
     };
-    await tabs.getByRole("link", { name: "SQL" }).click();
+    await projectTab(page, "SQL");
     await expect(page.getByText("Queries run against the live database")).toBeVisible();
     await runSQL(
       "CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL);\n" +
@@ -797,25 +840,25 @@ test.describe("with the saved session", () => {
     await expect(page.getByRole("button", { name: "SELECT pg_sleep(60)" })).toBeVisible();
 
     // The read-only toggle (project settings) refuses writes in the console.
-    await tabs.getByRole("link", { name: "Settings" }).click();
+    await projectTab(page, "Settings");
     await page.getByLabel("SQL console is read-only").check();
     await page.getByRole("button", { name: "Save guardrails" }).click();
     await expect(page.getByText("Saved")).toBeVisible({ timeout: 30_000 });
-    await tabs.getByRole("link", { name: "SQL" }).click();
+    await projectTab(page, "SQL");
     await expect(page.getByText("read-only", { exact: true }).first()).toBeVisible();
     await runSQL("DELETE FROM notes");
     await expect(page.getByTestId("sql-error")).toContainText("cannot execute DELETE in a read-only transaction");
     expect(await count(pooledURL, "SELECT count(*) FROM notes")).toBe(120);
 
     // Extensions: enable pg_stat_statements for the top-queries table.
-    await tabs.getByRole("link", { name: "Settings" }).click();
+    await projectTab(page, "Settings");
     await page.getByTestId("ext-pg_stat_statements").getByRole("button", { name: "Enable" }).click();
     await expect(page.getByTestId("ext-pg_stat_statements")).toContainText("enabled");
     await expect(page.getByTestId("ext-postgis")).toContainText("dedicated tier only");
     await shot(page, "27-extensions");
 
     // Table browser: the schema tree, table facts, and keyset pages.
-    await tabs.getByRole("link", { name: "Tables" }).click();
+    await projectTab(page, "Tables");
     await page.getByTestId("schema-tree").getByRole("button", { name: "notes" }).click();
     await expect(page.getByTestId("table-info")).toContainText("Primary key");
     await expect(page.getByText("2 columns, 1 indexes")).toBeVisible();
@@ -835,7 +878,7 @@ test.describe("with the saved session", () => {
 
     // Traffic, then the metrics charts: size and connection trends.
     for (let i = 0; i < 30; i++) await app.query("SELECT count(*) FROM notes");
-    await tabs.getByRole("link", { name: "Metrics" }).click();
+    await projectTab(page, "Metrics");
     await expect(page.getByRole("img", { name: "Database size" })).toBeVisible();
     await expect(async () => {
       await page.reload();
@@ -868,7 +911,7 @@ test.describe("with the saved session", () => {
     await page.getByRole("button", { name: "Check now" }).click();
     await expect(page.getByTestId("isolation-row").first()).toContainText("succeeded", { timeout: 90_000 });
     await shot(page, "31-settings-alerts");
-    await page.getByRole("navigation").getByRole("link", { name: "Alerts" }).first().click();
+    await platformNav(page, "Alerts");
     await expect(page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();
     // The poolers starting after the server is not "pooler down" (other
     // alerts, like a full disk on the test host, may be real).
@@ -974,10 +1017,11 @@ test.describe("with the saved session", () => {
   test("usage: a week of hourly storage on the Usage page", async ({ page }) => {
     await signedIn(page);
     // A new organisation, so only this project's storage is counted.
-    await page.getByTestId("org-switcher").selectOption("__new");
+    await page.getByTestId("org-switcher").click();
+    await page.getByTestId("new-org").click();
     await page.getByLabel("Name").fill("Metered team");
-    await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.getByTestId("org-switcher").locator("option:checked")).toHaveText("Metered team");
+    await page.getByRole("button", { name: "Create organisation" }).click();
+    await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
     await page.goto("/projects/new");
     await page.getByLabel("Name").fill("Metered");
     await page.getByRole("button", { name: "Create project" }).click();
@@ -1102,7 +1146,7 @@ test.describe("with the saved session", () => {
     expect(me.body.token.org_id).toBe(metered.id);
 
     // The org's owners see every token scoped to it, and can revoke one.
-    await page.getByTestId("org-switcher").selectOption(metered.id);
+    await switchOrg(page, metered.id);
     await page.goto("/org/settings");
     await expect(page.getByTestId("org-tokens")).toContainText("pgdock CLI on ci-runner");
     page.once("dialog", (d) => void d.accept());
@@ -1214,7 +1258,7 @@ test.describe("with the saved session", () => {
     await page.getByLabel("I've saved the password somewhere safe").check();
     await page.getByRole("button", { name: "Done" }).click();
     await page.getByRole("link", { name: "Open the project" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     const storage = page.getByTestId("project-storage");
     await expect(storage.getByTestId("project-storage-target")).toContainText("counts toward your backup quota");
     await storage.getByRole("button", { name: "Use a project key" }).click();
@@ -1263,7 +1307,7 @@ test.describe("with the saved session", () => {
 
     // A branch, copied live (there is no backup yet), kept 3 days.
     await page.getByRole("link", { name: "Open the project" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branches" }).click();
+    await projectTab(page, "Branches");
     await page.getByRole("button", { name: "New branch" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Branch name").fill("try-migration");
@@ -1283,7 +1327,7 @@ test.describe("with the saved session", () => {
     db = await connect(branchURL);
     await db.query("DELETE FROM entries");
     await db.end();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    await projectTab(page, "Branch");
     const controls = page.getByTestId("branch-controls");
     await expect(controls.getByTestId("branch-expiry")).toContainText("in ");
     await controls.getByTestId("reset-branch").click();
@@ -1304,7 +1348,7 @@ test.describe("with the saved session", () => {
 
     // Delete it (re-authentication, like any delete).
     await nested.getByRole("link", { name: "try-migration" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    await projectTab(page, "Branch");
     await page.getByRole("button", { name: "Delete branch…" }).click();
     const confirm = page.getByRole("dialog");
     await confirm.getByTestId("confirm-name").fill("try-migration");
@@ -1380,7 +1424,7 @@ test.describe("with the saved session", () => {
     await shot(page, "47-webhook-log");
 
     // A scheduled job, run now.
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Jobs" }).click();
+    await projectTab(page, "Jobs");
     await page.getByRole("button", { name: "New job" }).click();
     const jd = page.getByRole("dialog");
     await jd.getByLabel("Name").fill("count-orders");

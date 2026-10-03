@@ -1,71 +1,98 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
 
-/* Theme tokens. Dark is the default for prefers-color-scheme: dark, and the
-   toggle pins either one with data-theme on <html>. */
-:root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --border: #dde1e6;
-  --fg: #1b1f24;
-  --muted: #5b6573;
-  --accent: #2f6fb0;
+/* Theme tokens (docs/ui-redesign.md). Dark is the default; data-theme on
+   <html> pins light or dark, and "system" follows the OS. Neutrals follow
+   Supabase Studio's greys; the accent is PGDock's purple. */
+:root,
+:root[data-theme="dark"] {
+  --bg: #121212; /* the app */
+  --surface: #171717; /* sidebars, panels */
+  --surface-2: #1f1f1f; /* raised: inputs, hovered rows, menus */
+  --surface-3: #262626; /* selected, pressed */
+  --border: #2e2e2e;
+  --border-strong: #3e3e3e;
+  --fg: #ededed;
+  --fg-light: #b4b4b4;
+  --muted: #8f8f8f;
+  --accent: #8b5cf6;
+  --accent-strong: #7c3aed;
   --accent-fg: #ffffff;
-  --ok: #1a7f37;
-  --warn: #9a6700;
-  --danger: #cf222e;
-  --code-bg: #f3f4f6;
+  --accent-soft: rgb(139 92 246 / 0.14);
+  --ok: #3ecf8e;
+  --warn: #f5a524;
+  --danger: #e5484d;
+  --danger-strong: #b4232a;
+  --code-bg: #141414;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #fcfcfc;
+  --surface: #f8f8f8;
+  --surface-2: #f1f1f1;
+  --surface-3: #e8e8e8;
+  --border: #dfdfdf;
+  --border-strong: #c8c8c8;
+  --fg: #171717;
+  --fg-light: #4d4d4d;
+  --muted: #707070;
+  --accent: #7c3aed;
+  --accent-strong: #6d28d9;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(124 58 237 / 0.1);
+  --ok: #18a058;
+  --warn: #b26b00;
+  --danger: #d1242f;
+  --danger-strong: #a40e26;
+  --code-bg: #f6f6f6;
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0e1116;
-    --surface: #161b22;
-    --surface-2: #1d232c;
-    --border: #2d343e;
-    --fg: #e6edf3;
-    --muted: #8b949e;
-    --accent: #5aa0e6;
-    --accent-fg: #0b1220;
-    --ok: #3fb950;
-    --warn: #d29922;
-    --danger: #f85149;
-    --code-bg: #0b0f14;
-    color-scheme: dark;
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --bg: #fcfcfc;
+    --surface: #f8f8f8;
+    --surface-2: #f1f1f1;
+    --surface-3: #e8e8e8;
+    --border: #dfdfdf;
+    --border-strong: #c8c8c8;
+    --fg: #171717;
+    --fg-light: #4d4d4d;
+    --muted: #707070;
+    --accent: #7c3aed;
+    --accent-strong: #6d28d9;
+    --accent-fg: #ffffff;
+    --accent-soft: rgb(124 58 237 / 0.1);
+    --ok: #18a058;
+    --warn: #b26b00;
+    --danger: #d1242f;
+    --danger-strong: #a40e26;
+    --code-bg: #f6f6f6;
+    color-scheme: light;
   }
-}
-
-:root[data-theme="dark"] {
-  --bg: #0e1116;
-  --surface: #161b22;
-  --surface-2: #1d232c;
-  --border: #2d343e;
-  --fg: #e6edf3;
-  --muted: #8b949e;
-  --accent: #5aa0e6;
-  --accent-fg: #0b1220;
-  --ok: #3fb950;
-  --warn: #d29922;
-  --danger: #f85149;
-  --code-bg: #0b0f14;
-  color-scheme: dark;
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
   --color-fg: var(--fg);
+  --color-fg-light: var(--fg-light);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
   --color-code: var(--code-bg);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
 }
 
@@ -73,10 +100,18 @@ html,
 body {
   background: var(--bg);
   color: var(--fg);
+  font-family: var(--font-sans);
   font-size: 14px;
+  -webkit-font-smoothing: antialiased;
 }
 
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 1px;
+}
+
+/* Thin scrollbars, as in Studio. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }

@@ -242,7 +242,7 @@ function InvitationsIndicator() {
 }
 
 /** The current terms, which the user accepts before anything else. */
-function TermsGate({ version }: { version: number }) {
+export function TermsGate({ version }: { version: number }) {
   const q = useQuery({ queryKey: ["terms"], queryFn: api.terms });
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -300,7 +300,7 @@ export function AuthShell({ children, wide }: { children: React.ReactNode; wide?
  * Warns while backups cannot run, or the backup key was never confirmed as
  * stored offline (spec §15: "a warning banner if never re-confirmed").
  */
-function BackupBanner() {
+export function BackupBanner() {
   const q = useQuery({ queryKey: ["backups", "overview"], queryFn: () => api.backupOverview(), refetchInterval: 60_000, retry: false });
   const o = q.data;
   if (!o) return null;
@@ -329,7 +329,7 @@ function BackupBanner() {
  * suspension and its reason, a pending deletion (owners can cancel), and
  * open break-glass sessions (owners can end them).
  */
-function OrgBanners() {
+export function OrgBanners() {
   const { org } = useCurrentOrg();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
