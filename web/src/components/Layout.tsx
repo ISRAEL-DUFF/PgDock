@@ -2,7 +2,7 @@ import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage, type Terms } from "../api/client";
-import { canManageOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
+import { canManageOrg, clearCurrentOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { refreshSession, sessionQuery } from "../lib/session";
 import { applyTheme, loadTheme, nextTheme, type Theme } from "../lib/theme";
 import { Alert, Button, cx, Field, Input, Modal, Select } from "./ui";
@@ -85,6 +85,7 @@ export function AppLayout() {
   const logout = async () => {
     await api.logout().catch(() => {});
     qc.clear();
+    clearCurrentOrg();
     await navigate({ to: "/login" });
   };
 

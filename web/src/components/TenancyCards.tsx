@@ -149,7 +149,7 @@ export function SwitchCredentialsCard({ p }: { p: Project }) {
           <>
             <p className="text-sm text-muted">
               This project was created before PGDock used opaque names, so its role name ({p.owner_role}) is visible to other tenants on the same cluster. Switching
-              gives it an opaque role and a new password; the old ones keep working for a grace period, then stop.
+              gives it an opaque role and a new password; the old ones keep working for a grace period, then stop. Members' personal database logins are renamed straight away (same password, new user name), so they need to copy the new connection string.
             </p>
             <div className="flex items-end gap-2">
               <Field label="Grace period (days)">{(id) => <Input id={id} type="number" min={1} max={90} className="w-24" value={days} onChange={(e) => setDays(Number(e.target.value))} />}</Field>

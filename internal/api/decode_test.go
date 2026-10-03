@@ -1,12 +1,16 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
+	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/provision"
 )
 
@@ -49,6 +53,34 @@ func TestProvisionErrorUnreachableIs503(t *testing.T) {
 	rec := httptest.NewRecorder()
 	(&Server{}).provisionError(rec, "demote", fmt.Errorf("%w: connection refused", provision.ErrUnreachable))
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "not reachable") {
+		t.Fatalf("got %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestDecodeOptionalJSONAcceptsNoBody(t *testing.T) {
+	type body struct {
+		Note *string `json:"note"`
+	}
+	for _, c := range []struct {
+		name, in string
+		ok       bool
+	}{{"none", "", true}, {"empty object", "{}", true}, {"note", `{"note":"x"}`, true}, {"unknown", `{"nope":1}`, false}, {"broken", `{`, false}} {
+		rec := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(c.in))
+		var b body
+		if got := decodeOptionalJSON(rec, r, &b); got != c.ok {
+			t.Errorf("%s: decodeOptionalJSON = %v, want %v (%d %s)", c.name, got, c.ok, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestListOrgMembersRefusesRestrictedToken(t *testing.T) {
+	ctx := context.WithValue(context.Background(), keyAccess, access{Actor: authz.Actor{
+		Kind: authz.ActorToken, TokenProjects: []uuid.UUID{uuid.New()},
+	}})
+	rec := httptest.NewRecorder()
+	(&Server{}).ListOrgMembers(rec, httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx), uuid.New())
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("got %d %s", rec.Code, rec.Body)
 	}
 }

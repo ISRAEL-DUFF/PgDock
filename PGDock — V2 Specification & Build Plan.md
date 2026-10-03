@@ -672,7 +672,7 @@ Every org has a **quota plan**. The platform admin defines plan templates and as
 | Projects (excluding branches) | 10 | 25 | — |
 | Branches (total) | 10 | 25 | — |
 | Total shared-tier storage | 5 GB | 25 GB | — |
-| Per-project shared storage | 2 GB | 5 GB | — |
+| Per-project shared storage | 512 MB | 8 GB | — |
 | Connections per project (backend) | 20 | 30 | — |
 | Dedicated allowance (§10.6) | none (by request) | by request | as configured |
 | Backup storage on platform targets | 10 GB | 50 GB | — |
@@ -1287,7 +1287,7 @@ Carried forward, unprioritised: **billing and payments** (pricing on top of §10
 
 ## 17. Open Questions
 
-1. **Default plan limits.** Are the Personal and Team numbers in §10.3 sensible for the friends and colleagues you have in mind, especially 2 GB per project and 5 GB total on Personal?
+1. **Default plan limits.** Are the Personal and Team numbers in §10.3 sensible for the friends and colleagues you have in mind, especially 512 MB per project and 5 GB total on Personal (decided: 512 MB Personal, 8 GB Team per project; see docs/decisions.md)?
 2. **Members creating projects.** Should org members be able to create projects by default, or only owners and admins?
 3. **Break-glass approval.** Is notify-and-audit enough, or should break-glass require an org owner to approve before it starts (slower in an incident, stronger for trust)?
 4. **Per-org shared clusters in V2.** Do you expect to need these soon, or can §10.5 move to the roadmap to save about two days?

@@ -24,6 +24,17 @@ export function setCurrentOrg(id: string) {
   listeners.forEach((l) => l());
 }
 
+/** Forgets the remembered organisation (sign-out): the next person to sign in on this browser starts in their own. */
+export function clearCurrentOrg() {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // nothing stored to forget
+  }
+  memory = null;
+  listeners.forEach((l) => l());
+}
+
 let memory: string | null = null;
 
 function subscribe(l: () => void) {

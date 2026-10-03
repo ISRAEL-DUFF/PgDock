@@ -5,6 +5,30 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Fixes from QA
+- Request bodies with unknown fields are refused (`400`) instead of
+  ignored; a misspelled field could clear an organisation's outbound
+  allow-list.
+- `GET /me` with an API token returns the token's real `expires_at`.
+- Approving or rejecting a dedicated request, and demoting, accept an
+  empty body (every field is optional).
+- A project-restricted API token can no longer list organisation members.
+- Signing out forgets the organisation remembered in the browser.
+- S3-compatible stores that are unreachable or stall now fail within
+  seconds (connect, TLS and reply timeouts) instead of holding an
+  operation, and its slot in the operations-in-flight quota, for 30 minutes.
+- Starting a stopped dedicated instance refreshes its recorded published
+  port (dev mode, where Docker picks a new one).
+- Switching to opaque credentials: the UI and docs now say members'
+  personal logins are renamed at once. Per-project plan defaults are
+  512 MB (Personal) and 8 GB (Team); the spec now says so.
+- Demoting a project whose instance is down returns `503` with a reason,
+  not a bare `500`.
+- Upgrade: shared projects created before V2 get `temp_file_limit` (a
+  migration queues `apply_settings` for each); `install.sh` recreates the
+  poolers so they read the new configuration; an agent on an older minor
+  version than the server is refused work (upgrade agents first).
+
 ### Hardening (V2 M16)
 - **Security:** scheduled SQL jobs no longer run on a superuser
   connection, and copying a tenant's data (branches, restores, imports,

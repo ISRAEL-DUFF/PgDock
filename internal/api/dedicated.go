@@ -319,7 +319,7 @@ func (s *Server) PromoteProject(w http.ResponseWriter, r *http.Request, id gen.P
 // demoteRequest reads an optional DemoteRequest body.
 func demoteRequest(w http.ResponseWriter, r *http.Request) (gen.DemoteRequest, bool) {
 	var req gen.DemoteRequest
-	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+	if !decodeOptionalJSON(w, r, &req) {
 		return req, false
 	}
 	return req, true

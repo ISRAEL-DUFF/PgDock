@@ -241,6 +241,10 @@ func (s *Service) Act(ctx context.Context, p store.Project, action string) (agen
 	case ActionStart:
 		res, err = agent.StartInstance(ctx, id)
 		if err == nil {
+			// A restarted container may be published on a new port.
+			err = s.recordRunning(ctx, inst, agent, res)
+		}
+		if err == nil {
 			err = q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "running"})
 		}
 	default:

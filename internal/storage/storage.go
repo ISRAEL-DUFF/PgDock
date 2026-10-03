@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -91,13 +92,31 @@ func New(t Target) (*Client, error) {
 		BaseEndpoint: aws.String(t.Endpoint),
 		Credentials:  credentials.NewStaticCredentialsProvider(t.AccessKey, t.SecretKey, ""),
 		UsePathStyle: t.PathStyle,
-		HTTPClient:   &http.Client{Timeout: 0}, // streaming bodies; contexts bound requests
+		HTTPClient:   &http.Client{Timeout: 0, Transport: transport()}, // streaming bodies; contexts bound requests
 		// R2 and many S3-compatible stores reject the newer default
 		// checksum headers on streamed uploads.
 		RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired,
 		ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired,
 	})
 	return &Client{t: t, s3: c}, nil
+}
+
+// Timeouts for reaching a store. They bound the connection and the wait for
+// a reply, not the body: a stalled or unreachable endpoint fails in seconds
+// instead of holding an operation (and its place in the organisation's
+// operations-in-flight quota) until the operation's own 30-minute limit.
+const (
+	dialTimeout           = 10 * time.Second
+	tlsHandshakeTimeout   = 10 * time.Second
+	responseHeaderTimeout = 2 * time.Minute
+)
+
+func transport() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DialContext = (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext
+	t.TLSHandshakeTimeout = tlsHandshakeTimeout
+	t.ResponseHeaderTimeout = responseHeaderTimeout
+	return t
 }
 
 // Target returns the client's target.

@@ -150,7 +150,9 @@ tenants cannot learn them. Projects from before V2 are renamed on the
 server side and keep their old name as an alias, so their URLs keep
 working; their role name stays visible until an admin uses **Switch to
 opaque credentials** (Settings), which issues new URLs and keeps the old
-ones working for a grace period.
+ones working for a grace period. Members' personal database logins
+(`<database>_u_<member>`) are renamed at once, with the same password: their
+old user name stops working, so members copy the new connection string.
 
 ## The table editor
 

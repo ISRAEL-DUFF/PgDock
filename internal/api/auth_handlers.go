@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -15,12 +16,25 @@ import (
 )
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	return decodeBody(w, r, v, false)
+}
+
+// decodeOptionalJSON is decodeJSON for bodies whose fields are all optional:
+// no body at all is the same as {}.
+func decodeOptionalJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	return decodeBody(w, r, v, true)
+}
+
+func decodeBody(w http.ResponseWriter, r *http.Request, v any, optional bool) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16))
 	// A field the endpoint doesn't know is a mistake in the request, and
 	// ignoring it is not harmless: on a replace-style PUT a misspelled field
 	// reads as an empty value and wipes what was there.
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
+		if optional && errors.Is(err, io.EOF) {
+			return true
+		}
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return false
 	}

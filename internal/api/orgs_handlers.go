@@ -163,6 +163,12 @@ func (s *Server) UpdateOrg(w http.ResponseWriter, r *http.Request, org gen.OrgID
 
 // ListOrgMembers implements GET /api/v1/orgs/{org}/members.
 func (s *Server) ListOrgMembers(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
+	// OrgView lets a project-restricted token through for the organisation's
+	// own record, but the member list names people beyond its projects.
+	if accessFrom(r.Context()).Actor.Restricted() {
+		writeError(w, http.StatusForbidden, "insufficient_scope", "this token is restricted to some projects; listing organisation members needs an unrestricted token")
+		return
+	}
 	q := store.New(s.db)
 	rows, err := q.ListOrgMembers(r.Context(), org)
 	if err != nil {
