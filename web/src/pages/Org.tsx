@@ -5,6 +5,7 @@ import { api, errorMessage, type InvitationCreated, type Org, type OrgMember, ty
 import { Alert, Badge, Button, Card, CopyField, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, Table } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { canManageOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
+import { StorageTargetsPanel } from "../components/StorageTargets";
 import { sessionQuery } from "../lib/session";
 import { OrgTokensCard } from "../components/Tokens";
 
@@ -344,6 +345,9 @@ export function OrgSettingsPage() {
           </p>
         </Card>
         <OrgTokensCard orgId={org.id} />
+        <Card title="Backup storage">
+          <StorageTargetsPanel org={org.id} />
+        </Card>
         {err && <Alert>{err}</Alert>}
         {org.role === "owner" && !org.personal && org.status === "active" && <DeleteOrgCard org={org} />}
       </div>

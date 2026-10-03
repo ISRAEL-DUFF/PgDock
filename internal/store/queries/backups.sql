@@ -1,21 +1,8 @@
--- name: GetDefaultStorageTarget :one
-SELECT * FROM storage_targets WHERE is_default;
-
--- name: InsertStorageTarget :one
-INSERT INTO storage_targets (id, name, endpoint, bucket, prefix, credentials, is_default)
-VALUES (@id, @name, @endpoint, @bucket, @prefix, @credentials, true)
-RETURNING *;
-
--- name: UpdateStorageTarget :one
-UPDATE storage_targets
-SET endpoint = @endpoint, bucket = @bucket, prefix = @prefix, credentials = @credentials
-WHERE id = @id
-RETURNING *;
-
 -- name: InsertBackup :one
 -- tenant: system - backup workers and the scheduler, or a project the request already authorized.
-INSERT INTO backups (project_id, kind, object_key, started_at, status, storage_target_id, operation_id, key_wrapped, expires_at)
-VALUES (sqlc.narg(project_id), @kind, @object_key, now(), 'running', @storage_target_id, sqlc.narg(operation_id), @key_wrapped, sqlc.narg(expires_at))
+INSERT INTO backups (project_id, kind, object_key, started_at, status, storage_target_id, operation_id, key_wrapped, expires_at, encryption_key_id, copy_of)
+VALUES (sqlc.narg(project_id), @kind, @object_key, now(), 'running', @storage_target_id, sqlc.narg(operation_id), @key_wrapped, sqlc.narg(expires_at),
+        sqlc.narg(encryption_key_id), sqlc.narg(copy_of))
 RETURNING *;
 
 -- name: FinishBackup :one
@@ -129,13 +116,17 @@ SELECT * FROM operations WHERE kind = 'restore_test' ORDER BY created_at DESC LI
 
 -- name: InsertBaseBackup :one
 -- tenant: system - backup workers and the scheduler, or a project the request already authorized.
-INSERT INTO backups (project_id, kind, object_key, started_at, finished_at, status, size_bytes, storage_target_id, operation_id)
-VALUES (@project_id, 'base', @object_key, @started_at, @finished_at, 'succeeded', @size_bytes, @storage_target_id, sqlc.narg(operation_id))
+INSERT INTO backups (project_id, kind, object_key, started_at, finished_at, status, size_bytes, storage_target_id, operation_id, encryption_key_id, walg_prefix)
+VALUES (@project_id, 'base', @object_key, @started_at, @finished_at, 'succeeded', @size_bytes, @storage_target_id, sqlc.narg(operation_id),
+        sqlc.narg(encryption_key_id), @walg_prefix)
 RETURNING *;
 
 -- name: ListBaseBackups :many
 -- tenant: system - backup workers and the scheduler, or a project the request already authorized.
-SELECT * FROM backups WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' ORDER BY finished_at;
+-- With walg_prefix, only those under it: after a storage or key switch, the
+-- earlier archive's base backups are not in the current WAL-G listing.
+SELECT * FROM backups WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded'
+  AND (sqlc.narg(walg_prefix)::text IS NULL OR walg_prefix = sqlc.narg(walg_prefix)) ORDER BY finished_at;
 
 -- BaseBackupBefore is the newest base backup of a project finished at or
 -- before a time (the starting point of a point-in-time recovery).
@@ -167,9 +158,50 @@ WHERE b.status = 'running' AND (
 -- Failed backups whose object may still be in storage: an upload can
 -- complete at the bucket after its attempt gave up on it.
 SELECT * FROM backups
-WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id = @storage_target_id
+WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id IS NOT NULL
 ORDER BY started_at LIMIT 100;
 
 -- name: MarkFailedBackupCleaned :exec
 -- tenant: system - backup workers and the scheduler, or a project the request already authorized.
 UPDATE backups SET deleted_at = now() WHERE id = @id AND status = 'failed';
+
+-- name: SetBackupFinished :one
+-- tenant: system - copy-existing writes the copy's row as the original's twin.
+UPDATE backups SET status = 'succeeded', size_bytes = @size_bytes, checksum = @checksum,
+  started_at = @started_at, finished_at = @finished_at
+WHERE id = @id
+RETURNING *;
+
+-- name: MarkBackupCopied :exec
+-- tenant: system - copy-existing marks the original once its copy verified.
+UPDATE backups SET status = 'copied' WHERE id = @id AND status = 'succeeded';
+
+-- name: CopyCandidates :many
+-- tenant: system - copy-existing for a project the request already authorized.
+-- A project's logical backups that are not on the target and not yet
+-- copied there. Base backups stay with their WAL-G archive.
+SELECT * FROM backups b
+WHERE b.project_id = @project_id AND b.status = 'succeeded' AND b.kind IN ('logical', 'final', 'safety')
+  AND b.storage_target_id IS DISTINCT FROM @storage_target_id::uuid
+  AND NOT EXISTS (SELECT 1 FROM backups c WHERE c.copy_of = b.id AND c.status IN ('running', 'succeeded'))
+ORDER BY b.finished_at;
+
+-- name: CopiedOriginal :one
+-- tenant: system - retention removes a copy's original along with it.
+SELECT * FROM backups WHERE id = @id AND status = 'copied' AND deleted_at IS NULL;
+
+-- name: CopiedOriginals :many
+-- tenant: system - copy-existing with delete_originals for a project the request already authorized.
+SELECT * FROM backups WHERE project_id = @project_id AND status = 'copied' AND deleted_at IS NULL;
+
+-- name: ExpireArchiveBaseBackups :exec
+-- tenant: system - a storage or key switch retires a dedicated project's previous WAL-G archive.
+-- Base backups under an archive no longer written to expire after the
+-- point-in-time window; the archive goes with the last of them.
+UPDATE backups SET expires_at = @expires_at::timestamptz
+WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' AND walg_prefix = @walg_prefix AND expires_at IS NULL;
+
+-- name: LiveBackupsUnderPrefix :one
+-- tenant: system - deciding whether a retired WAL-G archive can go.
+SELECT count(*)::int FROM backups
+WHERE kind = 'base' AND status = 'succeeded' AND walg_prefix = @walg_prefix AND storage_target_id = @storage_target_id;

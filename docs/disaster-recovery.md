@@ -67,3 +67,35 @@ the project's **Backups** tab and **Restore** its latest backup into a new
 project (in-place restore needs the old database to exist). Point the app at
 the new connection string. Final backups of deleted projects stay listed
 for 30 days.
+
+## Restoring a project without PGDock
+
+A project with its own backup key (**Backups → Storage → Use a project
+key**) can be restored with standard tools alone, from the downloaded
+key file and the bucket, even if every PGDock server is gone. This is
+the point of an organisation's own storage target: the data and the key
+are both yours.
+
+1. Get the object from the bucket with any S3 client. Logical backups
+   are under `<prefix>/projects/<project id>/logical/` (and `final/`,
+   `safety/`); the ones made with the project key end in `.dump.gpg`.
+2. Decrypt it with the downloaded key file, in a throwaway GnuPG home:
+
+   ```sh
+   export GNUPGHOME=$(mktemp -d)
+   gpg --batch --import pgdock-backup-key-<project id>.asc
+   gpg --batch --decrypt backup.dump.gpg > backup.dump
+   ```
+
+3. Restore the `pg_dump` custom-format archive into any PostgreSQL 18:
+
+   ```sh
+   createdb restored
+   pg_restore --no-owner --no-acl -d restored backup.dump
+   ```
+
+Dedicated projects' WAL-G base backups and WAL under
+`<prefix>/instances/<instance id>/wal-g-…/` use the same key: point
+`wal-g backup-fetch` at that prefix with `WALG_PGP_KEY_PATH` set to the
+key file. Backups made before the project key was enabled (`.dump.enc`)
+need the instance backup key and `pgdock-agent decrypt` instead.

@@ -553,6 +553,13 @@ func (s *Service) Transfer(ctx context.Context, p store.Project, toOrg uuid.UUID
 		if _, err := tx.Exec(ctx, `SELECT 1 FROM projects WHERE id = $1 AND org_id = $2 FOR UPDATE`, p.ID, p.OrgID); err != nil {
 			return err
 		}
+		// Org targets stay with their organisation (V2 §6): a project using
+		// one, or with backups on one, moves to platform storage first.
+		if uses, err := q.ProjectsUsingOrgTargets(ctx, store.ProjectsUsingOrgTargetsParams{ID: p.ID, OrgID: p.OrgID}); err != nil {
+			return err
+		} else if uses {
+			return fmt.Errorf("%w: the project keeps backups on one of this organisation's storage targets; switch it to platform storage (copying existing backups, deleting the originals) first", ErrConflict)
+		}
 		members, err := q.ListProjectMembers(ctx, store.ListProjectMembersParams{ProjectID: p.ID, OrgID: p.OrgID})
 		if err != nil {
 			return err

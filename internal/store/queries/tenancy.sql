@@ -103,10 +103,13 @@ WHERE p.tier = 'dedicated' AND i.kind = 'dedicated'
 
 -- name: DailyBackupBytes :many
 -- tenant: system - usage recording; rows carry org_id.
--- Bytes of successful backups each project held during [day_start, day_end).
+-- Bytes of successful backups each project held during [day_start, day_end)
+-- on platform targets: storage on an org's own target is the org's bill
+-- (V2 s6).
 SELECT p.id AS project_id, p.org_id, o.plan_id, COALESCE(sum(b.size_bytes), 0)::float8 AS bytes
 FROM backups b JOIN projects p ON p.id = b.project_id JOIN organizations o ON o.id = p.org_id
-WHERE b.status IN ('succeeded', 'deleted') AND b.size_bytes IS NOT NULL
+WHERE b.status IN ('succeeded', 'deleted', 'copied') AND b.size_bytes IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM storage_targets t WHERE t.id = b.storage_target_id AND t.org_id IS NOT NULL)
   AND b.finished_at < @day_end::timestamptz
   AND (b.deleted_at IS NULL OR b.deleted_at > @day_start::timestamptz)
 GROUP BY p.id, p.org_id, o.plan_id;
@@ -278,7 +281,9 @@ SELECT o.id, o.name, o.slug, o.status, o.suspended_reason, o.outbound_disabled, 
        (SELECT count(*) FROM projects p WHERE p.org_id = o.id AND p.deleted_at IS NULL)::int AS project_count,
        COALESCE((SELECT sum((SELECT m.value FROM metric_points m WHERE m.scope = 'project' AND m.scope_id = p.id
                   AND m.metric = 'size_bytes' AND m.resolution = '1m' ORDER BY m.ts DESC LIMIT 1))
-                 FROM projects p WHERE p.org_id = o.id AND p.deleted_at IS NULL), 0)::float8 AS size_bytes
+                 FROM projects p WHERE p.org_id = o.id AND p.deleted_at IS NULL), 0)::float8 AS size_bytes,
+       (SELECT count(*) FROM projects p JOIN storage_targets t ON t.id = p.storage_target_id
+        WHERE p.org_id = o.id AND p.deleted_at IS NULL AND t.org_id IS NOT NULL)::int AS org_target_projects
 FROM organizations o JOIN quota_plans q ON q.id = o.plan_id
 WHERE o.status <> 'deleted'
   AND (sqlc.narg(search)::text IS NULL OR o.name ILIKE '%' || sqlc.narg(search) || '%' OR o.slug ILIKE '%' || sqlc.narg(search) || '%')

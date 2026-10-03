@@ -40,7 +40,14 @@ export function AdminOrgsPage() {
               </td>
               <td className="px-3 py-2">{o.plan}</td>
               <td className="px-3 py-2">{o.member_count}</td>
-              <td className="px-3 py-2">{o.project_count}</td>
+              <td className="px-3 py-2">
+                {o.project_count}
+                {!!o.org_target_projects && (
+                  <span className="ml-1 text-xs text-muted" title="Their backups go to one of the organisation's own targets, which you don't see.">
+                    ({o.org_target_projects} on an org target)
+                  </span>
+                )}
+              </td>
               <td className="px-3 py-2 text-xs">{formatBytes(o.size_bytes)}</td>
               <td className="px-3 py-2 font-mono text-xs">{formatQuantity(storage[o.id] ?? 0)} GB-h</td>
               <td className="px-3 py-2">

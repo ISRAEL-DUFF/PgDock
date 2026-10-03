@@ -181,8 +181,8 @@ type TestStep struct {
 	Took time.Duration
 }
 
-// LiveTest writes, reads back, and deletes a small object, as the setup
-// wizard does before saving a target (spec §8.2).
+// LiveTest writes, reads back, lists, and deletes a small object under the
+// target's prefix, as saving a target requires (spec §8.2, V2 §6).
 func (c *Client) LiveTest(ctx context.Context) ([]TestStep, bool) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -221,6 +221,18 @@ func (c *Client) LiveTest(ctx context.Context) ([]TestStep, bool) {
 			return errors.New("read back different bytes than were written")
 		}
 		return nil
+	}) && run("list", func() error {
+		want := c.t.Key(key)
+		out, err := c.s3.ListObjectsV2(ctx, &s3.ListObjectsV2Input{Bucket: aws.String(c.t.Bucket), Prefix: aws.String(want)})
+		if err != nil {
+			return err
+		}
+		for _, o := range out.Contents {
+			if aws.ToString(o.Key) == want {
+				return nil
+			}
+		}
+		return errors.New("the object just written is not in the listing")
 	}) && run("delete", func() error { return c.Delete(ctx, key) })
 	return steps, ok
 }

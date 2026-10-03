@@ -48,10 +48,14 @@ func (s *Server) backupError(w http.ResponseWriter, what string, err error) {
 }
 
 func toAPIBackup(b store.Backup) gen.Backup {
+	enc := gen.BackupEncryptionInstance
+	if b.EncryptionKeyID != nil {
+		enc = gen.BackupEncryptionProject
+	}
 	return gen.Backup{
 		Id: b.ID, ProjectId: b.ProjectID, Kind: gen.BackupKind(b.Kind), Status: gen.BackupStatus(b.Status),
 		SizeBytes: b.SizeBytes, Checksum: b.Checksum, StartedAt: b.StartedAt, FinishedAt: b.FinishedAt,
-		ExpiresAt: b.ExpiresAt, OperationId: b.OperationID, Error: b.Error,
+		ExpiresAt: b.ExpiresAt, OperationId: b.OperationID, Error: b.Error, Encryption: &enc,
 	}
 }
 
@@ -118,8 +122,22 @@ func (s *Server) ListBackups(w http.ResponseWriter, r *http.Request, params gen.
 		b := toAPIBackup(store.Backup{
 			ID: row.ID, ProjectID: row.ProjectID, Kind: row.Kind, ObjectKey: row.ObjectKey, SizeBytes: row.SizeBytes,
 			Checksum: row.Checksum, StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, Status: row.Status,
-			ExpiresAt: row.ExpiresAt, OperationID: row.OperationID, Error: row.Error,
+			ExpiresAt: row.ExpiresAt, OperationID: row.OperationID, Error: row.Error, EncryptionKeyID: row.EncryptionKeyID,
 		})
+		b.KeyFingerprint = row.KeyFingerprint
+		if row.TargetName != nil {
+			kind := gen.StorageTargetKindPlatform
+			target := *row.TargetName
+			if row.TargetOrgID != nil {
+				kind = gen.StorageTargetKindOrg
+				if *row.TargetOrgID != acc.OrgID || acc.BreakGlass {
+					// Org targets are invisible outside their organisation
+					// and to the platform admin (V2 §6).
+					target = "an org target"
+				}
+			}
+			b.StorageTarget, b.StorageKind = &target, &kind
+		}
 		name := row.ProjectName
 		b.ProjectName = &name
 		deleted := row.ProjectDeleted
@@ -167,6 +185,19 @@ func (s *Server) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id 
 	auditFrom(r.Context()).target("project", id.String())
 	if s.tenancy != nil && !s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), accessFrom(r.Context()).OrgID)) {
 		return
+	}
+	if s.tenancy != nil {
+		// Backups on platform targets count against the backup quota; on
+		// the organisation's own target they don't (V2 §6).
+		p, err := s.projects.Get(r.Context(), id)
+		if err != nil {
+			s.provisionError(w, "backup now", err)
+			return
+		}
+		if pl, err := s.backups.PlacementFor(r.Context(), p); err == nil && !pl.OrgTarget &&
+			!s.checkQuota(w, s.tenancy.CheckBackupStorage(r.Context(), p.OrgID)) {
+			return
+		}
 	}
 	op, err := s.backups.BackupNow(r.Context(), id, userID(r.Context()))
 	if err != nil {

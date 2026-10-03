@@ -39,6 +39,38 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
 - Restores: a project's Backups tab → **Restore**, into a new project or in
   place (in place takes a safety backup first and needs re-authentication).
 
+### Storage targets and project keys
+
+Backups go to a **storage target**, an S3 bucket and prefix. **Platform
+targets** (Settings → Platform storage targets) are yours to run; exactly
+one is the default, used by every project that hasn't chosen another, and
+backup storage on them counts against each organisation's
+`backup_storage_mb` quota (manual backups beyond it are refused; nightly
+ones still run). **Org targets** (Organisation → Backup storage, owners
+and admins) are buckets an organisation brings itself: its projects can
+use them, the storage doesn't count against its quota, and neither other
+organisations nor you see them (the admin organisation list only counts
+the projects using one). Adding or editing a target writes, reads, lists
+and deletes a test object under its prefix first; credentials are sealed
+with the master key and never shown again.
+
+A project admin picks the target under **Backups → Storage**. New backups
+go there; existing ones stay where they are and stay restorable, or can
+be copied over (verified by checksum, originals deleted only if asked).
+For a dedicated project the switch restarts the instance with WAL-G
+pointed at the new target and takes a base backup at once; the previous
+archive stays restorable for the 7-day recovery window, then goes.
+
+**Use a project key** gives a project its own backup key: new backups are
+OpenPGP messages to it, and on the dedicated tier WAL-G uses it too.
+**Download key…** needs re-authentication, is audited, and gives a file
+with a README on restoring with gpg and pg_restore alone
+([disaster recovery](disaster-recovery.md#restoring-a-project-without-pgdock)).
+A target can't be deleted while a project uses it; one that still holds
+backups is deleted only when you accept that they become unrestorable. A
+project whose backups are on its organisation's target moves to platform
+storage before it can be transferred to another organisation.
+
 ## Security checks
 
 Every shared cluster is checked nightly against the tenant-isolation

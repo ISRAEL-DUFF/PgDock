@@ -30,6 +30,13 @@ func (secrets) StorageTarget(context.Context) (uuid.UUID, storage.Target, error)
 	return uuid.New(), storage.Target{}, nil
 }
 func (secrets) BackupKey(context.Context) ([]byte, error) { return make([]byte, 32), nil }
+func (secrets) TargetByID(context.Context, uuid.UUID) (storage.Target, error) {
+	return storage.Target{}, nil
+}
+func (secrets) ProjectPGPKey(context.Context, uuid.UUID) (string, error) { return "", nil }
+func (secrets) ProjectWALG(context.Context, store.Project) (uuid.UUID, *uuid.UUID, error) {
+	return uuid.New(), nil, nil
+}
 
 type env struct {
 	db  *pgxpool.Pool

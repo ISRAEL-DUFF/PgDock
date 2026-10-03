@@ -22,6 +22,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/agentca"
 	"github.com/israel-duff/pgdock/internal/backupfmt"
+	"github.com/israel-duff/pgdock/internal/pgpstream"
 	"github.com/israel-duff/pgdock/internal/storage"
 )
 
@@ -212,7 +213,13 @@ func (s *Service) doDump(ctx context.Context, req agentapi.DumpRequest) (agentap
 	plain := &counter{}
 	encErr := make(chan error, 1)
 	go func() {
-		ew, err := backupfmt.NewWriter(hashed, req.Upload.FileKey, req.Upload.WrappedKey)
+		var ew io.WriteCloser
+		var err error
+		if req.Upload.PGPPublicKey != "" {
+			ew, err = pgpstream.Encrypt(hashed, req.Upload.PGPPublicKey)
+		} else {
+			ew, err = backupfmt.NewWriter(hashed, req.Upload.FileKey, req.Upload.WrappedKey)
+		}
 		if err == nil {
 			_, err = io.Copy(io.MultiWriter(ew, plain), out)
 			if cerr := ew.Close(); err == nil {
@@ -277,7 +284,12 @@ func (s *Service) doRestore(ctx context.Context, req agentapi.RestoreRequest) ([
 		return nil, err
 	}
 	defer body.Close()
-	dec, err := backupfmt.NewReader(body, req.Download.FileKey)
+	var dec io.Reader
+	if req.Download.PGPPrivateKey != "" {
+		dec, err = pgpstream.Decrypt(body, req.Download.PGPPrivateKey)
+	} else {
+		dec, err = backupfmt.NewReader(body, req.Download.FileKey)
+	}
 	if err != nil {
 		return nil, err
 	}

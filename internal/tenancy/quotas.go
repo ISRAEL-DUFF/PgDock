@@ -29,7 +29,7 @@ const UnlimitedPlan = "Unlimited"
 
 // operationKinds count towards operations in flight: the heavy work an
 // organisation can queue (V2 §10.3).
-var operationKinds = []string{"backup", "base_backup", "restore", "import", "pitr", "export_project", "reclaim_space"}
+var operationKinds = []string{"backup", "base_backup", "restore", "import", "pitr", "export_project", "reclaim_space", "storage_switch"}
 
 func (s *Service) orgActive(o store.OrgWithPlanRow) error {
 	if o.Status != OrgActive {
@@ -77,6 +77,28 @@ func (s *Service) CheckOperation(ctx context.Context, orgID uuid.UUID) error {
 		if int64(n) >= limit {
 			return &QuotaError{Limit: store.LimitOperationsInFlight, Used: int64(n), Max: limit}
 		}
+	}
+	return nil
+}
+
+// CheckBackupStorage refuses another backup to a platform target once the
+// organisation's backups there fill its backup quota (V2 §10.3). Backups
+// on the organisation's own targets never count.
+func (s *Service) CheckBackupStorage(ctx context.Context, orgID uuid.UUID) error {
+	l, _, err := s.Limits(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	limit, ok := l.Get(store.LimitBackupStorageMB)
+	if !ok {
+		return nil
+	}
+	b, err := store.New(s.db).OrgPlatformBackupBytes(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if used := int64(b / (1 << 20)); used >= limit {
+		return &QuotaError{Limit: store.LimitBackupStorageMB, Used: used, Max: limit}
 	}
 	return nil
 }
@@ -177,6 +199,10 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 	if err != nil {
 		return nil, o, err
 	}
+	backups, err := q.OrgPlatformBackupBytes(ctx, orgID)
+	if err != nil {
+		return nil, o, err
+	}
 	s.consoleMu.Lock()
 	console := s.console[orgID]
 	s.consoleMu.Unlock()
@@ -186,6 +212,7 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 		store.LimitProjectStorageMB:   largest / (1 << 20),
 		store.LimitOperationsInFlight: float64(ops),
 		store.LimitConsoleQueries:     float64(console),
+		store.LimitBackupStorageMB:    backups / (1 << 20),
 	}
 	var out []Quota
 	for _, k := range store.LimitKeys {

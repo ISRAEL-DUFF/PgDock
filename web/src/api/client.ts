@@ -59,6 +59,8 @@ export type BackupKeyInfo = S["BackupKeyInfo"];
 export type BackupKeyExport = S["BackupKeyExport"];
 export type StorageRequest = S["StorageRequest"];
 export type StorageSettings = S["StorageSettings"];
+export type StorageTarget = S["StorageTarget"];
+export type ProjectBackupStorage = S["ProjectBackupStorage"];
 export type StorageTestResult = S["StorageTestResult"];
 export type RestoreResponse = S["RestoreResponse"];
 export type ImportPreflight = S["ImportPreflight"];
@@ -352,6 +354,38 @@ export const api = {
   generateBackupKey: () => request<BackupKeyExport>("POST", "/api/v1/settings/backup-key"),
   exportBackupKey: () => request<BackupKeyExport>("POST", "/api/v1/settings/backup-key/export"),
   confirmBackupKey: (key: string) => request<BackupKeyInfo>("POST", "/api/v1/settings/backup-key/confirm", { key }),
+
+  // Storage targets (V2 §6). org undefined: platform targets (platform admin).
+  storageTargets: (org?: string) => getJSON<S["StorageTargetList"]>(org ? `/api/v1/orgs/${org}/storage-targets` : "/api/v1/admin/storage-targets"),
+  createStorageTarget: (org: string | undefined, b: S["StorageTargetRequest"]) =>
+    request<S["StorageTargetSaveResult"]>("POST", org ? `/api/v1/orgs/${org}/storage-targets` : "/api/v1/admin/storage-targets", b),
+  updateStorageTarget: (org: string | undefined, id: string, b: S["StorageTargetRequest"]) =>
+    request<S["StorageTargetSaveResult"]>("PATCH", org ? `/api/v1/orgs/${org}/storage-targets/${id}` : `/api/v1/admin/storage-targets/${id}`, b),
+  deleteStorageTarget: (org: string | undefined, id: string, acceptUnrestorable = false) =>
+    request<void>(
+      "DELETE",
+      `${org ? `/api/v1/orgs/${org}/storage-targets/${id}` : `/api/v1/admin/storage-targets/${id}`}${qs({ accept_unrestorable: acceptUnrestorable ? "true" : undefined })}`,
+    ),
+  testStorageTarget: (org: string | undefined, b: S["StorageTargetTestRequest"]) =>
+    request<StorageTestResult>("POST", `/api/v1/storage-targets/test${qs({ org })}`, b),
+  projectBackupStorage: (id: string) => getJSON<S["ProjectBackupStorage"]>(`/api/v1/projects/${id}/storage-target`),
+  setProjectStorageTarget: (id: string, b: S["ProjectStorageTargetRequest"]) =>
+    request<S["ProjectStorageTargetResult"]>("PUT", `/api/v1/projects/${id}/storage-target`, b),
+  enableProjectBackupKey: (id: string, rotate = false) => request<S["ProjectBackupKey"]>("POST", `/api/v1/projects/${id}/backup-key`, { rotate }),
+  /** The key file (README + armored OpenPGP key); needs a recent re-authentication. */
+  downloadProjectBackupKey: async (id: string): Promise<string> => {
+    const res = await fetch(`/api/v1/projects/${id}/backup-key/download`, { credentials: "same-origin" });
+    if (!res.ok) {
+      let err: ApiErrorBody | undefined;
+      try {
+        err = (await res.json()) as ApiErrorBody;
+      } catch {
+        err = undefined;
+      }
+      throw new ApiRequestError(res.status, err);
+    }
+    return res.text();
+  },
 
   importPreflight: (source_url: string) => request<ImportPreflight>("POST", "/api/v1/imports/preflight", { source_url }),
   createImport: (b: S["ImportRequest"]) => request<ProjectCredentials>("POST", "/api/v1/imports", b),

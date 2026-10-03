@@ -244,6 +244,22 @@ var auditActions = map[string]string{
 	"POST /api/v1/projects/{id}/schema/apply":                    "project.schema.change",
 	"POST /api/v1/projects/{id}/schema/preview":                  "", // read-only
 	"POST /api/v1/projects/{id}/schema/migration":                "", // read-only
+	"POST /api/v1/orgs/{org}/storage-targets":                    "org.storage_target.create",
+	"PATCH /api/v1/orgs/{org}/storage-targets/{target_id}":       "org.storage_target.update",
+	"DELETE /api/v1/orgs/{org}/storage-targets/{target_id}":      "org.storage_target.delete",
+	"POST /api/v1/storage-targets/test":                          "", // read-only check
+	"POST /api/v1/admin/storage-targets":                         "admin.storage_target.create",
+	"PATCH /api/v1/admin/storage-targets/{target_id}":            "admin.storage_target.update",
+	"DELETE /api/v1/admin/storage-targets/{target_id}":           "admin.storage_target.delete",
+	"PUT /api/v1/projects/{id}/storage-target":                   "project.storage_target",
+	"POST /api/v1/projects/{id}/backup-key":                      "project.backup_key.enable",
+	"GET /api/v1/projects/{id}/backup-key/download":              "project.backup_key.download",
+}
+
+// auditedReads are GET routes audited like mutations: handing out a
+// secret is an event (V2 §6: backup key downloads are audited).
+var auditedReads = map[string]bool{
+	"GET /api/v1/projects/{id}/backup-key/download": true,
 }
 
 func outcomeFor(status int) string {
@@ -318,16 +334,17 @@ var csrfExempt = map[string]bool{
 // reauthRequired lists destructive routes needing a recent step-up auth
 // (spec §7.2).
 var reauthRequired = map[string]bool{
-	"DELETE /api/v1/projects/{id}":               true,
-	"POST /api/v1/settings/backup-key/export":    true,
-	"DELETE /api/v1/nodes/{id}":                  true,
-	"POST /api/v1/me/recovery-codes":             true,
-	"POST /api/v1/admin/users/{user}/reset-2fa":  true,
-	"POST /api/v1/projects/{id}/transfer":        true,
-	"POST /api/v1/orgs/{org}/transfer-ownership": true,
-	"DELETE /api/v1/orgs/{org}":                  true,
-	"POST /api/v1/admin/orgs/{org}/break-glass":  true,
-	"POST /api/v1/admin/orgs/{org}/suspend":      true,
+	"DELETE /api/v1/projects/{id}":                  true,
+	"POST /api/v1/settings/backup-key/export":       true,
+	"DELETE /api/v1/nodes/{id}":                     true,
+	"POST /api/v1/me/recovery-codes":                true,
+	"POST /api/v1/admin/users/{user}/reset-2fa":     true,
+	"POST /api/v1/projects/{id}/transfer":           true,
+	"POST /api/v1/orgs/{org}/transfer-ownership":    true,
+	"DELETE /api/v1/orgs/{org}":                     true,
+	"POST /api/v1/admin/orgs/{org}/break-glass":     true,
+	"POST /api/v1/admin/orgs/{org}/suspend":         true,
+	"GET /api/v1/projects/{id}/backup-key/download": true,
 	// POST /api/v1/backups/{id}/restore checks it for mode in_place only.
 }
 
@@ -357,7 +374,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		info := &auditInfo{}
 		ctx = context.WithValue(ctx, keyAudit, info)
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-		if mutating {
+		if mutating || auditedReads[key] {
 			defer func() {
 				action, ok := auditActions[key]
 				if !ok {

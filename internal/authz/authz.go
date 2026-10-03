@@ -62,6 +62,7 @@ var actionScope = map[Action]string{
 	OrgManage:          ScopeAdmin,
 	OrgOwnerOnly:       ScopeAdmin,
 	RestoreInPlace:     ScopeAdmin,
+	BackupStorage:      ScopeAdmin,
 	ProjectSettings:    ScopeAdmin,
 	ProjectMembers:     ScopeAdmin,
 	ProjectPromote:     ScopeAdmin,
@@ -145,6 +146,7 @@ const (
 	TableEdit          Action = "project.table_edit"      // developer: the table editor's rows and schema (V2 §4)
 	BackupCreate       Action = "project.backup"          // developer: back up, restore into a new project
 	RestoreInPlace     Action = "project.restore_inplace" // admin
+	BackupStorage      Action = "project.backup_storage"  // admin: storage target, backup key and its download (V2 s6)
 	ProjectSettings    Action = "project.settings"        // admin: rotate, settings, extensions, PITR
 	ProjectMembers     Action = "project.members"         // admin
 	ProjectPromote     Action = "project.promote"         // admin
@@ -161,6 +163,7 @@ var projectMin = map[Action]string{
 	TableEdit:          ProjectDeveloper,
 	BackupCreate:       ProjectDeveloper,
 	RestoreInPlace:     ProjectAdmin,
+	BackupStorage:      ProjectAdmin,
 	ProjectSettings:    ProjectAdmin,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,

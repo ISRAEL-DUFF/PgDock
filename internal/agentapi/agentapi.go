@@ -106,18 +106,23 @@ type HostMetrics struct {
 
 // Upload is where an agent writes an encrypted object. FileKey is the
 // object's own key (never the backup key); WrappedKey goes in the header.
+// With PGPPublicKey set (a project's own backup key, V2 s6) the object is
+// instead an OpenPGP message to that key, and FileKey/WrappedKey are unused.
 type Upload struct {
-	Storage    storage.Target `json:"storage"`
-	ObjectKey  string         `json:"object_key"`
-	FileKey    []byte         `json:"file_key"`
-	WrappedKey []byte         `json:"wrapped_key"`
+	Storage      storage.Target `json:"storage"`
+	ObjectKey    string         `json:"object_key"`
+	FileKey      []byte         `json:"file_key,omitempty"`
+	WrappedKey   []byte         `json:"wrapped_key,omitempty"`
+	PGPPublicKey string         `json:"pgp_public_key,omitempty"`
 }
 
-// Download is an encrypted object to read.
+// Download is an encrypted object to read: PGDKBK1 with FileKey, or an
+// OpenPGP message opened with PGPPrivateKey.
 type Download struct {
-	Storage   storage.Target `json:"storage"`
-	ObjectKey string         `json:"object_key"`
-	FileKey   []byte         `json:"file_key"`
+	Storage       storage.Target `json:"storage"`
+	ObjectKey     string         `json:"object_key"`
+	FileKey       []byte         `json:"file_key,omitempty"`
+	PGPPrivateKey string         `json:"pgp_private_key,omitempty"`
 }
 
 // DumpOptions select what pg_dump includes.

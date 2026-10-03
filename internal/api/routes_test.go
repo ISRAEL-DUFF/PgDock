@@ -102,6 +102,7 @@ var expected = map[authz.Action][]string{
 	authz.TableEdit:          {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.BackupCreate:       {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.RestoreInPlace:     {rOwner, rAdmin, rProjAdmin},
+	authz.BackupStorage:      {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectSettings:    {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectMembers:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
@@ -274,11 +275,14 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 	p := strings.NewReplacer(
 		"{id}", id, "{org}", w.orgA.String(), "{user}", w.users[rMember].String(),
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
-		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(),
+		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(), "{target_id}", uuid.NewString(),
 		"{user_code}", "BCDF-GHJK",
 	).Replace(pattern)
-	if rl := routeRules["GET "+pattern]; rl.scope == scopeOrgQuery {
-		p += "?org=" + w.orgA.String()
+	for _, m := range []string{"GET", "POST"} {
+		if rl := routeRules[m+" "+pattern]; rl.scope == scopeOrgQuery {
+			p += "?org=" + w.orgA.String()
+			break
+		}
 	}
 	return p
 }
@@ -404,6 +408,8 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects/{id}/members", "GET /api/v1/operations/{id}", "GET /api/v1/operations/{id}/stream",
 		// §10.4: storage against the limit, and the reaper's log
 		"GET /api/v1/projects/{id}/storage", "GET /api/v1/projects/{id}/reaped",
+		// V2 §6: where the project's backups go (choosing is BackupStorage)
+		"GET /api/v1/projects/{id}/storage-target",
 	},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
@@ -421,6 +427,11 @@ var specMatrix = map[authz.Action][]string{
 	authz.TableEdit: {"POST /api/v1/projects/{id}/tables/{schema}/{table}/changes", "POST /api/v1/projects/{id}/schema/apply"},
 	// "Create backup, restore into new project" (in place re-checked)
 	authz.BackupCreate: {"POST /api/v1/projects/{id}/backups", "POST /api/v1/projects/{id}/pitr", "POST /api/v1/backups/{id}/restore"},
+	// "Choose project's storage target, download backup key" (V2 §6)
+	authz.BackupStorage: {
+		"PUT /api/v1/projects/{id}/storage-target", "POST /api/v1/projects/{id}/backup-key",
+		"GET /api/v1/projects/{id}/backup-key/download",
+	},
 	// "Rotate app password, settings/guardrails, extensions"
 	authz.ProjectSettings: {
 		"PATCH /api/v1/projects/{id}/settings", "POST /api/v1/projects/{id}/rotate-password",
@@ -453,6 +464,10 @@ var specMatrix = map[authz.Action][]string{
 		"DELETE /api/v1/orgs/{org}/members/{user}", "GET /api/v1/orgs/{org}/invitations", "DELETE /api/v1/orgs/{org}/invitations/{invitation_id}",
 		// §2.3 "See and revoke any token scoped to the org"
 		"GET /api/v1/orgs/{org}/tokens", "DELETE /api/v1/orgs/{org}/tokens/{token_id}",
+		// V2 §6 "Org targets (managed by org owners and admins)"
+		"GET /api/v1/orgs/{org}/storage-targets", "POST /api/v1/orgs/{org}/storage-targets",
+		"GET /api/v1/orgs/{org}/storage-targets/{target_id}", "PATCH /api/v1/orgs/{org}/storage-targets/{target_id}",
+		"DELETE /api/v1/orgs/{org}/storage-targets/{target_id}", "POST /api/v1/storage-targets/test",
 	},
 	// "View org usage and quotas, org audit log"
 	authz.OrgAudit: {"GET /api/v1/orgs/{org}/audit", "GET /api/v1/orgs/{org}/usage", "GET /api/v1/orgs/{org}/dedicated-requests"},
@@ -496,6 +511,10 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
 		// §7.2 "The platform admin can set a platform-wide maximum"
 		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",
+		// V2 §6 "Platform targets (managed by the platform admin)"
+		"GET /api/v1/admin/storage-targets", "POST /api/v1/admin/storage-targets",
+		"GET /api/v1/admin/storage-targets/{target_id}", "PATCH /api/v1/admin/storage-targets/{target_id}",
+		"DELETE /api/v1/admin/storage-targets/{target_id}",
 	},
 }
 

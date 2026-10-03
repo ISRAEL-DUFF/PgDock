@@ -13,7 +13,7 @@ var tenantTables = []string{
 	"projects", "project_members", "project_db_users", "org_members", "invitations", "organizations",
 	"backups", "operations", "audit_log", "retired_databases", "alerts", "metric_points",
 	"usage_records", "reaped_sessions", "break_glass_sessions", "dedicated_requests",
-	"api_tokens", "device_auth_requests", "editor_preferences",
+	"api_tokens", "device_auth_requests", "editor_preferences", "storage_targets", "backup_keys",
 }
 
 // TestTenantQueriesAreScoped is the V2 §2.6 lint: every query on a tenant

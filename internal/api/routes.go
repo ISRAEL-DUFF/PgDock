@@ -103,6 +103,13 @@ var routeRules = map[string]rule{
 	"GET /api/v1/orgs/{org}/dedicated-requests":             {scope: scopeOrgPath, action: authz.OrgAudit},
 	"GET /api/v1/orgs/{org}/tokens":                         {scope: scopeOrgPath, action: authz.OrgManage},
 	"DELETE /api/v1/orgs/{org}/tokens/{token_id}":           {scope: scopeOrgPath, action: authz.OrgManage},
+	// Org storage targets (V2 §6): owners and admins.
+	"GET /api/v1/orgs/{org}/storage-targets":                {scope: scopeOrgPath, action: authz.OrgManage},
+	"POST /api/v1/orgs/{org}/storage-targets":               {scope: scopeOrgPath, action: authz.OrgManage},
+	"GET /api/v1/orgs/{org}/storage-targets/{target_id}":    {scope: scopeOrgPath, action: authz.OrgManage},
+	"PATCH /api/v1/orgs/{org}/storage-targets/{target_id}":  {scope: scopeOrgPath, action: authz.OrgManage},
+	"DELETE /api/v1/orgs/{org}/storage-targets/{target_id}": {scope: scopeOrgPath, action: authz.OrgManage},
+	"POST /api/v1/storage-targets/test":                     {scope: scopeOrgQuery, action: authz.OrgManage},
 	"GET /api/v1/projects":                                  {scope: scopeOrgQuery, action: authz.OrgView},
 	"GET /api/v1/operations":                                {scope: scopeOrgQuery, action: authz.OrgView},
 	"GET /api/v1/backups":                                   {scope: scopeOrgQuery, action: authz.OrgView},
@@ -146,6 +153,10 @@ var routeRules = map[string]rule{
 	"GET /api/v1/projects/{id}/storage":                          {scope: scopeProject, action: authz.ProjectView},
 	"POST /api/v1/projects/{id}/reclaim-space":                   {scope: scopeProject, action: authz.ProjectSettings},
 	"GET /api/v1/projects/{id}/reaped":                           {scope: scopeProject, action: authz.ProjectView},
+	"GET /api/v1/projects/{id}/storage-target":                   {scope: scopeProject, action: authz.ProjectView},
+	"PUT /api/v1/projects/{id}/storage-target":                   {scope: scopeProject, action: authz.BackupStorage},
+	"POST /api/v1/projects/{id}/backup-key":                      {scope: scopeProject, action: authz.BackupStorage},
+	"GET /api/v1/projects/{id}/backup-key/download":              {scope: scopeProject, action: authz.BackupStorage},
 	// Restoring in place needs the project admin role; the handler checks
 	// it for that mode.
 	"POST /api/v1/backups/{id}/restore":  {scope: scopeBackup, action: authz.BackupCreate},
@@ -207,4 +218,9 @@ var routeRules = map[string]rule{
 	"GET /api/v1/admin/shared-clusters":                          {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/settings/tokens":                          {scope: scopePlatform, action: authz.PlatformManage},
 	"PUT /api/v1/admin/settings/tokens":                          {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/storage-targets":                          {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/admin/storage-targets":                         {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/storage-targets/{target_id}":              {scope: scopePlatform, action: authz.PlatformManage},
+	"PATCH /api/v1/admin/storage-targets/{target_id}":            {scope: scopePlatform, action: authz.PlatformManage},
+	"DELETE /api/v1/admin/storage-targets/{target_id}":           {scope: scopePlatform, action: authz.PlatformManage},
 }
