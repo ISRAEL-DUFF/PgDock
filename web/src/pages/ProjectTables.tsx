@@ -140,6 +140,10 @@ function TableView({ projectId, schema, t, canEdit, onSelect }: { projectId: str
           <dd>{t.row_estimate == null ? "not analyzed yet" : t.row_estimate.toLocaleString()}</dd>
           <dt className="text-muted">Size</dt>
           <dd>{formatBytes(t.size_bytes)}</dd>
+          <dt className="text-muted">Structure</dt>
+          <dd>
+            {t.columns.length} columns, {t.indexes.length} indexes
+          </dd>
           {t.primary_key.length > 0 && (
             <>
               <dt className="text-muted">Primary key</dt>
