@@ -156,18 +156,30 @@ old user name stops working, so members copy the new connection string.
 
 ## The table editor
 
-Project members edit data and schema under **Tables** (developers and
-above; read-only members browse and export). Rows: filter, sort,
-double-click to edit, then **Save**; everything in one save commits or
-none of it, and if someone changed a row since you loaded it you see a
-conflict instead of overwriting their change. Tables need a primary key
-to be editable. **Structure**: every change shows its SQL and risk notes
-first, such as "Rewrites the table and blocks writes" for a type change,
-and runs with a 5-second lock timeout, so it fails fast rather than
-queueing behind a long transaction. Indexes build concurrently. Schema
-changes are in the project's audit log with their SQL. **Save as
-migration** exports the change as plain SQL, goose or dbmate, to apply
-to other environments.
+Project members edit data and schema in the **Table Editor**, laid out as
+Supabase Studio's (developers and above; read-only members browse and
+export). The sidebar lists the schema's tables, views and other objects,
+each with a menu to edit, duplicate, copy the name of, export or delete
+it; open tables stay as tabs. Rows: **Filter** and **Sort** (several
+columns), pages of 100 to 1,000 with the record count (an estimate on big
+unfiltered tables), and **Definition** shows the table's DDL.
+Double-click a cell to edit it: the change saves at once, checked
+against the column's type, and if someone changed the row since you
+loaded it you get a "Someone changed this row" message instead of
+overwriting their change. JSON cells open a larger editor; foreign-key
+cells link to the row they reference. **Insert** adds a row or a column
+from a side panel; select rows to delete them. Tables need a primary key
+to be editable.
+
+Schema changes (new table, edit table, add or edit a column, with
+foreign keys, unique and check constraints) are made in side panels and
+then reviewed: every change shows its SQL and risk notes first, such as
+"Rewrites the table and blocks writes" for a type change, and runs with
+a 5-second lock timeout, so it fails fast rather than queueing behind a
+long transaction. Editing a table runs all its changes in one
+transaction. Indexes build concurrently. Schema changes are in the
+project's audit log with their SQL. **Save as migration** exports the
+change as plain SQL, goose or dbmate, to apply to other environments.
 
 ## Branches
 

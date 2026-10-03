@@ -183,9 +183,22 @@ Matches the first screenshot:
 - Read-only members and read-only projects see the same screens without
   editing controls.
 
-**API additions:** a table definition (DDL) endpoint if the existing table
-info can't render one; duplicate table, as a schema change. To be
-confirmed while building.
+**API additions (built):** numbered pages of up to 1,000 rows (`offset`,
+`limit`) and several sort columns (`order`) on the rows and export
+endpoints; `GET …/tables/{schema}/{table}/count` (exact, or the planner's
+estimate above 50,000 unfiltered rows or after 5 seconds) and
+`…/definition` (the DDL); table and column comments and each
+constraint's columns in the table info; enum types in the schema tree;
+and new schema changes: inline column constraints (`unique`, `check`,
+`references`), `set_comment`, `duplicate_table` (structure, optionally
+with the rows) and `batch` (changes to one table in one transaction,
+which the Edit table panel uses).
+
+**Differences from Studio, on purpose:** every schema change goes
+through the review dialog (SQL, risk notes, migration export); the
+toolbar has no free-text filter box (the Filter popover covers it); the
+JSON cell editor is a plain text area until Monaco arrives in phase 3;
+and "+" in the tab bar starts a new table.
 
 **Done when:** a user who knows Supabase can browse, filter, sort, edit
 cells and rows, insert and delete rows, create a table with a foreign key,
