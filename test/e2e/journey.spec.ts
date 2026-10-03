@@ -5,6 +5,7 @@
 // dev server with PGDOCK_E2E_URL.
 import { expect, test, type Page } from "@playwright/test";
 import { execFile } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -31,6 +32,8 @@ const supabaseURL = process.env.PGDOCK_E2E_SUPABASE_URL;
 const smtpHost = process.env.PGDOCK_E2E_SMTP_HOST ?? "fakesmtp";
 const smtpPort = process.env.PGDOCK_E2E_SMTP_PORT ?? "2525";
 const mailAPI = process.env.PGDOCK_E2E_MAIL_API ?? "http://127.0.0.1:18025";
+// The bundle's webhook receiver, as the tests read it.
+const hookAPI = process.env.PGDOCK_E2E_HOOK_API ?? "http://127.0.0.1:18090";
 const email = "owner@example.com";
 const password = "a long enough passphrase";
 
@@ -1315,5 +1318,81 @@ test.describe("with the saved session", () => {
       await page.goto("/projects");
       await expect(page.getByTestId("branch-list-row").filter({ hasText: "try-migration" })).toHaveCount(0);
     }).toPass({ timeout: 60_000 });
+  });
+  // The M15 "done when" in the browser: a committed insert reaches a
+  // receiver, signed; a scheduled job runs on demand. (Rollbacks, a receiver
+  // down for an hour, the metadata address and the delivery rate run in the
+  // integration suite.)
+  test("webhooks and jobs: an insert reaches a receiver, signed; a job runs", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Storefront");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const url = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    const db = await connect(url);
+    await db.query("CREATE TABLE orders (id serial PRIMARY KEY, item text NOT NULL)");
+    await db.query("CREATE TABLE order_counts (at timestamptz NOT NULL DEFAULT now(), n bigint NOT NULL)");
+    await page.getByRole("link", { name: "Open the project" }).click();
+    const id = page.url().match(/projects\/([0-9a-f-]{36})/)![1];
+    const proj = await page.evaluate(async (pid) => (await (await fetch(`/api/v1/projects/${pid}`)).json()) as { org_id: string }, id);
+
+    // The receiver is an internal host: the platform admin allow-lists it.
+    await page.goto(`/admin/orgs/${proj.org_id}`);
+    await page.getByTestId("outbound-allowlist").fill("fakehook");
+    await page.getByRole("button", { name: "Save allow-list" }).click();
+    await expect(page.getByRole("button", { name: "Save allow-list" })).toBeDisabled();
+
+    // A webhook on orders.
+    await page.goto(`/projects/${id}/webhooks`);
+    await page.getByRole("button", { name: "New webhook" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Name").fill("orders-to-shop");
+    await dialog.getByLabel("Tables").fill("orders");
+    await dialog.getByLabel("URL").fill("http://fakehook:8080/orders");
+    await dialog.getByRole("button", { name: "Create webhook" }).click();
+    const secret = await revealedValue(page, "webhook-secret-value");
+    expect(secret).toMatch(/^whsec_/);
+    await shot(page, "46-webhook-created");
+    await page.getByRole("button", { name: "I've stored it" }).click();
+
+    // A committed insert arrives, signed with the secret.
+    await db.query("INSERT INTO orders (item) VALUES ('kettle')");
+    type Hook = { path: string; header: Record<string, string>; body: string };
+    let hook: Hook | undefined;
+    await expect(async () => {
+      const got = (await (await fetch(`${hookAPI}/requests`)).json()) as Hook[];
+      hook = got.find((h) => h.path === "/orders" && h.body.includes("kettle"));
+      expect(hook).toBeTruthy();
+    }).toPass({ timeout: 15_000 });
+    const sig = Object.fromEntries(hook!.header["Pgdock-Signature"].split(",").map((kv) => kv.split("=") as [string, string]));
+    expect(createHmac("sha256", secret).update(`${sig.t}.${hook!.body}`).digest("hex")).toBe(sig.v1);
+    expect(JSON.parse(hook!.body)).toMatchObject({ webhook: "orders-to-shop", table: "public.orders", type: "INSERT", record: { item: "kettle" } });
+    expect(hook!.header["Pgdock-Event-Id"]).toMatch(/^evt_/);
+
+    // The delivery log, and a test event.
+    await page.getByTestId("webhook-row").filter({ hasText: "orders-to-shop" }).click();
+    await expect(page.getByTestId("delivery-row").first()).toContainText("delivered");
+    await page.getByTestId("webhook-test").click();
+    await expect(page.getByTestId("webhook-message")).toContainText("Test event delivered");
+    await shot(page, "47-webhook-log");
+
+    // A scheduled job, run now.
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Jobs" }).click();
+    await page.getByRole("button", { name: "New job" }).click();
+    const jd = page.getByRole("dialog");
+    await jd.getByLabel("Name").fill("count-orders");
+    await jd.getByRole("button", { name: "Every day at 03:00" }).click();
+    await jd.getByLabel("SQL").fill("INSERT INTO order_counts (n) SELECT count(*) FROM orders");
+    await jd.getByRole("button", { name: "Create job" }).click();
+    await expect(page.getByTestId("job-row").filter({ hasText: "count-orders" })).toBeVisible();
+    await expect(page.getByTestId("job-upcoming").locator("li")).toHaveCount(5);
+    await page.getByTestId("job-run-now").click();
+    await expect(page.getByTestId("job-run-row").first()).toContainText("succeeded", { timeout: 30_000 });
+    expect(await count(url, "SELECT n FROM order_counts")).toBe(1);
+    await shot(page, "48-job-run");
+    await db.end();
   });
 });

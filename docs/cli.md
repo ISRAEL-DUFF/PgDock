@@ -128,6 +128,11 @@ pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
 pgdock promote <p> [--node <id>] [--profile <size>]
 pgdock demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
 
+pgdock webhooks list <p> | create <p> <name> --tables orders --url https://… [--events INSERT,UPDATE] [--columns c] [--header K=V]
+pgdock webhooks delete <p> <webhook> | deliveries <p> <webhook> [--dead] | replay <p> <webhook> --all | --ids 1,2
+pgdock jobs list <p> | create <p> <name> --cron '0 3 * * *' [--tz Europe/Berlin] (--sql '…' | --sql @file.sql | --url https://…)
+pgdock jobs pause|resume|run|history <p> <job>
+
 pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>
 pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
 pgdock operations get <id> [--follow]
@@ -139,6 +144,10 @@ doesn't allow, the size, no room) refuse the demotion; warnings (peak
 connections, database settings that reset) need `--accept-warnings`.
 `--node` picks the shared cluster by its node's id (by default the one
 with the most free capacity, or the organisation's own).
+
+`webhooks create` and an HTTP `jobs create` print the signing secret
+once. See [webhooks and scheduled jobs](webhooks.md) for the payload, the
+signature, and delivery.
 
 `<p>` is a project's name or id; `<branch>` is a branch's id, its name,
 or `<parent>/<name>`. `branch create --env` prints `DATABASE_URL=…`,

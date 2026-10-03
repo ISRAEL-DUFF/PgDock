@@ -23,6 +23,7 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | [Install](docs/install.md) | A VPS to a working database |
 | [Operations](docs/operations.md) | Alerts, backups, security checks, capacity, secrets |
 | [CLI and API tokens](docs/cli.md) | `pgdock` from a terminal or CI |
+| [Webhooks and scheduled jobs](docs/webhooks.md) | Table changes to a URL, signed; SQL or HTTP on a schedule |
 | [Upgrades](docs/upgrade.md) | New releases, agents, PostgreSQL minor versions |
 | [Disaster recovery](docs/disaster-recovery.md) | Rebuild the control node from backups |
 | [Security review](docs/security-review.md) | Spec §7, item by item, with the tests that check it |

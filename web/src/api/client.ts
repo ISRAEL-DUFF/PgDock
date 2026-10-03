@@ -106,6 +106,12 @@ export type UsageReport = S["UsageReport"];
 export type UsageRecord = S["UsageRecord"];
 export type DedicatedRequest = S["DedicatedRequest"];
 export type DemotePreflight = S["DemotePreflight"];
+export type Webhook = S["Webhook"];
+export type WebhookRequest = S["WebhookRequest"];
+export type WebhookDelivery = S["WebhookDelivery"];
+export type Job = S["Job"];
+export type JobRequest = S["JobRequest"];
+export type JobRun = S["JobRun"];
 export type DemoteRequest = S["DemoteRequest"];
 export type BreakGlassSession = S["BreakGlassSession"];
 export type ProjectStorage = S["ProjectStorage"];
@@ -343,6 +349,23 @@ export const api = {
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
   rotatePassword: (id: string) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/rotate-password`),
   branches: (id: string) => getJSON<S["ProjectList"]>(`/api/v1/projects/${id}/branches`),
+  webhooks: (id: string) => getJSON<S["WebhookList"]>(`/api/v1/projects/${id}/webhooks`),
+  createWebhook: (id: string, b: WebhookRequest) => request<S["WebhookCreated"]>("POST", `/api/v1/projects/${id}/webhooks`, b),
+  updateWebhook: (id: string, wid: string, b: S["WebhookUpdate"]) => request<Webhook>("PATCH", `/api/v1/projects/${id}/webhooks/${wid}`, b),
+  deleteWebhook: (id: string, wid: string) => request<void>("DELETE", `/api/v1/projects/${id}/webhooks/${wid}`),
+  testWebhook: (id: string, wid: string) => request<S["WebhookTestResult"]>("POST", `/api/v1/projects/${id}/webhooks/${wid}/test`),
+  rotateWebhookSecret: (id: string, wid: string) => request<S["WebhookSecret"]>("POST", `/api/v1/projects/${id}/webhooks/${wid}/rotate-secret`),
+  webhookDeliveries: (id: string, wid: string, dead = false) =>
+    getJSON<S["WebhookDeliveryList"]>(`/api/v1/projects/${id}/webhooks/${wid}/deliveries?limit=100${dead ? "&dead=true" : ""}`),
+  replayWebhook: (id: string, wid: string, b: S["ReplayRequest"]) => request<S["ReplayResult"]>("POST", `/api/v1/projects/${id}/webhooks/${wid}/replay`, b),
+  jobs: (id: string) => getJSON<S["JobList"]>(`/api/v1/projects/${id}/jobs`),
+  createJob: (id: string, b: JobRequest) => request<S["JobCreated"]>("POST", `/api/v1/projects/${id}/jobs`, b),
+  updateJob: (id: string, jid: string, b: S["JobUpdate"]) => request<Job>("PATCH", `/api/v1/projects/${id}/jobs/${jid}`, b),
+  deleteJob: (id: string, jid: string) => request<void>("DELETE", `/api/v1/projects/${id}/jobs/${jid}`),
+  runJob: (id: string, jid: string) => request<JobRun>("POST", `/api/v1/projects/${id}/jobs/${jid}/run`),
+  jobRuns: (id: string, jid: string) => getJSON<S["JobRunList"]>(`/api/v1/projects/${id}/jobs/${jid}/runs?limit=50`),
+  orgOutbound: (org: string) => getJSON<S["OrgOutbound"]>(`/api/v1/admin/orgs/${org}/outbound`),
+  setOrgOutbound: (org: string, hosts: string[]) => request<S["OrgOutbound"]>("PUT", `/api/v1/admin/orgs/${org}/outbound`, { hosts }),
   createBranch: (id: string, b: S["BranchRequest"]) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/branches`, b),
   resetBranch: (id: string, b: S["BranchResetRequest"] = {}) => request<Operation>("POST", `/api/v1/projects/${id}/reset`, b),
   detachBranch: (id: string) => request<Project>("POST", `/api/v1/projects/${id}/detach`),

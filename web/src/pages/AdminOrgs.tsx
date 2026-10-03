@@ -121,6 +121,7 @@ export function AdminOrgPage() {
             <input type="checkbox" checked={o.org.outbound_disabled} onChange={(e) => save({ outbound_disabled: e.target.checked })} data-testid="outbound-disabled" />
             Disable webhooks and HTTP jobs for this organisation, without suspending its databases (V2 §10.7)
           </label>
+          <OutboundCard org={id} />
         </Card>
         <Card title="Shared cluster">
           <p className="mb-3 text-sm text-muted">
@@ -575,5 +576,61 @@ function DecideModal({ r, approve, onClose, onDone }: { r: DedicatedRequest; app
         </Button>
       </form>
     </Modal>
+  );
+}
+
+/** The internal hosts an org may reach and its requests by host (V2 §10.7). */
+function OutboundCard({ org }: { org: string }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["admin", "outbound", org], queryFn: () => api.orgOutbound(org) });
+  const [hosts, setHosts] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  if (!q.data) return q.isError ? <Alert>{errorMessage(q.error)}</Alert> : null;
+  const value = hosts ?? q.data.allowlist.join("\n");
+  const save = async () => {
+    setErr(null);
+    try {
+      qc.setQueryData(["admin", "outbound", org], await api.setOrgOutbound(org, value.split(/[\s,]+/).filter(Boolean)));
+      setHosts(null);
+    } catch (e) {
+      setErr(errorMessage(e));
+    }
+  };
+  return (
+    <div className="mt-4 flex flex-col gap-3 text-sm">
+      <Field
+        label="Internal hosts this organisation may reach"
+        hint="One per line. Listed hosts may be private or loopback addresses and may use plain http://. Link-local and cloud metadata addresses can never be allowed."
+      >
+        {(id) => (
+          <textarea
+            id={id}
+            className="h-20 rounded-md border border-line bg-surface p-2 font-mono text-xs"
+            value={value}
+            onChange={(e) => setHosts(e.target.value)}
+            data-testid="outbound-allowlist"
+          />
+        )}
+      </Field>
+      {err && <Alert>{err}</Alert>}
+      <Button className="self-start text-xs" onClick={save} disabled={hosts === null}>
+        Save allow-list
+      </Button>
+      <p className="text-xs font-medium text-muted">Requests in the last 30 days, by destination host</p>
+      {q.data.hosts.length === 0 ? (
+        <p className="text-muted">None.</p>
+      ) : (
+        <Table head={["Host", "Requests", "Failed", "Last"]}>
+          {q.data.hosts.map((h) => (
+            <tr key={h.host}>
+              <td className="px-3 py-1.5 font-mono text-xs">{h.host}</td>
+              <td className="px-3 py-1.5 tabular-nums">{h.requests}</td>
+              <td className="px-3 py-1.5 tabular-nums">{h.failures}</td>
+              <td className="px-3 py-1.5 text-xs">{h.last_day}</td>
+            </tr>
+          ))}
+        </Table>
+      )}
+    </div>
   );
 }

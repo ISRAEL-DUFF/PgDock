@@ -229,6 +229,31 @@ for that.
 - Add nodes on the Nodes page; new shared projects go to the least loaded
   shared cluster, dedicated instances to the least loaded dedicated node.
 
+## Outbound traffic
+
+Webhooks and HTTP jobs are the only way tenants make PGDock send requests
+([webhooks and scheduled jobs](webhooks.md)). Before each request
+pgdock-server resolves the host and refuses private, loopback, link-local,
+CGNAT and cloud-metadata addresses, then connects to the address it
+checked, without following redirects. Add your nodes' network (and any
+other internal range) with `PGDOCK_OUTBOUND_BLOCK=10.0.0.0/16,192.0.2.0/24`
+if it isn't in a private range already.
+
+On an organisation's admin page you can:
+
+- **Allow-list internal hosts** for that organisation alone (a receiver on
+  your own network, a local test server): listed hosts may resolve to
+  private addresses and use plain `http://`. Link-local and metadata
+  addresses can never be allowed. Tenants can't change the list.
+- **Disable outbound traffic** without suspending the databases: webhook
+  events queue and HTTP jobs are skipped until it is back on.
+- See the organisation's requests per destination host over the last 30
+  days (hosts and counts only, no payloads).
+
+Only one pgdock-server delivers webhooks and runs the scheduler at a time
+(advisory locks), so more servers can be added later without double
+deliveries.
+
 ## Secrets
 
 - `.env` holds `PGDOCK_MASTER_KEY`; keep a copy off the server.

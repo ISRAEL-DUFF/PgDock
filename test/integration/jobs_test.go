@@ -179,3 +179,76 @@ func TestScheduledJobs(t *testing.T) {
 		t.Fatalf("a job beyond the plan: %d %+v", code, apiErr)
 	}
 }
+
+// TestAutomationCLI drives webhooks and jobs with the pgdock binary and a
+// project-restricted write token, as a CI job would.
+func TestAutomationCLI(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	ctx := context.Background()
+	bin := buildCLI(t)
+	c := e.CreateProject("Cli app")
+	app := e.MustConnect(c.Connection.SessionUrl)
+	defer app.Close(ctx)
+	if _, err := app.Exec(ctx, `CREATE TABLE orders (id serial PRIMARY KEY, item text NOT NULL, status text)`); err != nil {
+		t.Fatal(err)
+	}
+	rc := newReceiver(t)
+	allowLocal(t, e, e.OrgID)
+	token := e.CreateToken(map[string]any{"name": "automation", "org_id": e.OrgID, "scopes": []string{"write"}, "project_ids": []string{c.Project.Id.String()}})
+	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+
+	r := runCLI(t, bin, env, "webhooks", "create", "Cli app", "orders-hook", "--tables", "orders", "--url", rc.URL, "--events", "INSERT,UPDATE",
+		"--columns", "status", "--header", "Authorization=Bearer x")
+	if r.code != 0 || !strings.Contains(r.stdout, "whsec_") {
+		t.Fatalf("webhooks create: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if _, err := app.Exec(ctx, `INSERT INTO orders (item) VALUES ('cli')`); err != nil {
+		t.Fatal(err)
+	}
+	got := rc.waitN(t, 1, 5*time.Second)
+	if got[0].Header.Get("Authorization") != "Bearer x" {
+		t.Fatalf("header: %v", got[0].Header)
+	}
+	r = runCLI(t, bin, env, "webhooks", "list", "Cli app")
+	if r.code != 0 || !strings.Contains(r.stdout, "orders-hook") || !strings.Contains(r.stdout, "healthy") {
+		t.Fatalf("webhooks list: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	r = runCLI(t, bin, env, "webhooks", "deliveries", "Cli app", "orders-hook")
+	if r.code != 0 || !strings.Contains(r.stdout, "ok (HTTP 200)") {
+		t.Fatalf("webhooks deliveries: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	r = runCLI(t, bin, env, "webhooks", "replay", "Cli app", "orders-hook", "--all")
+	if r.code != 0 || !strings.Contains(r.stdout, "Queued 0") {
+		t.Fatalf("webhooks replay: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	// SSRF refusals reach the CLI as errors.
+	r = runCLI(t, bin, env, "webhooks", "create", "Cli app", "meta", "--tables", "orders", "--url", "http://169.254.169.254/")
+	if r.code == 0 || !strings.Contains(r.stderr, "metadata") {
+		t.Fatalf("a metadata webhook: %d\n%s", r.code, r.stderr)
+	}
+
+	r = runCLI(t, bin, env, "jobs", "create", "Cli app", "cleanup", "--cron", "0 4 * * *", "--tz", "Europe/Berlin", "--sql", "DELETE FROM orders WHERE status = 'void'")
+	if r.code != 0 || !strings.Contains(r.stdout, "Next runs:") {
+		t.Fatalf("jobs create: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	r = runCLI(t, bin, env, "jobs", "run", "Cli app", "cleanup")
+	if r.code != 0 || !strings.Contains(r.stdout, "running") {
+		t.Fatalf("jobs run: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	waitFor(t, 10*time.Second, "the run", func() bool {
+		r = runCLI(t, bin, env, "jobs", "history", "Cli app", "cleanup")
+		return strings.Contains(r.stdout, "succeeded")
+	})
+	r = runCLI(t, bin, env, "jobs", "pause", "Cli app", "cleanup")
+	if r.code != 0 {
+		t.Fatalf("jobs pause: %d\n%s", r.code, r.stderr)
+	}
+	r = runCLI(t, bin, env, "jobs", "list", "Cli app")
+	if r.code != 0 || !strings.Contains(r.stdout, "paused") || !strings.Contains(r.stdout, "Europe/Berlin") {
+		t.Fatalf("jobs list: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	r = runCLI(t, bin, env, "jobs", "resume", "Cli app", "cleanup")
+	if r.code != 0 || !strings.Contains(r.stdout, "Resumed cleanup") {
+		t.Fatalf("jobs resume: %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+}
