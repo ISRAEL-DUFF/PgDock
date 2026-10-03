@@ -10,7 +10,6 @@ package console
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -41,8 +40,6 @@ const (
 	// appPrefix tags console sessions in pg_stat_activity, so a cancel can
 	// find the backend from any server.
 	appPrefix = "pgdock-console "
-	// connLimit caps a project's concurrent console sessions.
-	connLimit = 5
 )
 
 // Errors the API maps to client responses.
@@ -123,10 +120,6 @@ type session struct {
 
 func (s *session) close() { _ = s.conn.Close(context.Background()) }
 
-func (s *Service) password(role string) string {
-	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("pgdock console role "+role, 32))
-}
-
 // active loads a project the console may use.
 func (s *Service) active(ctx context.Context, projectID uuid.UUID) (store.Project, error) {
 	if s.disabled {
@@ -195,7 +188,7 @@ func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUI
 		return nil, err
 	}
 	role := provision.ConsoleRole(p.DbName)
-	cfg.User, cfg.Password = role, s.password(role)
+	cfg.User, cfg.Password = role, s.projects.ConsolePassword(role)
 	cfg.RuntimeParams["application_name"] = appPrefix + queryID.String()
 	if m == modeJob {
 		// The admin connection's read_only=off would override the database's
@@ -244,54 +237,7 @@ func unwrapConnect(err error) error {
 
 // ensureRole creates or repairs the project's console role.
 func (s *Service) ensureRole(ctx context.Context, p store.Project) error {
-	if err := s.projects.EnsureReadOnlyRole(ctx, p); err != nil {
-		return fmt.Errorf("read-only role: %w", err)
-	}
-	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close(context.Background())
-	role := provision.ConsoleRole(p.DbName)
-	verifier, err := crypto.SCRAMVerifier(s.password(role))
-	if err != nil {
-		return err
-	}
-	var exists bool
-	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, role).Scan(&exists); err != nil {
-		return err
-	}
-	verb := "ALTER"
-	if !exists {
-		verb = "CREATE"
-	}
-	stmts := []string{
-		fmt.Sprintf("%s ROLE %s LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT %d PASSWORD '%s'",
-			verb, provision.Ident(role), connLimit, verifier),
-		"GRANT " + provision.Ident(p.OwnerRole) + " TO " + provision.Ident(role) + " WITH INHERIT FALSE, SET TRUE",
-		"GRANT " + provision.Ident(provision.ReadOnlyRole(p.DbName)) + " TO " + provision.Ident(role) + " WITH INHERIT FALSE, SET TRUE",
-		"GRANT CONNECT ON DATABASE " + provision.Ident(p.DbName) + " TO " + provision.Ident(role),
-		// Top queries show the app's workload, not the console's.
-		"ALTER ROLE " + provision.Ident(role) + " SET pg_stat_statements.track = 'none'",
-	}
-	if p.Tier == provision.TierShared {
-		stmts = append(stmts, "ALTER ROLE "+provision.Ident(role)+" SET temp_file_limit = '"+provision.TempFileLimit+"'")
-	}
-	for _, stmt := range stmts {
-		if _, err := conn.Exec(ctx, stmt); err != nil {
-			var pe *pgconn.PgError
-			if verb == "CREATE" && errors.As(err, &pe) && pe.Code == "42710" {
-				// Created concurrently; set the password anyway.
-				stmt = "ALTER" + strings.TrimPrefix(stmt, "CREATE")
-				if _, err = conn.Exec(ctx, stmt); err == nil {
-					continue
-				}
-			}
-			return err
-		}
-	}
-	s.log.Info("console role ready", "project_id", p.ID, "role", role)
-	return nil
+	return s.projects.EnsureConsoleRole(ctx, p)
 }
 
 // Run executes a console submission (spec §8.5). Read-only submissions run

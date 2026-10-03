@@ -129,9 +129,12 @@ type Download struct {
 type DumpOptions struct {
 	Schemas        []string `json:"schemas,omitempty"`         // -n
 	ExcludeSchemas []string `json:"exclude_schemas,omitempty"` // -N
-	NoOwner        bool     `json:"no_owner,omitempty"`
-	NoACL          bool     `json:"no_acl,omitempty"`
-	SchemaOnly     bool     `json:"schema_only,omitempty"` // branches (V2 §8.2)
+	// ExcludeExtensions leaves extensions (and their comments) out; the
+	// target creates them first (a restore that isn't the superuser's).
+	ExcludeExtensions []string `json:"exclude_extensions,omitempty"`
+	NoOwner           bool     `json:"no_owner,omitempty"`
+	NoACL             bool     `json:"no_acl,omitempty"`
+	SchemaOnly        bool     `json:"schema_only,omitempty"` // branches (V2 §8.2)
 }
 
 // RestoreOptions control pg_restore. Objects are restored without their

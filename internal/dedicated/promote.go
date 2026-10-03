@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/pgverify"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -214,20 +213,11 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 	if err != nil {
 		return err
 	}
-	from, err := s.projects.AgentConn(ctx, p.InstanceID, p.DbName)
-	if err != nil {
-		return err
-	}
-	to, err := s.projects.AgentConn(ctx, inst.ID, p.DbName)
-	if err != nil {
-		return err
-	}
-	res, err := agent.Copy(ctx, agentapi.CopyRequest{Source: from, Target: to, Restore: agentapi.RestoreOptions{KeepOwners: true}})
+	took, err := s.copyKeepingOwners(ctx, agent, p, src, inst.ID)
 	if err != nil {
 		return jobs.Permanent(fmt.Errorf("copy: %w", err))
 	}
-	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name,
-		(time.Duration(res.DurationMS) * time.Millisecond).Round(time.Millisecond)); err != nil {
+	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name, took.Round(time.Millisecond)); err != nil {
 		return err
 	}
 
