@@ -1,0 +1,69 @@
+# A database branch per pull request (PGDock V2 §8): copy this file to
+# .github/workflows/ in your app's repository.
+#
+# Needs a repository variable PGDOCK_SERVER (your PGDock's URL) and a
+# secret PGDOCK_TOKEN: an API token with the write scope, restricted to
+# the project (Organisation → API tokens, or
+# `pgdock tokens create --name "GitHub Actions" --scopes read,write --project my-app`).
+#
+# Each push to the pull request replaces its branch with a fresh copy of
+# the project's latest backup; the branch deletes itself 72 hours after
+# the last push, or when the pull request closes.
+name: Database branch
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+env:
+  PGDOCK_SERVER: ${{ vars.PGDOCK_SERVER }}
+  PGDOCK_TOKEN: ${{ secrets.PGDOCK_TOKEN }}
+  PGDOCK_PROJECT: my-app
+  BRANCH: pr-${{ github.event.number }}
+  # The CLI release matching your server (Settings shows its version).
+  PGDOCK_CLI_VERSION: v1.2.0
+
+jobs:
+  test:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: install
+        name: Install the pgdock CLI
+        run: |
+          curl -fsSL -o /usr/local/bin/pgdock "https://github.com/ISRAEL-DUFF/PgDock/releases/download/$PGDOCK_CLI_VERSION/pgdock-cli-$PGDOCK_CLI_VERSION-linux-amd64"
+          chmod +x /usr/local/bin/pgdock
+
+      - id: branch
+        name: Create the pull request's database branch
+        run: |
+          pgdock branch create "$PGDOCK_PROJECT" "$BRANCH" --from backup --ttl 72h --replace --env > branch.env
+          # Keep the password out of the logs, then hand the URLs to later steps.
+          while IFS='=' read -r key value; do echo "::add-mask::$value"; done < branch.env
+          cat branch.env >> "$GITHUB_ENV"
+          rm branch.env
+
+      - id: migrate
+        name: Migrate and test against the branch
+        run: |
+          # DATABASE_URL (pooled) and DATABASE_URL_SESSION are set.
+          npm ci
+          npm run migrate
+          npm test
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - id: install
+        name: Install the pgdock CLI
+        run: |
+          curl -fsSL -o /usr/local/bin/pgdock "https://github.com/ISRAEL-DUFF/PgDock/releases/download/$PGDOCK_CLI_VERSION/pgdock-cli-$PGDOCK_CLI_VERSION-linux-amd64"
+          chmod +x /usr/local/bin/pgdock
+
+      - id: delete
+        name: Delete the pull request's database branch
+        run: |
+          pgdock branch delete "$PGDOCK_PROJECT/$BRANCH" --confirm "$BRANCH" || echo "no branch to delete"

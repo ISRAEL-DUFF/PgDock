@@ -30,6 +30,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
@@ -204,6 +205,17 @@ func run() error {
 		go func() { defer bg.Done(); tenancySvc.Run(bgCtx) }()
 	}
 
+	// Database branches and their hourly expiry (V2 §8).
+	var branchSvc *branching.Service
+	if backups != nil {
+		branchSvc = branching.New(pool, projects, backups, nodeSvc, mailSvc, branching.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		for name, k := range branchSvc.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); branchSvc.Run(bgCtx, 10*time.Minute) }()
+	}
+
 	var consoleSvc *console.Service
 	var isoChecks *isocheck.Service
 	var alertSvc *alerts.Service
@@ -280,6 +292,7 @@ func run() error {
 		Orgs:            orgSvc,
 		Mail:            mailSvc,
 		Tenancy:         tenancySvc,
+		Branches:        branchSvc,
 		Tokens:          tokenSvc,
 		PublicURL:       cfg.Insight.PublicURL,
 		MetricsInterval: cfg.Insight.MetricsInterval,

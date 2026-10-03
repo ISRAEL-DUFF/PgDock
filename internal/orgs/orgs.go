@@ -195,6 +195,7 @@ type Patch struct {
 	Name                     *string
 	Slug                     *string
 	MembersCanCreateProjects *bool
+	SensitiveByDefault       *bool
 }
 
 // Update applies p to orgID.
@@ -232,6 +233,9 @@ func (s *Service) Update(ctx context.Context, orgID uuid.UUID, p Patch) (store.O
 	}
 	if p.MembersCanCreateProjects != nil {
 		set.MembersCanCreateProjects = *p.MembersCanCreateProjects
+	}
+	if p.SensitiveByDefault != nil {
+		set.SensitiveByDefault = *p.SensitiveByDefault
 	}
 	raw, _ := json.Marshal(set)
 	return q.UpdateOrg(ctx, store.UpdateOrgParams{OrgID: orgID, Name: name, Slug: slug, Settings: raw})

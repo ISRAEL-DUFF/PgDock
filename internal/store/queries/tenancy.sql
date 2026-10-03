@@ -35,8 +35,8 @@ WHERE u.disabled_at IS NULL AND (
 ORDER BY u.email;
 
 -- name: CountOrgProjects :one
--- Projects that count towards the projects quota.
-SELECT count(*)::int FROM projects WHERE org_id = @org_id AND deleted_at IS NULL;
+-- Projects that count towards the projects quota (branches don't, V2 s10.3).
+SELECT count(*)::int FROM projects WHERE org_id = @org_id AND deleted_at IS NULL AND parent_project_id IS NULL;
 
 -- name: CountOrgOperationsInFlight :one
 -- Backups, restores, imports, and other work queued or running for the org.
@@ -79,7 +79,8 @@ WITH pts AS (
 ), hour AS (
   SELECT scope_id, h, avg(value) AS v FROM pts WHERE resolution = '1h' GROUP BY scope_id, h
 )
-SELECT p.id AS project_id, p.org_id, o.plan_id, x.h::timestamptz AS period_start, x.v::float8 AS avg_bytes
+SELECT p.id AS project_id, p.org_id, o.plan_id, x.h::timestamptz AS period_start, x.v::float8 AS avg_bytes,
+       (p.parent_project_id IS NOT NULL)::bool AS is_branch
 FROM (SELECT * FROM minute
       UNION ALL
       SELECT * FROM hour WHERE NOT EXISTS (SELECT 1 FROM minute WHERE minute.scope_id = hour.scope_id AND minute.h = hour.h)) x

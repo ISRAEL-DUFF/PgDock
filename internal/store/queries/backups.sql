@@ -69,8 +69,10 @@ GROUP BY project_id;
 -- backup operation since then and no operation in flight (the next tick
 -- picks them up). A project created after the window opened waits for the
 -- next one. A suspended (or deleting) organisation's backups pause.
+-- Branches are skipped unless a project admin turned their backups on.
 SELECT p.* FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < @since
+  AND (p.parent_project_id IS NULL OR p.branch_backups)
   AND EXISTS (SELECT 1 FROM organizations o WHERE o.id = p.org_id AND o.status = 'active')
   AND NOT EXISTS (
     SELECT 1 FROM operations o

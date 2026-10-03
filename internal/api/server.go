@@ -18,6 +18,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
@@ -55,6 +56,7 @@ type Server struct {
 	mail      *mail.Service
 	tenancy   *tenancy.Service
 	tokens    *tokens.Service
+	branches  *branching.Service
 
 	tokenLimit    *auth.Limiter
 	orgTokenLimit *auth.Limiter
@@ -115,6 +117,8 @@ type Options struct {
 	Mail *mail.Service
 	// Tenancy runs quotas, storage locks, suspension, break-glass, and usage.
 	Tenancy *tenancy.Service
+	// Branches runs database branching (V2 §8); nil disables it.
+	Branches *branching.Service
 	// Tokens issues and checks API tokens and device logins; nil disables
 	// bearer authentication. TokenRate and OrgTokenRate are requests per
 	// minute per token and per organisation's tokens (defaults 600, 1200).
@@ -139,7 +143,7 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
 	}

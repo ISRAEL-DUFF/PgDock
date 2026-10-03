@@ -194,10 +194,10 @@ func (q *Queries) CountOrgOperationsInFlight(ctx context.Context, arg CountOrgOp
 }
 
 const countOrgProjects = `-- name: CountOrgProjects :one
-SELECT count(*)::int FROM projects WHERE org_id = $1 AND deleted_at IS NULL
+SELECT count(*)::int FROM projects WHERE org_id = $1 AND deleted_at IS NULL AND parent_project_id IS NULL
 `
 
-// Projects that count towards the projects quota.
+// Projects that count towards the projects quota (branches don't, V2 s10.3).
 func (q *Queries) CountOrgProjects(ctx context.Context, orgID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countOrgProjects, orgID)
 	var column_1 int32
@@ -472,7 +472,8 @@ WITH pts AS (
 ), hour AS (
   SELECT scope_id, h, avg(value) AS v FROM pts WHERE resolution = '1h' GROUP BY scope_id, h
 )
-SELECT p.id AS project_id, p.org_id, o.plan_id, x.h::timestamptz AS period_start, x.v::float8 AS avg_bytes
+SELECT p.id AS project_id, p.org_id, o.plan_id, x.h::timestamptz AS period_start, x.v::float8 AS avg_bytes,
+       (p.parent_project_id IS NOT NULL)::bool AS is_branch
 FROM (SELECT scope_id, h, v FROM minute
       UNION ALL
       SELECT scope_id, h, v FROM hour WHERE NOT EXISTS (SELECT 1 FROM minute WHERE minute.scope_id = hour.scope_id AND minute.h = hour.h)) x
@@ -492,6 +493,7 @@ type HourlySharedStorageRow struct {
 	PlanID      uuid.UUID
 	PeriodStart time.Time
 	AvgBytes    float64
+	IsBranch    bool
 }
 
 // tenant: system - usage recording measures every project; rows carry org_id.
@@ -512,6 +514,7 @@ func (q *Queries) HourlySharedStorage(ctx context.Context, arg HourlySharedStora
 			&i.PlanID,
 			&i.PeriodStart,
 			&i.AvgBytes,
+			&i.IsBranch,
 		); err != nil {
 			return nil, err
 		}
@@ -1023,7 +1026,7 @@ func (q *Queries) OrgLargestProject(ctx context.Context, orgID uuid.UUID) (float
 }
 
 const orgLiveProjects = `-- name: OrgLiveProjects :many
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id FROM projects WHERE org_id = $1 AND deleted_at IS NULL ORDER BY created_at
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data FROM projects WHERE org_id = $1 AND deleted_at IS NULL ORDER BY created_at
 `
 
 func (q *Queries) OrgLiveProjects(ctx context.Context, orgID uuid.UUID) ([]Project, error) {
@@ -1060,6 +1063,13 @@ func (q *Queries) OrgLiveProjects(ctx context.Context, orgID uuid.UUID) ([]Proje
 			&i.StorageState,
 			&i.StorageStateAt,
 			&i.BackupKeyID,
+			&i.ParentProjectID,
+			&i.BranchSource,
+			&i.BranchSchemaOnly,
+			&i.ExpiresAt,
+			&i.ExpiryNotifiedAt,
+			&i.BranchBackups,
+			&i.SensitiveData,
 		); err != nil {
 			return nil, err
 		}

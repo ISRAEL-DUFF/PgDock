@@ -47,6 +47,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
@@ -100,6 +101,9 @@ type Env struct {
 	Tenancy *tenancy.Service
 	// Tokens issues API tokens; its clock is the auth clock (Advance).
 	Tokens *tokens.Service
+	// Branches runs branching; tests call Branches.Sweep, whose clock is
+	// the tenancy clock (TenancyAdvance).
+	Branches *branching.Service
 	// OrgID is the owner's personal organisation, where CreateProject puts
 	// projects.
 	OrgID uuid.UUID
@@ -252,6 +256,15 @@ func Start(t testing.TB, opts Options) *Env {
 	for name, k := range isoChecks.Kinds() {
 		kinds[name] = k
 	}
+	mailSvc := mail.New(db, keyring)
+	e := &Env{}
+	branchSvc := branching.New(db, svc, backups, nodeSvc, mailSvc, branching.Config{
+		PublicURL: "https://pgdock.test",
+		Now:       func() time.Time { return time.Now().Add(time.Duration(e.tenancyOffset.Load())) },
+	}, log)
+	for name, k := range branchSvc.Kinds() {
+		kinds[name] = k
+	}
 	if opts.MaxAttempts > 0 {
 		k := kinds[provision.KindCreate]
 		k.MaxAttempts = opts.MaxAttempts
@@ -273,7 +286,6 @@ func Start(t testing.TB, opts Options) *Env {
 	clock := &Clock{t: time.Now()}
 	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, "test-setup-code", log)
 	smtpd := StartSMTP(t)
-	mailSvc := mail.New(db, keyring)
 	host, port, _ := net.SplitHostPort(smtpd.Addr)
 	portN, _ := strconv.Atoi(port)
 	mailSvc.UseConfig(mail.Config{Host: host, Port: portN, From: "PGDock <pgdock@pgdock.test>", TLS: mail.TLSNone})
@@ -283,7 +295,6 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	orgSvc := orgs.New(db, authSvc, svc, mailSvc, "https://pgdock.test", log)
 	authSvc.SetHooks(orgSvc.Hooks())
-	e := &Env{}
 	tenancySvc := tenancy.New(db, svc, mailSvc, tenancy.Config{
 		PublicURL: "https://pgdock.test",
 		Now:       func() time.Time { return time.Now().Add(time.Duration(e.tenancyOffset.Load())) },
@@ -294,7 +305,7 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc,
+		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
@@ -313,7 +324,7 @@ func Start(t testing.TB, opts Options) *Env {
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
-		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc,
+		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

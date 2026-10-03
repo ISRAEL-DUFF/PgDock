@@ -238,6 +238,12 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 // restoreFrom restores backup b into database on instance with role
 // owning the objects (empty: the admin).
 func (s *Service) restoreFrom(ctx context.Context, b store.Backup, instanceID uuid.UUID, database, role string, log *jobs.StepLogger) error {
+	return s.RestoreInto(ctx, b, instanceID, database, role, false, log)
+}
+
+// RestoreInto restores backup b into database on an instance, with role
+// owning the objects, optionally schema only (branches, V2 §8.2).
+func (s *Service) RestoreInto(ctx context.Context, b store.Backup, instanceID uuid.UUID, database, role string, schemaOnly bool, log *jobs.StepLogger) error {
 	if b.Status != "succeeded" {
 		return jobs.Permanent(fmt.Errorf("backup %s is %s", b.ID, b.Status))
 	}
@@ -258,7 +264,7 @@ func (s *Service) restoreFrom(ctx context.Context, b store.Backup, instanceID uu
 	}
 	res, err := agent.Restore(ctx, agentapi.RestoreRequest{
 		Download: dl,
-		PG:       pg, Options: agentapi.RestoreOptions{Role: role},
+		PG:       pg, Options: agentapi.RestoreOptions{Role: role, SchemaOnly: schemaOnly},
 	})
 	if err != nil {
 		return err

@@ -29,7 +29,7 @@ const UnlimitedPlan = "Unlimited"
 
 // operationKinds count towards operations in flight: the heavy work an
 // organisation can queue (V2 §10.3).
-var operationKinds = []string{"backup", "base_backup", "restore", "import", "pitr", "export_project", "reclaim_space", "storage_switch"}
+var operationKinds = []string{"backup", "base_backup", "restore", "import", "pitr", "export_project", "reclaim_space", "storage_switch", "branch_create", "branch_reset"}
 
 func (s *Service) orgActive(o store.OrgWithPlanRow) error {
 	if o.Status != OrgActive {
@@ -54,6 +54,46 @@ func (s *Service) CheckCreateProject(ctx context.Context, orgID uuid.UUID) error
 		}
 		if int64(n) >= limit {
 			return &QuotaError{Limit: store.LimitProjects, Used: int64(n), Max: limit}
+		}
+	}
+	return nil
+}
+
+// CheckCreateBranch refuses a branch of a parent of parentBytes (-1: not
+// measured) beyond the branches quota, or one that would not fit the
+// per-project or total shared storage limits (V2 §8.2 step 1).
+func (s *Service) CheckCreateBranch(ctx context.Context, orgID uuid.UUID, parentBytes float64) error {
+	l, o, err := s.Limits(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if err := s.orgActive(o); err != nil {
+		return err
+	}
+	q := store.New(s.db)
+	if limit, ok := l.Get(store.LimitBranches); ok {
+		n, err := q.CountOrgBranches(ctx, orgID)
+		if err != nil {
+			return err
+		}
+		if int64(n) >= limit {
+			return &QuotaError{Limit: store.LimitBranches, Used: int64(n), Max: limit}
+		}
+	}
+	if parentBytes <= 0 {
+		return nil
+	}
+	mb := int64(parentBytes / (1 << 20))
+	if limit, ok := l.Get(store.LimitProjectStorageMB); ok && mb > limit {
+		return &QuotaError{Limit: store.LimitProjectStorageMB, Used: mb, Max: limit}
+	}
+	if limit, ok := l.Get(store.LimitSharedStorageMB); ok {
+		used, err := q.OrgSharedStorage(ctx, orgID)
+		if err != nil {
+			return err
+		}
+		if total := int64((used + parentBytes) / (1 << 20)); total > limit {
+			return &QuotaError{Limit: store.LimitSharedStorageMB, Used: int64(used / (1 << 20)), Max: limit}
 		}
 	}
 	return nil
@@ -191,6 +231,10 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 	if err != nil {
 		return nil, o, err
 	}
+	branches, err := q.CountOrgBranches(ctx, orgID)
+	if err != nil {
+		return nil, o, err
+	}
 	ops, err := q.CountOrgOperationsInFlight(ctx, store.CountOrgOperationsInFlightParams{OrgID: orgID, Kinds: operationKinds})
 	if err != nil {
 		return nil, o, err
@@ -208,6 +252,7 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 	s.consoleMu.Unlock()
 	used := map[string]float64{
 		store.LimitProjects:           float64(projects),
+		store.LimitBranches:           float64(branches),
 		store.LimitSharedStorageMB:    storage / (1 << 20),
 		store.LimitProjectStorageMB:   largest / (1 << 20),
 		store.LimitOperationsInFlight: float64(ops),

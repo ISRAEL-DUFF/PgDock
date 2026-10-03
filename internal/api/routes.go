@@ -24,6 +24,9 @@ type rule struct {
 	action authz.Action
 	// beforeTerms routes work while the user still has to accept new terms.
 	beforeTerms bool
+	// branchAction, when set, replaces action on a project that is a
+	// branch (V2 §2.3: developers delete branches, not projects).
+	branchAction authz.Action
 	// token is the scope an API token needs on a scopeSelf route; empty
 	// means the route is for browser sessions only. Other scopes are
 	// checked by authz.Can (V2 §7.2).
@@ -119,7 +122,7 @@ var routeRules = map[string]rule{
 
 	// Projects.
 	"GET /api/v1/projects/{id}":                                  {scope: scopeProject, action: authz.ProjectView},
-	"DELETE /api/v1/projects/{id}":                               {scope: scopeProject, action: authz.ProjectDelete},
+	"DELETE /api/v1/projects/{id}":                               {scope: scopeProject, action: authz.ProjectDelete, branchAction: authz.BranchManage},
 	"PATCH /api/v1/projects/{id}/settings":                       {scope: scopeProject, action: authz.ProjectSettings},
 	"POST /api/v1/projects/{id}/rotate-password":                 {scope: scopeProject, action: authz.ProjectSettings},
 	"POST /api/v1/projects/{id}/backups":                         {scope: scopeProject, action: authz.BackupCreate},
@@ -153,6 +156,10 @@ var routeRules = map[string]rule{
 	"GET /api/v1/projects/{id}/storage":                          {scope: scopeProject, action: authz.ProjectView},
 	"POST /api/v1/projects/{id}/reclaim-space":                   {scope: scopeProject, action: authz.ProjectSettings},
 	"GET /api/v1/projects/{id}/reaped":                           {scope: scopeProject, action: authz.ProjectView},
+	"GET /api/v1/projects/{id}/branches":                         {scope: scopeProject, action: authz.ProjectView},
+	"POST /api/v1/projects/{id}/branches":                        {scope: scopeProject, action: authz.BranchManage},
+	"POST /api/v1/projects/{id}/reset":                           {scope: scopeProject, action: authz.BranchManage},
+	"POST /api/v1/projects/{id}/detach":                          {scope: scopeProject, action: authz.BranchManage},
 	"GET /api/v1/projects/{id}/storage-target":                   {scope: scopeProject, action: authz.ProjectView},
 	"PUT /api/v1/projects/{id}/storage-target":                   {scope: scopeProject, action: authz.BackupStorage},
 	"POST /api/v1/projects/{id}/backup-key":                      {scope: scopeProject, action: authz.BackupStorage},

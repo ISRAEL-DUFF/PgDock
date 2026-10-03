@@ -86,6 +86,9 @@ func (s *Service) Promote(ctx context.Context, p PromoteParams) (store.Operation
 			if pr.Tier != provision.TierShared {
 				return nil, fmt.Errorf("%w: only shared projects can be promoted", provision.ErrInvalid)
 			}
+			if pr.ParentProjectID != nil {
+				return nil, fmt.Errorf("%w: branches can't be promoted; detach the branch first (V2 §8.4)", provision.ErrInvalid)
+			}
 			target := uuid.New()
 			prefix := "instances/" + target.String() + "/wal-g"
 			mem := int32(prof.MemoryMB)

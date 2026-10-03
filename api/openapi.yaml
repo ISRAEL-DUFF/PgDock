@@ -511,6 +511,91 @@ paths:
                 $ref: "#/components/schemas/ProjectCredentials"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/branches:
+    get:
+      operationId: listBranches
+      summary: The project's branches (V2 §8)
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Branches.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createBranch
+      summary: Branch the project
+      description: |
+        A new shared-tier project copied from this one's latest backup
+        (`source: backup`, the default) or live, schema only or with data,
+        that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+        Returns the branch's credentials once. Webhooks and scheduled jobs
+        are not copied. A project marked as containing sensitive data
+        branches schema only by default, and a full copy needs the project
+        admin role. 409 `quota_exceeded` past the organisation's branch or
+        storage quota.
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchRequest"
+      responses:
+        "202":
+          description: Branch creation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCredentials"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/reset:
+    post:
+      operationId: resetBranch
+      summary: Reset a branch from its parent
+      description: Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchResetRequest"
+      responses:
+        "202":
+          description: Reset queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/detach:
+    post:
+      operationId: detachBranch
+      summary: Detach a branch into a standalone project
+      description: It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Detached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/backups:
     post:
       operationId: createProjectBackup
@@ -3781,6 +3866,18 @@ components:
       type: object
       required: [id, org_id, name, slug, db_name, owner_role, tier, status, settings, created_at, connection]
       properties:
+        parent_project_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set for a branch (V2 §8).
+        branch:
+          $ref: "#/components/schemas/BranchInfo"
+        sensitive_data:
+          type: boolean
+        branch_count:
+          type: integer
+          description: Live branches of this project.
         id:
           type: string
           format: uuid
@@ -4095,6 +4192,50 @@ components:
           type: string
         tls:
           $ref: "#/components/schemas/TlsStatus"
+    BranchInfo:
+      type: object
+      required: [source, schema_only, backups]
+      properties:
+        source:
+          type: string
+          enum: [backup, live]
+        schema_only:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the branch deletes itself; null keeps it.
+        backups:
+          type: boolean
+          description: Whether it takes nightly backups.
+    BranchRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        source:
+          type: string
+          enum: [backup, live]
+          default: backup
+        schema_only:
+          type: boolean
+          description: Defaults to whether the parent contains sensitive data.
+        ttl_hours:
+          type: integer
+          minimum: 0
+          maximum: 720
+          description: Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168.
+    BranchResetRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          enum: [backup, live]
+          description: Defaults to the source the branch was created from.
     UpdateProjectRequest:
       type: object
       properties:
@@ -4108,6 +4249,19 @@ components:
           nullable: true
         settings:
           $ref: "#/components/schemas/ProjectSettingsPatch"
+        sensitive_data:
+          type: boolean
+          description: The project contains sensitive data; its branches default to schema only (project admins).
+        expires_at:
+          type: string
+          format: date-time
+          description: Branches only. When the branch deletes itself, within 30 days.
+        no_expiry:
+          type: boolean
+          description: Branches only. Keep the branch until deleted.
+        branch_backups:
+          type: boolean
+          description: Branches only. Take nightly backups (off by default).
     ProjectSettingsPatch:
       type: object
       properties:
@@ -6189,6 +6343,9 @@ components:
           enum: [active, suspended, deleting, deleted]
         members_can_create_projects:
           type: boolean
+        sensitive_by_default:
+          type: boolean
+          description: New projects start marked as containing sensitive data (V2 §8.5).
         member_count:
           type: integer
         project_count:
@@ -6235,6 +6392,8 @@ components:
         slug:
           type: string
         members_can_create_projects:
+          type: boolean
+        sensitive_by_default:
           type: boolean
     ProjectMembership:
       type: object

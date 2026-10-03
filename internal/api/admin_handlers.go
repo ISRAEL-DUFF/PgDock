@@ -89,6 +89,9 @@ func (s *Server) UpdateProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 	}
 	a := auditFrom(r.Context())
 	a.target("project", id.String())
+	if !s.updateBranchFields(w, r, id, req) {
+		return
+	}
 	p := provisionUpdate(req)
 	if s.tenancy != nil && p.Settings != nil && p.Settings.ConnectionLimit != nil {
 		// A shared project's connections are capped by the plan (V2 §10.3).

@@ -1,5 +1,5 @@
 // Package cli is the pgdock command-line tool (V2 §7.1): contexts, device
-// login, and commands for organisations, projects, SQL, backups,
+// login, and commands for organisations, projects, branches, SQL, backups,
 // promotion, members, tokens and operations, over the generated API
 // client. Every command takes --json; destructive ones need --confirm.
 //
@@ -175,6 +175,14 @@ func (a *App) commands() []command {
 			{name: "list", summary: "List a project's backups: list <p>", run: (*App).backupList},
 			{name: "create", summary: "Back up now: create <p>", run: (*App).backupCreate},
 			{name: "restore", summary: "Restore: restore <p> --backup <id> [--into <name>] | --in-place --confirm <name>", run: (*App).backupRestore},
+		}},
+		{name: "branch", summary: "Branches: throwaway copies of a project", sub: []command{
+			{name: "list", summary: "List a project's branches: list <p>", run: (*App).branchList},
+			{name: "create", summary: "create <p> <name> [--from backup|live] [--schema-only] [--ttl 72h] [--env] [--replace]", run: (*App).branchCreate},
+			{name: "reset", summary: "Reset from the parent, keeping URL and password: reset <branch> [--from backup|live]", run: (*App).branchReset},
+			{name: "delete", summary: "Delete: delete <branch> --confirm <name>", run: (*App).branchDelete},
+			{name: "extend", summary: "Push back the expiry: extend <branch> [--ttl 7d]", run: (*App).branchExtend},
+			{name: "detach", summary: "Make a branch a standalone project: detach <branch>", run: (*App).branchDetach},
 		}},
 		{name: "promote", summary: "Move a project to a dedicated instance: promote <p> [--node <id>] [--profile]", run: (*App).promote},
 		{name: "members", summary: "Project members", sub: []command{
