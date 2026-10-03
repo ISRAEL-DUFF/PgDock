@@ -319,7 +319,7 @@ func Start(t testing.TB, opts Options) *Env {
 	autoNow := func() time.Time { return time.Now().Add(time.Duration(e.automationOffset.Load())) }
 	outboundSvc := outbound.New(db, outbound.Config{Now: autoNow}, log)
 	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
-	jobSvc := schedjobs.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
+	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{

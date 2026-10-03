@@ -130,7 +130,7 @@ func (s *Service) SaveRows(ctx context.Context, projectID uuid.UUID, schema, tab
 	}
 	ctx, cancel := context.WithTimeout(ctx, EditStatementTimeout+15*time.Second)
 	defer cancel()
-	sess, err := s.open(ctx, p, uuid.New(), EditStatementTimeout, false)
+	sess, err := s.open(ctx, p, uuid.New(), EditStatementTimeout, modeOwner)
 	if err != nil {
 		return res, err
 	}

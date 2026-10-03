@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -72,6 +71,13 @@ type Limits interface {
 	Limits(ctx context.Context, orgID uuid.UUID) (store.Limits, store.OrgWithPlanRow, error)
 }
 
+// SQLRunner runs a SQL job's script as the project's owner (the console
+// service: through a login that holds no privileges of its own, so the
+// script can't RESET ROLE to the superuser).
+type SQLRunner interface {
+	RunJob(ctx context.Context, p store.Project, sqlText string, timeout time.Duration) (int64, error)
+}
+
 // Config tunes the scheduler.
 type Config struct {
 	// Tick is how often due jobs are looked for.
@@ -87,6 +93,7 @@ type Service struct {
 	db       *pgxpool.Pool
 	keyring  *crypto.Keyring
 	projects *provision.Service
+	sql      SQLRunner
 	out      *outbound.Service
 	limits   Limits
 	mail     *mail.Service
@@ -97,14 +104,14 @@ type Service struct {
 }
 
 // New returns a Service.
-func New(db *pgxpool.Pool, keyring *crypto.Keyring, ps *provision.Service, out *outbound.Service, limits Limits, m *mail.Service, cfg Config, log *slog.Logger) *Service {
+func New(db *pgxpool.Pool, keyring *crypto.Keyring, ps *provision.Service, sql SQLRunner, out *outbound.Service, limits Limits, m *mail.Service, cfg Config, log *slog.Logger) *Service {
 	if cfg.Tick <= 0 {
 		cfg.Tick = 5 * time.Second
 	}
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
-	return &Service{db: db, keyring: keyring, projects: ps, out: out, limits: limits, mail: m, cfg: cfg, log: log}
+	return &Service{db: db, keyring: keyring, projects: ps, sql: sql, out: out, limits: limits, mail: m, cfg: cfg, log: log}
 }
 
 // HTTPSpec is an HTTP job's request.
@@ -585,49 +592,9 @@ func deref(s *string) string {
 // the job's timeout as statement_timeout. The connection does not lift a
 // storage soft lock, unlike PGDock's own admin connections.
 func (s *Service) runSQL(ctx context.Context, p store.Project, sqlText string, timeout time.Duration) (int64, error) {
-	cfg, err := s.projects.AdminConfig(ctx, p.InstanceID, p.DbName)
-	if err != nil {
-		return 0, err
-	}
-	delete(cfg.RuntimeParams, "default_transaction_read_only")
-	cfg.RuntimeParams["application_name"] = "pgdock-job"
 	ctx, cancel := context.WithTimeout(ctx, timeout+10*time.Second)
 	defer cancel()
-	conn, err := pgx.ConnectConfig(ctx, cfg)
-	if err != nil {
-		return 0, err
-	}
-	defer conn.Close(context.Background())
-	// The owner's own temp_file_limit, which SET ROLE alone would not apply.
-	var tempLimit *string
-	_ = conn.QueryRow(ctx, `SELECT split_part(s, '=', 2) FROM pg_db_role_setting d, unnest(d.setconfig) s
-		WHERE d.setrole = (SELECT oid FROM pg_roles WHERE rolname = $1) AND d.setdatabase = 0 AND s LIKE 'temp_file_limit=%'`, p.OwnerRole).Scan(&tempLimit)
-	var rows int64
-	err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
-		if tempLimit != nil {
-			if _, err := tx.Exec(ctx, "SELECT set_config('temp_file_limit', $1, true)", *tempLimit); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.Exec(ctx, "SELECT set_config('statement_timeout', $1, true)", fmt.Sprintf("%dms", timeout.Milliseconds())); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, "SET LOCAL ROLE "+provision.Ident(p.OwnerRole)); err != nil {
-			return err
-		}
-		results, err := tx.Conn().PgConn().Exec(ctx, sqlText).ReadAll()
-		if err != nil {
-			return err
-		}
-		for _, r := range results {
-			if r.Err != nil {
-				return r.Err
-			}
-			rows += r.CommandTag.RowsAffected()
-		}
-		return nil
-	})
-	return rows, err
+	return s.sql.RunJob(ctx, p, sqlText, timeout)
 }
 
 // runHTTP calls the job's URL through the outbound client, signed, with a
