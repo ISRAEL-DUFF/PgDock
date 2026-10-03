@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/test/testenv"
@@ -301,5 +303,23 @@ func TestJobSQLCannotEscalate(t *testing.T) {
 	var n int
 	if err := app.QueryRow(ctx, `SELECT count(*) FROM who`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("who: %d %v", n, err)
+	}
+
+	// A soft storage lock (the database read-only by default) applies to
+	// jobs: their writes fail (V2 §10.4).
+	db := pgx.Identifier{c.Project.DbName}.Sanitize()
+	if _, err := admin.Exec(ctx, "ALTER DATABASE "+db+" SET default_transaction_read_only = on"); err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Exec(ctx, "ALTER DATABASE "+db+" RESET default_transaction_read_only") //nolint:errcheck
+	write := "INSERT INTO who VALUES ('locked')"
+	var wj gen.JobCreated
+	if code := e.Do("POST", "/api/v1/projects/"+pid+"/jobs", gen.JobRequest{Name: "locked-write", Cron: "0 3 * * *", Kind: gen.JobRequestKindSql, Sql: &write}, &wj); code != http.StatusCreated {
+		t.Fatalf("create: %d", code)
+	}
+	e.Do("POST", "/api/v1/projects/"+pid+"/jobs/"+wj.Job.Id.String()+"/run", nil, nil)
+	runs := waitRun(t, e, pid, wj.Job.Id.String(), func(r []gen.JobRun) bool { return len(r) == 1 && finished(r[0]) })
+	if runs[0].Status != gen.JobRunStatusFailed || !strings.Contains(deref(runs[0].Error), "read-only") {
+		t.Fatalf("a write under a soft lock: %s %v", runs[0].Status, deref(runs[0].Error))
 	}
 }
