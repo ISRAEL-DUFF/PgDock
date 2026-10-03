@@ -130,7 +130,7 @@ type Env struct {
 		cancel context.CancelFunc
 		wg     sync.WaitGroup
 	}
-	agentRun         map[string][]string // docker exec arguments per node, for restarts
+	agentRun map[string][]string // docker exec arguments per node, for restarts
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
 
