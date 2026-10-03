@@ -91,21 +91,20 @@ func (s *Service) EnforceStorage(ctx context.Context) error {
 
 // applyStorageState moves a project from state cur to want. Locks are
 // re-applied on every pass, so a tenant who resets the database's
-// read-only default is locked again within a minute.
+// read-only default is locked again within a minute. The new state is
+// recorded only once it is in effect: an enforcer stopped half-way (a
+// crash, a restart) does the move again on its next pass, rather than
+// believing a lock is lifted that isn't.
 func (s *Service) applyStorageState(ctx context.Context, id uuid.UUID, cur, want string, ratio float64) error {
 	if cur == want && stateRank[want] < stateRank[StateSoft] {
 		return nil
 	}
 	q := store.New(s.db)
-	if cur != want {
-		if err := q.SetProjectStorageState(ctx, store.SetProjectStorageStateParams{ID: id, StorageState: want}); err != nil {
-			return err
-		}
-	}
 	p, err := q.GetProject(ctx, id)
 	if err != nil {
 		return err
 	}
+	p.StorageState = want
 	var errs []error
 	locked := stateRank[want] >= stateRank[StateSoft]
 	wasLocked := stateRank[cur] >= stateRank[StateSoft]
@@ -123,11 +122,20 @@ func (s *Service) applyStorageState(ctx context.Context, id uuid.UUID, cur, want
 			errs = append(errs, fmt.Errorf("logins: %w", err))
 		}
 	}
-	if cur != want {
-		s.log.Info("storage state", "project_id", id, "from", cur, "to", want, "ratio", fmt.Sprintf("%.2f", ratio))
-		s.storageEmail(ctx, p, cur, want, ratio)
+	if len(errs) > 0 || cur == want {
+		return errors.Join(errs...)
 	}
-	return errors.Join(errs...)
+	if s.BeforeStorageRecord != nil {
+		if err := s.BeforeStorageRecord(ctx, id); err != nil {
+			return err
+		}
+	}
+	if err := q.SetProjectStorageState(ctx, store.SetProjectStorageStateParams{ID: id, StorageState: want}); err != nil {
+		return err
+	}
+	s.log.Info("storage state", "project_id", id, "from", cur, "to", want, "ratio", fmt.Sprintf("%.2f", ratio))
+	s.storageEmail(ctx, p, cur, want, ratio)
+	return nil
 }
 
 func (s *Service) storageEmail(ctx context.Context, p store.Project, cur, want string, ratio float64) {

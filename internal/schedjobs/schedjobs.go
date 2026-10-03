@@ -101,6 +101,19 @@ type Service struct {
 	log      *slog.Logger
 
 	wg sync.WaitGroup
+	// life is the running scheduler's context: runs end with it (a server
+	// stopping) rather than holding the shutdown for up to an hour.
+	lifeMu sync.Mutex
+	life   context.Context
+}
+
+func (s *Service) lifetime() context.Context {
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+	if s.life != nil {
+		return s.life
+	}
+	return context.Background()
 }
 
 // New returns a Service.
@@ -383,6 +396,9 @@ func (s *Service) Run(ctx context.Context) {
 			sleep(ctx, 10*time.Second)
 			continue
 		}
+		s.lifeMu.Lock()
+		s.life = ctx
+		s.lifeMu.Unlock()
 		// Runs left queued or running by a stopped server.
 		if _, err := store.New(s.db).FailInterruptedRuns(ctx, time.Now()); err != nil {
 			s.log.Warn("fail interrupted job runs", "err", err)
@@ -401,6 +417,9 @@ func (s *Service) Run(ctx context.Context) {
 			sleep(ctx, s.cfg.Tick)
 		}
 		s.wg.Wait()
+		s.lifeMu.Lock()
+		s.life = nil
+		s.lifeMu.Unlock()
 		_, _ = conn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock($1)`, schedulerLockKey)
 		conn.Release()
 	}
@@ -503,8 +522,11 @@ func (s *Service) start(j store.ScheduledJob, p store.Project, r store.JobRun) {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		ctx := context.Background()
+		ctx := s.lifetime()
 		s.execute(ctx, j, p, r)
+		if ctx.Err() != nil {
+			return // stopping: a queued run waits for the next server
+		}
 		// A queued run starts now.
 		q := store.New(s.db)
 		active, err := q.ActiveJobRuns(ctx, j.ID)
@@ -546,6 +568,12 @@ func (s *Service) execute(ctx context.Context, j store.ScheduledJob, p store.Pro
 			}
 		}
 	}
+	interrupted := ctx.Err() != nil
+	if interrupted {
+		err = errInterrupted
+	}
+	// The outcome is recorded even while the server stops.
+	ctx = context.WithoutCancel(ctx)
 	if err != nil {
 		finish.Status = RunFailed
 		var pe *pgconn.PgError
@@ -569,7 +597,10 @@ func (s *Service) execute(ctx context.Context, j store.ScheduledJob, p store.Pro
 		return
 	}
 	fails := int32(0)
-	if finish.Status != RunSucceeded {
+	switch {
+	case interrupted:
+		return // not the job's failure
+	case finish.Status != RunSucceeded:
 		fails = cur.ConsecutiveFailures + 1
 	}
 	if fails != cur.ConsecutiveFailures {
@@ -580,6 +611,10 @@ func (s *Service) execute(ctx context.Context, j store.ScheduledJob, p store.Pro
 			fmt.Sprintf("The scheduled job %s of %s has failed %d runs in a row. The last error:\n\n%s", j.Name, p.Name, fails, deref(finish.Error)))
 	}
 }
+
+// errInterrupted ends a run the stopping server cut short (the scheduler
+// records the same for runs a crashed server left).
+var errInterrupted = errors.New("interrupted: the server stopped during the run")
 
 func deref(s *string) string {
 	if s == nil {

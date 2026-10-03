@@ -75,6 +75,10 @@ type Service struct {
 
 	// FinalBackup takes a project's final backup (suspension, org deletion).
 	FinalBackup func(ctx context.Context, p store.Project) error
+	// BeforeStorageRecord, when set, runs after a storage lock change took
+	// effect and before it is recorded; an error stops there, as a crash
+	// would (failure-injection tests).
+	BeforeStorageRecord func(ctx context.Context, projectID uuid.UUID) error
 
 	consoleMu sync.Mutex
 	console   map[uuid.UUID]int // running console queries per org
