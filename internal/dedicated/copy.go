@@ -92,6 +92,14 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 		took += time.Duration(res.DurationMS) * time.Millisecond
 	}
 	err = s.projects.WithRestoreLogin(ctx, target, p.DbName, p.OwnerRole, owners, func(c agentapi.PGConn) error {
+		if hooks {
+			// The tables' webhook triggers name PGDock's function; the login
+			// may for this copy only (dropping it revokes this).
+			login := provision.Ident(c.User)
+			if _, err := dst.Exec(ctx, "GRANT USAGE ON SCHEMA pgdock TO "+login+"; GRANT EXECUTE ON FUNCTION pgdock.webhook_enqueue() TO "+login); err != nil {
+				return fmt.Errorf("webhook schema: %w", err)
+			}
+		}
 		res, err := agent.Copy(ctx, agentapi.CopyRequest{
 			Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"pgdock"}, ExcludeExtensions: names},
 			Target: c, Restore: agentapi.RestoreOptions{KeepOwners: true},
