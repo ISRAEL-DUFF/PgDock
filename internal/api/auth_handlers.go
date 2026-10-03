@@ -63,6 +63,17 @@ func genUser(sess auth.Session) *gen.User {
 		n := sess.Name
 		u.Name = &n
 	}
+	if t := sess.Token; t != nil {
+		g := &gen.TokenGrant{Id: t.ID, Name: t.Name, OrgId: t.OrgID}
+		for _, sc := range t.Scopes {
+			g.Scopes = append(g.Scopes, gen.TokenScope(sc))
+		}
+		if t.Projects != nil {
+			ids := append([]uuid.UUID{}, t.Projects...)
+			g.ProjectIds = &ids
+		}
+		u.Token = g
+	}
 	return u
 }
 

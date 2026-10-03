@@ -2,8 +2,9 @@
 // throwaway shared-tier projects, A and B, and asserts that A cannot
 // connect to B's database, see B's objects, read B's data through any
 // predefined role, create objects in B, interfere with B's sessions, gain
-// privileges, or read server files. It runs in CI and is meant to run
-// weekly against live nodes.
+// privileges, or read server files. V2 adds metadata leaks (descriptive
+// names in the catalogs), quota bypass attempts, and suspended-org checks.
+// It runs in CI, and nightly against live nodes.
 package isolation
 
 import (
@@ -173,11 +174,10 @@ func TestTenantIsolation(t *testing.T) {
 		if err := b.conn.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&bpid); err != nil {
 			t.Fatal(err)
 		}
-		var query *string
-		err := a.conn.QueryRow(ctx, `SELECT query FROM pg_stat_activity WHERE pid = $1`, bpid).Scan(&query)
-		if err == nil && query != nil && *query != "<insufficient privilege>" {
-			t.Errorf("A reads B's query text: %q", *query)
-		}
+		// V2 §10.2: on a shared cluster tenants cannot read
+		// pg_stat_activity at all, not even other sessions' names.
+		mustFail(t, a.conn, `SELECT count(*) FROM pg_stat_activity`, "permission denied")
+		mustFail(t, a.conn, `SELECT count(*) FROM pg_stat_get_activity(NULL)`, "permission denied")
 		mustFail(t, a.conn, "SELECT pg_terminate_backend("+itoa(bpid)+")", "permission denied", "must be a member")
 		mustFail(t, a.conn, "SELECT pg_cancel_backend("+itoa(bpid)+")", "permission denied", "must be a member")
 		if _, err := b.conn.Exec(ctx, "SELECT 1"); err != nil {
@@ -244,6 +244,44 @@ func TestTenantIsolation(t *testing.T) {
 		mustFail(t, a.conn, "ALTER DATABASE "+pgx.Identifier{a.db()}.Sanitize()+" SET session_preload_libraries = 'auto_explain'", "permission denied")
 	})
 
+	t.Run("names reveal nothing about other projects", func(t *testing.T) {
+		// V2 §10.2: database and role names are opaque.
+		for _, q := range []string{`SELECT datname FROM pg_database`, `SELECT rolname FROM pg_roles`} {
+			rows, err := a.conn.Query(ctx, q)
+			if err != nil {
+				t.Fatal(err)
+			}
+			list, err := pgx.CollectRows(rows, pgx.RowTo[string])
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, n := range list {
+				if strings.Contains(n, "isolation") {
+					t.Errorf("%s shows %s", q, n)
+				}
+			}
+		}
+		leaks, err := isocheck.Metadata(ctx, a.conn, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range leaks {
+			t.Errorf("finding: %s", f)
+		}
+	})
+
+	t.Run("cannot lift its own limits", func(t *testing.T) {
+		// V2 §10.4 quota bypass attempts.
+		mustFail(t, a.conn, `SET temp_file_limit = '1TB'`, "permission denied")
+		mustFail(t, a.conn, "ALTER ROLE "+pgx.Identifier{a.role()}.Sanitize()+" CONNECTION LIMIT -1", "permission denied")
+		mustFail(t, a.conn, "ALTER ROLE "+pgx.Identifier{a.role()}.Sanitize()+" RESET temp_file_limit", "permission denied")
+		mustFail(t, a.conn, `CREATE ROLE extra_login LOGIN`, "permission denied")
+		var limit string
+		if err := a.conn.QueryRow(ctx, `SELECT current_setting('temp_file_limit')`).Scan(&limit); err != nil || limit != "2GB" {
+			t.Errorf("temp_file_limit is %q (%v)", limit, err)
+		}
+	})
+
 	t.Run("guardrails apply", func(t *testing.T) {
 		var timeout, idle string
 		if err := a.conn.QueryRow(ctx, `SELECT current_setting('statement_timeout'), current_setting('idle_in_transaction_session_timeout')`).Scan(&timeout, &idle); err != nil {
@@ -296,7 +334,7 @@ func TestLiveIsolationCheck(t *testing.T) {
 		t.Fatalf("clean cluster: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
 	}
 	var list gen.IsolationCheckList
-	if code := e.Do("GET", "/api/v1/security/isolation-checks", nil, &list); code != http.StatusOK || len(list.Items) == 0 || list.EveryDays != 7 {
+	if code := e.Do("GET", "/api/v1/security/isolation-checks", nil, &list); code != http.StatusOK || len(list.Items) == 0 || list.EveryDays != 1 {
 		t.Fatalf("list: %d %+v", code, list)
 	}
 	for _, c := range list.Items {
@@ -326,6 +364,10 @@ func TestLiveIsolationCheck(t *testing.T) {
 		{"role joins pg_read_all_data", "role memberships", admin, "GRANT pg_read_all_data TO " + role, "REVOKE pg_read_all_data FROM " + role},
 		{"PUBLIC may create in public", "schema public", projectDB, "GRANT CREATE ON SCHEMA public TO PUBLIC", "REVOKE CREATE ON SCHEMA public FROM PUBLIC"},
 		{"dblink installed", "escape-prone extensions", projectDB, "CREATE EXTENSION dblink", "DROP EXTENSION dblink"},
+		// V2 §10.2, §10.4, §10.8.
+		{"a descriptive database name", "metadata leak", admin, "CREATE DATABASE customer_invoices", "DROP DATABASE customer_invoices"},
+		{"no temp_file_limit", "temp_file_limit", admin, "ALTER ROLE " + role + " RESET temp_file_limit", "ALTER ROLE " + role + " SET temp_file_limit = '2GB'"},
+		{"no connection limit", "connection limit", admin, "ALTER ROLE " + role + " CONNECTION LIMIT -1", "ALTER ROLE " + role + " CONNECTION LIMIT 20"},
 	} {
 		if _, err := v.conn.Exec(ctx, v.do); err != nil {
 			t.Fatalf("%s: %v", v.name, err)
@@ -340,6 +382,29 @@ func TestLiveIsolationCheck(t *testing.T) {
 	}
 	if op := run(); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("after undoing: %s %s", op.Status, deref(op.Error))
+	}
+
+	// A suspended organisation's logins must be off (V2 §10.8): suspend,
+	// then switch one back on behind PGDock's back.
+	team := e.CreateOrg("Isolated team")
+	tp := e.CreateProjectIn("suspended app", team)
+	e.Reauth()
+	if code := e.Do("POST", "/api/v1/admin/orgs/"+team.String()+"/suspend", map[string]string{"reason": "test"}, nil); code != http.StatusNoContent {
+		t.Fatalf("suspend: %d", code)
+	}
+	if op := run(); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("after suspending: %s %s", op.Status, deref(op.Error))
+	}
+	tRole := pgx.Identifier{tp.Project.OwnerRole}.Sanitize()
+	if _, err := admin.Exec(ctx, "ALTER ROLE "+tRole+" LOGIN"); err != nil {
+		t.Fatal(err)
+	}
+	op := run()
+	if op.Status != gen.OperationStatusFailed || !strings.Contains(deref(op.Error), "suspended logins") {
+		t.Errorf("a suspended project that can log in: %s (%s)", op.Status, deref(op.Error))
+	}
+	if _, err := admin.Exec(ctx, "ALTER ROLE "+tRole+" NOLOGIN"); err != nil {
+		t.Fatal(err)
 	}
 }
 

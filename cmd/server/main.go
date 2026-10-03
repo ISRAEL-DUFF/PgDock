@@ -30,6 +30,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
@@ -41,13 +42,18 @@ import (
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
+	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/rotate"
+	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tlscert"
+	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/pgdock/internal/webhooks"
 	"github.com/israel-duff/pgdock/web"
 )
 
@@ -184,6 +190,53 @@ func run() error {
 	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
 	authSvc.SetHooks(orgSvc.Hooks())
 
+	// Quotas, storage locks, the reaper, usage, suspension (V2 §10).
+	tokenSvc := tokens.New(pool, keyring, mailSvc, tokens.Config{PublicURL: cfg.Insight.PublicURL}, log)
+	bg.Add(1)
+	go func() { defer bg.Done(); tokenSvc.Run(bgCtx, time.Hour) }()
+
+	var tenancySvc *tenancy.Service
+	if projects != nil {
+		tenancySvc = tenancy.New(pool, projects, mailSvc, tenancy.Config{PublicURL: cfg.Insight.PublicURL, SweepInterval: cfg.Insight.TenancySweep}, log)
+		if backups != nil {
+			tenancySvc.FinalBackup = func(ctx context.Context, p store.Project) error {
+				_, err := backups.BackupNow(ctx, p.ID, nil)
+				return err
+			}
+			backups.Dedicated.Quotas = tenancySvc
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); tenancySvc.Run(bgCtx) }()
+	}
+
+	// Database branches and their hourly expiry (V2 §8).
+	var branchSvc *branching.Service
+	if backups != nil {
+		branchSvc = branching.New(pool, projects, backups, nodeSvc, mailSvc, branching.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		for name, k := range branchSvc.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); branchSvc.Run(bgCtx, 10*time.Minute) }()
+	}
+
+	// Database webhooks, scheduled jobs and their outbound requests (V2 §9).
+	var webhookSvc *webhooks.Service
+	var jobSvc *schedjobs.Service
+	var outboundSvc *outbound.Service
+	if projects != nil && tenancySvc != nil {
+		outboundSvc = outbound.New(pool, outbound.Config{Blocked: cfg.Insight.OutboundBlock}, log)
+		webhookSvc = webhooks.New(pool, keyring, projects, outboundSvc, tenancySvc, mailSvc, webhooks.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		// SQL jobs run through the console's login (it holds no privileges
+		// of its own), whether or not the console itself is turned off.
+		jobConsole := console.New(pool, projects, keyring, cfg.Insight.ConsoleDisabled, log)
+		jobSvc = schedjobs.New(pool, keyring, projects, jobConsole, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		projects.RefreshWebhooks = webhookSvc.Reinstall
+		bg.Add(2)
+		go func() { defer bg.Done(); webhookSvc.Run(bgCtx) }()
+		go func() { defer bg.Done(); jobSvc.Run(bgCtx) }()
+	}
+
 	var consoleSvc *console.Service
 	var isoChecks *isocheck.Service
 	var alertSvc *alerts.Service
@@ -259,6 +312,13 @@ func run() error {
 		Alerts:          alertSvc,
 		Orgs:            orgSvc,
 		Mail:            mailSvc,
+		Tenancy:         tenancySvc,
+		Branches:        branchSvc,
+		Webhooks:        webhookSvc,
+		Jobs:            jobSvc,
+		Outbound:        outboundSvc,
+		Tokens:          tokenSvc,
+		PublicURL:       cfg.Insight.PublicURL,
 		MetricsInterval: cfg.Insight.MetricsInterval,
 		MetricsToken:    cfg.Insight.MetricsToken,
 	})
@@ -494,6 +554,7 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 	}
 	bs := backup.NewService(pool, keyring, ns, projects, bc, log)
 	ds := dedicated.New(pool, keyring, ns, projects, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
+	ds.Snapshot = bs.Snapshot
 	projects.Instances = ds
 	bs.Dedicated = ds
 	return bs, ns, nil

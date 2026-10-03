@@ -511,6 +511,91 @@ paths:
                 $ref: "#/components/schemas/ProjectCredentials"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/branches:
+    get:
+      operationId: listBranches
+      summary: The project's branches (V2 §8)
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Branches.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createBranch
+      summary: Branch the project
+      description: |
+        A new shared-tier project copied from this one's latest backup
+        (`source: backup`, the default) or live, schema only or with data,
+        that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+        Returns the branch's credentials once. Webhooks and scheduled jobs
+        are not copied. A project marked as containing sensitive data
+        branches schema only by default, and a full copy needs the project
+        admin role. 409 `quota_exceeded` past the organisation's branch or
+        storage quota.
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchRequest"
+      responses:
+        "202":
+          description: Branch creation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCredentials"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/reset:
+    post:
+      operationId: resetBranch
+      summary: Reset a branch from its parent
+      description: Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchResetRequest"
+      responses:
+        "202":
+          description: Reset queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/detach:
+    post:
+      operationId: detachBranch
+      summary: Detach a branch into a standalone project
+      description: It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+      tags: [branches]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Detached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/backups:
     post:
       operationId: createProjectBackup
@@ -575,6 +660,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BackupOverview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/backups/{id}/download:
+    get:
+      operationId: downloadBackup
+      summary: Download a backup as a plain pg_dump archive (organisation owners)
+      description: |
+        The backup decrypted: a `pg_dump` custom-format archive for
+        `pg_restore` (V2 §10.10 data export). Logical, final and safety
+        backups of projects only. Organisation owners only; at most two at
+        a time per organisation; every download is audited.
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/BackupID"
+      responses:
+        "200":
+          description: The archive.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         default:
           $ref: "#/components/responses/Error"
   /api/v1/backups/{id}/restore:
@@ -643,7 +750,7 @@ paths:
     put:
       operationId: putStorageSettings
       summary: Save the backup storage target after a live test
-      description: Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+      description: Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
       tags: [settings]
       requestBody:
         required: true
@@ -663,7 +770,7 @@ paths:
   /api/v1/settings/storage/test:
     post:
       operationId: testStorageSettings
-      summary: Run the live write/read/delete test without saving
+      summary: Run the live write/read/list/delete test without saving
       tags: [settings]
       requestBody:
         required: true
@@ -883,8 +990,77 @@ paths:
             schema:
               $ref: "#/components/schemas/PromoteRequest"
       responses:
+        "201":
+          description: Beyond the organisation's dedicated allowance, the promotion became a request for the platform admin (V2 §10.6).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DedicatedRequest"
         "202":
           description: Promotion queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/demote/preflight:
+    post:
+      operationId: demotePreflight
+      summary: Check whether this dedicated project can move back to the shared tier
+      description: |
+        Runs the demotion eligibility checks (V2 §5.2) without changing
+        anything: size against the organisation's shared storage limits,
+        extensions on the shared allow-list, no custom roles, the
+        dedicated allowance released, peak connections, settings the
+        shared tier resets, and a shared cluster with room (the
+        organisation's own when it has one). The same checks run again
+        when the demotion starts.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DemoteRequest"
+      responses:
+        "200":
+          description: The checks and what would change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemotePreflight"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/demote:
+    post:
+      operationId: demoteProject
+      summary: Demote a dedicated project to the shared tier
+      description: |
+        Queues a `demote` operation (V2 §5.3): the database and every
+        login are created on a shared cluster with the same SCRAM
+        verifiers, writes freeze while the data is copied and verified,
+        then the pooler route moves. Connection strings and passwords do
+        not change. If anything fails before the route moves, the
+        project stays on its dedicated instance untouched. The
+        dedicated instance is stopped and kept for 48 hours, then
+        destroyed, which releases its share of the dedicated allowance.
+        Point-in-time recovery ends at the demotion; the existing base
+        backups stay restorable until their retention ends. Refused with
+        `409` when a check fails, or when there are warnings and
+        `accept_warnings` is not set.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DemoteRequest"
+      responses:
+        "202":
+          description: Demotion queued.
           content:
             application/json:
               schema:
@@ -1106,13 +1282,210 @@ paths:
                 $ref: "#/components/schemas/DbSchema"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}:
+    get:
+      operationId: getTableInfo
+      summary: A table's columns, keys, constraints and indexes, and whether its rows can be edited
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+      responses:
+        "200":
+          description: The table.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TableInfo"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/export:
+    get:
+      operationId: exportTableRows
+      summary: Export filtered, sorted rows as CSV or JSON (at most 100,000)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+        - name: filter
+          in: query
+          description: |
+            Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+            op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: desc
+          in: query
+          schema:
+            type: boolean
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+      responses:
+        "200":
+          description: The rows; X-PGDock-Truncated is true when there were more.
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/changes:
+    post:
+      operationId: saveTableChanges
+      summary: Save staged row edits in one transaction
+      description: |
+        Inserts, updates and deletes (at most 500) in one transaction with
+        statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+        deletes match the row's `xmin` from when it was loaded: if someone
+        changed or deleted it since, nothing is saved and the answer is 409
+        with the row as it is now. A change Postgres refuses rolls back the
+        batch: 422 with the failing change and its error.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveRowsRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveRowsResult"
+        "409":
+          description: A row changed since it was loaded; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveRowsResult"
+        "422":
+          description: Postgres refused a change; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveRowsResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/schema/preview:
+    post:
+      operationId: previewSchemaChange
+      summary: Turn a schema change into DDL, risk notes, and a reverse
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchemaPreviewRequest"
+      responses:
+        "200":
+          description: The plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaPlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/schema/apply:
+    post:
+      operationId: applySchemaChange
+      summary: Run a previewed schema change
+      description: |
+        `hash` must be the preview's: if the change would now produce other
+        SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+        object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+        CONCURRENTLY runs outside a transaction, everything else in one.
+        The SQL is written to the audit log.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchemaApplyRequest"
+      responses:
+        "200":
+          description: Applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaApplied"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/schema/migration:
+    post:
+      operationId: schemaMigration
+      summary: Render a schema change as a migration file (plain SQL, goose, or dbmate)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchemaMigrationRequest"
+      responses:
+        "200":
+          description: The migration; the format becomes your default for this project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaMigration"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/editor-preferences:
+    get:
+      operationId: getEditorPreferences
+      summary: Your table-editor preferences for this project
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Preferences.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditorPreferences"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/tables/{schema}/{table}/rows:
     get:
       operationId: getTableRows
-      summary: A page of a table's rows (read-only)
+      summary: A page of a table's rows, filtered and sorted
       description: |
         50 rows per page, keyset-paginated on the primary key where there is
-        one (spec §8.6). Pass the previous page's `next` as `after`.
+        one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+        tables return each row's `xmin`, for the row editor's conflict
+        detection (V2 §4.2).
       tags: [console]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -1126,6 +1499,25 @@ paths:
           required: true
           schema:
             type: string
+        - name: filter
+          in: query
+          description: |
+            Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+            op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
+            (V2 §4.1). Compiled to a parameterised WHERE clause.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: sort
+          in: query
+          description: A column. Sorting by the primary key pages by keyset; any other column by offset.
+          schema:
+            type: string
+        - name: desc
+          in: query
+          schema:
+            type: boolean
         - name: after
           in: query
           schema:
@@ -1504,6 +1896,516 @@ paths:
           description: Changed.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/tokens:
+    get:
+      operationId: listMyTokens
+      summary: Your API tokens (only the calling token's organisation, with a token)
+      tags: [tokens]
+      responses:
+        "200":
+          description: Tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APITokenList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createToken
+      summary: Create an API token, shown once
+      description: |
+        A token acts in one organisation, with additive scopes (read, write,
+        admin; admin requires write), optionally restricted to some
+        projects, until it expires (default 90 days, at most the platform
+        maximum). Created with a token, the new one can't exceed the
+        caller's scopes, projects, or expiry.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedToken"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/tokens/{token_id}:
+    delete:
+      operationId: revokeMyToken
+      summary: Revoke one of your tokens
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/TokenID"
+      responses:
+        "204":
+          description: Revoked.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/storage-targets:
+    get:
+      operationId: listOrgStorageTargets
+      summary: The organisation's own backup storage targets (owners and admins)
+      description: Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Targets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createOrgStorageTarget
+      summary: Add an org target after a live test
+      description: Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: The test failed; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/storage-targets/{target_id}:
+    get:
+      operationId: getOrgStorageTarget
+      summary: One org target (never its credentials)
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TargetID"
+      responses:
+        "200":
+          description: Target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTarget"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateOrgStorageTarget
+      summary: Change an org target after a live test
+      description: Empty `access_key` or `secret_key` keep the stored ones.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TargetID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: Test result; `saved` says whether the target changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteOrgStorageTarget
+      summary: Delete an org target
+      description: |
+        Refused (409 `target_in_use`) while a project uses it, and while it
+        holds unexpired backups unless `accept_unrestorable=true`: those
+        backups then become unrestorable. The bucket is not touched.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TargetID"
+        - $ref: "#/components/parameters/AcceptUnrestorable"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/storage-targets/test:
+    post:
+      operationId: testStorageTarget
+      summary: Run the live write/read/list/delete test without saving
+      description: |
+        With `target_id`, empty credentials are taken from that stored
+        target (one of the organisation's, or a platform target for the
+        platform admin).
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetTestRequest"
+      responses:
+        "200":
+          description: Test result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTestResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/storage-targets:
+    get:
+      operationId: listPlatformStorageTargets
+      summary: Platform storage targets (platform admin)
+      description: Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+      tags: [admin]
+      responses:
+        "200":
+          description: Targets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createPlatformStorageTarget
+      summary: Add a platform target after a live test (platform admin)
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: The test failed; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/storage-targets/{target_id}:
+    get:
+      operationId: getPlatformStorageTarget
+      summary: One platform target (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/TargetID"
+      responses:
+        "200":
+          description: Target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTarget"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updatePlatformStorageTarget
+      summary: Change a platform target after a live test (platform admin)
+      description: "`is_default: true` makes it the platform default (exactly one is)."
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/TargetID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: Test result; `saved` says whether the target changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deletePlatformStorageTarget
+      summary: Delete a platform target (platform admin)
+      description: The default can't be deleted; otherwise as for org targets.
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/TargetID"
+        - $ref: "#/components/parameters/AcceptUnrestorable"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/storage-target:
+    get:
+      operationId: getProjectStorageTarget
+      summary: Where the project's backups go, its key, and the targets it can use
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Storage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectBackupStorage"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: setProjectStorageTarget
+      summary: Send the project's new backups to another target
+      description: |
+        `target_id` null is the platform default. Existing backups keep
+        their target and stay restorable. `copy_existing` copies them to the
+        new target as an operation, verified by checksum; `delete_originals`
+        then deletes the originals. A dedicated project's WAL-G is
+        reconfigured and a fresh base backup taken at once.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectStorageTargetRequest"
+      responses:
+        "200":
+          description: Switched; `operation` is set when work was queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStorageTargetResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/backup-key:
+    post:
+      operationId: enableProjectBackupKey
+      summary: Give the project its own backup key
+      description: |
+        Generates the key (idempotent unless `rotate`); new backups use it,
+        existing backups keep theirs. Download it with
+        `GET /projects/{id}/backup-key/download`.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectBackupKeyRequest"
+      responses:
+        "200":
+          description: The key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectBackupKey"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/backup-key/download:
+    get:
+      operationId: downloadProjectBackupKey
+      summary: Download the project's backup key with a README (re-authentication)
+      description: |
+        The OpenPGP private key, armored, after a README on decrypting and
+        restoring with standard tools (gpg, pg_restore). Needs a recent
+        re-authentication (403 `reauth_required`); every download is audited.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The key file.
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/tokens:
+    get:
+      operationId: listOrgTokens
+      summary: Every token scoped to the organisation (owners and admins)
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APITokenList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/tokens/{token_id}:
+    delete:
+      operationId: revokeOrgToken
+      summary: Revoke any token scoped to the organisation (owners and admins)
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TokenID"
+      responses:
+        "204":
+          description: Revoked.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device:
+    post:
+      operationId: startDeviceLogin
+      summary: Start a CLI device login
+      description: |
+        The CLI shows `user_code` and opens `verification_uri_complete`; a
+        signed-in user approves it, choosing the organisation and scopes,
+        and the CLI polls `/api/v1/auth/device/token` for the token.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceStartRequest"
+      responses:
+        "200":
+          description: Started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthorization"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device/token:
+    post:
+      operationId: pollDeviceLogin
+      summary: Collect a device login's token
+      description: |
+        Answers 400 with code `authorization_pending` until approved
+        (`slow_down` when polled too often), then the token exactly once;
+        `access_denied` or `expired_token` end the login.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevicePollRequest"
+      responses:
+        "200":
+          description: The token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedToken"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device/requests/{user_code}:
+    get:
+      operationId: getDeviceLogin
+      summary: A pending device login, for the approval page
+      tags: [tokens]
+      parameters:
+        - name: user_code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceRequest"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/device/approve:
+    post:
+      operationId: approveDeviceLogin
+      summary: Approve (or deny) a device login
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceApproveRequest"
+      responses:
+        "200":
+          description: Approved; the CLI collects the token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIToken"
+        "204":
+          description: Denied.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/settings/tokens:
+    get:
+      operationId: getTokenSettings
+      summary: Platform-wide token rules
+      tags: [admin]
+      responses:
+        "200":
+          description: Settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putTokenSettings
+      summary: Change the platform-wide token rules
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenSettings"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/me/sessions:
     get:
       operationId: listMySessions
@@ -1675,6 +2577,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Org"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteOrg
+      summary: Delete an organisation after a 7-day grace period (owner, step-up auth)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteOrgRequest"
+      responses:
+        "202":
+          description: The organisation is offline and will be deleted at delete_after unless an owner cancels.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgDeletion"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/members:
@@ -2182,8 +3105,891 @@ paths:
                 $ref: "#/components/schemas/Terms"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/quotas:
+    get:
+      operationId: getOrgQuotas
+      summary: The organisation's plan, limits, and current use (V2 §10.3)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Limits and use.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgQuotas"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/usage:
+    get:
+      operationId: getOrgUsage
+      summary: Recorded usage (V2 §10.9), as JSON or CSV
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: from
+          in: query
+          description: Start (inclusive); default the start of this month (UTC).
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End (exclusive); default now.
+          schema:
+            type: string
+            format: date-time
+        - name: metric
+          in: query
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: Usage records.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageReport"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/cancel-deletion:
+    post:
+      operationId: cancelOrgDeletion
+      summary: Cancel a pending organisation deletion (owner)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "204":
+          description: Cancelled; the projects accept connections again.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/break-glass/{session_id}/end:
+    post:
+      operationId: endBreakGlass
+      summary: End a break-glass session early (owner)
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Ended.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/dedicated-requests:
+    get:
+      operationId: listOrgDedicatedRequests
+      summary: The organisation's dedicated instance requests
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DedicatedRequestList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/switch-credentials:
+    post:
+      operationId: switchProjectCredentials
+      summary: Switch a V1 project to opaque credentials (V2 §10.2)
+      description: |
+        Creates an opaque owner role with a new password, returned once. The
+        V1 role and database name keep working until the grace period ends,
+        then stop.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchCredentialsRequest"
+      responses:
+        "202":
+          description: Switch operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwitchedCredentials"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/storage:
+    get:
+      operationId: getProjectStorage
+      summary: Size against the storage limit, lock state, and the largest tables
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Storage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStorage"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/reclaim-space:
+    post:
+      operationId: reclaimSpace
+      summary: Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReclaimSpaceRequest"
+      responses:
+        "202":
+          description: Operation queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/reaped:
+    get:
+      operationId: listReapedSessions
+      summary: Statements and idle transactions the reaper ended (V2 §10.4)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Most recent first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReapedSessionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs:
+    get:
+      operationId: adminListOrgs
+      summary: Every organisation with plan, counts, size, and status (platform admin)
+      tags: [admin]
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Organisations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrgList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}:
+    get:
+      operationId: adminGetOrg
+      summary: One organisation's plan, limits, allowance, and clusters (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The organisation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrg"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: adminUpdateOrg
+      summary: Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateOrgRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrg"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/suspend:
+    post:
+      operationId: adminSuspendOrg
+      summary: Suspend an organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "204":
+          description: Suspended.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/reinstate:
+    post:
+      operationId: adminReinstateOrg
+      summary: Reinstate a suspended organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "204":
+          description: Reinstated.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks:
+    get:
+      operationId: listWebhooks
+      summary: A project's webhooks, with their health and backlog
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The webhooks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createWebhook
+      summary: Send a table's changes to a URL
+      description: |
+        Installs triggers that write each change to an outbox in the
+        project's database, in the same transaction (V2 §9.1): rolled-back
+        changes never produce an event. The URL must be https:// (http://
+        only to a host the platform admin allow-listed) and resolve to a
+        public address. The signing secret is returned once.
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookCreated"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}:
+    get:
+      operationId: getWebhook
+      summary: A webhook
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "200":
+          description: The webhook.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateWebhook
+      summary: Change, pause or resume a webhook
+      description: Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookUpdate"
+      responses:
+        "200":
+          description: The webhook.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteWebhook
+      summary: Delete a webhook, its triggers and its queued events
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/test:
+    post:
+      operationId: testWebhook
+      summary: Send a test event now
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "200":
+          description: What the receiver answered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookTestResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret:
+    post:
+      operationId: rotateWebhookSecret
+      summary: Replace the signing secret (returned once)
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      responses:
+        "200":
+          description: The new secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSecret"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      summary: The delivery log (7 days), or the dead letters
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+        - name: dead
+          in: query
+          description: Only dead letters not yet replayed.
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/webhooks/{webhook_id}/replay:
+    post:
+      operationId: replayWebhook
+      summary: Queue dead letters again
+      tags: [webhooks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/WebhookID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayRequest"
+      responses:
+        "200":
+          description: How many were queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs:
+    get:
+      operationId: listJobs
+      summary: A project's scheduled jobs
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The jobs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createJob
+      summary: Run SQL or call a URL on a schedule
+      description: |
+        SQL runs as the project owner in a transaction, with the job's
+        timeout as statement_timeout; HTTP calls go through the same
+        outbound rules as webhooks and are signed. The plan limits the
+        number of jobs and the shortest interval (409 quota_exceeded).
+        An HTTP job's signing secret is returned once.
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCreated"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs/{job_id}:
+    get:
+      operationId: getJob
+      summary: A scheduled job
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateJob
+      summary: Change, pause or resume a job
+      description: Fields left out keep their values.
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobUpdate"
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteJob
+      summary: Delete a job and its history
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs/{job_id}/run:
+    post:
+      operationId: runJob
+      summary: Run a job now
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "202":
+          description: The run (running, queued behind the current one, or skipped with the reason).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRun"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/jobs/{job_id}/runs:
+    get:
+      operationId: listJobRuns
+      summary: A job's history (30 days, at most 1,000 runs)
+      tags: [jobs]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/JobID"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRunList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/outbound:
+    get:
+      operationId: adminGetOrgOutbound
+      summary: An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The allow-list and counters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgOutbound"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: adminSetOrgOutboundAllowlist
+      summary: Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+      description: |
+        Hosts (names or IP addresses) on the list may be private or
+        loopback addresses and may use plain http://. Link-local and cloud
+        metadata addresses can never be allowed. Tenants can't change it.
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutboundAllowlist"
+      responses:
+        "200":
+          description: The allow-list and counters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgOutbound"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/cluster:
+    post:
+      operationId: adminSetOrgCluster
+      summary: Give an organisation its own shared cluster, or take it back (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOrgClusterRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrg"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/break-glass:
+    post:
+      operationId: adminStartBreakGlass
+      summary: Start break-glass access to an organisation (platform admin, step-up auth)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BreakGlassRequest"
+      responses:
+        "201":
+          description: Started; every owner is emailed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassSession"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/plans:
+    get:
+      operationId: listPlans
+      summary: Quota plan templates (platform admin)
+      tags: [admin]
+      responses:
+        "200":
+          description: Plans.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createPlan
+      summary: Add a quota plan template (platform admin)
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/plans/{plan_id}:
+    patch:
+      operationId: updatePlan
+      summary: Change a quota plan template (platform admin)
+      tags: [admin]
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/dedicated-requests:
+    get:
+      operationId: listDedicatedRequests
+      summary: Dedicated instance requests from every organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, cancelled]
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DedicatedRequestList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/dedicated-requests/{request_id}/approve:
+    post:
+      operationId: approveDedicatedRequest
+      summary: Approve a dedicated request; the promotion starts (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideRequest"
+      responses:
+        "202":
+          description: Approved; the promotion is queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/dedicated-requests/{request_id}/reject:
+    post:
+      operationId: rejectDedicatedRequest
+      summary: Reject a dedicated request (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideRequest"
+      responses:
+        "204":
+          description: Rejected.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/usage:
+    get:
+      operationId: platformUsage
+      summary: Usage totals per organisation (platform admin)
+      tags: [admin]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Totals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformUsage"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/shared-clusters:
+    get:
+      operationId: listSharedClusters
+      summary: Shared clusters and the organisation each is reserved for (platform admin)
+      tags: [admin]
+      responses:
+        "200":
+          description: Clusters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedClusterList"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
+    SchemaName:
+      name: schema
+      in: path
+      required: true
+      schema:
+        type: string
+    TableName:
+      name: table
+      in: path
+      required: true
+      schema:
+        type: string
+    WebhookID:
+      name: webhook_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobID:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TargetID:
+      name: target_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AcceptUnrestorable:
+      name: accept_unrestorable
+      in: query
+      description: Delete even though the target holds unexpired backups, which become unrestorable.
+      schema:
+        type: boolean
+        default: false
+    TokenID:
+      name: token_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequestID:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     OrgID:
       name: org
       in: path
@@ -2374,6 +4180,13 @@ components:
           example: not_implemented
         message:
           type: string
+        quota:
+          $ref: "#/components/schemas/QuotaItem"
+        sql_error:
+          $ref: "#/components/schemas/SqlError"
+        statement:
+          type: string
+          description: The DDL statement Postgres refused.
     OperationStatus:
       type: string
       enum: [queued, running, succeeded, failed]
@@ -2472,7 +4285,7 @@ components:
           description: Fail the first N attempts to exercise retries.
     ProjectStatus:
       type: string
-      enum: [provisioning, active, promoting, restoring, deleting, error]
+      enum: [provisioning, active, promoting, demoting, restoring, deleting, error]
     ProjectTier:
       type: string
       enum: [shared, dedicated]
@@ -2510,6 +4323,18 @@ components:
       type: object
       required: [id, org_id, name, slug, db_name, owner_role, tier, status, settings, created_at, connection]
       properties:
+        parent_project_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set for a branch (V2 §8).
+        branch:
+          $ref: "#/components/schemas/BranchInfo"
+        sensitive_data:
+          type: boolean
+        branch_count:
+          type: integer
+          description: Live branches of this project.
         id:
           type: string
           format: uuid
@@ -2518,6 +4343,16 @@ components:
           format: uuid
         my_role:
           $ref: "#/components/schemas/ProjectRole"
+        storage_state:
+          $ref: "#/components/schemas/StorageState"
+        can_switch_credentials:
+          type: boolean
+          description: A V1 project that still uses its V1 owner role (V2 §10.2).
+        legacy_credentials_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: The V1 credentials stop working at this time.
         name:
           type: string
         slug:
@@ -2553,7 +4388,10 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: After a promotion, when the read-only shared copy is dropped.
+          description: |
+            After a promotion, when the read-only shared copy is dropped;
+            after a demotion, when the stopped dedicated instance is
+            destroyed (and the dedicated allowance released).
     ProjectSettings:
       type: object
       required: [connection_limit, pool_size, statement_timeout, idle_in_transaction_session_timeout, disk_warn_bytes, console_read_only]
@@ -2814,6 +4652,50 @@ components:
           type: string
         tls:
           $ref: "#/components/schemas/TlsStatus"
+    BranchInfo:
+      type: object
+      required: [source, schema_only, backups]
+      properties:
+        source:
+          type: string
+          enum: [backup, live]
+        schema_only:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the branch deletes itself; null keeps it.
+        backups:
+          type: boolean
+          description: Whether it takes nightly backups.
+    BranchRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        source:
+          type: string
+          enum: [backup, live]
+          default: backup
+        schema_only:
+          type: boolean
+          description: Defaults to whether the parent contains sensitive data.
+        ttl_hours:
+          type: integer
+          minimum: 0
+          maximum: 720
+          description: Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168.
+    BranchResetRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          enum: [backup, live]
+          description: Defaults to the source the branch was created from.
     UpdateProjectRequest:
       type: object
       properties:
@@ -2827,6 +4709,19 @@ components:
           nullable: true
         settings:
           $ref: "#/components/schemas/ProjectSettingsPatch"
+        sensitive_data:
+          type: boolean
+          description: The project contains sensitive data; its branches default to schema only (project admins).
+        expires_at:
+          type: string
+          format: date-time
+          description: Branches only. When the branch deletes itself, within 30 days.
+        no_expiry:
+          type: boolean
+          description: Branches only. Keep the branch until deleted.
+        branch_backups:
+          type: boolean
+          description: Branches only. Take nightly backups (off by default).
     ProjectSettingsPatch:
       type: object
       properties:
@@ -2880,7 +4775,21 @@ components:
           $ref: "#/components/schemas/BackupKind"
         status:
           type: string
-          enum: [running, succeeded, failed]
+          enum: [running, succeeded, failed, copied]
+          description: "`copied`: copied to another target (the copy is its own backup); the original is kept until deleted."
+        storage_target:
+          type: string
+          nullable: true
+          description: The target's name ("an org target" where its name isn't the viewer's to see).
+        storage_kind:
+          $ref: "#/components/schemas/StorageTargetKind"
+        encryption:
+          type: string
+          enum: [instance, project]
+          description: "`project`: an OpenPGP message to the project's own key (opens with gpg)."
+        key_fingerprint:
+          type: string
+          nullable: true
         size_bytes:
           type: integer
           format: int64
@@ -2956,6 +4865,191 @@ components:
           $ref: "#/components/schemas/Operation"
         credentials:
           $ref: "#/components/schemas/ProjectCredentials"
+    StorageTargetKind:
+      type: string
+      enum: [platform, org]
+    StorageTargetRequest:
+      type: object
+      required: [name, endpoint, bucket]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        endpoint:
+          type: string
+          example: https://s3.eu-central-1.amazonaws.com
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        access_key:
+          type: string
+          description: Empty on an update keeps the stored one.
+        secret_key:
+          type: string
+          description: Empty on an update keeps the stored one.
+        path_style:
+          type: boolean
+        is_default:
+          type: boolean
+          description: Platform targets only.
+    StorageTargetTestRequest:
+      type: object
+      required: [endpoint, bucket]
+      properties:
+        target_id:
+          type: string
+          format: uuid
+          description: A stored target whose credentials fill in empty ones.
+        endpoint:
+          type: string
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        access_key:
+          type: string
+        secret_key:
+          type: string
+        path_style:
+          type: boolean
+    StorageTarget:
+      type: object
+      required: [id, name, kind, endpoint, bucket, prefix, region, path_style, is_default, created_at, usage]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: "#/components/schemas/StorageTargetKind"
+        endpoint:
+          type: string
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        path_style:
+          type: boolean
+        is_default:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        usage:
+          $ref: "#/components/schemas/StorageTargetUsage"
+    StorageTargetUsage:
+      type: object
+      required: [projects, backups, bytes]
+      properties:
+        projects:
+          type: integer
+          description: Live projects whose new backups go here.
+        backups:
+          type: integer
+          description: Unexpired backups stored here.
+        bytes:
+          type: integer
+          format: int64
+    StorageTargetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageTarget"
+    StorageTargetSaveResult:
+      type: object
+      required: [saved, test]
+      properties:
+        saved:
+          type: boolean
+        test:
+          $ref: "#/components/schemas/StorageTestResult"
+        target:
+          $ref: "#/components/schemas/StorageTarget"
+    ProjectStorageChoice:
+      type: object
+      required: [kind, name, is_default]
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null is the platform default (followed if it changes).
+        kind:
+          $ref: "#/components/schemas/StorageTargetKind"
+        name:
+          type: string
+        is_default:
+          type: boolean
+    ProjectBackupKey:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: False means new backups use the instance key.
+        id:
+          type: string
+          format: uuid
+        fingerprint:
+          type: string
+          description: The OpenPGP fingerprint, as gpg shows it.
+        created_at:
+          type: string
+          format: date-time
+    ProjectBackupKeyRequest:
+      type: object
+      properties:
+        rotate:
+          type: boolean
+          description: Replace an existing key; backups made with the old one keep it.
+    ProjectBackupStorage:
+      type: object
+      required: [target, key, choices, counts_toward_quota]
+      properties:
+        target:
+          $ref: "#/components/schemas/ProjectStorageChoice"
+        key:
+          $ref: "#/components/schemas/ProjectBackupKey"
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectStorageChoice"
+        counts_toward_quota:
+          type: boolean
+          description: Whether new backups count against the organisation's backup quota (platform targets do).
+    ProjectStorageTargetRequest:
+      type: object
+      properties:
+        target_id:
+          type: string
+          format: uuid
+          nullable: true
+        copy_existing:
+          type: boolean
+        delete_originals:
+          type: boolean
+    ProjectStorageTargetResult:
+      type: object
+      required: [storage]
+      properties:
+        storage:
+          $ref: "#/components/schemas/ProjectBackupStorage"
+        operation:
+          $ref: "#/components/schemas/Operation"
     StorageRequest:
       type: object
       required: [endpoint, bucket, access_key]
@@ -3427,6 +5521,493 @@ components:
         estimated_downtime_seconds:
           type: integer
           description: Roughly dump + restore time, while writes wait.
+    DemoteRequest:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+          description: The node whose shared cluster takes the project (default the one with the most free capacity).
+        console_writable:
+          type: boolean
+          description: Turn the read-only SQL console off (V2 §5.5); otherwise it keeps its current setting.
+        accept_warnings:
+          type: boolean
+          description: Acknowledge the preflight's warnings (peak connections, settings that reset).
+    DemoteCheck:
+      type: object
+      required: [name, status, message]
+      properties:
+        name:
+          type: string
+          enum: [size, extensions, roles, allowance, connections, settings, capacity]
+        status:
+          type: string
+          enum: [ok, warning, blocked]
+        message:
+          type: string
+    DemoteTarget:
+      type: object
+      required: [node_id, node_name, org_cluster]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        org_cluster:
+          type: boolean
+          description: The organisation's own shared cluster (V2 §10.5).
+        free_bytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: The node's free disk at its last measurement.
+    DemotePreflight:
+      type: object
+      required: [eligible, checks, size_bytes, estimated_downtime_seconds, settings_after, resets, retain_hours]
+      properties:
+        eligible:
+          type: boolean
+          description: No check blocks the demotion (warnings still need accept_warnings).
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemoteCheck"
+        size_bytes:
+          type: integer
+          format: int64
+        estimated_downtime_seconds:
+          type: integer
+          description: Roughly dump + restore time, while writes wait.
+        target:
+          $ref: "#/components/schemas/DemoteTarget"
+        settings_after:
+          $ref: "#/components/schemas/ProjectSettings"
+        resets:
+          type: array
+          description: The guardrails that change, e.g. "connection limit 90 → 20".
+          items:
+            type: string
+        retain_hours:
+          type: integer
+          description: How long the stopped dedicated instance is kept before it is destroyed.
+    WebhookRequest:
+      type: object
+      required: [name, tables, events, url]
+      properties:
+        name:
+          type: string
+        tables:
+          type: array
+          description: Tables as schema.table (or table, in public).
+          items:
+            type: string
+        events:
+          type: array
+          items:
+            type: string
+            enum: [INSERT, UPDATE, DELETE]
+        columns:
+          type: array
+          description: For UPDATE, fire only when one of these columns changed.
+          items:
+            type: string
+        url:
+          type: string
+        headers:
+          type: object
+          description: Static headers sent with each request (stored encrypted, never returned).
+          additionalProperties:
+            type: string
+        enabled:
+          type: boolean
+          default: true
+    WebhookUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        tables:
+          type: array
+          items:
+            type: string
+        events:
+          type: array
+          items:
+            type: string
+            enum: [INSERT, UPDATE, DELETE]
+        columns:
+          type: array
+          nullable: true
+          items:
+            type: string
+        url:
+          type: string
+        headers:
+          type: object
+          description: Replaces the stored headers; {} removes them.
+          additionalProperties:
+            type: string
+        enabled:
+          type: boolean
+    Webhook:
+      type: object
+      required: [id, project_id, name, tables, events, url, header_names, enabled, status, consecutive_failures, backlog, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tables:
+          type: array
+          items:
+            type: string
+        events:
+          type: array
+          items:
+            type: string
+        columns:
+          type: array
+          items:
+            type: string
+        url:
+          type: string
+        header_names:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+        status:
+          type: string
+          enum: [healthy, failing, paused, broken]
+        status_reason:
+          type: string
+          nullable: true
+        consecutive_failures:
+          type: integer
+        backlog:
+          type: integer
+          format: int64
+          description: Events waiting in the outbox.
+        created_at:
+          type: string
+          format: date-time
+    WebhookList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Webhook"
+    WebhookCreated:
+      type: object
+      required: [webhook, secret]
+      properties:
+        webhook:
+          $ref: "#/components/schemas/Webhook"
+        secret:
+          type: string
+          description: The signing secret, shown once.
+    WebhookSecret:
+      type: object
+      required: [secret]
+      properties:
+        secret:
+          type: string
+    WebhookTestResult:
+      type: object
+      required: [event_id, ok]
+      properties:
+        event_id:
+          type: string
+        ok:
+          type: boolean
+        status_code:
+          type: integer
+        latency_ms:
+          type: integer
+        response:
+          type: string
+        error:
+          type: string
+    WebhookDelivery:
+      type: object
+      required: [id, event_id, attempt, succeeded, dead_lettered, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        event_id:
+          type: string
+        attempt:
+          type: integer
+        status_code:
+          type: integer
+          nullable: true
+        latency_ms:
+          type: integer
+          nullable: true
+        response:
+          type: string
+          nullable: true
+          description: The response body, truncated to 4 KB.
+        error:
+          type: string
+          nullable: true
+        succeeded:
+          type: boolean
+        dead_lettered:
+          type: boolean
+        replayed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    WebhookDeliveryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+    ReplayRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        all:
+          type: boolean
+    ReplayResult:
+      type: object
+      required: [queued]
+      properties:
+        queued:
+          type: integer
+    HttpJobSpec:
+      type: object
+      required: [url]
+      properties:
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          default: POST
+        url:
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        body:
+          type: string
+    JobRequest:
+      type: object
+      required: [name, cron, kind]
+      properties:
+        name:
+          type: string
+        cron:
+          type: string
+          description: A 5-field cron expression (or @hourly, @daily, ...).
+        timezone:
+          type: string
+          description: An IANA time zone (default UTC).
+        kind:
+          type: string
+          enum: [sql, http]
+        sql:
+          type: string
+        http:
+          $ref: "#/components/schemas/HttpJobSpec"
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        overlap:
+          type: string
+          enum: [skip, queue]
+          default: skip
+        enabled:
+          type: boolean
+          default: true
+    JobUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        cron:
+          type: string
+        timezone:
+          type: string
+        sql:
+          type: string
+        http:
+          $ref: "#/components/schemas/HttpJobSpec"
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        overlap:
+          type: string
+          enum: [skip, queue]
+        enabled:
+          type: boolean
+    Job:
+      type: object
+      required: [id, project_id, name, cron, timezone, kind, timeout_seconds, overlap, enabled, consecutive_failures, upcoming, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cron:
+          type: string
+        timezone:
+          type: string
+        kind:
+          type: string
+          enum: [sql, http]
+        sql:
+          type: string
+        http:
+          $ref: "#/components/schemas/HttpJobSpec"
+        timeout_seconds:
+          type: integer
+        overlap:
+          type: string
+          enum: [skip, queue]
+        enabled:
+          type: boolean
+        next_run_at:
+          type: string
+          format: date-time
+          nullable: true
+        upcoming:
+          type: array
+          description: The next five run times.
+          items:
+            type: string
+            format: date-time
+        consecutive_failures:
+          type: integer
+        last_run:
+          $ref: "#/components/schemas/JobRun"
+        created_at:
+          type: string
+          format: date-time
+    JobList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+    JobCreated:
+      type: object
+      required: [job]
+      properties:
+        job:
+          $ref: "#/components/schemas/Job"
+        secret:
+          type: string
+          description: An HTTP job's signing secret, shown once.
+    JobRun:
+      type: object
+      required: [id, scheduled_for, status, trigger]
+      properties:
+        id:
+          type: integer
+          format: int64
+        scheduled_for:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, timed_out, skipped]
+        rows_affected:
+          type: integer
+          format: int64
+          nullable: true
+        status_code:
+          type: integer
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        trigger:
+          type: string
+          enum: [schedule, manual]
+    JobRunList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobRun"
+    OutboundAllowlist:
+      type: object
+      required: [hosts]
+      properties:
+        hosts:
+          type: array
+          items:
+            type: string
+    OrgOutbound:
+      type: object
+      required: [allowlist, outbound_disabled, hosts]
+      properties:
+        allowlist:
+          type: array
+          items:
+            type: string
+        outbound_disabled:
+          type: boolean
+        hosts:
+          type: array
+          description: Requests by destination host over the last 30 days.
+          items:
+            $ref: "#/components/schemas/OutboundHost"
+    OutboundHost:
+      type: object
+      required: [host, requests, failures, last_day]
+      properties:
+        host:
+          type: string
+        requests:
+          type: integer
+          format: int64
+        failures:
+          type: integer
+          format: int64
+        last_day:
+          type: string
+          format: date
     PromoteRequest:
       type: object
       properties:
@@ -3439,6 +6020,9 @@ components:
           type: integer
           minimum: 1
           maximum: 16384
+        reason:
+          type: string
+          description: Why, when the promotion is beyond the organisation's dedicated allowance and becomes a request.
     SqlRequest:
       type: object
       required: [query, query_id]
@@ -3635,6 +6219,404 @@ components:
           type: array
           items:
             type: string
+        xmin:
+          type: array
+          description: Each row's xmin, for editable tables.
+          items:
+            type: string
+        large_offset:
+          type: boolean
+          description: Offset paging this deep is slow; sort by the primary key or filter.
+    TableInfo:
+      type: object
+      required: [schema, name, kind, primary_key, columns, foreign_keys, constraints, indexes, size_bytes, editable]
+      properties:
+        schema:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [table, partitioned_table, view, materialized_view, foreign_table]
+        primary_key:
+          type: array
+          items:
+            type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/EditColumn"
+        foreign_keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForeignKey"
+        constraints:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableConstraint"
+        indexes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbIndex"
+        size_bytes:
+          type: integer
+          format: int64
+        row_estimate:
+          type: integer
+          format: int64
+          nullable: true
+        editable:
+          type: boolean
+        read_only_reason:
+          type: string
+    EditColumn:
+      type: object
+      required: [name, type, nullable, category, base_type, generated]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        nullable:
+          type: boolean
+        default:
+          type: string
+          nullable: true
+        category:
+          type: string
+          description: pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…).
+        base_type:
+          type: string
+        enum_values:
+          type: array
+          items:
+            type: string
+        generated:
+          type: boolean
+        identity:
+          type: string
+          enum: [always, by_default]
+    ForeignKey:
+      type: object
+      required: [name, columns, ref_schema, ref_table, ref_columns, on_delete, on_update]
+      properties:
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        ref_schema:
+          type: string
+        ref_table:
+          type: string
+        ref_columns:
+          type: array
+          items:
+            type: string
+        on_delete:
+          type: string
+        on_update:
+          type: string
+    TableConstraint:
+      type: object
+      required: [name, kind, definition]
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [check, unique, primary_key, foreign_key, exclusion]
+        definition:
+          type: string
+    RowChange:
+      type: object
+      required: [op]
+      properties:
+        op:
+          type: string
+          enum: [insert, update, delete]
+        key:
+          type: object
+          description: The row's primary key (update, delete).
+          additionalProperties:
+            type: string
+            nullable: true
+        xmin:
+          type: string
+          description: The row's xmin when loaded (update, delete).
+        values:
+          type: object
+          description: Column values as text, null for NULL. Columns left out of an insert get their default.
+          additionalProperties:
+            type: string
+            nullable: true
+    SaveRowsRequest:
+      type: object
+      required: [changes]
+      properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/RowChange"
+    SaveRowsResult:
+      type: object
+      required: [applied, rows, columns, summary]
+      properties:
+        applied:
+          type: boolean
+        summary:
+          type: string
+          example: 3 updates, 1 insert, 2 deletes
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SqlColumn"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedRow"
+        conflict:
+          $ref: "#/components/schemas/RowConflict"
+        failed:
+          $ref: "#/components/schemas/FailedChange"
+    SavedRow:
+      type: object
+      required: [index, xmin, values]
+      properties:
+        index:
+          type: integer
+        xmin:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+            nullable: true
+    RowConflict:
+      type: object
+      required: [index, deleted]
+      properties:
+        index:
+          type: integer
+          description: The change that hit a row someone else changed.
+        deleted:
+          type: boolean
+        xmin:
+          type: string
+        current:
+          type: array
+          items:
+            type: string
+            nullable: true
+    FailedChange:
+      type: object
+      required: [index, error]
+      properties:
+        index:
+          type: integer
+          description: The change Postgres refused (-1 for a constraint checked at commit).
+        error:
+          $ref: "#/components/schemas/SqlError"
+    SchemaColumnDef:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          example: text
+        nullable:
+          type: boolean
+          default: true
+        default:
+          type: string
+          description: An SQL expression, e.g. now() or 'draft'.
+        primary_key:
+          type: boolean
+        comment:
+          type: string
+    SchemaChange:
+      type: object
+      required: [kind]
+      description: One change (V2 §4.3); which fields apply depends on `kind`.
+      properties:
+        kind:
+          type: string
+          enum: [create_schema, drop_schema, create_table, rename_table, drop_table, add_column, rename_column, drop_column, alter_column, add_check, add_unique, add_foreign_key, drop_constraint, create_index, drop_index, create_enum, add_enum_value]
+        schema:
+          type: string
+          default: public
+        table:
+          type: string
+        name:
+          type: string
+          description: The schema, constraint, index or type created or dropped.
+        new_name:
+          type: string
+        column:
+          $ref: "#/components/schemas/SchemaColumnDef"
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaColumnDef"
+        column_name:
+          type: string
+        comment:
+          type: string
+        type:
+          type: string
+        using:
+          type: string
+        default:
+          type: string
+        drop_default:
+          type: boolean
+        nullable:
+          type: boolean
+        expression:
+          type: string
+        key_columns:
+          type: array
+          items:
+            type: string
+        ref_schema:
+          type: string
+        ref_table:
+          type: string
+        ref_columns:
+          type: array
+          items:
+            type: string
+        on_delete:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
+        on_update:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
+        not_valid:
+          type: boolean
+        method:
+          type: string
+          enum: [btree, gin, gist, brin, hash]
+        unique:
+          type: boolean
+        where:
+          type: string
+        concurrently:
+          type: boolean
+          default: true
+        cascade:
+          type: boolean
+        values:
+          type: array
+          items:
+            type: string
+        value:
+          type: string
+        before_value:
+          type: string
+    SchemaPreviewRequest:
+      type: object
+      required: [change]
+      properties:
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+    SchemaApplyRequest:
+      type: object
+      required: [change, hash]
+      properties:
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+        hash:
+          type: string
+          description: The preview's hash.
+        confirm:
+          type: string
+          description: The name of what is dropped, typed.
+    SchemaMigrationRequest:
+      type: object
+      required: [change, format]
+      properties:
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+        format:
+          type: string
+          enum: [sql, goose, dbmate]
+    SchemaStatement:
+      type: object
+      required: [sql, transactional]
+      properties:
+        sql:
+          type: string
+        transactional:
+          type: boolean
+    SchemaRisk:
+      type: object
+      required: [level, message]
+      properties:
+        level:
+          type: string
+          enum: [info, warning, danger]
+        message:
+          type: string
+    SchemaPlan:
+      type: object
+      required: [statements, risks, down, down_todo, slug, hash]
+      properties:
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaStatement"
+        risks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRisk"
+        confirm:
+          type: string
+          description: Type this name to run it.
+        down:
+          type: array
+          items:
+            type: string
+        down_todo:
+          type: array
+          items:
+            type: string
+        slug:
+          type: string
+        hash:
+          type: string
+    SchemaApplied:
+      type: object
+      required: [plan, duration_ms]
+      properties:
+        plan:
+          $ref: "#/components/schemas/SchemaPlan"
+        duration_ms:
+          type: integer
+          format: int64
+    SchemaMigration:
+      type: object
+      required: [filename, content, format]
+      properties:
+        filename:
+          type: string
+        content:
+          type: string
+        format:
+          type: string
+          enum: [sql, goose, dbmate]
+    EditorPreferences:
+      type: object
+      required: [migration_format]
+      properties:
+        migration_format:
+          type: string
+          enum: [sql, goose, dbmate]
     Extension:
       type: object
       required: [name, tier, allowed, available]
@@ -3907,6 +6889,225 @@ components:
                 type: boolean
               error:
                 type: string
+    TokenScope:
+      type: string
+      enum: [read, write, admin]
+    APIToken:
+      type: object
+      required: [id, name, org_id, prefix, scopes, expires_at, created_at, created_via, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        user_email:
+          type: string
+        prefix:
+          type: string
+          description: The token's first characters, for recognising it.
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          description: The projects the token is restricted to; null for all the user's projects.
+          items:
+            type: string
+            format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_ip:
+          type: string
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_via:
+          type: string
+          enum: [ui, device, api]
+        status:
+          type: string
+          enum: [active, expired, revoked]
+    APITokenList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/APIToken"
+    CreateTokenRequest:
+      type: object
+      required: [name, org_id, scopes]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        org_id:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        expires_in_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: Defaults to 90.
+    CreatedToken:
+      type: object
+      required: [token, secret]
+      properties:
+        secret:
+          type: string
+          description: The token itself (`pgd_…`), shown only once.
+        token:
+          $ref: "#/components/schemas/APIToken"
+    DeviceStartRequest:
+      type: object
+      properties:
+        client_name:
+          type: string
+          maxLength: 100
+          description: Shown on the approval page, e.g. "pgdock CLI on laptop".
+        scopes:
+          type: array
+          description: The most the CLI wants; the user may narrow them. Default read and write.
+          items:
+            $ref: "#/components/schemas/TokenScope"
+    DeviceAuthorization:
+      type: object
+      required: [device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval]
+      properties:
+        device_code:
+          type: string
+        user_code:
+          type: string
+          example: BCDF-GHJK
+        verification_uri:
+          type: string
+        verification_uri_complete:
+          type: string
+        expires_in:
+          type: integer
+          description: Seconds.
+        interval:
+          type: integer
+          description: Seconds between polls.
+    DevicePollRequest:
+      type: object
+      required: [device_code]
+      properties:
+        device_code:
+          type: string
+    DeviceRequest:
+      type: object
+      required: [user_code, client_name, scopes, expires_at]
+      properties:
+        user_code:
+          type: string
+        client_name:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        expires_at:
+          type: string
+          format: date-time
+    DeviceApproveRequest:
+      type: object
+      required: [user_code]
+      properties:
+        user_code:
+          type: string
+        approve:
+          type: boolean
+          default: true
+          description: false denies the login.
+        org_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        expires_in_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+    TokenGrant:
+      type: object
+      description: The API token a request was made with.
+      required: [id, name, org_id, scopes, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        project_ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        expires_at:
+          type: string
+          format: date-time
+    TokenSettings:
+      type: object
+      required: [max_days]
+      properties:
+        max_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: The longest expiry a new token may have.
     User:
       type: object
       required: [id, email, platform_role]
@@ -3923,6 +7124,8 @@ components:
         platform_role:
           type: string
           enum: [platform_admin, user]
+        token:
+          $ref: "#/components/schemas/TokenGrant"
     UpdateMeRequest:
       type: object
       properties:
@@ -4087,10 +7290,26 @@ components:
           enum: [active, suspended, deleting, deleted]
         members_can_create_projects:
           type: boolean
+        sensitive_by_default:
+          type: boolean
+          description: New projects start marked as containing sensitive data (V2 §8.5).
         member_count:
           type: integer
         project_count:
           type: integer
+        suspended_reason:
+          type: string
+          nullable: true
+        delete_after:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set while the organisation is being deleted.
+        break_glass:
+          type: array
+          description: Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
+          items:
+            $ref: "#/components/schemas/BreakGlassSession"
         created_at:
           type: string
           format: date-time
@@ -4120,6 +7339,8 @@ components:
         slug:
           type: string
         members_can_create_projects:
+          type: boolean
+        sensitive_by_default:
           type: boolean
     ProjectMembership:
       type: object
@@ -4315,6 +7536,9 @@ components:
         user_id:
           type: string
           format: uuid
+        confirm:
+          type: string
+          description: The organisation's name, typed; required with an API token.
     ProjectMember:
       type: object
       required: [user_id, email, role, implicit]
@@ -4510,3 +7734,511 @@ components:
           type: string
           format: email
           description: Where to send the test message.
+    QuotaItem:
+      type: object
+      required: [limit, used]
+      properties:
+        limit:
+          type: string
+          description: The limit's key (V2 §10.3), e.g. projects or project_storage_mb.
+        used:
+          type: number
+        max:
+          type: integer
+          format: int64
+          nullable: true
+          description: Absent or null means unlimited.
+    DedicatedAllowance:
+      type: object
+      required: [instances, cpus, memory_mb, disk_gb]
+      properties:
+        instances:
+          type: integer
+        cpus:
+          type: number
+        memory_mb:
+          type: integer
+        disk_gb:
+          type: integer
+        unlimited:
+          type: boolean
+          description: The Unlimited plan has no allowance to stay within.
+    OrgQuotas:
+      type: object
+      required: [plan, items, dedicated_allowance, dedicated_use]
+      properties:
+        plan:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuotaItem"
+        dedicated_allowance:
+          $ref: "#/components/schemas/DedicatedAllowance"
+        dedicated_use:
+          $ref: "#/components/schemas/DedicatedAllowance"
+    UsageMetric:
+      type: object
+      required: [name, unit, granularity]
+      properties:
+        name:
+          type: string
+        unit:
+          type: string
+        granularity:
+          type: string
+          enum: [hour, day]
+    UsageRecord:
+      type: object
+      required: [metric, granularity, period_start, quantity]
+      properties:
+        metric:
+          type: string
+        granularity:
+          type: string
+          enum: [hour, day]
+        period_start:
+          type: string
+          format: date-time
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        project_name:
+          type: string
+          nullable: true
+          description: Absent once the project is deleted.
+        quantity:
+          type: number
+    UsageTotal:
+      type: object
+      required: [metric, quantity]
+      properties:
+        metric:
+          type: string
+        quantity:
+          type: number
+    UsageReport:
+      type: object
+      required: [from, to, metrics, records, totals]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageMetric"
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageRecord"
+        totals:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageTotal"
+    PlatformUsageRow:
+      type: object
+      required: [org_id, org_name, metric, quantity]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        metric:
+          type: string
+        quantity:
+          type: number
+    PlatformUsage:
+      type: object
+      required: [from, to, items]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformUsageRow"
+    DeleteOrgRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          description: The organisation's name, typed.
+        delete_projects:
+          type: boolean
+          description: Delete every project too (each gets a final backup).
+    OrgDeletion:
+      type: object
+      required: [delete_after]
+      properties:
+        delete_after:
+          type: string
+          format: date-time
+    BreakGlassSession:
+      type: object
+      required: [id, org_id, admin_email, reason, starts_at, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        admin_email:
+          type: string
+        reason:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    BreakGlassRequest:
+      type: object
+      required: [reason, duration_minutes]
+      properties:
+        reason:
+          type: string
+        duration_minutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+    DedicatedRequest:
+      type: object
+      required: [id, org_id, project_id, project_name, requested_by, profile, volume_gb, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+        requested_by:
+          type: string
+          description: The requester's email.
+        profile:
+          type: string
+        volume_gb:
+          type: integer
+        node_id:
+          type: string
+          format: uuid
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected, cancelled]
+        decision_note:
+          type: string
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    DedicatedRequestList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DedicatedRequest"
+    DecideRequest:
+      type: object
+      properties:
+        note:
+          type: string
+        raise_allowance:
+          type: boolean
+          description: On approval, raise the organisation's allowance to fit this instance.
+    SwitchCredentialsRequest:
+      type: object
+      properties:
+        grace_days:
+          type: integer
+          minimum: 1
+          maximum: 90
+          description: How long the V1 credentials keep working (default 7).
+    SwitchedCredentials:
+      type: object
+      description: Shown once. The V1 role works until legacy_until.
+      required: [project, operation, password, connection, legacy_until]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        operation:
+          $ref: "#/components/schemas/Operation"
+        password:
+          type: string
+        connection:
+          $ref: "#/components/schemas/ConnectionInfo"
+        legacy_until:
+          type: string
+          format: date-time
+    TableFootprint:
+      type: object
+      required: [schema, table, bytes, dead_rows]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        bytes:
+          type: integer
+          format: int64
+        dead_rows:
+          type: integer
+          format: int64
+    StorageState:
+      type: string
+      description: V2 §10.4 storage enforcement.
+      enum: [none, warn, soft, hard]
+    ProjectStorage:
+      type: object
+      required: [state, tables]
+      properties:
+        state:
+          $ref: "#/components/schemas/StorageState"
+        size_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        limit_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableFootprint"
+    ReclaimSpaceRequest:
+      type: object
+      required: [schema, table]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+    ReapedSession:
+      type: object
+      required: [kind, role, duration_s, created_at]
+      properties:
+        kind:
+          type: string
+          enum: [statement, idle_in_transaction]
+        role:
+          type: string
+        duration_s:
+          type: integer
+        query:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    ReapedSessionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReapedSession"
+    AdminOrgSummary:
+      type: object
+      required: [id, name, slug, plan, status, personal, member_count, project_count, size_bytes, outbound_disabled, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        plan:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, deleting, deleted]
+        suspended_reason:
+          type: string
+          nullable: true
+        personal:
+          type: boolean
+        member_count:
+          type: integer
+        project_count:
+          type: integer
+        size_bytes:
+          type: integer
+          format: int64
+        org_target_projects:
+          type: integer
+          description: Live projects whose backups go to one of the organisation's own targets (which the platform admin doesn't see, V2 §6).
+        outbound_disabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    AdminOrgList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminOrgSummary"
+    SharedCluster:
+      type: object
+      required: [id, node_name, project_count]
+      properties:
+        id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+        org_name:
+          type: string
+          nullable: true
+        project_count:
+          type: integer
+    SharedClusterList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedCluster"
+    AdminOrg:
+      type: object
+      required: [org, plan_id, limits, limit_overrides, dedicated_allowance, clusters, break_glass]
+      properties:
+        org:
+          $ref: "#/components/schemas/AdminOrgSummary"
+        plan_id:
+          type: string
+          format: uuid
+        limits:
+          type: object
+          description: Effective limits (plan with overrides); absent keys are unlimited.
+          additionalProperties:
+            type: integer
+            format: int64
+        limit_overrides:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            nullable: true
+        dedicated_allowance:
+          $ref: "#/components/schemas/DedicatedAllowance"
+        clusters:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedCluster"
+        break_glass:
+          type: array
+          description: Your open break-glass sessions on this organisation.
+          items:
+            $ref: "#/components/schemas/BreakGlassSession"
+    AdminUpdateOrgRequest:
+      type: object
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+        limit_overrides:
+          type: object
+          description: Replaces the overrides. A number sets a limit; null makes it unlimited.
+          additionalProperties:
+            type: integer
+            format: int64
+            nullable: true
+        dedicated_allowance:
+          $ref: "#/components/schemas/DedicatedAllowance"
+        outbound_disabled:
+          type: boolean
+    SetOrgClusterRequest:
+      type: object
+      required: [instance_id]
+      properties:
+        instance_id:
+          type: string
+          format: uuid
+        reserved:
+          type: boolean
+          description: True reserves the cluster for this organisation (default); false releases it.
+    Plan:
+      type: object
+      required: [id, name, limits, org_count]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        limits:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        org_count:
+          type: integer
+    PlanList:
+      type: object
+      required: [items, keys]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Plan"
+        keys:
+          type: array
+          description: Known limit keys, in display order.
+          items:
+            type: string
+    PlanRequest:
+      type: object
+      required: [name, limits]
+      properties:
+        name:
+          type: string
+        limits:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64

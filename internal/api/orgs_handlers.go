@@ -24,11 +24,23 @@ func (s *Server) genOrg(r *http.Request, o store.Organization, role string, memb
 	if p, err := s.planName(r, o.PlanID); err == nil {
 		plan = p
 	}
-	return gen.Org{
+	g := gen.Org{
 		Id: o.ID, Name: o.Name, Slug: o.Slug, Personal: o.PersonalOwnerID != nil && *o.PersonalOwnerID == sess.UserID,
 		Role: gen.OrgRole(role), Plan: plan, Status: gen.OrgStatus(o.Status),
-		MembersCanCreateProjects: set.MembersCanCreateProjects, MemberCount: members, ProjectCount: projects, CreatedAt: o.CreatedAt,
-	}, nil
+		MembersCanCreateProjects: set.MembersCanCreateProjects, SensitiveByDefault: &set.SensitiveByDefault, MemberCount: members, ProjectCount: projects, CreatedAt: o.CreatedAt,
+		SuspendedReason: o.SuspendedReason, DeleteAfter: o.DeleteAfter,
+	}
+	// Everyone in the organisation sees open break-glass sessions (V2 §2.4).
+	bgs, err := store.New(s.db).OrgActiveBreakGlass(r.Context(), o.ID)
+	if err != nil {
+		return g, err
+	}
+	sessions := make([]gen.BreakGlassSession, 0, len(bgs))
+	for _, b := range bgs {
+		sessions = append(sessions, gen.BreakGlassSession{Id: b.ID, OrgId: b.OrgID, AdminEmail: b.AdminEmail, Reason: b.Reason, StartsAt: b.StartsAt, ExpiresAt: b.ExpiresAt})
+	}
+	g.BreakGlass = &sessions
+	return g, nil
 }
 
 func (s *Server) planName(r *http.Request, id uuid.UUID) (string, error) {
@@ -47,8 +59,12 @@ func (s *Server) ListOrgs(w http.ResponseWriter, r *http.Request) {
 	}
 	out := gen.OrgList{Items: make([]gen.Org, 0, len(rows))}
 	for _, row := range rows {
+		if sess.Token != nil && row.ID != sess.Token.OrgID {
+			continue // a token sees only its organisation
+		}
 		o := store.Organization{ID: row.ID, Name: row.Name, Slug: row.Slug, PersonalOwnerID: row.PersonalOwnerID,
-			PlanID: row.PlanID, Settings: row.Settings, Status: row.Status, CreatedAt: row.CreatedAt}
+			PlanID: row.PlanID, Settings: row.Settings, Status: row.Status, CreatedAt: row.CreatedAt,
+			SuspendedReason: row.SuspendedReason, DeleteAfter: row.DeleteAfter}
 		g, err := s.genOrg(r, o, row.MemberRole, int(row.MemberCount), int(row.ProjectCount))
 		if err != nil {
 			s.internalError(w, "list orgs", err)
@@ -95,8 +111,27 @@ func (s *Server) orgResponse(w http.ResponseWriter, r *http.Request, orgID uuid.
 			continue
 		}
 		o := store.Organization{ID: row.ID, Name: row.Name, Slug: row.Slug, PersonalOwnerID: row.PersonalOwnerID,
-			PlanID: row.PlanID, Settings: row.Settings, Status: row.Status, CreatedAt: row.CreatedAt}
+			PlanID: row.PlanID, Settings: row.Settings, Status: row.Status, CreatedAt: row.CreatedAt,
+			SuspendedReason: row.SuspendedReason, DeleteAfter: row.DeleteAfter}
 		g, err := s.genOrg(r, o, acc.OrgRole, int(row.MemberCount), int(row.ProjectCount))
+		if err != nil {
+			s.internalError(w, "get org", err)
+			return
+		}
+		writeJSON(w, status, g)
+		return
+	}
+	if acc.BreakGlass {
+		// A platform admin in a break-glass session is not a member (V2 §2.4).
+		o, err := store.New(s.db).GetOrg(r.Context(), orgID)
+		if err != nil {
+			s.internalError(w, "get org", err)
+			return
+		}
+		var members, projects int
+		_ = s.db.QueryRow(r.Context(), `SELECT (SELECT count(*) FROM org_members WHERE org_id = $1),
+			(SELECT count(*) FROM projects WHERE org_id = $1 AND deleted_at IS NULL)`, orgID).Scan(&members, &projects)
+		g, err := s.genOrg(r, o, acc.OrgRole, members, projects)
 		if err != nil {
 			s.internalError(w, "get org", err)
 			return
@@ -119,7 +154,7 @@ func (s *Server) UpdateOrg(w http.ResponseWriter, r *http.Request, org gen.OrgID
 		return
 	}
 	auditFrom(r.Context()).target("org", org.String())
-	if _, err := s.orgs.Update(r.Context(), org, orgs.Patch{Name: req.Name, Slug: req.Slug, MembersCanCreateProjects: req.MembersCanCreateProjects}); err != nil {
+	if _, err := s.orgs.Update(r.Context(), org, orgs.Patch{Name: req.Name, Slug: req.Slug, MembersCanCreateProjects: req.MembersCanCreateProjects, SensitiveByDefault: req.SensitiveByDefault}); err != nil {
 		s.orgError(w, "update org", err)
 		return
 	}
@@ -264,6 +299,16 @@ func (s *Server) TransferOrgOwnership(w http.ResponseWriter, r *http.Request, or
 	}
 	sess, _ := sessionFrom(r.Context())
 	auditFrom(r.Context()).target("user", req.UserId.String())
+	if sess.Token != nil {
+		o, err := store.New(s.db).GetOrg(r.Context(), org)
+		if err != nil {
+			s.internalError(w, "transfer ownership", err)
+			return
+		}
+		if !tokenConfirmed(w, r, o.Name, req.Confirm) {
+			return
+		}
+	}
 	if err := s.orgs.TransferOwnership(r.Context(), org, sess.UserID, req.UserId); err != nil {
 		s.orgError(w, "transfer ownership", err)
 		return

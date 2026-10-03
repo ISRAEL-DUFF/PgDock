@@ -20,10 +20,14 @@ RETURNING *;
 -- live projects.
 -- name: PickSharedInstance :one
 -- tenant: system - platform infrastructure (nodes, instances, placement).
+-- An organisation with its own shared clusters uses only those; every
+-- other organisation uses only the untagged ones (V2 s10.5).
 SELECT i.* FROM instances i
 JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
   AND i.deleted_at IS NULL
+  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = @org_id)
+           THEN i.org_id = @org_id ELSE i.org_id IS NULL END
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
 LIMIT 1;
 
@@ -87,6 +91,8 @@ SELECT i.* FROM instances i
 WHERE i.deleted_at IS NULL
   AND i.created_at < now() - interval '5 minutes'
   AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)
+  -- A demoted project's stopped instance, kept as a rollback option.
+  AND NOT EXISTS (SELECT 1 FROM retired_databases r WHERE r.instance_id = i.id AND r.dropped_at IS NULL)
   AND (i.kind = 'dedicated' OR (i.kind = 'shared' AND i.status = 'error'))
 ORDER BY i.created_at;
 
@@ -98,3 +104,16 @@ WHERE i.deleted_at IS NULL;
 
 -- name: SharedInstanceOnNode :one
 SELECT * FROM instances WHERE node_id = @node_id AND kind = 'shared' AND deleted_at IS NULL;
+
+-- name: SetInstanceOrg :execrows
+-- tenant: system - the platform admin assigns a shared cluster to one organisation.
+UPDATE instances SET org_id = sqlc.narg(org_id) WHERE id = @id AND kind = 'shared' AND deleted_at IS NULL;
+
+-- name: SharedInstanceForeignProjects :one
+-- tenant: system - projects of other organisations already on a shared cluster.
+SELECT count(*)::int FROM projects p WHERE p.instance_id = @instance_id AND p.deleted_at IS NULL AND p.org_id <> @org_id;
+
+-- name: OrgSharedInstances :many
+-- tenant: system - the shared clusters tagged with one organisation.
+SELECT i.*, n.name AS node_name FROM instances i JOIN nodes n ON n.id = i.node_id
+WHERE i.kind = 'shared' AND i.deleted_at IS NULL AND i.org_id = @org_id;

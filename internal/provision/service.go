@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -35,6 +36,7 @@ const (
 	StatusDeleting     = "deleting"
 	StatusRestoring    = "restoring"
 	StatusPromoting    = "promoting"
+	StatusDemoting     = "demoting"
 	StatusDeleted      = "deleted"
 	StatusError        = "error"
 )
@@ -102,6 +104,14 @@ type Service struct {
 	FinalBackup func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
 	// Instances runs dedicated instances; nil disables the dedicated tier.
 	Instances InstanceManager
+	// RefreshWebhooks, when set, rebuilds a project's webhook schema after
+	// its database was replaced or copied (the webhooks service). Without
+	// it, whatever came with the data is dropped.
+	RefreshWebhooks func(ctx context.Context, p store.Project) error
+	// LoginGate, when set, reports whether a project's logins may connect:
+	// false while its storage is hard-locked or its organisation is
+	// suspended (V2 §10.4, §10.8). The tenancy service sets it.
+	LoginGate func(ctx context.Context, p store.Project) (bool, error)
 }
 
 // ErrNoDedicated means the dedicated tier is not available.
@@ -115,7 +125,7 @@ func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, pm *pooler.Manager, c
 
 // Kinds returns the operation kinds this service handles.
 func (s *Service) Kinds() map[string]jobs.Kind {
-	return map[string]jobs.Kind{
+	kinds := map[string]jobs.Kind{
 		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3},
 		KindRotate: {Handler: s.runRotate, OnFail: s.rollbackRotate, MaxAttempts: 3},
 		KindDelete: {Handler: s.runDelete, OnFail: s.failDelete, MaxAttempts: 5},
@@ -123,6 +133,10 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindApplySettings: {Handler: s.runApplySettings, MaxAttempts: 5},
 		KindDropDBUser:    {Handler: s.runDropDBUser, MaxAttempts: 10},
 	}
+	for k, v := range s.opaqueKinds() {
+		kinds[k] = v
+	}
+	return kinds
 }
 
 // Connection is how clients reach a project. URLs carry no password.
@@ -145,7 +159,7 @@ func (s *Service) ConnectionFor(p store.Project) Connection {
 	}
 	return Connection{
 		Host: host, SessionPort: s.cfg.SessionPort, PooledPort: s.cfg.PooledPort,
-		Database: p.DbName, User: p.OwnerRole, SSLMode: s.cfg.SSLMode,
+		Database: store.ClientDBName(p), User: p.OwnerRole, SSLMode: s.cfg.SSLMode,
 	}
 }
 
@@ -186,6 +200,20 @@ type CreateParams struct {
 	NodeID   *uuid.UUID
 	Profile  string
 	VolumeGB int
+	// Branch makes the project a branch of another (V2 §8); it is always on
+	// the shared tier.
+	Branch *BranchSpec
+	// Sensitive marks the project "contains sensitive data" (V2 §8.5).
+	Sensitive bool
+}
+
+// BranchSpec describes a new branch.
+type BranchSpec struct {
+	ParentID   uuid.UUID
+	Source     string // "backup" or "live"
+	SchemaOnly bool
+	// ExpiresAt is when the hourly sweep deletes it; nil keeps it.
+	ExpiresAt *time.Time
 }
 
 // Tiers (spec §4).
@@ -299,7 +327,7 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	defaults := store.DefaultSharedSettings()
 	switch tier {
 	case TierShared:
-		inst, err = store.New(s.db).PickSharedInstance(ctx)
+		inst, err = store.New(s.db).PickSharedInstance(ctx, &p.OrgID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Created{}, ErrNoCapacity
 		}
@@ -326,9 +354,9 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	if kind == "" {
 		kind = KindCreate
 	}
-	// The random suffix rarely collides; retry with a fresh one if it does.
+	// A random name rarely collides; retry with a fresh one if it does.
 	for attempt := 0; ; attempt++ {
-		dbName, role, err := Names(slug)
+		dbName, role, err := Names()
 		if err != nil {
 			return Created{}, err
 		}
@@ -368,6 +396,25 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 			})
 			if err != nil {
 				return err
+			}
+			if p.Branch != nil {
+				if err := q.SetProjectBranch(ctx, store.SetProjectBranchParams{
+					ID: proj.ID, ParentProjectID: &p.Branch.ParentID, BranchSource: &p.Branch.Source,
+					BranchSchemaOnly: &p.Branch.SchemaOnly, ExpiresAt: p.Branch.ExpiresAt, SensitiveData: p.Sensitive,
+				}); err != nil {
+					return err
+				}
+				if err := q.CopyProjectMembers(ctx, store.CopyProjectMembersParams{BranchID: proj.ID, ParentID: p.Branch.ParentID, OrgID: p.OrgID}); err != nil {
+					return err
+				}
+				if proj, err = q.GetProject(ctx, proj.ID); err != nil {
+					return err
+				}
+			} else if p.Sensitive {
+				if err := q.SetProjectSensitive(ctx, store.SetProjectSensitiveParams{ID: proj.ID, SensitiveData: true}); err != nil {
+					return err
+				}
+				proj.SensitiveData = true
 			}
 			if p.CreatorRole != "" && p.CreatedBy != nil {
 				if err := q.UpsertProjectMember(ctx, store.UpsertProjectMemberParams{
@@ -439,8 +486,18 @@ func (s *Service) Delete(ctx context.Context, projectID uuid.UUID, confirmName s
 		if confirmName != p.Name {
 			return fmt.Errorf("%w: confirm must match the project name exactly", ErrInvalid)
 		}
+		// A parent goes only once its branches are deleted or detached (V2 §8.4).
+		if n, err := store.New(tx).CountLiveBranches(ctx, &p.ID); err != nil {
+			return err
+		} else if n > 0 {
+			return fmt.Errorf("%w: the project has %d branch(es); delete or detach them first", ErrConflict, n)
+		}
 		if err := store.New(tx).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: StatusDeleting}); err != nil {
 			return err
+		}
+		// Branches are disposable: no final backup unless they take backups.
+		if p.ParentProjectID != nil && !p.BranchBackups {
+			skipFinalBackup = true
 		}
 		op, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindDelete, ProjectID: &p.ID, CreatedBy: by,
 			Params: map[string]any{"skip_final_backup": skipFinalBackup}})

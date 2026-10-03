@@ -12,9 +12,14 @@ export function NewProjectPage() {
   const qc = useQueryClient();
   const { org } = useCurrentOrg();
   const { data: session } = useQuery(sessionQuery);
-  // Dedicated instances are placed on nodes only the platform admin manages
-  // (others request them through promotion once allowances exist, V2 §10.6).
+  // Dedicated instances are placed on nodes only the platform admin manages;
+  // others create them within their organisation's allowance, or ask
+  // through a promotion (V2 §10.6).
   const platformAdmin = session?.user?.platform_role === "platform_admin";
+  const quotas = useQuery({ queryKey: ["org", org?.id, "quotas"], queryFn: () => api.orgQuotas(org!.id), enabled: !!org });
+  const allowance = quotas.data?.dedicated_allowance;
+  const dedicatedAllowed =
+    !!allowance && (!!allowance.unlimited || (quotas.data?.dedicated_use.instances ?? 0) < allowance.instances);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tier, setTier] = useState<Tier>("shared");
@@ -84,7 +89,7 @@ export function NewProjectPage() {
             <legend className="mb-1 text-sm font-medium">Tier</legend>
             <div className="flex flex-wrap gap-2">
               {tierOption("shared", "Shared", "A database on the shared cluster. Ready in a second; nightly logical backups.")}
-              {platformAdmin &&
+              {dedicatedAllowed &&
                 tierOption("dedicated", "Dedicated", "Its own Postgres container with CPU and memory limits; continuous backups and point-in-time restore.")}
             </div>
           </fieldset>

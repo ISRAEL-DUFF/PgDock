@@ -99,8 +99,12 @@ var expected = map[authz.Action][]string{
 	authz.ProjectCredentials: {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly},
 	authz.ConsoleRead:        {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly},
 	authz.ConsoleWrite:       {rOwner, rAdmin, rProjAdmin, rDev},
+	authz.TableEdit:          {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.BackupCreate:       {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.RestoreInPlace:     {rOwner, rAdmin, rProjAdmin},
+	authz.BackupStorage:      {rOwner, rAdmin, rProjAdmin},
+	authz.BranchManage:       {rOwner, rAdmin, rProjAdmin, rDev},
+	authz.AutomationManage:   {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.ProjectSettings:    {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectMembers:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
@@ -111,6 +115,7 @@ var expected = map[authz.Action][]string{
 	authz.OrgManage:          {rOwner, rAdmin},
 	authz.OrgAudit:           {rOwner, rAdmin},
 	authz.OrgOwnerOnly:       {rOwner},
+	authz.ProjectExport:      {rOwner},
 	authz.PlatformManage:     {rPlatform},
 }
 
@@ -273,9 +278,15 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 	p := strings.NewReplacer(
 		"{id}", id, "{org}", w.orgA.String(), "{user}", w.users[rMember].String(),
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
+		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(), "{target_id}", uuid.NewString(),
+		"{webhook_id}", uuid.NewString(), "{job_id}", uuid.NewString(),
+		"{user_code}", "BCDF-GHJK",
 	).Replace(pattern)
-	if rl := routeRules["GET "+pattern]; rl.scope == scopeOrgQuery {
-		p += "?org=" + w.orgA.String()
+	for _, m := range []string{"GET", "POST"} {
+		if rl := routeRules[m+" "+pattern]; rl.scope == scopeOrgQuery {
+			p += "?org=" + w.orgA.String()
+			break
+		}
 	}
 	return p
 }
@@ -399,6 +410,12 @@ var specMatrix = map[authz.Action][]string{
 	authz.ProjectView: {
 		"GET /api/v1/projects/{id}", "GET /api/v1/projects/{id}/metrics", "GET /api/v1/projects/{id}/extensions",
 		"GET /api/v1/projects/{id}/members", "GET /api/v1/operations/{id}", "GET /api/v1/operations/{id}/stream",
+		// §10.4: storage against the limit, and the reaper's log
+		"GET /api/v1/projects/{id}/storage", "GET /api/v1/projects/{id}/reaped",
+		// V2 §6: where the project's backups go (choosing is BackupStorage)
+		"GET /api/v1/projects/{id}/storage-target",
+		// V2 §8 Project → Branches
+		"GET /api/v1/projects/{id}/branches",
 	},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
@@ -406,20 +423,50 @@ var specMatrix = map[authz.Action][]string{
 	authz.ConsoleRead: {
 		"POST /api/v1/projects/{id}/sql", "POST /api/v1/projects/{id}/sql/cancel",
 		"GET /api/v1/projects/{id}/schema", "GET /api/v1/projects/{id}/tables/{schema}/{table}/rows",
+		// §4.1 the grid's table details and export; previewing a schema
+		// change and rendering it as a migration change nothing
+		"GET /api/v1/projects/{id}/tables/{schema}/{table}", "GET /api/v1/projects/{id}/tables/{schema}/{table}/export",
+		"POST /api/v1/projects/{id}/schema/preview", "POST /api/v1/projects/{id}/schema/migration",
+		"GET /api/v1/projects/{id}/editor-preferences",
 	},
+	// "Table editor — rows and schema"
+	authz.TableEdit: {"POST /api/v1/projects/{id}/tables/{schema}/{table}/changes", "POST /api/v1/projects/{id}/schema/apply"},
 	// "Create backup, restore into new project" (in place re-checked)
 	authz.BackupCreate: {"POST /api/v1/projects/{id}/backups", "POST /api/v1/projects/{id}/pitr", "POST /api/v1/backups/{id}/restore"},
+	// "Create / reset / delete branches" (deleting a branch is DELETE
+	// /projects/{id} with the branch action; detaching keeps one)
+	authz.BranchManage: {"POST /api/v1/projects/{id}/branches", "POST /api/v1/projects/{id}/reset", "POST /api/v1/projects/{id}/detach"},
+	// "Manage webhooks and scheduled jobs"
+	authz.AutomationManage: {
+		"GET /api/v1/projects/{id}/webhooks", "POST /api/v1/projects/{id}/webhooks", "GET /api/v1/projects/{id}/webhooks/{webhook_id}",
+		"PATCH /api/v1/projects/{id}/webhooks/{webhook_id}", "DELETE /api/v1/projects/{id}/webhooks/{webhook_id}",
+		"POST /api/v1/projects/{id}/webhooks/{webhook_id}/test", "POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret",
+		"GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries", "POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay",
+		"GET /api/v1/projects/{id}/jobs", "POST /api/v1/projects/{id}/jobs", "GET /api/v1/projects/{id}/jobs/{job_id}",
+		"PATCH /api/v1/projects/{id}/jobs/{job_id}", "DELETE /api/v1/projects/{id}/jobs/{job_id}",
+		"POST /api/v1/projects/{id}/jobs/{job_id}/run", "GET /api/v1/projects/{id}/jobs/{job_id}/runs",
+	},
+	// "Choose project's storage target, download backup key" (V2 §6)
+	authz.BackupStorage: {
+		"PUT /api/v1/projects/{id}/storage-target", "POST /api/v1/projects/{id}/backup-key",
+		"GET /api/v1/projects/{id}/backup-key/download",
+	},
 	// "Rotate app password, settings/guardrails, extensions"
 	authz.ProjectSettings: {
 		"PATCH /api/v1/projects/{id}/settings", "POST /api/v1/projects/{id}/rotate-password",
 		"POST /api/v1/projects/{id}/extensions", "POST /api/v1/projects/{id}/instance",
+		// §10.2 switch to opaque credentials (a new app password), §10.4 Reclaim space
+		"POST /api/v1/projects/{id}/switch-credentials", "POST /api/v1/projects/{id}/reclaim-space",
 	},
 	// "Manage project members"
 	authz.ProjectMembers: {
 		"POST /api/v1/projects/{id}/members", "PATCH /api/v1/projects/{id}/members/{user}", "DELETE /api/v1/projects/{id}/members/{user}",
 	},
 	// "Promote / demote"
-	authz.ProjectPromote: {"GET /api/v1/projects/{id}/promote", "POST /api/v1/projects/{id}/promote"},
+	authz.ProjectPromote: {
+		"GET /api/v1/projects/{id}/promote", "POST /api/v1/projects/{id}/promote",
+		"POST /api/v1/projects/{id}/demote/preflight", "POST /api/v1/projects/{id}/demote",
+	},
 	// "Delete project" (transfer also needs owner of both orgs, checked in the handler)
 	authz.ProjectDelete: {"DELETE /api/v1/projects/{id}", "POST /api/v1/projects/{id}/transfer"},
 	// Project audit log, for project admins (§2.7)
@@ -428,6 +475,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgView: {
 		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "POST /api/v1/orgs/{org}/leave",
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
+		// §13 "projects list ... with quota usage bars": every member sees the limits
+		"GET /api/v1/orgs/{org}/quotas",
 	},
 	// "Create projects, import"
 	authz.OrgCreateProject: {"POST /api/v1/projects", "POST /api/v1/imports"},
@@ -435,11 +484,23 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgManage: {
 		"PATCH /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/members", "PATCH /api/v1/orgs/{org}/members/{user}",
 		"DELETE /api/v1/orgs/{org}/members/{user}", "GET /api/v1/orgs/{org}/invitations", "DELETE /api/v1/orgs/{org}/invitations/{invitation_id}",
+		// §2.3 "See and revoke any token scoped to the org"
+		"GET /api/v1/orgs/{org}/tokens", "DELETE /api/v1/orgs/{org}/tokens/{token_id}",
+		// V2 §6 "Org targets (managed by org owners and admins)"
+		"GET /api/v1/orgs/{org}/storage-targets", "POST /api/v1/orgs/{org}/storage-targets",
+		"GET /api/v1/orgs/{org}/storage-targets/{target_id}", "PATCH /api/v1/orgs/{org}/storage-targets/{target_id}",
+		"DELETE /api/v1/orgs/{org}/storage-targets/{target_id}", "POST /api/v1/storage-targets/test",
 	},
 	// "View org usage and quotas, org audit log"
-	authz.OrgAudit: {"GET /api/v1/orgs/{org}/audit"},
+	authz.OrgAudit: {"GET /api/v1/orgs/{org}/audit", "GET /api/v1/orgs/{org}/usage", "GET /api/v1/orgs/{org}/dedicated-requests"},
 	// "Add/remove owners, delete org, transfer projects out"
-	authz.OrgOwnerOnly: {"POST /api/v1/orgs/{org}/transfer-ownership"},
+	authz.OrgOwnerOnly: {
+		"POST /api/v1/orgs/{org}/transfer-ownership", "DELETE /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/cancel-deletion",
+		// §2.4 "any org owner can end the session early"
+		"POST /api/v1/orgs/{org}/break-glass/{session_id}/end",
+	},
+	// §10.10 "Org owners can export any project as a pg_dump file"
+	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},
 	// The signed-in user's own account
 	authz.Self: {
 		"POST /api/v1/auth/reauth", "POST /api/v1/auth/logout", "GET /api/v1/me", "PATCH /api/v1/me", "POST /api/v1/me/password",
@@ -447,6 +508,9 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/me/recovery-codes", "POST /api/v1/me/terms/accept", "GET /api/v1/me/invitations",
 		"POST /api/v1/me/invitations/{invitation_id}/accept", "GET /api/v1/orgs", "POST /api/v1/orgs",
 		"GET /api/v1/settings/general", "GET /api/v1/profiles", "POST /api/v1/imports/preflight",
+		// §7.2 "Users manage their own tokens", §7.1 device-login approval
+		"GET /api/v1/tokens", "POST /api/v1/tokens", "DELETE /api/v1/tokens/{token_id}",
+		"GET /api/v1/auth/device/requests/{user_code}", "POST /api/v1/auth/device/approve",
 	},
 	// §2.4: the platform admin's
 	authz.PlatformManage: {
@@ -462,6 +526,20 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/admin/users/{user}/reset-2fa", "GET /api/v1/admin/invitations", "POST /api/v1/admin/invitations",
 		"DELETE /api/v1/admin/invitations/{invitation_id}", "GET /api/v1/admin/settings/signup", "PUT /api/v1/admin/settings/signup",
 		"GET /api/v1/admin/settings/mail", "PUT /api/v1/admin/settings/mail", "POST /api/v1/admin/settings/terms",
+		// §2.4 "assign quota plans and dedicated allowances; approve dedicated requests", "suspend and reinstate", break-glass
+		"GET /api/v1/admin/orgs", "GET /api/v1/admin/orgs/{org}", "PATCH /api/v1/admin/orgs/{org}",
+		"POST /api/v1/admin/orgs/{org}/suspend", "POST /api/v1/admin/orgs/{org}/reinstate", "POST /api/v1/admin/orgs/{org}/cluster",
+		"GET /api/v1/admin/orgs/{org}/outbound", "PUT /api/v1/admin/orgs/{org}/outbound",
+		"POST /api/v1/admin/orgs/{org}/break-glass", "GET /api/v1/admin/plans", "POST /api/v1/admin/plans",
+		"PATCH /api/v1/admin/plans/{plan_id}", "GET /api/v1/admin/dedicated-requests",
+		"POST /api/v1/admin/dedicated-requests/{request_id}/approve", "POST /api/v1/admin/dedicated-requests/{request_id}/reject",
+		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
+		// §7.2 "The platform admin can set a platform-wide maximum"
+		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",
+		// V2 §6 "Platform targets (managed by the platform admin)"
+		"GET /api/v1/admin/storage-targets", "POST /api/v1/admin/storage-targets",
+		"GET /api/v1/admin/storage-targets/{target_id}", "PATCH /api/v1/admin/storage-targets/{target_id}",
+		"DELETE /api/v1/admin/storage-targets/{target_id}",
 	},
 }
 

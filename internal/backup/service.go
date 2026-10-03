@@ -26,6 +26,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/walg"
 )
 
 // Operation kinds.
@@ -112,45 +113,94 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindMetadataBackup: {Handler: s.runMetadataBackup, MaxAttempts: 3, Timeout: time.Hour},
 		KindImport:         {Handler: s.runImport, OnFail: s.projects.Rollback, MaxAttempts: 1, Timeout: 12 * time.Hour},
 		KindBaseBackup:     {Handler: s.runBaseBackup, MaxAttempts: 3, Timeout: 12 * time.Hour},
+		KindStorageSwitch:  {Handler: s.runStorageSwitch, MaxAttempts: 3, Timeout: 12 * time.Hour},
 	}
 }
 
-// objectKey is where a backup object lives under the target's prefix.
-func objectKey(kind string, projectID *uuid.UUID, at time.Time) string {
+// objectKey is where a backup object lives under the target's prefix:
+// ".dump.enc" for the PGDock format, ".dump.gpg" for an OpenPGP message
+// (a project's own key).
+func objectKey(kind string, projectID *uuid.UUID, at time.Time, pgp bool) string {
 	b := make([]byte, 3)
 	_, _ = rand.Read(b)
 	ts := at.UTC().Format("20060102T150405Z") + "-" + hex.EncodeToString(b)
+	ext := ".dump.enc"
+	if pgp {
+		ext = ".dump.gpg"
+	}
 	if projectID == nil {
-		return fmt.Sprintf("metadata/%s.dump.enc", ts)
+		return fmt.Sprintf("metadata/%s%s", ts, ext)
 	}
 	dir := Logical
 	if kind != Logical {
 		dir = kind
 	}
-	return fmt.Sprintf("projects/%s/%s/%s.dump.enc", projectID, dir, ts)
+	return fmt.Sprintf("projects/%s/%s/%s%s", projectID, dir, ts, ext)
 }
 
-// dumpTo dumps pg through agent into a new backups row of kind, returning
-// the finished row.
-func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PGConn, kind string, projectID *uuid.UUID, opID *uuid.UUID, log *jobs.StepLogger) (store.Backup, error) {
-	targetID, target, err := s.StorageTarget(ctx)
-	if err != nil {
-		return store.Backup{}, jobs.Permanent(err)
+// defaultPlacement is the platform default target with the instance key
+// (metadata self-backups).
+func (s *Service) defaultPlacement(ctx context.Context) (Placement, error) {
+	id, t, err := s.StorageTarget(ctx)
+	return Placement{TargetID: id, Target: t}, err
+}
+
+// sealing is how an upload is encrypted under pl: an OpenPGP message to
+// the project's key, or the PGDock format under the instance key.
+func (s *Service) sealing(ctx context.Context, pl Placement) (agentapi.Upload, error) {
+	up := agentapi.Upload{Storage: pl.Target}
+	if pl.KeyID != nil {
+		priv, err := s.ProjectPGPKey(ctx, *pl.KeyID)
+		if err != nil {
+			return up, err
+		}
+		up.PGPPublicKey, err = walg.PublicKey(priv)
+		return up, err
 	}
 	bk, err := s.BackupKey(ctx)
 	if err != nil {
+		return up, err
+	}
+	up.FileKey, up.WrappedKey, err = backupfmt.NewFileKey(bk)
+	return up, err
+}
+
+// opening is how to read backup b.
+func (s *Service) opening(ctx context.Context, b store.Backup) (agentapi.Download, error) {
+	target, err := s.backupTarget(ctx, b)
+	if err != nil {
+		return agentapi.Download{}, err
+	}
+	d := agentapi.Download{Storage: target, ObjectKey: b.ObjectKey}
+	if b.EncryptionKeyID != nil {
+		d.PGPPrivateKey, err = s.ProjectPGPKey(ctx, *b.EncryptionKeyID)
+		return d, err
+	}
+	bk, err := s.BackupKey(ctx)
+	if err != nil {
+		return d, err
+	}
+	if d.FileKey, err = backupfmt.UnwrapKey(bk, b.KeyWrapped); err != nil {
+		return d, fmt.Errorf("backup %s: %w", b.ID, err)
+	}
+	return d, nil
+}
+
+// dumpTo dumps pg through agent into a new backups row of kind on pl,
+// returning the finished row.
+func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PGConn, kind string, pl Placement, projectID *uuid.UUID, opID *uuid.UUID, log *jobs.StepLogger) (store.Backup, error) {
+	up, err := s.sealing(ctx, pl)
+	if err != nil {
 		return store.Backup{}, jobs.Permanent(err)
 	}
-	fileKey, wrapped, err := backupfmt.NewFileKey(bk)
-	if err != nil {
-		return store.Backup{}, err
-	}
+	targetID := pl.TargetID
 	var expires *time.Time
 	if kind == Final || kind == Safety {
 		t := time.Now().Add(s.cfg.KeepSpecial)
 		expires = &t
 	}
-	key := objectKey(kind, projectID, time.Now())
+	key := objectKey(kind, projectID, time.Now(), pl.KeyID != nil)
+	up.ObjectKey = key
 	q := store.New(s.db)
 	if opID != nil {
 		if n, err := q.FailInterruptedBackups(ctx, opID); err != nil {
@@ -162,7 +212,7 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 	s.cleanFailed(ctx)
 	row, err := q.InsertBackup(ctx, store.InsertBackupParams{
 		ProjectID: projectID, Kind: kind, ObjectKey: key, StorageTargetID: &targetID,
-		OperationID: opID, KeyWrapped: wrapped, ExpiresAt: expires,
+		OperationID: opID, KeyWrapped: up.WrappedKey, ExpiresAt: expires, EncryptionKeyID: pl.KeyID,
 	})
 	if err != nil {
 		return store.Backup{}, err
@@ -170,9 +220,7 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 	if err := log.Info(ctx, "dump", "dumping %s with the agent on %s", pg.Database, agent.Node.Name); err != nil {
 		return store.Backup{}, err
 	}
-	res, err := agent.Dump(ctx, agentapi.DumpRequest{PG: pg, Upload: agentapi.Upload{
-		Storage: target, ObjectKey: key, FileKey: fileKey, WrappedKey: wrapped,
-	}})
+	res, err := agent.Dump(ctx, agentapi.DumpRequest{PG: pg, Upload: up})
 	if err != nil {
 		_ = q.FailBackup(context.WithoutCancel(ctx), store.FailBackupParams{ID: row.ID, Error: err.Error()})
 		s.cleanFailed(context.WithoutCancel(ctx))
@@ -187,29 +235,30 @@ func (s *Service) dumpTo(ctx context.Context, agent *nodes.Agent, pg agentapi.PG
 		kind, res.SizeBytes, res.DumpBytes, (time.Duration(res.DurationMS) * time.Millisecond).Round(time.Millisecond), res.SHA256[:12])
 }
 
-// restoreFrom restores backup b into database on instance with role
-// owning the objects (empty: the admin).
-func (s *Service) restoreFrom(ctx context.Context, b store.Backup, instanceID uuid.UUID, database, role string, log *jobs.StepLogger) error {
+// restoreFrom restores backup b into database on p's instance, with p's
+// owner owning the objects.
+func (s *Service) restoreFrom(ctx context.Context, b store.Backup, p store.Project, database string, log *jobs.StepLogger) error {
+	return s.RestoreInto(ctx, b, p, database, false, log)
+}
+
+// RestoreInto restores backup b into database on p's instance, with p's
+// owner owning the objects, optionally schema only (branches, V2 §8.2).
+// pg_restore signs in as p's console login (provision.RestoreConn): the
+// dump's functions run during the restore (CHECK constraints, index
+// expressions), and must not run as the superuser.
+func (s *Service) RestoreInto(ctx context.Context, b store.Backup, p store.Project, database string, schemaOnly bool, log *jobs.StepLogger) error {
 	if b.Status != "succeeded" {
 		return jobs.Permanent(fmt.Errorf("backup %s is %s", b.ID, b.Status))
 	}
-	_, target, err := s.StorageTarget(ctx)
+	dl, err := s.opening(ctx, b)
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	bk, err := s.BackupKey(ctx)
-	if err != nil {
-		return jobs.Permanent(err)
-	}
-	fileKey, err := backupfmt.UnwrapKey(bk, b.KeyWrapped)
-	if err != nil {
-		return jobs.Permanent(fmt.Errorf("backup %s: %w", b.ID, err))
-	}
-	agent, err := s.nodes.ForInstance(ctx, instanceID)
+	agent, err := s.nodes.ForInstance(ctx, p.InstanceID)
 	if err != nil {
 		return err
 	}
-	pg, err := s.projects.AgentConn(ctx, instanceID, database)
+	pg, err := s.projects.RestoreConn(ctx, p, database)
 	if err != nil {
 		return err
 	}
@@ -217,8 +266,8 @@ func (s *Service) restoreFrom(ctx context.Context, b store.Backup, instanceID uu
 		return err
 	}
 	res, err := agent.Restore(ctx, agentapi.RestoreRequest{
-		Download: agentapi.Download{Storage: target, ObjectKey: b.ObjectKey, FileKey: fileKey},
-		PG:       pg, Options: agentapi.RestoreOptions{Role: role},
+		Download: dl,
+		PG:       pg, Options: agentapi.RestoreOptions{Role: p.OwnerRole, SchemaOnly: schemaOnly},
 	})
 	if err != nil {
 		return err
@@ -256,8 +305,16 @@ func (s *Service) applyRetention(ctx context.Context, projectID *uuid.UUID, kind
 	return log.Info(ctx, "retention", "dropped %d backup(s) outside %d daily + %d weekly", deleted, s.cfg.Retention.Daily, s.cfg.Retention.Weekly)
 }
 
+// deleteObject removes a backup's object from its target and marks it
+// deleted; a copy takes the original it was made from along. A base
+// backup under a retired WAL-G archive takes the archive with the last of
+// them.
 func (s *Service) deleteObject(ctx context.Context, b store.Backup) error {
-	_, target, err := s.StorageTarget(ctx)
+	q := store.New(s.db)
+	target, err := s.backupTarget(ctx, b)
+	if errors.Is(err, ErrTargetGone) {
+		return q.MarkBackupDeleted(ctx, b.ID)
+	}
 	if err != nil {
 		return err
 	}
@@ -265,10 +322,42 @@ func (s *Service) deleteObject(ctx context.Context, b store.Backup) error {
 	if err != nil {
 		return err
 	}
+	if b.Kind == "base" {
+		return s.deleteBaseBackup(ctx, c, b)
+	}
 	if err := c.Delete(ctx, b.ObjectKey); err != nil {
 		return err
 	}
-	return store.New(s.db).MarkBackupDeleted(ctx, b.ID)
+	if err := q.MarkBackupDeleted(ctx, b.ID); err != nil {
+		return err
+	}
+	if b.CopyOf != nil {
+		if orig, err := q.CopiedOriginal(ctx, *b.CopyOf); err == nil {
+			return s.deleteObject(ctx, orig)
+		}
+	}
+	return nil
+}
+
+// deleteBaseBackup forgets a base backup of a retired archive and, once
+// none is left there, deletes the archive.
+func (s *Service) deleteBaseBackup(ctx context.Context, c *storage.Client, b store.Backup) error {
+	q := store.New(s.db)
+	if err := q.MarkBackupDeleted(ctx, b.ID); err != nil {
+		return err
+	}
+	if b.WalgPrefix == nil || b.StorageTargetID == nil {
+		return nil
+	}
+	n, err := q.LiveBackupsUnderPrefix(ctx, store.LiveBackupsUnderPrefixParams{WalgPrefix: b.WalgPrefix, StorageTargetID: b.StorageTargetID})
+	if err != nil || n > 0 {
+		return err
+	}
+	if live, err := q.InstanceArchivingTo(ctx, store.InstanceArchivingToParams{WalgPrefix: b.WalgPrefix, WalgTargetID: b.StorageTargetID}); err != nil || live {
+		return err
+	}
+	_, err = c.DeletePrefix(ctx, *b.WalgPrefix)
+	return err
 }
 
 // cleanFailed deletes the objects failed backups may have left in
@@ -277,23 +366,38 @@ func (s *Service) deleteObject(ctx context.Context, b store.Backup) error {
 func (s *Service) cleanFailed(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	targetID, target, err := s.StorageTarget(ctx)
-	if err != nil {
-		return
-	}
 	q := store.New(s.db)
-	rows, err := q.FailedBackupObjects(ctx, &targetID)
+	rows, err := q.FailedBackupObjects(ctx)
 	if err != nil || len(rows) == 0 {
 		return
 	}
-	c, err := storage.New(target)
-	if err != nil {
-		return
-	}
+	clients := map[uuid.UUID]*storage.Client{}
+	unreachable := map[uuid.UUID]bool{}
 	for _, b := range rows {
+		id := *b.StorageTargetID
+		if unreachable[id] {
+			continue
+		}
+		c := clients[id]
+		if c == nil {
+			t, err := s.TargetByID(ctx, id)
+			if errors.Is(err, ErrTargetGone) {
+				_ = q.MarkFailedBackupCleaned(ctx, b.ID)
+				continue
+			}
+			if err == nil {
+				c, err = storage.New(t)
+			}
+			if err != nil {
+				unreachable[id] = true
+				continue
+			}
+			clients[id] = c
+		}
 		if err := c.Delete(ctx, b.ObjectKey); err != nil {
 			s.log.Debug("delete a failed backup's object", "key", b.ObjectKey, "err", err)
-			return
+			unreachable[id] = true
+			continue
 		}
 		_ = q.MarkFailedBackupCleaned(ctx, b.ID)
 	}
@@ -354,6 +458,21 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 			}
 			if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: kind, ProjectID: &id, Params: params}); err != nil {
 				return err
+			}
+		}
+		// A dedicated project archiving somewhere other than where its
+		// backups now go (the platform default changed, or a project key
+		// was enabled) is reconfigured (V2 s6).
+		if s.Dedicated != nil {
+			drift, err := q.DedicatedArchiveDrift(ctx)
+			if err != nil {
+				return err
+			}
+			for _, p := range drift {
+				id := p.ID
+				if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindStorageSwitch, ProjectID: &id, Params: map[string]any{}}); err != nil {
+					return err
+				}
 			}
 		}
 		if s.cfg.MetadataPG.Host != "" {

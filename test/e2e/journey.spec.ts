@@ -5,6 +5,7 @@
 // dev server with PGDOCK_E2E_URL.
 import { expect, test, type Page } from "@playwright/test";
 import { execFile } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -31,6 +32,8 @@ const supabaseURL = process.env.PGDOCK_E2E_SUPABASE_URL;
 const smtpHost = process.env.PGDOCK_E2E_SMTP_HOST ?? "fakesmtp";
 const smtpPort = process.env.PGDOCK_E2E_SMTP_PORT ?? "2525";
 const mailAPI = process.env.PGDOCK_E2E_MAIL_API ?? "http://127.0.0.1:18025";
+// The bundle's webhook receiver, as the tests read it.
+const hookAPI = process.env.PGDOCK_E2E_HOOK_API ?? "http://127.0.0.1:18090";
 const email = "owner@example.com";
 const password = "a long enough passphrase";
 
@@ -81,6 +84,10 @@ async function connect(url: string): Promise<pg.Client> {
       ? { ca: readFileSync(caFile, "utf8"), servername: u.hostname, rejectUnauthorized: true }
       : { rejectUnauthorized: false }, // sslmode=require: encrypted, unverified
     connectionTimeoutMillis: 10_000,
+    // A query sent as a reset or restore holds clients at the pooler can
+    // outlive that window on a connection the pooler dropped; fail it so
+    // the caller's retry loop tries again instead of hanging.
+    query_timeout: 15_000,
   });
   // A dropped connection (e.g. the project was deleted) must not crash the run.
   client.on("error", () => {});
@@ -160,6 +167,14 @@ async function revealedValue(page: Page, testId: string): Promise<string> {
   const show = row.getByRole("button", { name: "Show" });
   if (await show.isVisible()) await show.click();
   return (await code.textContent())!.trim();
+}
+
+// The bundle's metadata database, for seeding history the tests cannot wait
+// a week for.
+const metadataContainer = process.env.PGDOCK_E2E_METADATA_CONTAINER ?? "pgdock-e2e-metadata-db-1";
+async function metadataSQL(sql: string): Promise<string> {
+  const { stdout } = await promisify(execFile)("docker", ["exec", metadataContainer, "psql", "-U", "pgdock", "-d", "pgdock", "-v", "ON_ERROR_STOP=1", "-Atc", sql]);
+  return stdout.trim();
 }
 
 test.describe.configure({ mode: "serial" });
@@ -288,7 +303,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await app.query("CREATE TABLE posts (id serial PRIMARY KEY, title text NOT NULL)");
   await app.query("INSERT INTO posts (title) VALUES ($1)", ["Hello from the browser"]);
   const { rows } = await app.query("SELECT current_database() AS db, (SELECT count(*) FROM posts)::int AS n");
-  expect(rows[0].db).toMatch(/^my_blog_[a-z0-9]{4}$/);
+  expect(rows[0].db).toMatch(/^p_[a-z2-7]{10}$/);
   expect(rows[0].n).toBe(1);
   await app.end();
   if (await hasPsql()) {
@@ -546,7 +561,7 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("operation-log")).toContainText("base backup base_");
     const pooledURL = await revealedValue(page, "credential-pooled-url");
     expect(urlShape(pooledURL)).toBe(urlShape(sharedURL)); // same host, ports, sslmode
-    expect(new URL(pooledURL).pathname).toMatch(/^\/orders_pro_[a-z0-9]{4}$/);
+    expect(new URL(pooledURL).pathname).toMatch(/^\/p_[a-z2-7]{10}$/);
     await page.getByLabel("I've saved the password somewhere safe").check();
     await page.getByRole("button", { name: "Done" }).click();
 
@@ -598,8 +613,9 @@ test.describe("with the saved session", () => {
     await shot(page, "22-node");
   });
   // The M5 "done when" (spec §14): a hobby project is promoted with its URL
-  // unchanged and no lost commits, while an app keeps writing.
-  test("promote a hobby project with a live writer: same URL, no lost commits", async ({ page }) => {
+  // unchanged and no lost commits, while an app keeps writing; then (M14,
+  // V2 §5) demoted back the same way.
+  test("promote a hobby project with a live writer, then demote it: same URL, no lost commits", async ({ page }) => {
     test.skip(!s3Endpoint, "needs the e2e bundle (Docker for instances, fake S3 for WAL-G)");
     await signedIn(page);
 
@@ -672,6 +688,61 @@ test.describe("with the saved session", () => {
     await expect(page.getByText("Promoted to the dedicated tier")).toBeVisible();
     await expect(page.getByTestId("instance-card")).toBeVisible();
     await shot(page, "25-promoted-overview");
+
+    // Demotion: the preflight checklist, what resets, then live progress,
+    // with the writer going again.
+    stop = false;
+    const before = acked.length;
+    const writer2 = (async () => {
+      let w: pg.Client | null = null;
+      for (let n = 1_000_000; !stop; n++) {
+        try {
+          w ??= await connect(pooledURL);
+          await w.query("INSERT INTO events (n) VALUES ($1)", [n]);
+          acked.push(n);
+        } catch (e) {
+          errors.push(String(e));
+          await w?.end().catch(() => {});
+          w = null;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      await w?.end().catch(() => {});
+    })();
+    await expect.poll(() => acked.length).toBeGreaterThan(before + 20);
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("button", { name: "Demote…" }).click();
+    await expect(page.getByTestId("demote-checks").locator("li")).toHaveCount(7);
+    for (const name of ["size", "extensions", "roles", "allowance", "capacity"]) {
+      await expect(page.getByTestId(`demote-check-${name}`)).toHaveAttribute("data-status", "ok");
+    }
+    await expect(page.getByTestId("demote-resets")).toContainText("connection limit 90 → 20");
+    await expect(page.getByText("Point-in-time recovery ends at the demotion")).toBeVisible();
+    await shot(page, "26-demote-wizard");
+    await page.getByRole("button", { name: "Demote now" }).click();
+    await expect(page.getByTestId("demote-done")).toBeVisible({ timeout: 240_000 });
+    await expect(page.getByTestId("operation-log")).toContainText("route switched to the shared cluster");
+    await expect(page.getByTestId("operation-log")).toContainText("dedicated instance stopped");
+    await shot(page, "27-demoted");
+    const after2 = acked.length;
+    await expect.poll(() => acked.length, { timeout: 30_000 }).toBeGreaterThan(after2 + 20);
+    stop = true;
+    await writer2;
+
+    // Same URL, back on the shared cluster, with every acknowledged commit.
+    const d = await connect(pooledURL);
+    expect((await d.query("SELECT current_setting('archive_mode') AS a")).rows[0].a).not.toBe("on");
+    const all = new Set((await d.query("SELECT n FROM events")).rows.map((r: { n: number }) => r.n));
+    expect(acked.filter((n) => !all.has(n))).toEqual([]);
+    await d.end();
+    expect(errors).toEqual([]);
+
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
+    await expect(page.getByText("Demoted to the shared tier")).toBeVisible();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await expect(page.getByTestId("backup-row").filter({ hasText: "Dedicated (pre-demotion)" }).first()).toBeVisible();
+    await shot(page, "28-demoted-backups");
   });
   test("inspect and query a project, and see its size and connection trends, without leaving the UI", async ({ page }) => {
     await signedIn(page);
@@ -898,5 +969,430 @@ test.describe("with the saved session", () => {
     expect(await apiStatus(carol, `/api/v1/projects/${teamID}`)).toBe(404);
     await carolCtx.close();
     await bobCtx.close();
+  });
+
+  test("usage: a week of hourly storage on the Usage page", async ({ page }) => {
+    await signedIn(page);
+    // A new organisation, so only this project's storage is counted.
+    await page.getByTestId("org-switcher").selectOption("__new");
+    await page.getByLabel("Name").fill("Metered team");
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(page.getByTestId("org-switcher").locator("option:checked")).toHaveText("Metered team");
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Metered");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    expect(decodeURIComponent(new URL(await revealedValue(page, "credential-pooled-url")).username)).toMatch(/^p_[a-z2-7]{10}_owner$/);
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+
+    // A week of size samples ending at the current hour: hour i averages
+    // (i+1) x 100 MB. Older hours exist only as hourly points; the last day
+    // has minute points. Don't let the hour turn between seeding and looking.
+    while (Number(await metadataSQL("SELECT extract(minute FROM now())::int")) >= 57) await page.waitForTimeout(10_000);
+    await metadataSQL(`
+      BEGIN;
+      DELETE FROM metric_points WHERE scope = 'project' AND scope_id = '${id}' AND ts < date_trunc('hour', now());
+      DELETE FROM usage_records WHERE project_id = '${id}';
+      INSERT INTO metric_points (scope, scope_id, metric, ts, resolution, value)
+        SELECT 'project', '${id}', 'size_bytes', date_trunc('hour', now()) - interval '168 hours' + g * interval '1 hour', '1h', (g + 1) * 1e8
+        FROM generate_series(0, 143) g;
+      INSERT INTO metric_points (scope, scope_id, metric, ts, resolution, value)
+        SELECT 'project', '${id}', 'size_bytes', date_trunc('hour', now()) - interval '24 hours' + m * interval '1 minute', '1m',
+               (144 + m / 60 + 1) * 1e8 + CASE WHEN m % 2 = 0 THEN 5e6 ELSE -5e6 END
+        FROM generate_series(0, 24 * 60 - 1) m;
+      DELETE FROM settings WHERE key = 'usage.watermark';
+      COMMIT;`);
+
+    // The tenancy sweep (every 5 s in the bundle) records the week.
+    await page.goto("/org/usage");
+    await expect(page.getByRole("heading", { name: "Usage & quotas" })).toBeVisible();
+    await expect(page.getByTestId("quota-projects")).toContainText("1 of");
+    await page.getByTestId("usage-range").selectOption("30d");
+    await expect(async () => {
+      await page.reload();
+      await page.getByTestId("usage-range").selectOption("30d");
+      await expect(page.getByTestId("usage-hours-toggle")).toHaveText("168 hours recorded", { timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+    await page.getByTestId("usage-hours-toggle").click();
+    const totals = page.getByTestId("usage-hour-total");
+    await expect(totals).toHaveCount(168);
+    await expect(totals.first()).toHaveText("0.1");
+    await expect(totals.nth(99)).toHaveText("10");
+    await expect(totals.last()).toHaveText("16.8");
+    // 0.1 x (1 + 2 + ... + 168) GB-hours.
+    await expect(page.getByTestId("usage-total-shared_storage_gb_hours")).toContainText("1420 GB-hours");
+    await expect(page.getByTestId("usage-csv")).toHaveAttribute("href", /format=csv/);
+    await shot(page, "36-usage");
+
+    // The platform admin sees the organisation in the admin console.
+    await page.goto("/admin/orgs");
+    await page.getByRole("link", { name: "Metered team" }).click();
+    await expect(page.getByRole("heading", { name: "Metered team" })).toBeVisible();
+  });
+
+  test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
+    await signedIn(page);
+    // Calls the API as a CI job would: a bearer token, no cookies.
+    const bearer = (token: string, method: string, path: string, body?: unknown) =>
+      page.evaluate(
+        async ([token, method, path, body]) => {
+          const r = await fetch(path as string, {
+            method: method as string,
+            credentials: "omit",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: body === undefined ? undefined : JSON.stringify(body),
+          });
+          return { status: r.status, body: await r.json().catch(() => null) };
+        },
+        [token, method, path, body] as const,
+      );
+    const sessionGet = (path: string) => page.evaluate(async (p) => (await fetch(p)).json(), path);
+    const mine = (await sessionGet("/api/v1/projects")) as { items: { id: string; name: string }[] };
+    const team = mine.items.find((p) => p.name === "Team data")!;
+    const orgs = (await sessionGet("/api/v1/orgs")) as { items: { id: string; name: string; personal: boolean }[] };
+    const metered = orgs.items.find((o) => o.name === "Metered team")!;
+    const other = ((await sessionGet(`/api/v1/projects?org=${metered.id}`)) as { items: { id: string }[] }).items[0];
+
+    // Account → API tokens: write scope, only "Team data".
+    await page.goto("/account");
+    await page.getByTestId("new-token").click();
+    await page.getByRole("dialog").getByLabel("Name").fill("GitHub Actions — team data");
+    await page.getByTestId("scope-write").check();
+    await page.getByTestId("token-some-projects").check();
+    await page.getByTestId("token-project-Team data").check();
+    await page.getByTestId("create-token").click();
+    const token = await revealedValue(page, "token-secret");
+    expect(token).toMatch(/^pgd_[0-9A-Za-z]{43}$/);
+    await shot(page, "37-token-created");
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByTestId("token-GitHub Actions — team data")).toContainText("1 only");
+
+    // It runs SQL on its project...
+    const sql = await bearer(token, "POST", `/api/v1/projects/${team.id}/sql`, { query: "SELECT body FROM facts", query_id: crypto.randomUUID() });
+    expect(sql.status).toBe(200);
+    expect(sql.body.results[0].rows).toEqual([["shared"]]);
+    // ...gets 404 for a project in another organisation...
+    expect((await bearer(token, "GET", `/api/v1/projects/${other.id}`)).status).toBe(404);
+    // ...and is refused deleting its own project.
+    const del = await bearer(token, "DELETE", `/api/v1/projects/${team.id}?confirm=Team%20data`);
+    expect(del.status).toBe(403);
+    expect(del.body.code).toBe("insufficient_scope");
+
+    // The CLI's device login, approved here for the Metered team org.
+    const start = await page.evaluate(async () => {
+      const r = await fetch("/api/v1/auth/device", { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_name: "pgdock CLI on ci-runner" }) });
+      return r.json();
+    });
+    await page.goto(new URL(start.verification_uri_complete).pathname + new URL(start.verification_uri_complete).search);
+    await expect(page.getByText("ci-runner")).toBeVisible();
+    await page.getByTestId("device-org").selectOption(metered.id);
+    await shot(page, "38-device-login");
+    await page.getByTestId("device-approve").click();
+    await expect(page.getByTestId("device-approved")).toBeVisible();
+    const collected = await page.evaluate(async (device) => {
+      const r = await fetch("/api/v1/auth/device/token", { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_code: device }) });
+      return { status: r.status, body: await r.json() };
+    }, start.device_code);
+    expect(collected.status).toBe(200);
+    const me = await bearer(collected.body.secret, "GET", "/api/v1/me");
+    expect(me.body.token.org_id).toBe(metered.id);
+
+    // The org's owners see every token scoped to it, and can revoke one.
+    await page.getByTestId("org-switcher").selectOption(metered.id);
+    await page.goto("/org/settings");
+    await expect(page.getByTestId("org-tokens")).toContainText("pgdock CLI on ci-runner");
+    page.once("dialog", (d) => void d.accept());
+    await page.getByTestId("revoke-token-pgdock CLI on ci-runner").click();
+    await expect(page.getByTestId("org-tokens")).toContainText("revoked");
+    expect((await bearer(collected.body.secret, "GET", "/api/v1/me")).status).toBe(401);
+  });
+
+  test("table editor: edit rows, see a conflict, change the schema and export a migration", async ({ page, browser }) => {
+    await signedIn(page);
+    const mine = (await page.evaluate(async () => (await fetch("/api/v1/projects")).json())) as { items: { id: string; name: string }[] };
+    const team = mine.items.find((p) => p.name === "Team data")!;
+    const openFacts = async (p: Page) => {
+      await p.goto(`/projects/${team.id}/tables`);
+      await p.getByTestId("schema-tree").getByRole("button", { name: "facts" }).click();
+      await expect(p.getByTestId("table-grid")).toContainText("shared");
+    };
+    const editBody = async (p: Page, from: string, to: string) => {
+      await p.getByTestId("grid-row").filter({ hasText: from }).getByTestId("cell-body").dblclick();
+      await p.getByTestId("cell-input-body").fill(to);
+      await p.getByTestId("cell-ok").click();
+    };
+    await openFacts(page);
+
+    // Edit a cell: staged, highlighted, then saved in one transaction.
+    await editBody(page, "shared", "shared (mine)");
+    await expect(page.getByTestId("pending-changes")).toContainText("1 update");
+    await page.getByTestId("save-rows").click();
+    await expect(page.getByTestId("save-summary")).toHaveText("1 update");
+    await page.getByTestId("confirm-save").click();
+    await expect(page.getByTestId("pending-changes")).toHaveCount(0);
+    await expect(page.getByTestId("table-grid")).toContainText("shared (mine)");
+
+    // Two sessions edit the same row: the second save is a conflict.
+    const otherCtx = await browser.newContext({ storageState: stateFile });
+    const other = await otherCtx.newPage();
+    await openFacts(other);
+    await editBody(page, "shared (mine)", "mine again");
+    await editBody(other, "shared (mine)", "theirs");
+    await other.getByTestId("save-rows").click();
+    await other.getByTestId("confirm-save").click();
+    await expect(other.getByTestId("table-grid")).toContainText("theirs");
+    await page.getByTestId("save-rows").click();
+    await page.getByTestId("confirm-save").click();
+    await expect(page.getByTestId("row-conflict")).toContainText("theirs");
+    await shot(page, "39-row-conflict");
+    await page.getByTestId("conflict-discard").click();
+    await expect(page.getByTestId("table-grid")).toContainText("theirs");
+    await otherCtx.close();
+
+    // Add a column: preview the SQL, save it as a goose migration, run it.
+    await page.getByTestId("tab-structure").click();
+    await page.getByTestId("add-column").click();
+    await page.getByRole("dialog").getByLabel("Name").fill("summary");
+    await page.getByRole("dialog").getByLabel("Type").fill("text");
+    await page.getByRole("dialog").getByLabel("Default").fill("''");
+    await page.getByTestId("schema-form-preview").click();
+    await expect(page.getByTestId("schema-preview")).toContainText('ADD COLUMN "summary" text DEFAULT');
+    await page.getByTestId("migration-format").selectOption("goose");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("save-migration").click()]);
+    expect(download.suggestedFilename()).toMatch(/^\d{14}_add_column_facts_summary\.sql$/);
+    const migration = readFileSync(await download.path(), "utf8");
+    expect(migration).toContain("-- +goose Up");
+    expect(migration).toContain('ALTER TABLE "public"."facts" DROP COLUMN "summary";');
+    await shot(page, "40-schema-preview");
+    await page.getByTestId("schema-run").click();
+    await expect(page.getByTestId("column-summary")).toBeVisible();
+
+    // A type change that rewrites the table says so before anything runs.
+    await page.getByTestId("alter-id").click();
+    await page.getByRole("dialog").getByLabel("Type").fill("bigint");
+    await page.getByTestId("schema-form-preview").click();
+    await expect(page.getByTestId("schema-risks")).toContainText("Rewrites the table and blocks writes. Estimated size:");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("column-id")).toContainText("integer");
+  });
+  // The M12 "done when", through the browser: the organisation brings its
+  // own bucket, a project gets its own key and sends its backups there, and
+  // the key downloads (after re-authentication) with the restore README.
+  // Restoring from that file with gpg and pg_restore alone is covered by
+  // the integration suite.
+  test("backup storage: the organisation's own bucket and a project key", async ({ page }) => {
+    test.skip(!s3Endpoint, "needs the e2e bundle's fake S3");
+    await signedIn(page);
+
+    // An org target, saved only once its live test passes.
+    await page.goto("/org/settings");
+    const panel = page.getByTestId("org-storage-targets");
+    await panel.getByRole("button", { name: "Add a target" }).click();
+    await panel.getByLabel("Name").fill("Our bucket");
+    await panel.getByLabel("Endpoint").fill(s3Endpoint!);
+    await panel.getByLabel("Region").fill("us-east-1");
+    await panel.getByLabel("Bucket").fill("no-such-bucket");
+    await panel.getByLabel("Access key").fill("e2e-access");
+    await panel.getByLabel("Secret key").fill("e2e-secret");
+    await panel.getByLabel(/Path-style addressing/).check();
+    await panel.getByRole("button", { name: "Test and save" }).click();
+    await expect(panel.getByText("Live test failed; not saved")).toBeVisible();
+    await panel.getByLabel("Bucket").fill("org-e2e");
+    await panel.getByRole("button", { name: "Test and save" }).click();
+    await expect(panel.getByTestId("storage-target-row").filter({ hasText: "Our bucket" })).toBeVisible();
+    await shot(page, "41-org-storage-targets");
+
+    // A project of that organisation, with its own key, backing up there.
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Vault");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    const storage = page.getByTestId("project-storage");
+    await expect(storage.getByTestId("project-storage-target")).toContainText("counts toward your backup quota");
+    await storage.getByRole("button", { name: "Use a project key" }).click();
+    await expect(storage.getByTestId("project-backup-key")).toContainText("this project's own key");
+    await storage.getByTestId("storage-choice").selectOption({ label: "Our bucket (organisation)" });
+    await storage.getByLabel("Also copy existing backups there").check();
+    await storage.getByRole("button", { name: "Switch storage" }).click();
+    await expect(storage.getByTestId("project-storage-target")).toContainText("Our bucket");
+    await expect(storage.getByTestId("project-storage-target")).toContainText("doesn't count toward your backup quota");
+
+    await page.getByRole("button", { name: "Back up now" }).click();
+    const row = page.getByTestId("backup-row").first();
+    await expect(row).toContainText("succeeded", { timeout: 60_000 });
+    await expect(row.getByTestId("backup-storage")).toContainText("Our bucket");
+    await expect(row.getByTestId("backup-storage")).toContainText("project key");
+    await shot(page, "42-project-storage");
+
+    // The key file, after confirming it's you.
+    await storage.getByRole("button", { name: "Download key…" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Your password").fill(password);
+    await dialog.getByLabel("Authenticator code").fill(await freshTotp(totpSecret));
+    const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download" }).click()]);
+    const keyFile = readFileSync((await download.path())!, "utf8");
+    expect(keyFile).toContain("-----BEGIN PGP PRIVATE KEY BLOCK-----");
+    expect(keyFile).toContain("gpg --batch --decrypt backup.dump.gpg > backup.dump");
+    expect(keyFile).toContain("pg_restore --no-owner --no-acl");
+  });
+  // The M13 "done when", through the browser: branch a project, reset the
+  // branch from its parent with its URL unchanged, keep it, and delete it.
+  // (The per-pull-request workflow and the branch quota run in the
+  // integration suite.)
+  test("branches: create, reset with the same URL, keep, and delete", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Ledger");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const ledgerURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    let db = await connect(ledgerURL);
+    await db.query("CREATE TABLE entries (id serial PRIMARY KEY, memo text NOT NULL)");
+    await db.query("INSERT INTO entries (memo) SELECT 'entry ' || g FROM generate_series(1, 30) g");
+    await db.end();
+
+    // A branch, copied live (there is no backup yet), kept 3 days.
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branches" }).click();
+    await page.getByRole("button", { name: "New branch" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Branch name").fill("try-migration");
+    await expect(dialog.getByLabel(/Live: a fresh dump/)).toBeChecked();
+    await dialog.getByTestId("branch-ttl").selectOption("72");
+    await dialog.getByRole("button", { name: "Create branch" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const branchURL = await revealedValue(page, "credential-pooled-url");
+    expect(branchURL).not.toBe(ledgerURL);
+    expect(await count(branchURL, "SELECT count(*) FROM entries")).toBe(30);
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await shot(page, "43-branch-created");
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+
+    // Diverge, then reset from the parent: the same URL sees the parent's data.
+    db = await connect(branchURL);
+    await db.query("DELETE FROM entries");
+    await db.end();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    const controls = page.getByTestId("branch-controls");
+    await expect(controls.getByTestId("branch-expiry")).toContainText("in ");
+    await controls.getByTestId("reset-branch").click();
+    await page.getByTestId("confirm-reset").click();
+    await expect(async () => {
+      expect(await count(branchURL, "SELECT count(*) FROM entries")).toBe(30);
+    }).toPass({ timeout: 60_000 });
+    await shot(page, "44-branch-controls");
+
+    // Keep it, and see it nested under its parent.
+    await controls.getByTestId("extend-ttl").selectOption("0");
+    await controls.getByTestId("extend-branch").click();
+    await expect(controls.getByText("never")).toBeVisible();
+    await page.goto("/projects");
+    const nested = page.getByTestId("branch-list-row").filter({ hasText: "try-migration" });
+    await expect(nested).toContainText("kept");
+    await shot(page, "45-projects-with-branches");
+
+    // Delete it (re-authentication, like any delete).
+    await nested.getByRole("link", { name: "try-migration" }).click();
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    await page.getByRole("button", { name: "Delete branch…" }).click();
+    const confirm = page.getByRole("dialog");
+    await confirm.getByTestId("confirm-name").fill("try-migration");
+    await confirm.getByLabel("Your password").fill(password);
+    await confirm.getByTestId("confirm-code").fill(await freshTotp(totpSecret));
+    await confirm.getByRole("button", { name: "Delete branch" }).click();
+    // The dialog closes once the delete is queued; navigating sooner
+    // abandons the request.
+    await expect(confirm).toBeHidden({ timeout: 30_000 });
+    await expect(async () => {
+      await page.goto("/projects");
+      await expect(page.getByTestId("branch-list-row").filter({ hasText: "try-migration" })).toHaveCount(0);
+    }).toPass({ timeout: 60_000 });
+  });
+  // The M15 "done when" in the browser: a committed insert reaches a
+  // receiver, signed; a scheduled job runs on demand. (Rollbacks, a receiver
+  // down for an hour, the metadata address and the delivery rate run in the
+  // integration suite.)
+  test("webhooks and jobs: an insert reaches a receiver, signed; a job runs", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Storefront");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const url = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    const db = await connect(url);
+    await db.query("CREATE TABLE orders (id serial PRIMARY KEY, item text NOT NULL)");
+    await db.query("CREATE TABLE order_counts (at timestamptz NOT NULL DEFAULT now(), n bigint NOT NULL)");
+    await page.getByRole("link", { name: "Open the project" }).click();
+    const id = page.url().match(/projects\/([0-9a-f-]{36})/)![1];
+    const proj = await page.evaluate(async (pid) => (await (await fetch(`/api/v1/projects/${pid}`)).json()) as { org_id: string }, id);
+
+    // The receiver is an internal host: the platform admin allow-lists it.
+    await page.goto(`/admin/orgs/${proj.org_id}`);
+    await page.getByTestId("outbound-allowlist").fill("fakehook");
+    await page.getByRole("button", { name: "Save allow-list" }).click();
+    await expect(page.getByRole("button", { name: "Save allow-list" })).toBeDisabled();
+
+    // A webhook on orders.
+    await page.goto(`/projects/${id}/webhooks`);
+    await page.getByRole("button", { name: "New webhook" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Name").fill("orders-to-shop");
+    await dialog.getByLabel("Tables").fill("orders");
+    await dialog.getByLabel("URL").fill("http://fakehook:8080/orders");
+    await dialog.getByRole("button", { name: "Create webhook" }).click();
+    const secret = await revealedValue(page, "webhook-secret-value");
+    expect(secret).toMatch(/^whsec_/);
+    await shot(page, "46-webhook-created");
+    await page.getByRole("button", { name: /stored it/ }).click();
+
+    // A committed insert arrives, signed with the secret.
+    await db.query("INSERT INTO orders (item) VALUES ('kettle')");
+    type Hook = { path: string; header: Record<string, string>; body: string };
+    let hook: Hook | undefined;
+    await expect(async () => {
+      const got = (await (await fetch(`${hookAPI}/requests`)).json()) as Hook[];
+      hook = got.find((h) => h.path === "/orders" && h.body.includes("kettle"));
+      expect(hook).toBeTruthy();
+    }).toPass({ timeout: 15_000 });
+    const sig = Object.fromEntries(hook!.header["Pgdock-Signature"].split(",").map((kv) => kv.split("=") as [string, string]));
+    expect(createHmac("sha256", secret).update(`${sig.t}.${hook!.body}`).digest("hex")).toBe(sig.v1);
+    expect(JSON.parse(hook!.body)).toMatchObject({ webhook: "orders-to-shop", table: "public.orders", type: "INSERT", record: { item: "kettle" } });
+    expect(hook!.header["Pgdock-Event-Id"]).toMatch(/^evt_/);
+
+    // The delivery log, and a test event.
+    // The new webhook's details are open.
+    await expect(page.getByTestId("delivery-row").first()).toContainText("delivered");
+    await page.getByTestId("webhook-test").click();
+    await expect(page.getByTestId("webhook-message")).toContainText("Test event delivered");
+    await shot(page, "47-webhook-log");
+
+    // A scheduled job, run now.
+    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Jobs" }).click();
+    await page.getByRole("button", { name: "New job" }).click();
+    const jd = page.getByRole("dialog");
+    await jd.getByLabel("Name").fill("count-orders");
+    await jd.getByRole("button", { name: "Every day at 03:00" }).click();
+    await jd.getByRole("textbox", { name: "SQL" }).fill("INSERT INTO order_counts (n) SELECT count(*) FROM orders");
+    await jd.getByRole("button", { name: "Create job" }).click();
+    await expect(page.getByTestId("job-row").filter({ hasText: "count-orders" })).toBeVisible();
+    await expect(page.getByTestId("job-upcoming").locator("li")).toHaveCount(5);
+    await page.getByTestId("job-run-now").click();
+    await expect(page.getByTestId("job-run-row").first()).toContainText("succeeded", { timeout: 30_000 });
+    expect(await count(url, "SELECT n FROM order_counts")).toBe(1);
+    await shot(page, "48-job-run");
+    await db.end();
   });
 });

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -48,10 +49,14 @@ func (s *Server) backupError(w http.ResponseWriter, what string, err error) {
 }
 
 func toAPIBackup(b store.Backup) gen.Backup {
+	enc := gen.BackupEncryptionInstance
+	if b.EncryptionKeyID != nil {
+		enc = gen.BackupEncryptionProject
+	}
 	return gen.Backup{
 		Id: b.ID, ProjectId: b.ProjectID, Kind: gen.BackupKind(b.Kind), Status: gen.BackupStatus(b.Status),
 		SizeBytes: b.SizeBytes, Checksum: b.Checksum, StartedAt: b.StartedAt, FinishedAt: b.FinishedAt,
-		ExpiresAt: b.ExpiresAt, OperationId: b.OperationID, Error: b.Error,
+		ExpiresAt: b.ExpiresAt, OperationId: b.OperationID, Error: b.Error, Encryption: &enc,
 	}
 }
 
@@ -118,8 +123,22 @@ func (s *Server) ListBackups(w http.ResponseWriter, r *http.Request, params gen.
 		b := toAPIBackup(store.Backup{
 			ID: row.ID, ProjectID: row.ProjectID, Kind: row.Kind, ObjectKey: row.ObjectKey, SizeBytes: row.SizeBytes,
 			Checksum: row.Checksum, StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, Status: row.Status,
-			ExpiresAt: row.ExpiresAt, OperationID: row.OperationID, Error: row.Error,
+			ExpiresAt: row.ExpiresAt, OperationID: row.OperationID, Error: row.Error, EncryptionKeyID: row.EncryptionKeyID,
 		})
+		b.KeyFingerprint = row.KeyFingerprint
+		if row.TargetName != nil {
+			kind := gen.StorageTargetKindPlatform
+			target := *row.TargetName
+			if row.TargetOrgID != nil {
+				kind = gen.StorageTargetKindOrg
+				if *row.TargetOrgID != acc.OrgID || acc.BreakGlass {
+					// Org targets are invisible outside their organisation
+					// and to the platform admin (V2 §6).
+					target = "an org target"
+				}
+			}
+			b.StorageTarget, b.StorageKind = &target, &kind
+		}
 		name := row.ProjectName
 		b.ProjectName = &name
 		deleted := row.ProjectDeleted
@@ -165,6 +184,22 @@ func (s *Server) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 	auditFrom(r.Context()).target("project", id.String())
+	if s.tenancy != nil && !s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), accessFrom(r.Context()).OrgID)) {
+		return
+	}
+	if s.tenancy != nil {
+		// Backups on platform targets count against the backup quota; on
+		// the organisation's own target they don't (V2 §6).
+		p, err := s.projects.Get(r.Context(), id)
+		if err != nil {
+			s.provisionError(w, "backup now", err)
+			return
+		}
+		if pl, err := s.backups.PlacementFor(r.Context(), p); err == nil && !pl.OrgTarget &&
+			!s.checkQuota(w, s.tenancy.CheckBackupStorage(r.Context(), p.OrgID)) {
+			return
+		}
+	}
 	op, err := s.backups.BackupNow(r.Context(), id, userID(r.Context()))
 	if err != nil {
 		s.backupError(w, "backup now", err)
@@ -202,6 +237,15 @@ func (s *Server) RestoreBackup(w http.ResponseWriter, r *http.Request, id gen.Ba
 		// In-place restore is destructive (spec §7.2): step-up auth.
 		if sess, ok := sessionFrom(r.Context()); !ok || !s.auth.RecentlyReauthenticated(sess) {
 			writeError(w, http.StatusForbidden, "reauth_required", "confirm your password and code to continue")
+			return
+		}
+	}
+	if s.tenancy != nil {
+		org := accessFrom(r.Context()).OrgID
+		if mode != backup.ModeInPlace && !s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), org)) {
+			return
+		}
+		if !s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), org)) {
 			return
 		}
 	}
@@ -465,6 +509,10 @@ func (s *Server) CreateImport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if s.tenancy != nil && (!s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), acc.OrgID)) ||
+		!s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), acc.OrgID))) {
+		return
+	}
 	a := auditFrom(r.Context())
 	a.set("name", req.Name)
 	a.set("schemas", req.Schemas)
@@ -593,4 +641,80 @@ func (s *Server) toAPINode(n store.Node) gen.Node {
 		}
 	}
 	return gn
+}
+
+// exportsPerOrg caps an organisation's concurrent backup downloads.
+const exportsPerOrg = 2
+
+// DownloadBackup implements GET /api/v1/backups/{id}/download: the backup
+// as a plain pg_dump archive, for the organisation's owners (V2 §10.10).
+func (s *Server) DownloadBackup(w http.ResponseWriter, r *http.Request, id gen.BackupID) {
+	if !s.requireBackups(w) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("backup", id.String())
+	b, err := store.New(s.db).GetBackup(r.Context(), id)
+	if err != nil {
+		s.backupError(w, "download backup", err)
+		return
+	}
+	if b.ProjectID != nil {
+		a.set("project", b.ProjectID.String())
+	}
+	org := accessFrom(r.Context()).OrgID
+	s.exportMu.Lock()
+	if s.exporting == nil {
+		s.exporting = map[uuid.UUID]int{}
+	}
+	busy := s.exporting[org] >= exportsPerOrg
+	if !busy {
+		s.exporting[org]++
+	}
+	s.exportMu.Unlock()
+	if busy {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "rate_limited", fmt.Sprintf("at most %d backup downloads at a time per organisation", exportsPerOrg))
+		return
+	}
+	defer func() {
+		s.exportMu.Lock()
+		s.exporting[org]--
+		s.exportMu.Unlock()
+	}()
+	cw := &startWriter{w: w, start: func() {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="pgdock-%s-%s.dump"`, b.ID, b.StartedAt.UTC().Format("20060102-1504")))
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+	}}
+	if err := s.backups.Export(r.Context(), b, cw); err != nil {
+		if cw.started {
+			// Mid-stream: the archive is cut short, which pg_restore reports.
+			s.log.Warn("backup download interrupted", "backup_id", b.ID, "err", err)
+			a.set("error", err.Error())
+			return
+		}
+		if errors.Is(err, backup.ErrNotExportable) {
+			writeError(w, http.StatusConflict, "not_exportable", err.Error())
+			return
+		}
+		s.backupError(w, "download backup", err)
+	}
+}
+
+// startWriter sends the response's headers on the first write, so an error
+// before any byte is still a proper error response.
+type startWriter struct {
+	w       io.Writer
+	start   func()
+	started bool
+}
+
+func (s *startWriter) Write(p []byte) (int, error) {
+	if !s.started {
+		s.started = true
+		s.start()
+	}
+	return s.w.Write(p)
 }

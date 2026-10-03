@@ -29,6 +29,22 @@ func (q *Queries) CutOverProject(ctx context.Context, arg CutOverProjectParams) 
 	return err
 }
 
+const demoteCutOver = `-- name: DemoteCutOver :exec
+UPDATE projects SET instance_id = $1, tier = 'shared', settings = $2 WHERE id = $3
+`
+
+type DemoteCutOverParams struct {
+	InstanceID uuid.UUID
+	Settings   json.RawMessage
+	ID         uuid.UUID
+}
+
+// tenant: system - demotion workers.
+func (q *Queries) DemoteCutOver(ctx context.Context, arg DemoteCutOverParams) error {
+	_, err := q.db.Exec(ctx, demoteCutOver, arg.InstanceID, arg.Settings, arg.ID)
+	return err
+}
+
 const dueRetiredDatabases = `-- name: DueRetiredDatabases :many
 SELECT id, project_id, instance_id, db_name, owner_role, reason, drop_after, dropped_at, created_at FROM retired_databases WHERE dropped_at IS NULL AND drop_after <= now() ORDER BY drop_after
 `
@@ -62,6 +78,27 @@ func (q *Queries) DueRetiredDatabases(ctx context.Context) ([]RetiredDatabase, e
 		return nil, err
 	}
 	return items, nil
+}
+
+const expireBaseBackups = `-- name: ExpireBaseBackups :execrows
+UPDATE backups SET expires_at = $1
+WHERE project_id = $2::uuid AND kind = 'base' AND status = 'succeeded' AND expires_at IS NULL
+`
+
+type ExpireBaseBackupsParams struct {
+	ExpiresAt *time.Time
+	ProjectID uuid.UUID
+}
+
+// tenant: system - demotion workers.
+// After a demotion the WAL-G base backups stay restorable until retention
+// would have dropped them (V2 s5.4).
+func (q *Queries) ExpireBaseBackups(ctx context.Context, arg ExpireBaseBackupsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireBaseBackups, arg.ExpiresAt, arg.ProjectID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const insertRetiredDatabase = `-- name: InsertRetiredDatabase :one
@@ -104,6 +141,41 @@ func (q *Queries) InsertRetiredDatabase(ctx context.Context, arg InsertRetiredDa
 	return i, err
 }
 
+const listLiveRetiredForProject = `-- name: ListLiveRetiredForProject :many
+SELECT id, project_id, instance_id, db_name, owner_role, reason, drop_after, dropped_at, created_at FROM retired_databases WHERE project_id = $1 AND dropped_at IS NULL ORDER BY created_at
+`
+
+// tenant: system - demotion workers.
+func (q *Queries) ListLiveRetiredForProject(ctx context.Context, projectID uuid.UUID) ([]RetiredDatabase, error) {
+	rows, err := q.db.Query(ctx, listLiveRetiredForProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RetiredDatabase
+	for rows.Next() {
+		var i RetiredDatabase
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.InstanceID,
+			&i.DbName,
+			&i.OwnerRole,
+			&i.Reason,
+			&i.DropAfter,
+			&i.DroppedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const liveRetiredForProject = `-- name: LiveRetiredForProject :one
 SELECT id, project_id, instance_id, db_name, owner_role, reason, drop_after, dropped_at, created_at FROM retired_databases WHERE project_id = $1 AND dropped_at IS NULL ORDER BY created_at DESC LIMIT 1
 `
@@ -134,4 +206,80 @@ UPDATE retired_databases SET dropped_at = now() WHERE id = $1
 func (q *Queries) MarkRetiredDropped(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markRetiredDropped, id)
 	return err
+}
+
+const peakProjectConnections = `-- name: PeakProjectConnections :one
+SELECT COALESCE(max(a.value + COALESCE(i.value, 0)), 0)::float8
+FROM metric_points a LEFT JOIN metric_points i
+  ON i.scope = a.scope AND i.scope_id = a.scope_id AND i.ts = a.ts AND i.resolution = a.resolution AND i.metric = 'connections_idle'
+WHERE a.scope = 'project' AND a.scope_id = $1 AND a.metric = 'connections_active' AND a.ts >= $2
+`
+
+type PeakProjectConnectionsParams struct {
+	ProjectID uuid.UUID
+	Since     time.Time
+}
+
+// tenant: system - a project the request already authorized.
+// The most backend connections the project had at once since @since.
+func (q *Queries) PeakProjectConnections(ctx context.Context, arg PeakProjectConnectionsParams) (float64, error) {
+	row := q.db.QueryRow(ctx, peakProjectConnections, arg.ProjectID, arg.Since)
+	var column_1 float64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const sharedClustersForOrg = `-- name: SharedClustersForOrg :many
+SELECT i.id, i.node_id, n.name AS node_name, (i.org_id IS NOT NULL)::bool AS org_cluster,
+       (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)::int AS projects,
+       COALESCE((SELECT t.value - u.value FROM metric_points t JOIN metric_points u
+          ON u.scope = t.scope AND u.scope_id = t.scope_id AND u.ts = t.ts AND u.resolution = t.resolution AND u.metric = 'disk_used_bytes'
+        WHERE t.scope = 'node' AND t.scope_id = n.id AND t.metric = 'disk_total_bytes' AND t.resolution = '1m'
+        ORDER BY t.ts DESC LIMIT 1), -1)::float8 AS free_bytes
+FROM instances i JOIN nodes n ON n.id = i.node_id
+WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
+  AND i.deleted_at IS NULL
+  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $1)
+           THEN i.org_id = $1 ELSE i.org_id IS NULL END
+ORDER BY i.created_at
+`
+
+type SharedClustersForOrgRow struct {
+	ID         uuid.UUID
+	NodeID     uuid.UUID
+	NodeName   string
+	OrgCluster bool
+	Projects   int32
+	FreeBytes  float64
+}
+
+// tenant: system - placement across organisations' shared clusters.
+// The shared clusters a project of the organisation may be placed on (its
+// own when it has any, V2 s10.5), with live projects and the node's latest
+// measured free disk (-1: not measured yet).
+func (q *Queries) SharedClustersForOrg(ctx context.Context, orgID *uuid.UUID) ([]SharedClustersForOrgRow, error) {
+	rows, err := q.db.Query(ctx, sharedClustersForOrg, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SharedClustersForOrgRow
+	for rows.Next() {
+		var i SharedClustersForOrgRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.NodeName,
+			&i.OrgCluster,
+			&i.Projects,
+			&i.FreeBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -428,6 +428,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's branches (V2 §8) */
+        get: operations["listBranches"];
+        put?: never;
+        /**
+         * Branch the project
+         * @description A new shared-tier project copied from this one's latest backup
+         *     (`source: backup`, the default) or live, schema only or with data,
+         *     that deletes itself after `ttl_hours` (default 168; 0 keeps it).
+         *     Returns the branch's credentials once. Webhooks and scheduled jobs
+         *     are not copied. A project marked as containing sensitive data
+         *     branches schema only by default, and a full copy needs the project
+         *     admin role. 409 `quota_exceeded` past the organisation's branch or
+         *     storage quota.
+         */
+        post: operations["createBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a branch from its parent
+         * @description Re-creates the branch's data from the parent's latest backup or live, keeping its database name, URL, app password and members' credentials.
+         */
+        post: operations["resetBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detach a branch into a standalone project
+         * @description It keeps its data and credentials, loses its parent and expiry, and counts as a project instead of a branch.
+         */
+        post: operations["detachBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/backups": {
         parameters: {
             query?: never;
@@ -477,6 +545,29 @@ export interface paths {
         };
         /** Backup configuration and health at a glance */
         get: operations["getBackupOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a backup as a plain pg_dump archive (organisation owners)
+         * @description The backup decrypted: a `pg_dump` custom-format archive for
+         *     `pg_restore` (V2 §10.10 data export). Logical, final and safety
+         *     backups of projects only. Organisation owners only; at most two at
+         *     a time per organisation; every download is audited.
+         */
+        get: operations["downloadBackup"];
         put?: never;
         post?: never;
         delete?: never;
@@ -540,7 +631,7 @@ export interface paths {
         get: operations["getStorageSettings"];
         /**
          * Save the backup storage target after a live test
-         * @description Runs the write/read/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
+         * @description Runs the write/read/list/delete test and saves only if it passes. An empty `secret_key` keeps the stored one.
          */
         put: operations["putStorageSettings"];
         post?: never;
@@ -559,7 +650,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Run the live write/read/delete test without saving */
+        /** Run the live write/read/list/delete test without saving */
         post: operations["testStorageSettings"];
         delete?: never;
         options?: never;
@@ -725,6 +816,63 @@ export interface paths {
          *     read-only for 48 hours, then dropped.
          */
         post: operations["promoteProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/demote/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check whether this dedicated project can move back to the shared tier
+         * @description Runs the demotion eligibility checks (V2 §5.2) without changing
+         *     anything: size against the organisation's shared storage limits,
+         *     extensions on the shared allow-list, no custom roles, the
+         *     dedicated allowance released, peak connections, settings the
+         *     shared tier resets, and a shared cluster with room (the
+         *     organisation's own when it has one). The same checks run again
+         *     when the demotion starts.
+         */
+        post: operations["demotePreflight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/demote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Demote a dedicated project to the shared tier
+         * @description Queues a `demote` operation (V2 §5.3): the database and every
+         *     login are created on a shared cluster with the same SCRAM
+         *     verifiers, writes freeze while the data is copied and verified,
+         *     then the pooler route moves. Connection strings and passwords do
+         *     not change. If anything fails before the route moves, the
+         *     project stays on its dedicated instance untouched. The
+         *     dedicated instance is stopped and kept for 48 hours, then
+         *     destroyed, which releases its share of the dedicated allowance.
+         *     Point-in-time recovery ends at the demotion; the existing base
+         *     backups stay restorable until their retention ends. Refused with
+         *     `409` when a check fails, or when there are warnings and
+         *     `accept_warnings` is not set.
+         */
+        post: operations["demoteProject"];
         delete?: never;
         options?: never;
         head?: never;
@@ -903,6 +1051,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/tables/{schema}/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A table's columns, keys, constraints and indexes, and whether its rows can be edited */
+        get: operations["getTableInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/tables/{schema}/{table}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export filtered, sorted rows as CSV or JSON (at most 100,000) */
+        get: operations["exportTableRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/tables/{schema}/{table}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save staged row edits in one transaction
+         * @description Inserts, updates and deletes (at most 500) in one transaction with
+         *     statement_timeout 30s and lock_timeout 5s (V2 §4.2). Updates and
+         *     deletes match the row's `xmin` from when it was loaded: if someone
+         *     changed or deleted it since, nothing is saved and the answer is 409
+         *     with the row as it is now. A change Postgres refuses rolls back the
+         *     batch: 422 with the failing change and its error.
+         */
+        post: operations["saveTableChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/schema/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn a schema change into DDL, risk notes, and a reverse */
+        post: operations["previewSchemaChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/schema/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a previewed schema change
+         * @description `hash` must be the preview's: if the change would now produce other
+         *     SQL, the answer is 409 `stale_plan`. Drops need `confirm`, the
+         *     object's name. DDL runs with lock_timeout 5s; CREATE INDEX
+         *     CONCURRENTLY runs outside a transaction, everything else in one.
+         *     The SQL is written to the audit log.
+         */
+        post: operations["applySchemaChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/schema/migration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render a schema change as a migration file (plain SQL, goose, or dbmate) */
+        post: operations["schemaMigration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/editor-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your table-editor preferences for this project */
+        get: operations["getEditorPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/tables/{schema}/{table}/rows": {
         parameters: {
             query?: never;
@@ -911,9 +1193,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A page of a table's rows (read-only)
+         * A page of a table's rows, filtered and sorted
          * @description 50 rows per page, keyset-paginated on the primary key where there is
-         *     one (spec §8.6). Pass the previous page's `next` as `after`.
+         *     one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+         *     tables return each row's `xmin`, for the row editor's conflict
+         *     detection (V2 §4.2).
          */
         get: operations["getTableRows"];
         put?: never;
@@ -1240,6 +1524,366 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your API tokens (only the calling token's organisation, with a token) */
+        get: operations["listMyTokens"];
+        put?: never;
+        /**
+         * Create an API token, shown once
+         * @description A token acts in one organisation, with additive scopes (read, write,
+         *     admin; admin requires write), optionally restricted to some
+         *     projects, until it expires (default 90 days, at most the platform
+         *     maximum). Created with a token, the new one can't exceed the
+         *     caller's scopes, projects, or expiry.
+         */
+        post: operations["createToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke one of your tokens */
+        delete: operations["revokeMyToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/storage-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organisation's own backup storage targets (owners and admins)
+         * @description Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+         */
+        get: operations["listOrgStorageTargets"];
+        put?: never;
+        /**
+         * Add an org target after a live test
+         * @description Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+         */
+        post: operations["createOrgStorageTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/storage-targets/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One org target (never its credentials) */
+        get: operations["getOrgStorageTarget"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an org target
+         * @description Refused (409 `target_in_use`) while a project uses it, and while it
+         *     holds unexpired backups unless `accept_unrestorable=true`: those
+         *     backups then become unrestorable. The bucket is not touched.
+         */
+        delete: operations["deleteOrgStorageTarget"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an org target after a live test
+         * @description Empty `access_key` or `secret_key` keep the stored ones.
+         */
+        patch: operations["updateOrgStorageTarget"];
+        trace?: never;
+    };
+    "/api/v1/storage-targets/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the live write/read/list/delete test without saving
+         * @description With `target_id`, empty credentials are taken from that stored
+         *     target (one of the organisation's, or a platform target for the
+         *     platform admin).
+         */
+        post: operations["testStorageTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform storage targets (platform admin)
+         * @description Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+         */
+        get: operations["listPlatformStorageTargets"];
+        put?: never;
+        /** Add a platform target after a live test (platform admin) */
+        post: operations["createPlatformStorageTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage-targets/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One platform target (platform admin) */
+        get: operations["getPlatformStorageTarget"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a platform target (platform admin)
+         * @description The default can't be deleted; otherwise as for org targets.
+         */
+        delete: operations["deletePlatformStorageTarget"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a platform target after a live test (platform admin)
+         * @description `is_default: true` makes it the platform default (exactly one is).
+         */
+        patch: operations["updatePlatformStorageTarget"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/storage-target": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the project's backups go, its key, and the targets it can use */
+        get: operations["getProjectStorageTarget"];
+        /**
+         * Send the project's new backups to another target
+         * @description `target_id` null is the platform default. Existing backups keep
+         *     their target and stay restorable. `copy_existing` copies them to the
+         *     new target as an operation, verified by checksum; `delete_originals`
+         *     then deletes the originals. A dedicated project's WAL-G is
+         *     reconfigured and a fresh base backup taken at once.
+         */
+        put: operations["setProjectStorageTarget"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/backup-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give the project its own backup key
+         * @description Generates the key (idempotent unless `rotate`); new backups use it,
+         *     existing backups keep theirs. Download it with
+         *     `GET /projects/{id}/backup-key/download`.
+         */
+        post: operations["enableProjectBackupKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/backup-key/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the project's backup key with a README (re-authentication)
+         * @description The OpenPGP private key, armored, after a README on decrypting and
+         *     restoring with standard tools (gpg, pg_restore). Needs a recent
+         *     re-authentication (403 `reauth_required`); every download is audited.
+         */
+        get: operations["downloadProjectBackupKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every token scoped to the organisation (owners and admins) */
+        get: operations["listOrgTokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke any token scoped to the organisation (owners and admins) */
+        delete: operations["revokeOrgToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a CLI device login
+         * @description The CLI shows `user_code` and opens `verification_uri_complete`; a
+         *     signed-in user approves it, choosing the organisation and scopes,
+         *     and the CLI polls `/api/v1/auth/device/token` for the token.
+         */
+        post: operations["startDeviceLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Collect a device login's token
+         * @description Answers 400 with code `authorization_pending` until approved
+         *     (`slow_down` when polled too often), then the token exactly once;
+         *     `access_denied` or `expired_token` end the login.
+         */
+        post: operations["pollDeviceLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/requests/{user_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pending device login, for the approval page */
+        get: operations["getDeviceLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve (or deny) a device login */
+        post: operations["approveDeviceLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform-wide token rules */
+        get: operations["getTokenSettings"];
+        /** Change the platform-wide token rules */
+        put: operations["putTokenSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/sessions": {
         parameters: {
             query?: never;
@@ -1372,7 +2016,8 @@ export interface paths {
         get: operations["getOrg"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete an organisation after a 7-day grace period (owner, step-up auth) */
+        delete: operations["deleteOrg"];
         options?: never;
         head?: never;
         /** Rename an organisation or change its settings */
@@ -1752,6 +2397,606 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/quotas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's plan, limits, and current use (V2 §10.3) */
+        get: operations["getOrgQuotas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recorded usage (V2 §10.9), as JSON or CSV */
+        get: operations["getOrgUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/cancel-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a pending organisation deletion (owner) */
+        post: operations["cancelOrgDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/break-glass/{session_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End a break-glass session early (owner) */
+        post: operations["endBreakGlass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/dedicated-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's dedicated instance requests */
+        get: operations["listOrgDedicatedRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/switch-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a V1 project to opaque credentials (V2 §10.2)
+         * @description Creates an opaque owner role with a new password, returned once. The
+         *     V1 role and database name keep working until the grace period ends,
+         *     then stop.
+         */
+        post: operations["switchProjectCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Size against the storage limit, lock state, and the largest tables */
+        get: operations["getProjectStorage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/reclaim-space": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table) */
+        post: operations["reclaimSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/reaped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Statements and idle transactions the reaper ended (V2 §10.4) */
+        get: operations["listReapedSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every organisation with plan, counts, size, and status (platform admin) */
+        get: operations["adminListOrgs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One organisation's plan, limits, allowance, and clusters (platform admin) */
+        get: operations["adminGetOrg"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin) */
+        patch: operations["adminUpdateOrg"];
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend an organisation (platform admin) */
+        post: operations["adminSuspendOrg"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reinstate a suspended organisation (platform admin) */
+        post: operations["adminReinstateOrg"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's webhooks, with their health and backlog */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Send a table's changes to a URL
+         * @description Installs triggers that write each change to an outbox in the
+         *     project's database, in the same transaction (V2 §9.1): rolled-back
+         *     changes never produce an event. The URL must be https:// (http://
+         *     only to a host the platform admin allow-listed) and resolve to a
+         *     public address. The signing secret is returned once.
+         */
+        post: operations["createWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A webhook */
+        get: operations["getWebhook"];
+        put?: never;
+        post?: never;
+        /** Delete a webhook, its triggers and its queued events */
+        delete: operations["deleteWebhook"];
+        options?: never;
+        head?: never;
+        /**
+         * Change, pause or resume a webhook
+         * @description Fields left out keep their values. Saving reinstalls the triggers, which clears a broken status.
+         */
+        patch: operations["updateWebhook"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a test event now */
+        post: operations["testWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace the signing secret (returned once) */
+        post: operations["rotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The delivery log (7 days), or the dead letters */
+        get: operations["listWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/webhooks/{webhook_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue dead letters again */
+        post: operations["replayWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's scheduled jobs */
+        get: operations["listJobs"];
+        put?: never;
+        /**
+         * Run SQL or call a URL on a schedule
+         * @description SQL runs as the project owner in a transaction, with the job's
+         *     timeout as statement_timeout; HTTP calls go through the same
+         *     outbound rules as webhooks and are signed. The plan limits the
+         *     number of jobs and the shortest interval (409 quota_exceeded).
+         *     An HTTP job's signing secret is returned once.
+         */
+        post: operations["createJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A scheduled job */
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        /** Delete a job and its history */
+        delete: operations["deleteJob"];
+        options?: never;
+        head?: never;
+        /**
+         * Change, pause or resume a job
+         * @description Fields left out keep their values.
+         */
+        patch: operations["updateJob"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs/{job_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a job now */
+        post: operations["runJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/jobs/{job_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A job's history (30 days, at most 1,000 runs) */
+        get: operations["listJobRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/outbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An organisation's outbound allow-list and request counts by host, 30 days (platform admin) */
+        get: operations["adminGetOrgOutbound"];
+        /**
+         * Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+         * @description Hosts (names or IP addresses) on the list may be private or
+         *     loopback addresses and may use plain http://. Link-local and cloud
+         *     metadata addresses can never be allowed. Tenants can't change it.
+         */
+        put: operations["adminSetOrgOutboundAllowlist"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/cluster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give an organisation its own shared cluster, or take it back (platform admin) */
+        post: operations["adminSetOrgCluster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/break-glass": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start break-glass access to an organisation (platform admin, step-up auth) */
+        post: operations["adminStartBreakGlass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quota plan templates (platform admin) */
+        get: operations["listPlans"];
+        put?: never;
+        /** Add a quota plan template (platform admin) */
+        post: operations["createPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/plans/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a quota plan template (platform admin) */
+        patch: operations["updatePlan"];
+        trace?: never;
+    };
+    "/api/v1/admin/dedicated-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dedicated instance requests from every organisation (platform admin) */
+        get: operations["listDedicatedRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dedicated-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a dedicated request; the promotion starts (platform admin) */
+        post: operations["approveDedicatedRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dedicated-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a dedicated request (platform admin) */
+        post: operations["rejectDedicatedRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage totals per organisation (platform admin) */
+        get: operations["platformUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/shared-clusters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shared clusters and the organisation each is reserved for (platform admin) */
+        get: operations["listSharedClusters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1800,6 +3045,10 @@ export interface components {
             /** @example not_implemented */
             code: string;
             message: string;
+            quota?: components["schemas"]["QuotaItem"];
+            sql_error?: components["schemas"]["SqlError"];
+            /** @description The DDL statement Postgres refused. */
+            statement?: string;
         };
         /** @enum {string} */
         OperationStatus: "queued" | "running" | "succeeded" | "failed";
@@ -1854,7 +3103,7 @@ export interface components {
             fail_attempts: number;
         };
         /** @enum {string} */
-        ProjectStatus: "provisioning" | "active" | "promoting" | "restoring" | "deleting" | "error";
+        ProjectStatus: "provisioning" | "active" | "promoting" | "demoting" | "restoring" | "deleting" | "error";
         /** @enum {string} */
         ProjectTier: "shared" | "dedicated";
         ConnectionInfo: {
@@ -1882,11 +3131,28 @@ export interface components {
             session_url: string;
         };
         Project: {
+            /**
+             * Format: uuid
+             * @description Set for a branch (V2 §8).
+             */
+            parent_project_id?: string | null;
+            branch?: components["schemas"]["BranchInfo"];
+            sensitive_data?: boolean;
+            /** @description Live branches of this project. */
+            branch_count?: number;
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             org_id: string;
             my_role?: components["schemas"]["ProjectRole"];
+            storage_state?: components["schemas"]["StorageState"];
+            /** @description A V1 project that still uses its V1 owner role (V2 §10.2). */
+            can_switch_credentials?: boolean;
+            /**
+             * Format: date-time
+             * @description The V1 credentials stop working at this time.
+             */
+            legacy_credentials_until?: string | null;
             name: string;
             slug: string;
             db_name: string;
@@ -1907,7 +3173,9 @@ export interface components {
             pitr_window?: components["schemas"]["PitrWindow"];
             /**
              * Format: date-time
-             * @description After a promotion, when the read-only shared copy is dropped.
+             * @description After a promotion, when the read-only shared copy is dropped;
+             *     after a demotion, when the stopped dedicated instance is
+             *     destroyed (and the dedicated allowance released).
              */
             retired_copy_until?: string | null;
         };
@@ -2048,10 +3316,52 @@ export interface components {
             sslmode: string;
             tls: components["schemas"]["TlsStatus"];
         };
+        BranchInfo: {
+            /** @enum {string} */
+            source: "backup" | "live";
+            schema_only: boolean;
+            /**
+             * Format: date-time
+             * @description When the branch deletes itself; null keeps it.
+             */
+            expires_at?: string | null;
+            /** @description Whether it takes nightly backups. */
+            backups: boolean;
+        };
+        BranchRequest: {
+            name: string;
+            /**
+             * @default backup
+             * @enum {string}
+             */
+            source: "backup" | "live";
+            /** @description Defaults to whether the parent contains sensitive data. */
+            schema_only?: boolean;
+            /** @description Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168. */
+            ttl_hours?: number;
+        };
+        BranchResetRequest: {
+            /**
+             * @description Defaults to the source the branch was created from.
+             * @enum {string}
+             */
+            source?: "backup" | "live";
+        };
         UpdateProjectRequest: {
             name?: string;
             description?: string | null;
             settings?: components["schemas"]["ProjectSettingsPatch"];
+            /** @description The project contains sensitive data; its branches default to schema only (project admins). */
+            sensitive_data?: boolean;
+            /**
+             * Format: date-time
+             * @description Branches only. When the branch deletes itself, within 30 days.
+             */
+            expires_at?: string;
+            /** @description Branches only. Keep the branch until deleted. */
+            no_expiry?: boolean;
+            /** @description Branches only. Take nightly backups (off by default). */
+            branch_backups?: boolean;
         };
         ProjectSettingsPatch: {
             connection_limit?: number;
@@ -2077,8 +3387,20 @@ export interface components {
             project_name?: string | null;
             project_deleted?: boolean;
             kind: components["schemas"]["BackupKind"];
-            /** @enum {string} */
-            status: "running" | "succeeded" | "failed";
+            /**
+             * @description `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
+             * @enum {string}
+             */
+            status: "running" | "succeeded" | "failed" | "copied";
+            /** @description The target's name ("an org target" where its name isn't the viewer's to see). */
+            storage_target?: string | null;
+            storage_kind?: components["schemas"]["StorageTargetKind"];
+            /**
+             * @description `project`: an OpenPGP message to the project's own key (opens with gpg).
+             * @enum {string}
+             */
+            encryption?: "instance" | "project";
+            key_fingerprint?: string | null;
             /** Format: int64 */
             size_bytes?: number | null;
             checksum?: string | null;
@@ -2119,6 +3441,111 @@ export interface components {
         RestoreResponse: {
             operation: components["schemas"]["Operation"];
             credentials?: components["schemas"]["ProjectCredentials"];
+        };
+        /** @enum {string} */
+        StorageTargetKind: "platform" | "org";
+        StorageTargetRequest: {
+            name: string;
+            /** @example https://s3.eu-central-1.amazonaws.com */
+            endpoint: string;
+            region?: string;
+            bucket: string;
+            prefix?: string;
+            /** @description Empty on an update keeps the stored one. */
+            access_key?: string;
+            /** @description Empty on an update keeps the stored one. */
+            secret_key?: string;
+            path_style?: boolean;
+            /** @description Platform targets only. */
+            is_default?: boolean;
+        };
+        StorageTargetTestRequest: {
+            /**
+             * Format: uuid
+             * @description A stored target whose credentials fill in empty ones.
+             */
+            target_id?: string;
+            endpoint: string;
+            region?: string;
+            bucket: string;
+            prefix?: string;
+            access_key?: string;
+            secret_key?: string;
+            path_style?: boolean;
+        };
+        StorageTarget: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            kind: components["schemas"]["StorageTargetKind"];
+            endpoint: string;
+            region: string;
+            bucket: string;
+            prefix: string;
+            path_style: boolean;
+            is_default: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at?: string;
+            usage: components["schemas"]["StorageTargetUsage"];
+        };
+        StorageTargetUsage: {
+            /** @description Live projects whose new backups go here. */
+            projects: number;
+            /** @description Unexpired backups stored here. */
+            backups: number;
+            /** Format: int64 */
+            bytes: number;
+        };
+        StorageTargetList: {
+            items: components["schemas"]["StorageTarget"][];
+        };
+        StorageTargetSaveResult: {
+            saved: boolean;
+            test: components["schemas"]["StorageTestResult"];
+            target?: components["schemas"]["StorageTarget"];
+        };
+        ProjectStorageChoice: {
+            /**
+             * Format: uuid
+             * @description Null is the platform default (followed if it changes).
+             */
+            id?: string | null;
+            kind: components["schemas"]["StorageTargetKind"];
+            name: string;
+            is_default: boolean;
+        };
+        ProjectBackupKey: {
+            /** @description False means new backups use the instance key. */
+            enabled: boolean;
+            /** Format: uuid */
+            id?: string;
+            /** @description The OpenPGP fingerprint, as gpg shows it. */
+            fingerprint?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ProjectBackupKeyRequest: {
+            /** @description Replace an existing key; backups made with the old one keep it. */
+            rotate?: boolean;
+        };
+        ProjectBackupStorage: {
+            target: components["schemas"]["ProjectStorageChoice"];
+            key: components["schemas"]["ProjectBackupKey"];
+            choices: components["schemas"]["ProjectStorageChoice"][];
+            /** @description Whether new backups count against the organisation's backup quota (platform targets do). */
+            counts_toward_quota: boolean;
+        };
+        ProjectStorageTargetRequest: {
+            /** Format: uuid */
+            target_id?: string | null;
+            copy_existing?: boolean;
+            delete_originals?: boolean;
+        };
+        ProjectStorageTargetResult: {
+            storage: components["schemas"]["ProjectBackupStorage"];
+            operation?: components["schemas"]["Operation"];
         };
         StorageRequest: {
             /** @example https://s3.eu-central-1.amazonaws.com */
@@ -2360,11 +3787,269 @@ export interface components {
             /** @description Roughly dump + restore time, while writes wait. */
             estimated_downtime_seconds: number;
         };
+        DemoteRequest: {
+            /**
+             * Format: uuid
+             * @description The node whose shared cluster takes the project (default the one with the most free capacity).
+             */
+            node_id?: string;
+            /** @description Turn the read-only SQL console off (V2 §5.5); otherwise it keeps its current setting. */
+            console_writable?: boolean;
+            /** @description Acknowledge the preflight's warnings (peak connections, settings that reset). */
+            accept_warnings?: boolean;
+        };
+        DemoteCheck: {
+            /** @enum {string} */
+            name: "size" | "extensions" | "roles" | "allowance" | "connections" | "settings" | "capacity";
+            /** @enum {string} */
+            status: "ok" | "warning" | "blocked";
+            message: string;
+        };
+        DemoteTarget: {
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            /** @description The organisation's own shared cluster (V2 §10.5). */
+            org_cluster: boolean;
+            /**
+             * Format: int64
+             * @description The node's free disk at its last measurement.
+             */
+            free_bytes?: number | null;
+        };
+        DemotePreflight: {
+            /** @description No check blocks the demotion (warnings still need accept_warnings). */
+            eligible: boolean;
+            checks: components["schemas"]["DemoteCheck"][];
+            /** Format: int64 */
+            size_bytes: number;
+            /** @description Roughly dump + restore time, while writes wait. */
+            estimated_downtime_seconds: number;
+            target?: components["schemas"]["DemoteTarget"];
+            settings_after: components["schemas"]["ProjectSettings"];
+            /** @description The guardrails that change, e.g. "connection limit 90 → 20". */
+            resets: string[];
+            /** @description How long the stopped dedicated instance is kept before it is destroyed. */
+            retain_hours: number;
+        };
+        WebhookRequest: {
+            name: string;
+            /** @description Tables as schema.table (or table, in public). */
+            tables: string[];
+            events: ("INSERT" | "UPDATE" | "DELETE")[];
+            /** @description For UPDATE, fire only when one of these columns changed. */
+            columns?: string[];
+            url: string;
+            /** @description Static headers sent with each request (stored encrypted, never returned). */
+            headers?: {
+                [key: string]: string;
+            };
+            /** @default true */
+            enabled: boolean;
+        };
+        WebhookUpdate: {
+            name?: string;
+            tables?: string[];
+            events?: ("INSERT" | "UPDATE" | "DELETE")[];
+            columns?: string[] | null;
+            url?: string;
+            /** @description Replaces the stored headers; {} removes them. */
+            headers?: {
+                [key: string]: string;
+            };
+            enabled?: boolean;
+        };
+        Webhook: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            tables: string[];
+            events: string[];
+            columns?: string[];
+            url: string;
+            header_names: string[];
+            enabled: boolean;
+            /** @enum {string} */
+            status: "healthy" | "failing" | "paused" | "broken";
+            status_reason?: string | null;
+            consecutive_failures: number;
+            /**
+             * Format: int64
+             * @description Events waiting in the outbox.
+             */
+            backlog: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        WebhookList: {
+            items: components["schemas"]["Webhook"][];
+        };
+        WebhookCreated: {
+            webhook: components["schemas"]["Webhook"];
+            /** @description The signing secret, shown once. */
+            secret: string;
+        };
+        WebhookSecret: {
+            secret: string;
+        };
+        WebhookTestResult: {
+            event_id: string;
+            ok: boolean;
+            status_code?: number;
+            latency_ms?: number;
+            response?: string;
+            error?: string;
+        };
+        WebhookDelivery: {
+            /** Format: int64 */
+            id: number;
+            event_id: string;
+            attempt: number;
+            status_code?: number | null;
+            latency_ms?: number | null;
+            /** @description The response body, truncated to 4 KB. */
+            response?: string | null;
+            error?: string | null;
+            succeeded: boolean;
+            dead_lettered: boolean;
+            /** Format: date-time */
+            replayed_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        WebhookDeliveryList: {
+            items: components["schemas"]["WebhookDelivery"][];
+        };
+        ReplayRequest: {
+            ids?: number[];
+            all?: boolean;
+        };
+        ReplayResult: {
+            queued: number;
+        };
+        HttpJobSpec: {
+            /**
+             * @default POST
+             * @enum {string}
+             */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            url: string;
+            headers?: {
+                [key: string]: string;
+            };
+            body?: string;
+        };
+        JobRequest: {
+            name: string;
+            /** @description A 5-field cron expression (or @hourly, @daily, ...). */
+            cron: string;
+            /** @description An IANA time zone (default UTC). */
+            timezone?: string;
+            /** @enum {string} */
+            kind: "sql" | "http";
+            sql?: string;
+            http?: components["schemas"]["HttpJobSpec"];
+            timeout_seconds?: number;
+            /**
+             * @default skip
+             * @enum {string}
+             */
+            overlap: "skip" | "queue";
+            /** @default true */
+            enabled: boolean;
+        };
+        JobUpdate: {
+            name?: string;
+            cron?: string;
+            timezone?: string;
+            sql?: string;
+            http?: components["schemas"]["HttpJobSpec"];
+            timeout_seconds?: number;
+            /** @enum {string} */
+            overlap?: "skip" | "queue";
+            enabled?: boolean;
+        };
+        Job: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            cron: string;
+            timezone: string;
+            /** @enum {string} */
+            kind: "sql" | "http";
+            sql?: string;
+            http?: components["schemas"]["HttpJobSpec"];
+            timeout_seconds: number;
+            /** @enum {string} */
+            overlap: "skip" | "queue";
+            enabled: boolean;
+            /** Format: date-time */
+            next_run_at?: string | null;
+            /** @description The next five run times. */
+            upcoming: string[];
+            consecutive_failures: number;
+            last_run?: components["schemas"]["JobRun"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        JobList: {
+            items: components["schemas"]["Job"][];
+        };
+        JobCreated: {
+            job: components["schemas"]["Job"];
+            /** @description An HTTP job's signing secret, shown once. */
+            secret?: string;
+        };
+        JobRun: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            scheduled_for: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed" | "timed_out" | "skipped";
+            /** Format: int64 */
+            rows_affected?: number | null;
+            status_code?: number | null;
+            error?: string | null;
+            /** @enum {string} */
+            trigger: "schedule" | "manual";
+        };
+        JobRunList: {
+            items: components["schemas"]["JobRun"][];
+        };
+        OutboundAllowlist: {
+            hosts: string[];
+        };
+        OrgOutbound: {
+            allowlist: string[];
+            outbound_disabled: boolean;
+            /** @description Requests by destination host over the last 30 days. */
+            hosts: components["schemas"]["OutboundHost"][];
+        };
+        OutboundHost: {
+            host: string;
+            /** Format: int64 */
+            requests: number;
+            /** Format: int64 */
+            failures: number;
+            /** Format: date */
+            last_day: string;
+        };
         PromoteRequest: {
             /** Format: uuid */
             node_id?: string;
             profile?: string;
             volume_gb?: number;
+            /** @description Why, when the promotion is beyond the organisation's dedicated allowance and becomes a request. */
+            reason?: string;
         };
         SqlRequest: {
             query: string;
@@ -2456,6 +4141,198 @@ export interface components {
             /** @enum {string} */
             order: "primary_key" | "ctid" | "offset";
             key_columns: string[];
+            /** @description Each row's xmin, for editable tables. */
+            xmin?: string[];
+            /** @description Offset paging this deep is slow; sort by the primary key or filter. */
+            large_offset?: boolean;
+        };
+        TableInfo: {
+            schema: string;
+            name: string;
+            /** @enum {string} */
+            kind: "table" | "partitioned_table" | "view" | "materialized_view" | "foreign_table";
+            primary_key: string[];
+            columns: components["schemas"]["EditColumn"][];
+            foreign_keys: components["schemas"]["ForeignKey"][];
+            constraints: components["schemas"]["TableConstraint"][];
+            indexes: components["schemas"]["DbIndex"][];
+            /** Format: int64 */
+            size_bytes: number;
+            /** Format: int64 */
+            row_estimate?: number | null;
+            editable: boolean;
+            read_only_reason?: string;
+        };
+        EditColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            default?: string | null;
+            /** @description pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…). */
+            category: string;
+            base_type: string;
+            enum_values?: string[];
+            generated: boolean;
+            /** @enum {string} */
+            identity?: "always" | "by_default";
+        };
+        ForeignKey: {
+            name: string;
+            columns: string[];
+            ref_schema: string;
+            ref_table: string;
+            ref_columns: string[];
+            on_delete: string;
+            on_update: string;
+        };
+        TableConstraint: {
+            name: string;
+            /** @enum {string} */
+            kind: "check" | "unique" | "primary_key" | "foreign_key" | "exclusion";
+            definition: string;
+        };
+        RowChange: {
+            /** @enum {string} */
+            op: "insert" | "update" | "delete";
+            /** @description The row's primary key (update, delete). */
+            key?: {
+                [key: string]: string | null;
+            };
+            /** @description The row's xmin when loaded (update, delete). */
+            xmin?: string;
+            /** @description Column values as text, null for NULL. Columns left out of an insert get their default. */
+            values?: {
+                [key: string]: string | null;
+            };
+        };
+        SaveRowsRequest: {
+            changes: components["schemas"]["RowChange"][];
+        };
+        SaveRowsResult: {
+            applied: boolean;
+            /** @example 3 updates, 1 insert, 2 deletes */
+            summary: string;
+            columns: components["schemas"]["SqlColumn"][];
+            rows: components["schemas"]["SavedRow"][];
+            conflict?: components["schemas"]["RowConflict"];
+            failed?: components["schemas"]["FailedChange"];
+        };
+        SavedRow: {
+            index: number;
+            xmin: string;
+            values: (string | null)[];
+        };
+        RowConflict: {
+            /** @description The change that hit a row someone else changed. */
+            index: number;
+            deleted: boolean;
+            xmin?: string;
+            current?: (string | null)[];
+        };
+        FailedChange: {
+            /** @description The change Postgres refused (-1 for a constraint checked at commit). */
+            index: number;
+            error: components["schemas"]["SqlError"];
+        };
+        SchemaColumnDef: {
+            name: string;
+            /** @example text */
+            type: string;
+            /** @default true */
+            nullable: boolean;
+            /** @description An SQL expression, e.g. now() or 'draft'. */
+            default?: string;
+            primary_key?: boolean;
+            comment?: string;
+        };
+        /** @description One change (V2 §4.3); which fields apply depends on `kind`. */
+        SchemaChange: {
+            /** @enum {string} */
+            kind: "create_schema" | "drop_schema" | "create_table" | "rename_table" | "drop_table" | "add_column" | "rename_column" | "drop_column" | "alter_column" | "add_check" | "add_unique" | "add_foreign_key" | "drop_constraint" | "create_index" | "drop_index" | "create_enum" | "add_enum_value";
+            /** @default public */
+            schema: string;
+            table?: string;
+            /** @description The schema, constraint, index or type created or dropped. */
+            name?: string;
+            new_name?: string;
+            column?: components["schemas"]["SchemaColumnDef"];
+            columns?: components["schemas"]["SchemaColumnDef"][];
+            column_name?: string;
+            comment?: string;
+            type?: string;
+            using?: string;
+            default?: string;
+            drop_default?: boolean;
+            nullable?: boolean;
+            expression?: string;
+            key_columns?: string[];
+            ref_schema?: string;
+            ref_table?: string;
+            ref_columns?: string[];
+            /** @enum {string} */
+            on_delete?: "NO ACTION" | "RESTRICT" | "CASCADE" | "SET NULL" | "SET DEFAULT";
+            /** @enum {string} */
+            on_update?: "NO ACTION" | "RESTRICT" | "CASCADE" | "SET NULL" | "SET DEFAULT";
+            not_valid?: boolean;
+            /** @enum {string} */
+            method?: "btree" | "gin" | "gist" | "brin" | "hash";
+            unique?: boolean;
+            where?: string;
+            /** @default true */
+            concurrently: boolean;
+            cascade?: boolean;
+            values?: string[];
+            value?: string;
+            before_value?: string;
+        };
+        SchemaPreviewRequest: {
+            change: components["schemas"]["SchemaChange"];
+        };
+        SchemaApplyRequest: {
+            change: components["schemas"]["SchemaChange"];
+            /** @description The preview's hash. */
+            hash: string;
+            /** @description The name of what is dropped, typed. */
+            confirm?: string;
+        };
+        SchemaMigrationRequest: {
+            change: components["schemas"]["SchemaChange"];
+            /** @enum {string} */
+            format: "sql" | "goose" | "dbmate";
+        };
+        SchemaStatement: {
+            sql: string;
+            transactional: boolean;
+        };
+        SchemaRisk: {
+            /** @enum {string} */
+            level: "info" | "warning" | "danger";
+            message: string;
+        };
+        SchemaPlan: {
+            statements: components["schemas"]["SchemaStatement"][];
+            risks: components["schemas"]["SchemaRisk"][];
+            /** @description Type this name to run it. */
+            confirm?: string;
+            down: string[];
+            down_todo: string[];
+            slug: string;
+            hash: string;
+        };
+        SchemaApplied: {
+            plan: components["schemas"]["SchemaPlan"];
+            /** Format: int64 */
+            duration_ms: number;
+        };
+        SchemaMigration: {
+            filename: string;
+            content: string;
+            /** @enum {string} */
+            format: "sql" | "goose" | "dbmate";
+        };
+        EditorPreferences: {
+            /** @enum {string} */
+            migration_format: "sql" | "goose" | "dbmate";
         };
         Extension: {
             name: string;
@@ -2602,6 +4479,111 @@ export interface components {
                 error?: string;
             }[];
         };
+        /** @enum {string} */
+        TokenScope: "read" | "write" | "admin";
+        APIToken: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string;
+            /** Format: uuid */
+            user_id?: string;
+            user_email?: string;
+            /** @description The token's first characters, for recognising it. */
+            prefix: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /** @description The projects the token is restricted to; null for all the user's projects. */
+            project_ids?: string[] | null;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            last_used_ip?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            created_via: "ui" | "device" | "api";
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+        };
+        APITokenList: {
+            items: components["schemas"]["APIToken"][];
+        };
+        CreateTokenRequest: {
+            name: string;
+            /** Format: uuid */
+            org_id: string;
+            scopes: components["schemas"]["TokenScope"][];
+            project_ids?: string[] | null;
+            /** @description Defaults to 90. */
+            expires_in_days?: number;
+        };
+        CreatedToken: {
+            /** @description The token itself (`pgd_…`), shown only once. */
+            secret: string;
+            token: components["schemas"]["APIToken"];
+        };
+        DeviceStartRequest: {
+            /** @description Shown on the approval page, e.g. "pgdock CLI on laptop". */
+            client_name?: string;
+            /** @description The most the CLI wants; the user may narrow them. Default read and write. */
+            scopes?: components["schemas"]["TokenScope"][];
+        };
+        DeviceAuthorization: {
+            device_code: string;
+            /** @example BCDF-GHJK */
+            user_code: string;
+            verification_uri: string;
+            verification_uri_complete: string;
+            /** @description Seconds. */
+            expires_in: number;
+            /** @description Seconds between polls. */
+            interval: number;
+        };
+        DevicePollRequest: {
+            device_code: string;
+        };
+        DeviceRequest: {
+            user_code: string;
+            client_name: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /** Format: date-time */
+            expires_at: string;
+        };
+        DeviceApproveRequest: {
+            user_code: string;
+            /**
+             * @description false denies the login.
+             * @default true
+             */
+            approve: boolean;
+            /** Format: uuid */
+            org_id?: string;
+            name?: string;
+            scopes?: components["schemas"]["TokenScope"][];
+            project_ids?: string[] | null;
+            expires_in_days?: number;
+        };
+        /** @description The API token a request was made with. */
+        TokenGrant: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            org_id: string;
+            scopes: components["schemas"]["TokenScope"][];
+            project_ids?: string[] | null;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        TokenSettings: {
+            /** @description The longest expiry a new token may have. */
+            max_days: number;
+        };
         User: {
             /** Format: uuid */
             id: string;
@@ -2610,6 +4592,7 @@ export interface components {
             name?: string | null;
             /** @enum {string} */
             platform_role: "platform_admin" | "user";
+            token?: components["schemas"]["TokenGrant"];
         };
         UpdateMeRequest: {
             name?: string;
@@ -2695,8 +4678,18 @@ export interface components {
             /** @enum {string} */
             status: "active" | "suspended" | "deleting" | "deleted";
             members_can_create_projects: boolean;
+            /** @description New projects start marked as containing sensitive data (V2 §8.5). */
+            sensitive_by_default?: boolean;
             member_count: number;
             project_count: number;
+            suspended_reason?: string | null;
+            /**
+             * Format: date-time
+             * @description Set while the organisation is being deleted.
+             */
+            delete_after?: string | null;
+            /** @description Open break-glass sessions (V2 §2.4), shown to everyone in the organisation. */
+            break_glass?: components["schemas"]["BreakGlassSession"][];
             /** Format: date-time */
             created_at: string;
         };
@@ -2710,6 +4703,7 @@ export interface components {
             name?: string;
             slug?: string;
             members_can_create_projects?: boolean;
+            sensitive_by_default?: boolean;
         };
         ProjectMembership: {
             /** Format: uuid */
@@ -2807,6 +4801,8 @@ export interface components {
         TransferOwnershipRequest: {
             /** Format: uuid */
             user_id: string;
+            /** @description The organisation's name, typed; required with an API token. */
+            confirm?: string;
         };
         ProjectMember: {
             /** Format: uuid */
@@ -2915,6 +4911,273 @@ export interface components {
              */
             test_to: string;
         };
+        QuotaItem: {
+            /** @description The limit's key (V2 §10.3), e.g. projects or project_storage_mb. */
+            limit: string;
+            used: number;
+            /**
+             * Format: int64
+             * @description Absent or null means unlimited.
+             */
+            max?: number | null;
+        };
+        DedicatedAllowance: {
+            instances: number;
+            cpus: number;
+            memory_mb: number;
+            disk_gb: number;
+            /** @description The Unlimited plan has no allowance to stay within. */
+            unlimited?: boolean;
+        };
+        OrgQuotas: {
+            plan: string;
+            items: components["schemas"]["QuotaItem"][];
+            dedicated_allowance: components["schemas"]["DedicatedAllowance"];
+            dedicated_use: components["schemas"]["DedicatedAllowance"];
+        };
+        UsageMetric: {
+            name: string;
+            unit: string;
+            /** @enum {string} */
+            granularity: "hour" | "day";
+        };
+        UsageRecord: {
+            metric: string;
+            /** @enum {string} */
+            granularity: "hour" | "day";
+            /** Format: date-time */
+            period_start: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            /** @description Absent once the project is deleted. */
+            project_name?: string | null;
+            quantity: number;
+        };
+        UsageTotal: {
+            metric: string;
+            quantity: number;
+        };
+        UsageReport: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            metrics: components["schemas"]["UsageMetric"][];
+            records: components["schemas"]["UsageRecord"][];
+            totals: components["schemas"]["UsageTotal"][];
+        };
+        PlatformUsageRow: {
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            metric: string;
+            quantity: number;
+        };
+        PlatformUsage: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            items: components["schemas"]["PlatformUsageRow"][];
+        };
+        DeleteOrgRequest: {
+            /** @description The organisation's name, typed. */
+            confirm: string;
+            /** @description Delete every project too (each gets a final backup). */
+            delete_projects?: boolean;
+        };
+        OrgDeletion: {
+            /** Format: date-time */
+            delete_after: string;
+        };
+        BreakGlassSession: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            admin_email: string;
+            reason: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        BreakGlassRequest: {
+            reason: string;
+            duration_minutes: number;
+        };
+        ReasonRequest: {
+            reason: string;
+        };
+        DedicatedRequest: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string;
+            /** Format: uuid */
+            project_id: string;
+            project_name: string;
+            /** @description The requester's email. */
+            requested_by: string;
+            profile: string;
+            volume_gb: number;
+            /** Format: uuid */
+            node_id?: string | null;
+            reason?: string | null;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "cancelled";
+            decision_note?: string | null;
+            /** Format: date-time */
+            decided_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        DedicatedRequestList: {
+            items: components["schemas"]["DedicatedRequest"][];
+        };
+        DecideRequest: {
+            note?: string;
+            /** @description On approval, raise the organisation's allowance to fit this instance. */
+            raise_allowance?: boolean;
+        };
+        SwitchCredentialsRequest: {
+            /** @description How long the V1 credentials keep working (default 7). */
+            grace_days?: number;
+        };
+        /** @description Shown once. The V1 role works until legacy_until. */
+        SwitchedCredentials: {
+            project: components["schemas"]["Project"];
+            operation: components["schemas"]["Operation"];
+            password: string;
+            connection: components["schemas"]["ConnectionInfo"];
+            /** Format: date-time */
+            legacy_until: string;
+        };
+        TableFootprint: {
+            schema: string;
+            table: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            dead_rows: number;
+        };
+        /**
+         * @description V2 §10.4 storage enforcement.
+         * @enum {string}
+         */
+        StorageState: "none" | "warn" | "soft" | "hard";
+        ProjectStorage: {
+            state: components["schemas"]["StorageState"];
+            /** Format: int64 */
+            size_bytes?: number | null;
+            /** Format: int64 */
+            limit_bytes?: number | null;
+            tables: components["schemas"]["TableFootprint"][];
+        };
+        ReclaimSpaceRequest: {
+            schema: string;
+            table: string;
+        };
+        ReapedSession: {
+            /** @enum {string} */
+            kind: "statement" | "idle_in_transaction";
+            role: string;
+            duration_s: number;
+            query?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReapedSessionList: {
+            items: components["schemas"]["ReapedSession"][];
+        };
+        AdminOrgSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            plan: string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "deleting" | "deleted";
+            suspended_reason?: string | null;
+            personal: boolean;
+            member_count: number;
+            project_count: number;
+            /** Format: int64 */
+            size_bytes: number;
+            /** @description Live projects whose backups go to one of the organisation's own targets (which the platform admin doesn't see, V2 §6). */
+            org_target_projects?: number;
+            outbound_disabled: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AdminOrgList: {
+            items: components["schemas"]["AdminOrgSummary"][];
+        };
+        SharedCluster: {
+            /** Format: uuid */
+            id: string;
+            node_name: string;
+            /** Format: uuid */
+            org_id?: string | null;
+            org_name?: string | null;
+            project_count: number;
+        };
+        SharedClusterList: {
+            items: components["schemas"]["SharedCluster"][];
+        };
+        AdminOrg: {
+            org: components["schemas"]["AdminOrgSummary"];
+            /** Format: uuid */
+            plan_id: string;
+            /** @description Effective limits (plan with overrides); absent keys are unlimited. */
+            limits: {
+                [key: string]: number;
+            };
+            limit_overrides: {
+                [key: string]: number | null;
+            };
+            dedicated_allowance: components["schemas"]["DedicatedAllowance"];
+            clusters: components["schemas"]["SharedCluster"][];
+            /** @description Your open break-glass sessions on this organisation. */
+            break_glass: components["schemas"]["BreakGlassSession"][];
+        };
+        AdminUpdateOrgRequest: {
+            /** Format: uuid */
+            plan_id?: string;
+            /** @description Replaces the overrides. A number sets a limit; null makes it unlimited. */
+            limit_overrides?: {
+                [key: string]: number | null;
+            };
+            dedicated_allowance?: components["schemas"]["DedicatedAllowance"];
+            outbound_disabled?: boolean;
+        };
+        SetOrgClusterRequest: {
+            /** Format: uuid */
+            instance_id: string;
+            /** @description True reserves the cluster for this organisation (default); false releases it. */
+            reserved?: boolean;
+        };
+        Plan: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            limits: {
+                [key: string]: number;
+            };
+            org_count: number;
+        };
+        PlanList: {
+            items: components["schemas"]["Plan"][];
+            /** @description Known limit keys, in display order. */
+            keys: string[];
+        };
+        PlanRequest: {
+            name: string;
+            limits: {
+                [key: string]: number;
+            };
+        };
     };
     responses: {
         /** @description Error response. */
@@ -2928,6 +5191,15 @@ export interface components {
         };
     };
     parameters: {
+        SchemaName: string;
+        TableName: string;
+        WebhookID: string;
+        JobID: string;
+        TargetID: string;
+        /** @description Delete even though the target holds unexpired backups, which become unrestorable. */
+        AcceptUnrestorable: boolean;
+        TokenID: string;
+        RequestID: string;
         OrgID: string;
         UserID: string;
         InvitationID: string;
@@ -3553,6 +5825,106 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listBranches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Branches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchRequest"];
+            };
+        };
+        responses: {
+            /** @description Branch creation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resetBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BranchResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Reset queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    detachBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Detached. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createProjectBackup: {
         parameters: {
             query?: never;
@@ -3622,6 +5994,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["BackupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archive. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             default: components["responses"]["Error"];
@@ -3997,7 +6392,70 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Beyond the organisation's dedicated allowance, the promotion became a request for the platform admin (V2 §10.6). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedicatedRequest"];
+                };
+            };
             /** @description Promotion queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    demotePreflight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DemoteRequest"];
+            };
+        };
+        responses: {
+            /** @description The checks and what would change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemotePreflight"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    demoteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DemoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Demotion queued. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -4280,9 +6738,229 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getTableInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The table. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportTableRows: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+                 *     op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
+                 */
+                filter?: string[];
+                sort?: string;
+                desc?: boolean;
+                format?: "csv" | "json";
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows; X-PGDock-Truncated is true when there were more. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/json": Record<string, never>[];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveTableChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: components["parameters"]["SchemaName"];
+                table: components["parameters"]["TableName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRowsRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveRowsResult"];
+                };
+            };
+            /** @description A row changed since it was loaded; nothing was saved. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveRowsResult"];
+                };
+            };
+            /** @description Postgres refused a change; nothing was saved. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveRowsResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewSchemaChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchemaPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The plan. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchemaPlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    applySchemaChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchemaApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchemaApplied"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    schemaMigration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchemaMigrationRequest"];
+            };
+        };
+        responses: {
+            /** @description The migration; the format becomes your default for this project. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchemaMigration"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEditorPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorPreferences"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getTableRows: {
         parameters: {
             query?: {
+                /**
+                 * @description Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+                 *     op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
+                 *     (V2 §4.1). Compiled to a parameterised WHERE clause.
+                 */
+                filter?: string[];
+                /** @description A column. Sorting by the primary key pages by keyset; any other column by offset. */
+                sort?: string;
+                desc?: boolean;
                 after?: string;
                 limit?: number;
             };
@@ -4777,6 +7455,662 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listMyTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APITokenList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedToken"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeMyToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: components["parameters"]["TokenID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgStorageTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrgStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description The test failed; nothing was saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            /** @description Saved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTarget"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrgStorageTarget: {
+        parameters: {
+            query?: {
+                /** @description Delete even though the target holds unexpired backups, which become unrestorable. */
+                accept_unrestorable?: components["parameters"]["AcceptUnrestorable"];
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrgStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result; `saved` says whether the target changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testStorageTarget: {
+        parameters: {
+            query?: {
+                /** @description The organisation to list; your personal organisation when omitted. */
+                org?: components["parameters"]["OrgQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPlatformStorageTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPlatformStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description The test failed; nothing was saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            /** @description Saved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPlatformStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTarget"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deletePlatformStorageTarget: {
+        parameters: {
+            query?: {
+                /** @description Delete even though the target holds unexpired backups, which become unrestorable. */
+                accept_unrestorable?: components["parameters"]["AcceptUnrestorable"];
+            };
+            header?: never;
+            path: {
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePlatformStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result; `saved` says whether the target changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBackupStorage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setProjectStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectStorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Switched; `operation` is set when work was queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectStorageTargetResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableProjectBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProjectBackupKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description The key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBackupKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadProjectBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APITokenList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeOrgToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                token_id: components["parameters"]["TokenID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Started. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceAuthorization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    pollDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevicePollRequest"];
+            };
+        };
+        responses: {
+            /** @description The token. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedToken"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRequest"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    approveDeviceLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved; the CLI collects the token. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIToken"];
+                };
+            };
+            /** @description Denied. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTokenSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putTokenSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listMySessions: {
         parameters: {
             query?: never;
@@ -4992,6 +8326,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Org"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description The organisation is offline and will be deleted at delete_after unless an owner cancels. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgDeletion"];
                 };
             };
             default: components["responses"]["Error"];
@@ -5728,6 +9089,1044 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Terms"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgQuotas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Limits and use. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgQuotas"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgUsage: {
+        parameters: {
+            query?: {
+                /** @description Start (inclusive); default the start of this month (UTC). */
+                from?: string;
+                /** @description End (exclusive); default now. */
+                to?: string;
+                metric?: string;
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usage records. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReport"];
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelOrgDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled; the projects accept connections again. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    endBreakGlass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgDedicatedRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedicatedRequestList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    switchProjectCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchCredentialsRequest"];
+            };
+        };
+        responses: {
+            /** @description Switch operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchedCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectStorage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    reclaimSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReclaimSpaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listReapedSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most recent first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReapedSessionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListOrgs: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organisations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrgList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organisation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrg"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUpdateOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUpdateOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrg"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSuspendOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Suspended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminReinstateOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reinstated. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The webhooks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The webhook. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookUpdate"];
+            };
+        };
+        responses: {
+            /** @description The webhook. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the receiver answered. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookTestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new secret. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecret"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listWebhookDeliveries: {
+        parameters: {
+            query?: {
+                /** @description Only dead letters not yet replayed. */
+                dead?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replayWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                webhook_id: components["parameters"]["WebhookID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description How many were queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobUpdate"];
+            };
+        };
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    runJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run (running, queued behind the current one, or skipped with the reason). */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRun"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listJobRuns: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRunList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetOrgOutbound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The allow-list and counters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgOutbound"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSetOrgOutboundAllowlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutboundAllowlist"];
+            };
+        };
+        responses: {
+            /** @description The allow-list and counters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgOutbound"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSetOrgCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOrgClusterRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrg"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminStartBreakGlass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakGlassRequest"];
+            };
+        };
+        responses: {
+            /** @description Started; every owner is emailed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakGlassSession"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plans. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDedicatedRequests: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected" | "cancelled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedicatedRequestList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    approveDedicatedRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved; the promotion is queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rejectDedicatedRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideRequest"];
+            };
+        };
+        responses: {
+            /** @description Rejected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    platformUsage: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Totals. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSharedClusters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Clusters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedClusterList"];
                 };
             };
             default: components["responses"]["Error"];

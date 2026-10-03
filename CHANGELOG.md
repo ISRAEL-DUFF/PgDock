@@ -5,6 +5,132 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Hardening (V2 M16)
+- **Security:** scheduled SQL jobs no longer run on a superuser
+  connection, and copying a tenant's data (branches, restores, imports,
+  the restore test, promotion, demotion) no longer runs the tenant's
+  functions as the superuser. NAT64 and 6to4 addresses can't reach
+  internal or metadata addresses. Upgrade before inviting anyone else.
+- Organisation owners can download any backup as a `pg_dump` file
+  (Backups → Download, `pgdock backup download`).
+- Background work survives being stopped half-way: storage locks, the
+  reaper, webhook delivery, the scheduler (runs now end with a stopping
+  server), a member removed mid-session, an org suspended mid-backup.
+- Faster webhook delivery: kept-alive connections, one destination check
+  per batch, batched outbound counters.
+- A V2 load check (300 projects on two nodes, webhooks, jobs, branches),
+  a user guide, a platform admin runbook, an incident process and a terms
+  template.
+
+### Webhooks and scheduled jobs (V2 M15)
+- Database webhooks: inserts, updates and deletes of chosen tables POSTed
+  to a URL, recorded in the same transaction (a rolled-back change never
+  sends anything), in commit order per webhook, signed with HMAC-SHA256,
+  retried with backoff for 24 hours, then kept as dead letters you can
+  replay. Column filters for updates, static headers, test events, a
+  7-day delivery log, auto-pause after 50 failures, and broken-trigger
+  detection.
+- Scheduled jobs: SQL as the project owner, or a signed HTTP call, on a
+  cron schedule in your time zone, with timeouts, skip-or-queue overlap,
+  history, run now, and an email after three failures in a row.
+- Outbound safety: requests only to public addresses (resolved, checked,
+  connected to the checked address, no redirects); the platform admin can
+  allow-list internal hosts per organisation, turn its outbound traffic
+  off, and see its requests by host. Per-organisation rate limits queue
+  webhook deliveries rather than dropping them.
+- `pgdock webhooks …` and `pgdock jobs …`; Project → Webhooks and Jobs.
+
+### Demotion (V2 M14)
+- Move a dedicated project back to the shared tier with its URL, app
+  password and every member's personal login unchanged, after a write
+  freeze while the data is copied and verified. A failure before the
+  switch leaves it on its dedicated instance.
+- A preflight checklist (also `pgdock demote --check`): size against the
+  organisation's shared storage limits, extensions, custom roles, peak
+  connections, database settings that reset, and a shared cluster with
+  room, the organisation's own when it has one.
+- Guardrails go back to the shared defaults; point-in-time recovery ends,
+  with a logical backup at once, and the old base backups stay
+  restorable for 7 days. The stopped dedicated instance is kept for 48
+  hours, then destroyed, which releases it from the dedicated allowance.
+- `pgdock demote` and Settings → Move back to shared.
+
+### Database branching (V2 M13)
+- Branches: throwaway copies of a project on the shared tier, from its
+  latest backup or live, schema only or with data, that delete themselves
+  after a TTL (7 days by default) with an email a day before.
+- Reset a branch from its parent without changing its URL, password or
+  members' logins; detach it to keep it as a standalone project.
+- Organisation branch quotas (10 on Personal, 25 on Team), branch-hours
+  and branch GB-hours usage, and "contains sensitive data" projects whose
+  branches copy only the schema by default.
+- `pgdock branch list|create|reset|extend|detach|delete`, with `--env`
+  for `$GITHUB_ENV`, and an example GitHub Actions workflow that gives
+  every pull request its own database.
+
+### Backup storage targets (V2 M12)
+- Platform storage targets (one is the default) and organisation targets:
+  buckets an organisation brings itself, invisible to everyone else and
+  not counted against its backup quota. Every target is live-tested
+  (write, read, list, delete) before it's saved; credentials are never
+  shown again.
+- A project chooses where its new backups go; existing ones stay
+  restorable where they are, or are copied over, verified by checksum.
+  Dedicated projects move their WAL-G archive and take a fresh base
+  backup at once.
+- Per-project backup keys: backups become standard OpenPGP messages, and
+  the downloaded key file (re-authentication, audited) restores them with
+  gpg and pg_restore alone.
+- Backup storage on platform targets counts toward the `backup_storage_mb`
+  quota.
+- Point-in-time recovery reads WAL with the source archive's own
+  credentials and key.
+
+### Visual table editing (V2 M11)
+- The table browser filters (equals, contains, ranges, null, lists),
+  sorts by any column, opens foreign-key rows in a side panel, and
+  exports up to 100,000 rows as CSV or JSON.
+- Row editing for tables with a primary key: staged inline edits, new
+  rows and deletes saved in one transaction, with type-aware inputs.
+  If someone changed a row since you loaded it, the save stops with a
+  conflict showing their version instead of overwriting it.
+- A schema editor for tables, columns, constraints, foreign keys,
+  indexes, schemas and enums. Every change previews its SQL with risk
+  notes (table rewrites, NOT NULL scans, volatile defaults), runs with a
+  5-second lock timeout (indexes concurrently), is audited with its SQL,
+  and exports as a plain SQL, goose or dbmate migration.
+
+### API tokens and the CLI (V2 M10)
+- API tokens for scripts and CI: one organisation each, read/write/admin
+  scopes, an optional project restriction, and a required expiry (90
+  days by default, at most a year). Shown once; revocable by their owner
+  and by the organisation's owners and admins; disabled when the
+  organisation is suspended and revoked when their user leaves it.
+- The `pgdock` CLI for linux, macOS and Windows: device login in the
+  browser, contexts for several servers and organisations,
+  `PGDOCK_TOKEN` for CI, `--json` everywhere, and commands for
+  organisations, projects, SQL, connecting, backups, promotion, members,
+  tokens and operations. See [docs/cli.md](docs/cli.md).
+
+### Tenancy hardening, quotas and usage (V2 M9)
+- Opaque database and role names for new projects; existing projects are
+  renamed behind an alias (same URLs) and can switch to opaque
+  credentials with a grace period. `pg_stat_activity` no longer shows
+  other tenants.
+- Quota plans with per-org overrides, checked when creating projects,
+  backups, restores, console queries and connections.
+- Storage enforcement on the shared tier: warning at 90%, read-only at
+  100%, no app logins at 120%, with the console still working and
+  Reclaim space. Long statements (10 min) and idle transactions (5 min)
+  are ended; `temp_file_limit` is 2 GB.
+- Per-org shared clusters, dedicated allowances and dedicated requests.
+- Org suspension, break-glass sessions, and an admin console for
+  organisations, plans and requests.
+- Hourly usage recording, a Usage & quotas page with CSV export, and
+  organisation deletion with a 7-day grace period.
+- The isolation check runs nightly and covers metadata leaks, quota
+  bypass and suspended orgs.
+
 ### Users and organisations (V2 M8)
 - Many users: sign-up (invite-only by default, approval, or open with
   email domains), email verification, password reset, recovery codes,

@@ -330,7 +330,9 @@ func (s *Service) runImport(ctx context.Context, op store.Operation, log *jobs.S
 	if err != nil {
 		return err
 	}
-	target, err := s.projects.AgentConn(ctx, p.InstanceID, p.DbName)
+	// The source's superuser chooses what the dump runs: pg_restore signs
+	// in as the console login, never the superuser.
+	target, err := s.projects.RestoreConn(ctx, p, p.DbName)
 	if err != nil {
 		return err
 	}
@@ -366,6 +368,9 @@ func (s *Service) runImport(ctx context.Context, op store.Operation, log *jobs.S
 	}
 
 	if err := s.verifyImport(ctx, sourceURL, p, params.Schemas, log); err != nil {
+		return err
+	}
+	if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
 		return err
 	}
 	if err := s.projects.Publish(ctx, p, password, log); err != nil {

@@ -2,7 +2,6 @@ package provision
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -40,27 +39,24 @@ func TestValidateName(t *testing.T) {
 	}
 }
 
-var identRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
-
-func TestNames(t *testing.T) {
-	db, role, err := Names("blog")
-	if err != nil {
-		t.Fatal(err)
+func TestOpaqueNames(t *testing.T) {
+	seen := map[string]bool{}
+	for range 200 {
+		db, owner, err := Names()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !IsOpaque(db) || owner != db+"_owner" {
+			t.Fatalf("Names() = %q, %q", db, owner)
+		}
+		if seen[db] {
+			t.Fatalf("duplicate %q", db)
+		}
+		seen[db] = true
 	}
-	if !regexp.MustCompile(`^blog_[a-z0-9]{4}$`).MatchString(db) || role != db+"_owner" {
-		t.Fatalf("got %q %q", db, role)
-	}
-	long, _ := Slugify(strings.Repeat("a", 100))
-	db, role, _ = Names(long)
-	if len(role) > 63 || !identRe.MatchString(db) || !identRe.MatchString(role) {
-		t.Fatalf("names too long or invalid: %q %q", db, role)
-	}
-}
-
-func TestGeneratePassword(t *testing.T) {
-	a, _ := GeneratePassword()
-	b, _ := GeneratePassword()
-	if a == b || len(a) != 43 || !regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(a) {
-		t.Fatalf("bad passwords %q %q", a, b)
+	for _, name := range []string{"blog_k2f9", "p_abc", "p_ABCDEFGHIJ", "p_abcdefghij1", "p_abcdefgh01"} {
+		if IsOpaque(name) {
+			t.Errorf("IsOpaque(%q) = true", name)
+		}
 	}
 }

@@ -128,7 +128,12 @@ func userID(ctx context.Context) *uuid.UUID {
 
 // auditInfo is filled in by handlers while a mutating request runs.
 type auditInfo struct {
-	skip       bool
+	skip bool
+	// breakGlass marks a platform admin acting through a break-glass
+	// session: the row shows in the org's log and the platform's (V2 §2.4).
+	breakGlass bool
+	// tokenID is the API token that made the request (actor kind token).
+	tokenID    *uuid.UUID
 	userID     *uuid.UUID
 	orgID      uuid.UUID
 	projectID  uuid.UUID
@@ -195,39 +200,88 @@ var auditActions = map[string]string{
 	"PUT /api/v1/settings/alerts":                "settings.alerts",
 	"POST /api/v1/settings/alerts/test":          "settings.alerts_test",
 
-	"POST /api/v1/auth/signup":                              "auth.signup",
-	"POST /api/v1/auth/verify-email":                        "auth.verify_email",
-	"POST /api/v1/auth/verify-email/resend":                 "auth.verify_email_resend",
-	"POST /api/v1/auth/password-reset":                      "auth.password_reset_request",
-	"POST /api/v1/auth/password-reset/confirm":              "auth.password_reset",
-	"POST /api/v1/invitations/preview":                      "", // read-only
-	"POST /api/v1/invitations/accept":                       "invitation.accept",
-	"PATCH /api/v1/me":                                      "account.update",
-	"POST /api/v1/me/password":                              "account.password",
-	"DELETE /api/v1/me/sessions/{session_id}":               "account.session_revoke",
-	"POST /api/v1/me/recovery-codes":                        "account.recovery_codes",
-	"POST /api/v1/me/terms/accept":                          "account.terms_accept",
-	"POST /api/v1/me/invitations/{invitation_id}/accept":    "invitation.accept",
-	"POST /api/v1/orgs":                                     "org.create",
-	"PATCH /api/v1/orgs/{org}":                              "org.update",
-	"POST /api/v1/orgs/{org}/members":                       "org.member.invite",
-	"PATCH /api/v1/orgs/{org}/members/{user}":               "org.member.role",
-	"DELETE /api/v1/orgs/{org}/members/{user}":              "org.member.remove",
-	"POST /api/v1/orgs/{org}/leave":                         "org.member.leave",
-	"POST /api/v1/orgs/{org}/transfer-ownership":            "org.transfer_ownership",
-	"DELETE /api/v1/orgs/{org}/invitations/{invitation_id}": "org.invitation.revoke",
-	"POST /api/v1/projects/{id}/members":                    "project.member.add",
-	"PATCH /api/v1/projects/{id}/members/{user}":            "project.member.role",
-	"DELETE /api/v1/projects/{id}/members/{user}":           "project.member.remove",
-	"POST /api/v1/projects/{id}/credentials":                "project.credentials",
-	"POST /api/v1/projects/{id}/transfer":                   "project.transfer",
-	"PATCH /api/v1/admin/users/{user}":                      "admin.user.update",
-	"POST /api/v1/admin/users/{user}/reset-2fa":             "admin.user.reset_2fa",
-	"POST /api/v1/admin/invitations":                        "admin.invitation.create",
-	"DELETE /api/v1/admin/invitations/{invitation_id}":      "admin.invitation.revoke",
-	"PUT /api/v1/admin/settings/signup":                     "admin.settings.signup",
-	"PUT /api/v1/admin/settings/mail":                       "admin.settings.mail",
-	"POST /api/v1/admin/settings/terms":                     "admin.settings.terms",
+	"POST /api/v1/auth/signup":                                   "auth.signup",
+	"POST /api/v1/auth/verify-email":                             "auth.verify_email",
+	"POST /api/v1/auth/verify-email/resend":                      "auth.verify_email_resend",
+	"POST /api/v1/auth/password-reset":                           "auth.password_reset_request",
+	"POST /api/v1/auth/password-reset/confirm":                   "auth.password_reset",
+	"POST /api/v1/invitations/preview":                           "", // read-only
+	"POST /api/v1/invitations/accept":                            "invitation.accept",
+	"PATCH /api/v1/me":                                           "account.update",
+	"POST /api/v1/me/password":                                   "account.password",
+	"DELETE /api/v1/me/sessions/{session_id}":                    "account.session_revoke",
+	"POST /api/v1/me/recovery-codes":                             "account.recovery_codes",
+	"POST /api/v1/me/terms/accept":                               "account.terms_accept",
+	"POST /api/v1/me/invitations/{invitation_id}/accept":         "invitation.accept",
+	"POST /api/v1/orgs":                                          "org.create",
+	"PATCH /api/v1/orgs/{org}":                                   "org.update",
+	"POST /api/v1/orgs/{org}/members":                            "org.member.invite",
+	"PATCH /api/v1/orgs/{org}/members/{user}":                    "org.member.role",
+	"DELETE /api/v1/orgs/{org}/members/{user}":                   "org.member.remove",
+	"POST /api/v1/orgs/{org}/leave":                              "org.member.leave",
+	"POST /api/v1/orgs/{org}/transfer-ownership":                 "org.transfer_ownership",
+	"DELETE /api/v1/orgs/{org}/invitations/{invitation_id}":      "org.invitation.revoke",
+	"POST /api/v1/projects/{id}/members":                         "project.member.add",
+	"PATCH /api/v1/projects/{id}/members/{user}":                 "project.member.role",
+	"DELETE /api/v1/projects/{id}/members/{user}":                "project.member.remove",
+	"POST /api/v1/projects/{id}/credentials":                     "project.credentials",
+	"POST /api/v1/projects/{id}/transfer":                        "project.transfer",
+	"PATCH /api/v1/admin/users/{user}":                           "admin.user.update",
+	"POST /api/v1/admin/users/{user}/reset-2fa":                  "admin.user.reset_2fa",
+	"POST /api/v1/admin/invitations":                             "admin.invitation.create",
+	"DELETE /api/v1/admin/invitations/{invitation_id}":           "admin.invitation.revoke",
+	"PUT /api/v1/admin/settings/signup":                          "admin.settings.signup",
+	"PUT /api/v1/admin/settings/mail":                            "admin.settings.mail",
+	"POST /api/v1/admin/settings/terms":                          "admin.settings.terms",
+	"POST /api/v1/tokens":                                        "token.create",
+	"DELETE /api/v1/tokens/{token_id}":                           "token.revoke",
+	"DELETE /api/v1/orgs/{org}/tokens/{token_id}":                "org.token.revoke",
+	"POST /api/v1/auth/device":                                   "",
+	"POST /api/v1/auth/device/token":                             "",
+	"POST /api/v1/auth/device/approve":                           "token.device_approve",
+	"PUT /api/v1/admin/settings/tokens":                          "admin.settings.tokens",
+	"POST /api/v1/projects/{id}/tables/{schema}/{table}/changes": "project.rows.save",
+	"POST /api/v1/projects/{id}/schema/apply":                    "project.schema.change",
+	"POST /api/v1/projects/{id}/schema/preview":                  "", // read-only
+	"POST /api/v1/projects/{id}/schema/migration":                "", // read-only
+	"POST /api/v1/orgs/{org}/storage-targets":                    "org.storage_target.create",
+	"PATCH /api/v1/orgs/{org}/storage-targets/{target_id}":       "org.storage_target.update",
+	"DELETE /api/v1/orgs/{org}/storage-targets/{target_id}":      "org.storage_target.delete",
+	"POST /api/v1/storage-targets/test":                          "", // read-only check
+	"POST /api/v1/admin/storage-targets":                         "admin.storage_target.create",
+	"PATCH /api/v1/admin/storage-targets/{target_id}":            "admin.storage_target.update",
+	"DELETE /api/v1/admin/storage-targets/{target_id}":           "admin.storage_target.delete",
+	"PUT /api/v1/projects/{id}/storage-target":                   "project.storage_target",
+	"POST /api/v1/projects/{id}/backup-key":                      "project.backup_key.enable",
+	"GET /api/v1/projects/{id}/backup-key/download":              "project.backup_key.download",
+	"GET /api/v1/backups/{id}/download":                          "backup.download",
+	"POST /api/v1/projects/{id}/branches":                        "branch.create",
+	"POST /api/v1/projects/{id}/reset":                           "branch.reset",
+	"POST /api/v1/projects/{id}/detach":                          "branch.detach",
+
+	// Webhooks and scheduled jobs (V2 §9).
+	"POST /api/v1/projects/{id}/webhooks":                            "webhook.create",
+	"PATCH /api/v1/projects/{id}/webhooks/{webhook_id}":              "webhook.update",
+	"DELETE /api/v1/projects/{id}/webhooks/{webhook_id}":             "webhook.delete",
+	"POST /api/v1/projects/{id}/webhooks/{webhook_id}/test":          "webhook.test",
+	"POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret": "webhook.rotate_secret",
+	"POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay":        "webhook.replay",
+	"POST /api/v1/projects/{id}/jobs":                                "job.create",
+	"PATCH /api/v1/projects/{id}/jobs/{job_id}":                      "job.update",
+	"DELETE /api/v1/projects/{id}/jobs/{job_id}":                     "job.delete",
+	"POST /api/v1/projects/{id}/jobs/{job_id}/run":                   "job.run",
+	"PUT /api/v1/admin/orgs/{org}/outbound":                          "admin.org_outbound_allowlist",
+
+	// Demotion (V2 §5).
+	"POST /api/v1/projects/{id}/demote/preflight": "project.demote_preflight",
+	"POST /api/v1/projects/{id}/demote":           "project.demote",
+}
+
+// auditedReads are GET routes audited like mutations: handing out a
+// secret is an event (V2 §6: backup key downloads are audited).
+var auditedReads = map[string]bool{
+	"GET /api/v1/projects/{id}/backup-key/download": true,
+	"GET /api/v1/backups/{id}/download":             true,
 }
 
 func outcomeFor(status int) string {
@@ -260,7 +314,10 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 	}
 	params := store.InsertAuditParams{
 		UserID: uid, Action: action, Detail: b, Ip: ipFrom(r.Context()),
-		Outcome: outcomeFor(status), ActorKind: authz.ActorSession,
+		Outcome: outcomeFor(status), ActorKind: authz.ActorSession, BreakGlass: info.breakGlass,
+	}
+	if info.tokenID != nil {
+		params.ActorKind, params.TokenID = authz.ActorToken, info.tokenID
 	}
 	if info.orgID != uuid.Nil {
 		params.OrgID = &info.orgID
@@ -291,19 +348,25 @@ func (s *Server) writeAudit(r *http.Request, action string, status int, info *au
 // authenticate with a token in the body and ignore cookies, so CSRF does
 // not apply.
 var csrfExempt = map[string]bool{
-	"POST /api/v1/agent/register": true,
+	"POST /api/v1/agent/register":    true,
+	"POST /api/v1/auth/device":       true,
+	"POST /api/v1/auth/device/token": true,
 }
 
 // reauthRequired lists destructive routes needing a recent step-up auth
 // (spec §7.2).
 var reauthRequired = map[string]bool{
-	"DELETE /api/v1/projects/{id}":               true,
-	"POST /api/v1/settings/backup-key/export":    true,
-	"DELETE /api/v1/nodes/{id}":                  true,
-	"POST /api/v1/me/recovery-codes":             true,
-	"POST /api/v1/admin/users/{user}/reset-2fa":  true,
-	"POST /api/v1/projects/{id}/transfer":        true,
-	"POST /api/v1/orgs/{org}/transfer-ownership": true,
+	"DELETE /api/v1/projects/{id}":                  true,
+	"POST /api/v1/settings/backup-key/export":       true,
+	"DELETE /api/v1/nodes/{id}":                     true,
+	"POST /api/v1/me/recovery-codes":                true,
+	"POST /api/v1/admin/users/{user}/reset-2fa":     true,
+	"POST /api/v1/projects/{id}/transfer":           true,
+	"POST /api/v1/orgs/{org}/transfer-ownership":    true,
+	"DELETE /api/v1/orgs/{org}":                     true,
+	"POST /api/v1/admin/orgs/{org}/break-glass":     true,
+	"POST /api/v1/admin/orgs/{org}/suspend":         true,
+	"GET /api/v1/projects/{id}/backup-key/download": true,
 	// POST /api/v1/backups/{id}/restore checks it for mode in_place only.
 }
 
@@ -333,7 +396,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		info := &auditInfo{}
 		ctx = context.WithValue(ctx, keyAudit, info)
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-		if mutating {
+		if mutating || auditedReads[key] {
 			defer func() {
 				action, ok := auditActions[key]
 				if !ok {
@@ -343,14 +406,20 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			}()
 		}
 
-		if mutating && !csrfExempt[key] {
-			if msg := s.checkCSRF(r); msg != "" {
-				writeError(ww, http.StatusForbidden, "csrf", msg)
+		// An API token (V2 §7.2): no cookies are involved, so CSRF does not
+		// apply, and the session cookie is ignored.
+		if bearer, ok := bearerToken(r); ok && pattern != "/metrics" {
+			sess, status, code, msg := s.tokenSession(ctx, bearer)
+			if status != 0 {
+				if status == http.StatusTooManyRequests {
+					ww.Header().Set("Retry-After", "60")
+				}
+				writeError(ww, status, code, msg)
 				return
 			}
-		}
-
-		if c, err := r.Cookie(s.cookieName(sessionName)); err == nil {
+			ctx = context.WithValue(ctx, keySession, sess)
+			info.tokenID = &sess.Token.ID
+		} else if c, err := r.Cookie(s.cookieName(sessionName)); err == nil {
 			sess, err := s.auth.Authenticate(ctx, c.Value)
 			if err == nil {
 				ctx = context.WithValue(ctx, keySession, sess)
@@ -361,6 +430,13 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			}
 		}
 		r = r.WithContext(ctx)
+
+		if mutating && !csrfExempt[key] && info.tokenID == nil {
+			if msg := s.checkCSRF(r); msg != "" {
+				writeError(ww, http.StatusForbidden, "csrf", msg)
+				return
+			}
+		}
 
 		rl, declared := routeRules[key]
 		if !declared {
@@ -379,7 +455,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 				writeError(ww, http.StatusUnauthorized, "unauthenticated", "sign in to continue")
 				return
 			}
-			if !rl.beforeTerms {
+			if !rl.beforeTerms && sess.Token == nil {
 				pending, version, err := s.auth.TermsOutstanding(ctx, sess.UserID)
 				if err != nil {
 					s.internalError(ww, "terms", err)
@@ -391,7 +467,9 @@ func (s *Server) guard(next http.Handler) http.Handler {
 					return
 				}
 			}
-			if reauthRequired[key] && !s.auth.RecentlyReauthenticated(sess) {
+			// Tokens skip step-up auth: destructive actions need the admin
+			// scope and a typed confirm field instead (V2 §7.2).
+			if reauthRequired[key] && sess.Token == nil && !s.auth.RecentlyReauthenticated(sess) {
 				writeError(ww, http.StatusForbidden, "reauth_required", "confirm your password and code to continue")
 				return
 			}
@@ -402,16 +480,23 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			}
 			if status != 0 {
 				// The header lets tests tell the guard's refusals from handlers'.
-				if status == http.StatusNotFound {
+				switch {
+				case status == http.StatusNotFound:
 					ww.Header().Set("X-PGDock-Authz", "hidden")
 					writeError(ww, status, "not_found", "not found")
-				} else {
+				case acc.NeedScope != "":
+					ww.Header().Set("X-PGDock-Authz", "denied")
+					writeScopeError(ww, acc.NeedScope)
+				case acc.Frozen:
+					ww.Header().Set("X-PGDock-Authz", "denied")
+					writeError(ww, status, "org_suspended", "the organisation is suspended or being deleted; only viewing works")
+				default:
 					ww.Header().Set("X-PGDock-Authz", "denied")
 					writeError(ww, status, "forbidden", "you don't have permission to do this")
 				}
 				return
 			}
-			info.orgID, info.projectID = acc.OrgID, acc.ProjectID
+			info.orgID, info.projectID, info.breakGlass = acc.OrgID, acc.ProjectID, acc.BreakGlass
 			ctx = context.WithValue(ctx, keyAccess, acc)
 			r = r.WithContext(ctx)
 		}

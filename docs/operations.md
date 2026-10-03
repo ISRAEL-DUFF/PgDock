@@ -17,7 +17,7 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
   | Node unreachable | critical | A node's agent has not answered for 2+ minutes |
   | Project disk | warning | A project is larger than its disk warning (Settings → Guardrails) |
   | Pooler down | critical | A PgBouncer's admin console does not answer |
-  | Isolation check | critical | The weekly tenant-isolation check found a problem |
+  | Isolation check | critical | The nightly tenant-isolation check found a problem |
 
 - **Operations** shows every long action with its step log.
 - **Metrics** (per project and per node) charts size, connections, TPS,
@@ -39,12 +39,45 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
 - Restores: a project's Backups tab → **Restore**, into a new project or in
   place (in place takes a safety backup first and needs re-authentication).
 
+### Storage targets and project keys
+
+Backups go to a **storage target**, an S3 bucket and prefix. **Platform
+targets** (Settings → Platform storage targets) are yours to run; exactly
+one is the default, used by every project that hasn't chosen another, and
+backup storage on them counts against each organisation's
+`backup_storage_mb` quota (manual backups beyond it are refused; nightly
+ones still run). **Org targets** (Organisation → Backup storage, owners
+and admins) are buckets an organisation brings itself: its projects can
+use them, the storage doesn't count against its quota, and neither other
+organisations nor you see them (the admin organisation list only counts
+the projects using one). Adding or editing a target writes, reads, lists
+and deletes a test object under its prefix first; credentials are sealed
+with the master key and never shown again.
+
+A project admin picks the target under **Backups → Storage**. New backups
+go there; existing ones stay where they are and stay restorable, or can
+be copied over (verified by checksum, originals deleted only if asked).
+For a dedicated project the switch restarts the instance with WAL-G
+pointed at the new target and takes a base backup at once; the previous
+archive stays restorable for the 7-day recovery window, then goes.
+
+**Use a project key** gives a project its own backup key: new backups are
+OpenPGP messages to it, and on the dedicated tier WAL-G uses it too.
+**Download key…** needs re-authentication, is audited, and gives a file
+with a README on restoring with gpg and pg_restore alone
+([disaster recovery](disaster-recovery.md#restoring-a-project-without-pgdock)).
+A target can't be deleted while a project uses it; one that still holds
+backups is deleted only when you accept that they become unrestorable. A
+project whose backups are on its organisation's target moves to platform
+storage before it can be transferred to another organisation.
+
 ## Security checks
 
-Every shared cluster is checked weekly against the tenant-isolation
+Every shared cluster is checked nightly against the tenant-isolation
 checklist (Settings → Tenant isolation, **Check now** to run it at once):
 cluster settings and `pg_hba.conf`, every project's role and database, and
-two throwaway tenants that try to reach each other. See
+two throwaway tenants that try to reach each other, discover other
+projects' names, get round their quotas, or log in while suspended. See
 [security review](security-review.md).
 
 ## Users and organisations
@@ -68,6 +101,107 @@ platform (Platform audit).
 Projects created before V2 are in the platform admin's personal
 organisation, unchanged: same URLs, passwords, and backups.
 
+## Quotas, storage locks and usage
+
+Each organisation has a plan (Organisations → the org → Plan), with
+per-key overrides; Plans lists and edits them. Creating projects, backups,
+restores and console queries past a limit fails with the limit named.
+Owners and admins see their use on **Usage & quotas**, with hourly
+storage and a CSV export; you see every org's on the admin usage API.
+
+Shared-tier projects are measured every minute:
+
+- **90%** of the project's storage limit: a warning email and banner.
+- **100%**: read-only by default. Apps can still delete in a read-write
+  transaction (`BEGIN READ WRITE`), and the SQL console works.
+- **120%** (or 100% with the node's disk 95% full): apps cannot log in.
+  The console and table browser still work; delete data there, then
+  **Reclaim space** (Settings → Storage) to give the space back.
+
+Locks lift at the next check once the project is under the limit.
+Statements running over 10 minutes are cancelled and transactions idle
+over 5 minutes are ended; the project's Metrics page lists them.
+
+Dedicated instances beyond an org's allowance become requests (Dedicated
+requests) for you to approve or reject. An org can be given its own
+shared cluster (Organisations → the org → Shared cluster): its new
+projects go only there, and nobody else's do.
+
+## Suspension, break-glass and deletion
+
+**Suspend** (Organisations → the org, with a reason) stops the org's
+projects accepting connections and its backups, and makes the org
+read-only for its members; **Reinstate** undoes it. **Outbound access**
+can be turned off on its own, without suspending (see Outbound traffic).
+
+To look inside an org (a support case), open a **break-glass** session
+with a reason and a length (up to 4 hours). You act as an org admin; its
+owners and admins are emailed, every action is in its audit log marked
+break-glass, and they see a banner. End it when you are done.
+
+Owners can delete an organisation (Organisation → Delete). It is
+read-only for 7 days and can be cancelled; then each project gets a final
+backup, kept for 30 days, and is deleted.
+
+## Opaque names
+
+New projects' databases and roles are named `p_<random>`, so other
+tenants cannot learn them. Projects from before V2 are renamed on the
+server side and keep their old name as an alias, so their URLs keep
+working; their role name stays visible until an admin uses **Switch to
+opaque credentials** (Settings), which issues new URLs and keeps the old
+ones working for a grace period.
+
+## The table editor
+
+Project members edit data and schema under **Tables** (developers and
+above; read-only members browse and export). Rows: filter, sort,
+double-click to edit, then **Save**; everything in one save commits or
+none of it, and if someone changed a row since you loaded it you see a
+conflict instead of overwriting their change. Tables need a primary key
+to be editable. **Structure**: every change shows its SQL and risk notes
+first, such as "Rewrites the table and blocks writes" for a type change,
+and runs with a 5-second lock timeout, so it fails fast rather than
+queueing behind a long transaction. Indexes build concurrently. Schema
+changes are in the project's audit log with their SQL. **Save as
+migration** exports the change as plain SQL, goose or dbmate, to apply
+to other environments.
+
+## Branches
+
+A branch is a throwaway copy of a project on the shared tier (on the
+organisation's own shared cluster if it has one), from its latest backup
+or live, schema only or with data. Developers and above create them under
+**Project → Branches** or with `pgdock branch create`; they expire after
+7 days unless given another TTL (1 hour to 30 days, or kept), the
+creator is emailed a day before, and an hourly job deletes expired ones
+without a final backup. **Reset** refills a branch from its parent while
+keeping its database name, URL, password and members' logins;
+**Detach** turns it into a standalone project (which can then be
+promoted). A parent can't be deleted while it has branches, and a
+branch can't have branches of its own.
+
+Branches count toward the organisation's branch quota (10 on Personal,
+25 on Team) but not its projects, and toward its shared storage; usage
+records branch-hours and branch GB-hours. They take no nightly backups
+unless a project admin turns them on (**Settings → Data**). Mark a
+project **Contains sensitive data** (or make it the organisation's
+default under **Organisation → Projects**) and its branches copy the
+schema only, unless a project admin asks for the data. Webhooks and
+scheduled jobs are never copied.
+
+## API tokens and the CLI
+
+Members use the `pgdock` CLI ([CLI guide](cli.md)) and API tokens for
+scripts and CI. Tokens act in one organisation with read, write or admin
+scope, optionally restricted to some projects, and expire within a year.
+Set a lower maximum under **Settings → API tokens**. Organisation owners
+and admins revoke their members' tokens under **Organisation → API
+tokens**; suspending an organisation disables its tokens, and removing
+someone revokes theirs. You can't see other people's tokens, and a
+platform admin's own tokens can't manage the platform: use the browser
+for that.
+
 ## Capacity
 
 - The shared cluster's tuning is in `compose.yaml` (`SHARED_PG_SHARED_BUFFERS`,
@@ -78,8 +212,47 @@ organisation, unchanged: same URLs, passwords, and backups.
 - When a project outgrows the shared tier (sustained load, a large
   database), **promote** it (Settings → Promote to dedicated): same URL,
   a short write freeze.
+- When it no longer needs its own instance, **demote** it (Settings →
+  Move back to shared, or `pgdock demote`). The preflight checks the size
+  against the organisation's shared storage limits, extensions against
+  the shared allow-list, custom roles, peak connections, database
+  settings that will reset, and a shared cluster with room for the
+  database plus 20% (the organisation's own when it has one). The URL and
+  every password stay the same; the guardrails go back to the shared
+  defaults, the SQL console stays read-only unless asked, and
+  point-in-time recovery ends: the project takes a logical backup at
+  once and nightly after that, while the old base backups stay restorable
+  for 7 days. The dedicated instance is stopped and kept for 48 hours as
+  a rollback option (an operator can start it again from its volume),
+  then destroyed by the hourly cleanup, which releases it from the
+  organisation's dedicated allowance.
 - Add nodes on the Nodes page; new shared projects go to the least loaded
   shared cluster, dedicated instances to the least loaded dedicated node.
+
+## Outbound traffic
+
+Webhooks and HTTP jobs are the only way tenants make PGDock send requests
+([webhooks and scheduled jobs](webhooks.md)). Before each request
+pgdock-server resolves the host and refuses private, loopback, link-local,
+CGNAT and cloud-metadata addresses, then connects to the address it
+checked, without following redirects. Add your nodes' network (and any
+other internal range) with `PGDOCK_OUTBOUND_BLOCK=10.0.0.0/16,192.0.2.0/24`
+if it isn't in a private range already.
+
+On an organisation's admin page you can:
+
+- **Allow-list internal hosts** for that organisation alone (a receiver on
+  your own network, a local test server): listed hosts may resolve to
+  private addresses and use plain `http://`. Link-local and metadata
+  addresses can never be allowed. Tenants can't change the list.
+- **Disable outbound traffic** without suspending the databases: webhook
+  events queue and HTTP jobs are skipped until it is back on.
+- See the organisation's requests per destination host over the last 30
+  days (hosts and counts only, no payloads).
+
+Only one pgdock-server delivers webhooks and runs the scheduler at a time
+(advisory locks), so more servers can be added later without double
+deliveries.
 
 ## Secrets
 

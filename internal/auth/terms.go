@@ -25,7 +25,7 @@ them.
 ## Backups and retention
 
 Projects are backed up nightly (7 daily and 4 weekly copies) unless you
-choose otherwise. Deleted projects keep a final backup for 7 days. Backups in
+choose otherwise. Deleted projects keep a final backup for 30 days. Backups in
 a bucket your organisation owns are yours and are never deleted by PGDock
 when your organisation is removed.
 
@@ -44,7 +44,8 @@ suspended.
 ## Incidents
 
 If something goes wrong that affects your data, the owners of your
-organisation are told by email, with a written follow-up.
+organisation are told by email within 72 hours of it being found, with a
+written follow-up once it is understood.
 `
 
 // DefaultPrivacy is version 1 of the privacy notice.

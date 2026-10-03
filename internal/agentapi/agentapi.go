@@ -106,26 +106,35 @@ type HostMetrics struct {
 
 // Upload is where an agent writes an encrypted object. FileKey is the
 // object's own key (never the backup key); WrappedKey goes in the header.
+// With PGPPublicKey set (a project's own backup key, V2 s6) the object is
+// instead an OpenPGP message to that key, and FileKey/WrappedKey are unused.
 type Upload struct {
-	Storage    storage.Target `json:"storage"`
-	ObjectKey  string         `json:"object_key"`
-	FileKey    []byte         `json:"file_key"`
-	WrappedKey []byte         `json:"wrapped_key"`
+	Storage      storage.Target `json:"storage"`
+	ObjectKey    string         `json:"object_key"`
+	FileKey      []byte         `json:"file_key,omitempty"`
+	WrappedKey   []byte         `json:"wrapped_key,omitempty"`
+	PGPPublicKey string         `json:"pgp_public_key,omitempty"`
 }
 
-// Download is an encrypted object to read.
+// Download is an encrypted object to read: PGDKBK1 with FileKey, or an
+// OpenPGP message opened with PGPPrivateKey.
 type Download struct {
-	Storage   storage.Target `json:"storage"`
-	ObjectKey string         `json:"object_key"`
-	FileKey   []byte         `json:"file_key"`
+	Storage       storage.Target `json:"storage"`
+	ObjectKey     string         `json:"object_key"`
+	FileKey       []byte         `json:"file_key,omitempty"`
+	PGPPrivateKey string         `json:"pgp_private_key,omitempty"`
 }
 
 // DumpOptions select what pg_dump includes.
 type DumpOptions struct {
 	Schemas        []string `json:"schemas,omitempty"`         // -n
 	ExcludeSchemas []string `json:"exclude_schemas,omitempty"` // -N
-	NoOwner        bool     `json:"no_owner,omitempty"`
-	NoACL          bool     `json:"no_acl,omitempty"`
+	// ExcludeExtensions leaves extensions (and their comments) out; the
+	// target creates them first (a restore that isn't the superuser's).
+	ExcludeExtensions []string `json:"exclude_extensions,omitempty"`
+	NoOwner           bool     `json:"no_owner,omitempty"`
+	NoACL             bool     `json:"no_acl,omitempty"`
+	SchemaOnly        bool     `json:"schema_only,omitempty"` // branches (V2 §8.2)
 }
 
 // RestoreOptions control pg_restore. Objects are restored without their
@@ -139,6 +148,9 @@ type RestoreOptions struct {
 	// KeepOwners restores owners and grants as dumped (promotion: the same
 	// roles exist on the target), instead of handing everything to Role.
 	KeepOwners bool `json:"keep_owners,omitempty"`
+	// SchemaOnly restores definitions without data (schema-only branches
+	// from a backup).
+	SchemaOnly bool `json:"schema_only,omitempty"`
 }
 
 // DumpRequest is POST /v1/dump: pg_dump -Fc of PG, encrypted, to Upload.

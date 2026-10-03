@@ -5,7 +5,9 @@ import { Alert, Button, Card, PageHeader, Spinner, StatusBadge } from "../compon
 import { formatDate } from "../lib/format";
 import { AlertSettingsCard, IsolationChecksCard } from "../components/AlertSettingsCard";
 import { BackupKeyPanel, StorageForm } from "../components/BackupSetup";
+import { StorageTargetsPanel } from "../components/StorageTargets";
 import { MailCard, SignupCard, TermsCard } from "../components/PlatformCards";
+import { TokenSettingsCard } from "../components/Tokens";
 import { HostStep } from "./Setup";
 
 export function SettingsPage() {
@@ -74,6 +76,9 @@ export function SettingsPage() {
             </dl>
           )}
         </Card>
+        <Card title="Platform storage targets">
+          <StorageTargetsPanel />
+        </Card>
         <Card title="Backup key">
           <BackupKeyPanel />
         </Card>
@@ -101,6 +106,7 @@ export function SettingsPage() {
         <IsolationChecksCard />
         <MailCard />
         <SignupCard />
+        <TokenSettingsCard />
         <TermsCard />
       </div>
     </>

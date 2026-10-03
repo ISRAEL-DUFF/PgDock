@@ -13,7 +13,7 @@ import (
 )
 
 const backupForOperation = `-- name: BackupForOperation :one
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups
 WHERE operation_id = $1 AND kind = $2 AND status = 'succeeded'
 ORDER BY finished_at DESC
 LIMIT 1
@@ -44,12 +44,15 @@ func (q *Queries) BackupForOperation(ctx context.Context, arg BackupForOperation
 		&i.KeyWrapped,
 		&i.Error,
 		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
 	)
 	return i, err
 }
 
 const baseBackupBefore = `-- name: BaseBackupBefore :one
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups
 WHERE project_id = $1 AND kind = 'base' AND status = 'succeeded' AND finished_at <= $2
 ORDER BY finished_at DESC
 LIMIT 1
@@ -82,12 +85,164 @@ func (q *Queries) BaseBackupBefore(ctx context.Context, arg BaseBackupBeforePara
 		&i.KeyWrapped,
 		&i.Error,
 		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
 	)
 	return i, err
 }
 
+const copiedOriginal = `-- name: CopiedOriginal :one
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups WHERE id = $1 AND status = 'copied' AND deleted_at IS NULL
+`
+
+// tenant: system - retention removes a copy's original along with it.
+func (q *Queries) CopiedOriginal(ctx context.Context, id uuid.UUID) (Backup, error) {
+	row := q.db.QueryRow(ctx, copiedOriginal, id)
+	var i Backup
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Kind,
+		&i.ObjectKey,
+		&i.SizeBytes,
+		&i.Checksum,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.StorageTargetID,
+		&i.OperationID,
+		&i.KeyWrapped,
+		&i.Error,
+		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
+	)
+	return i, err
+}
+
+const copiedOriginals = `-- name: CopiedOriginals :many
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups WHERE project_id = $1 AND status = 'copied' AND deleted_at IS NULL
+`
+
+// tenant: system - copy-existing with delete_originals for a project the request already authorized.
+func (q *Queries) CopiedOriginals(ctx context.Context, projectID *uuid.UUID) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, copiedOriginals, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Backup
+	for rows.Next() {
+		var i Backup
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.ObjectKey,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.StorageTargetID,
+			&i.OperationID,
+			&i.KeyWrapped,
+			&i.Error,
+			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const copyCandidates = `-- name: CopyCandidates :many
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups b
+WHERE b.project_id = $1 AND b.status = 'succeeded' AND b.kind IN ('logical', 'final', 'safety')
+  AND b.storage_target_id IS DISTINCT FROM $2::uuid
+  AND NOT EXISTS (SELECT 1 FROM backups c WHERE c.copy_of = b.id AND c.status IN ('running', 'succeeded'))
+ORDER BY b.finished_at
+`
+
+type CopyCandidatesParams struct {
+	ProjectID       *uuid.UUID
+	StorageTargetID uuid.UUID
+}
+
+// tenant: system - copy-existing for a project the request already authorized.
+// A project's logical backups that are not on the target and not yet
+// copied there. Base backups stay with their WAL-G archive.
+func (q *Queries) CopyCandidates(ctx context.Context, arg CopyCandidatesParams) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, copyCandidates, arg.ProjectID, arg.StorageTargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Backup
+	for rows.Next() {
+		var i Backup
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.ObjectKey,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.StorageTargetID,
+			&i.OperationID,
+			&i.KeyWrapped,
+			&i.Error,
+			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const expireArchiveBaseBackups = `-- name: ExpireArchiveBaseBackups :exec
+UPDATE backups SET expires_at = $1::timestamptz
+WHERE project_id = $2 AND kind = 'base' AND status = 'succeeded' AND walg_prefix = $3 AND expires_at IS NULL
+`
+
+type ExpireArchiveBaseBackupsParams struct {
+	ExpiresAt  time.Time
+	ProjectID  *uuid.UUID
+	WalgPrefix *string
+}
+
+// tenant: system - a storage or key switch retires a dedicated project's previous WAL-G archive.
+// Base backups under an archive no longer written to expire after the
+// point-in-time window; the archive goes with the last of them.
+func (q *Queries) ExpireArchiveBaseBackups(ctx context.Context, arg ExpireArchiveBaseBackupsParams) error {
+	_, err := q.db.Exec(ctx, expireArchiveBaseBackups, arg.ExpiresAt, arg.ProjectID, arg.WalgPrefix)
+	return err
+}
+
 const expiredBackups = `-- name: ExpiredBackups :many
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups
 WHERE status = 'succeeded' AND expires_at IS NOT NULL AND expires_at < now()
 `
 
@@ -117,6 +272,9 @@ func (q *Queries) ExpiredBackups(ctx context.Context) ([]Backup, error) {
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 		); err != nil {
 			return nil, err
 		}
@@ -160,16 +318,16 @@ func (q *Queries) FailInterruptedBackups(ctx context.Context, operationID *uuid.
 }
 
 const failedBackupObjects = `-- name: FailedBackupObjects :many
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
-WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id = $1
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups
+WHERE status = 'failed' AND deleted_at IS NULL AND storage_target_id IS NOT NULL
 ORDER BY started_at LIMIT 100
 `
 
 // tenant: system - backup workers and the scheduler, or a project the request already authorized.
 // Failed backups whose object may still be in storage: an upload can
 // complete at the bucket after its attempt gave up on it.
-func (q *Queries) FailedBackupObjects(ctx context.Context, storageTargetID *uuid.UUID) ([]Backup, error) {
-	rows, err := q.db.Query(ctx, failedBackupObjects, storageTargetID)
+func (q *Queries) FailedBackupObjects(ctx context.Context) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, failedBackupObjects)
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +351,9 @@ func (q *Queries) FailedBackupObjects(ctx context.Context, storageTargetID *uuid
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 		); err != nil {
 			return nil, err
 		}
@@ -207,7 +368,7 @@ func (q *Queries) FailedBackupObjects(ctx context.Context, storageTargetID *uuid
 const finishBackup = `-- name: FinishBackup :one
 UPDATE backups SET status = 'succeeded', size_bytes = $1, checksum = $2, finished_at = now()
 WHERE id = $3
-RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at
+RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of
 `
 
 type FinishBackupParams struct {
@@ -236,12 +397,15 @@ func (q *Queries) FinishBackup(ctx context.Context, arg FinishBackupParams) (Bac
 		&i.KeyWrapped,
 		&i.Error,
 		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
 	)
 	return i, err
 }
 
 const getBackup = `-- name: GetBackup :one
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups WHERE id = $1
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups WHERE id = $1
 `
 
 // tenant: system - backup workers and the scheduler, or a project the request already authorized.
@@ -264,34 +428,18 @@ func (q *Queries) GetBackup(ctx context.Context, id uuid.UUID) (Backup, error) {
 		&i.KeyWrapped,
 		&i.Error,
 		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const getDefaultStorageTarget = `-- name: GetDefaultStorageTarget :one
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at FROM storage_targets WHERE is_default
-`
-
-func (q *Queries) GetDefaultStorageTarget(ctx context.Context) (StorageTarget, error) {
-	row := q.db.QueryRow(ctx, getDefaultStorageTarget)
-	var i StorageTarget
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Endpoint,
-		&i.Bucket,
-		&i.Prefix,
-		&i.Credentials,
-		&i.IsDefault,
-		&i.CreatedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
 	)
 	return i, err
 }
 
 const insertBackup = `-- name: InsertBackup :one
-INSERT INTO backups (project_id, kind, object_key, started_at, status, storage_target_id, operation_id, key_wrapped, expires_at)
-VALUES ($1, $2, $3, now(), 'running', $4, $5, $6, $7)
-RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at
+INSERT INTO backups (project_id, kind, object_key, started_at, status, storage_target_id, operation_id, key_wrapped, expires_at, encryption_key_id, copy_of)
+VALUES ($1, $2, $3, now(), 'running', $4, $5, $6, $7,
+        $8, $9)
+RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of
 `
 
 type InsertBackupParams struct {
@@ -302,6 +450,8 @@ type InsertBackupParams struct {
 	OperationID     *uuid.UUID
 	KeyWrapped      []byte
 	ExpiresAt       *time.Time
+	EncryptionKeyID *uuid.UUID
+	CopyOf          *uuid.UUID
 }
 
 // tenant: system - backup workers and the scheduler, or a project the request already authorized.
@@ -314,6 +464,8 @@ func (q *Queries) InsertBackup(ctx context.Context, arg InsertBackupParams) (Bac
 		arg.OperationID,
 		arg.KeyWrapped,
 		arg.ExpiresAt,
+		arg.EncryptionKeyID,
+		arg.CopyOf,
 	)
 	var i Backup
 	err := row.Scan(
@@ -332,14 +484,18 @@ func (q *Queries) InsertBackup(ctx context.Context, arg InsertBackupParams) (Bac
 		&i.KeyWrapped,
 		&i.Error,
 		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
 	)
 	return i, err
 }
 
 const insertBaseBackup = `-- name: InsertBaseBackup :one
-INSERT INTO backups (project_id, kind, object_key, started_at, finished_at, status, size_bytes, storage_target_id, operation_id)
-VALUES ($1, 'base', $2, $3, $4, 'succeeded', $5, $6, $7)
-RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at
+INSERT INTO backups (project_id, kind, object_key, started_at, finished_at, status, size_bytes, storage_target_id, operation_id, encryption_key_id, walg_prefix)
+VALUES ($1, 'base', $2, $3, $4, 'succeeded', $5, $6, $7,
+        $8, $9)
+RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of
 `
 
 type InsertBaseBackupParams struct {
@@ -350,6 +506,8 @@ type InsertBaseBackupParams struct {
 	SizeBytes       *int64
 	StorageTargetID *uuid.UUID
 	OperationID     *uuid.UUID
+	EncryptionKeyID *uuid.UUID
+	WalgPrefix      *string
 }
 
 // tenant: system - backup workers and the scheduler, or a project the request already authorized.
@@ -362,6 +520,8 @@ func (q *Queries) InsertBaseBackup(ctx context.Context, arg InsertBaseBackupPara
 		arg.SizeBytes,
 		arg.StorageTargetID,
 		arg.OperationID,
+		arg.EncryptionKeyID,
+		arg.WalgPrefix,
 	)
 	var i Backup
 	err := row.Scan(
@@ -380,44 +540,9 @@ func (q *Queries) InsertBaseBackup(ctx context.Context, arg InsertBaseBackupPara
 		&i.KeyWrapped,
 		&i.Error,
 		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const insertStorageTarget = `-- name: InsertStorageTarget :one
-INSERT INTO storage_targets (id, name, endpoint, bucket, prefix, credentials, is_default)
-VALUES ($1, $2, $3, $4, $5, $6, true)
-RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at
-`
-
-type InsertStorageTargetParams struct {
-	ID          uuid.UUID
-	Name        string
-	Endpoint    string
-	Bucket      string
-	Prefix      string
-	Credentials []byte
-}
-
-func (q *Queries) InsertStorageTarget(ctx context.Context, arg InsertStorageTargetParams) (StorageTarget, error) {
-	row := q.db.QueryRow(ctx, insertStorageTarget,
-		arg.ID,
-		arg.Name,
-		arg.Endpoint,
-		arg.Bucket,
-		arg.Prefix,
-		arg.Credentials,
-	)
-	var i StorageTarget
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Endpoint,
-		&i.Bucket,
-		&i.Prefix,
-		&i.Credentials,
-		&i.IsDefault,
-		&i.CreatedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
 	)
 	return i, err
 }
@@ -483,7 +608,7 @@ func (q *Queries) LastOperationOfKind(ctx context.Context, kind string) (Operati
 }
 
 const latestSucceededBackup = `-- name: LatestSucceededBackup :one
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups
 WHERE project_id = $1 AND status = 'succeeded' AND kind IN ('logical', 'final', 'safety')
 ORDER BY finished_at DESC
 LIMIT 1
@@ -510,12 +635,15 @@ func (q *Queries) LatestSucceededBackup(ctx context.Context, projectID *uuid.UUI
 		&i.KeyWrapped,
 		&i.Error,
 		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
 	)
 	return i, err
 }
 
 const listAllBackups = `-- name: ListAllBackups :many
-SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted
+SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted
 FROM backups b
 LEFT JOIN projects p ON p.id = b.project_id
 WHERE b.status <> 'deleted' AND ($1::text IS NULL OR b.kind = $1)
@@ -544,6 +672,9 @@ type ListAllBackupsRow struct {
 	KeyWrapped      []byte
 	Error           *string
 	DeletedAt       *time.Time
+	EncryptionKeyID *uuid.UUID
+	WalgPrefix      *string
+	CopyOf          *uuid.UUID
 	ProjectName     *string
 	ProjectDeleted  bool
 }
@@ -575,6 +706,9 @@ func (q *Queries) ListAllBackups(ctx context.Context, arg ListAllBackupsParams) 
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 			&i.ProjectName,
 			&i.ProjectDeleted,
 		); err != nil {
@@ -589,12 +723,20 @@ func (q *Queries) ListAllBackups(ctx context.Context, arg ListAllBackupsParams) 
 }
 
 const listBaseBackups = `-- name: ListBaseBackups :many
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups WHERE project_id = $1 AND kind = 'base' AND status = 'succeeded' ORDER BY finished_at
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups WHERE project_id = $1 AND kind = 'base' AND status = 'succeeded'
+  AND ($2::text IS NULL OR walg_prefix = $2) ORDER BY finished_at
 `
 
+type ListBaseBackupsParams struct {
+	ProjectID  *uuid.UUID
+	WalgPrefix *string
+}
+
 // tenant: system - backup workers and the scheduler, or a project the request already authorized.
-func (q *Queries) ListBaseBackups(ctx context.Context, projectID *uuid.UUID) ([]Backup, error) {
-	rows, err := q.db.Query(ctx, listBaseBackups, projectID)
+// With walg_prefix, only those under it: after a storage or key switch, the
+// earlier archive's base backups are not in the current WAL-G listing.
+func (q *Queries) ListBaseBackups(ctx context.Context, arg ListBaseBackupsParams) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, listBaseBackups, arg.ProjectID, arg.WalgPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -618,6 +760,9 @@ func (q *Queries) ListBaseBackups(ctx context.Context, projectID *uuid.UUID) ([]
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 		); err != nil {
 			return nil, err
 		}
@@ -630,7 +775,7 @@ func (q *Queries) ListBaseBackups(ctx context.Context, projectID *uuid.UUID) ([]
 }
 
 const listProjectBackups = `-- name: ListProjectBackups :many
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups
 WHERE project_id = $1 AND status <> 'deleted'
 ORDER BY started_at DESC
 LIMIT $2
@@ -667,6 +812,9 @@ func (q *Queries) ListProjectBackups(ctx context.Context, arg ListProjectBackups
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 		); err != nil {
 			return nil, err
 		}
@@ -718,6 +866,34 @@ func (q *Queries) ListRestoreTests(ctx context.Context, maxRows int32) ([]Operat
 	return items, nil
 }
 
+const liveBackupsUnderPrefix = `-- name: LiveBackupsUnderPrefix :one
+SELECT count(*)::int FROM backups
+WHERE kind = 'base' AND status = 'succeeded' AND walg_prefix = $1 AND storage_target_id = $2
+`
+
+type LiveBackupsUnderPrefixParams struct {
+	WalgPrefix      *string
+	StorageTargetID *uuid.UUID
+}
+
+// tenant: system - deciding whether a retired WAL-G archive can go.
+func (q *Queries) LiveBackupsUnderPrefix(ctx context.Context, arg LiveBackupsUnderPrefixParams) (int32, error) {
+	row := q.db.QueryRow(ctx, liveBackupsUnderPrefix, arg.WalgPrefix, arg.StorageTargetID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const markBackupCopied = `-- name: MarkBackupCopied :exec
+UPDATE backups SET status = 'copied' WHERE id = $1 AND status = 'succeeded'
+`
+
+// tenant: system - copy-existing marks the original once its copy verified.
+func (q *Queries) MarkBackupCopied(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markBackupCopied, id)
+	return err
+}
+
 const markBackupDeleted = `-- name: MarkBackupDeleted :exec
 UPDATE backups SET status = 'deleted', deleted_at = now() WHERE id = $1
 `
@@ -739,8 +915,10 @@ func (q *Queries) MarkFailedBackupCleaned(ctx context.Context, id uuid.UUID) err
 }
 
 const projectsDueForBackup = `-- name: ProjectsDueForBackup :many
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id FROM projects p
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < $1
+  AND (p.parent_project_id IS NULL OR p.branch_backups)
+  AND EXISTS (SELECT 1 FROM organizations o WHERE o.id = p.org_id AND o.status = 'active')
   AND NOT EXISTS (
     SELECT 1 FROM operations o
     WHERE o.project_id = p.id AND o.kind IN ('backup', 'base_backup') AND o.created_at >= $1
@@ -755,7 +933,8 @@ WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < $1
 // Active projects created before the window that opened at @since, with no
 // backup operation since then and no operation in flight (the next tick
 // picks them up). A project created after the window opened waits for the
-// next one.
+// next one. A suspended (or deleting) organisation's backups pause.
+// Branches are skipped unless a project admin turned their backups on.
 func (q *Queries) ProjectsDueForBackup(ctx context.Context, since time.Time) ([]Project, error) {
 	rows, err := q.db.Query(ctx, projectsDueForBackup, since)
 	if err != nil {
@@ -783,6 +962,20 @@ func (q *Queries) ProjectsDueForBackup(ctx context.Context, since time.Time) ([]
 			&i.CreatedAt,
 			&i.DeletedAt,
 			&i.OrgID,
+			&i.AliasDbName,
+			&i.LegacyOwnerRole,
+			&i.LegacyScramVerifier,
+			&i.LegacyUntil,
+			&i.StorageState,
+			&i.StorageStateAt,
+			&i.BackupKeyID,
+			&i.ParentProjectID,
+			&i.BranchSource,
+			&i.BranchSchemaOnly,
+			&i.ExpiresAt,
+			&i.ExpiryNotifiedAt,
+			&i.BranchBackups,
+			&i.SensitiveData,
 		); err != nil {
 			return nil, err
 		}
@@ -795,7 +988,7 @@ func (q *Queries) ProjectsDueForBackup(ctx context.Context, since time.Time) ([]
 }
 
 const randomProjectWithBackup = `-- name: RandomProjectWithBackup :one
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id FROM projects p
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active'
   AND EXISTS (SELECT 1 FROM backups b WHERE b.project_id = p.id AND b.status = 'succeeded' AND b.kind = 'logical')
 ORDER BY random()
@@ -824,12 +1017,26 @@ func (q *Queries) RandomProjectWithBackup(ctx context.Context) (Project, error) 
 		&i.CreatedAt,
 		&i.DeletedAt,
 		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
+		&i.BackupKeyID,
+		&i.ParentProjectID,
+		&i.BranchSource,
+		&i.BranchSchemaOnly,
+		&i.ExpiresAt,
+		&i.ExpiryNotifiedAt,
+		&i.BranchBackups,
+		&i.SensitiveData,
 	)
 	return i, err
 }
 
 const retentionCandidates = `-- name: RetentionCandidates :many
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups
 WHERE kind = $1 AND status = 'succeeded'
   AND (($2::uuid IS NULL AND project_id IS NULL) OR project_id = $2)
 ORDER BY finished_at DESC
@@ -868,6 +1075,9 @@ func (q *Queries) RetentionCandidates(ctx context.Context, arg RetentionCandidat
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 		); err != nil {
 			return nil, err
 		}
@@ -879,8 +1089,56 @@ func (q *Queries) RetentionCandidates(ctx context.Context, arg RetentionCandidat
 	return items, nil
 }
 
+const setBackupFinished = `-- name: SetBackupFinished :one
+UPDATE backups SET status = 'succeeded', size_bytes = $1, checksum = $2,
+  started_at = $3, finished_at = $4
+WHERE id = $5
+RETURNING id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of
+`
+
+type SetBackupFinishedParams struct {
+	SizeBytes  *int64
+	Checksum   *string
+	StartedAt  time.Time
+	FinishedAt *time.Time
+	ID         uuid.UUID
+}
+
+// tenant: system - copy-existing writes the copy's row as the original's twin.
+func (q *Queries) SetBackupFinished(ctx context.Context, arg SetBackupFinishedParams) (Backup, error) {
+	row := q.db.QueryRow(ctx, setBackupFinished,
+		arg.SizeBytes,
+		arg.Checksum,
+		arg.StartedAt,
+		arg.FinishedAt,
+		arg.ID,
+	)
+	var i Backup
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Kind,
+		&i.ObjectKey,
+		&i.SizeBytes,
+		&i.Checksum,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.StorageTargetID,
+		&i.OperationID,
+		&i.KeyWrapped,
+		&i.Error,
+		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
+	)
+	return i, err
+}
+
 const staleRunningBackups = `-- name: StaleRunningBackups :many
-SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at FROM backups WHERE status = 'running' AND started_at < $1
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of FROM backups WHERE status = 'running' AND started_at < $1
 `
 
 // tenant: system - backup workers and the scheduler, or a project the request already authorized.
@@ -909,6 +1167,9 @@ func (q *Queries) StaleRunningBackups(ctx context.Context, before time.Time) ([]
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 		); err != nil {
 			return nil, err
 		}
@@ -936,41 +1197,4 @@ func (q *Queries) SweepStaleBackups(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const updateStorageTarget = `-- name: UpdateStorageTarget :one
-UPDATE storage_targets
-SET endpoint = $1, bucket = $2, prefix = $3, credentials = $4
-WHERE id = $5
-RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at
-`
-
-type UpdateStorageTargetParams struct {
-	Endpoint    string
-	Bucket      string
-	Prefix      string
-	Credentials []byte
-	ID          uuid.UUID
-}
-
-func (q *Queries) UpdateStorageTarget(ctx context.Context, arg UpdateStorageTargetParams) (StorageTarget, error) {
-	row := q.db.QueryRow(ctx, updateStorageTarget,
-		arg.Endpoint,
-		arg.Bucket,
-		arg.Prefix,
-		arg.Credentials,
-		arg.ID,
-	)
-	var i StorageTarget
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Endpoint,
-		&i.Bucket,
-		&i.Prefix,
-		&i.Credentials,
-		&i.IsDefault,
-		&i.CreatedAt,
-	)
-	return i, err
 }

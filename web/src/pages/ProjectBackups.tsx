@@ -4,9 +4,11 @@ import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Backup, type Project, type ProjectCredentials } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { ProvisionProgress } from "../components/ProvisionProgress";
+import { ProjectStorageCard } from "../components/StorageTargets";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Spinner, StatusBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
+import { useCurrentOrg } from "../lib/org";
 import { useProject } from "./ProjectOverview";
 
 const kindLabels: Record<string, string> = {
@@ -24,6 +26,9 @@ export function backupIsStale(lastBackupAt: string | null | undefined, now = Dat
 export function ProjectBackupsPage() {
   const { data: p } = useProject();
   const qc = useQueryClient();
+  const { orgs } = useCurrentOrg();
+  // Org owners can download a backup as a pg_dump file (V2 §10.10).
+  const canExport = !!p && orgs.find((o) => o.id === p.org_id)?.role === "owner";
   const toast = useOperationToast();
   const overview = useQuery({ queryKey: ["backups", "overview", p?.org_id], queryFn: () => api.backupOverview(p?.org_id), enabled: !!p });
   const list = useQuery({
@@ -101,7 +106,7 @@ export function ProjectBackupsPage() {
               </dd>
               <dt className="text-muted">Encryption</dt>
               <dd>
-                {p.tier === "dedicated" ? "OpenPGP (WAL-G), key derived from the backup key" : "AES-256-GCM before upload"}
+                {p.tier === "dedicated" ? "OpenPGP (WAL-G)" : "Encrypted before upload"}, with the instance backup key unless the project has its own (Storage below)
                 {ov.key.fingerprint && <span className="ml-1 font-mono text-xs text-muted">(key {ov.key.fingerprint})</span>}
               </dd>
             </>
@@ -113,25 +118,48 @@ export function ProjectBackupsPage() {
           </div>
         )}
       </Card>
+      <ProjectStorageCard p={p} canManage={p.my_role === "admin"} />
       {p.tier === "dedicated" && <PITRCard p={p} onCreated={setCreated} />}
       {list.isPending && <Spinner />}
       {list.isError && <Alert>{errorMessage(list.error)}</Alert>}
       {list.data && list.data.items.length === 0 && <EmptyState title="No backups yet">The first nightly backup runs tonight, or back up now.</EmptyState>}
       {list.data && list.data.items.length > 0 && (
-        <Table head={["Taken", "Kind", "Status", "Size", "Expires", ""]}>
+        <Table head={["Taken", "Kind", "Status", "Stored on", "Size", "Expires", ""]}>
           {list.data.items.map((b) => (
             <tr key={b.id} data-testid="backup-row">
               <td className="px-3 py-2">{formatDate(b.finished_at ?? b.started_at)}</td>
               <td className="px-3 py-2">
-                <Badge tone={b.kind === "logical" ? "muted" : "accent"}>{kindLabels[b.kind] ?? b.kind}</Badge>
+                <Badge tone={b.kind === "logical" ? "muted" : "accent"}>
+                  {/* A shared project's base backups are from before its demotion (V2 §5.4). */}
+                  {b.kind === "base" && p?.tier === "shared" ? "Dedicated (pre-demotion)" : (kindLabels[b.kind] ?? b.kind)}
+                </Badge>
               </td>
               <td className="px-3 py-2">
                 <StatusBadge status={b.status} />
                 {b.error && <p className="mt-1 max-w-xs truncate text-xs text-danger" title={b.error}>{b.error}</p>}
               </td>
+              <td className="px-3 py-2 text-muted" data-testid="backup-storage">
+                {b.storage_target ?? "—"}
+                {b.encryption === "project" && (
+                  <span className="ml-1" title={`Encrypted with the project's key ${b.key_fingerprint ?? ""}`}>
+                    <Badge tone="accent">project key</Badge>
+                  </span>
+                )}
+              </td>
               <td className="px-3 py-2 text-muted">{b.size_bytes != null ? formatBytes(b.size_bytes) : "—"}</td>
               <td className="px-3 py-2 text-muted">{b.expires_at ? formatDate(b.expires_at) : "by retention"}</td>
               <td className="px-3 py-2 text-right">
+                {b.status === "succeeded" && canExport && b.kind !== "base" && (
+                  <a
+                    className="mr-2 text-xs text-accent hover:underline"
+                    href={`/api/v1/backups/${b.id}/download`}
+                    download
+                    data-testid="backup-download"
+                    title="A pg_dump file, for pg_restore"
+                  >
+                    Download
+                  </a>
+                )}
                 {b.status === "succeeded" && (
                   <Button className="text-xs" onClick={() => setRestoring(b)}>
                     Restore

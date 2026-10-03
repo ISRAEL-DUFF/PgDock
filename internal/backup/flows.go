@@ -56,8 +56,12 @@ func (s *Service) backupProject(ctx context.Context, p store.Project, kind strin
 	if err != nil {
 		return store.Backup{}, err
 	}
+	pl, err := s.PlacementFor(ctx, p)
+	if err != nil {
+		return store.Backup{}, jobs.Permanent(err)
+	}
 	id := p.ID
-	return s.dumpTo(ctx, agent, pg, kind, &id, opID, log)
+	return s.dumpTo(ctx, agent, pg, kind, pl, &id, opID, log)
 }
 
 // runBackup takes one logical backup of a project (spec §6.3) and applies
@@ -96,17 +100,39 @@ func (s *Service) runBackup(ctx context.Context, op store.Operation, log *jobs.S
 	return nil
 }
 
+// Snapshot takes a logical backup of p now, outside a backup operation
+// (a demoted project's first, V2 §5.3 step 7). Like the final backup, it
+// is skipped, with a warning, without storage or a key.
+func (s *Service) Snapshot(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
+	pl, err := s.PlacementFor(ctx, p)
+	if errors.Is(err, ErrNoStorage) || errors.Is(err, ErrTargetGone) {
+		return log.Warn(ctx, "backup", "logical backup skipped: %v", err)
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := s.BackupKey(ctx); pl.KeyID == nil && errors.Is(err, ErrNoBackupKey) {
+		return log.Warn(ctx, "backup", "logical backup skipped: %v", err)
+	}
+	_, err = s.backupProject(ctx, p, Logical, nil, log)
+	return err
+}
+
 // finalBackup is the provision.Service hook run by deletes (spec §6.2 step
 // 2). Without storage or a backup key there is nothing to back up to; the
 // delete goes ahead and says so.
 func (s *Service) finalBackup(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
-	if _, _, err := s.StorageTarget(ctx); errors.Is(err, ErrNoStorage) {
+	pl, err := s.PlacementFor(ctx, p)
+	if errors.Is(err, ErrNoStorage) || errors.Is(err, ErrTargetGone) {
 		return log.Warn(ctx, "backup", "final backup skipped: %v", err)
 	}
-	if _, err := s.BackupKey(ctx); errors.Is(err, ErrNoBackupKey) {
+	if err != nil {
+		return err
+	}
+	if _, err := s.BackupKey(ctx); pl.KeyID == nil && errors.Is(err, ErrNoBackupKey) {
 		return log.Warn(ctx, "backup", "final backup skipped: %v", err)
 	}
-	_, err := s.backupProject(ctx, p, Final, nil, log)
+	_, err = s.backupProject(ctx, p, Final, nil, log)
 	return err
 }
 
@@ -143,7 +169,11 @@ func (s *Service) runRestore(ctx context.Context, op store.Operation, log *jobs.
 				return err
 			}
 		}
-		if err := s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log); err != nil {
+		if err := s.restoreFrom(ctx, b, p, p.DbName, log); err != nil {
+			return err
+		}
+		// Webhooks are not carried into a new project (V2 §9.3).
+		if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
 			return err
 		}
 		if err := s.projects.Publish(ctx, p, password, log); err != nil {
@@ -182,7 +212,7 @@ func (s *Service) runRestore(ctx context.Context, op store.Operation, log *jobs.
 // replaceContents holds clients off at the pooler (KILL drops them, and new
 // connections wait until RESUME), empties the database, and restores b.
 func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.Backup, log *jobs.StepLogger) error {
-	if err := s.projects.Pooler().Kill(ctx, p.DbName); err != nil {
+	if err := s.projects.Pooler().Kill(ctx, store.PoolerNames(p)...); err != nil {
 		return fmt.Errorf("pooler KILL: %w", err)
 	}
 	if err := log.Info(ctx, "pooler", "clients disconnected; new connections wait"); err != nil {
@@ -191,7 +221,12 @@ func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.
 	if err := s.projects.RecreateDatabase(ctx, p, log); err != nil {
 		return err
 	}
-	if err := s.restoreFrom(ctx, b, p.InstanceID, p.DbName, p.OwnerRole, log); err != nil {
+	if err := s.restoreFrom(ctx, b, p, p.DbName, log); err != nil {
+		return err
+	}
+	// Webhook triggers come back from PGDock's configuration, with an
+	// empty outbox (V2 §9.3).
+	if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
 		return err
 	}
 	// Members' logins live outside the database; their grants inside it
@@ -202,7 +237,7 @@ func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.
 // reopen resumes the pooler route and marks the project active.
 func (s *Service) reopen(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
 	// "not paused": the route was never held (e.g. rolling back before KILL).
-	if err := s.projects.Pooler().Resume(ctx, p.DbName); err != nil && !strings.Contains(err.Error(), "is not paused") {
+	if err := s.projects.Pooler().Resume(ctx, store.PoolerNames(p)...); err != nil && !strings.Contains(err.Error(), "is not paused") {
 		return fmt.Errorf("pooler RESUME: %w", err)
 	}
 	if err := store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {
@@ -276,7 +311,9 @@ func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *j
 		return err
 	}
 	defer admin.Close(context.Background())
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+provision.Ident(scratch)+" TEMPLATE template0 ENCODING 'UTF8'"); err != nil {
+	// Owned by the project's owner and restored like a real restore (as
+	// the console login): the dump's functions run during the restore.
+	if _, err := admin.Exec(ctx, "CREATE DATABASE "+provision.Ident(scratch)+" OWNER "+provision.Ident(p.OwnerRole)+" TEMPLATE template0 ENCODING 'UTF8'"); err != nil {
 		return fmt.Errorf("create scratch database: %w", err)
 	}
 	defer func() {
@@ -287,7 +324,7 @@ func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *j
 			_ = log.Info(cctx, "cleanup", "dropped %s", scratch)
 		}
 	}()
-	if err := s.restoreFrom(ctx, b, p.InstanceID, scratch, "", log); err != nil {
+	if err := s.restoreFrom(ctx, b, p, scratch, log); err != nil {
 		return jobs.Permanent(err)
 	}
 	conn, err := s.projects.AdminConn(ctx, p.InstanceID, scratch)
@@ -318,8 +355,12 @@ func (s *Service) runMetadataBackup(ctx context.Context, op store.Operation, log
 	if err != nil {
 		return err
 	}
+	pl, err := s.defaultPlacement(ctx)
+	if err != nil {
+		return jobs.Permanent(err)
+	}
 	opID := op.ID
-	if _, err := s.dumpTo(ctx, agent, s.cfg.MetadataPG, Metadata, nil, &opID, log); err != nil {
+	if _, err := s.dumpTo(ctx, agent, s.cfg.MetadataPG, Metadata, pl, nil, &opID, log); err != nil {
 		return err
 	}
 	if err := s.applyRetention(ctx, nil, Metadata, log); err != nil {

@@ -226,14 +226,17 @@ UPDATE project_db_users SET org_id = @new_org_id WHERE project_id = @project_id 
 -- tenant: system - every personal login the poolers must accept.
 SELECT d.role_name, d.scram_verifier
 FROM project_db_users d JOIN projects p ON p.id = d.project_id
-WHERE p.deleted_at IS NULL AND p.status IN ('provisioning', 'active', 'promoting', 'restoring')
+WHERE p.deleted_at IS NULL AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'restoring')
 ORDER BY d.role_name;
 
 -- name: ListOrgBackups :many
 -- Backups of an organisation's live and deleted projects; members see
 -- only their projects' (@see_all false: @project_ids).
-SELECT b.*, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted
+SELECT b.*, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted,
+       t.name AS target_name, t.org_id AS target_org_id, k.fingerprint AS key_fingerprint
 FROM backups b JOIN projects p ON p.id = b.project_id
+LEFT JOIN storage_targets t ON t.id = b.storage_target_id
+LEFT JOIN backup_keys k ON k.id = b.encryption_key_id
 WHERE p.org_id = @org_id AND b.status <> 'deleted'
   AND (sqlc.narg(kind)::text IS NULL OR b.kind = sqlc.narg(kind))
   AND (sqlc.narg(project_id)::uuid IS NULL OR b.project_id = sqlc.narg(project_id))
@@ -259,3 +262,7 @@ WHERE project_id IS NULL
   AND (sqlc.narg(kind)::text IS NULL OR kind = sqlc.narg(kind))
 ORDER BY created_at DESC, id DESC
 LIMIT @max_rows;
+
+-- name: RenameProjectDBUser :exec
+-- tenant: system - the rename_opaque operation renames a project's own logins.
+UPDATE project_db_users SET role_name = @new_name WHERE project_id = @project_id AND role_name = @old_name;

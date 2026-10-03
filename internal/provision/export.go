@@ -135,3 +135,32 @@ func (s *Service) SyncPooler(ctx context.Context, log *jobs.StepLogger, step, ms
 
 // Ident quotes a Postgres identifier.
 func Ident(name string) string { return ident(name) }
+
+// ResetWebhooks runs after a project's database was filled from a copy (a
+// restore, a branch, an import): PGDock's webhook schema that came with
+// the data is dropped and, for a project with webhooks, rebuilt from its
+// configuration (V2 §9.3).
+func (s *Service) ResetWebhooks(ctx context.Context, p store.Project, _ *jobs.StepLogger) error {
+	if s.RefreshWebhooks != nil {
+		if err := s.RefreshWebhooks(ctx, p); err != nil {
+			return fmt.Errorf("webhooks: %w", err)
+		}
+		return nil
+	}
+	conn, err := s.connectInstance(ctx, p.InstanceID, p.DbName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+	_, err = conn.Exec(ctx, "DROP SCHEMA IF EXISTS pgdock CASCADE")
+	return err
+}
+
+// DropAutomation removes a deleted project's webhooks and jobs.
+func (s *Service) DropAutomation(ctx context.Context, p store.Project) error {
+	q := store.New(s.db)
+	if err := q.DeleteProjectWebhooks(ctx, p.ID); err != nil {
+		return err
+	}
+	return q.DeleteProjectJobs(ctx, p.ID)
+}

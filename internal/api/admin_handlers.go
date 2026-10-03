@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 )
 
 func (s *Server) generalSettings() gen.GeneralSettings {
@@ -87,7 +89,24 @@ func (s *Server) UpdateProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 	}
 	a := auditFrom(r.Context())
 	a.target("project", id.String())
+	if !s.updateBranchFields(w, r, id, req) {
+		return
+	}
 	p := provisionUpdate(req)
+	if s.tenancy != nil && p.Settings != nil && p.Settings.ConnectionLimit != nil {
+		// A shared project's connections are capped by the plan (V2 §10.3).
+		if cur, err := s.tenantProjectLive(r.Context()); err == nil && cur.Tier == provision.TierShared {
+			connMax, err := s.tenancy.MaxConnections(r.Context(), cur.OrgID)
+			if err != nil {
+				s.internalError(w, "update project", err)
+				return
+			}
+			if connMax > 0 && *p.Settings.ConnectionLimit > connMax {
+				writeQuotaError(w, &tenancy.QuotaError{Limit: store.LimitProjectConnections, Used: int64(*p.Settings.ConnectionLimit), Max: int64(connMax)})
+				return
+			}
+		}
+	}
 	upd, err := s.projects.Update(r.Context(), id, p, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "update project", err)

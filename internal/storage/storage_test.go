@@ -24,7 +24,7 @@ func TestUploadDownloadDelete(t *testing.T) {
 	ctx := context.Background()
 
 	steps, ok := c.LiveTest(ctx)
-	if !ok || len(steps) != 3 {
+	if !ok || len(steps) != 4 {
 		t.Fatalf("live test: %+v", steps)
 	}
 

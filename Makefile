@@ -79,10 +79,11 @@ generate:
 
 ## check-generated: fail if generated code is out of date (used by CI).
 check-generated: generate
-	@git diff --exit-code -- internal/api/gen internal/store web/src/api/schema.d.ts \
+	@git diff --exit-code -- internal/api/gen internal/api/client internal/store web/src/api/schema.d.ts \
 		|| { echo "generated code is stale; run 'make generate' and commit"; exit 1; }
 
-## build: build the UI, then pgdock-server (UI embedded) and pgdock-agent.
+## build: build the UI, then pgdock-server (UI embedded), pgdock-agent, and
+## the pgdock CLI.
 build: build-ui build-go
 
 build-ui: clean-ui
@@ -91,13 +92,16 @@ build-ui: clean-ui
 build-go:
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-server ./cmd/server
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-agent ./cmd/agent
+	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock ./cmd/cli
 
 ## release-check: fail if the server binary embeds only the placeholder UI.
 release-check:
 	$(BIN)/pgdock-server -require-ui
 
-## release: linux/amd64 and linux/arm64 binaries (UI embedded), the install
-## bundle (source at this commit), and SHA256SUMS, in dist/.
+## release: linux/amd64 and linux/arm64 server and agent binaries (UI
+## embedded), the pgdock CLI for linux, darwin and windows on amd64 and
+## arm64, the install bundle (source at this commit), and SHA256SUMS, in
+## dist/.
 DIST := dist
 release: build-ui
 	rm -rf $(DIST) && mkdir -p $(DIST)
@@ -105,6 +109,13 @@ release: build-ui
 		for cmd in server agent; do \
 			CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
 				-o $(DIST)/pgdock-$$cmd-$(VERSION)-linux-$$arch ./cmd/$$cmd; \
+		done; \
+	done
+	for os in linux darwin windows; do \
+		for arch in amd64 arm64; do \
+			ext=; [ $$os = windows ] && ext=.exe; \
+			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
+				-o $(DIST)/pgdock-cli-$(VERSION)-$$os-$$arch$$ext ./cmd/cli; \
 		done; \
 	done
 	git archive --format=tar.gz --prefix=pgdock-$(VERSION)/ -o $(DIST)/pgdock-$(VERSION).tar.gz HEAD
@@ -165,6 +176,7 @@ test-e2e: e2e-images
 	PGDOCK_E2E_EXPECT_ISSUER=Pebble \
 	PGDOCK_E2E_S3_ENDPOINT=http://fakes3:9000 \
 	PGDOCK_E2E_S3_BUCKET=pgdock-e2e \
+	PGDOCK_E2E_HOOK_API=http://127.0.0.1:18090 \
 	PGDOCK_E2E_SUPABASE_SEED_URL=postgres://postgres:supabase-source@127.0.0.1:15450/postgres \
 	PGDOCK_E2E_SUPABASE_URL=postgres://postgres:supabase-source@src-supabase:5432/postgres?sslmode=disable \
 	npx playwright test || { $(E2E_COMPOSE) logs --no-color --tail 100 pgdock-server pgdock-agent caddy pebble; $(E2E_INSTANCES); exit 1; }
@@ -192,8 +204,8 @@ test-integration: pooler-seed test-agent-bin pg-image
 ## test-load: 150 shared projects, pgbench on 10 (spec §13); writes
 ## tmp/load-report.md. Needs pgbench.
 test-load: pooler-seed test-agent-bin
-	$(COMPOSE) --profile test up -d --wait
-	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 30m -v -run TestLoad ./test/load/
+	$(COMPOSE) --profile test --profile load up -d --wait
+	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 90m -v -run TestLoad ./test/load/
 
 ## pg-image: the Postgres 18 + WAL-G image dedicated instances run.
 PG_IMAGE := pgdock-postgres:18-walg3.0.9

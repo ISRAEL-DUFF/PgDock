@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiRequestError, api, errorMessage, type InstanceSummary } from "../api/client";
+import { StorageBanner } from "../components/TenancyCards";
 import { Alert, Badge, Button, Card, CopyField, EmptyState, PageHeader, Spinner, StateBadge, StatusBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 
@@ -36,6 +37,13 @@ export function ProjectLayout() {
     { to: "/projects/$id/sql", label: "SQL" },
     { to: "/projects/$id/tables", label: "Tables" },
     { to: "/projects/$id/backups", label: "Backups" },
+    { to: "/projects/$id/branches", label: p.parent_project_id ? "Branch" : "Branches" },
+    ...(admin || p.my_role === "developer"
+      ? ([
+          { to: "/projects/$id/webhooks", label: "Webhooks" },
+          { to: "/projects/$id/jobs", label: "Jobs" },
+        ] as const)
+      : []),
     { to: "/projects/$id/metrics", label: "Metrics" },
     { to: "/projects/$id/members", label: "Members" },
     ...(admin ? [{ to: "/projects/$id/settings", label: "Settings" } as const] : []),
@@ -52,9 +60,12 @@ export function ProjectLayout() {
           <span className="flex items-center gap-2">
             <span className="font-mono">{p.db_name}</span>
             {p.my_role && <Badge>{p.my_role.replace("_", "-")}</Badge>}
+            {p.parent_project_id && <Badge tone="accent">branch</Badge>}
+            {p.sensitive_data && <Badge tone="warn">sensitive data</Badge>}
           </span>
         }
       />
+      <StorageBanner p={p} />
       <nav aria-label="Project" className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((t) => (
           <Link
@@ -88,9 +99,16 @@ export function ProjectOverviewPage() {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {p.retired_copy_until && (
         <div className="lg:col-span-2">
-          <Alert tone="accent" title="Promoted to the dedicated tier">
-            The previous shared copy is kept read-only until {formatDate(p.retired_copy_until)}, then dropped.
-          </Alert>
+          {p.tier === "dedicated" ? (
+            <Alert tone="accent" title="Promoted to the dedicated tier">
+              The previous shared copy is kept read-only until {formatDate(p.retired_copy_until)}, then dropped.
+            </Alert>
+          ) : (
+            <Alert tone="accent" title="Demoted to the shared tier">
+              The previous dedicated instance is kept stopped until {formatDate(p.retired_copy_until)}, then destroyed, which releases it from the
+              organisation&rsquo;s dedicated allowance.
+            </Alert>
+          )}
         </div>
       )}
       <Card title="Details">

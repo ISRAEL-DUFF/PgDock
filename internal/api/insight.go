@@ -89,6 +89,10 @@ func (s *Server) RunSQL(w http.ResponseWriter, r *http.Request, id gen.ProjectID
 		return
 	} else if !ok {
 		if !cr.ReadOnly {
+			if sess, _ := sessionFrom(r.Context()); sess.Token != nil && !authz.HasScope(sess.Token.Scopes, authz.ScopeWrite) {
+				writeError(w, http.StatusForbidden, "insufficient_scope", "this token has the read scope only: send read_only, or use a token with the write scope")
+				return
+			}
 			writeError(w, http.StatusForbidden, "forbidden", "your project role is read-only: turn on read-only mode")
 			return
 		}
@@ -100,6 +104,15 @@ func (s *Server) RunSQL(w http.ResponseWriter, r *http.Request, id gen.ProjectID
 			return
 		}
 		cr.Timeout = time.Duration(*t) * time.Second
+	}
+	if s.tenancy != nil {
+		// Concurrent console queries per organisation (V2 §10.3).
+		release, err := s.tenancy.AcquireConsole(r.Context(), accessFrom(r.Context()).OrgID)
+		if err != nil {
+			s.tenancyError(w, "run sql", err)
+			return
+		}
+		defer release()
 	}
 	out, err := s.console.Run(r.Context(), id, cr)
 	if err != nil {
@@ -144,30 +157,6 @@ func (s *Server) GetProjectSchema(w http.ResponseWriter, r *http.Request, id gen
 		return
 	}
 	writeJSON(w, http.StatusOK, sc)
-}
-
-// GetTableRows implements GET /api/v1/projects/{id}/tables/{schema}/{table}/rows.
-func (s *Server) GetTableRows(w http.ResponseWriter, r *http.Request, id gen.ProjectID, schema, table string, params gen.GetTableRowsParams) {
-	if !s.requireConsole(w) {
-		return
-	}
-	after, limit := "", console.PageSize
-	if params.After != nil {
-		after = *params.After
-	}
-	if params.Limit != nil {
-		if *params.Limit < 1 || *params.Limit > console.PageSize {
-			writeError(w, http.StatusBadRequest, "bad_request", "limit must be between 1 and 50")
-			return
-		}
-		limit = *params.Limit
-	}
-	page, err := s.console.Rows(r.Context(), id, schema, table, after, limit)
-	if err != nil {
-		s.consoleError(w, "table rows", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, page)
 }
 
 func toAPIExtensions(exts []console.Extension) gen.ExtensionList {

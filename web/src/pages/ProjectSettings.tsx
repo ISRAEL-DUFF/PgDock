@@ -1,3 +1,4 @@
+import { StorageCard, SwitchCredentialsCard } from "../components/TenancyCards";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
@@ -6,6 +7,7 @@ import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { CredentialPanel } from "../components/Credentials";
 import { ExtensionsCard } from "../components/ExtensionsCard";
+import { DemoteCard } from "../components/DemoteCard";
 import { PromoteCard } from "../components/PromoteCard";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Button, Card, Field, Input, Select } from "../components/ui";
@@ -18,14 +20,56 @@ export function ProjectSettingsPage() {
   if (!p) return null;
   return (
     <div className="flex max-w-3xl flex-col gap-4">
+      <StorageCard p={p} />
       <GeneralCard p={p} />
+      <DataCard p={p} />
       <GuardrailsCard p={p} />
       <ExtensionsCard p={p} />
       <RotateCard p={p} />
-      <PromoteCard p={p} />
+      <SwitchCredentialsCard p={p} />
+      {!p.parent_project_id && <PromoteCard p={p} />}
+      <DemoteCard p={p} />
       <TransferCard p={p} />
       <DangerCard p={p} />
     </div>
+  );
+}
+
+/** "Contains sensitive data" and, for a branch, nightly backups (V2 §8.4, §8.5). */
+function DataCard({ p }: { p: Project }) {
+  const qc = useQueryClient();
+  const [err, setErr] = useState<string | null>(null);
+  const save = async (b: Parameters<typeof api.updateProject>[1]) => {
+    setErr(null);
+    try {
+      await api.updateProject(p.id, b);
+      await qc.invalidateQueries({ queryKey: ["project", p.id] });
+    } catch (e) {
+      setErr(errorMessage(e));
+    }
+  };
+  return (
+    <Card title="Data">
+      <div className="flex flex-col gap-3 text-sm">
+        <label className="flex items-start gap-2">
+          <input type="checkbox" className="mt-1" checked={!!p.sensitive_data} onChange={(e) => void save({ sensitive_data: e.target.checked })} data-testid="sensitive-data" />
+          <span>
+            <span className="font-medium">Contains sensitive data</span>
+            <span className="block text-muted">Branches copy the schema only unless a project admin asks for the data.</span>
+          </span>
+        </label>
+        {p.parent_project_id && (
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-1" checked={!!p.branch?.backups} onChange={(e) => void save({ branch_backups: e.target.checked })} />
+            <span>
+              <span className="font-medium">Back this branch up nightly</span>
+              <span className="block text-muted">Off by default: branches are disposable.</span>
+            </span>
+          </label>
+        )}
+        {err && <Alert>{err}</Alert>}
+      </div>
+    </Card>
   );
 }
 

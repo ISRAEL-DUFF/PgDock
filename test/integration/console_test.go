@@ -308,7 +308,7 @@ func TestTableBrowser(t *testing.T) {
 			after = *p.Next
 		}
 	}
-	ids, n := pages("public", "notes", gen.PrimaryKey)
+	ids, n := pages("public", "notes", gen.TablePageOrderPrimaryKey)
 	if len(ids) != 2000 || n != 40 {
 		t.Fatalf("notes: %d rows in %d pages", len(ids), n)
 	}
@@ -317,16 +317,16 @@ func TestTableBrowser(t *testing.T) {
 			t.Fatalf("notes row %d is id %s", i, v)
 		}
 	}
-	if got, _ := pages("public", "pairs", gen.PrimaryKey); len(got) != 130 {
+	if got, _ := pages("public", "pairs", gen.TablePageOrderPrimaryKey); len(got) != 130 {
 		t.Fatalf("pairs: %d rows", len(got))
 	}
-	if got, n := pages("public", "logs", gen.Ctid); len(got) != 120 || n != 3 || got[119] != "line 120" {
+	if got, n := pages("public", "logs", gen.TablePageOrderCtid); len(got) != 120 || n != 3 || got[119] != "line 120" {
 		t.Fatalf("logs: %d rows in %d pages", len(got), n)
 	}
-	if got, _ := pages("public", "recent", gen.Offset); len(got) != 0 {
+	if got, _ := pages("public", "recent", gen.TablePageOrderOffset); len(got) != 0 {
 		t.Fatalf("recent view: %d rows", len(got))
 	}
-	if got, _ := pages("app", "settings", gen.PrimaryKey); !slices.Equal(got, []string{"theme"}) {
+	if got, _ := pages("app", "settings", gen.TablePageOrderPrimaryKey); !slices.Equal(got, []string{"theme"}) {
 		t.Fatalf("app.settings: %v", got)
 	}
 

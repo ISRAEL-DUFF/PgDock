@@ -30,11 +30,83 @@ type Actor struct {
 	Kind          string
 	UserID        uuid.UUID
 	PlatformAdmin bool
-	// TokenID and TokenOrg are set for API tokens (M10), which act only in
-	// their organisation.
-	TokenID  *uuid.UUID
-	TokenOrg *uuid.UUID
+	// TokenID and TokenOrg are set for API tokens (V2 §7.2), which act
+	// only in their organisation, within their scopes, and (when
+	// TokenProjects is not nil) only on those projects.
+	TokenID       *uuid.UUID
+	TokenOrg      *uuid.UUID
+	TokenScopes   []string
+	TokenProjects []uuid.UUID
 }
+
+// Token scopes (V2 §7.2).
+const (
+	ScopeRead  = "read"
+	ScopeWrite = "write"
+	ScopeAdmin = "admin"
+)
+
+// actionScope is the token scope each action needs: read to view, write to
+// create and modify, admin for destructive and settings actions.
+var actionScope = map[Action]string{
+	OrgView:            ScopeRead,
+	OrgAudit:           ScopeRead,
+	ProjectView:        ScopeRead,
+	ProjectCredentials: ScopeRead,
+	ConsoleRead:        ScopeRead,
+	ProjectAudit:       ScopeRead,
+	ProjectExport:      ScopeAdmin,
+	ConsoleWrite:       ScopeWrite,
+	TableEdit:          ScopeWrite,
+	BackupCreate:       ScopeWrite,
+	OrgCreateProject:   ScopeWrite,
+	OrgManage:          ScopeAdmin,
+	OrgOwnerOnly:       ScopeAdmin,
+	RestoreInPlace:     ScopeAdmin,
+	BackupStorage:      ScopeAdmin,
+	BranchManage:       ScopeWrite,
+	AutomationManage:   ScopeWrite,
+	ProjectSettings:    ScopeAdmin,
+	ProjectMembers:     ScopeAdmin,
+	ProjectPromote:     ScopeAdmin,
+	ProjectDelete:      ScopeAdmin,
+}
+
+// ScopeFor is the token scope action needs.
+func ScopeFor(a Action) string {
+	if s, ok := actionScope[a]; ok {
+		return s
+	}
+	return ScopeAdmin
+}
+
+// HasScope reports whether scopes grant want (write includes read, admin
+// includes both).
+func HasScope(scopes []string, want string) bool {
+	rank := map[string]int{ScopeRead: 1, ScopeWrite: 2, ScopeAdmin: 3}
+	for _, s := range scopes {
+		if rank[s] >= rank[want] {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowsProject reports whether a token actor may touch project id.
+func (a Actor) AllowsProject(id uuid.UUID) bool {
+	if a.Kind != ActorToken || a.TokenProjects == nil {
+		return true
+	}
+	for _, p := range a.TokenProjects {
+		if p == id {
+			return true
+		}
+	}
+	return false
+}
+
+// Restricted reports whether the actor is a project-restricted token.
+func (a Actor) Restricted() bool { return a.Kind == ActorToken && a.TokenProjects != nil }
 
 // Action is something an actor wants to do.
 type Action string
@@ -74,13 +146,21 @@ const (
 	ProjectCredentials Action = "project.credentials"  // read_only (read-only credentials)
 	ConsoleRead        Action = "project.console_read" // read_only
 	ConsoleWrite       Action = "project.console_write"
+	TableEdit          Action = "project.table_edit"      // developer: the table editor's rows and schema (V2 §4)
 	BackupCreate       Action = "project.backup"          // developer: back up, restore into a new project
 	RestoreInPlace     Action = "project.restore_inplace" // admin
+	BackupStorage      Action = "project.backup_storage"  // admin: storage target, backup key and its download (V2 s6)
+	BranchManage       Action = "project.branch"          // developer: create, reset, detach and delete branches (V2 s8)
+	AutomationManage   Action = "project.automation"      // developer: webhooks and scheduled jobs (V2 s9)
 	ProjectSettings    Action = "project.settings"        // admin: rotate, settings, extensions, PITR
 	ProjectMembers     Action = "project.members"         // admin
 	ProjectPromote     Action = "project.promote"         // admin
 	ProjectDelete      Action = "project.delete"          // admin
 	ProjectAudit       Action = "project.audit"           // admin
+	// ProjectExport downloads a project's data (a backup as a pg_dump
+	// archive, V2 §10.10): organisation owners only, and like any project
+	// action invisible to those who can't see the project.
+	ProjectExport Action = "project.export"
 )
 
 // projectMin is the least project role for each project action.
@@ -89,13 +169,18 @@ var projectMin = map[Action]string{
 	ProjectCredentials: ProjectReadOnly,
 	ConsoleRead:        ProjectReadOnly,
 	ConsoleWrite:       ProjectDeveloper,
+	TableEdit:          ProjectDeveloper,
 	BackupCreate:       ProjectDeveloper,
 	RestoreInPlace:     ProjectAdmin,
+	BackupStorage:      ProjectAdmin,
+	BranchManage:       ProjectDeveloper,
+	AutomationManage:   ProjectDeveloper,
 	ProjectSettings:    ProjectAdmin,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,
 	ProjectDelete:      ProjectAdmin,
 	ProjectAudit:       ProjectAdmin,
+	ProjectExport:      ProjectReadOnly, // visibility; owners only, below
 }
 
 // IsProjectAction reports whether a is checked against a project.
@@ -109,6 +194,9 @@ var orgRank = map[string]int{OrgMember: 1, OrgAdmin: 2, OrgOwner: 3}
 type Resource struct {
 	OrgID     uuid.UUID
 	ProjectID uuid.UUID
+	// ParentID is a branch's parent: a token restricted to the parent
+	// covers its branches (V2 §8: a CI token creates and uses them).
+	ParentID uuid.UUID
 }
 
 // Decision is the outcome of a check, with the roles it was based on.
@@ -117,6 +205,15 @@ type Decision struct {
 	Allowed     bool
 	OrgRole     string // "" when not a member
 	ProjectRole string // effective: org owners and admins are project admins
+	// BreakGlass is set when a platform admin acts through a break-glass
+	// session (V2 §2.4): every such action is flagged in the audit logs.
+	BreakGlass bool
+	// Frozen is set when the organisation is suspended or being deleted
+	// and the action is not a read (V2 §10.8): Allowed is false.
+	Frozen bool
+	// NeedScope is set when an API token's user may do this but the token
+	// lacks the scope (or its project restriction rules out org actions).
+	NeedScope string
 }
 
 // Queries is the subset of store the checks need.
@@ -124,7 +221,12 @@ type Queries interface {
 	GetOrgMember(ctx context.Context, arg store.GetOrgMemberParams) (store.OrgMember, error)
 	GetProjectMember(ctx context.Context, arg store.GetProjectMemberParams) (store.ProjectMember, error)
 	GetOrg(ctx context.Context, orgID uuid.UUID) (store.Organization, error)
+	ActiveBreakGlass(ctx context.Context, arg store.ActiveBreakGlassParams) (store.BreakGlassSession, error)
 }
+
+// readActions still work in a suspended organisation, so its members can
+// see what happened (V2 §10.8).
+var readActions = map[Action]bool{OrgView: true, OrgAudit: true, ProjectView: true, ProjectAudit: true}
 
 // Can decides whether actor may perform action on res.
 func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resource) (Decision, error) {
@@ -143,18 +245,70 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 	if res.OrgID == uuid.Nil {
 		return Decision{}, nil
 	}
-	if actor.TokenOrg != nil && *actor.TokenOrg != res.OrgID {
+	token := actor.Kind == ActorToken
+	if token && (actor.TokenOrg == nil || *actor.TokenOrg != res.OrgID) {
 		return Decision{}, nil // a token acts only in its own organisation
 	}
-	var d Decision
-	m, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: res.OrgID, UserID: actor.UserID})
-	if errors.Is(err, pgx.ErrNoRows) {
+	if token && res.ProjectID != uuid.Nil && !actor.AllowsProject(res.ProjectID) &&
+		(res.ParentID == uuid.Nil || !actor.AllowsProject(res.ParentID)) {
+		return Decision{}, nil // nor outside its projects
+	}
+	d, err := can(ctx, q, actor, action, res)
+	if err != nil || !d.Allowed {
+		return d, err
+	}
+	if token {
+		switch need := ScopeFor(action); {
+		case !HasScope(actor.TokenScopes, need):
+			d.Allowed, d.NeedScope = false, need
+			return d, nil
+		case actor.Restricted() && res.ProjectID == uuid.Nil && action != OrgView:
+			// A project-restricted token can't act on the organisation.
+			d.Allowed, d.NeedScope = false, "unrestricted"
+			return d, nil
+		}
+	}
+	if readActions[action] {
 		return d, nil
 	}
+	o, err := q.GetOrg(ctx, res.OrgID)
 	if err != nil {
 		return d, err
 	}
-	d.OrgRole = m.Role
+	switch o.Status {
+	case "suspended":
+		d.Allowed, d.Frozen = false, true
+	case "deleting":
+		// Only an owner cancelling the deletion.
+		if action != OrgOwnerOnly {
+			d.Allowed, d.Frozen = false, true
+		}
+	}
+	return d, nil
+}
+
+func can(ctx context.Context, q Queries, actor Actor, action Action, res Resource) (Decision, error) {
+	var d Decision
+	m, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: res.OrgID, UserID: actor.UserID})
+	switch {
+	case err == nil:
+		d.OrgRole = m.Role
+	case !errors.Is(err, pgx.ErrNoRows):
+		return d, err
+	case actor.PlatformAdmin && actor.Kind == ActorSession:
+		// Not a member: a platform admin with an open break-glass session
+		// acts as an org admin (V2 §2.4).
+		_, err := q.ActiveBreakGlass(ctx, store.ActiveBreakGlassParams{OrgID: res.OrgID, AdminID: actor.UserID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return d, nil
+		}
+		if err != nil {
+			return d, err
+		}
+		d.OrgRole, d.BreakGlass = OrgAdmin, true
+	default:
+		return d, nil
+	}
 
 	if minRole, ok := projectMin[action]; ok {
 		if res.ProjectID == uuid.Nil {
@@ -165,7 +319,7 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		} else {
 			pm, err := q.GetProjectMember(ctx, store.GetProjectMemberParams{ProjectID: res.ProjectID, UserID: actor.UserID, OrgID: res.OrgID})
 			if errors.Is(err, pgx.ErrNoRows) {
-				return Decision{OrgRole: d.OrgRole}, nil // a member who isn't on the project can't see it
+				return Decision{OrgRole: d.OrgRole, BreakGlass: d.BreakGlass}, nil // a member who isn't on the project can't see it
 			}
 			if err != nil {
 				return d, err
@@ -174,6 +328,9 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		}
 		d.Visible = true
 		d.Allowed = projectRank[d.ProjectRole] >= projectRank[minRole]
+		if action == ProjectExport {
+			d.Allowed = d.OrgRole == OrgOwner && !d.BreakGlass
+		}
 		return d, nil
 	}
 

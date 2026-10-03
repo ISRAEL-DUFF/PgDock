@@ -195,6 +195,7 @@ type Patch struct {
 	Name                     *string
 	Slug                     *string
 	MembersCanCreateProjects *bool
+	SensitiveByDefault       *bool
 }
 
 // Update applies p to orgID.
@@ -232,6 +233,9 @@ func (s *Service) Update(ctx context.Context, orgID uuid.UUID, p Patch) (store.O
 	}
 	if p.MembersCanCreateProjects != nil {
 		set.MembersCanCreateProjects = *p.MembersCanCreateProjects
+	}
+	if p.SensitiveByDefault != nil {
+		set.SensitiveByDefault = *p.SensitiveByDefault
 	}
 	raw, _ := json.Marshal(set)
 	return q.UpdateOrg(ctx, store.UpdateOrgParams{OrgID: orgID, Name: name, Slug: slug, Settings: raw})
@@ -380,6 +384,10 @@ func (s *Service) deleteMembership(ctx context.Context, q *store.Queries, orgID,
 	if _, err := q.DeleteOrgProjectMemberships(ctx, store.DeleteOrgProjectMembershipsParams{OrgID: orgID, UserID: userID}); err != nil {
 		return err
 	}
+	// Their API tokens for the organisation go too (V2 §3.4).
+	if _, err := q.RevokeUserOrgTokens(ctx, store.RevokeUserOrgTokensParams{OrgID: orgID, UserID: userID}); err != nil {
+		return err
+	}
 	_, err := q.DeleteOrgMember(ctx, store.DeleteOrgMemberParams{OrgID: orgID, UserID: userID})
 	return err
 }
@@ -408,8 +416,12 @@ func (s *Service) revokeLogins(ctx context.Context, orgID, userID uuid.UUID) err
 	return errors.Join(errs...)
 }
 
-// revokeEverywhere drops a disabled user's logins in every organisation.
+// revokeEverywhere drops a disabled user's logins in every organisation,
+// and their API tokens.
 func (s *Service) revokeEverywhere(ctx context.Context, userID uuid.UUID) error {
+	if _, err := store.New(s.db).RevokeUserTokens(ctx, userID); err != nil {
+		return err
+	}
 	orgs, err := store.New(s.db).ListUserOrgs(ctx, userID)
 	if err != nil {
 		return err
@@ -545,6 +557,13 @@ func (s *Service) Transfer(ctx context.Context, p store.Project, toOrg uuid.UUID
 		if _, err := tx.Exec(ctx, `SELECT 1 FROM projects WHERE id = $1 AND org_id = $2 FOR UPDATE`, p.ID, p.OrgID); err != nil {
 			return err
 		}
+		// Org targets stay with their organisation (V2 §6): a project using
+		// one, or with backups on one, moves to platform storage first.
+		if uses, err := q.ProjectsUsingOrgTargets(ctx, store.ProjectsUsingOrgTargetsParams{ID: p.ID, OrgID: p.OrgID}); err != nil {
+			return err
+		} else if uses {
+			return fmt.Errorf("%w: the project keeps backups on one of this organisation's storage targets; switch it to platform storage (copying existing backups, deleting the originals) first", ErrConflict)
+		}
 		members, err := q.ListProjectMembers(ctx, store.ListProjectMembersParams{ProjectID: p.ID, OrgID: p.OrgID})
 		if err != nil {
 			return err
@@ -558,6 +577,14 @@ func (s *Service) Transfer(ctx context.Context, p store.Project, toOrg uuid.UUID
 			return err
 		}
 		if err := q.MoveProjectDBUsers(ctx, store.MoveProjectDBUsersParams{ProjectID: p.ID, OrgID: p.OrgID, NewOrgID: toOrg}); err != nil {
+			return err
+		}
+		// Tokens of the old organisation lose the project; those left
+		// with no projects are revoked (V2 §2.1).
+		if err := q.DropProjectFromTokens(ctx, store.DropProjectFromTokensParams{OrgID: p.OrgID, ProjectID: p.ID}); err != nil {
+			return err
+		}
+		if _, err := q.RevokeEmptiedTokens(ctx, p.OrgID); err != nil {
 			return err
 		}
 		return q.SetProjectOrg(ctx, store.SetProjectOrgParams{ID: p.ID, OrgID: p.OrgID, NewOrgID: toOrg})

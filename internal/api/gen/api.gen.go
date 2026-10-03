@@ -14,6 +14,72 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for APITokenCreatedVia.
+const (
+	Api    APITokenCreatedVia = "api"
+	Device APITokenCreatedVia = "device"
+	Ui     APITokenCreatedVia = "ui"
+)
+
+// Valid indicates whether the value is a known member of the APITokenCreatedVia enum.
+func (e APITokenCreatedVia) Valid() bool {
+	switch e {
+	case Api:
+		return true
+	case Device:
+		return true
+	case Ui:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for APITokenStatus.
+const (
+	APITokenStatusActive  APITokenStatus = "active"
+	APITokenStatusExpired APITokenStatus = "expired"
+	APITokenStatusRevoked APITokenStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the APITokenStatus enum.
+func (e APITokenStatus) Valid() bool {
+	switch e {
+	case APITokenStatusActive:
+		return true
+	case APITokenStatusExpired:
+		return true
+	case APITokenStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminOrgSummaryStatus.
+const (
+	AdminOrgSummaryStatusActive    AdminOrgSummaryStatus = "active"
+	AdminOrgSummaryStatusDeleted   AdminOrgSummaryStatus = "deleted"
+	AdminOrgSummaryStatusDeleting  AdminOrgSummaryStatus = "deleting"
+	AdminOrgSummaryStatusSuspended AdminOrgSummaryStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the AdminOrgSummaryStatus enum.
+func (e AdminOrgSummaryStatus) Valid() bool {
+	switch e {
+	case AdminOrgSummaryStatusActive:
+		return true
+	case AdminOrgSummaryStatusDeleted:
+		return true
+	case AdminOrgSummaryStatusDeleting:
+		return true
+	case AdminOrgSummaryStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminUserPlatformRole.
 const (
 	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
@@ -34,16 +100,16 @@ func (e AdminUserPlatformRole) Valid() bool {
 
 // Defines values for AlertSeverity.
 const (
-	Critical AlertSeverity = "critical"
-	Warning  AlertSeverity = "warning"
+	AlertSeverityCritical AlertSeverity = "critical"
+	AlertSeverityWarning  AlertSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the AlertSeverity enum.
 func (e AlertSeverity) Valid() bool {
 	switch e {
-	case Critical:
+	case AlertSeverityCritical:
 		return true
-	case Warning:
+	case AlertSeverityWarning:
 		return true
 	default:
 		return false
@@ -152,8 +218,27 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for BackupEncryption.
+const (
+	BackupEncryptionInstance BackupEncryption = "instance"
+	BackupEncryptionProject  BackupEncryption = "project"
+)
+
+// Valid indicates whether the value is a known member of the BackupEncryption enum.
+func (e BackupEncryption) Valid() bool {
+	switch e {
+	case BackupEncryptionInstance:
+		return true
+	case BackupEncryptionProject:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStatus.
 const (
+	BackupStatusCopied    BackupStatus = "copied"
 	BackupStatusFailed    BackupStatus = "failed"
 	BackupStatusRunning   BackupStatus = "running"
 	BackupStatusSucceeded BackupStatus = "succeeded"
@@ -162,6 +247,8 @@ const (
 // Valid indicates whether the value is a known member of the BackupStatus enum.
 func (e BackupStatus) Valid() bool {
 	switch e {
+	case BackupStatusCopied:
+		return true
 	case BackupStatusFailed:
 		return true
 	case BackupStatusRunning:
@@ -200,6 +287,60 @@ func (e BackupKind) Valid() bool {
 	}
 }
 
+// Defines values for BranchInfoSource.
+const (
+	BranchInfoSourceBackup BranchInfoSource = "backup"
+	BranchInfoSourceLive   BranchInfoSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchInfoSource enum.
+func (e BranchInfoSource) Valid() bool {
+	switch e {
+	case BranchInfoSourceBackup:
+		return true
+	case BranchInfoSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BranchRequestSource.
+const (
+	BranchRequestSourceBackup BranchRequestSource = "backup"
+	BranchRequestSourceLive   BranchRequestSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchRequestSource enum.
+func (e BranchRequestSource) Valid() bool {
+	switch e {
+	case BranchRequestSourceBackup:
+		return true
+	case BranchRequestSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BranchResetRequestSource.
+const (
+	BranchResetRequestSourceBackup BranchResetRequestSource = "backup"
+	BranchResetRequestSourceLive   BranchResetRequestSource = "live"
+)
+
+// Valid indicates whether the value is a known member of the BranchResetRequestSource enum.
+func (e BranchResetRequestSource) Valid() bool {
+	switch e {
+	case BranchResetRequestSourceBackup:
+		return true
+	case BranchResetRequestSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateNodeRequestRole.
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
@@ -223,25 +364,142 @@ func (e CreateNodeRequestRole) Valid() bool {
 
 // Defines values for DbTableKind.
 const (
-	ForeignTable     DbTableKind = "foreign_table"
-	MaterializedView DbTableKind = "materialized_view"
-	PartitionedTable DbTableKind = "partitioned_table"
-	Table            DbTableKind = "table"
-	View             DbTableKind = "view"
+	DbTableKindForeignTable     DbTableKind = "foreign_table"
+	DbTableKindMaterializedView DbTableKind = "materialized_view"
+	DbTableKindPartitionedTable DbTableKind = "partitioned_table"
+	DbTableKindTable            DbTableKind = "table"
+	DbTableKindView             DbTableKind = "view"
 )
 
 // Valid indicates whether the value is a known member of the DbTableKind enum.
 func (e DbTableKind) Valid() bool {
 	switch e {
-	case ForeignTable:
+	case DbTableKindForeignTable:
 		return true
-	case MaterializedView:
+	case DbTableKindMaterializedView:
 		return true
-	case PartitionedTable:
+	case DbTableKindPartitionedTable:
 		return true
-	case Table:
+	case DbTableKindTable:
 		return true
-	case View:
+	case DbTableKindView:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DedicatedRequestStatus.
+const (
+	DedicatedRequestStatusApproved  DedicatedRequestStatus = "approved"
+	DedicatedRequestStatusCancelled DedicatedRequestStatus = "cancelled"
+	DedicatedRequestStatusPending   DedicatedRequestStatus = "pending"
+	DedicatedRequestStatusRejected  DedicatedRequestStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the DedicatedRequestStatus enum.
+func (e DedicatedRequestStatus) Valid() bool {
+	switch e {
+	case DedicatedRequestStatusApproved:
+		return true
+	case DedicatedRequestStatusCancelled:
+		return true
+	case DedicatedRequestStatusPending:
+		return true
+	case DedicatedRequestStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DemoteCheckName.
+const (
+	Allowance   DemoteCheckName = "allowance"
+	Capacity    DemoteCheckName = "capacity"
+	Connections DemoteCheckName = "connections"
+	Extensions  DemoteCheckName = "extensions"
+	Roles       DemoteCheckName = "roles"
+	Settings    DemoteCheckName = "settings"
+	Size        DemoteCheckName = "size"
+)
+
+// Valid indicates whether the value is a known member of the DemoteCheckName enum.
+func (e DemoteCheckName) Valid() bool {
+	switch e {
+	case Allowance:
+		return true
+	case Capacity:
+		return true
+	case Connections:
+		return true
+	case Extensions:
+		return true
+	case Roles:
+		return true
+	case Settings:
+		return true
+	case Size:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DemoteCheckStatus.
+const (
+	DemoteCheckStatusBlocked DemoteCheckStatus = "blocked"
+	DemoteCheckStatusOk      DemoteCheckStatus = "ok"
+	DemoteCheckStatusWarning DemoteCheckStatus = "warning"
+)
+
+// Valid indicates whether the value is a known member of the DemoteCheckStatus enum.
+func (e DemoteCheckStatus) Valid() bool {
+	switch e {
+	case DemoteCheckStatusBlocked:
+		return true
+	case DemoteCheckStatusOk:
+		return true
+	case DemoteCheckStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EditColumnIdentity.
+const (
+	Always    EditColumnIdentity = "always"
+	ByDefault EditColumnIdentity = "by_default"
+)
+
+// Valid indicates whether the value is a known member of the EditColumnIdentity enum.
+func (e EditColumnIdentity) Valid() bool {
+	switch e {
+	case Always:
+		return true
+	case ByDefault:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EditorPreferencesMigrationFormat.
+const (
+	EditorPreferencesMigrationFormatDbmate EditorPreferencesMigrationFormat = "dbmate"
+	EditorPreferencesMigrationFormatGoose  EditorPreferencesMigrationFormat = "goose"
+	EditorPreferencesMigrationFormatSql    EditorPreferencesMigrationFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the EditorPreferencesMigrationFormat enum.
+func (e EditorPreferencesMigrationFormat) Valid() bool {
+	switch e {
+	case EditorPreferencesMigrationFormatDbmate:
+		return true
+	case EditorPreferencesMigrationFormatGoose:
+		return true
+	case EditorPreferencesMigrationFormatSql:
 		return true
 	default:
 		return false
@@ -260,6 +518,33 @@ func (e ExtensionTier) Valid() bool {
 	case ExtensionTierDedicated:
 		return true
 	case ExtensionTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HttpJobSpecMethod.
+const (
+	HttpJobSpecMethodDELETE HttpJobSpecMethod = "DELETE"
+	HttpJobSpecMethodGET    HttpJobSpecMethod = "GET"
+	HttpJobSpecMethodPATCH  HttpJobSpecMethod = "PATCH"
+	HttpJobSpecMethodPOST   HttpJobSpecMethod = "POST"
+	HttpJobSpecMethodPUT    HttpJobSpecMethod = "PUT"
+)
+
+// Valid indicates whether the value is a known member of the HttpJobSpecMethod enum.
+func (e HttpJobSpecMethod) Valid() bool {
+	switch e {
+	case HttpJobSpecMethodDELETE:
+		return true
+	case HttpJobSpecMethodGET:
+		return true
+	case HttpJobSpecMethodPATCH:
+		return true
+	case HttpJobSpecMethodPOST:
+		return true
+	case HttpJobSpecMethodPUT:
 		return true
 	default:
 		return false
@@ -353,6 +638,144 @@ func (e InvitationPreviewKind) Valid() bool {
 	case InvitationPreviewKindOrg:
 		return true
 	case InvitationPreviewKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobKind.
+const (
+	JobKindHttp JobKind = "http"
+	JobKindSql  JobKind = "sql"
+)
+
+// Valid indicates whether the value is a known member of the JobKind enum.
+func (e JobKind) Valid() bool {
+	switch e {
+	case JobKindHttp:
+		return true
+	case JobKindSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobOverlap.
+const (
+	JobOverlapQueue JobOverlap = "queue"
+	JobOverlapSkip  JobOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobOverlap enum.
+func (e JobOverlap) Valid() bool {
+	switch e {
+	case JobOverlapQueue:
+		return true
+	case JobOverlapSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRequestKind.
+const (
+	JobRequestKindHttp JobRequestKind = "http"
+	JobRequestKindSql  JobRequestKind = "sql"
+)
+
+// Valid indicates whether the value is a known member of the JobRequestKind enum.
+func (e JobRequestKind) Valid() bool {
+	switch e {
+	case JobRequestKindHttp:
+		return true
+	case JobRequestKindSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRequestOverlap.
+const (
+	JobRequestOverlapQueue JobRequestOverlap = "queue"
+	JobRequestOverlapSkip  JobRequestOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobRequestOverlap enum.
+func (e JobRequestOverlap) Valid() bool {
+	switch e {
+	case JobRequestOverlapQueue:
+		return true
+	case JobRequestOverlapSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRunStatus.
+const (
+	JobRunStatusFailed    JobRunStatus = "failed"
+	JobRunStatusQueued    JobRunStatus = "queued"
+	JobRunStatusRunning   JobRunStatus = "running"
+	JobRunStatusSkipped   JobRunStatus = "skipped"
+	JobRunStatusSucceeded JobRunStatus = "succeeded"
+	JobRunStatusTimedOut  JobRunStatus = "timed_out"
+)
+
+// Valid indicates whether the value is a known member of the JobRunStatus enum.
+func (e JobRunStatus) Valid() bool {
+	switch e {
+	case JobRunStatusFailed:
+		return true
+	case JobRunStatusQueued:
+		return true
+	case JobRunStatusRunning:
+		return true
+	case JobRunStatusSkipped:
+		return true
+	case JobRunStatusSucceeded:
+		return true
+	case JobRunStatusTimedOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobRunTrigger.
+const (
+	Manual   JobRunTrigger = "manual"
+	Schedule JobRunTrigger = "schedule"
+)
+
+// Valid indicates whether the value is a known member of the JobRunTrigger enum.
+func (e JobRunTrigger) Valid() bool {
+	switch e {
+	case Manual:
+		return true
+	case Schedule:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobUpdateOverlap.
+const (
+	JobUpdateOverlapQueue JobUpdateOverlap = "queue"
+	JobUpdateOverlapSkip  JobUpdateOverlap = "skip"
+)
+
+// Valid indicates whether the value is a known member of the JobUpdateOverlap enum.
+func (e JobUpdateOverlap) Valid() bool {
+	switch e {
+	case JobUpdateOverlapQueue:
+		return true
+	case JobUpdateOverlapSkip:
 		return true
 	default:
 		return false
@@ -570,6 +993,7 @@ func (e ProjectRole) Valid() bool {
 const (
 	ProjectStatusActive       ProjectStatus = "active"
 	ProjectStatusDeleting     ProjectStatus = "deleting"
+	ProjectStatusDemoting     ProjectStatus = "demoting"
 	ProjectStatusError        ProjectStatus = "error"
 	ProjectStatusPromoting    ProjectStatus = "promoting"
 	ProjectStatusProvisioning ProjectStatus = "provisioning"
@@ -582,6 +1006,8 @@ func (e ProjectStatus) Valid() bool {
 	case ProjectStatusActive:
 		return true
 	case ProjectStatusDeleting:
+		return true
+	case ProjectStatusDemoting:
 		return true
 	case ProjectStatusError:
 		return true
@@ -614,6 +1040,24 @@ func (e ProjectTier) Valid() bool {
 	}
 }
 
+// Defines values for ReapedSessionKind.
+const (
+	IdleInTransaction ReapedSessionKind = "idle_in_transaction"
+	Statement         ReapedSessionKind = "statement"
+)
+
+// Valid indicates whether the value is a known member of the ReapedSessionKind enum.
+func (e ReapedSessionKind) Valid() bool {
+	switch e {
+	case IdleInTransaction:
+		return true
+	case Statement:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RestoreRequestMode.
 const (
 	InPlace RestoreRequestMode = "in_place"
@@ -626,6 +1070,234 @@ func (e RestoreRequestMode) Valid() bool {
 	case InPlace:
 		return true
 	case New:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RowChangeOp.
+const (
+	Delete RowChangeOp = "delete"
+	Insert RowChangeOp = "insert"
+	Update RowChangeOp = "update"
+)
+
+// Valid indicates whether the value is a known member of the RowChangeOp enum.
+func (e RowChangeOp) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	case Insert:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeKind.
+const (
+	AddCheck       SchemaChangeKind = "add_check"
+	AddColumn      SchemaChangeKind = "add_column"
+	AddEnumValue   SchemaChangeKind = "add_enum_value"
+	AddForeignKey  SchemaChangeKind = "add_foreign_key"
+	AddUnique      SchemaChangeKind = "add_unique"
+	AlterColumn    SchemaChangeKind = "alter_column"
+	CreateEnum     SchemaChangeKind = "create_enum"
+	CreateIndex    SchemaChangeKind = "create_index"
+	CreateSchema   SchemaChangeKind = "create_schema"
+	CreateTable    SchemaChangeKind = "create_table"
+	DropColumn     SchemaChangeKind = "drop_column"
+	DropConstraint SchemaChangeKind = "drop_constraint"
+	DropIndex      SchemaChangeKind = "drop_index"
+	DropSchema     SchemaChangeKind = "drop_schema"
+	DropTable      SchemaChangeKind = "drop_table"
+	RenameColumn   SchemaChangeKind = "rename_column"
+	RenameTable    SchemaChangeKind = "rename_table"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeKind enum.
+func (e SchemaChangeKind) Valid() bool {
+	switch e {
+	case AddCheck:
+		return true
+	case AddColumn:
+		return true
+	case AddEnumValue:
+		return true
+	case AddForeignKey:
+		return true
+	case AddUnique:
+		return true
+	case AlterColumn:
+		return true
+	case CreateEnum:
+		return true
+	case CreateIndex:
+		return true
+	case CreateSchema:
+		return true
+	case CreateTable:
+		return true
+	case DropColumn:
+		return true
+	case DropConstraint:
+		return true
+	case DropIndex:
+		return true
+	case DropSchema:
+		return true
+	case DropTable:
+		return true
+	case RenameColumn:
+		return true
+	case RenameTable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeMethod.
+const (
+	Brin  SchemaChangeMethod = "brin"
+	Btree SchemaChangeMethod = "btree"
+	Gin   SchemaChangeMethod = "gin"
+	Gist  SchemaChangeMethod = "gist"
+	Hash  SchemaChangeMethod = "hash"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeMethod enum.
+func (e SchemaChangeMethod) Valid() bool {
+	switch e {
+	case Brin:
+		return true
+	case Btree:
+		return true
+	case Gin:
+		return true
+	case Gist:
+		return true
+	case Hash:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeOnDelete.
+const (
+	SchemaChangeOnDeleteCASCADE    SchemaChangeOnDelete = "CASCADE"
+	SchemaChangeOnDeleteNOACTION   SchemaChangeOnDelete = "NO ACTION"
+	SchemaChangeOnDeleteRESTRICT   SchemaChangeOnDelete = "RESTRICT"
+	SchemaChangeOnDeleteSETDEFAULT SchemaChangeOnDelete = "SET DEFAULT"
+	SchemaChangeOnDeleteSETNULL    SchemaChangeOnDelete = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeOnDelete enum.
+func (e SchemaChangeOnDelete) Valid() bool {
+	switch e {
+	case SchemaChangeOnDeleteCASCADE:
+		return true
+	case SchemaChangeOnDeleteNOACTION:
+		return true
+	case SchemaChangeOnDeleteRESTRICT:
+		return true
+	case SchemaChangeOnDeleteSETDEFAULT:
+		return true
+	case SchemaChangeOnDeleteSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaChangeOnUpdate.
+const (
+	SchemaChangeOnUpdateCASCADE    SchemaChangeOnUpdate = "CASCADE"
+	SchemaChangeOnUpdateNOACTION   SchemaChangeOnUpdate = "NO ACTION"
+	SchemaChangeOnUpdateRESTRICT   SchemaChangeOnUpdate = "RESTRICT"
+	SchemaChangeOnUpdateSETDEFAULT SchemaChangeOnUpdate = "SET DEFAULT"
+	SchemaChangeOnUpdateSETNULL    SchemaChangeOnUpdate = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the SchemaChangeOnUpdate enum.
+func (e SchemaChangeOnUpdate) Valid() bool {
+	switch e {
+	case SchemaChangeOnUpdateCASCADE:
+		return true
+	case SchemaChangeOnUpdateNOACTION:
+		return true
+	case SchemaChangeOnUpdateRESTRICT:
+		return true
+	case SchemaChangeOnUpdateSETDEFAULT:
+		return true
+	case SchemaChangeOnUpdateSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaMigrationFormat.
+const (
+	SchemaMigrationFormatDbmate SchemaMigrationFormat = "dbmate"
+	SchemaMigrationFormatGoose  SchemaMigrationFormat = "goose"
+	SchemaMigrationFormatSql    SchemaMigrationFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the SchemaMigrationFormat enum.
+func (e SchemaMigrationFormat) Valid() bool {
+	switch e {
+	case SchemaMigrationFormatDbmate:
+		return true
+	case SchemaMigrationFormatGoose:
+		return true
+	case SchemaMigrationFormatSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaMigrationRequestFormat.
+const (
+	SchemaMigrationRequestFormatDbmate SchemaMigrationRequestFormat = "dbmate"
+	SchemaMigrationRequestFormatGoose  SchemaMigrationRequestFormat = "goose"
+	SchemaMigrationRequestFormatSql    SchemaMigrationRequestFormat = "sql"
+)
+
+// Valid indicates whether the value is a known member of the SchemaMigrationRequestFormat enum.
+func (e SchemaMigrationRequestFormat) Valid() bool {
+	switch e {
+	case SchemaMigrationRequestFormatDbmate:
+		return true
+	case SchemaMigrationRequestFormatGoose:
+		return true
+	case SchemaMigrationRequestFormatSql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchemaRiskLevel.
+const (
+	SchemaRiskLevelDanger  SchemaRiskLevel = "danger"
+	SchemaRiskLevelInfo    SchemaRiskLevel = "info"
+	SchemaRiskLevelWarning SchemaRiskLevel = "warning"
+)
+
+// Valid indicates whether the value is a known member of the SchemaRiskLevel enum.
+func (e SchemaRiskLevel) Valid() bool {
+	switch e {
+	case SchemaRiskLevelDanger:
+		return true
+	case SchemaRiskLevelInfo:
+		return true
+	case SchemaRiskLevelWarning:
 		return true
 	default:
 		return false
@@ -674,21 +1346,117 @@ func (e SignupSettingsMode) Valid() bool {
 	}
 }
 
+// Defines values for StorageState.
+const (
+	StorageStateHard StorageState = "hard"
+	StorageStateNone StorageState = "none"
+	StorageStateSoft StorageState = "soft"
+	StorageStateWarn StorageState = "warn"
+)
+
+// Valid indicates whether the value is a known member of the StorageState enum.
+func (e StorageState) Valid() bool {
+	switch e {
+	case StorageStateHard:
+		return true
+	case StorageStateNone:
+		return true
+	case StorageStateSoft:
+		return true
+	case StorageStateWarn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StorageTargetKind.
+const (
+	StorageTargetKindOrg      StorageTargetKind = "org"
+	StorageTargetKindPlatform StorageTargetKind = "platform"
+)
+
+// Valid indicates whether the value is a known member of the StorageTargetKind enum.
+func (e StorageTargetKind) Valid() bool {
+	switch e {
+	case StorageTargetKindOrg:
+		return true
+	case StorageTargetKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TableConstraintKind.
+const (
+	TableConstraintKindCheck      TableConstraintKind = "check"
+	TableConstraintKindExclusion  TableConstraintKind = "exclusion"
+	TableConstraintKindForeignKey TableConstraintKind = "foreign_key"
+	TableConstraintKindPrimaryKey TableConstraintKind = "primary_key"
+	TableConstraintKindUnique     TableConstraintKind = "unique"
+)
+
+// Valid indicates whether the value is a known member of the TableConstraintKind enum.
+func (e TableConstraintKind) Valid() bool {
+	switch e {
+	case TableConstraintKindCheck:
+		return true
+	case TableConstraintKindExclusion:
+		return true
+	case TableConstraintKindForeignKey:
+		return true
+	case TableConstraintKindPrimaryKey:
+		return true
+	case TableConstraintKindUnique:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TableInfoKind.
+const (
+	TableInfoKindForeignTable     TableInfoKind = "foreign_table"
+	TableInfoKindMaterializedView TableInfoKind = "materialized_view"
+	TableInfoKindPartitionedTable TableInfoKind = "partitioned_table"
+	TableInfoKindTable            TableInfoKind = "table"
+	TableInfoKindView             TableInfoKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the TableInfoKind enum.
+func (e TableInfoKind) Valid() bool {
+	switch e {
+	case TableInfoKindForeignTable:
+		return true
+	case TableInfoKindMaterializedView:
+		return true
+	case TableInfoKindPartitionedTable:
+		return true
+	case TableInfoKindTable:
+		return true
+	case TableInfoKindView:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TablePageOrder.
 const (
-	Ctid       TablePageOrder = "ctid"
-	Offset     TablePageOrder = "offset"
-	PrimaryKey TablePageOrder = "primary_key"
+	TablePageOrderCtid       TablePageOrder = "ctid"
+	TablePageOrderOffset     TablePageOrder = "offset"
+	TablePageOrderPrimaryKey TablePageOrder = "primary_key"
 )
 
 // Valid indicates whether the value is a known member of the TablePageOrder enum.
 func (e TablePageOrder) Valid() bool {
 	switch e {
-	case Ctid:
+	case TablePageOrderCtid:
 		return true
-	case Offset:
+	case TablePageOrderOffset:
 		return true
-	case PrimaryKey:
+	case TablePageOrderPrimaryKey:
 		return true
 	default:
 		return false
@@ -743,6 +1511,27 @@ func (e TlsStatusState) Valid() bool {
 	}
 }
 
+// Defines values for TokenScope.
+const (
+	TokenScopeAdmin TokenScope = "admin"
+	TokenScopeRead  TokenScope = "read"
+	TokenScopeWrite TokenScope = "write"
+)
+
+// Valid indicates whether the value is a known member of the TokenScope enum.
+func (e TokenScope) Valid() bool {
+	switch e {
+	case TokenScopeAdmin:
+		return true
+	case TokenScopeRead:
+		return true
+	case TokenScopeWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateNodeRequestRole.
 const (
 	UpdateNodeRequestRoleBoth      UpdateNodeRequestRole = "both"
@@ -764,6 +1553,42 @@ func (e UpdateNodeRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for UsageMetricGranularity.
+const (
+	UsageMetricGranularityDay  UsageMetricGranularity = "day"
+	UsageMetricGranularityHour UsageMetricGranularity = "hour"
+)
+
+// Valid indicates whether the value is a known member of the UsageMetricGranularity enum.
+func (e UsageMetricGranularity) Valid() bool {
+	switch e {
+	case UsageMetricGranularityDay:
+		return true
+	case UsageMetricGranularityHour:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UsageRecordGranularity.
+const (
+	UsageRecordGranularityDay  UsageRecordGranularity = "day"
+	UsageRecordGranularityHour UsageRecordGranularity = "hour"
+)
+
+// Valid indicates whether the value is a known member of the UsageRecordGranularity enum.
+func (e UsageRecordGranularity) Valid() bool {
+	switch e {
+	case UsageRecordGranularityDay:
+		return true
+	case UsageRecordGranularityHour:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UserPlatformRole.
 const (
 	UserPlatformRolePlatformAdmin UserPlatformRole = "platform_admin"
@@ -776,6 +1601,72 @@ func (e UserPlatformRole) Valid() bool {
 	case UserPlatformRolePlatformAdmin:
 		return true
 	case UserPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookStatus.
+const (
+	Broken  WebhookStatus = "broken"
+	Failing WebhookStatus = "failing"
+	Healthy WebhookStatus = "healthy"
+	Paused  WebhookStatus = "paused"
+)
+
+// Valid indicates whether the value is a known member of the WebhookStatus enum.
+func (e WebhookStatus) Valid() bool {
+	switch e {
+	case Broken:
+		return true
+	case Failing:
+		return true
+	case Healthy:
+		return true
+	case Paused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookRequestEvents.
+const (
+	WebhookRequestEventsDELETE WebhookRequestEvents = "DELETE"
+	WebhookRequestEventsINSERT WebhookRequestEvents = "INSERT"
+	WebhookRequestEventsUPDATE WebhookRequestEvents = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the WebhookRequestEvents enum.
+func (e WebhookRequestEvents) Valid() bool {
+	switch e {
+	case WebhookRequestEventsDELETE:
+		return true
+	case WebhookRequestEventsINSERT:
+		return true
+	case WebhookRequestEventsUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebhookUpdateEvents.
+const (
+	WebhookUpdateEventsDELETE WebhookUpdateEvents = "DELETE"
+	WebhookUpdateEventsINSERT WebhookUpdateEvents = "INSERT"
+	WebhookUpdateEventsUPDATE WebhookUpdateEvents = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the WebhookUpdateEvents enum.
+func (e WebhookUpdateEvents) Valid() bool {
+	switch e {
+	case WebhookUpdateEventsDELETE:
+		return true
+	case WebhookUpdateEventsINSERT:
+		return true
+	case WebhookUpdateEventsUPDATE:
 		return true
 	default:
 		return false
@@ -845,6 +1736,30 @@ func (e ListPlatformAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for ListDedicatedRequestsParamsStatus.
+const (
+	ListDedicatedRequestsParamsStatusApproved  ListDedicatedRequestsParamsStatus = "approved"
+	ListDedicatedRequestsParamsStatusCancelled ListDedicatedRequestsParamsStatus = "cancelled"
+	ListDedicatedRequestsParamsStatusPending   ListDedicatedRequestsParamsStatus = "pending"
+	ListDedicatedRequestsParamsStatusRejected  ListDedicatedRequestsParamsStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListDedicatedRequestsParamsStatus enum.
+func (e ListDedicatedRequestsParamsStatus) Valid() bool {
+	switch e {
+	case ListDedicatedRequestsParamsStatusApproved:
+		return true
+	case ListDedicatedRequestsParamsStatusCancelled:
+		return true
+	case ListDedicatedRequestsParamsStatusPending:
+		return true
+	case ListDedicatedRequestsParamsStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAlertsParamsStatus.
 const (
 	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
@@ -905,6 +1820,24 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for GetOrgUsageParamsFormat.
+const (
+	GetOrgUsageParamsFormatCsv  GetOrgUsageParamsFormat = "csv"
+	GetOrgUsageParamsFormatJson GetOrgUsageParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the GetOrgUsageParamsFormat enum.
+func (e GetOrgUsageParamsFormat) Valid() bool {
+	switch e {
+	case GetOrgUsageParamsFormatCsv:
+		return true
+	case GetOrgUsageParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListProjectAuditParamsOutcome.
 const (
 	ListProjectAuditParamsOutcomeDenied  ListProjectAuditParamsOutcome = "denied"
@@ -947,6 +1880,59 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for ExportTableRowsParamsFormat.
+const (
+	ExportTableRowsParamsFormatCsv  ExportTableRowsParamsFormat = "csv"
+	ExportTableRowsParamsFormatJson ExportTableRowsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the ExportTableRowsParamsFormat enum.
+func (e ExportTableRowsParamsFormat) Valid() bool {
+	switch e {
+	case ExportTableRowsParamsFormatCsv:
+		return true
+	case ExportTableRowsParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
+// APIToken defines model for APIToken.
+type APIToken struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	CreatedVia APITokenCreatedVia `json:"created_via"`
+	ExpiresAt  time.Time          `json:"expires_at"`
+	Id         openapi_types.UUID `json:"id"`
+	LastUsedAt *time.Time         `json:"last_used_at,omitempty"`
+	LastUsedIp *string            `json:"last_used_ip,omitempty"`
+	Name       string             `json:"name"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	OrgName    *string            `json:"org_name,omitempty"`
+
+	// Prefix The token's first characters, for recognising it.
+	Prefix string `json:"prefix"`
+
+	// ProjectIds The projects the token is restricted to; null for all the user's projects.
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	RevokedAt  *time.Time            `json:"revoked_at,omitempty"`
+	Scopes     []TokenScope          `json:"scopes"`
+	Status     APITokenStatus        `json:"status"`
+	UserEmail  *string               `json:"user_email,omitempty"`
+	UserId     *openapi_types.UUID   `json:"user_id,omitempty"`
+}
+
+// APITokenCreatedVia defines model for APIToken.CreatedVia.
+type APITokenCreatedVia string
+
+// APITokenStatus defines model for APIToken.Status.
+type APITokenStatus string
+
+// APITokenList defines model for APITokenList.
+type APITokenList struct {
+	Items []APIToken `json:"items"`
+}
+
 // AcceptInvitationRequest defines model for AcceptInvitationRequest.
 type AcceptInvitationRequest struct {
 	Name         *string `json:"name,omitempty"`
@@ -964,6 +1950,57 @@ type AcceptInvitationResult struct {
 // AcceptTermsRequest defines model for AcceptTermsRequest.
 type AcceptTermsRequest struct {
 	Version int `json:"version"`
+}
+
+// AdminOrg defines model for AdminOrg.
+type AdminOrg struct {
+	// BreakGlass Your open break-glass sessions on this organisation.
+	BreakGlass         []BreakGlassSession `json:"break_glass"`
+	Clusters           []SharedCluster     `json:"clusters"`
+	DedicatedAllowance DedicatedAllowance  `json:"dedicated_allowance"`
+	LimitOverrides     map[string]*int64   `json:"limit_overrides"`
+
+	// Limits Effective limits (plan with overrides); absent keys are unlimited.
+	Limits map[string]int64   `json:"limits"`
+	Org    AdminOrgSummary    `json:"org"`
+	PlanId openapi_types.UUID `json:"plan_id"`
+}
+
+// AdminOrgList defines model for AdminOrgList.
+type AdminOrgList struct {
+	Items []AdminOrgSummary `json:"items"`
+}
+
+// AdminOrgSummary defines model for AdminOrgSummary.
+type AdminOrgSummary struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Id          openapi_types.UUID `json:"id"`
+	MemberCount int                `json:"member_count"`
+	Name        string             `json:"name"`
+
+	// OrgTargetProjects Live projects whose backups go to one of the organisation's own targets (which the platform admin doesn't see, V2 §6).
+	OrgTargetProjects *int                  `json:"org_target_projects,omitempty"`
+	OutboundDisabled  bool                  `json:"outbound_disabled"`
+	Personal          bool                  `json:"personal"`
+	Plan              string                `json:"plan"`
+	ProjectCount      int                   `json:"project_count"`
+	SizeBytes         int64                 `json:"size_bytes"`
+	Slug              string                `json:"slug"`
+	Status            AdminOrgSummaryStatus `json:"status"`
+	SuspendedReason   *string               `json:"suspended_reason,omitempty"`
+}
+
+// AdminOrgSummaryStatus defines model for AdminOrgSummary.Status.
+type AdminOrgSummaryStatus string
+
+// AdminUpdateOrgRequest defines model for AdminUpdateOrgRequest.
+type AdminUpdateOrgRequest struct {
+	DedicatedAllowance *DedicatedAllowance `json:"dedicated_allowance,omitempty"`
+
+	// LimitOverrides Replaces the overrides. A number sets a limit; null makes it unlimited.
+	LimitOverrides   *map[string]*int64  `json:"limit_overrides,omitempty"`
+	OutboundDisabled *bool               `json:"outbound_disabled,omitempty"`
+	PlanId           *openapi_types.UUID `json:"plan_id,omitempty"`
 }
 
 // AdminUser defines model for AdminUser.
@@ -1131,11 +2168,15 @@ type AuditList struct {
 
 // Backup defines model for Backup.
 type Backup struct {
-	Checksum       *string             `json:"checksum,omitempty"`
+	Checksum *string `json:"checksum,omitempty"`
+
+	// Encryption `project`: an OpenPGP message to the project's own key (opens with gpg).
+	Encryption     *BackupEncryption   `json:"encryption,omitempty"`
 	Error          *string             `json:"error,omitempty"`
 	ExpiresAt      *time.Time          `json:"expires_at,omitempty"`
 	FinishedAt     *time.Time          `json:"finished_at,omitempty"`
 	Id             openapi_types.UUID  `json:"id"`
+	KeyFingerprint *string             `json:"key_fingerprint,omitempty"`
 	Kind           BackupKind          `json:"kind"`
 	OperationId    *openapi_types.UUID `json:"operation_id,omitempty"`
 	ProjectDeleted *bool               `json:"project_deleted,omitempty"`
@@ -1143,10 +2184,19 @@ type Backup struct {
 	ProjectName    *string             `json:"project_name,omitempty"`
 	SizeBytes      *int64              `json:"size_bytes,omitempty"`
 	StartedAt      time.Time           `json:"started_at"`
-	Status         BackupStatus        `json:"status"`
+
+	// Status `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
+	Status      BackupStatus       `json:"status"`
+	StorageKind *StorageTargetKind `json:"storage_kind,omitempty"`
+
+	// StorageTarget The target's name ("an org target" where its name isn't the viewer's to see).
+	StorageTarget *string `json:"storage_target,omitempty"`
 }
 
-// BackupStatus defines model for Backup.Status.
+// BackupEncryption `project`: an OpenPGP message to the project's own key (opens with gpg).
+type BackupEncryption string
+
+// BackupStatus `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
 type BackupStatus string
 
 // BackupKeyConfirmRequest defines model for BackupKeyConfirmRequest.
@@ -1188,6 +2238,60 @@ type BackupOverview struct {
 	RetentionWeekly    int           `json:"retention_weekly"`
 	StorageConfigured  bool          `json:"storage_configured"`
 	WindowHourUtc      int           `json:"window_hour_utc"`
+}
+
+// BranchInfo defines model for BranchInfo.
+type BranchInfo struct {
+	// Backups Whether it takes nightly backups.
+	Backups bool `json:"backups"`
+
+	// ExpiresAt When the branch deletes itself; null keeps it.
+	ExpiresAt  *time.Time       `json:"expires_at,omitempty"`
+	SchemaOnly bool             `json:"schema_only"`
+	Source     BranchInfoSource `json:"source"`
+}
+
+// BranchInfoSource defines model for BranchInfo.Source.
+type BranchInfoSource string
+
+// BranchRequest defines model for BranchRequest.
+type BranchRequest struct {
+	Name string `json:"name"`
+
+	// SchemaOnly Defaults to whether the parent contains sensitive data.
+	SchemaOnly *bool                `json:"schema_only,omitempty"`
+	Source     *BranchRequestSource `json:"source,omitempty"`
+
+	// TtlHours Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168.
+	TtlHours *int `json:"ttl_hours,omitempty"`
+}
+
+// BranchRequestSource defines model for BranchRequest.Source.
+type BranchRequestSource string
+
+// BranchResetRequest defines model for BranchResetRequest.
+type BranchResetRequest struct {
+	// Source Defaults to the source the branch was created from.
+	Source *BranchResetRequestSource `json:"source,omitempty"`
+}
+
+// BranchResetRequestSource Defaults to the source the branch was created from.
+type BranchResetRequestSource string
+
+// BreakGlassRequest defines model for BreakGlassRequest.
+type BreakGlassRequest struct {
+	DurationMinutes int    `json:"duration_minutes"`
+	Reason          string `json:"reason"`
+}
+
+// BreakGlassSession defines model for BreakGlassSession.
+type BreakGlassSession struct {
+	AdminEmail string             `json:"admin_email"`
+	ExpiresAt  time.Time          `json:"expires_at"`
+	Id         openapi_types.UUID `json:"id"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	Reason     string             `json:"reason"`
+	StartsAt   time.Time          `json:"starts_at"`
 }
 
 // ChangePasswordRequest defines model for ChangePasswordRequest.
@@ -1268,6 +2372,23 @@ type CreateProjectRequest struct {
 	VolumeGb *int `json:"volume_gb,omitempty"`
 }
 
+// CreateTokenRequest defines model for CreateTokenRequest.
+type CreateTokenRequest struct {
+	// ExpiresInDays Defaults to 90.
+	ExpiresInDays *int                  `json:"expires_in_days,omitempty"`
+	Name          string                `json:"name"`
+	OrgId         openapi_types.UUID    `json:"org_id"`
+	ProjectIds    *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Scopes        []TokenScope          `json:"scopes"`
+}
+
+// CreatedToken defines model for CreatedToken.
+type CreatedToken struct {
+	// Secret The token itself (`pgd_…`), shown only once.
+	Secret string   `json:"secret"`
+	Token  APIToken `json:"token"`
+}
+
 // DbColumn defines model for DbColumn.
 type DbColumn struct {
 	Default  *string `json:"default,omitempty"`
@@ -1318,6 +2439,168 @@ type DbTable struct {
 // DbTableKind defines model for DbTable.Kind.
 type DbTableKind string
 
+// DecideRequest defines model for DecideRequest.
+type DecideRequest struct {
+	Note *string `json:"note,omitempty"`
+
+	// RaiseAllowance On approval, raise the organisation's allowance to fit this instance.
+	RaiseAllowance *bool `json:"raise_allowance,omitempty"`
+}
+
+// DedicatedAllowance defines model for DedicatedAllowance.
+type DedicatedAllowance struct {
+	Cpus      float32 `json:"cpus"`
+	DiskGb    int     `json:"disk_gb"`
+	Instances int     `json:"instances"`
+	MemoryMb  int     `json:"memory_mb"`
+
+	// Unlimited The Unlimited plan has no allowance to stay within.
+	Unlimited *bool `json:"unlimited,omitempty"`
+}
+
+// DedicatedRequest defines model for DedicatedRequest.
+type DedicatedRequest struct {
+	CreatedAt    time.Time           `json:"created_at"`
+	DecidedAt    *time.Time          `json:"decided_at,omitempty"`
+	DecisionNote *string             `json:"decision_note,omitempty"`
+	Id           openapi_types.UUID  `json:"id"`
+	NodeId       *openapi_types.UUID `json:"node_id,omitempty"`
+	OrgId        openapi_types.UUID  `json:"org_id"`
+	OrgName      *string             `json:"org_name,omitempty"`
+	Profile      string              `json:"profile"`
+	ProjectId    openapi_types.UUID  `json:"project_id"`
+	ProjectName  string              `json:"project_name"`
+	Reason       *string             `json:"reason,omitempty"`
+
+	// RequestedBy The requester's email.
+	RequestedBy string                 `json:"requested_by"`
+	Status      DedicatedRequestStatus `json:"status"`
+	VolumeGb    int                    `json:"volume_gb"`
+}
+
+// DedicatedRequestStatus defines model for DedicatedRequest.Status.
+type DedicatedRequestStatus string
+
+// DedicatedRequestList defines model for DedicatedRequestList.
+type DedicatedRequestList struct {
+	Items []DedicatedRequest `json:"items"`
+}
+
+// DeleteOrgRequest defines model for DeleteOrgRequest.
+type DeleteOrgRequest struct {
+	// Confirm The organisation's name, typed.
+	Confirm string `json:"confirm"`
+
+	// DeleteProjects Delete every project too (each gets a final backup).
+	DeleteProjects *bool `json:"delete_projects,omitempty"`
+}
+
+// DemoteCheck defines model for DemoteCheck.
+type DemoteCheck struct {
+	Message string            `json:"message"`
+	Name    DemoteCheckName   `json:"name"`
+	Status  DemoteCheckStatus `json:"status"`
+}
+
+// DemoteCheckName defines model for DemoteCheck.Name.
+type DemoteCheckName string
+
+// DemoteCheckStatus defines model for DemoteCheck.Status.
+type DemoteCheckStatus string
+
+// DemotePreflight defines model for DemotePreflight.
+type DemotePreflight struct {
+	Checks []DemoteCheck `json:"checks"`
+
+	// Eligible No check blocks the demotion (warnings still need accept_warnings).
+	Eligible bool `json:"eligible"`
+
+	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
+	EstimatedDowntimeSeconds int `json:"estimated_downtime_seconds"`
+
+	// Resets The guardrails that change, e.g. "connection limit 90 → 20".
+	Resets []string `json:"resets"`
+
+	// RetainHours How long the stopped dedicated instance is kept before it is destroyed.
+	RetainHours   int             `json:"retain_hours"`
+	SettingsAfter ProjectSettings `json:"settings_after"`
+	SizeBytes     int64           `json:"size_bytes"`
+	Target        *DemoteTarget   `json:"target,omitempty"`
+}
+
+// DemoteRequest defines model for DemoteRequest.
+type DemoteRequest struct {
+	// AcceptWarnings Acknowledge the preflight's warnings (peak connections, settings that reset).
+	AcceptWarnings *bool `json:"accept_warnings,omitempty"`
+
+	// ConsoleWritable Turn the read-only SQL console off (V2 §5.5); otherwise it keeps its current setting.
+	ConsoleWritable *bool `json:"console_writable,omitempty"`
+
+	// NodeId The node whose shared cluster takes the project (default the one with the most free capacity).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+}
+
+// DemoteTarget defines model for DemoteTarget.
+type DemoteTarget struct {
+	// FreeBytes The node's free disk at its last measurement.
+	FreeBytes *int64             `json:"free_bytes,omitempty"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+
+	// OrgCluster The organisation's own shared cluster (V2 §10.5).
+	OrgCluster bool `json:"org_cluster"`
+}
+
+// DeviceApproveRequest defines model for DeviceApproveRequest.
+type DeviceApproveRequest struct {
+	// Approve false denies the login.
+	Approve       *bool                 `json:"approve,omitempty"`
+	ExpiresInDays *int                  `json:"expires_in_days,omitempty"`
+	Name          *string               `json:"name,omitempty"`
+	OrgId         *openapi_types.UUID   `json:"org_id,omitempty"`
+	ProjectIds    *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Scopes        *[]TokenScope         `json:"scopes,omitempty"`
+	UserCode      string                `json:"user_code"`
+}
+
+// DeviceAuthorization defines model for DeviceAuthorization.
+type DeviceAuthorization struct {
+	DeviceCode string `json:"device_code"`
+
+	// ExpiresIn Seconds.
+	ExpiresIn int `json:"expires_in"`
+
+	// Interval Seconds between polls.
+	Interval int `json:"interval"`
+
+	// UserCode Example: BCDF-GHJK
+	UserCode                string `json:"user_code"`
+	VerificationUri         string `json:"verification_uri"`
+	VerificationUriComplete string `json:"verification_uri_complete"`
+}
+
+// DevicePollRequest defines model for DevicePollRequest.
+type DevicePollRequest struct {
+	DeviceCode string `json:"device_code"`
+}
+
+// DeviceRequest defines model for DeviceRequest.
+type DeviceRequest struct {
+	ClientName string       `json:"client_name"`
+	ExpiresAt  time.Time    `json:"expires_at"`
+	Scopes     []TokenScope `json:"scopes"`
+	UserCode   string       `json:"user_code"`
+}
+
+// DeviceStartRequest defines model for DeviceStartRequest.
+type DeviceStartRequest struct {
+	// ClientName Shown on the approval page, e.g. "pgdock CLI on laptop".
+	ClientName *string `json:"client_name,omitempty"`
+
+	// Scopes The most the CLI wants; the user may narrow them. Default read and write.
+	Scopes *[]TokenScope `json:"scopes,omitempty"`
+}
+
 // DnsCheck defines model for DnsCheck.
 type DnsCheck struct {
 	Addresses  []string `json:"addresses"`
@@ -1328,6 +2611,32 @@ type DnsCheck struct {
 	// ServerAddresses Addresses this server considers its own.
 	ServerAddresses []string `json:"server_addresses"`
 }
+
+// EditColumn defines model for EditColumn.
+type EditColumn struct {
+	BaseType string `json:"base_type"`
+
+	// Category pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…).
+	Category   string              `json:"category"`
+	Default    *string             `json:"default,omitempty"`
+	EnumValues *[]string           `json:"enum_values,omitempty"`
+	Generated  bool                `json:"generated"`
+	Identity   *EditColumnIdentity `json:"identity,omitempty"`
+	Name       string              `json:"name"`
+	Nullable   bool                `json:"nullable"`
+	Type       string              `json:"type"`
+}
+
+// EditColumnIdentity defines model for EditColumn.Identity.
+type EditColumnIdentity string
+
+// EditorPreferences defines model for EditorPreferences.
+type EditorPreferences struct {
+	MigrationFormat EditorPreferencesMigrationFormat `json:"migration_format"`
+}
+
+// EditorPreferencesMigrationFormat defines model for EditorPreferences.MigrationFormat.
+type EditorPreferencesMigrationFormat string
 
 // EmailRequest defines model for EmailRequest.
 type EmailRequest struct {
@@ -1342,8 +2651,13 @@ type EnableExtensionRequest struct {
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_implemented
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code     string     `json:"code"`
+	Message  string     `json:"message"`
+	Quota    *QuotaItem `json:"quota,omitempty"`
+	SqlError *SqlError  `json:"sql_error,omitempty"`
+
+	// Statement The DDL statement Postgres refused.
+	Statement *string `json:"statement,omitempty"`
 }
 
 // Extension defines model for Extension.
@@ -1370,6 +2684,25 @@ type ExtensionList struct {
 	Items []Extension `json:"items"`
 }
 
+// FailedChange defines model for FailedChange.
+type FailedChange struct {
+	Error SqlError `json:"error"`
+
+	// Index The change Postgres refused (-1 for a constraint checked at commit).
+	Index int `json:"index"`
+}
+
+// ForeignKey defines model for ForeignKey.
+type ForeignKey struct {
+	Columns    []string `json:"columns"`
+	Name       string   `json:"name"`
+	OnDelete   string   `json:"on_delete"`
+	OnUpdate   string   `json:"on_update"`
+	RefColumns []string `json:"ref_columns"`
+	RefSchema  string   `json:"ref_schema"`
+	RefTable   string   `json:"ref_table"`
+}
+
 // GeneralSettings defines model for GeneralSettings.
 type GeneralSettings struct {
 	DbHost      string    `json:"db_host"`
@@ -1384,6 +2717,17 @@ type Health struct {
 	// Status Example: ok
 	Status string `json:"status"`
 }
+
+// HttpJobSpec defines model for HttpJobSpec.
+type HttpJobSpec struct {
+	Body    *string            `json:"body,omitempty"`
+	Headers *map[string]string `json:"headers,omitempty"`
+	Method  *HttpJobSpecMethod `json:"method,omitempty"`
+	Url     string             `json:"url"`
+}
+
+// HttpJobSpecMethod defines model for HttpJobSpec.Method.
+type HttpJobSpecMethod string
 
 // ImportPreflight defines model for ImportPreflight.
 type ImportPreflight struct {
@@ -1551,6 +2895,108 @@ type IsolationCheckRun struct {
 	OperationId openapi_types.UUID `json:"operation_id"`
 	Status      string             `json:"status"`
 }
+
+// Job defines model for Job.
+type Job struct {
+	ConsecutiveFailures int                `json:"consecutive_failures"`
+	CreatedAt           time.Time          `json:"created_at"`
+	Cron                string             `json:"cron"`
+	Enabled             bool               `json:"enabled"`
+	Http                *HttpJobSpec       `json:"http,omitempty"`
+	Id                  openapi_types.UUID `json:"id"`
+	Kind                JobKind            `json:"kind"`
+	LastRun             *JobRun            `json:"last_run,omitempty"`
+	Name                string             `json:"name"`
+	NextRunAt           *time.Time         `json:"next_run_at,omitempty"`
+	Overlap             JobOverlap         `json:"overlap"`
+	ProjectId           openapi_types.UUID `json:"project_id"`
+	Sql                 *string            `json:"sql,omitempty"`
+	TimeoutSeconds      int                `json:"timeout_seconds"`
+	Timezone            string             `json:"timezone"`
+
+	// Upcoming The next five run times.
+	Upcoming []time.Time `json:"upcoming"`
+}
+
+// JobKind defines model for Job.Kind.
+type JobKind string
+
+// JobOverlap defines model for Job.Overlap.
+type JobOverlap string
+
+// JobCreated defines model for JobCreated.
+type JobCreated struct {
+	Job Job `json:"job"`
+
+	// Secret An HTTP job's signing secret, shown once.
+	Secret *string `json:"secret,omitempty"`
+}
+
+// JobList defines model for JobList.
+type JobList struct {
+	Items []Job `json:"items"`
+}
+
+// JobRequest defines model for JobRequest.
+type JobRequest struct {
+	// Cron A 5-field cron expression (or @hourly, @daily, ...).
+	Cron           string             `json:"cron"`
+	Enabled        *bool              `json:"enabled,omitempty"`
+	Http           *HttpJobSpec       `json:"http,omitempty"`
+	Kind           JobRequestKind     `json:"kind"`
+	Name           string             `json:"name"`
+	Overlap        *JobRequestOverlap `json:"overlap,omitempty"`
+	Sql            *string            `json:"sql,omitempty"`
+	TimeoutSeconds *int               `json:"timeout_seconds,omitempty"`
+
+	// Timezone An IANA time zone (default UTC).
+	Timezone *string `json:"timezone,omitempty"`
+}
+
+// JobRequestKind defines model for JobRequest.Kind.
+type JobRequestKind string
+
+// JobRequestOverlap defines model for JobRequest.Overlap.
+type JobRequestOverlap string
+
+// JobRun defines model for JobRun.
+type JobRun struct {
+	Error        *string       `json:"error,omitempty"`
+	FinishedAt   *time.Time    `json:"finished_at,omitempty"`
+	Id           int64         `json:"id"`
+	RowsAffected *int64        `json:"rows_affected,omitempty"`
+	ScheduledFor time.Time     `json:"scheduled_for"`
+	StartedAt    *time.Time    `json:"started_at,omitempty"`
+	Status       JobRunStatus  `json:"status"`
+	StatusCode   *int          `json:"status_code,omitempty"`
+	Trigger      JobRunTrigger `json:"trigger"`
+}
+
+// JobRunStatus defines model for JobRun.Status.
+type JobRunStatus string
+
+// JobRunTrigger defines model for JobRun.Trigger.
+type JobRunTrigger string
+
+// JobRunList defines model for JobRunList.
+type JobRunList struct {
+	Items []JobRun `json:"items"`
+}
+
+// JobUpdate defines model for JobUpdate.
+type JobUpdate struct {
+	Cron           *string           `json:"cron,omitempty"`
+	Enabled        *bool             `json:"enabled,omitempty"`
+	Http           *HttpJobSpec      `json:"http,omitempty"`
+	Name           *string           `json:"name,omitempty"`
+	Overlap        *JobUpdateOverlap `json:"overlap,omitempty"`
+	Sql            *string           `json:"sql,omitempty"`
+	TimeoutSeconds *int              `json:"timeout_seconds,omitempty"`
+	Timezone       *string           `json:"timezone,omitempty"`
+}
+
+// JobUpdateOverlap defines model for JobUpdate.Overlap.
+type JobUpdateOverlap string
 
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
@@ -1727,23 +3173,37 @@ type OperationStatus string
 
 // Org defines model for Org.
 type Org struct {
-	CreatedAt                time.Time          `json:"created_at"`
+	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
+	BreakGlass *[]BreakGlassSession `json:"break_glass,omitempty"`
+	CreatedAt  time.Time            `json:"created_at"`
+
+	// DeleteAfter Set while the organisation is being deleted.
+	DeleteAfter              *time.Time         `json:"delete_after,omitempty"`
 	Id                       openapi_types.UUID `json:"id"`
 	MemberCount              int                `json:"member_count"`
 	MembersCanCreateProjects bool               `json:"members_can_create_projects"`
 	Name                     string             `json:"name"`
 
 	// Personal The signed-in user's personal organisation.
-	Personal     bool      `json:"personal"`
-	Plan         string    `json:"plan"`
-	ProjectCount int       `json:"project_count"`
-	Role         OrgRole   `json:"role"`
-	Slug         string    `json:"slug"`
-	Status       OrgStatus `json:"status"`
+	Personal     bool    `json:"personal"`
+	Plan         string  `json:"plan"`
+	ProjectCount int     `json:"project_count"`
+	Role         OrgRole `json:"role"`
+
+	// SensitiveByDefault New projects start marked as containing sensitive data (V2 §8.5).
+	SensitiveByDefault *bool     `json:"sensitive_by_default,omitempty"`
+	Slug               string    `json:"slug"`
+	Status             OrgStatus `json:"status"`
+	SuspendedReason    *string   `json:"suspended_reason,omitempty"`
 }
 
 // OrgStatus defines model for Org.Status.
 type OrgStatus string
+
+// OrgDeletion defines model for OrgDeletion.
+type OrgDeletion struct {
+	DeleteAfter time.Time `json:"delete_after"`
+}
 
 // OrgList defines model for OrgList.
 type OrgList struct {
@@ -1768,12 +3228,42 @@ type OrgMemberList struct {
 	Items []OrgMember `json:"items"`
 }
 
+// OrgOutbound defines model for OrgOutbound.
+type OrgOutbound struct {
+	Allowlist []string `json:"allowlist"`
+
+	// Hosts Requests by destination host over the last 30 days.
+	Hosts            []OutboundHost `json:"hosts"`
+	OutboundDisabled bool           `json:"outbound_disabled"`
+}
+
+// OrgQuotas defines model for OrgQuotas.
+type OrgQuotas struct {
+	DedicatedAllowance DedicatedAllowance `json:"dedicated_allowance"`
+	DedicatedUse       DedicatedAllowance `json:"dedicated_use"`
+	Items              []QuotaItem        `json:"items"`
+	Plan               string             `json:"plan"`
+}
+
 // OrgRole defines model for OrgRole.
 type OrgRole string
 
 // OrgRoleRequest defines model for OrgRoleRequest.
 type OrgRoleRequest struct {
 	Role OrgRole `json:"role"`
+}
+
+// OutboundAllowlist defines model for OutboundAllowlist.
+type OutboundAllowlist struct {
+	Hosts []string `json:"hosts"`
+}
+
+// OutboundHost defines model for OutboundHost.
+type OutboundHost struct {
+	Failures int64              `json:"failures"`
+	Host     string             `json:"host"`
+	LastDay  openapi_types.Date `json:"last_day"`
+	Requests int64              `json:"requests"`
 }
 
 // PasswordResetConfirm defines model for PasswordResetConfirm.
@@ -1820,6 +3310,43 @@ type PitrWindow struct {
 	To   time.Time `json:"to"`
 }
 
+// Plan defines model for Plan.
+type Plan struct {
+	Id       openapi_types.UUID `json:"id"`
+	Limits   map[string]int64   `json:"limits"`
+	Name     string             `json:"name"`
+	OrgCount int                `json:"org_count"`
+}
+
+// PlanList defines model for PlanList.
+type PlanList struct {
+	Items []Plan `json:"items"`
+
+	// Keys Known limit keys, in display order.
+	Keys []string `json:"keys"`
+}
+
+// PlanRequest defines model for PlanRequest.
+type PlanRequest struct {
+	Limits map[string]int64 `json:"limits"`
+	Name   string           `json:"name"`
+}
+
+// PlatformUsage defines model for PlatformUsage.
+type PlatformUsage struct {
+	From  time.Time          `json:"from"`
+	Items []PlatformUsageRow `json:"items"`
+	To    time.Time          `json:"to"`
+}
+
+// PlatformUsageRow defines model for PlatformUsageRow.
+type PlatformUsageRow struct {
+	Metric   string             `json:"metric"`
+	OrgId    openapi_types.UUID `json:"org_id"`
+	OrgName  string             `json:"org_name"`
+	Quantity float32            `json:"quantity"`
+}
+
 // Profile defines model for Profile.
 type Profile struct {
 	Cpus     float32 `json:"cpus"`
@@ -1836,29 +3363,76 @@ type ProfileList struct {
 
 // Project defines model for Project.
 type Project struct {
-	Connection  ConnectionInfo     `json:"connection"`
-	CreatedAt   time.Time          `json:"created_at"`
-	DbName      string             `json:"db_name"`
-	Description *string            `json:"description,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
-	Instance    *InstanceSummary   `json:"instance,omitempty"`
+	Branch *BranchInfo `json:"branch,omitempty"`
+
+	// BranchCount Live branches of this project.
+	BranchCount *int `json:"branch_count,omitempty"`
+
+	// CanSwitchCredentials A V1 project that still uses its V1 owner role (V2 §10.2).
+	CanSwitchCredentials *bool              `json:"can_switch_credentials,omitempty"`
+	Connection           ConnectionInfo     `json:"connection"`
+	CreatedAt            time.Time          `json:"created_at"`
+	DbName               string             `json:"db_name"`
+	Description          *string            `json:"description,omitempty"`
+	Id                   openapi_types.UUID `json:"id"`
+	Instance             *InstanceSummary   `json:"instance,omitempty"`
 
 	// LastBackupAt When the latest backup of this project finished.
-	LastBackupAt *time.Time         `json:"last_backup_at,omitempty"`
-	MyRole       *ProjectRole       `json:"my_role,omitempty"`
-	Name         string             `json:"name"`
-	OrgId        openapi_types.UUID `json:"org_id"`
-	OwnerRole    string             `json:"owner_role"`
+	LastBackupAt *time.Time `json:"last_backup_at,omitempty"`
+
+	// LegacyCredentialsUntil The V1 credentials stop working at this time.
+	LegacyCredentialsUntil *time.Time         `json:"legacy_credentials_until,omitempty"`
+	MyRole                 *ProjectRole       `json:"my_role,omitempty"`
+	Name                   string             `json:"name"`
+	OrgId                  openapi_types.UUID `json:"org_id"`
+	OwnerRole              string             `json:"owner_role"`
+
+	// ParentProjectId Set for a branch (V2 §8).
+	ParentProjectId *openapi_types.UUID `json:"parent_project_id,omitempty"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
 
-	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped.
+	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped;
+	// after a demotion, when the stopped dedicated instance is
+	// destroyed (and the dedicated allowance released).
 	RetiredCopyUntil *time.Time      `json:"retired_copy_until,omitempty"`
+	SensitiveData    *bool           `json:"sensitive_data,omitempty"`
 	Settings         ProjectSettings `json:"settings"`
 	Slug             string          `json:"slug"`
 	Status           ProjectStatus   `json:"status"`
-	Tier             ProjectTier     `json:"tier"`
+
+	// StorageState V2 §10.4 storage enforcement.
+	StorageState *StorageState `json:"storage_state,omitempty"`
+	Tier         ProjectTier   `json:"tier"`
+}
+
+// ProjectBackupKey defines model for ProjectBackupKey.
+type ProjectBackupKey struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Enabled False means new backups use the instance key.
+	Enabled bool `json:"enabled"`
+
+	// Fingerprint The OpenPGP fingerprint, as gpg shows it.
+	Fingerprint *string             `json:"fingerprint,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+}
+
+// ProjectBackupKeyRequest defines model for ProjectBackupKeyRequest.
+type ProjectBackupKeyRequest struct {
+	// Rotate Replace an existing key; backups made with the old one keep it.
+	Rotate *bool `json:"rotate,omitempty"`
+}
+
+// ProjectBackupStorage defines model for ProjectBackupStorage.
+type ProjectBackupStorage struct {
+	Choices []ProjectStorageChoice `json:"choices"`
+
+	// CountsTowardQuota Whether new backups count against the organisation's backup quota (platform targets do).
+	CountsTowardQuota bool                 `json:"counts_toward_quota"`
+	Key               ProjectBackupKey     `json:"key"`
+	Target            ProjectStorageChoice `json:"target"`
 }
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
@@ -1945,6 +3519,38 @@ type ProjectSettingsPatch struct {
 // ProjectStatus defines model for ProjectStatus.
 type ProjectStatus string
 
+// ProjectStorage defines model for ProjectStorage.
+type ProjectStorage struct {
+	LimitBytes *int64 `json:"limit_bytes,omitempty"`
+	SizeBytes  *int64 `json:"size_bytes,omitempty"`
+
+	// State V2 §10.4 storage enforcement.
+	State  StorageState     `json:"state"`
+	Tables []TableFootprint `json:"tables"`
+}
+
+// ProjectStorageChoice defines model for ProjectStorageChoice.
+type ProjectStorageChoice struct {
+	// Id Null is the platform default (followed if it changes).
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	IsDefault bool                `json:"is_default"`
+	Kind      StorageTargetKind   `json:"kind"`
+	Name      string              `json:"name"`
+}
+
+// ProjectStorageTargetRequest defines model for ProjectStorageTargetRequest.
+type ProjectStorageTargetRequest struct {
+	CopyExisting    *bool               `json:"copy_existing,omitempty"`
+	DeleteOriginals *bool               `json:"delete_originals,omitempty"`
+	TargetId        *openapi_types.UUID `json:"target_id,omitempty"`
+}
+
+// ProjectStorageTargetResult defines model for ProjectStorageTargetResult.
+type ProjectStorageTargetResult struct {
+	Operation *Operation           `json:"operation,omitempty"`
+	Storage   ProjectBackupStorage `json:"storage"`
+}
+
 // ProjectTier defines model for ProjectTier.
 type ProjectTier string
 
@@ -1956,9 +3562,12 @@ type ProjectUpdated struct {
 
 // PromoteRequest defines model for PromoteRequest.
 type PromoteRequest struct {
-	NodeId   *openapi_types.UUID `json:"node_id,omitempty"`
-	Profile  *string             `json:"profile,omitempty"`
-	VolumeGb *int                `json:"volume_gb,omitempty"`
+	NodeId  *openapi_types.UUID `json:"node_id,omitempty"`
+	Profile *string             `json:"profile,omitempty"`
+
+	// Reason Why, when the promotion is beyond the organisation's dedicated allowance and becomes a request.
+	Reason   *string `json:"reason,omitempty"`
+	VolumeGb *int    `json:"volume_gb,omitempty"`
 }
 
 // PromotionEstimate defines model for PromotionEstimate.
@@ -1974,10 +3583,48 @@ type PublishTermsRequest struct {
 	TermsMd   string `json:"terms_md"`
 }
 
+// QuotaItem defines model for QuotaItem.
+type QuotaItem struct {
+	// Limit The limit's key (V2 §10.3), e.g. projects or project_storage_mb.
+	Limit string `json:"limit"`
+
+	// Max Absent or null means unlimited.
+	Max  *int64  `json:"max,omitempty"`
+	Used float32 `json:"used"`
+}
+
+// ReapedSession defines model for ReapedSession.
+type ReapedSession struct {
+	CreatedAt time.Time         `json:"created_at"`
+	DurationS int               `json:"duration_s"`
+	Kind      ReapedSessionKind `json:"kind"`
+	Query     *string           `json:"query,omitempty"`
+	Role      string            `json:"role"`
+}
+
+// ReapedSessionKind defines model for ReapedSession.Kind.
+type ReapedSessionKind string
+
+// ReapedSessionList defines model for ReapedSessionList.
+type ReapedSessionList struct {
+	Items []ReapedSession `json:"items"`
+}
+
+// ReasonRequest defines model for ReasonRequest.
+type ReasonRequest struct {
+	Reason string `json:"reason"`
+}
+
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
 	Code     string `json:"code"`
 	Password string `json:"password"`
+}
+
+// ReclaimSpaceRequest defines model for ReclaimSpaceRequest.
+type ReclaimSpaceRequest struct {
+	Schema string `json:"schema"`
+	Table  string `json:"table"`
 }
 
 // RecoveryCodes defines model for RecoveryCodes.
@@ -1998,6 +3645,17 @@ type RegistrationToken struct {
 	Token     string    `json:"token"`
 }
 
+// ReplayRequest defines model for ReplayRequest.
+type ReplayRequest struct {
+	All *bool    `json:"all,omitempty"`
+	Ids *[]int64 `json:"ids,omitempty"`
+}
+
+// ReplayResult defines model for ReplayResult.
+type ReplayResult struct {
+	Queued int `json:"queued"`
+}
+
 // RestoreRequest defines model for RestoreRequest.
 type RestoreRequest struct {
 	// Confirm The project's name, typed (mode `in_place`).
@@ -2016,6 +3674,189 @@ type RestoreResponse struct {
 	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
+}
+
+// RowChange defines model for RowChange.
+type RowChange struct {
+	// Key The row's primary key (update, delete).
+	Key *map[string]*string `json:"key,omitempty"`
+	Op  RowChangeOp         `json:"op"`
+
+	// Values Column values as text, null for NULL. Columns left out of an insert get their default.
+	Values *map[string]*string `json:"values,omitempty"`
+
+	// Xmin The row's xmin when loaded (update, delete).
+	Xmin *string `json:"xmin,omitempty"`
+}
+
+// RowChangeOp defines model for RowChange.Op.
+type RowChangeOp string
+
+// RowConflict defines model for RowConflict.
+type RowConflict struct {
+	Current *[]*string `json:"current,omitempty"`
+	Deleted bool       `json:"deleted"`
+
+	// Index The change that hit a row someone else changed.
+	Index int     `json:"index"`
+	Xmin  *string `json:"xmin,omitempty"`
+}
+
+// SaveRowsRequest defines model for SaveRowsRequest.
+type SaveRowsRequest struct {
+	Changes []RowChange `json:"changes"`
+}
+
+// SaveRowsResult defines model for SaveRowsResult.
+type SaveRowsResult struct {
+	Applied  bool          `json:"applied"`
+	Columns  []SqlColumn   `json:"columns"`
+	Conflict *RowConflict  `json:"conflict,omitempty"`
+	Failed   *FailedChange `json:"failed,omitempty"`
+	Rows     []SavedRow    `json:"rows"`
+
+	// Summary Example: 3 updates, 1 insert, 2 deletes
+	Summary string `json:"summary"`
+}
+
+// SavedRow defines model for SavedRow.
+type SavedRow struct {
+	Index  int       `json:"index"`
+	Values []*string `json:"values"`
+	Xmin   string    `json:"xmin"`
+}
+
+// SchemaApplied defines model for SchemaApplied.
+type SchemaApplied struct {
+	DurationMs int64      `json:"duration_ms"`
+	Plan       SchemaPlan `json:"plan"`
+}
+
+// SchemaApplyRequest defines model for SchemaApplyRequest.
+type SchemaApplyRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange `json:"change"`
+
+	// Confirm The name of what is dropped, typed.
+	Confirm *string `json:"confirm,omitempty"`
+
+	// Hash The preview's hash.
+	Hash string `json:"hash"`
+}
+
+// SchemaChange One change (V2 §4.3); which fields apply depends on `kind`.
+type SchemaChange struct {
+	BeforeValue  *string             `json:"before_value,omitempty"`
+	Cascade      *bool               `json:"cascade,omitempty"`
+	Column       *SchemaColumnDef    `json:"column,omitempty"`
+	ColumnName   *string             `json:"column_name,omitempty"`
+	Columns      *[]SchemaColumnDef  `json:"columns,omitempty"`
+	Comment      *string             `json:"comment,omitempty"`
+	Concurrently *bool               `json:"concurrently,omitempty"`
+	Default      *string             `json:"default,omitempty"`
+	DropDefault  *bool               `json:"drop_default,omitempty"`
+	Expression   *string             `json:"expression,omitempty"`
+	KeyColumns   *[]string           `json:"key_columns,omitempty"`
+	Kind         SchemaChangeKind    `json:"kind"`
+	Method       *SchemaChangeMethod `json:"method,omitempty"`
+
+	// Name The schema, constraint, index or type created or dropped.
+	Name       *string               `json:"name,omitempty"`
+	NewName    *string               `json:"new_name,omitempty"`
+	NotValid   *bool                 `json:"not_valid,omitempty"`
+	Nullable   *bool                 `json:"nullable,omitempty"`
+	OnDelete   *SchemaChangeOnDelete `json:"on_delete,omitempty"`
+	OnUpdate   *SchemaChangeOnUpdate `json:"on_update,omitempty"`
+	RefColumns *[]string             `json:"ref_columns,omitempty"`
+	RefSchema  *string               `json:"ref_schema,omitempty"`
+	RefTable   *string               `json:"ref_table,omitempty"`
+	Schema     *string               `json:"schema,omitempty"`
+	Table      *string               `json:"table,omitempty"`
+	Type       *string               `json:"type,omitempty"`
+	Unique     *bool                 `json:"unique,omitempty"`
+	Using      *string               `json:"using,omitempty"`
+	Value      *string               `json:"value,omitempty"`
+	Values     *[]string             `json:"values,omitempty"`
+	Where      *string               `json:"where,omitempty"`
+}
+
+// SchemaChangeKind defines model for SchemaChange.Kind.
+type SchemaChangeKind string
+
+// SchemaChangeMethod defines model for SchemaChange.Method.
+type SchemaChangeMethod string
+
+// SchemaChangeOnDelete defines model for SchemaChange.OnDelete.
+type SchemaChangeOnDelete string
+
+// SchemaChangeOnUpdate defines model for SchemaChange.OnUpdate.
+type SchemaChangeOnUpdate string
+
+// SchemaColumnDef defines model for SchemaColumnDef.
+type SchemaColumnDef struct {
+	Comment *string `json:"comment,omitempty"`
+
+	// Default An SQL expression, e.g. now() or 'draft'.
+	Default    *string `json:"default,omitempty"`
+	Name       string  `json:"name"`
+	Nullable   *bool   `json:"nullable,omitempty"`
+	PrimaryKey *bool   `json:"primary_key,omitempty"`
+
+	// Type Example: text
+	Type string `json:"type"`
+}
+
+// SchemaMigration defines model for SchemaMigration.
+type SchemaMigration struct {
+	Content  string                `json:"content"`
+	Filename string                `json:"filename"`
+	Format   SchemaMigrationFormat `json:"format"`
+}
+
+// SchemaMigrationFormat defines model for SchemaMigration.Format.
+type SchemaMigrationFormat string
+
+// SchemaMigrationRequest defines model for SchemaMigrationRequest.
+type SchemaMigrationRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange                 `json:"change"`
+	Format SchemaMigrationRequestFormat `json:"format"`
+}
+
+// SchemaMigrationRequestFormat defines model for SchemaMigrationRequest.Format.
+type SchemaMigrationRequestFormat string
+
+// SchemaPlan defines model for SchemaPlan.
+type SchemaPlan struct {
+	// Confirm Type this name to run it.
+	Confirm    *string           `json:"confirm,omitempty"`
+	Down       []string          `json:"down"`
+	DownTodo   []string          `json:"down_todo"`
+	Hash       string            `json:"hash"`
+	Risks      []SchemaRisk      `json:"risks"`
+	Slug       string            `json:"slug"`
+	Statements []SchemaStatement `json:"statements"`
+}
+
+// SchemaPreviewRequest defines model for SchemaPreviewRequest.
+type SchemaPreviewRequest struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change SchemaChange `json:"change"`
+}
+
+// SchemaRisk defines model for SchemaRisk.
+type SchemaRisk struct {
+	Level   SchemaRiskLevel `json:"level"`
+	Message string          `json:"message"`
+}
+
+// SchemaRiskLevel defines model for SchemaRisk.Level.
+type SchemaRiskLevel string
+
+// SchemaStatement defines model for SchemaStatement.
+type SchemaStatement struct {
+	Sql           string `json:"sql"`
+	Transactional bool   `json:"transactional"`
 }
 
 // SessionInfo defines model for SessionInfo.
@@ -2055,6 +3896,14 @@ type SessionState struct {
 // SessionStateSignupMode defines model for SessionState.SignupMode.
 type SessionStateSignupMode string
 
+// SetOrgClusterRequest defines model for SetOrgClusterRequest.
+type SetOrgClusterRequest struct {
+	InstanceId openapi_types.UUID `json:"instance_id"`
+
+	// Reserved True reserves the cluster for this organisation (default); false releases it.
+	Reserved *bool `json:"reserved,omitempty"`
+}
+
 // SetupBeginRequest defines model for SetupBeginRequest.
 type SetupBeginRequest struct {
 	Email     openapi_types.Email `json:"email"`
@@ -2074,6 +3923,20 @@ type SetupEnrollment struct {
 	ExpiresAt       time.Time `json:"expires_at"`
 	TotpSecret      string    `json:"totp_secret"`
 	TotpUri         string    `json:"totp_uri"`
+}
+
+// SharedCluster defines model for SharedCluster.
+type SharedCluster struct {
+	Id           openapi_types.UUID  `json:"id"`
+	NodeName     string              `json:"node_name"`
+	OrgId        *openapi_types.UUID `json:"org_id,omitempty"`
+	OrgName      *string             `json:"org_name,omitempty"`
+	ProjectCount int                 `json:"project_count"`
+}
+
+// SharedClusterList defines model for SharedClusterList.
+type SharedClusterList struct {
+	Items []SharedCluster `json:"items"`
 }
 
 // SharedClusterRequest defines model for SharedClusterRequest.
@@ -2184,6 +4047,84 @@ type StorageSettings struct {
 	Region     *string `json:"region,omitempty"`
 }
 
+// StorageState V2 §10.4 storage enforcement.
+type StorageState string
+
+// StorageTarget defines model for StorageTarget.
+type StorageTarget struct {
+	Bucket    string             `json:"bucket"`
+	CreatedAt time.Time          `json:"created_at"`
+	Endpoint  string             `json:"endpoint"`
+	Id        openapi_types.UUID `json:"id"`
+	IsDefault bool               `json:"is_default"`
+	Kind      StorageTargetKind  `json:"kind"`
+	Name      string             `json:"name"`
+	PathStyle bool               `json:"path_style"`
+	Prefix    string             `json:"prefix"`
+	Region    string             `json:"region"`
+	UpdatedAt *time.Time         `json:"updated_at,omitempty"`
+	Usage     StorageTargetUsage `json:"usage"`
+}
+
+// StorageTargetKind defines model for StorageTargetKind.
+type StorageTargetKind string
+
+// StorageTargetList defines model for StorageTargetList.
+type StorageTargetList struct {
+	Items []StorageTarget `json:"items"`
+}
+
+// StorageTargetRequest defines model for StorageTargetRequest.
+type StorageTargetRequest struct {
+	// AccessKey Empty on an update keeps the stored one.
+	AccessKey *string `json:"access_key,omitempty"`
+	Bucket    string  `json:"bucket"`
+
+	// Endpoint Example: https://s3.eu-central-1.amazonaws.com
+	Endpoint string `json:"endpoint"`
+
+	// IsDefault Platform targets only.
+	IsDefault *bool   `json:"is_default,omitempty"`
+	Name      string  `json:"name"`
+	PathStyle *bool   `json:"path_style,omitempty"`
+	Prefix    *string `json:"prefix,omitempty"`
+	Region    *string `json:"region,omitempty"`
+
+	// SecretKey Empty on an update keeps the stored one.
+	SecretKey *string `json:"secret_key,omitempty"`
+}
+
+// StorageTargetSaveResult defines model for StorageTargetSaveResult.
+type StorageTargetSaveResult struct {
+	Saved  bool              `json:"saved"`
+	Target *StorageTarget    `json:"target,omitempty"`
+	Test   StorageTestResult `json:"test"`
+}
+
+// StorageTargetTestRequest defines model for StorageTargetTestRequest.
+type StorageTargetTestRequest struct {
+	AccessKey *string `json:"access_key,omitempty"`
+	Bucket    string  `json:"bucket"`
+	Endpoint  string  `json:"endpoint"`
+	PathStyle *bool   `json:"path_style,omitempty"`
+	Prefix    *string `json:"prefix,omitempty"`
+	Region    *string `json:"region,omitempty"`
+	SecretKey *string `json:"secret_key,omitempty"`
+
+	// TargetId A stored target whose credentials fill in empty ones.
+	TargetId *openapi_types.UUID `json:"target_id,omitempty"`
+}
+
+// StorageTargetUsage defines model for StorageTargetUsage.
+type StorageTargetUsage struct {
+	// Backups Unexpired backups stored here.
+	Backups int   `json:"backups"`
+	Bytes   int64 `json:"bytes"`
+
+	// Projects Live projects whose new backups go here.
+	Projects int `json:"projects"`
+}
+
 // StorageTestResult defines model for StorageTestResult.
 type StorageTestResult struct {
 	Ok    bool              `json:"ok"`
@@ -2199,15 +4140,73 @@ type StorageTestStep struct {
 	TookMs int     `json:"took_ms"`
 }
 
+// SwitchCredentialsRequest defines model for SwitchCredentialsRequest.
+type SwitchCredentialsRequest struct {
+	// GraceDays How long the V1 credentials keep working (default 7).
+	GraceDays *int `json:"grace_days,omitempty"`
+}
+
+// SwitchedCredentials Shown once. The V1 role works until legacy_until.
+type SwitchedCredentials struct {
+	Connection  ConnectionInfo `json:"connection"`
+	LegacyUntil time.Time      `json:"legacy_until"`
+	Operation   Operation      `json:"operation"`
+	Password    string         `json:"password"`
+	Project     Project        `json:"project"`
+}
+
+// TableConstraint defines model for TableConstraint.
+type TableConstraint struct {
+	Definition string              `json:"definition"`
+	Kind       TableConstraintKind `json:"kind"`
+	Name       string              `json:"name"`
+}
+
+// TableConstraintKind defines model for TableConstraint.Kind.
+type TableConstraintKind string
+
+// TableFootprint defines model for TableFootprint.
+type TableFootprint struct {
+	Bytes    int64  `json:"bytes"`
+	DeadRows int64  `json:"dead_rows"`
+	Schema   string `json:"schema"`
+	Table    string `json:"table"`
+}
+
+// TableInfo defines model for TableInfo.
+type TableInfo struct {
+	Columns        []EditColumn      `json:"columns"`
+	Constraints    []TableConstraint `json:"constraints"`
+	Editable       bool              `json:"editable"`
+	ForeignKeys    []ForeignKey      `json:"foreign_keys"`
+	Indexes        []DbIndex         `json:"indexes"`
+	Kind           TableInfoKind     `json:"kind"`
+	Name           string            `json:"name"`
+	PrimaryKey     []string          `json:"primary_key"`
+	ReadOnlyReason *string           `json:"read_only_reason,omitempty"`
+	RowEstimate    *int64            `json:"row_estimate,omitempty"`
+	Schema         string            `json:"schema"`
+	SizeBytes      int64             `json:"size_bytes"`
+}
+
+// TableInfoKind defines model for TableInfo.Kind.
+type TableInfoKind string
+
 // TablePage defines model for TablePage.
 type TablePage struct {
 	Columns    []SqlColumn `json:"columns"`
 	KeyColumns []string    `json:"key_columns"`
 
+	// LargeOffset Offset paging this deep is slow; sort by the primary key or filter.
+	LargeOffset *bool `json:"large_offset,omitempty"`
+
 	// Next Cursor of the next page; absent on the last.
 	Next  *string        `json:"next,omitempty"`
 	Order TablePageOrder `json:"order"`
 	Rows  [][]*string    `json:"rows"`
+
+	// Xmin Each row's xmin, for editable tables.
+	Xmin *[]string `json:"xmin,omitempty"`
 }
 
 // TablePageOrder defines model for TablePage.Order.
@@ -2237,9 +4236,28 @@ type TlsStatusMode string
 // TlsStatusState defines model for TlsStatus.State.
 type TlsStatusState string
 
+// TokenGrant The API token a request was made with.
+type TokenGrant struct {
+	ExpiresAt  time.Time             `json:"expires_at"`
+	Id         openapi_types.UUID    `json:"id"`
+	Name       string                `json:"name"`
+	OrgId      openapi_types.UUID    `json:"org_id"`
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Scopes     []TokenScope          `json:"scopes"`
+}
+
 // TokenRequest defines model for TokenRequest.
 type TokenRequest struct {
 	Token string `json:"token"`
+}
+
+// TokenScope defines model for TokenScope.
+type TokenScope string
+
+// TokenSettings defines model for TokenSettings.
+type TokenSettings struct {
+	// MaxDays The longest expiry a new token may have.
+	MaxDays int `json:"max_days"`
 }
 
 // TopQueries defines model for TopQueries.
@@ -2266,7 +4284,9 @@ type TotpRequest struct {
 
 // TransferOwnershipRequest defines model for TransferOwnershipRequest.
 type TransferOwnershipRequest struct {
-	UserId openapi_types.UUID `json:"user_id"`
+	// Confirm The organisation's name, typed; required with an API token.
+	Confirm *string            `json:"confirm,omitempty"`
+	UserId  openapi_types.UUID `json:"user_id"`
 }
 
 // TransferProjectRequest defines model for TransferProjectRequest.
@@ -2291,14 +4311,26 @@ type UpdateNodeRequestRole string
 type UpdateOrgRequest struct {
 	MembersCanCreateProjects *bool   `json:"members_can_create_projects,omitempty"`
 	Name                     *string `json:"name,omitempty"`
+	SensitiveByDefault       *bool   `json:"sensitive_by_default,omitempty"`
 	Slug                     *string `json:"slug,omitempty"`
 }
 
 // UpdateProjectRequest defines model for UpdateProjectRequest.
 type UpdateProjectRequest struct {
-	Description *string               `json:"description,omitempty"`
-	Name        *string               `json:"name,omitempty"`
-	Settings    *ProjectSettingsPatch `json:"settings,omitempty"`
+	// BranchBackups Branches only. Take nightly backups (off by default).
+	BranchBackups *bool   `json:"branch_backups,omitempty"`
+	Description   *string `json:"description,omitempty"`
+
+	// ExpiresAt Branches only. When the branch deletes itself, within 30 days.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Name      *string    `json:"name,omitempty"`
+
+	// NoExpiry Branches only. Keep the branch until deleted.
+	NoExpiry *bool `json:"no_expiry,omitempty"`
+
+	// SensitiveData The project contains sensitive data; its branches default to schema only (project admins).
+	SensitiveData *bool                 `json:"sensitive_data,omitempty"`
+	Settings      *ProjectSettingsPatch `json:"settings,omitempty"`
 }
 
 // UpdateUserRequest defines model for UpdateUserRequest.
@@ -2308,12 +4340,55 @@ type UpdateUserRequest struct {
 	Disabled *bool `json:"disabled,omitempty"`
 }
 
+// UsageMetric defines model for UsageMetric.
+type UsageMetric struct {
+	Granularity UsageMetricGranularity `json:"granularity"`
+	Name        string                 `json:"name"`
+	Unit        string                 `json:"unit"`
+}
+
+// UsageMetricGranularity defines model for UsageMetric.Granularity.
+type UsageMetricGranularity string
+
+// UsageRecord defines model for UsageRecord.
+type UsageRecord struct {
+	Granularity UsageRecordGranularity `json:"granularity"`
+	Metric      string                 `json:"metric"`
+	PeriodStart time.Time              `json:"period_start"`
+	ProjectId   *openapi_types.UUID    `json:"project_id,omitempty"`
+
+	// ProjectName Absent once the project is deleted.
+	ProjectName *string `json:"project_name,omitempty"`
+	Quantity    float32 `json:"quantity"`
+}
+
+// UsageRecordGranularity defines model for UsageRecord.Granularity.
+type UsageRecordGranularity string
+
+// UsageReport defines model for UsageReport.
+type UsageReport struct {
+	From    time.Time     `json:"from"`
+	Metrics []UsageMetric `json:"metrics"`
+	Records []UsageRecord `json:"records"`
+	To      time.Time     `json:"to"`
+	Totals  []UsageTotal  `json:"totals"`
+}
+
+// UsageTotal defines model for UsageTotal.
+type UsageTotal struct {
+	Metric   string  `json:"metric"`
+	Quantity float32 `json:"quantity"`
+}
+
 // User defines model for User.
 type User struct {
 	Email        openapi_types.Email `json:"email"`
 	Id           openapi_types.UUID  `json:"id"`
 	Name         *string             `json:"name,omitempty"`
 	PlatformRole UserPlatformRole    `json:"platform_role"`
+
+	// Token The API token a request was made with.
+	Token *TokenGrant `json:"token,omitempty"`
 }
 
 // UserPlatformRole defines model for User.PlatformRole.
@@ -2346,6 +4421,115 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// Webhook defines model for Webhook.
+type Webhook struct {
+	// Backlog Events waiting in the outbox.
+	Backlog             int64              `json:"backlog"`
+	Columns             *[]string          `json:"columns,omitempty"`
+	ConsecutiveFailures int                `json:"consecutive_failures"`
+	CreatedAt           time.Time          `json:"created_at"`
+	Enabled             bool               `json:"enabled"`
+	Events              []string           `json:"events"`
+	HeaderNames         []string           `json:"header_names"`
+	Id                  openapi_types.UUID `json:"id"`
+	Name                string             `json:"name"`
+	ProjectId           openapi_types.UUID `json:"project_id"`
+	Status              WebhookStatus      `json:"status"`
+	StatusReason        *string            `json:"status_reason,omitempty"`
+	Tables              []string           `json:"tables"`
+	Url                 string             `json:"url"`
+}
+
+// WebhookStatus defines model for Webhook.Status.
+type WebhookStatus string
+
+// WebhookCreated defines model for WebhookCreated.
+type WebhookCreated struct {
+	// Secret The signing secret, shown once.
+	Secret  string  `json:"secret"`
+	Webhook Webhook `json:"webhook"`
+}
+
+// WebhookDelivery defines model for WebhookDelivery.
+type WebhookDelivery struct {
+	Attempt      int        `json:"attempt"`
+	CreatedAt    time.Time  `json:"created_at"`
+	DeadLettered bool       `json:"dead_lettered"`
+	Error        *string    `json:"error,omitempty"`
+	EventId      string     `json:"event_id"`
+	Id           int64      `json:"id"`
+	LatencyMs    *int       `json:"latency_ms,omitempty"`
+	ReplayedAt   *time.Time `json:"replayed_at,omitempty"`
+
+	// Response The response body, truncated to 4 KB.
+	Response   *string `json:"response,omitempty"`
+	StatusCode *int    `json:"status_code,omitempty"`
+	Succeeded  bool    `json:"succeeded"`
+}
+
+// WebhookDeliveryList defines model for WebhookDeliveryList.
+type WebhookDeliveryList struct {
+	Items []WebhookDelivery `json:"items"`
+}
+
+// WebhookList defines model for WebhookList.
+type WebhookList struct {
+	Items []Webhook `json:"items"`
+}
+
+// WebhookRequest defines model for WebhookRequest.
+type WebhookRequest struct {
+	// Columns For UPDATE, fire only when one of these columns changed.
+	Columns *[]string              `json:"columns,omitempty"`
+	Enabled *bool                  `json:"enabled,omitempty"`
+	Events  []WebhookRequestEvents `json:"events"`
+
+	// Headers Static headers sent with each request (stored encrypted, never returned).
+	Headers *map[string]string `json:"headers,omitempty"`
+	Name    string             `json:"name"`
+
+	// Tables Tables as schema.table (or table, in public).
+	Tables []string `json:"tables"`
+	Url    string   `json:"url"`
+}
+
+// WebhookRequestEvents defines model for WebhookRequest.Events.
+type WebhookRequestEvents string
+
+// WebhookSecret defines model for WebhookSecret.
+type WebhookSecret struct {
+	Secret string `json:"secret"`
+}
+
+// WebhookTestResult defines model for WebhookTestResult.
+type WebhookTestResult struct {
+	Error      *string `json:"error,omitempty"`
+	EventId    string  `json:"event_id"`
+	LatencyMs  *int    `json:"latency_ms,omitempty"`
+	Ok         bool    `json:"ok"`
+	Response   *string `json:"response,omitempty"`
+	StatusCode *int    `json:"status_code,omitempty"`
+}
+
+// WebhookUpdate defines model for WebhookUpdate.
+type WebhookUpdate struct {
+	Columns *[]string              `json:"columns,omitempty"`
+	Enabled *bool                  `json:"enabled,omitempty"`
+	Events  *[]WebhookUpdateEvents `json:"events,omitempty"`
+
+	// Headers Replaces the stored headers; {} removes them.
+	Headers *map[string]string `json:"headers,omitempty"`
+	Name    *string            `json:"name,omitempty"`
+	Tables  *[]string          `json:"tables,omitempty"`
+	Url     *string            `json:"url,omitempty"`
+}
+
+// WebhookUpdateEvents defines model for WebhookUpdate.Events.
+type WebhookUpdateEvents string
+
+// AcceptUnrestorable defines model for AcceptUnrestorable.
+type AcceptUnrestorable = bool
+
 // AuditAction defines model for AuditAction.
 type AuditAction = string
 
@@ -2366,6 +4550,9 @@ type BackupID = openapi_types.UUID
 
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
+
+// JobID defines model for JobID.
+type JobID = openapi_types.UUID
 
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
@@ -2388,8 +4575,26 @@ type OrgQuery = openapi_types.UUID
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
 
+// RequestID defines model for RequestID.
+type RequestID = openapi_types.UUID
+
+// SchemaName defines model for SchemaName.
+type SchemaName = string
+
+// TableName defines model for TableName.
+type TableName = string
+
+// TargetID defines model for TargetID.
+type TargetID = openapi_types.UUID
+
+// TokenID defines model for TokenID.
+type TokenID = openapi_types.UUID
+
 // UserID defines model for UserID.
 type UserID = openapi_types.UUID
+
+// WebhookID defines model for WebhookID.
+type WebhookID = openapi_types.UUID
 
 // ListPlatformAuditParams defines parameters for ListPlatformAudit.
 type ListPlatformAuditParams struct {
@@ -2405,6 +4610,31 @@ type ListPlatformAuditParams struct {
 
 // ListPlatformAuditParamsOutcome defines parameters for ListPlatformAudit.
 type ListPlatformAuditParamsOutcome string
+
+// ListDedicatedRequestsParams defines parameters for ListDedicatedRequests.
+type ListDedicatedRequestsParams struct {
+	Status *ListDedicatedRequestsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
+type ListDedicatedRequestsParamsStatus string
+
+// AdminListOrgsParams defines parameters for AdminListOrgs.
+type AdminListOrgsParams struct {
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
+type DeletePlatformStorageTargetParams struct {
+	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
+	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
+}
+
+// PlatformUsageParams defines parameters for PlatformUsage.
+type PlatformUsageParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
 
 // ListUsersParams defines parameters for ListUsers.
 type ListUsersParams struct {
@@ -2478,6 +4708,26 @@ type ListOrgAuditParams struct {
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
 
+// DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
+type DeleteOrgStorageTargetParams struct {
+	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
+	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
+}
+
+// GetOrgUsageParams defines parameters for GetOrgUsage.
+type GetOrgUsageParams struct {
+	// From Start (inclusive); default the start of this month (UTC).
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To End (exclusive); default now.
+	To     *time.Time               `form:"to,omitempty" json:"to,omitempty"`
+	Metric *string                  `form:"metric,omitempty" json:"metric,omitempty"`
+	Format *GetOrgUsageParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetOrgUsageParamsFormat defines parameters for GetOrgUsage.
+type GetOrgUsageParamsFormat string
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
 	// Org The organisation to list; your personal organisation when omitted.
@@ -2507,6 +4757,11 @@ type ListProjectAuditParams struct {
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
 
+// ListJobRunsParams defines parameters for ListJobRuns.
+type ListJobRunsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // GetProjectMetricsParams defines parameters for GetProjectMetrics.
 type GetProjectMetricsParams struct {
 	Range *GetProjectMetricsParamsRange `form:"range,omitempty" json:"range,omitempty"`
@@ -2518,10 +4773,38 @@ type GetProjectMetricsParams struct {
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
 
+// ExportTableRowsParams defines parameters for ExportTableRows.
+type ExportTableRowsParams struct {
+	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
+	Filter *[]string                    `form:"filter,omitempty" json:"filter,omitempty"`
+	Sort   *string                      `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc   *bool                        `form:"desc,omitempty" json:"desc,omitempty"`
+	Format *ExportTableRowsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// ExportTableRowsParamsFormat defines parameters for ExportTableRows.
+type ExportTableRowsParamsFormat string
+
 // GetTableRowsParams defines parameters for GetTableRows.
 type GetTableRowsParams struct {
+	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
+	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
+	// (V2 §4.1). Compiled to a parameterised WHERE clause.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
+	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
 	After *string `form:"after,omitempty" json:"after,omitempty"`
 	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListWebhookDeliveriesParams defines parameters for ListWebhookDeliveries.
+type ListWebhookDeliveriesParams struct {
+	// Dead Only dead letters not yet replayed.
+	Dead  *bool `form:"dead,omitempty" json:"dead,omitempty"`
+	Limit *int  `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // RunRestoreTestParams defines parameters for RunRestoreTest.
@@ -2529,8 +4812,41 @@ type RunRestoreTestParams struct {
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
+// TestStorageTargetParams defines parameters for TestStorageTarget.
+type TestStorageTargetParams struct {
+	// Org The organisation to list; your personal organisation when omitted.
+	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
+}
+
+// ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
+type ApproveDedicatedRequestJSONRequestBody = DecideRequest
+
+// RejectDedicatedRequestJSONRequestBody defines body for RejectDedicatedRequest for application/json ContentType.
+type RejectDedicatedRequestJSONRequestBody = DecideRequest
+
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
+
+// AdminUpdateOrgJSONRequestBody defines body for AdminUpdateOrg for application/json ContentType.
+type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
+
+// AdminStartBreakGlassJSONRequestBody defines body for AdminStartBreakGlass for application/json ContentType.
+type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
+
+// AdminSetOrgClusterJSONRequestBody defines body for AdminSetOrgCluster for application/json ContentType.
+type AdminSetOrgClusterJSONRequestBody = SetOrgClusterRequest
+
+// AdminSetOrgOutboundAllowlistJSONRequestBody defines body for AdminSetOrgOutboundAllowlist for application/json ContentType.
+type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
+
+// AdminSuspendOrgJSONRequestBody defines body for AdminSuspendOrg for application/json ContentType.
+type AdminSuspendOrgJSONRequestBody = ReasonRequest
+
+// CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
+type CreatePlanJSONRequestBody = PlanRequest
+
+// UpdatePlanJSONRequestBody defines body for UpdatePlan for application/json ContentType.
+type UpdatePlanJSONRequestBody = PlanRequest
 
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
@@ -2541,11 +4857,29 @@ type PutSignupSettingsJSONRequestBody = SignupSettings
 // PublishTermsJSONRequestBody defines body for PublishTerms for application/json ContentType.
 type PublishTermsJSONRequestBody = PublishTermsRequest
 
+// PutTokenSettingsJSONRequestBody defines body for PutTokenSettings for application/json ContentType.
+type PutTokenSettingsJSONRequestBody = TokenSettings
+
+// CreatePlatformStorageTargetJSONRequestBody defines body for CreatePlatformStorageTarget for application/json ContentType.
+type CreatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
+
+// UpdatePlatformStorageTargetJSONRequestBody defines body for UpdatePlatformStorageTarget for application/json ContentType.
+type UpdatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
+
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUserRequest
 
 // RegisterAgentJSONRequestBody defines body for RegisterAgent for application/json ContentType.
 type RegisterAgentJSONRequestBody = AgentRegisterRequest
+
+// StartDeviceLoginJSONRequestBody defines body for StartDeviceLogin for application/json ContentType.
+type StartDeviceLoginJSONRequestBody = DeviceStartRequest
+
+// ApproveDeviceLoginJSONRequestBody defines body for ApproveDeviceLogin for application/json ContentType.
+type ApproveDeviceLoginJSONRequestBody = DeviceApproveRequest
+
+// PollDeviceLoginJSONRequestBody defines body for PollDeviceLogin for application/json ContentType.
+type PollDeviceLoginJSONRequestBody = DevicePollRequest
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
@@ -2610,6 +4944,9 @@ type CreateSharedClusterJSONRequestBody = SharedClusterRequest
 // CreateOrgJSONRequestBody defines body for CreateOrg for application/json ContentType.
 type CreateOrgJSONRequestBody = CreateOrgRequest
 
+// DeleteOrgJSONRequestBody defines body for DeleteOrg for application/json ContentType.
+type DeleteOrgJSONRequestBody = DeleteOrgRequest
+
 // UpdateOrgJSONRequestBody defines body for UpdateOrg for application/json ContentType.
 type UpdateOrgJSONRequestBody = UpdateOrgRequest
 
@@ -2619,17 +4956,41 @@ type InviteOrgMemberJSONRequestBody = InviteRequest
 // UpdateOrgMemberJSONRequestBody defines body for UpdateOrgMember for application/json ContentType.
 type UpdateOrgMemberJSONRequestBody = OrgRoleRequest
 
+// CreateOrgStorageTargetJSONRequestBody defines body for CreateOrgStorageTarget for application/json ContentType.
+type CreateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
+// UpdateOrgStorageTargetJSONRequestBody defines body for UpdateOrgStorageTarget for application/json ContentType.
+type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
 
+// EnableProjectBackupKeyJSONRequestBody defines body for EnableProjectBackupKey for application/json ContentType.
+type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
+
+// CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
+type CreateBranchJSONRequestBody = BranchRequest
+
+// DemoteProjectJSONRequestBody defines body for DemoteProject for application/json ContentType.
+type DemoteProjectJSONRequestBody = DemoteRequest
+
+// DemotePreflightJSONRequestBody defines body for DemotePreflight for application/json ContentType.
+type DemotePreflightJSONRequestBody = DemoteRequest
+
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
+
+// CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
+type CreateJobJSONRequestBody = JobRequest
+
+// UpdateJobJSONRequestBody defines body for UpdateJob for application/json ContentType.
+type UpdateJobJSONRequestBody = JobUpdate
 
 // AddProjectMemberJSONRequestBody defines body for AddProjectMember for application/json ContentType.
 type AddProjectMemberJSONRequestBody = ProjectMemberRequest
@@ -2643,6 +5004,21 @@ type RestoreProjectPITRJSONRequestBody = PitrRequest
 // PromoteProjectJSONRequestBody defines body for PromoteProject for application/json ContentType.
 type PromoteProjectJSONRequestBody = PromoteRequest
 
+// ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
+type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
+
+// ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
+type ResetBranchJSONRequestBody = BranchResetRequest
+
+// ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
+type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
+
+// SchemaMigrationJSONRequestBody defines body for SchemaMigration for application/json ContentType.
+type SchemaMigrationJSONRequestBody = SchemaMigrationRequest
+
+// PreviewSchemaChangeJSONRequestBody defines body for PreviewSchemaChange for application/json ContentType.
+type PreviewSchemaChangeJSONRequestBody = SchemaPreviewRequest
+
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
@@ -2652,8 +5028,26 @@ type RunSQLJSONRequestBody = SqlRequest
 // CancelSQLJSONRequestBody defines body for CancelSQL for application/json ContentType.
 type CancelSQLJSONRequestBody = SqlCancelRequest
 
+// SetProjectStorageTargetJSONRequestBody defines body for SetProjectStorageTarget for application/json ContentType.
+type SetProjectStorageTargetJSONRequestBody = ProjectStorageTargetRequest
+
+// SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
+type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
+
+// SaveTableChangesJSONRequestBody defines body for SaveTableChanges for application/json ContentType.
+type SaveTableChangesJSONRequestBody = SaveRowsRequest
+
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
+
+// CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
+type CreateWebhookJSONRequestBody = WebhookRequest
+
+// UpdateWebhookJSONRequestBody defines body for UpdateWebhook for application/json ContentType.
+type UpdateWebhookJSONRequestBody = WebhookUpdate
+
+// ReplayWebhookJSONRequestBody defines body for ReplayWebhook for application/json ContentType.
+type ReplayWebhookJSONRequestBody = ReplayRequest
 
 // PutAlertSettingsJSONRequestBody defines body for PutAlertSettings for application/json ContentType.
 type PutAlertSettingsJSONRequestBody = AlertSettingsRequest
@@ -2679,11 +5073,26 @@ type BeginSetupJSONRequestBody = SetupBeginRequest
 // CompleteSetupJSONRequestBody defines body for CompleteSetup for application/json ContentType.
 type CompleteSetupJSONRequestBody = SetupCompleteRequest
 
+// TestStorageTargetJSONRequestBody defines body for TestStorageTarget for application/json ContentType.
+type TestStorageTargetJSONRequestBody = StorageTargetTestRequest
+
+// CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
+type CreateTokenJSONRequestBody = CreateTokenRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListPlatformAudit The platform audit log, newest first (platform admin)
 	// (GET /api/v1/admin/audit)
 	ListPlatformAudit(w http.ResponseWriter, r *http.Request, params ListPlatformAuditParams)
+	// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
+	// (GET /api/v1/admin/dedicated-requests)
+	ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams)
+	// ApproveDedicatedRequest Approve a dedicated request; the promotion starts (platform admin)
+	// (POST /api/v1/admin/dedicated-requests/{request_id}/approve)
+	ApproveDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
+	// RejectDedicatedRequest Reject a dedicated request (platform admin)
+	// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
+	RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
 	// ListPlatformInvitations Pending platform invitations (platform admin)
 	// (GET /api/v1/admin/invitations)
 	ListPlatformInvitations(w http.ResponseWriter, r *http.Request)
@@ -2693,6 +5102,42 @@ type ServerInterface interface {
 	// RevokePlatformInvitation Revoke a platform invitation (platform admin)
 	// (DELETE /api/v1/admin/invitations/{invitation_id})
 	RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID)
+	// AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
+	// (GET /api/v1/admin/orgs)
+	AdminListOrgs(w http.ResponseWriter, r *http.Request, params AdminListOrgsParams)
+	// AdminGetOrg One organisation's plan, limits, allowance, and clusters (platform admin)
+	// (GET /api/v1/admin/orgs/{org})
+	AdminGetOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
+	// (PATCH /api/v1/admin/orgs/{org})
+	AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
+	// (POST /api/v1/admin/orgs/{org}/break-glass)
+	AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
+	// (POST /api/v1/admin/orgs/{org}/cluster)
+	AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+	// (GET /api/v1/admin/orgs/{org}/outbound)
+	AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSetOrgOutboundAllowlist Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+	// (PUT /api/v1/admin/orgs/{org}/outbound)
+	AdminSetOrgOutboundAllowlist(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminReinstateOrg Reinstate a suspended organisation (platform admin)
+	// (POST /api/v1/admin/orgs/{org}/reinstate)
+	AdminReinstateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSuspendOrg Suspend an organisation (platform admin)
+	// (POST /api/v1/admin/orgs/{org}/suspend)
+	AdminSuspendOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListPlans Quota plan templates (platform admin)
+	// (GET /api/v1/admin/plans)
+	ListPlans(w http.ResponseWriter, r *http.Request)
+	// CreatePlan Add a quota plan template (platform admin)
+	// (POST /api/v1/admin/plans)
+	CreatePlan(w http.ResponseWriter, r *http.Request)
+	// UpdatePlan Change a quota plan template (platform admin)
+	// (PATCH /api/v1/admin/plans/{plan_id})
+	UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID)
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	// (GET /api/v1/admin/settings/mail)
 	GetMailSettings(w http.ResponseWriter, r *http.Request)
@@ -2708,6 +5153,33 @@ type ServerInterface interface {
 	// PublishTerms Publish a new version of the terms and privacy notice (platform admin)
 	// (POST /api/v1/admin/settings/terms)
 	PublishTerms(w http.ResponseWriter, r *http.Request)
+	// GetTokenSettings Platform-wide token rules
+	// (GET /api/v1/admin/settings/tokens)
+	GetTokenSettings(w http.ResponseWriter, r *http.Request)
+	// PutTokenSettings Change the platform-wide token rules
+	// (PUT /api/v1/admin/settings/tokens)
+	PutTokenSettings(w http.ResponseWriter, r *http.Request)
+	// ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
+	// (GET /api/v1/admin/shared-clusters)
+	ListSharedClusters(w http.ResponseWriter, r *http.Request)
+	// ListPlatformStorageTargets Platform storage targets (platform admin)
+	// (GET /api/v1/admin/storage-targets)
+	ListPlatformStorageTargets(w http.ResponseWriter, r *http.Request)
+	// CreatePlatformStorageTarget Add a platform target after a live test (platform admin)
+	// (POST /api/v1/admin/storage-targets)
+	CreatePlatformStorageTarget(w http.ResponseWriter, r *http.Request)
+	// DeletePlatformStorageTarget Delete a platform target (platform admin)
+	// (DELETE /api/v1/admin/storage-targets/{target_id})
+	DeletePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID, params DeletePlatformStorageTargetParams)
+	// GetPlatformStorageTarget One platform target (platform admin)
+	// (GET /api/v1/admin/storage-targets/{target_id})
+	GetPlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID)
+	// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
+	// (PATCH /api/v1/admin/storage-targets/{target_id})
+	UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID)
+	// PlatformUsage Usage totals per organisation (platform admin)
+	// (GET /api/v1/admin/usage)
+	PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams)
 	// ListUsers Every account (platform admin)
 	// (GET /api/v1/admin/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, params ListUsersParams)
@@ -2723,6 +5195,18 @@ type ServerInterface interface {
 	// ListAlerts Alerts, firing first
 	// (GET /api/v1/alerts)
 	ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams)
+	// StartDeviceLogin Start a CLI device login
+	// (POST /api/v1/auth/device)
+	StartDeviceLogin(w http.ResponseWriter, r *http.Request)
+	// ApproveDeviceLogin Approve (or deny) a device login
+	// (POST /api/v1/auth/device/approve)
+	ApproveDeviceLogin(w http.ResponseWriter, r *http.Request)
+	// GetDeviceLogin A pending device login, for the approval page
+	// (GET /api/v1/auth/device/requests/{user_code})
+	GetDeviceLogin(w http.ResponseWriter, r *http.Request, userCode string)
+	// PollDeviceLogin Collect a device login's token
+	// (POST /api/v1/auth/device/token)
+	PollDeviceLogin(w http.ResponseWriter, r *http.Request)
 	// PostAuthLogin Email + password login; returns a TOTP challenge
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
@@ -2756,6 +5240,9 @@ type ServerInterface interface {
 	// GetBackupOverview Backup configuration and health at a glance
 	// (GET /api/v1/backups/overview)
 	GetBackupOverview(w http.ResponseWriter, r *http.Request, params GetBackupOverviewParams)
+	// DownloadBackup Download a backup as a plain pg_dump archive (organisation owners)
+	// (GET /api/v1/backups/{id}/download)
+	DownloadBackup(w http.ResponseWriter, r *http.Request, id BackupID)
 	// RestoreBackup Restore a backup into a new project or in place
 	// (POST /api/v1/backups/{id}/restore)
 	RestoreBackup(w http.ResponseWriter, r *http.Request, id BackupID)
@@ -2843,6 +5330,9 @@ type ServerInterface interface {
 	// CreateOrg Create an organisation; you become its owner
 	// (POST /api/v1/orgs)
 	CreateOrg(w http.ResponseWriter, r *http.Request)
+	// DeleteOrg Delete an organisation after a 7-day grace period (owner, step-up auth)
+	// (DELETE /api/v1/orgs/{org})
+	DeleteOrg(w http.ResponseWriter, r *http.Request, org OrgID)
 	// GetOrg One organisation
 	// (GET /api/v1/orgs/{org})
 	GetOrg(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -2852,6 +5342,15 @@ type ServerInterface interface {
 	// ListOrgAudit The organisation's audit log, newest first
 	// (GET /api/v1/orgs/{org}/audit)
 	ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams)
+	// EndBreakGlass End a break-glass session early (owner)
+	// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
+	EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID)
+	// CancelOrgDeletion Cancel a pending organisation deletion (owner)
+	// (POST /api/v1/orgs/{org}/cancel-deletion)
+	CancelOrgDeletion(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgDedicatedRequests The organisation's dedicated instance requests
+	// (GET /api/v1/orgs/{org}/dedicated-requests)
+	ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListOrgInvitations Pending invitations
 	// (GET /api/v1/orgs/{org}/invitations)
 	ListOrgInvitations(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -2873,9 +5372,36 @@ type ServerInterface interface {
 	// UpdateOrgMember Change a member's organisation role
 	// (PATCH /api/v1/orgs/{org}/members/{user})
 	UpdateOrgMember(w http.ResponseWriter, r *http.Request, org OrgID, user UserID)
+	// GetOrgQuotas The organisation's plan, limits, and current use (V2 §10.3)
+	// (GET /api/v1/orgs/{org}/quotas)
+	GetOrgQuotas(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgStorageTargets The organisation's own backup storage targets (owners and admins)
+	// (GET /api/v1/orgs/{org}/storage-targets)
+	ListOrgStorageTargets(w http.ResponseWriter, r *http.Request, org OrgID)
+	// CreateOrgStorageTarget Add an org target after a live test
+	// (POST /api/v1/orgs/{org}/storage-targets)
+	CreateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID)
+	// DeleteOrgStorageTarget Delete an org target
+	// (DELETE /api/v1/orgs/{org}/storage-targets/{target_id})
+	DeleteOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID, params DeleteOrgStorageTargetParams)
+	// GetOrgStorageTarget One org target (never its credentials)
+	// (GET /api/v1/orgs/{org}/storage-targets/{target_id})
+	GetOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID)
+	// UpdateOrgStorageTarget Change an org target after a live test
+	// (PATCH /api/v1/orgs/{org}/storage-targets/{target_id})
+	UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID)
+	// ListOrgTokens Every token scoped to the organisation (owners and admins)
+	// (GET /api/v1/orgs/{org}/tokens)
+	ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RevokeOrgToken Revoke any token scoped to the organisation (owners and admins)
+	// (DELETE /api/v1/orgs/{org}/tokens/{token_id})
+	RevokeOrgToken(w http.ResponseWriter, r *http.Request, org OrgID, tokenId TokenID)
 	// TransferOrgOwnership Make another member an owner and step down to admin
 	// (POST /api/v1/orgs/{org}/transfer-ownership)
 	TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
+	// (GET /api/v1/orgs/{org}/usage)
+	GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams)
 	// ListProfiles Dedicated instance sizes
 	// (GET /api/v1/profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
@@ -2894,15 +5420,39 @@ type ServerInterface interface {
 	// ListProjectAudit The project's slice of its organisation's audit log
 	// (GET /api/v1/projects/{id}/audit)
 	ListProjectAudit(w http.ResponseWriter, r *http.Request, id ProjectID, params ListProjectAuditParams)
+	// EnableProjectBackupKey Give the project its own backup key
+	// (POST /api/v1/projects/{id}/backup-key)
+	EnableProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DownloadProjectBackupKey Download the project's backup key with a README (re-authentication)
+	// (GET /api/v1/projects/{id}/backup-key/download)
+	DownloadProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// CreateProjectBackup Back up a project now
 	// (POST /api/v1/projects/{id}/backups)
 	CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListBranches The project's branches (V2 §8)
+	// (GET /api/v1/projects/{id}/branches)
+	ListBranches(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateBranch Branch the project
+	// (POST /api/v1/projects/{id}/branches)
+	CreateBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetMyCredentials Your personal database login on this project, if any (no password)
 	// (GET /api/v1/projects/{id}/credentials)
 	GetMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// IssueMyCredentials Create or rotate your personal database login; the password is shown once
 	// (POST /api/v1/projects/{id}/credentials)
 	IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DemoteProject Demote a dedicated project to the shared tier
+	// (POST /api/v1/projects/{id}/demote)
+	DemoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DemotePreflight Check whether this dedicated project can move back to the shared tier
+	// (POST /api/v1/projects/{id}/demote/preflight)
+	DemotePreflight(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DetachBranch Detach a branch into a standalone project
+	// (POST /api/v1/projects/{id}/detach)
+	DetachBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetEditorPreferences Your table-editor preferences for this project
+	// (GET /api/v1/projects/{id}/editor-preferences)
+	GetEditorPreferences(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ListProjectExtensions The extension allow-list and what is installed
 	// (GET /api/v1/projects/{id}/extensions)
 	ListProjectExtensions(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -2912,6 +5462,27 @@ type ServerInterface interface {
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListJobs A project's scheduled jobs
+	// (GET /api/v1/projects/{id}/jobs)
+	ListJobs(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateJob Run SQL or call a URL on a schedule
+	// (POST /api/v1/projects/{id}/jobs)
+	CreateJob(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteJob Delete a job and its history
+	// (DELETE /api/v1/projects/{id}/jobs/{job_id})
+	DeleteJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// GetJob A scheduled job
+	// (GET /api/v1/projects/{id}/jobs/{job_id})
+	GetJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// UpdateJob Change, pause or resume a job
+	// (PATCH /api/v1/projects/{id}/jobs/{job_id})
+	UpdateJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// RunJob Run a job now
+	// (POST /api/v1/projects/{id}/jobs/{job_id}/run)
+	RunJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID)
+	// ListJobRuns A job's history (30 days, at most 1,000 runs)
+	// (GET /api/v1/projects/{id}/jobs/{job_id}/runs)
+	ListJobRuns(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID, params ListJobRunsParams)
 	// ListProjectMembers Project members (org owners and admins are implicit admins)
 	// (GET /api/v1/projects/{id}/members)
 	ListProjectMembers(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -2936,12 +5507,30 @@ type ServerInterface interface {
 	// PromoteProject Promote a shared project to a dedicated instance
 	// (POST /api/v1/projects/{id}/promote)
 	PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
+	// (GET /api/v1/projects/{id}/reaped)
+	ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
+	// (POST /api/v1/projects/{id}/reclaim-space)
+	ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ResetBranch Reset a branch from its parent
+	// (POST /api/v1/projects/{id}/reset)
+	ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetProjectSchema Schemas, tables and views, with columns and indexes
 	// (GET /api/v1/projects/{id}/schema)
 	GetProjectSchema(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ApplySchemaChange Run a previewed schema change
+	// (POST /api/v1/projects/{id}/schema/apply)
+	ApplySchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SchemaMigration Render a schema change as a migration file (plain SQL, goose, or dbmate)
+	// (POST /api/v1/projects/{id}/schema/migration)
+	SchemaMigration(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
+	// (POST /api/v1/projects/{id}/schema/preview)
+	PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -2951,12 +5540,60 @@ type ServerInterface interface {
 	// CancelSQL Cancel a running console query
 	// (POST /api/v1/projects/{id}/sql/cancel)
 	CancelSQL(w http.ResponseWriter, r *http.Request, id ProjectID)
-	// GetTableRows A page of a table's rows (read-only)
+	// GetProjectStorage Size against the storage limit, lock state, and the largest tables
+	// (GET /api/v1/projects/{id}/storage)
+	GetProjectStorage(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectStorageTarget Where the project's backups go, its key, and the targets it can use
+	// (GET /api/v1/projects/{id}/storage-target)
+	GetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SetProjectStorageTarget Send the project's new backups to another target
+	// (PUT /api/v1/projects/{id}/storage-target)
+	SetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
+	// (POST /api/v1/projects/{id}/switch-credentials)
+	SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table})
+	GetTableInfo(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
+	// SaveTableChanges Save staged row edits in one transaction
+	// (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
+	SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
+	// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/export)
+	ExportTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params ExportTableRowsParams)
+	// GetTableRows A page of a table's rows, filtered and sorted
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
 	GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams)
 	// TransferProject Move the project to another organisation (owner of both)
 	// (POST /api/v1/projects/{id}/transfer)
 	TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListWebhooks A project's webhooks, with their health and backlog
+	// (GET /api/v1/projects/{id}/webhooks)
+	ListWebhooks(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateWebhook Send a table's changes to a URL
+	// (POST /api/v1/projects/{id}/webhooks)
+	CreateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteWebhook Delete a webhook, its triggers and its queued events
+	// (DELETE /api/v1/projects/{id}/webhooks/{webhook_id})
+	DeleteWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// GetWebhook A webhook
+	// (GET /api/v1/projects/{id}/webhooks/{webhook_id})
+	GetWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// UpdateWebhook Change, pause or resume a webhook
+	// (PATCH /api/v1/projects/{id}/webhooks/{webhook_id})
+	UpdateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// ListWebhookDeliveries The delivery log (7 days), or the dead letters
+	// (GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries)
+	ListWebhookDeliveries(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID, params ListWebhookDeliveriesParams)
+	// ReplayWebhook Queue dead letters again
+	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay)
+	ReplayWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// RotateWebhookSecret Replace the signing secret (returned once)
+	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret)
+	RotateWebhookSecret(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// TestWebhook Send a test event now
+	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
+	TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
 	// RunRestoreTest Run the restore test now
 	// (POST /api/v1/restore-tests)
 	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
@@ -3005,7 +5642,7 @@ type ServerInterface interface {
 	// PutStorageSettings Save the backup storage target after a live test
 	// (PUT /api/v1/settings/storage)
 	PutStorageSettings(w http.ResponseWriter, r *http.Request)
-	// TestStorageSettings Run the live write/read/delete test without saving
+	// TestStorageSettings Run the live write/read/list/delete test without saving
 	// (POST /api/v1/settings/storage/test)
 	TestStorageSettings(w http.ResponseWriter, r *http.Request)
 	// BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
@@ -3014,9 +5651,21 @@ type ServerInterface interface {
 	// CompleteSetup First-run setup, step 2 - confirm TOTP and create the owner
 	// (POST /api/v1/setup/complete)
 	CompleteSetup(w http.ResponseWriter, r *http.Request)
+	// TestStorageTarget Run the live write/read/list/delete test without saving
+	// (POST /api/v1/storage-targets/test)
+	TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams)
 	// GetTerms The current terms of use and privacy notice (public)
 	// (GET /api/v1/terms)
 	GetTerms(w http.ResponseWriter, r *http.Request)
+	// ListMyTokens Your API tokens (only the calling token's organisation, with a token)
+	// (GET /api/v1/tokens)
+	ListMyTokens(w http.ResponseWriter, r *http.Request)
+	// CreateToken Create an API token, shown once
+	// (POST /api/v1/tokens)
+	CreateToken(w http.ResponseWriter, r *http.Request)
+	// RevokeMyToken Revoke one of your tokens
+	// (DELETE /api/v1/tokens/{token_id})
+	RevokeMyToken(w http.ResponseWriter, r *http.Request, tokenId TokenID)
 	// GetVersion Build information for this server
 	// (GET /api/v1/version)
 	GetVersion(w http.ResponseWriter, r *http.Request)
@@ -3041,6 +5690,24 @@ func (_ Unimplemented) ListPlatformAudit(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
+// (GET /api/v1/admin/dedicated-requests)
+func (_ Unimplemented) ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveDedicatedRequest Approve a dedicated request; the promotion starts (platform admin)
+// (POST /api/v1/admin/dedicated-requests/{request_id}/approve)
+func (_ Unimplemented) ApproveDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectDedicatedRequest Reject a dedicated request (platform admin)
+// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
+func (_ Unimplemented) RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListPlatformInvitations Pending platform invitations (platform admin)
 // (GET /api/v1/admin/invitations)
 func (_ Unimplemented) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
@@ -3056,6 +5723,78 @@ func (_ Unimplemented) CreatePlatformInvitation(w http.ResponseWriter, r *http.R
 // RevokePlatformInvitation Revoke a platform invitation (platform admin)
 // (DELETE /api/v1/admin/invitations/{invitation_id})
 func (_ Unimplemented) RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
+// (GET /api/v1/admin/orgs)
+func (_ Unimplemented) AdminListOrgs(w http.ResponseWriter, r *http.Request, params AdminListOrgsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetOrg One organisation's plan, limits, allowance, and clusters (platform admin)
+// (GET /api/v1/admin/orgs/{org})
+func (_ Unimplemented) AdminGetOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
+// (PATCH /api/v1/admin/orgs/{org})
+func (_ Unimplemented) AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
+// (POST /api/v1/admin/orgs/{org}/break-glass)
+func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
+// (POST /api/v1/admin/orgs/{org}/cluster)
+func (_ Unimplemented) AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
+// (GET /api/v1/admin/orgs/{org}/outbound)
+func (_ Unimplemented) AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSetOrgOutboundAllowlist Set the internal hosts an organisation's webhooks and HTTP jobs may reach (platform admin)
+// (PUT /api/v1/admin/orgs/{org}/outbound)
+func (_ Unimplemented) AdminSetOrgOutboundAllowlist(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminReinstateOrg Reinstate a suspended organisation (platform admin)
+// (POST /api/v1/admin/orgs/{org}/reinstate)
+func (_ Unimplemented) AdminReinstateOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSuspendOrg Suspend an organisation (platform admin)
+// (POST /api/v1/admin/orgs/{org}/suspend)
+func (_ Unimplemented) AdminSuspendOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPlans Quota plan templates (platform admin)
+// (GET /api/v1/admin/plans)
+func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreatePlan Add a quota plan template (platform admin)
+// (POST /api/v1/admin/plans)
+func (_ Unimplemented) CreatePlan(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePlan Change a quota plan template (platform admin)
+// (PATCH /api/v1/admin/plans/{plan_id})
+func (_ Unimplemented) UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3089,6 +5828,60 @@ func (_ Unimplemented) PublishTerms(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetTokenSettings Platform-wide token rules
+// (GET /api/v1/admin/settings/tokens)
+func (_ Unimplemented) GetTokenSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutTokenSettings Change the platform-wide token rules
+// (PUT /api/v1/admin/settings/tokens)
+func (_ Unimplemented) PutTokenSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
+// (GET /api/v1/admin/shared-clusters)
+func (_ Unimplemented) ListSharedClusters(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPlatformStorageTargets Platform storage targets (platform admin)
+// (GET /api/v1/admin/storage-targets)
+func (_ Unimplemented) ListPlatformStorageTargets(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreatePlatformStorageTarget Add a platform target after a live test (platform admin)
+// (POST /api/v1/admin/storage-targets)
+func (_ Unimplemented) CreatePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeletePlatformStorageTarget Delete a platform target (platform admin)
+// (DELETE /api/v1/admin/storage-targets/{target_id})
+func (_ Unimplemented) DeletePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID, params DeletePlatformStorageTargetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPlatformStorageTarget One platform target (platform admin)
+// (GET /api/v1/admin/storage-targets/{target_id})
+func (_ Unimplemented) GetPlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
+// (PATCH /api/v1/admin/storage-targets/{target_id})
+func (_ Unimplemented) UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PlatformUsage Usage totals per organisation (platform admin)
+// (GET /api/v1/admin/usage)
+func (_ Unimplemented) PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListUsers Every account (platform admin)
 // (GET /api/v1/admin/users)
 func (_ Unimplemented) ListUsers(w http.ResponseWriter, r *http.Request, params ListUsersParams) {
@@ -3116,6 +5909,30 @@ func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 // ListAlerts Alerts, firing first
 // (GET /api/v1/alerts)
 func (_ Unimplemented) ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartDeviceLogin Start a CLI device login
+// (POST /api/v1/auth/device)
+func (_ Unimplemented) StartDeviceLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveDeviceLogin Approve (or deny) a device login
+// (POST /api/v1/auth/device/approve)
+func (_ Unimplemented) ApproveDeviceLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetDeviceLogin A pending device login, for the approval page
+// (GET /api/v1/auth/device/requests/{user_code})
+func (_ Unimplemented) GetDeviceLogin(w http.ResponseWriter, r *http.Request, userCode string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PollDeviceLogin Collect a device login's token
+// (POST /api/v1/auth/device/token)
+func (_ Unimplemented) PollDeviceLogin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3182,6 +5999,12 @@ func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request, param
 // GetBackupOverview Backup configuration and health at a glance
 // (GET /api/v1/backups/overview)
 func (_ Unimplemented) GetBackupOverview(w http.ResponseWriter, r *http.Request, params GetBackupOverviewParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DownloadBackup Download a backup as a plain pg_dump archive (organisation owners)
+// (GET /api/v1/backups/{id}/download)
+func (_ Unimplemented) DownloadBackup(w http.ResponseWriter, r *http.Request, id BackupID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3359,6 +6182,12 @@ func (_ Unimplemented) CreateOrg(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// DeleteOrg Delete an organisation after a 7-day grace period (owner, step-up auth)
+// (DELETE /api/v1/orgs/{org})
+func (_ Unimplemented) DeleteOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetOrg One organisation
 // (GET /api/v1/orgs/{org})
 func (_ Unimplemented) GetOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -3374,6 +6203,24 @@ func (_ Unimplemented) UpdateOrg(w http.ResponseWriter, r *http.Request, org Org
 // ListOrgAudit The organisation's audit log, newest first
 // (GET /api/v1/orgs/{org}/audit)
 func (_ Unimplemented) ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EndBreakGlass End a break-glass session early (owner)
+// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
+func (_ Unimplemented) EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CancelOrgDeletion Cancel a pending organisation deletion (owner)
+// (POST /api/v1/orgs/{org}/cancel-deletion)
+func (_ Unimplemented) CancelOrgDeletion(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgDedicatedRequests The organisation's dedicated instance requests
+// (GET /api/v1/orgs/{org}/dedicated-requests)
+func (_ Unimplemented) ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3419,9 +6266,63 @@ func (_ Unimplemented) UpdateOrgMember(w http.ResponseWriter, r *http.Request, o
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetOrgQuotas The organisation's plan, limits, and current use (V2 §10.3)
+// (GET /api/v1/orgs/{org}/quotas)
+func (_ Unimplemented) GetOrgQuotas(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgStorageTargets The organisation's own backup storage targets (owners and admins)
+// (GET /api/v1/orgs/{org}/storage-targets)
+func (_ Unimplemented) ListOrgStorageTargets(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateOrgStorageTarget Add an org target after a live test
+// (POST /api/v1/orgs/{org}/storage-targets)
+func (_ Unimplemented) CreateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteOrgStorageTarget Delete an org target
+// (DELETE /api/v1/orgs/{org}/storage-targets/{target_id})
+func (_ Unimplemented) DeleteOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID, params DeleteOrgStorageTargetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgStorageTarget One org target (never its credentials)
+// (GET /api/v1/orgs/{org}/storage-targets/{target_id})
+func (_ Unimplemented) GetOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateOrgStorageTarget Change an org target after a live test
+// (PATCH /api/v1/orgs/{org}/storage-targets/{target_id})
+func (_ Unimplemented) UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgTokens Every token scoped to the organisation (owners and admins)
+// (GET /api/v1/orgs/{org}/tokens)
+func (_ Unimplemented) ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeOrgToken Revoke any token scoped to the organisation (owners and admins)
+// (DELETE /api/v1/orgs/{org}/tokens/{token_id})
+func (_ Unimplemented) RevokeOrgToken(w http.ResponseWriter, r *http.Request, org OrgID, tokenId TokenID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // TransferOrgOwnership Make another member an owner and step down to admin
 // (POST /api/v1/orgs/{org}/transfer-ownership)
 func (_ Unimplemented) TransferOrgOwnership(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
+// (GET /api/v1/orgs/{org}/usage)
+func (_ Unimplemented) GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3461,9 +6362,33 @@ func (_ Unimplemented) ListProjectAudit(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// EnableProjectBackupKey Give the project its own backup key
+// (POST /api/v1/projects/{id}/backup-key)
+func (_ Unimplemented) EnableProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DownloadProjectBackupKey Download the project's backup key with a README (re-authentication)
+// (GET /api/v1/projects/{id}/backup-key/download)
+func (_ Unimplemented) DownloadProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CreateProjectBackup Back up a project now
 // (POST /api/v1/projects/{id}/backups)
 func (_ Unimplemented) CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListBranches The project's branches (V2 §8)
+// (GET /api/v1/projects/{id}/branches)
+func (_ Unimplemented) ListBranches(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateBranch Branch the project
+// (POST /api/v1/projects/{id}/branches)
+func (_ Unimplemented) CreateBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3476,6 +6401,30 @@ func (_ Unimplemented) GetMyCredentials(w http.ResponseWriter, r *http.Request, 
 // IssueMyCredentials Create or rotate your personal database login; the password is shown once
 // (POST /api/v1/projects/{id}/credentials)
 func (_ Unimplemented) IssueMyCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DemoteProject Demote a dedicated project to the shared tier
+// (POST /api/v1/projects/{id}/demote)
+func (_ Unimplemented) DemoteProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DemotePreflight Check whether this dedicated project can move back to the shared tier
+// (POST /api/v1/projects/{id}/demote/preflight)
+func (_ Unimplemented) DemotePreflight(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DetachBranch Detach a branch into a standalone project
+// (POST /api/v1/projects/{id}/detach)
+func (_ Unimplemented) DetachBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetEditorPreferences Your table-editor preferences for this project
+// (GET /api/v1/projects/{id}/editor-preferences)
+func (_ Unimplemented) GetEditorPreferences(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3494,6 +6443,48 @@ func (_ Unimplemented) EnableProjectExtension(w http.ResponseWriter, r *http.Req
 // ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 // (POST /api/v1/projects/{id}/instance)
 func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListJobs A project's scheduled jobs
+// (GET /api/v1/projects/{id}/jobs)
+func (_ Unimplemented) ListJobs(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateJob Run SQL or call a URL on a schedule
+// (POST /api/v1/projects/{id}/jobs)
+func (_ Unimplemented) CreateJob(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteJob Delete a job and its history
+// (DELETE /api/v1/projects/{id}/jobs/{job_id})
+func (_ Unimplemented) DeleteJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetJob A scheduled job
+// (GET /api/v1/projects/{id}/jobs/{job_id})
+func (_ Unimplemented) GetJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateJob Change, pause or resume a job
+// (PATCH /api/v1/projects/{id}/jobs/{job_id})
+func (_ Unimplemented) UpdateJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RunJob Run a job now
+// (POST /api/v1/projects/{id}/jobs/{job_id}/run)
+func (_ Unimplemented) RunJob(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListJobRuns A job's history (30 days, at most 1,000 runs)
+// (GET /api/v1/projects/{id}/jobs/{job_id}/runs)
+func (_ Unimplemented) ListJobRuns(w http.ResponseWriter, r *http.Request, id ProjectID, jobId JobID, params ListJobRunsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3545,6 +6536,24 @@ func (_ Unimplemented) PromoteProject(w http.ResponseWriter, r *http.Request, id
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
+// (GET /api/v1/projects/{id}/reaped)
+func (_ Unimplemented) ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
+// (POST /api/v1/projects/{id}/reclaim-space)
+func (_ Unimplemented) ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResetBranch Reset a branch from its parent
+// (POST /api/v1/projects/{id}/reset)
+func (_ Unimplemented) ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // RotateProjectPassword Rotate the project password
 // (POST /api/v1/projects/{id}/rotate-password)
 func (_ Unimplemented) RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -3554,6 +6563,24 @@ func (_ Unimplemented) RotateProjectPassword(w http.ResponseWriter, r *http.Requ
 // GetProjectSchema Schemas, tables and views, with columns and indexes
 // (GET /api/v1/projects/{id}/schema)
 func (_ Unimplemented) GetProjectSchema(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApplySchemaChange Run a previewed schema change
+// (POST /api/v1/projects/{id}/schema/apply)
+func (_ Unimplemented) ApplySchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SchemaMigration Render a schema change as a migration file (plain SQL, goose, or dbmate)
+// (POST /api/v1/projects/{id}/schema/migration)
+func (_ Unimplemented) SchemaMigration(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
+// (POST /api/v1/projects/{id}/schema/preview)
+func (_ Unimplemented) PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3575,7 +6602,49 @@ func (_ Unimplemented) CancelSQL(w http.ResponseWriter, r *http.Request, id Proj
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// GetTableRows A page of a table's rows (read-only)
+// GetProjectStorage Size against the storage limit, lock state, and the largest tables
+// (GET /api/v1/projects/{id}/storage)
+func (_ Unimplemented) GetProjectStorage(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProjectStorageTarget Where the project's backups go, its key, and the targets it can use
+// (GET /api/v1/projects/{id}/storage-target)
+func (_ Unimplemented) GetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetProjectStorageTarget Send the project's new backups to another target
+// (PUT /api/v1/projects/{id}/storage-target)
+func (_ Unimplemented) SetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
+// (POST /api/v1/projects/{id}/switch-credentials)
+func (_ Unimplemented) SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
+// (GET /api/v1/projects/{id}/tables/{schema}/{table})
+func (_ Unimplemented) GetTableInfo(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SaveTableChanges Save staged row edits in one transaction
+// (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
+func (_ Unimplemented) SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
+// (GET /api/v1/projects/{id}/tables/{schema}/{table}/export)
+func (_ Unimplemented) ExportTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params ExportTableRowsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTableRows A page of a table's rows, filtered and sorted
 // (GET /api/v1/projects/{id}/tables/{schema}/{table}/rows)
 func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string, params GetTableRowsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -3584,6 +6653,60 @@ func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id P
 // TransferProject Move the project to another organisation (owner of both)
 // (POST /api/v1/projects/{id}/transfer)
 func (_ Unimplemented) TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListWebhooks A project's webhooks, with their health and backlog
+// (GET /api/v1/projects/{id}/webhooks)
+func (_ Unimplemented) ListWebhooks(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateWebhook Send a table's changes to a URL
+// (POST /api/v1/projects/{id}/webhooks)
+func (_ Unimplemented) CreateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteWebhook Delete a webhook, its triggers and its queued events
+// (DELETE /api/v1/projects/{id}/webhooks/{webhook_id})
+func (_ Unimplemented) DeleteWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetWebhook A webhook
+// (GET /api/v1/projects/{id}/webhooks/{webhook_id})
+func (_ Unimplemented) GetWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateWebhook Change, pause or resume a webhook
+// (PATCH /api/v1/projects/{id}/webhooks/{webhook_id})
+func (_ Unimplemented) UpdateWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListWebhookDeliveries The delivery log (7 days), or the dead letters
+// (GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries)
+func (_ Unimplemented) ListWebhookDeliveries(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID, params ListWebhookDeliveriesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReplayWebhook Queue dead letters again
+// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay)
+func (_ Unimplemented) ReplayWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RotateWebhookSecret Replace the signing secret (returned once)
+// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret)
+func (_ Unimplemented) RotateWebhookSecret(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestWebhook Send a test event now
+// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
+func (_ Unimplemented) TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3683,7 +6806,7 @@ func (_ Unimplemented) PutStorageSettings(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// TestStorageSettings Run the live write/read/delete test without saving
+// TestStorageSettings Run the live write/read/list/delete test without saving
 // (POST /api/v1/settings/storage/test)
 func (_ Unimplemented) TestStorageSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -3701,9 +6824,33 @@ func (_ Unimplemented) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// TestStorageTarget Run the live write/read/list/delete test without saving
+// (POST /api/v1/storage-targets/test)
+func (_ Unimplemented) TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetTerms The current terms of use and privacy notice (public)
 // (GET /api/v1/terms)
 func (_ Unimplemented) GetTerms(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListMyTokens Your API tokens (only the calling token's organisation, with a token)
+// (GET /api/v1/tokens)
+func (_ Unimplemented) ListMyTokens(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateToken Create an API token, shown once
+// (POST /api/v1/tokens)
+func (_ Unimplemented) CreateToken(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeMyToken Revoke one of your tokens
+// (DELETE /api/v1/tokens/{token_id})
+func (_ Unimplemented) RevokeMyToken(w http.ResponseWriter, r *http.Request, tokenId TokenID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3825,6 +6972,91 @@ func (siw *ServerInterfaceWrapper) ListPlatformAudit(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListDedicatedRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListDedicatedRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDedicatedRequestsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDedicatedRequests(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveDedicatedRequest operation middleware
+func (siw *ServerInterfaceWrapper) ApproveDedicatedRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId RequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveDedicatedRequest(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectDedicatedRequest operation middleware
+func (siw *ServerInterfaceWrapper) RejectDedicatedRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId RequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectDedicatedRequest(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlatformInvitations operation middleware
 func (siw *ServerInterfaceWrapper) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
 
@@ -3870,6 +7102,301 @@ func (siw *ServerInterfaceWrapper) RevokePlatformInvitation(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokePlatformInvitation(w, r, invitationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListOrgs operation middleware
+func (siw *ServerInterfaceWrapper) AdminListOrgs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListOrgsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListOrgs(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminUpdateOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminUpdateOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUpdateOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminStartBreakGlass operation middleware
+func (siw *ServerInterfaceWrapper) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminStartBreakGlass(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSetOrgCluster operation middleware
+func (siw *ServerInterfaceWrapper) AdminSetOrgCluster(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSetOrgCluster(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetOrgOutbound operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetOrgOutbound(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSetOrgOutboundAllowlist operation middleware
+func (siw *ServerInterfaceWrapper) AdminSetOrgOutboundAllowlist(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSetOrgOutboundAllowlist(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminReinstateOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminReinstateOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminReinstateOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSuspendOrg operation middleware
+func (siw *ServerInterfaceWrapper) AdminSuspendOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSuspendOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPlans operation middleware
+func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPlans(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePlan operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlan(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePlan(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePlan operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePlan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "plan_id" -------------
+	var planId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "plan_id", chi.URLParam(r, "plan_id"), &planId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "plan_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePlan(w, r, planId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3940,6 +7467,216 @@ func (siw *ServerInterfaceWrapper) PublishTerms(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PublishTerms(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTokenSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetTokenSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTokenSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutTokenSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutTokenSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutTokenSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSharedClusters operation middleware
+func (siw *ServerInterfaceWrapper) ListSharedClusters(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSharedClusters(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPlatformStorageTargets operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformStorageTargets(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPlatformStorageTargets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePlatformStorageTarget(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) DeletePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePlatformStorageTargetParams
+
+	// ------------- Optional query parameter "accept_unrestorable" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "accept_unrestorable", r.URL.Query(), &params.AcceptUnrestorable, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "accept_unrestorable"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accept_unrestorable", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePlatformStorageTarget(w, r, targetId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) GetPlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlatformStorageTarget(w, r, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePlatformStorageTarget(w, r, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlatformUsage operation middleware
+func (siw *ServerInterfaceWrapper) PlatformUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PlatformUsageParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlatformUsage(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4098,6 +7835,74 @@ func (siw *ServerInterfaceWrapper) ListAlerts(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAlerts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) StartDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartDeviceLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) ApproveDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveDeviceLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "user_code" -------------
+	var userCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_code", chi.URLParam(r, "user_code"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_code", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDeviceLogin(w, r, userCode)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PollDeviceLogin operation middleware
+func (siw *ServerInterfaceWrapper) PollDeviceLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PollDeviceLogin(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4329,6 +8134,32 @@ func (siw *ServerInterfaceWrapper) GetBackupOverview(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetBackupOverview(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadBackup operation middleware
+func (siw *ServerInterfaceWrapper) DownloadBackup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id BackupID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadBackup(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4989,6 +8820,32 @@ func (siw *ServerInterfaceWrapper) CreateOrg(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteOrg operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrg(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetOrg operation middleware
 func (siw *ServerInterfaceWrapper) GetOrg(w http.ResponseWriter, r *http.Request) {
 
@@ -5126,6 +8983,93 @@ func (siw *ServerInterfaceWrapper) ListOrgAudit(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListOrgAudit(w, r, org, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EndBreakGlass operation middleware
+func (siw *ServerInterfaceWrapper) EndBreakGlass(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "session_id" -------------
+	var sessionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "session_id", chi.URLParam(r, "session_id"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "session_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EndBreakGlass(w, r, org, sessionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelOrgDeletion operation middleware
+func (siw *ServerInterfaceWrapper) CancelOrgDeletion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelOrgDeletion(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgDedicatedRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgDedicatedRequests(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5344,6 +9288,266 @@ func (siw *ServerInterfaceWrapper) UpdateOrgMember(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetOrgQuotas operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgQuotas(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgQuotas(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgStorageTargets operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgStorageTargets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgStorageTargets(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrgStorageTarget(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteOrgStorageTargetParams
+
+	// ------------- Optional query parameter "accept_unrestorable" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "accept_unrestorable", r.URL.Query(), &params.AcceptUnrestorable, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "accept_unrestorable"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accept_unrestorable", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrgStorageTarget(w, r, org, targetId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgStorageTarget(w, r, org, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrgStorageTarget(w, r, org, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgTokens(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgTokens(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeOrgToken operation middleware
+func (siw *ServerInterfaceWrapper) RevokeOrgToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "token_id" -------------
+	var tokenId TokenID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token_id", chi.URLParam(r, "token_id"), &tokenId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeOrgToken(w, r, org, tokenId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // TransferOrgOwnership operation middleware
 func (siw *ServerInterfaceWrapper) TransferOrgOwnership(w http.ResponseWriter, r *http.Request) {
 
@@ -5361,6 +9565,87 @@ func (siw *ServerInterfaceWrapper) TransferOrgOwnership(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TransferOrgOwnership(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgUsage operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrgUsageParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "metric" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "metric", r.URL.Query(), &params.Metric, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "metric"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "metric", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgUsage(w, r, org, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5632,6 +9917,58 @@ func (siw *ServerInterfaceWrapper) ListProjectAudit(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// EnableProjectBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) EnableProjectBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableProjectBackupKey(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadProjectBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) DownloadProjectBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadProjectBackupKey(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateProjectBackup operation middleware
 func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r *http.Request) {
 
@@ -5649,6 +9986,58 @@ func (siw *ServerInterfaceWrapper) CreateProjectBackup(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateProjectBackup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBranches operation middleware
+func (siw *ServerInterfaceWrapper) ListBranches(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBranches(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBranch operation middleware
+func (siw *ServerInterfaceWrapper) CreateBranch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBranch(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5701,6 +10090,110 @@ func (siw *ServerInterfaceWrapper) IssueMyCredentials(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.IssueMyCredentials(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DemoteProject operation middleware
+func (siw *ServerInterfaceWrapper) DemoteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DemoteProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DemotePreflight operation middleware
+func (siw *ServerInterfaceWrapper) DemotePreflight(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DemotePreflight(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DetachBranch operation middleware
+func (siw *ServerInterfaceWrapper) DetachBranch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DetachBranch(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEditorPreferences operation middleware
+func (siw *ServerInterfaceWrapper) GetEditorPreferences(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEditorPreferences(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5779,6 +10272,249 @@ func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ProjectInstanceAction(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListJobs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobs(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateJob operation middleware
+func (siw *ServerInterfaceWrapper) CreateJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteJob operation middleware
+func (siw *ServerInterfaceWrapper) DeleteJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetJob operation middleware
+func (siw *ServerInterfaceWrapper) GetJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateJob operation middleware
+func (siw *ServerInterfaceWrapper) UpdateJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunJob operation middleware
+func (siw *ServerInterfaceWrapper) RunJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListJobRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListJobRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListJobRunsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobRuns(w, r, id, jobId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6043,6 +10779,84 @@ func (siw *ServerInterfaceWrapper) PromoteProject(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListReapedSessions operation middleware
+func (siw *ServerInterfaceWrapper) ListReapedSessions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListReapedSessions(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReclaimSpace operation middleware
+func (siw *ServerInterfaceWrapper) ReclaimSpace(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReclaimSpace(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResetBranch operation middleware
+func (siw *ServerInterfaceWrapper) ResetBranch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResetBranch(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RotateProjectPassword operation middleware
 func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, r *http.Request) {
 
@@ -6086,6 +10900,84 @@ func (siw *ServerInterfaceWrapper) GetProjectSchema(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetProjectSchema(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplySchemaChange operation middleware
+func (siw *ServerInterfaceWrapper) ApplySchemaChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplySchemaChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SchemaMigration operation middleware
+func (siw *ServerInterfaceWrapper) SchemaMigration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SchemaMigration(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewSchemaChange operation middleware
+func (siw *ServerInterfaceWrapper) PreviewSchemaChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewSchemaChange(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6173,6 +11065,297 @@ func (siw *ServerInterfaceWrapper) CancelSQL(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetProjectStorage operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectStorage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectStorage(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectStorageTarget(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetProjectStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) SetProjectStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetProjectStorageTarget(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SwitchProjectCredentials operation middleware
+func (siw *ServerInterfaceWrapper) SwitchProjectCredentials(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SwitchProjectCredentials(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTableInfo operation middleware
+func (siw *ServerInterfaceWrapper) GetTableInfo(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTableInfo(w, r, id, schema, table)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveTableChanges operation middleware
+func (siw *ServerInterfaceWrapper) SaveTableChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveTableChanges(w, r, id, schema, table)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportTableRows operation middleware
+func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportTableRowsParams
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", r.URL.Query(), &params.Filter, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "desc" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "desc", r.URL.Query(), &params.Desc, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "desc"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "desc", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportTableRows(w, r, id, schema, table, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTableRows operation middleware
 func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.Request) {
 
@@ -6208,6 +11391,45 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetTableRowsParams
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", r.URL.Query(), &params.Filter, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "desc" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "desc", r.URL.Query(), &params.Desc, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "desc"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "desc", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "after" -------------
 
@@ -6263,6 +11485,332 @@ func (siw *ServerInterfaceWrapper) TransferProject(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TransferProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListWebhooks operation middleware
+func (siw *ServerInterfaceWrapper) ListWebhooks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWebhooks(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateWebhook operation middleware
+func (siw *ServerInterfaceWrapper) CreateWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWebhook(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteWebhook operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWebhook operation middleware
+func (siw *ServerInterfaceWrapper) GetWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateWebhook operation middleware
+func (siw *ServerInterfaceWrapper) UpdateWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListWebhookDeliveries operation middleware
+func (siw *ServerInterfaceWrapper) ListWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWebhookDeliveriesParams
+
+	// ------------- Optional query parameter "dead" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "dead", r.URL.Query(), &params.Dead, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "dead"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dead", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWebhookDeliveries(w, r, id, webhookId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplayWebhook operation middleware
+func (siw *ServerInterfaceWrapper) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplayWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateWebhookSecret operation middleware
+func (siw *ServerInterfaceWrapper) RotateWebhookSecret(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateWebhookSecret(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestWebhook operation middleware
+func (siw *ServerInterfaceWrapper) TestWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "webhook_id" -------------
+	var webhookId WebhookID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhook_id", chi.URLParam(r, "webhook_id"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhook_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestWebhook(w, r, id, webhookId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6557,11 +12105,98 @@ func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// TestStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) TestStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TestStorageTargetParams
+
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestStorageTarget(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTerms operation middleware
 func (siw *ServerInterfaceWrapper) GetTerms(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetTerms(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListMyTokens(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyTokens(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeMyToken operation middleware
+func (siw *ServerInterfaceWrapper) RevokeMyToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token_id" -------------
+	var tokenId TokenID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token_id", chi.URLParam(r, "token_id"), &tokenId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeMyToken(w, r, tokenId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6816,6 +12451,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/rotate-password", wrapper.RotateProjectPassword)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/branches", wrapper.ListBranches)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/branches", wrapper.CreateBranch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/reset", wrapper.ResetBranch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/detach", wrapper.DetachBranch)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/backups", wrapper.CreateProjectBackup)
 	})
 	r.Group(func(r chi.Router) {
@@ -6823,6 +12470,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/backups/overview", wrapper.GetBackupOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/backups/{id}/download", wrapper.DownloadBackup)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/backups/{id}/restore", wrapper.RestoreBackup)
@@ -6873,6 +12523,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.PromoteProject)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote/preflight", wrapper.DemotePreflight)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote", wrapper.DemoteProject)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.ProjectInstanceAction)
 	})
 	r.Group(func(r chi.Router) {
@@ -6904,6 +12560,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/schema", wrapper.GetProjectSchema)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}", wrapper.GetTableInfo)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/export", wrapper.ExportTableRows)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/changes", wrapper.SaveTableChanges)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/preview", wrapper.PreviewSchemaChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/apply", wrapper.ApplySchemaChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/migration", wrapper.SchemaMigration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/editor-preferences", wrapper.GetEditorPreferences)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/rows", wrapper.GetTableRows)
@@ -6969,6 +12646,84 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/me/password", wrapper.ChangePassword)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/tokens", wrapper.ListMyTokens)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/tokens", wrapper.CreateToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/tokens/{token_id}", wrapper.RevokeMyToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/storage-targets", wrapper.ListOrgStorageTargets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/storage-targets", wrapper.CreateOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/storage-targets/{target_id}", wrapper.DeleteOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/storage-targets/{target_id}", wrapper.GetOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}/storage-targets/{target_id}", wrapper.UpdateOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/storage-targets/test", wrapper.TestStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/storage-targets", wrapper.ListPlatformStorageTargets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/storage-targets", wrapper.CreatePlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/admin/storage-targets/{target_id}", wrapper.DeletePlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/storage-targets/{target_id}", wrapper.GetPlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/storage-targets/{target_id}", wrapper.UpdatePlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/storage-target", wrapper.GetProjectStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/storage-target", wrapper.SetProjectStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/backup-key", wrapper.EnableProjectBackupKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/backup-key/download", wrapper.DownloadProjectBackupKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/tokens", wrapper.ListOrgTokens)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/tokens/{token_id}", wrapper.RevokeOrgToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/device", wrapper.StartDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/device/token", wrapper.PollDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/auth/device/requests/{user_code}", wrapper.GetDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/device/approve", wrapper.ApproveDeviceLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/settings/tokens", wrapper.GetTokenSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/settings/tokens", wrapper.PutTokenSettings)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me/sessions", wrapper.ListMySessions)
 	})
 	r.Group(func(r chi.Router) {
@@ -6994,6 +12749,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/orgs", wrapper.CreateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}", wrapper.DeleteOrg)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}", wrapper.GetOrg)
@@ -7087,6 +12845,132 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/settings/terms", wrapper.PublishTerms)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/quotas", wrapper.GetOrgQuotas)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/usage", wrapper.GetOrgUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/cancel-deletion", wrapper.CancelOrgDeletion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/break-glass/{session_id}/end", wrapper.EndBreakGlass)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/dedicated-requests", wrapper.ListOrgDedicatedRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/switch-credentials", wrapper.SwitchProjectCredentials)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/storage", wrapper.GetProjectStorage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/reclaim-space", wrapper.ReclaimSpace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/reaped", wrapper.ListReapedSessions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs", wrapper.AdminListOrgs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs/{org}", wrapper.AdminGetOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/orgs/{org}", wrapper.AdminUpdateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/suspend", wrapper.AdminSuspendOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/reinstate", wrapper.AdminReinstateOrg)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/webhooks", wrapper.ListWebhooks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks", wrapper.CreateWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}", wrapper.DeleteWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}", wrapper.GetWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}", wrapper.UpdateWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/test", wrapper.TestWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret", wrapper.RotateWebhookSecret)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/deliveries", wrapper.ListWebhookDeliveries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/webhooks/{webhook_id}/replay", wrapper.ReplayWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/jobs", wrapper.ListJobs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/jobs", wrapper.CreateJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}", wrapper.DeleteJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}", wrapper.GetJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}", wrapper.UpdateJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}/run", wrapper.RunJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/jobs/{job_id}/runs", wrapper.ListJobRuns)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs/{org}/outbound", wrapper.AdminGetOrgOutbound)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/orgs/{org}/outbound", wrapper.AdminSetOrgOutboundAllowlist)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/cluster", wrapper.AdminSetOrgCluster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/break-glass", wrapper.AdminStartBreakGlass)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/plans", wrapper.ListPlans)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/plans", wrapper.CreatePlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/plans/{plan_id}", wrapper.UpdatePlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/dedicated-requests", wrapper.ListDedicatedRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/dedicated-requests/{request_id}/approve", wrapper.ApproveDedicatedRequest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/dedicated-requests/{request_id}/reject", wrapper.RejectDedicatedRequest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/usage", wrapper.PlatformUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/shared-clusters", wrapper.ListSharedClusters)
 	})
 
 	return r

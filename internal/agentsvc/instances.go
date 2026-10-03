@@ -90,6 +90,9 @@ const (
 	pgPort   = "5432/tcp"
 	pgdata   = "/var/lib/postgresql/18/docker"
 	dataRoot = "/var/lib/postgresql"
+	// recoveryEnv holds a point-in-time recovery's source archive settings
+	// until recovery ends.
+	recoveryEnv = dataRoot + "/pgdock-recovery.env"
 )
 
 // validSetting keeps settings to plain parameter names and values that
@@ -232,9 +235,13 @@ func (in *instances) restore(ctx context.Context, spec agentapi.InstanceSpec, vo
 		return fmt.Errorf("bad backup name %q", r.BackupName)
 	}
 	conf := []string{
-		// Fetch WAL from the source's archive; the instance archives its own
-		// new timeline to spec.WALG once promoted.
-		fmt.Sprintf("restore_command = 'WALG_S3_PREFIX=%s wal-g wal-fetch %%f %%p'", walg.S3Prefix(r.Source)),
+		// Fetch WAL from the source's archive, which may be on another
+		// target with another key than the instance's own (V2 §6): its
+		// settings come from a file only the postgres user reads, removed
+		// when recovery ends. The instance archives its new timeline to
+		// spec.WALG once promoted.
+		"restore_command = '. " + recoveryEnv + " && wal-g wal-fetch %f %p'",
+		"recovery_end_command = 'rm -f " + recoveryEnv + "'",
 		"recovery_target_action = 'promote'",
 	}
 	if r.TargetTime != "" {
@@ -250,8 +257,10 @@ mkdir -p "$PGDATA" && chmod 700 "$PGDATA"
 wal-g backup-fetch "$PGDATA" "$BACKUP_NAME"
 touch "$PGDATA/recovery.signal"
 printf '\n# PGDock point-in-time recovery\n%s\n' "$RECOVERY_CONF" >> "$PGDATA/postgresql.auto.conf"
+(umask 077; printf '%s\n' "$RECOVERY_ENV" > "$RECOVERY_ENV_FILE")
 echo restored`
-	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdata)
+	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdata,
+		"RECOVERY_ENV="+shellExports(walg.Env(r.Source)), "RECOVERY_ENV_FILE="+recoveryEnv)
 	id, err := in.dc.CreateContainer(ctx, name, docker.ContainerConfig{
 		Image: in.cfg.Image, Entrypoint: []string{"sh", "-c"}, Cmd: []string{script}, Env: env, User: "postgres",
 		Labels: map[string]string{"pgdock.instance": spec.ID, "pgdock.role": "restore"},
@@ -546,4 +555,17 @@ func (s *Service) walgBackups(w http.ResponseWriter, r *http.Request) {
 		list = []agentapi.WALGBackup{}
 	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+// shellExports renders KEY=value pairs as a sh script that sets exactly
+// them (AWS_ENDPOINT is cleared first: a source without one must not use
+// the instance's).
+func shellExports(env []string) string {
+	var b strings.Builder
+	b.WriteString("unset AWS_ENDPOINT\n")
+	for _, kv := range env {
+		k, v, _ := strings.Cut(kv, "=")
+		b.WriteString("export " + k + "='" + strings.ReplaceAll(v, "'", `'\''`) + "'\n")
+	}
+	return b.String()
 }

@@ -133,6 +133,68 @@ func (a *Admin) Pools(ctx context.Context) ([]Pool, error) {
 	return out, rows.Err()
 }
 
+// Databases runs SHOW DATABASES and returns each route's backend database
+// by its client-facing name.
+func (a *Admin) Databases(ctx context.Context) (map[string]string, error) {
+	conn, err := pgx.ConnectConfig(ctx, a.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("pooler %s (%s): connect admin console: %w", a.Name, a.Addr(), err)
+	}
+	defer conn.Close(context.Background())
+	rows, err := conn.Query(ctx, "SHOW DATABASES")
+	if err != nil {
+		return nil, fmt.Errorf("pooler %s: SHOW DATABASES: %w", a.Name, err)
+	}
+	defer rows.Close()
+	col := map[string]int{}
+	for i, fd := range rows.FieldDescriptions() {
+		col[fd.Name] = i
+	}
+	out := map[string]string{}
+	for rows.Next() {
+		raw := rows.RawValues()
+		ni, di := col["name"], col["database"]
+		if ni < len(raw) && di < len(raw) {
+			out[string(raw[ni])] = string(raw[di])
+		}
+	}
+	return out, rows.Err()
+}
+
+// TransferBytes runs SHOW STATS and returns the bytes each database has
+// received and sent since the pooler started.
+func (a *Admin) TransferBytes(ctx context.Context) (map[string]int64, error) {
+	conn, err := pgx.ConnectConfig(ctx, a.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("pooler %s (%s): connect admin console: %w", a.Name, a.Addr(), err)
+	}
+	defer conn.Close(context.Background())
+	rows, err := conn.Query(ctx, "SHOW STATS")
+	if err != nil {
+		return nil, fmt.Errorf("pooler %s: SHOW STATS: %w", a.Name, err)
+	}
+	defer rows.Close()
+	col := map[string]int{}
+	for i, fd := range rows.FieldDescriptions() {
+		col[fd.Name] = i
+	}
+	num := func(raw [][]byte, name string) int64 {
+		if i, ok := col[name]; ok && i < len(raw) {
+			n, _ := strconv.ParseInt(string(raw[i]), 10, 64)
+			return n
+		}
+		return 0
+	}
+	out := map[string]int64{}
+	for rows.Next() {
+		raw := rows.RawValues()
+		if i, ok := col["database"]; ok && i < len(raw) {
+			out[string(raw[i])] += num(raw, "total_received") + num(raw, "total_sent")
+		}
+	}
+	return out, rows.Err()
+}
+
 // Ping checks the admin console answers (SHOW VERSION).
 func (a *Admin) Ping(ctx context.Context) error { return a.exec(ctx, "SHOW VERSION") }
 

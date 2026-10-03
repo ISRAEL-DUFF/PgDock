@@ -34,6 +34,25 @@ type Alert struct {
 	DeliveryLock       *time.Time
 }
 
+type ApiToken struct {
+	ID               uuid.UUID
+	UserID           uuid.UUID
+	OrgID            uuid.UUID
+	Name             string
+	TokenHash        string
+	Prefix           string
+	Scopes           []string
+	ProjectIds       []uuid.UUID
+	ExpiresAt        time.Time
+	LastUsedAt       *time.Time
+	LastUsedIp       *netip.Addr
+	RevokedAt        *time.Time
+	RevokedBy        *uuid.UUID
+	CreatedVia       string
+	ExpiryNotifiedAt *time.Time
+	CreatedAt        time.Time
+}
+
 type AuditLog struct {
 	ID         int64
 	UserID     *uuid.UUID
@@ -78,6 +97,67 @@ type Backup struct {
 	KeyWrapped      []byte
 	Error           *string
 	DeletedAt       *time.Time
+	EncryptionKeyID *uuid.UUID
+	WalgPrefix      *string
+	CopyOf          *uuid.UUID
+}
+
+type BackupKey struct {
+	ID          uuid.UUID
+	ProjectID   *uuid.UUID
+	KeyEnc      []byte
+	Fingerprint string
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+	RetiredAt   *time.Time
+}
+
+type BreakGlassSession struct {
+	ID        uuid.UUID
+	OrgID     uuid.UUID
+	AdminID   uuid.UUID
+	Reason    string
+	StartsAt  time.Time
+	ExpiresAt time.Time
+	EndedAt   *time.Time
+	EndedBy   *uuid.UUID
+}
+
+type DedicatedRequest struct {
+	ID           uuid.UUID
+	OrgID        uuid.UUID
+	ProjectID    uuid.UUID
+	RequestedBy  uuid.UUID
+	Profile      json.RawMessage
+	Reason       *string
+	Status       string
+	DecidedBy    *uuid.UUID
+	DecidedAt    *time.Time
+	DecisionNote *string
+	CreatedAt    time.Time
+}
+
+type DeviceAuthRequest struct {
+	DeviceCodeHash  string
+	UserCode        string
+	ClientName      string
+	RequestedScopes []string
+	OrgID           *uuid.UUID
+	ApprovedBy      *uuid.UUID
+	TokenID         *uuid.UUID
+	SealedToken     []byte
+	DeniedAt        *time.Time
+	LastPolledAt    *time.Time
+	ExpiresAt       time.Time
+	CreatedAt       time.Time
+}
+
+type EditorPreference struct {
+	ProjectID       uuid.UUID
+	UserID          uuid.UUID
+	OrgID           uuid.UUID
+	MigrationFormat string
+	UpdatedAt       time.Time
 }
 
 type EmailToken struct {
@@ -90,25 +170,28 @@ type EmailToken struct {
 }
 
 type Instance struct {
-	ID          uuid.UUID
-	NodeID      uuid.UUID
-	Kind        string
-	PgVersion   int32
-	Port        int32
-	ContainerID *string
-	CpuLimit    pgtype.Numeric
-	MemLimitMb  *int32
-	VolumeGb    *int32
-	Status      string
-	CreatedAt   time.Time
-	AdminHost   *string
-	AdminPort   *int32
-	Host        *string
-	AdminSecret []byte
-	Profile     *string
-	WalgPrefix  *string
-	Error       *string
-	DeletedAt   *time.Time
+	ID           uuid.UUID
+	NodeID       uuid.UUID
+	Kind         string
+	PgVersion    int32
+	Port         int32
+	ContainerID  *string
+	CpuLimit     pgtype.Numeric
+	MemLimitMb   *int32
+	VolumeGb     *int32
+	Status       string
+	CreatedAt    time.Time
+	AdminHost    *string
+	AdminPort    *int32
+	Host         *string
+	AdminSecret  []byte
+	Profile      *string
+	WalgPrefix   *string
+	Error        *string
+	DeletedAt    *time.Time
+	OrgID        *uuid.UUID
+	WalgTargetID *uuid.UUID
+	WalgKeyID    *uuid.UUID
 }
 
 type Invitation struct {
@@ -125,6 +208,19 @@ type Invitation struct {
 	AcceptedBy   *uuid.UUID
 	RevokedAt    *time.Time
 	CreatedAt    time.Time
+}
+
+type JobRun struct {
+	ID           int64
+	JobID        uuid.UUID
+	ScheduledFor time.Time
+	StartedAt    *time.Time
+	FinishedAt   *time.Time
+	Status       string
+	RowsAffected *int64
+	StatusCode   *int32
+	Error        *string
+	Trigger      string
 }
 
 type MetricPoint struct {
@@ -193,26 +289,57 @@ type Organization struct {
 	OutboundDisabled   bool
 	DeleteAfter        *time.Time
 	CreatedAt          time.Time
+	SuspendedAt        *time.Time
+	DeleteRequestedBy  *uuid.UUID
+}
+
+type OutboundAllowlist struct {
+	OrgID     uuid.UUID
+	Host      string
+	CreatedBy *uuid.UUID
+	CreatedAt time.Time
+}
+
+type OutboundCounter struct {
+	OrgID    uuid.UUID
+	Host     string
+	Day      pgtype.Date
+	Requests int64
+	Failures int64
 }
 
 type Project struct {
-	ID              uuid.UUID
-	Name            string
-	Slug            string
-	DbName          string
-	OwnerRole       string
-	ScramVerifier   string
-	Tier            string
-	InstanceID      uuid.UUID
-	Status          string
-	Settings        json.RawMessage
-	StorageTargetID *uuid.UUID
-	Extensions      []string
-	Description     *string
-	CreatedBy       *uuid.UUID
-	CreatedAt       time.Time
-	DeletedAt       *time.Time
-	OrgID           uuid.UUID
+	ID                  uuid.UUID
+	Name                string
+	Slug                string
+	DbName              string
+	OwnerRole           string
+	ScramVerifier       string
+	Tier                string
+	InstanceID          uuid.UUID
+	Status              string
+	Settings            json.RawMessage
+	StorageTargetID     *uuid.UUID
+	Extensions          []string
+	Description         *string
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	DeletedAt           *time.Time
+	OrgID               uuid.UUID
+	AliasDbName         *string
+	LegacyOwnerRole     *string
+	LegacyScramVerifier *string
+	LegacyUntil         *time.Time
+	StorageState        string
+	StorageStateAt      *time.Time
+	BackupKeyID         *uuid.UUID
+	ParentProjectID     *uuid.UUID
+	BranchSource        *string
+	BranchSchemaOnly    *bool
+	ExpiresAt           *time.Time
+	ExpiryNotifiedAt    *time.Time
+	BranchBackups       bool
+	SensitiveData       bool
 }
 
 type ProjectDbUser struct {
@@ -242,6 +369,17 @@ type QuotaPlan struct {
 	CreatedAt time.Time
 }
 
+type ReapedSession struct {
+	ID        int64
+	ProjectID uuid.UUID
+	OrgID     uuid.UUID
+	Kind      string
+	RoleName  string
+	DurationS int32
+	Query     *string
+	CreatedAt time.Time
+}
+
 type RetiredDatabase struct {
 	ID         uuid.UUID
 	ProjectID  uuid.UUID
@@ -252,6 +390,24 @@ type RetiredDatabase struct {
 	DropAfter  time.Time
 	DroppedAt  *time.Time
 	CreatedAt  time.Time
+}
+
+type ScheduledJob struct {
+	ID                  uuid.UUID
+	ProjectID           uuid.UUID
+	Name                string
+	Cron                string
+	Timezone            string
+	Kind                string
+	SpecEnc             []byte
+	TimeoutS            int32
+	Overlap             string
+	Enabled             bool
+	NextRunAt           *time.Time
+	ConsecutiveFailures int32
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type Session struct {
@@ -279,6 +435,12 @@ type StorageTarget struct {
 	Credentials []byte
 	IsDefault   bool
 	CreatedAt   time.Time
+	OrgID       *uuid.UUID
+	Region      string
+	PathStyle   bool
+	CreatedBy   *uuid.UUID
+	UpdatedAt   time.Time
+	DeletedAt   *time.Time
 }
 
 type TermsAcceptance struct {
@@ -294,6 +456,16 @@ type TermsVersion struct {
 	PrivacyMd   string
 	PublishedBy *uuid.UUID
 	PublishedAt time.Time
+}
+
+type UsageRecord struct {
+	OrgID       uuid.UUID
+	ProjectID   uuid.UUID
+	Metric      string
+	Granularity string
+	PeriodStart time.Time
+	Quantity    pgtype.Numeric
+	PlanID      uuid.UUID
 }
 
 type User struct {
@@ -312,4 +484,39 @@ type User struct {
 	ApprovedAt      *time.Time
 	RecoveryCodes   []byte
 	LastActiveAt    *time.Time
+}
+
+type Webhook struct {
+	ID                  uuid.UUID
+	ProjectID           uuid.UUID
+	Name                string
+	Tables              []string
+	Events              []string
+	Columns             []string
+	Url                 string
+	HeadersEnc          []byte
+	SecretEnc           []byte
+	Enabled             bool
+	Status              string
+	StatusReason        *string
+	ConsecutiveFailures int32
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type WebhookDelivery struct {
+	ID              int64
+	WebhookID       uuid.UUID
+	EventID         string
+	Attempt         int32
+	StatusCode      *int32
+	LatencyMs       *int32
+	ResponseSnippet *string
+	Error           *string
+	Succeeded       bool
+	DeadLettered    bool
+	ReplayedAt      *time.Time
+	Payload         []byte
+	CreatedAt       time.Time
 }

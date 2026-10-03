@@ -80,6 +80,18 @@ func (s *Server) RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id g
 	if req.TargetTime != nil {
 		a.set("target_time", req.TargetTime.UTC())
 	}
+	if s.tenancy != nil {
+		org := accessFrom(r.Context()).OrgID
+		if !s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), org)) || !s.checkQuota(w, s.tenancy.CheckOperation(r.Context(), org)) {
+			return
+		}
+		// The recovery runs on a new instance the size of the source's.
+		if src, err := s.tenantProjectLive(r.Context()); err == nil {
+			if inst, err := store.New(s.db).GetInstance(r.Context(), src.InstanceID); err == nil && !s.withinAllowance(w, r, org, instanceSize(inst)) {
+				return
+			}
+		}
+	}
 	c, err := s.backups.PITR(r.Context(), backup.PITRParams{ProjectID: id, TargetTime: req.TargetTime, Name: req.Name, CreatedBy: userID(r.Context()), CreatorRole: creatorRole(accessFrom(r.Context()))})
 	if err != nil {
 		s.backupError(w, "point-in-time recovery", err)
@@ -283,10 +295,111 @@ func (s *Server) PromoteProject(w http.ResponseWriter, r *http.Request, id gen.P
 	if req.VolumeGb != nil {
 		pp.VolumeGB = *req.VolumeGb
 	}
+	if s.tenancy != nil {
+		org := accessFrom(r.Context()).OrgID
+		ok, err := s.tenancy.WithinAllowance(r.Context(), org, profileSize(pp.Profile, pp.VolumeGB))
+		if err != nil {
+			s.internalError(w, "promote", err)
+			return
+		}
+		if !ok {
+			// Beyond the allowance, the promotion becomes a request (V2 §10.6).
+			s.requestDedicated(w, r, org, id, pp, req.Reason)
+			return
+		}
+	}
 	op, err := ds.Promote(r.Context(), pp)
 	if err != nil {
 		s.provisionError(w, "promote", err)
 		return
 	}
 	s.writeOperation(w, "promote", op)
+}
+
+// demoteRequest reads an optional DemoteRequest body.
+func demoteRequest(w http.ResponseWriter, r *http.Request) (gen.DemoteRequest, bool) {
+	var req gen.DemoteRequest
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return req, false
+	}
+	return req, true
+}
+
+func demoteOptions(req gen.DemoteRequest) dedicated.DemoteOptions {
+	return dedicated.DemoteOptions{NodeID: req.NodeId, ConsoleWritable: req.ConsoleWritable != nil && *req.ConsoleWritable}
+}
+
+func toAPIDemotePlan(pl dedicated.DemotePlan) gen.DemotePreflight {
+	out := gen.DemotePreflight{
+		Eligible: len(pl.Blocked()) == 0, Checks: make([]gen.DemoteCheck, len(pl.Checks)),
+		SizeBytes: pl.SizeBytes, EstimatedDowntimeSeconds: int(pl.Downtime.Seconds()), Resets: pl.Resets,
+		RetainHours: int(pl.RetainFor.Hours()),
+		SettingsAfter: gen.ProjectSettings{
+			ConnectionLimit: pl.Settings.ConnectionLimit, PoolSize: pl.Settings.PoolSize,
+			StatementTimeout: pl.Settings.StatementTimeout, IdleInTransactionSessionTimeout: pl.Settings.IdleInTransactionTimeout,
+			DiskWarnBytes: pl.Settings.DiskWarnBytes, ConsoleReadOnly: pl.Settings.ConsoleReadOnly,
+		},
+	}
+	if out.Resets == nil {
+		out.Resets = []string{}
+	}
+	for i, c := range pl.Checks {
+		out.Checks[i] = gen.DemoteCheck{Name: gen.DemoteCheckName(c.Name), Status: gen.DemoteCheckStatus(c.Status), Message: c.Message}
+	}
+	if t := pl.Target; t != nil {
+		out.Target = &gen.DemoteTarget{NodeId: t.NodeID, NodeName: t.NodeName, OrgCluster: t.OrgCluster}
+		if t.FreeBytes >= 0 {
+			out.Target.FreeBytes = ptrTo(int64(t.FreeBytes))
+		}
+	}
+	return out
+}
+
+// DemotePreflight implements POST /api/v1/projects/{id}/demote/preflight.
+func (s *Server) DemotePreflight(w http.ResponseWriter, r *http.Request, _ gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	req, ok := demoteRequest(w, r)
+	if !ok {
+		return
+	}
+	p, err := s.tenantProjectLive(r.Context())
+	if err != nil {
+		s.provisionError(w, "demotion preflight", err)
+		return
+	}
+	plan, err := ds.DemotePreflight(r.Context(), p, demoteOptions(req))
+	if err != nil {
+		s.provisionError(w, "demotion preflight", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toAPIDemotePlan(plan))
+}
+
+// DemoteProject implements POST /api/v1/projects/{id}/demote.
+func (s *Server) DemoteProject(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	req, ok := demoteRequest(w, r)
+	if !ok {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	op, plan, err := ds.Demote(r.Context(), dedicated.DemoteParams{
+		ProjectID: id, DemoteOptions: demoteOptions(req),
+		AcceptWarnings: req.AcceptWarnings != nil && *req.AcceptWarnings, CreatedBy: userID(r.Context()),
+	})
+	if plan.Target != nil {
+		a.set("node", plan.Target.NodeName)
+	}
+	if err != nil {
+		s.provisionError(w, "demote", err)
+		return
+	}
+	s.writeOperation(w, "demote", op)
 }

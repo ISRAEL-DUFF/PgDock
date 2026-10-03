@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/pgverify"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -85,6 +84,9 @@ func (s *Service) Promote(ctx context.Context, p PromoteParams) (store.Operation
 		func(tx pgx.Tx, pr store.Project) (any, error) {
 			if pr.Tier != provision.TierShared {
 				return nil, fmt.Errorf("%w: only shared projects can be promoted", provision.ErrInvalid)
+			}
+			if pr.ParentProjectID != nil {
+				return nil, fmt.Errorf("%w: branches can't be promoted; detach the branch first (V2 §8.4)", provision.ErrInvalid)
 			}
 			target := uuid.New()
 			prefix := "instances/" + target.String() + "/wal-g"
@@ -211,20 +213,11 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 	if err != nil {
 		return err
 	}
-	from, err := s.projects.AgentConn(ctx, p.InstanceID, p.DbName)
-	if err != nil {
-		return err
-	}
-	to, err := s.projects.AgentConn(ctx, inst.ID, p.DbName)
-	if err != nil {
-		return err
-	}
-	res, err := agent.Copy(ctx, agentapi.CopyRequest{Source: from, Target: to, Restore: agentapi.RestoreOptions{KeepOwners: true}})
+	took, err := s.copyKeepingOwners(ctx, agent, p, src, inst.ID)
 	if err != nil {
 		return jobs.Permanent(fmt.Errorf("copy: %w", err))
 	}
-	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name,
-		(time.Duration(res.DurationMS) * time.Millisecond).Round(time.Millisecond)); err != nil {
+	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name, took.Round(time.Millisecond)); err != nil {
 		return err
 	}
 
@@ -256,7 +249,7 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 		}
 		_, err := tq.InsertRetiredDatabase(ctx, store.InsertRetiredDatabaseParams{
 			ProjectID: p.ID, InstanceID: p.InstanceID, DbName: p.DbName, OwnerRole: p.OwnerRole,
-			Reason: "promotion", DropAfter: time.Now().Add(RetainSource),
+			Reason: retiredPromotion, DropAfter: time.Now().Add(RetainSource),
 		})
 		return err
 	})
@@ -292,7 +285,7 @@ func (s *Service) freeze(ctx context.Context, p store.Project, log *jobs.StepLog
 			return fmt.Errorf("freeze: %w", err)
 		}
 	}
-	killed, err := s.projects.Pooler().Freeze(ctx, p.DbName, freezeWait)
+	killed, err := s.projects.Pooler().Freeze(ctx, freezeWait, store.PoolerNames(p)...)
 	if err != nil {
 		return fmt.Errorf("freeze pooler: %w", err)
 	}
@@ -309,8 +302,8 @@ func (s *Service) freeze(ctx context.Context, p store.Project, log *jobs.StepLog
 	return log.Info(ctx, "freeze", "%s, %d backend session(s) ended", msg, n)
 }
 
-// unfreeze lets the shared copy serve again (rollback).
-func (s *Service) unfreeze(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
+// unfreeze lets p's current copy serve again (rollback).
+func (s *Service) unfreeze(ctx context.Context, p store.Project, log *jobs.StepLogger, msg string) error {
 	admin, err := s.projects.AdminConn(ctx, p.InstanceID, "postgres")
 	if err != nil {
 		return err
@@ -325,10 +318,10 @@ func (s *Service) unfreeze(ctx context.Context, p store.Project, log *jobs.StepL
 			return err
 		}
 	}
-	if err := s.projects.Pooler().Resume(ctx, p.DbName); err != nil && !isNotPaused(err) {
+	if err := s.projects.Pooler().Resume(ctx, store.PoolerNames(p)...); err != nil && !isNotPaused(err) {
 		return err
 	}
-	return log.Warn(ctx, "rollback", "shared copy writable again; route resumed")
+	return log.Warn(ctx, "rollback", "%s", msg)
 }
 
 func isNotPaused(err error) bool { return err != nil && strings.Contains(err.Error(), "is not paused") }
@@ -340,7 +333,7 @@ func (s *Service) finishPromotion(ctx context.Context, p store.Project, log *job
 	if err := s.projects.SyncPooler(ctx, log, "pooler", "route switched to the dedicated instance"); err != nil {
 		return err
 	}
-	if err := s.projects.Pooler().Resume(ctx, p.DbName); err != nil && !isNotPaused(err) {
+	if err := s.projects.Pooler().Resume(ctx, store.PoolerNames(p)...); err != nil && !isNotPaused(err) {
 		return fmt.Errorf("pooler RESUME: %w", err)
 	}
 	if err := store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {
@@ -382,7 +375,7 @@ func (s *Service) failPromote(ctx context.Context, op store.Operation, log *jobs
 	if p.InstanceID == params.TargetInstance {
 		return s.finishPromotion(ctx, p, log, time.Time{})
 	}
-	if err := s.unfreeze(ctx, p, log); err != nil {
+	if err := s.unfreeze(ctx, p, log, "shared copy writable again; route resumed"); err != nil {
 		return err
 	}
 	if err := q.SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {
@@ -460,7 +453,10 @@ func (s *Service) memberLogins(ctx context.Context, p store.Project) ([]string, 
 	return out, nil
 }
 
-// DropRetired drops shared copies whose retention ended (spec §6.6 step 8).
+// DropRetired drops what promotions and demotions kept once their
+// retention ends: a promoted project's shared copy (spec §6.6 step 8), a
+// demoted project's stopped instance (V2 §5.3 step 8), which releases its
+// share of the dedicated allowance.
 func (s *Service) DropRetired(ctx context.Context) error {
 	q := store.New(s.db)
 	due, err := q.DueRetiredDatabases(ctx)
@@ -469,44 +465,22 @@ func (s *Service) DropRetired(ctx context.Context) error {
 	}
 	var errs []error
 	for _, r := range due {
-		conn, err := s.projects.AdminConn(ctx, r.InstanceID, "postgres")
+		what := "retired shared copy"
+		if r.Reason == retiredDemotion {
+			what = "dedicated instance kept after demotion"
+			err = s.destroyRetained(ctx, r.InstanceID)
+		} else {
+			err = s.dropCopy(ctx, r.InstanceID, r.DbName, r.OwnerRole)
+		}
 		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+provision.Ident(r.DbName)+" WITH (FORCE)")
-		if err == nil {
-			// The role only owned this database on the shared cluster.
-			_, err = conn.Exec(ctx, "DROP ROLE IF EXISTS "+provision.Ident(r.OwnerRole))
-		}
-		if err == nil {
-			err = provision.DropConsoleRole(ctx, conn, provision.ConsoleRole(r.DbName), r.DbName)
-		}
-		if err == nil {
-			// Members' logins and the read-only role belonged to this copy.
-			var names []string
-			rows, qerr := conn.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname = $1 OR starts_with(rolname, $2)`,
-				provision.ReadOnlyRole(r.DbName), r.DbName+"_u_")
-			if qerr == nil {
-				names, qerr = pgx.CollectRows(rows, pgx.RowTo[string])
-			}
-			err = qerr
-			for _, n := range names {
-				if err == nil {
-					_, err = conn.Exec(ctx, "DROP ROLE IF EXISTS "+provision.Ident(n))
-				}
-			}
-		}
-		_ = conn.Close(context.Background())
-		if err != nil {
-			errs = append(errs, fmt.Errorf("drop %s: %w", r.DbName, err))
+			errs = append(errs, fmt.Errorf("drop %s of %s: %w", what, r.DbName, err))
 			continue
 		}
 		if err := q.MarkRetiredDropped(ctx, r.ID); err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		s.log.Info("dropped retired shared copy", "database", r.DbName, "project_id", r.ProjectID)
+		s.log.Info("dropped "+what, "database", r.DbName, "project_id", r.ProjectID)
 	}
 	return errors.Join(errs...)
 }

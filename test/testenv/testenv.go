@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -46,6 +47,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
@@ -55,11 +57,17 @@ import (
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
+	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/pgdock/internal/tokens"
+	"github.com/israel-duff/pgdock/internal/webhooks"
 )
 
 // Env is a running control plane.
@@ -90,6 +98,19 @@ type Env struct {
 	Auth *auth.Service
 	Orgs *orgs.Service
 	SMTP *SMTPServer
+	// Tenancy is the M9 controller; tests tick it (EnforceStorage, Reap,
+	// RecordUsage, Sweep) rather than running its loops. Its clock is real
+	// time plus TenancyAdvance.
+	Tenancy *tenancy.Service
+	// Tokens issues API tokens; its clock is the auth clock (Advance).
+	Tokens *tokens.Service
+	// Branches runs branching; tests call Branches.Sweep, whose clock is
+	// the tenancy clock (TenancyAdvance).
+	Branches *branching.Service
+	// Webhooks, Jobs and Outbound run V2 §9 on the automation clock.
+	Webhooks *webhooks.Service
+	Jobs     *schedjobs.Service
+	Outbound *outbound.Service
 	// OrgID is the owner's personal organisation, where CreateProject puts
 	// projects.
 	OrgID uuid.UUID
@@ -98,7 +119,17 @@ type Env struct {
 	// S3Link is set with Options.S3Link once ConfigureBackups ran.
 	S3Link *Link
 
-	s3Link   bool
+	s3Link        bool
+	tenancyOffset atomic.Int64
+	// automationOffset moves the webhooks', jobs' and outbound clock.
+	automationOffset atomic.Int64
+	// automation runs the webhook and job loops (StopAutomation).
+	automation struct {
+		mu     sync.Mutex
+		ctx    context.Context
+		cancel context.CancelFunc
+		wg     sync.WaitGroup
+	}
 	agentRun map[string][]string // docker exec arguments per node, for restarts
 	// S3 is the fake object store, once ConfigureBackups ran.
 	S3 *storage.Fake
@@ -128,6 +159,9 @@ type Options struct {
 	// S3Link puts a cuttable TCP link (Env.S3Link) between agents and the
 	// fake S3 ConfigureBackups starts.
 	S3Link bool
+	// TokenRate and OrgTokenRate override the API token rate limits
+	// (requests per minute).
+	TokenRate, OrgTokenRate int
 }
 
 func need(t testing.TB, name string) string {
@@ -224,6 +258,7 @@ func Start(t testing.TB, opts Options) *Env {
 	// The test server runs on the host: it reaches instances through the
 	// ports agents publish on 127.0.0.1.
 	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze}, log)
+	ded.Snapshot = backups.Snapshot
 	svc.Instances = ded
 	backups.Dedicated = ded
 
@@ -236,6 +271,15 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	isoChecks := isocheck.New(db, svc, log)
 	for name, k := range isoChecks.Kinds() {
+		kinds[name] = k
+	}
+	mailSvc := mail.New(db, keyring)
+	e := &Env{}
+	branchSvc := branching.New(db, svc, backups, nodeSvc, mailSvc, branching.Config{
+		PublicURL: "https://pgdock.test",
+		Now:       func() time.Time { return time.Now().Add(time.Duration(e.tenancyOffset.Load())) },
+	}, log)
+	for name, k := range branchSvc.Kinds() {
 		kinds[name] = k
 	}
 	if opts.MaxAttempts > 0 {
@@ -259,7 +303,6 @@ func Start(t testing.TB, opts Options) *Env {
 	clock := &Clock{t: time.Now()}
 	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, "test-setup-code", log)
 	smtpd := StartSMTP(t)
-	mailSvc := mail.New(db, keyring)
 	host, port, _ := net.SplitHostPort(smtpd.Addr)
 	portN, _ := strconv.Atoi(port)
 	mailSvc.UseConfig(mail.Config{Host: host, Port: portN, From: "PGDock <pgdock@pgdock.test>", TLS: mail.TLSNone})
@@ -269,8 +312,27 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	orgSvc := orgs.New(db, authSvc, svc, mailSvc, "https://pgdock.test", log)
 	authSvc.SetHooks(orgSvc.Hooks())
+	tenancySvc := tenancy.New(db, svc, mailSvc, tenancy.Config{
+		PublicURL: "https://pgdock.test",
+		Now:       func() time.Time { return time.Now().Add(time.Duration(e.tenancyOffset.Load())) },
+	}, log)
+	tenancySvc.FinalBackup = func(ctx context.Context, p store.Project) error {
+		_, err := backups.BackupNow(ctx, p.ID, nil)
+		return err
+	}
+	ded.Quotas = tenancySvc
+	// Webhooks and jobs, on a clock tests move (AutomationAdvance), polling
+	// every 200ms.
+	autoNow := func() time.Time { return time.Now().Add(time.Duration(e.automationOffset.Load())) }
+	outboundSvc := outbound.New(db, outbound.Config{Now: autoNow}, log)
+	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
+	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
+	svc.RefreshWebhooks = webhookSvc.Reinstall
+	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Orgs: orgSvc, Mail: mailSvc,
+		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
+		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
 		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, IsoChecks: isoChecks, Alerts: alertSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
@@ -287,16 +349,21 @@ func Start(t testing.TB, opts Options) *Env {
 	ts.Start()
 	jar, _ := cookiejar.New(nil)
 
-	e := &Env{
-		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock,
+	*e = Env{
+		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
 		admin: adminCreds{"pgdock", adminPW}, log: log, s3Link: opts.S3Link, MasterKey: key,
 	}
+	// After *e is set: the loops read e.automationOffset.
+	e.automation.ctx = ctx
+	e.StartAutomation()
 	t.Cleanup(func() {
 		ts.Close()
+		e.StopAutomation()
 		cancel()
 		wg.Wait()
 		e.dropLeftovers()
@@ -323,6 +390,14 @@ type Clock struct {
 func (c *Clock) Now() time.Time { c.mu.Lock(); defer c.mu.Unlock(); return c.t }
 
 func (c *Clock) advance() { c.mu.Lock(); c.t = c.t.Add(30 * time.Second); c.mu.Unlock() }
+
+// TenancyAdvance moves the tenancy service's clock on (the reaper's
+// "now", usage periods).
+func (e *Env) TenancyAdvance(d time.Duration) { e.tenancyOffset.Add(int64(d)) }
+
+// AutomationAdvance moves the webhooks', jobs' and outbound clock by d
+// (retries come due, rate buckets refill).
+func (e *Env) AutomationAdvance(d time.Duration) { e.automationOffset.Add(int64(d)) }
 
 // Advance moves the auth clock on, e.g. past the re-auth window.
 func (e *Env) Advance(d time.Duration) {
@@ -413,7 +488,8 @@ func moduleRelative(t testing.TB, p string) string {
 func (e *Env) dropLeftovers() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	rows, err := e.DB.Query(ctx, `SELECT db_name, owner_role FROM projects`)
+	rows, err := e.DB.Query(ctx, `SELECT db_name, owner_role FROM projects
+		UNION ALL SELECT alias_db_name, legacy_owner_role FROM projects WHERE alias_db_name IS NOT NULL AND legacy_owner_role IS NOT NULL`)
 	if err != nil {
 		return
 	}
@@ -432,6 +508,16 @@ func (e *Env) dropLeftovers() {
 		_, _ = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{n.DB}.Sanitize()+" WITH (FORCE)")
 		_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{n.Role}.Sanitize())
 		_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{provision.ConsoleRole(n.DB)}.Sanitize())
+		// The read-only group role and members' logins (V2 §3.5).
+		if more, err := conn.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname = $1 OR starts_with(rolname, $2)`,
+			provision.ReadOnlyRole(n.DB), n.DB+"_u_"); err == nil {
+			if roles, err := pgx.CollectRows(more, pgx.RowTo[string]); err == nil {
+				for _, r := range roles {
+					_, _ = conn.Exec(ctx, "DROP OWNED BY "+pgx.Identifier{r}.Sanitize())
+					_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{r}.Sanitize())
+				}
+			}
+		}
 	}
 }
 
@@ -496,10 +582,11 @@ func (e *Env) WaitOperation(id uuid.UUID) gen.Operation {
 	}
 	_, _ = io.Copy(io.Discard, res.Body) // the stream ends at the done event
 	_ = res.Body.Close()
-	if ctx.Err() != nil {
-		e.t.Fatalf("operation %s did not finish in time", id)
-	}
 	var op gen.Operation
+	if ctx.Err() != nil {
+		e.Do("GET", "/api/v1/operations/"+id.String(), nil, &op)
+		e.t.Fatalf("operation %s (%s) did not finish in time: %s\n%s", id, op.Kind, op.Status, FormatLog(op))
+	}
 	if code := e.Do("GET", "/api/v1/operations/"+id.String(), nil, &op); code != http.StatusOK {
 		e.t.Fatalf("get operation %s: status %d", id, code)
 	}
@@ -623,4 +710,34 @@ func (e *Env) GetText(path string, header http.Header, withSession bool) (int, s
 	defer res.Body.Close()
 	b, _ := io.ReadAll(res.Body)
 	return res.StatusCode, string(b)
+}
+
+// StartAutomation starts the webhook delivery worker and the job
+// scheduler (Start does; after StopAutomation, as a restarted server would).
+func (e *Env) StartAutomation() {
+	a := &e.automation
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.cancel != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.cancel = cancel
+	a.wg.Add(2)
+	go func() { defer a.wg.Done(); e.Webhooks.Run(ctx) }()
+	go func() { defer a.wg.Done(); e.Jobs.Run(ctx) }()
+}
+
+// StopAutomation stops the delivery worker and the scheduler mid-work, as
+// a killed server would, and waits for them to end.
+func (e *Env) StopAutomation() {
+	a := &e.automation
+	a.mu.Lock()
+	cancel := a.cancel
+	a.cancel = nil
+	a.mu.Unlock()
+	if cancel != nil {
+		cancel()
+		a.wg.Wait()
+	}
 }
