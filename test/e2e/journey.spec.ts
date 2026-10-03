@@ -1308,6 +1308,9 @@ test.describe("with the saved session", () => {
     await confirm.getByLabel("Your password").fill(password);
     await confirm.getByTestId("confirm-code").fill(await freshTotp(totpSecret));
     await confirm.getByRole("button", { name: "Delete branch" }).click();
+    // The dialog closes once the delete is queued; navigating sooner
+    // abandons the request.
+    await expect(confirm).toBeHidden({ timeout: 30_000 });
     await expect(async () => {
       await page.goto("/projects");
       await expect(page.getByTestId("branch-list-row").filter({ hasText: "try-migration" })).toHaveCount(0);
