@@ -2477,6 +2477,12 @@ type DbColumn struct {
 	Type     string  `json:"type"`
 }
 
+// DbEnum defines model for DbEnum.
+type DbEnum struct {
+	Name   string   `json:"name"`
+	Values []string `json:"values"`
+}
+
 // DbHostRequest defines model for DbHostRequest.
 type DbHostRequest struct {
 	// DbHost Example: db.example.com
@@ -2498,6 +2504,7 @@ type DbSchema struct {
 
 // DbSchemaNode defines model for DbSchemaNode.
 type DbSchemaNode struct {
+	Enums  []DbEnum  `json:"enums"`
 	Name   string    `json:"name"`
 	Tables []DbTable `json:"tables"`
 }

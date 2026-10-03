@@ -31,6 +31,13 @@ type Schema struct {
 type SchemaNode struct {
 	Name   string  `json:"name"`
 	Tables []Table `json:"tables"`
+	Enums  []Enum  `json:"enums"`
+}
+
+// Enum is an enumerated type, for the table editor's type picker.
+type Enum struct {
+	Name   string   `json:"name"`
+	Values []string `json:"values"`
 }
 
 // Table is a table, view, or materialized view.
@@ -105,7 +112,7 @@ func (s *Service) Schema(ctx context.Context, projectID uuid.UUID) (Schema, erro
 		idx := map[string]int{}
 		for i, n := range names {
 			idx[n] = i
-			out.Schemas = append(out.Schemas, SchemaNode{Name: n, Tables: []Table{}})
+			out.Schemas = append(out.Schemas, SchemaNode{Name: n, Tables: []Table{}, Enums: []Enum{}})
 		}
 
 		rows, err = conn.Query(ctx, `
@@ -201,7 +208,27 @@ func (s *Service) Schema(ctx context.Context, projectID uuid.UUID) (Schema, erro
 				out.Schemas[i].Tables = append(out.Schemas[i].Tables, t)
 			}
 		}
-		return nil
+
+		rows, err = conn.Query(ctx, `
+			SELECT n.nspname, t.typname, array_agg(e.enumlabel ORDER BY e.enumsortorder)
+			FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace JOIN pg_enum e ON e.enumtypid = t.oid
+			WHERE `+userSchemas+`
+			GROUP BY n.nspname, t.typname ORDER BY 1, 2`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var schema string
+			var en Enum
+			if err := rows.Scan(&schema, &en.Name, &en.Values); err != nil {
+				return err
+			}
+			if i, ok := idx[schema]; ok {
+				out.Schemas[i].Enums = append(out.Schemas[i].Enums, en)
+			}
+		}
+		return rows.Err()
 	})
 	return out, err
 }

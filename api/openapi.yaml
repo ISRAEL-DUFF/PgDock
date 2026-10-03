@@ -6202,7 +6202,7 @@ components:
             $ref: "#/components/schemas/DbSchemaNode"
     DbSchemaNode:
       type: object
-      required: [name, tables]
+      required: [name, tables, enums]
       properties:
         name:
           type: string
@@ -6210,6 +6210,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DbTable"
+        enums:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbEnum"
+    DbEnum:
+      type: object
+      required: [name, values]
+      properties:
+        name:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
     DbTable:
       type: object
       required: [name, kind, size_bytes, primary_key, columns, indexes]

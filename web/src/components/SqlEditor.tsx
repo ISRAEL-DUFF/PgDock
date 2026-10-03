@@ -96,3 +96,34 @@ export const SqlEditor = forwardRef<
 
   return <div ref={host} className="rounded-md border border-line" />;
 });
+
+const viewerTheme = EditorView.theme({
+  "&": { height: "100%", borderRadius: "0" },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": { maxHeight: "none", height: "100%" },
+});
+
+/** Read-only SQL with the editor's highlighting: the table editor's
+ * Definition view. */
+export function SqlViewer({ value, label }: { value: string; label: string }) {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const v = new EditorView({
+      parent: host.current!,
+      state: EditorState.create({
+        doc: value,
+        extensions: [
+          lineNumbers(),
+          sql({ dialect: PostgreSQL }),
+          syntaxHighlighting(highlight),
+          theme,
+          viewerTheme,
+          EditorState.readOnly.of(true),
+          EditorView.contentAttributes.of({ "aria-label": label, "data-testid": "table-definition" }),
+        ],
+      }),
+    });
+    return () => v.destroy();
+  }, [value, label]);
+  return <div ref={host} className="h-full min-h-0" />;
+}

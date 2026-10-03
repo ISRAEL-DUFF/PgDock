@@ -115,3 +115,33 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
+
+/* The table editor's grid (react-data-grid), in the theme's colours. */
+.rdg.pgdock-grid {
+  --rdg-background-color: var(--bg);
+  --rdg-header-background-color: var(--surface);
+  --rdg-header-draggable-background-color: var(--surface-3);
+  --rdg-border-color: var(--border);
+  --rdg-color: var(--fg);
+  --rdg-font-size: 12px;
+  --rdg-row-hover-background-color: var(--surface-2);
+  --rdg-row-selected-background-color: var(--accent-soft);
+  --rdg-row-selected-hover-background-color: var(--accent-soft);
+  --rdg-selection-color: var(--accent);
+  --rdg-checkbox-focus-color: var(--accent);
+  border: none;
+  block-size: 100%;
+  color-scheme: inherit;
+  font-family: var(--font-mono);
+}
+.rdg.pgdock-grid [role="columnheader"] {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  padding-inline: 0;
+}
+.rdg.pgdock-grid [role="gridcell"] {
+  padding-inline: 8px;
+}
+.rdg.pgdock-grid input[type="checkbox"] {
+  accent-color: var(--accent);
+}

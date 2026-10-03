@@ -114,7 +114,15 @@ const project = createRoute({ getParentRoute: () => app, path: "/projects/$id", 
 const projectOverview = createRoute({ getParentRoute: () => project, path: "/", component: ProjectOverviewPage });
 const projectConnect = createRoute({ getParentRoute: () => project, path: "/connect", component: ProjectConnectPage });
 const projectSql = createRoute({ getParentRoute: () => project, path: "/sql", component: ProjectSqlPage });
-const projectTables = createRoute({ getParentRoute: () => project, path: "/tables", component: ProjectTablesPage });
+const projectTables = createRoute({
+  getParentRoute: () => project,
+  path: "/tables",
+  validateSearch: (s: Record<string, unknown>): { schema?: string; table?: string } => ({
+    schema: typeof s.schema === "string" && s.schema ? s.schema : undefined,
+    table: typeof s.table === "string" && s.table ? s.table : undefined,
+  }),
+  component: ProjectTablesPage,
+});
 const projectMetrics = createRoute({ getParentRoute: () => project, path: "/metrics", component: ProjectMetricsPage });
 const projectBackups = createRoute({ getParentRoute: () => project, path: "/backups", component: ProjectBackupsPage });
 const projectBranches = createRoute({ getParentRoute: () => project, path: "/branches", component: ProjectBranchesPage });

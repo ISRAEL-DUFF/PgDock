@@ -4142,6 +4142,11 @@ export interface components {
         DbSchemaNode: {
             name: string;
             tables: components["schemas"]["DbTable"][];
+            enums: components["schemas"]["DbEnum"][];
+        };
+        DbEnum: {
+            name: string;
+            values: string[];
         };
         DbTable: {
             name: string;
