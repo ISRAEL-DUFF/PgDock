@@ -38,7 +38,12 @@ export function ConfirmDestroy({
     setBusy(true);
     setErr(null);
     try {
-      await api.reauth({ password, code });
+      // Skip a fresh step-up while the session is still inside its reauth
+      // window; the server enforces the window either way.
+      const s = await api.session();
+      if (!s.reauth_until || new Date(s.reauth_until).getTime() <= Date.now() + 5_000) {
+        await api.reauth({ password, code });
+      }
       await run();
       setTyped("");
       setPassword("");
