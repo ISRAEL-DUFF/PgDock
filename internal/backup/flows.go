@@ -56,8 +56,12 @@ func (s *Service) backupProject(ctx context.Context, p store.Project, kind strin
 	if err != nil {
 		return store.Backup{}, err
 	}
+	pl, err := s.PlacementFor(ctx, p)
+	if err != nil {
+		return store.Backup{}, jobs.Permanent(err)
+	}
 	id := p.ID
-	return s.dumpTo(ctx, agent, pg, kind, &id, opID, log)
+	return s.dumpTo(ctx, agent, pg, kind, pl, &id, opID, log)
 }
 
 // runBackup takes one logical backup of a project (spec §6.3) and applies
@@ -100,13 +104,17 @@ func (s *Service) runBackup(ctx context.Context, op store.Operation, log *jobs.S
 // 2). Without storage or a backup key there is nothing to back up to; the
 // delete goes ahead and says so.
 func (s *Service) finalBackup(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
-	if _, _, err := s.StorageTarget(ctx); errors.Is(err, ErrNoStorage) {
+	pl, err := s.PlacementFor(ctx, p)
+	if errors.Is(err, ErrNoStorage) || errors.Is(err, ErrTargetGone) {
 		return log.Warn(ctx, "backup", "final backup skipped: %v", err)
 	}
-	if _, err := s.BackupKey(ctx); errors.Is(err, ErrNoBackupKey) {
+	if err != nil {
+		return err
+	}
+	if _, err := s.BackupKey(ctx); pl.KeyID == nil && errors.Is(err, ErrNoBackupKey) {
 		return log.Warn(ctx, "backup", "final backup skipped: %v", err)
 	}
-	_, err := s.backupProject(ctx, p, Final, nil, log)
+	_, err = s.backupProject(ctx, p, Final, nil, log)
 	return err
 }
 
@@ -318,8 +326,12 @@ func (s *Service) runMetadataBackup(ctx context.Context, op store.Operation, log
 	if err != nil {
 		return err
 	}
+	pl, err := s.defaultPlacement(ctx)
+	if err != nil {
+		return jobs.Permanent(err)
+	}
 	opID := op.ID
-	if _, err := s.dumpTo(ctx, agent, s.cfg.MetadataPG, Metadata, nil, &opID, log); err != nil {
+	if _, err := s.dumpTo(ctx, agent, s.cfg.MetadataPG, Metadata, pl, nil, &opID, log); err != nil {
 		return err
 	}
 	if err := s.applyRetention(ctx, nil, Metadata, log); err != nil {

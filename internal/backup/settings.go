@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,7 +35,8 @@ type creds struct {
 	PathStyle bool   `json:"path_style"`
 }
 
-// StorageTarget returns the default storage target with its credentials.
+// StorageTarget returns the platform default storage target with its
+// credentials.
 func (s *Service) StorageTarget(ctx context.Context) (uuid.UUID, storage.Target, error) {
 	row, err := store.New(s.db).GetDefaultStorageTarget(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -45,18 +45,8 @@ func (s *Service) StorageTarget(ctx context.Context) (uuid.UUID, storage.Target,
 	if err != nil {
 		return uuid.Nil, storage.Target{}, err
 	}
-	plain, err := s.keyring.Decrypt(row.Credentials, credsAAD(row.ID))
-	if err != nil {
-		return uuid.Nil, storage.Target{}, fmt.Errorf("storage credentials: %w", err)
-	}
-	var c creds
-	if err := json.Unmarshal(plain, &c); err != nil {
-		return uuid.Nil, storage.Target{}, err
-	}
-	return row.ID, storage.Target{
-		Endpoint: row.Endpoint, Bucket: row.Bucket, Prefix: row.Prefix, Region: c.Region,
-		AccessKey: c.AccessKey, SecretKey: c.SecretKey, PathStyle: c.PathStyle,
-	}, nil
+	t, err := s.openTarget(row)
+	return row.ID, t, err
 }
 
 // TestStorage runs the live write/read/delete test against t (spec §8.2).
@@ -69,46 +59,28 @@ func (s *Service) TestStorage(ctx context.Context, t storage.Target) ([]storage.
 	return steps, ok, nil
 }
 
-// SaveStorage stores t as the default target after a passing live test. An
-// empty secret key keeps the stored one (so the UI never needs to read it).
+// SaveStorage stores t as the platform default target after a passing
+// live test (the setup wizard and Settings → Storage). An empty secret key
+// keeps the stored one (so the UI never needs to read it).
 func (s *Service) SaveStorage(ctx context.Context, t storage.Target) ([]storage.TestStep, bool, error) {
-	if t.SecretKey == "" {
-		if _, cur, err := s.StorageTarget(ctx); err == nil && cur.AccessKey == t.AccessKey {
-			t.SecretKey = cur.SecretKey
-		}
+	in := TargetInput{
+		Name: "default", Endpoint: t.Endpoint, Region: t.Region, Bucket: t.Bucket, Prefix: t.Prefix,
+		AccessKey: t.AccessKey, SecretKey: t.SecretKey, PathStyle: t.PathStyle, IsDefault: true,
 	}
-	steps, ok, err := s.TestStorage(ctx, t)
-	if err != nil || !ok {
-		return steps, ok, err
+	var id *uuid.UUID
+	if cur, err := store.New(s.db).GetDefaultStorageTarget(ctx); err == nil {
+		id, in.Name = &cur.ID, cur.Name
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, err
 	}
-	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		q := store.New(tx)
-		row, err := q.GetDefaultStorageTarget(ctx)
-		id := row.ID
-		isNew := errors.Is(err, pgx.ErrNoRows)
-		if err != nil && !isNew {
-			return err
-		}
-		if isNew {
-			id = uuid.New()
-		}
-		b, _ := json.Marshal(creds{AccessKey: t.AccessKey, SecretKey: t.SecretKey, Region: t.Region, PathStyle: t.PathStyle})
-		sealed, err := s.keyring.Encrypt(b, credsAAD(id))
-		if err != nil {
-			return err
-		}
-		if isNew {
-			_, err = q.InsertStorageTarget(ctx, store.InsertStorageTargetParams{
-				ID: id, Name: "default", Endpoint: t.Endpoint, Bucket: t.Bucket, Prefix: t.Prefix, Credentials: sealed,
-			})
-		} else {
-			_, err = q.UpdateStorageTarget(ctx, store.UpdateStorageTargetParams{
-				ID: id, Endpoint: t.Endpoint, Bucket: t.Bucket, Prefix: t.Prefix, Credentials: sealed,
-			})
-		}
-		return err
-	})
-	return steps, ok, err
+	_, steps, err := s.SaveTarget(ctx, nil, id, in, nil)
+	if errors.Is(err, ErrTargetTest) {
+		return steps, false, nil
+	}
+	if err != nil && steps == nil {
+		return nil, false, err
+	}
+	return steps, err == nil, err
 }
 
 // ---- Backup key --------------------------------------------------------------

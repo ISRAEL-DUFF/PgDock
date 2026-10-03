@@ -218,8 +218,27 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for BackupEncryption.
+const (
+	BackupEncryptionInstance BackupEncryption = "instance"
+	BackupEncryptionProject  BackupEncryption = "project"
+)
+
+// Valid indicates whether the value is a known member of the BackupEncryption enum.
+func (e BackupEncryption) Valid() bool {
+	switch e {
+	case BackupEncryptionInstance:
+		return true
+	case BackupEncryptionProject:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStatus.
 const (
+	BackupStatusCopied    BackupStatus = "copied"
 	BackupStatusFailed    BackupStatus = "failed"
 	BackupStatusRunning   BackupStatus = "running"
 	BackupStatusSucceeded BackupStatus = "succeeded"
@@ -228,6 +247,8 @@ const (
 // Valid indicates whether the value is a known member of the BackupStatus enum.
 func (e BackupStatus) Valid() bool {
 	switch e {
+	case BackupStatusCopied:
+		return true
 	case BackupStatusFailed:
 		return true
 	case BackupStatusRunning:
@@ -1073,6 +1094,24 @@ func (e StorageState) Valid() bool {
 	}
 }
 
+// Defines values for StorageTargetKind.
+const (
+	StorageTargetKindOrg      StorageTargetKind = "org"
+	StorageTargetKindPlatform StorageTargetKind = "platform"
+)
+
+// Valid indicates whether the value is a known member of the StorageTargetKind enum.
+func (e StorageTargetKind) Valid() bool {
+	switch e {
+	case StorageTargetKindOrg:
+		return true
+	case StorageTargetKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TableConstraintKind.
 const (
 	TableConstraintKindCheck      TableConstraintKind = "check"
@@ -1784,11 +1823,15 @@ type AuditList struct {
 
 // Backup defines model for Backup.
 type Backup struct {
-	Checksum       *string             `json:"checksum,omitempty"`
+	Checksum *string `json:"checksum,omitempty"`
+
+	// Encryption `project`: an OpenPGP message to the project's own key (opens with gpg).
+	Encryption     *BackupEncryption   `json:"encryption,omitempty"`
 	Error          *string             `json:"error,omitempty"`
 	ExpiresAt      *time.Time          `json:"expires_at,omitempty"`
 	FinishedAt     *time.Time          `json:"finished_at,omitempty"`
 	Id             openapi_types.UUID  `json:"id"`
+	KeyFingerprint *string             `json:"key_fingerprint,omitempty"`
 	Kind           BackupKind          `json:"kind"`
 	OperationId    *openapi_types.UUID `json:"operation_id,omitempty"`
 	ProjectDeleted *bool               `json:"project_deleted,omitempty"`
@@ -1796,10 +1839,19 @@ type Backup struct {
 	ProjectName    *string             `json:"project_name,omitempty"`
 	SizeBytes      *int64              `json:"size_bytes,omitempty"`
 	StartedAt      time.Time           `json:"started_at"`
-	Status         BackupStatus        `json:"status"`
+
+	// Status `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
+	Status      BackupStatus       `json:"status"`
+	StorageKind *StorageTargetKind `json:"storage_kind,omitempty"`
+
+	// StorageTarget The target's name ("an org target" where its name isn't the viewer's to see).
+	StorageTarget *string `json:"storage_target,omitempty"`
 }
 
-// BackupStatus defines model for Backup.Status.
+// BackupEncryption `project`: an OpenPGP message to the project's own key (opens with gpg).
+type BackupEncryption string
+
+// BackupStatus `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
 type BackupStatus string
 
 // BackupKeyConfirmRequest defines model for BackupKeyConfirmRequest.
@@ -2767,6 +2819,34 @@ type Project struct {
 	Tier         ProjectTier   `json:"tier"`
 }
 
+// ProjectBackupKey defines model for ProjectBackupKey.
+type ProjectBackupKey struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Enabled False means new backups use the instance key.
+	Enabled bool `json:"enabled"`
+
+	// Fingerprint The OpenPGP fingerprint, as gpg shows it.
+	Fingerprint *string             `json:"fingerprint,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+}
+
+// ProjectBackupKeyRequest defines model for ProjectBackupKeyRequest.
+type ProjectBackupKeyRequest struct {
+	// Rotate Replace an existing key; backups made with the old one keep it.
+	Rotate *bool `json:"rotate,omitempty"`
+}
+
+// ProjectBackupStorage defines model for ProjectBackupStorage.
+type ProjectBackupStorage struct {
+	Choices []ProjectStorageChoice `json:"choices"`
+
+	// CountsTowardQuota Whether new backups count against the organisation's backup quota (platform targets do).
+	CountsTowardQuota bool                 `json:"counts_toward_quota"`
+	Key               ProjectBackupKey     `json:"key"`
+	Target            ProjectStorageChoice `json:"target"`
+}
+
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
 type ProjectCredentials struct {
 	Connection ConnectionInfo `json:"connection"`
@@ -2859,6 +2939,28 @@ type ProjectStorage struct {
 	// State V2 §10.4 storage enforcement.
 	State  StorageState     `json:"state"`
 	Tables []TableFootprint `json:"tables"`
+}
+
+// ProjectStorageChoice defines model for ProjectStorageChoice.
+type ProjectStorageChoice struct {
+	// Id Null is the platform default (followed if it changes).
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	IsDefault bool                `json:"is_default"`
+	Kind      StorageTargetKind   `json:"kind"`
+	Name      string              `json:"name"`
+}
+
+// ProjectStorageTargetRequest defines model for ProjectStorageTargetRequest.
+type ProjectStorageTargetRequest struct {
+	CopyExisting    *bool               `json:"copy_existing,omitempty"`
+	DeleteOriginals *bool               `json:"delete_originals,omitempty"`
+	TargetId        *openapi_types.UUID `json:"target_id,omitempty"`
+}
+
+// ProjectStorageTargetResult defines model for ProjectStorageTargetResult.
+type ProjectStorageTargetResult struct {
+	Operation *Operation           `json:"operation,omitempty"`
+	Storage   ProjectBackupStorage `json:"storage"`
 }
 
 // ProjectTier defines model for ProjectTier.
@@ -3349,6 +3451,81 @@ type StorageSettings struct {
 // StorageState V2 §10.4 storage enforcement.
 type StorageState string
 
+// StorageTarget defines model for StorageTarget.
+type StorageTarget struct {
+	Bucket    string             `json:"bucket"`
+	CreatedAt time.Time          `json:"created_at"`
+	Endpoint  string             `json:"endpoint"`
+	Id        openapi_types.UUID `json:"id"`
+	IsDefault bool               `json:"is_default"`
+	Kind      StorageTargetKind  `json:"kind"`
+	Name      string             `json:"name"`
+	PathStyle bool               `json:"path_style"`
+	Prefix    string             `json:"prefix"`
+	Region    string             `json:"region"`
+	UpdatedAt *time.Time         `json:"updated_at,omitempty"`
+	Usage     StorageTargetUsage `json:"usage"`
+}
+
+// StorageTargetKind defines model for StorageTargetKind.
+type StorageTargetKind string
+
+// StorageTargetList defines model for StorageTargetList.
+type StorageTargetList struct {
+	Items []StorageTarget `json:"items"`
+}
+
+// StorageTargetRequest defines model for StorageTargetRequest.
+type StorageTargetRequest struct {
+	// AccessKey Empty on an update keeps the stored one.
+	AccessKey *string `json:"access_key,omitempty"`
+	Bucket    string  `json:"bucket"`
+
+	// Endpoint Example: https://s3.eu-central-1.amazonaws.com
+	Endpoint string `json:"endpoint"`
+
+	// IsDefault Platform targets only.
+	IsDefault *bool   `json:"is_default,omitempty"`
+	Name      string  `json:"name"`
+	PathStyle *bool   `json:"path_style,omitempty"`
+	Prefix    *string `json:"prefix,omitempty"`
+	Region    *string `json:"region,omitempty"`
+
+	// SecretKey Empty on an update keeps the stored one.
+	SecretKey *string `json:"secret_key,omitempty"`
+}
+
+// StorageTargetSaveResult defines model for StorageTargetSaveResult.
+type StorageTargetSaveResult struct {
+	Saved  bool              `json:"saved"`
+	Target *StorageTarget    `json:"target,omitempty"`
+	Test   StorageTestResult `json:"test"`
+}
+
+// StorageTargetTestRequest defines model for StorageTargetTestRequest.
+type StorageTargetTestRequest struct {
+	AccessKey *string `json:"access_key,omitempty"`
+	Bucket    string  `json:"bucket"`
+	Endpoint  string  `json:"endpoint"`
+	PathStyle *bool   `json:"path_style,omitempty"`
+	Prefix    *string `json:"prefix,omitempty"`
+	Region    *string `json:"region,omitempty"`
+	SecretKey *string `json:"secret_key,omitempty"`
+
+	// TargetId A stored target whose credentials fill in empty ones.
+	TargetId *openapi_types.UUID `json:"target_id,omitempty"`
+}
+
+// StorageTargetUsage defines model for StorageTargetUsage.
+type StorageTargetUsage struct {
+	// Backups Unexpired backups stored here.
+	Backups int   `json:"backups"`
+	Bytes   int64 `json:"bytes"`
+
+	// Projects Live projects whose new backups go here.
+	Projects int `json:"projects"`
+}
+
 // StorageTestResult defines model for StorageTestResult.
 type StorageTestResult struct {
 	Ok    bool              `json:"ok"`
@@ -3633,6 +3810,9 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// AcceptUnrestorable defines model for AcceptUnrestorable.
+type AcceptUnrestorable = bool
+
 // AuditAction defines model for AuditAction.
 type AuditAction = string
 
@@ -3684,6 +3864,9 @@ type SchemaName = string
 // TableName defines model for TableName.
 type TableName = string
 
+// TargetID defines model for TargetID.
+type TargetID = openapi_types.UUID
+
 // TokenID defines model for TokenID.
 type TokenID = openapi_types.UUID
 
@@ -3716,6 +3899,12 @@ type ListDedicatedRequestsParamsStatus string
 // AdminListOrgsParams defines parameters for AdminListOrgs.
 type AdminListOrgsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
+type DeletePlatformStorageTargetParams struct {
+	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
+	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
 }
 
 // PlatformUsageParams defines parameters for PlatformUsage.
@@ -3795,6 +3984,12 @@ type ListOrgAuditParams struct {
 
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
+
+// DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
+type DeleteOrgStorageTargetParams struct {
+	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
+	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
+}
 
 // GetOrgUsageParams defines parameters for GetOrgUsage.
 type GetOrgUsageParams struct {
@@ -3882,6 +4077,12 @@ type RunRestoreTestParams struct {
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
+// TestStorageTargetParams defines parameters for TestStorageTarget.
+type TestStorageTargetParams struct {
+	// Org The organisation to list; your personal organisation when omitted.
+	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
+}
+
 // ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
 type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 
@@ -3920,6 +4121,12 @@ type PublishTermsJSONRequestBody = PublishTermsRequest
 
 // PutTokenSettingsJSONRequestBody defines body for PutTokenSettings for application/json ContentType.
 type PutTokenSettingsJSONRequestBody = TokenSettings
+
+// CreatePlatformStorageTargetJSONRequestBody defines body for CreatePlatformStorageTarget for application/json ContentType.
+type CreatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
+
+// UpdatePlatformStorageTargetJSONRequestBody defines body for UpdatePlatformStorageTarget for application/json ContentType.
+type UpdatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUserRequest
@@ -4011,11 +4218,20 @@ type InviteOrgMemberJSONRequestBody = InviteRequest
 // UpdateOrgMemberJSONRequestBody defines body for UpdateOrgMember for application/json ContentType.
 type UpdateOrgMemberJSONRequestBody = OrgRoleRequest
 
+// CreateOrgStorageTargetJSONRequestBody defines body for CreateOrgStorageTarget for application/json ContentType.
+type CreateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
+// UpdateOrgStorageTargetJSONRequestBody defines body for UpdateOrgStorageTarget for application/json ContentType.
+type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
+
+// EnableProjectBackupKeyJSONRequestBody defines body for EnableProjectBackupKey for application/json ContentType.
+type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
 
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
@@ -4056,6 +4272,9 @@ type RunSQLJSONRequestBody = SqlRequest
 // CancelSQLJSONRequestBody defines body for CancelSQL for application/json ContentType.
 type CancelSQLJSONRequestBody = SqlCancelRequest
 
+// SetProjectStorageTargetJSONRequestBody defines body for SetProjectStorageTarget for application/json ContentType.
+type SetProjectStorageTargetJSONRequestBody = ProjectStorageTargetRequest
+
 // SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
 type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
 
@@ -4088,6 +4307,9 @@ type BeginSetupJSONRequestBody = SetupBeginRequest
 
 // CompleteSetupJSONRequestBody defines body for CompleteSetup for application/json ContentType.
 type CompleteSetupJSONRequestBody = SetupCompleteRequest
+
+// TestStorageTargetJSONRequestBody defines body for TestStorageTarget for application/json ContentType.
+type TestStorageTargetJSONRequestBody = StorageTargetTestRequest
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateTokenRequest
@@ -4169,6 +4391,21 @@ type ServerInterface interface {
 	// ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
 	// (GET /api/v1/admin/shared-clusters)
 	ListSharedClusters(w http.ResponseWriter, r *http.Request)
+	// ListPlatformStorageTargets Platform storage targets (platform admin)
+	// (GET /api/v1/admin/storage-targets)
+	ListPlatformStorageTargets(w http.ResponseWriter, r *http.Request)
+	// CreatePlatformStorageTarget Add a platform target after a live test (platform admin)
+	// (POST /api/v1/admin/storage-targets)
+	CreatePlatformStorageTarget(w http.ResponseWriter, r *http.Request)
+	// DeletePlatformStorageTarget Delete a platform target (platform admin)
+	// (DELETE /api/v1/admin/storage-targets/{target_id})
+	DeletePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID, params DeletePlatformStorageTargetParams)
+	// GetPlatformStorageTarget One platform target (platform admin)
+	// (GET /api/v1/admin/storage-targets/{target_id})
+	GetPlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID)
+	// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
+	// (PATCH /api/v1/admin/storage-targets/{target_id})
+	UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID)
 	// PlatformUsage Usage totals per organisation (platform admin)
 	// (GET /api/v1/admin/usage)
 	PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams)
@@ -4364,6 +4601,21 @@ type ServerInterface interface {
 	// GetOrgQuotas The organisation's plan, limits, and current use (V2 §10.3)
 	// (GET /api/v1/orgs/{org}/quotas)
 	GetOrgQuotas(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgStorageTargets The organisation's own backup storage targets (owners and admins)
+	// (GET /api/v1/orgs/{org}/storage-targets)
+	ListOrgStorageTargets(w http.ResponseWriter, r *http.Request, org OrgID)
+	// CreateOrgStorageTarget Add an org target after a live test
+	// (POST /api/v1/orgs/{org}/storage-targets)
+	CreateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID)
+	// DeleteOrgStorageTarget Delete an org target
+	// (DELETE /api/v1/orgs/{org}/storage-targets/{target_id})
+	DeleteOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID, params DeleteOrgStorageTargetParams)
+	// GetOrgStorageTarget One org target (never its credentials)
+	// (GET /api/v1/orgs/{org}/storage-targets/{target_id})
+	GetOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID)
+	// UpdateOrgStorageTarget Change an org target after a live test
+	// (PATCH /api/v1/orgs/{org}/storage-targets/{target_id})
+	UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID)
 	// ListOrgTokens Every token scoped to the organisation (owners and admins)
 	// (GET /api/v1/orgs/{org}/tokens)
 	ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -4394,6 +4646,12 @@ type ServerInterface interface {
 	// ListProjectAudit The project's slice of its organisation's audit log
 	// (GET /api/v1/projects/{id}/audit)
 	ListProjectAudit(w http.ResponseWriter, r *http.Request, id ProjectID, params ListProjectAuditParams)
+	// EnableProjectBackupKey Give the project its own backup key
+	// (POST /api/v1/projects/{id}/backup-key)
+	EnableProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DownloadProjectBackupKey Download the project's backup key with a README (re-authentication)
+	// (GET /api/v1/projects/{id}/backup-key/download)
+	DownloadProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// CreateProjectBackup Back up a project now
 	// (POST /api/v1/projects/{id}/backups)
 	CreateProjectBackup(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -4472,6 +4730,12 @@ type ServerInterface interface {
 	// GetProjectStorage Size against the storage limit, lock state, and the largest tables
 	// (GET /api/v1/projects/{id}/storage)
 	GetProjectStorage(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectStorageTarget Where the project's backups go, its key, and the targets it can use
+	// (GET /api/v1/projects/{id}/storage-target)
+	GetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SetProjectStorageTarget Send the project's new backups to another target
+	// (PUT /api/v1/projects/{id}/storage-target)
+	SetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
 	// (POST /api/v1/projects/{id}/switch-credentials)
 	SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -4547,6 +4811,9 @@ type ServerInterface interface {
 	// CompleteSetup First-run setup, step 2 - confirm TOTP and create the owner
 	// (POST /api/v1/setup/complete)
 	CompleteSetup(w http.ResponseWriter, r *http.Request)
+	// TestStorageTarget Run the live write/read/list/delete test without saving
+	// (POST /api/v1/storage-targets/test)
+	TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams)
 	// GetTerms The current terms of use and privacy notice (public)
 	// (GET /api/v1/terms)
 	GetTerms(w http.ResponseWriter, r *http.Request)
@@ -4724,6 +4991,36 @@ func (_ Unimplemented) PutTokenSettings(w http.ResponseWriter, r *http.Request) 
 // ListSharedClusters Shared clusters and the organisation each is reserved for (platform admin)
 // (GET /api/v1/admin/shared-clusters)
 func (_ Unimplemented) ListSharedClusters(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPlatformStorageTargets Platform storage targets (platform admin)
+// (GET /api/v1/admin/storage-targets)
+func (_ Unimplemented) ListPlatformStorageTargets(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreatePlatformStorageTarget Add a platform target after a live test (platform admin)
+// (POST /api/v1/admin/storage-targets)
+func (_ Unimplemented) CreatePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeletePlatformStorageTarget Delete a platform target (platform admin)
+// (DELETE /api/v1/admin/storage-targets/{target_id})
+func (_ Unimplemented) DeletePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID, params DeletePlatformStorageTargetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPlatformStorageTarget One platform target (platform admin)
+// (GET /api/v1/admin/storage-targets/{target_id})
+func (_ Unimplemented) GetPlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
+// (PATCH /api/v1/admin/storage-targets/{target_id})
+func (_ Unimplemented) UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5117,6 +5414,36 @@ func (_ Unimplemented) GetOrgQuotas(w http.ResponseWriter, r *http.Request, org 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListOrgStorageTargets The organisation's own backup storage targets (owners and admins)
+// (GET /api/v1/orgs/{org}/storage-targets)
+func (_ Unimplemented) ListOrgStorageTargets(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateOrgStorageTarget Add an org target after a live test
+// (POST /api/v1/orgs/{org}/storage-targets)
+func (_ Unimplemented) CreateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteOrgStorageTarget Delete an org target
+// (DELETE /api/v1/orgs/{org}/storage-targets/{target_id})
+func (_ Unimplemented) DeleteOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID, params DeleteOrgStorageTargetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgStorageTarget One org target (never its credentials)
+// (GET /api/v1/orgs/{org}/storage-targets/{target_id})
+func (_ Unimplemented) GetOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateOrgStorageTarget Change an org target after a live test
+// (PATCH /api/v1/orgs/{org}/storage-targets/{target_id})
+func (_ Unimplemented) UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListOrgTokens Every token scoped to the organisation (owners and admins)
 // (GET /api/v1/orgs/{org}/tokens)
 func (_ Unimplemented) ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -5174,6 +5501,18 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, id Pro
 // ListProjectAudit The project's slice of its organisation's audit log
 // (GET /api/v1/projects/{id}/audit)
 func (_ Unimplemented) ListProjectAudit(w http.ResponseWriter, r *http.Request, id ProjectID, params ListProjectAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableProjectBackupKey Give the project its own backup key
+// (POST /api/v1/projects/{id}/backup-key)
+func (_ Unimplemented) EnableProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DownloadProjectBackupKey Download the project's backup key with a README (re-authentication)
+// (GET /api/v1/projects/{id}/backup-key/download)
+func (_ Unimplemented) DownloadProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5333,6 +5672,18 @@ func (_ Unimplemented) GetProjectStorage(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetProjectStorageTarget Where the project's backups go, its key, and the targets it can use
+// (GET /api/v1/projects/{id}/storage-target)
+func (_ Unimplemented) GetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetProjectStorageTarget Send the project's new backups to another target
+// (PUT /api/v1/projects/{id}/storage-target)
+func (_ Unimplemented) SetProjectStorageTarget(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
 // (POST /api/v1/projects/{id}/switch-credentials)
 func (_ Unimplemented) SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -5480,6 +5831,12 @@ func (_ Unimplemented) BeginSetup(w http.ResponseWriter, r *http.Request) {
 // CompleteSetup First-run setup, step 2 - confirm TOTP and create the owner
 // (POST /api/v1/setup/complete)
 func (_ Unimplemented) CompleteSetup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestStorageTarget Run the live write/read/list/delete test without saving
+// (POST /api/v1/storage-targets/test)
+func (_ Unimplemented) TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6110,6 +6467,128 @@ func (siw *ServerInterfaceWrapper) ListSharedClusters(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListSharedClusters(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPlatformStorageTargets operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformStorageTargets(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPlatformStorageTargets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePlatformStorageTarget(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) DeletePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePlatformStorageTargetParams
+
+	// ------------- Optional query parameter "accept_unrestorable" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "accept_unrestorable", r.URL.Query(), &params.AcceptUnrestorable, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "accept_unrestorable"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accept_unrestorable", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePlatformStorageTarget(w, r, targetId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) GetPlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlatformStorageTarget(w, r, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePlatformStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePlatformStorageTarget(w, r, targetId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7767,6 +8246,179 @@ func (siw *ServerInterfaceWrapper) GetOrgQuotas(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListOrgStorageTargets operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgStorageTargets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgStorageTargets(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrgStorageTarget(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteOrgStorageTargetParams
+
+	// ------------- Optional query parameter "accept_unrestorable" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "accept_unrestorable", r.URL.Query(), &params.AcceptUnrestorable, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "accept_unrestorable"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accept_unrestorable", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrgStorageTarget(w, r, org, targetId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgStorageTarget(w, r, org, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrgStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "target_id" -------------
+	var targetId TargetID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target_id", chi.URLParam(r, "target_id"), &targetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrgStorageTarget(w, r, org, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListOrgTokens operation middleware
 func (siw *ServerInterfaceWrapper) ListOrgTokens(w http.ResponseWriter, r *http.Request) {
 
@@ -8188,6 +8840,58 @@ func (siw *ServerInterfaceWrapper) ListProjectAudit(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListProjectAudit(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableProjectBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) EnableProjectBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableProjectBackupKey(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadProjectBackupKey operation middleware
+func (siw *ServerInterfaceWrapper) DownloadProjectBackupKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadProjectBackupKey(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8920,6 +9624,58 @@ func (siw *ServerInterfaceWrapper) GetProjectStorage(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// GetProjectStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectStorageTarget(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetProjectStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) SetProjectStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetProjectStorageTarget(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SwitchProjectCredentials operation middleware
 func (siw *ServerInterfaceWrapper) SwitchProjectCredentials(w http.ResponseWriter, r *http.Request) {
 
@@ -9556,6 +10312,39 @@ func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// TestStorageTarget operation middleware
+func (siw *ServerInterfaceWrapper) TestStorageTarget(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TestStorageTargetParams
+
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestStorageTarget(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTerms operation middleware
 func (siw *ServerInterfaceWrapper) GetTerms(w http.ResponseWriter, r *http.Request) {
 
@@ -10050,6 +10839,51 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/tokens/{token_id}", wrapper.RevokeMyToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/storage-targets", wrapper.ListOrgStorageTargets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/storage-targets", wrapper.CreateOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/storage-targets/{target_id}", wrapper.DeleteOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/storage-targets/{target_id}", wrapper.GetOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}/storage-targets/{target_id}", wrapper.UpdateOrgStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/storage-targets/test", wrapper.TestStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/storage-targets", wrapper.ListPlatformStorageTargets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/storage-targets", wrapper.CreatePlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/admin/storage-targets/{target_id}", wrapper.DeletePlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/storage-targets/{target_id}", wrapper.GetPlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/storage-targets/{target_id}", wrapper.UpdatePlatformStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/storage-target", wrapper.GetProjectStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/storage-target", wrapper.SetProjectStorageTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/backup-key", wrapper.EnableProjectBackupKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/backup-key/download", wrapper.DownloadProjectBackupKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/tokens", wrapper.ListOrgTokens)

@@ -97,6 +97,19 @@ type Backup struct {
 	KeyWrapped      []byte
 	Error           *string
 	DeletedAt       *time.Time
+	EncryptionKeyID *uuid.UUID
+	WalgPrefix      *string
+	CopyOf          *uuid.UUID
+}
+
+type BackupKey struct {
+	ID          uuid.UUID
+	ProjectID   *uuid.UUID
+	KeyEnc      []byte
+	Fingerprint string
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+	RetiredAt   *time.Time
 }
 
 type BreakGlassSession struct {
@@ -157,26 +170,28 @@ type EmailToken struct {
 }
 
 type Instance struct {
-	ID          uuid.UUID
-	NodeID      uuid.UUID
-	Kind        string
-	PgVersion   int32
-	Port        int32
-	ContainerID *string
-	CpuLimit    pgtype.Numeric
-	MemLimitMb  *int32
-	VolumeGb    *int32
-	Status      string
-	CreatedAt   time.Time
-	AdminHost   *string
-	AdminPort   *int32
-	Host        *string
-	AdminSecret []byte
-	Profile     *string
-	WalgPrefix  *string
-	Error       *string
-	DeletedAt   *time.Time
-	OrgID       *uuid.UUID
+	ID           uuid.UUID
+	NodeID       uuid.UUID
+	Kind         string
+	PgVersion    int32
+	Port         int32
+	ContainerID  *string
+	CpuLimit     pgtype.Numeric
+	MemLimitMb   *int32
+	VolumeGb     *int32
+	Status       string
+	CreatedAt    time.Time
+	AdminHost    *string
+	AdminPort    *int32
+	Host         *string
+	AdminSecret  []byte
+	Profile      *string
+	WalgPrefix   *string
+	Error        *string
+	DeletedAt    *time.Time
+	OrgID        *uuid.UUID
+	WalgTargetID *uuid.UUID
+	WalgKeyID    *uuid.UUID
 }
 
 type Invitation struct {
@@ -289,6 +304,7 @@ type Project struct {
 	LegacyUntil         *time.Time
 	StorageState        string
 	StorageStateAt      *time.Time
+	BackupKeyID         *uuid.UUID
 }
 
 type ProjectDbUser struct {
@@ -366,6 +382,12 @@ type StorageTarget struct {
 	Credentials []byte
 	IsDefault   bool
 	CreatedAt   time.Time
+	OrgID       *uuid.UUID
+	Region      string
+	PathStyle   bool
+	CreatedBy   *uuid.UUID
+	UpdatedAt   time.Time
+	DeletedAt   *time.Time
 }
 
 type TermsAcceptance struct {

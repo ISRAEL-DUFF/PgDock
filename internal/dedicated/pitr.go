@@ -27,7 +27,7 @@ type Window struct {
 // PITRWindow reports how far back a dedicated project can be restored
 // (spec §4.3: 7-day PITR).
 func (s *Service) PITRWindow(ctx context.Context, p store.Project) (Window, bool, error) {
-	rows, err := store.New(s.db).ListBaseBackups(ctx, &p.ID)
+	rows, err := store.New(s.db).ListBaseBackups(ctx, store.ListBaseBackupsParams{ProjectID: &p.ID})
 	if err != nil || len(rows) == 0 {
 		return Window{}, false, err
 	}

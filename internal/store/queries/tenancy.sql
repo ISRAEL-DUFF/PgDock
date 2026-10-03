@@ -103,10 +103,13 @@ WHERE p.tier = 'dedicated' AND i.kind = 'dedicated'
 
 -- name: DailyBackupBytes :many
 -- tenant: system - usage recording; rows carry org_id.
--- Bytes of successful backups each project held during [day_start, day_end).
+-- Bytes of successful backups each project held during [day_start, day_end)
+-- on platform targets: storage on an org's own target is the org's bill
+-- (V2 s6).
 SELECT p.id AS project_id, p.org_id, o.plan_id, COALESCE(sum(b.size_bytes), 0)::float8 AS bytes
 FROM backups b JOIN projects p ON p.id = b.project_id JOIN organizations o ON o.id = p.org_id
-WHERE b.status IN ('succeeded', 'deleted') AND b.size_bytes IS NOT NULL
+WHERE b.status IN ('succeeded', 'deleted', 'copied') AND b.size_bytes IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM storage_targets t WHERE t.id = b.storage_target_id AND t.org_id IS NOT NULL)
   AND b.finished_at < @day_end::timestamptz
   AND (b.deleted_at IS NULL OR b.deleted_at > @day_start::timestamptz)
 GROUP BY p.id, p.org_id, o.plan_id;

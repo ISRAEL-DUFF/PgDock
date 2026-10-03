@@ -263,7 +263,7 @@ func (q *Queries) GetOrgMember(ctx context.Context, arg GetOrgMemberParams) (Org
 }
 
 const getOrgProject = `-- name: GetOrgProject :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at FROM projects WHERE id = $1 AND org_id = $2
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id FROM projects WHERE id = $1 AND org_id = $2
 `
 
 type GetOrgProjectParams struct {
@@ -298,6 +298,7 @@ func (q *Queries) GetOrgProject(ctx context.Context, arg GetOrgProjectParams) (P
 		&i.LegacyUntil,
 		&i.StorageState,
 		&i.StorageStateAt,
+		&i.BackupKeyID,
 	)
 	return i, err
 }
@@ -583,8 +584,11 @@ func (q *Queries) ListInvitationsForEmail(ctx context.Context, email string) ([]
 }
 
 const listOrgBackups = `-- name: ListOrgBackups :many
-SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted
+SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted,
+       t.name AS target_name, t.org_id AS target_org_id, k.fingerprint AS key_fingerprint
 FROM backups b JOIN projects p ON p.id = b.project_id
+LEFT JOIN storage_targets t ON t.id = b.storage_target_id
+LEFT JOIN backup_keys k ON k.id = b.encryption_key_id
 WHERE p.org_id = $1 AND b.status <> 'deleted'
   AND ($2::text IS NULL OR b.kind = $2)
   AND ($3::uuid IS NULL OR b.project_id = $3)
@@ -618,8 +622,14 @@ type ListOrgBackupsRow struct {
 	KeyWrapped      []byte
 	Error           *string
 	DeletedAt       *time.Time
+	EncryptionKeyID *uuid.UUID
+	WalgPrefix      *string
+	CopyOf          *uuid.UUID
 	ProjectName     string
 	ProjectDeleted  bool
+	TargetName      *string
+	TargetOrgID     *uuid.UUID
+	KeyFingerprint  *string
 }
 
 // Backups of an organisation's live and deleted projects; members see
@@ -656,8 +666,14 @@ func (q *Queries) ListOrgBackups(ctx context.Context, arg ListOrgBackupsParams) 
 			&i.KeyWrapped,
 			&i.Error,
 			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
 			&i.ProjectName,
 			&i.ProjectDeleted,
+			&i.TargetName,
+			&i.TargetOrgID,
+			&i.KeyFingerprint,
 		); err != nil {
 			return nil, err
 		}
@@ -882,7 +898,7 @@ func (q *Queries) ListOrgProjectMemberships(ctx context.Context, orgID uuid.UUID
 }
 
 const listOrgProjects = `-- name: ListOrgProjects :many
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at FROM projects p
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id FROM projects p
 WHERE p.org_id = $1 AND p.deleted_at IS NULL
   AND ($2::text IS NULL OR p.status = $2)
   AND ($3::bool OR EXISTS (
@@ -941,6 +957,7 @@ func (q *Queries) ListOrgProjects(ctx context.Context, arg ListOrgProjectsParams
 			&i.LegacyUntil,
 			&i.StorageState,
 			&i.StorageStateAt,
+			&i.BackupKeyID,
 		); err != nil {
 			return nil, err
 		}

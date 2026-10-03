@@ -1777,6 +1777,313 @@ paths:
           description: Revoked.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/storage-targets:
+    get:
+      operationId: listOrgStorageTargets
+      summary: The organisation's own backup storage targets (owners and admins)
+      description: Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Targets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createOrgStorageTarget
+      summary: Add an org target after a live test
+      description: Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: The test failed; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/storage-targets/{target_id}:
+    get:
+      operationId: getOrgStorageTarget
+      summary: One org target (never its credentials)
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TargetID"
+      responses:
+        "200":
+          description: Target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTarget"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateOrgStorageTarget
+      summary: Change an org target after a live test
+      description: Empty `access_key` or `secret_key` keep the stored ones.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TargetID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: Test result; `saved` says whether the target changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteOrgStorageTarget
+      summary: Delete an org target
+      description: |
+        Refused (409 `target_in_use`) while a project uses it, and while it
+        holds unexpired backups unless `accept_unrestorable=true`: those
+        backups then become unrestorable. The bucket is not touched.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TargetID"
+        - $ref: "#/components/parameters/AcceptUnrestorable"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/storage-targets/test:
+    post:
+      operationId: testStorageTarget
+      summary: Run the live write/read/list/delete test without saving
+      description: |
+        With `target_id`, empty credentials are taken from that stored
+        target (one of the organisation's, or a platform target for the
+        platform admin).
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/OrgQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetTestRequest"
+      responses:
+        "200":
+          description: Test result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTestResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/storage-targets:
+    get:
+      operationId: listPlatformStorageTargets
+      summary: Platform storage targets (platform admin)
+      description: Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+      tags: [admin]
+      responses:
+        "200":
+          description: Targets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createPlatformStorageTarget
+      summary: Add a platform target after a live test (platform admin)
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: The test failed; nothing was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/storage-targets/{target_id}:
+    get:
+      operationId: getPlatformStorageTarget
+      summary: One platform target (platform admin)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/TargetID"
+      responses:
+        "200":
+          description: Target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTarget"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updatePlatformStorageTarget
+      summary: Change a platform target after a live test (platform admin)
+      description: "`is_default: true` makes it the platform default (exactly one is)."
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/TargetID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageTargetRequest"
+      responses:
+        "200":
+          description: Test result; `saved` says whether the target changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageTargetSaveResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deletePlatformStorageTarget
+      summary: Delete a platform target (platform admin)
+      description: The default can't be deleted; otherwise as for org targets.
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/TargetID"
+        - $ref: "#/components/parameters/AcceptUnrestorable"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/storage-target:
+    get:
+      operationId: getProjectStorageTarget
+      summary: Where the project's backups go, its key, and the targets it can use
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Storage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectBackupStorage"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: setProjectStorageTarget
+      summary: Send the project's new backups to another target
+      description: |
+        `target_id` null is the platform default. Existing backups keep
+        their target and stay restorable. `copy_existing` copies them to the
+        new target as an operation, verified by checksum; `delete_originals`
+        then deletes the originals. A dedicated project's WAL-G is
+        reconfigured and a fresh base backup taken at once.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectStorageTargetRequest"
+      responses:
+        "200":
+          description: Switched; `operation` is set when work was queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStorageTargetResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/backup-key:
+    post:
+      operationId: enableProjectBackupKey
+      summary: Give the project its own backup key
+      description: |
+        Generates the key (idempotent unless `rotate`); new backups use it,
+        existing backups keep theirs. Download it with
+        `GET /projects/{id}/backup-key/download`.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectBackupKeyRequest"
+      responses:
+        "200":
+          description: The key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectBackupKey"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/backup-key/download:
+    get:
+      operationId: downloadProjectBackupKey
+      summary: Download the project's backup key with a README (re-authentication)
+      description: |
+        The OpenPGP private key, armored, after a README on decrypting and
+        restoring with standard tools (gpg, pg_restore). Needs a recent
+        re-authentication (403 `reauth_required`); every download is audited.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The key file.
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/tokens:
     get:
       operationId: listOrgTokens
@@ -3113,6 +3420,20 @@ components:
       required: true
       schema:
         type: string
+    TargetID:
+      name: target_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AcceptUnrestorable:
+      name: accept_unrestorable
+      in: query
+      description: Delete even though the target holds unexpired backups, which become unrestorable.
+      schema:
+        type: boolean
+        default: false
     TokenID:
       name: token_id
       in: path
@@ -3840,7 +4161,21 @@ components:
           $ref: "#/components/schemas/BackupKind"
         status:
           type: string
-          enum: [running, succeeded, failed]
+          enum: [running, succeeded, failed, copied]
+          description: "`copied`: copied to another target (the copy is its own backup); the original is kept until deleted."
+        storage_target:
+          type: string
+          nullable: true
+          description: The target's name ("an org target" where its name isn't the viewer's to see).
+        storage_kind:
+          $ref: "#/components/schemas/StorageTargetKind"
+        encryption:
+          type: string
+          enum: [instance, project]
+          description: "`project`: an OpenPGP message to the project's own key (opens with gpg)."
+        key_fingerprint:
+          type: string
+          nullable: true
         size_bytes:
           type: integer
           format: int64
@@ -3916,6 +4251,191 @@ components:
           $ref: "#/components/schemas/Operation"
         credentials:
           $ref: "#/components/schemas/ProjectCredentials"
+    StorageTargetKind:
+      type: string
+      enum: [platform, org]
+    StorageTargetRequest:
+      type: object
+      required: [name, endpoint, bucket]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        endpoint:
+          type: string
+          example: https://s3.eu-central-1.amazonaws.com
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        access_key:
+          type: string
+          description: Empty on an update keeps the stored one.
+        secret_key:
+          type: string
+          description: Empty on an update keeps the stored one.
+        path_style:
+          type: boolean
+        is_default:
+          type: boolean
+          description: Platform targets only.
+    StorageTargetTestRequest:
+      type: object
+      required: [endpoint, bucket]
+      properties:
+        target_id:
+          type: string
+          format: uuid
+          description: A stored target whose credentials fill in empty ones.
+        endpoint:
+          type: string
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        access_key:
+          type: string
+        secret_key:
+          type: string
+        path_style:
+          type: boolean
+    StorageTarget:
+      type: object
+      required: [id, name, kind, endpoint, bucket, prefix, region, path_style, is_default, created_at, usage]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: "#/components/schemas/StorageTargetKind"
+        endpoint:
+          type: string
+        region:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+        path_style:
+          type: boolean
+        is_default:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        usage:
+          $ref: "#/components/schemas/StorageTargetUsage"
+    StorageTargetUsage:
+      type: object
+      required: [projects, backups, bytes]
+      properties:
+        projects:
+          type: integer
+          description: Live projects whose new backups go here.
+        backups:
+          type: integer
+          description: Unexpired backups stored here.
+        bytes:
+          type: integer
+          format: int64
+    StorageTargetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageTarget"
+    StorageTargetSaveResult:
+      type: object
+      required: [saved, test]
+      properties:
+        saved:
+          type: boolean
+        test:
+          $ref: "#/components/schemas/StorageTestResult"
+        target:
+          $ref: "#/components/schemas/StorageTarget"
+    ProjectStorageChoice:
+      type: object
+      required: [kind, name, is_default]
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null is the platform default (followed if it changes).
+        kind:
+          $ref: "#/components/schemas/StorageTargetKind"
+        name:
+          type: string
+        is_default:
+          type: boolean
+    ProjectBackupKey:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: False means new backups use the instance key.
+        id:
+          type: string
+          format: uuid
+        fingerprint:
+          type: string
+          description: The OpenPGP fingerprint, as gpg shows it.
+        created_at:
+          type: string
+          format: date-time
+    ProjectBackupKeyRequest:
+      type: object
+      properties:
+        rotate:
+          type: boolean
+          description: Replace an existing key; backups made with the old one keep it.
+    ProjectBackupStorage:
+      type: object
+      required: [target, key, choices, counts_toward_quota]
+      properties:
+        target:
+          $ref: "#/components/schemas/ProjectStorageChoice"
+        key:
+          $ref: "#/components/schemas/ProjectBackupKey"
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectStorageChoice"
+        counts_toward_quota:
+          type: boolean
+          description: Whether new backups count against the organisation's backup quota (platform targets do).
+    ProjectStorageTargetRequest:
+      type: object
+      properties:
+        target_id:
+          type: string
+          format: uuid
+          nullable: true
+        copy_existing:
+          type: boolean
+        delete_originals:
+          type: boolean
+    ProjectStorageTargetResult:
+      type: object
+      required: [storage]
+      properties:
+        storage:
+          $ref: "#/components/schemas/ProjectBackupStorage"
+        operation:
+          $ref: "#/components/schemas/Operation"
     StorageRequest:
       type: object
       required: [endpoint, bucket, access_key]

@@ -6,7 +6,10 @@ import (
 	"bytes"
 	"crypto/hkdf"
 	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
@@ -23,7 +26,20 @@ var keyEpoch = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 // rather than storing a second secret, means the backup key alone restores
 // every backup, logical or physical.
 func PGPKey(backupKey []byte) (string, error) {
-	seed, err := hkdf.Key(sha256.New, backupKey, nil, "pgdock wal-g openpgp v1", 1<<12)
+	return deriveKey(backupKey, "pgdock wal-g openpgp v1", "PGDock WAL-G", "wal-g@pgdock.invalid")
+}
+
+// ProjectPGPKey derives a project's OpenPGP backup key (armored, private)
+// from its backup_keys secret (V2 s6). Its logical backups are OpenPGP
+// messages to this key and, on the dedicated tier, WAL-G encrypts base
+// backups and WAL with it, so the downloaded key alone restores them with
+// standard tools (gpg, pg_restore, wal-g).
+func ProjectPGPKey(secret []byte) (string, error) {
+	return deriveKey(secret, "pgdock project backup openpgp v1", "PGDock project backup", "backups@pgdock.invalid")
+}
+
+func deriveKey(secret []byte, info, name, email string) (string, error) {
+	seed, err := hkdf.Key(sha256.New, secret, nil, info, 1<<12)
 	if err != nil {
 		return "", err
 	}
@@ -33,7 +49,7 @@ func PGPKey(backupKey []byte) (string, error) {
 		Algorithm: packet.PubKeyAlgoEdDSA,
 		Curve:     packet.Curve25519,
 	}
-	e, err := openpgp.NewEntity("PGDock WAL-G", "", "wal-g@pgdock.invalid", cfg)
+	e, err := openpgp.NewEntity(name, "", email, cfg)
 	if err != nil {
 		return "", fmt.Errorf("derive wal-g key: %w", err)
 	}
@@ -49,4 +65,41 @@ func PGPKey(backupKey []byte) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+// PublicKey returns the armored public half of an armored private key.
+func PublicKey(armoredPrivate string) (string, error) {
+	el, err := openpgp.ReadArmoredKeyRing(strings.NewReader(armoredPrivate))
+	if err != nil || len(el) != 1 {
+		return "", fmt.Errorf("read openpgp key: %w", errors.Join(err, errNotOneKey(len(el))))
+	}
+	var buf bytes.Buffer
+	w, err := armor.Encode(&buf, openpgp.PublicKeyType, nil)
+	if err != nil {
+		return "", err
+	}
+	if err := el[0].Serialize(w); err != nil {
+		return "", err
+	}
+	if err := w.Close(); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// Fingerprint is an armored key's OpenPGP fingerprint (upper-case hex), as
+// gpg --list-keys shows it.
+func Fingerprint(armored string) (string, error) {
+	el, err := openpgp.ReadArmoredKeyRing(strings.NewReader(armored))
+	if err != nil || len(el) != 1 {
+		return "", fmt.Errorf("read openpgp key: %w", errors.Join(err, errNotOneKey(len(el))))
+	}
+	return strings.ToUpper(hex.EncodeToString(el[0].PrimaryKey.Fingerprint)), nil
+}
+
+func errNotOneKey(n int) error {
+	if n == 1 {
+		return nil
+	}
+	return fmt.Errorf("want one key, got %d", n)
 }

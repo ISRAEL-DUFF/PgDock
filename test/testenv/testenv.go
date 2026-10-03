@@ -536,10 +536,11 @@ func (e *Env) WaitOperation(id uuid.UUID) gen.Operation {
 	}
 	_, _ = io.Copy(io.Discard, res.Body) // the stream ends at the done event
 	_ = res.Body.Close()
-	if ctx.Err() != nil {
-		e.t.Fatalf("operation %s did not finish in time", id)
-	}
 	var op gen.Operation
+	if ctx.Err() != nil {
+		e.Do("GET", "/api/v1/operations/"+id.String(), nil, &op)
+		e.t.Fatalf("operation %s (%s) did not finish in time: %s\n%s", id, op.Kind, op.Status, FormatLog(op))
+	}
 	if code := e.Do("GET", "/api/v1/operations/"+id.String(), nil, &op); code != http.StatusOK {
 		e.t.Fatalf("get operation %s: status %d", id, code)
 	}

@@ -222,8 +222,27 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for BackupEncryption.
+const (
+	BackupEncryptionInstance BackupEncryption = "instance"
+	BackupEncryptionProject  BackupEncryption = "project"
+)
+
+// Valid indicates whether the value is a known member of the BackupEncryption enum.
+func (e BackupEncryption) Valid() bool {
+	switch e {
+	case BackupEncryptionInstance:
+		return true
+	case BackupEncryptionProject:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStatus.
 const (
+	BackupStatusCopied    BackupStatus = "copied"
 	BackupStatusFailed    BackupStatus = "failed"
 	BackupStatusRunning   BackupStatus = "running"
 	BackupStatusSucceeded BackupStatus = "succeeded"
@@ -232,6 +251,8 @@ const (
 // Valid indicates whether the value is a known member of the BackupStatus enum.
 func (e BackupStatus) Valid() bool {
 	switch e {
+	case BackupStatusCopied:
+		return true
 	case BackupStatusFailed:
 		return true
 	case BackupStatusRunning:
@@ -1077,6 +1098,24 @@ func (e StorageState) Valid() bool {
 	}
 }
 
+// Defines values for StorageTargetKind.
+const (
+	StorageTargetKindOrg      StorageTargetKind = "org"
+	StorageTargetKindPlatform StorageTargetKind = "platform"
+)
+
+// Valid indicates whether the value is a known member of the StorageTargetKind enum.
+func (e StorageTargetKind) Valid() bool {
+	switch e {
+	case StorageTargetKindOrg:
+		return true
+	case StorageTargetKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TableConstraintKind.
 const (
 	TableConstraintKindCheck      TableConstraintKind = "check"
@@ -1788,11 +1827,15 @@ type AuditList struct {
 
 // Backup defines model for Backup.
 type Backup struct {
-	Checksum       *string             `json:"checksum,omitempty"`
+	Checksum *string `json:"checksum,omitempty"`
+
+	// Encryption `project`: an OpenPGP message to the project's own key (opens with gpg).
+	Encryption     *BackupEncryption   `json:"encryption,omitempty"`
 	Error          *string             `json:"error,omitempty"`
 	ExpiresAt      *time.Time          `json:"expires_at,omitempty"`
 	FinishedAt     *time.Time          `json:"finished_at,omitempty"`
 	Id             openapi_types.UUID  `json:"id"`
+	KeyFingerprint *string             `json:"key_fingerprint,omitempty"`
 	Kind           BackupKind          `json:"kind"`
 	OperationId    *openapi_types.UUID `json:"operation_id,omitempty"`
 	ProjectDeleted *bool               `json:"project_deleted,omitempty"`
@@ -1800,10 +1843,19 @@ type Backup struct {
 	ProjectName    *string             `json:"project_name,omitempty"`
 	SizeBytes      *int64              `json:"size_bytes,omitempty"`
 	StartedAt      time.Time           `json:"started_at"`
-	Status         BackupStatus        `json:"status"`
+
+	// Status `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
+	Status      BackupStatus       `json:"status"`
+	StorageKind *StorageTargetKind `json:"storage_kind,omitempty"`
+
+	// StorageTarget The target's name ("an org target" where its name isn't the viewer's to see).
+	StorageTarget *string `json:"storage_target,omitempty"`
 }
 
-// BackupStatus defines model for Backup.Status.
+// BackupEncryption `project`: an OpenPGP message to the project's own key (opens with gpg).
+type BackupEncryption string
+
+// BackupStatus `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
 type BackupStatus string
 
 // BackupKeyConfirmRequest defines model for BackupKeyConfirmRequest.
@@ -2771,6 +2823,34 @@ type Project struct {
 	Tier         ProjectTier   `json:"tier"`
 }
 
+// ProjectBackupKey defines model for ProjectBackupKey.
+type ProjectBackupKey struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Enabled False means new backups use the instance key.
+	Enabled bool `json:"enabled"`
+
+	// Fingerprint The OpenPGP fingerprint, as gpg shows it.
+	Fingerprint *string             `json:"fingerprint,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+}
+
+// ProjectBackupKeyRequest defines model for ProjectBackupKeyRequest.
+type ProjectBackupKeyRequest struct {
+	// Rotate Replace an existing key; backups made with the old one keep it.
+	Rotate *bool `json:"rotate,omitempty"`
+}
+
+// ProjectBackupStorage defines model for ProjectBackupStorage.
+type ProjectBackupStorage struct {
+	Choices []ProjectStorageChoice `json:"choices"`
+
+	// CountsTowardQuota Whether new backups count against the organisation's backup quota (platform targets do).
+	CountsTowardQuota bool                 `json:"counts_toward_quota"`
+	Key               ProjectBackupKey     `json:"key"`
+	Target            ProjectStorageChoice `json:"target"`
+}
+
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
 type ProjectCredentials struct {
 	Connection ConnectionInfo `json:"connection"`
@@ -2863,6 +2943,28 @@ type ProjectStorage struct {
 	// State V2 §10.4 storage enforcement.
 	State  StorageState     `json:"state"`
 	Tables []TableFootprint `json:"tables"`
+}
+
+// ProjectStorageChoice defines model for ProjectStorageChoice.
+type ProjectStorageChoice struct {
+	// Id Null is the platform default (followed if it changes).
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	IsDefault bool                `json:"is_default"`
+	Kind      StorageTargetKind   `json:"kind"`
+	Name      string              `json:"name"`
+}
+
+// ProjectStorageTargetRequest defines model for ProjectStorageTargetRequest.
+type ProjectStorageTargetRequest struct {
+	CopyExisting    *bool               `json:"copy_existing,omitempty"`
+	DeleteOriginals *bool               `json:"delete_originals,omitempty"`
+	TargetId        *openapi_types.UUID `json:"target_id,omitempty"`
+}
+
+// ProjectStorageTargetResult defines model for ProjectStorageTargetResult.
+type ProjectStorageTargetResult struct {
+	Operation *Operation           `json:"operation,omitempty"`
+	Storage   ProjectBackupStorage `json:"storage"`
 }
 
 // ProjectTier defines model for ProjectTier.
@@ -3353,6 +3455,81 @@ type StorageSettings struct {
 // StorageState V2 §10.4 storage enforcement.
 type StorageState string
 
+// StorageTarget defines model for StorageTarget.
+type StorageTarget struct {
+	Bucket    string             `json:"bucket"`
+	CreatedAt time.Time          `json:"created_at"`
+	Endpoint  string             `json:"endpoint"`
+	Id        openapi_types.UUID `json:"id"`
+	IsDefault bool               `json:"is_default"`
+	Kind      StorageTargetKind  `json:"kind"`
+	Name      string             `json:"name"`
+	PathStyle bool               `json:"path_style"`
+	Prefix    string             `json:"prefix"`
+	Region    string             `json:"region"`
+	UpdatedAt *time.Time         `json:"updated_at,omitempty"`
+	Usage     StorageTargetUsage `json:"usage"`
+}
+
+// StorageTargetKind defines model for StorageTargetKind.
+type StorageTargetKind string
+
+// StorageTargetList defines model for StorageTargetList.
+type StorageTargetList struct {
+	Items []StorageTarget `json:"items"`
+}
+
+// StorageTargetRequest defines model for StorageTargetRequest.
+type StorageTargetRequest struct {
+	// AccessKey Empty on an update keeps the stored one.
+	AccessKey *string `json:"access_key,omitempty"`
+	Bucket    string  `json:"bucket"`
+
+	// Endpoint Example: https://s3.eu-central-1.amazonaws.com
+	Endpoint string `json:"endpoint"`
+
+	// IsDefault Platform targets only.
+	IsDefault *bool   `json:"is_default,omitempty"`
+	Name      string  `json:"name"`
+	PathStyle *bool   `json:"path_style,omitempty"`
+	Prefix    *string `json:"prefix,omitempty"`
+	Region    *string `json:"region,omitempty"`
+
+	// SecretKey Empty on an update keeps the stored one.
+	SecretKey *string `json:"secret_key,omitempty"`
+}
+
+// StorageTargetSaveResult defines model for StorageTargetSaveResult.
+type StorageTargetSaveResult struct {
+	Saved  bool              `json:"saved"`
+	Target *StorageTarget    `json:"target,omitempty"`
+	Test   StorageTestResult `json:"test"`
+}
+
+// StorageTargetTestRequest defines model for StorageTargetTestRequest.
+type StorageTargetTestRequest struct {
+	AccessKey *string `json:"access_key,omitempty"`
+	Bucket    string  `json:"bucket"`
+	Endpoint  string  `json:"endpoint"`
+	PathStyle *bool   `json:"path_style,omitempty"`
+	Prefix    *string `json:"prefix,omitempty"`
+	Region    *string `json:"region,omitempty"`
+	SecretKey *string `json:"secret_key,omitempty"`
+
+	// TargetId A stored target whose credentials fill in empty ones.
+	TargetId *openapi_types.UUID `json:"target_id,omitempty"`
+}
+
+// StorageTargetUsage defines model for StorageTargetUsage.
+type StorageTargetUsage struct {
+	// Backups Unexpired backups stored here.
+	Backups int   `json:"backups"`
+	Bytes   int64 `json:"bytes"`
+
+	// Projects Live projects whose new backups go here.
+	Projects int `json:"projects"`
+}
+
 // StorageTestResult defines model for StorageTestResult.
 type StorageTestResult struct {
 	Ok    bool              `json:"ok"`
@@ -3637,6 +3814,9 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// AcceptUnrestorable defines model for AcceptUnrestorable.
+type AcceptUnrestorable = bool
+
 // AuditAction defines model for AuditAction.
 type AuditAction = string
 
@@ -3688,6 +3868,9 @@ type SchemaName = string
 // TableName defines model for TableName.
 type TableName = string
 
+// TargetID defines model for TargetID.
+type TargetID = openapi_types.UUID
+
 // TokenID defines model for TokenID.
 type TokenID = openapi_types.UUID
 
@@ -3720,6 +3903,12 @@ type ListDedicatedRequestsParamsStatus string
 // AdminListOrgsParams defines parameters for AdminListOrgs.
 type AdminListOrgsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
+type DeletePlatformStorageTargetParams struct {
+	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
+	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
 }
 
 // PlatformUsageParams defines parameters for PlatformUsage.
@@ -3799,6 +3988,12 @@ type ListOrgAuditParams struct {
 
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
+
+// DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
+type DeleteOrgStorageTargetParams struct {
+	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
+	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
+}
 
 // GetOrgUsageParams defines parameters for GetOrgUsage.
 type GetOrgUsageParams struct {
@@ -3886,6 +4081,12 @@ type RunRestoreTestParams struct {
 	ProjectId *openapi_types.UUID `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
+// TestStorageTargetParams defines parameters for TestStorageTarget.
+type TestStorageTargetParams struct {
+	// Org The organisation to list; your personal organisation when omitted.
+	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
+}
+
 // ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
 type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 
@@ -3924,6 +4125,12 @@ type PublishTermsJSONRequestBody = PublishTermsRequest
 
 // PutTokenSettingsJSONRequestBody defines body for PutTokenSettings for application/json ContentType.
 type PutTokenSettingsJSONRequestBody = TokenSettings
+
+// CreatePlatformStorageTargetJSONRequestBody defines body for CreatePlatformStorageTarget for application/json ContentType.
+type CreatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
+
+// UpdatePlatformStorageTargetJSONRequestBody defines body for UpdatePlatformStorageTarget for application/json ContentType.
+type UpdatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUserRequest
@@ -4015,11 +4222,20 @@ type InviteOrgMemberJSONRequestBody = InviteRequest
 // UpdateOrgMemberJSONRequestBody defines body for UpdateOrgMember for application/json ContentType.
 type UpdateOrgMemberJSONRequestBody = OrgRoleRequest
 
+// CreateOrgStorageTargetJSONRequestBody defines body for CreateOrgStorageTarget for application/json ContentType.
+type CreateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
+// UpdateOrgStorageTargetJSONRequestBody defines body for UpdateOrgStorageTarget for application/json ContentType.
+type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
+
+// EnableProjectBackupKeyJSONRequestBody defines body for EnableProjectBackupKey for application/json ContentType.
+type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
 
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
@@ -4060,6 +4276,9 @@ type RunSQLJSONRequestBody = SqlRequest
 // CancelSQLJSONRequestBody defines body for CancelSQL for application/json ContentType.
 type CancelSQLJSONRequestBody = SqlCancelRequest
 
+// SetProjectStorageTargetJSONRequestBody defines body for SetProjectStorageTarget for application/json ContentType.
+type SetProjectStorageTargetJSONRequestBody = ProjectStorageTargetRequest
+
 // SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
 type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
 
@@ -4092,6 +4311,9 @@ type BeginSetupJSONRequestBody = SetupBeginRequest
 
 // CompleteSetupJSONRequestBody defines body for CompleteSetup for application/json ContentType.
 type CompleteSetupJSONRequestBody = SetupCompleteRequest
+
+// TestStorageTargetJSONRequestBody defines body for TestStorageTarget for application/json ContentType.
+type TestStorageTargetJSONRequestBody = StorageTargetTestRequest
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateTokenRequest
@@ -4423,6 +4645,57 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/admin/shared-clusters (the `ListSharedClusters` operationId).
 	ListSharedClusters(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPlatformStorageTargets Platform storage targets (platform admin)
+	//
+	// Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+	//
+	// Corresponds with GET /api/v1/admin/storage-targets (the `ListPlatformStorageTargets` operationId).
+	ListPlatformStorageTargets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePlatformStorageTargetWithBody Add a platform target after a live test (platform admin)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+	CreatePlatformStorageTargetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePlatformStorageTarget Add a platform target after a live test (platform admin)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+	CreatePlatformStorageTarget(ctx context.Context, body CreatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePlatformStorageTarget Delete a platform target (platform admin)
+	//
+	// The default can't be deleted; otherwise as for org targets.
+	//
+	// Corresponds with DELETE /api/v1/admin/storage-targets/{target_id} (the `DeletePlatformStorageTarget` operationId).
+	DeletePlatformStorageTarget(ctx context.Context, targetId TargetID, params *DeletePlatformStorageTargetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPlatformStorageTarget One platform target (platform admin)
+	//
+	// Corresponds with GET /api/v1/admin/storage-targets/{target_id} (the `GetPlatformStorageTarget` operationId).
+	GetPlatformStorageTarget(ctx context.Context, targetId TargetID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePlatformStorageTargetWithBody Change a platform target after a live test (platform admin)
+	//
+	// `is_default: true` makes it the platform default (exactly one is).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+	UpdatePlatformStorageTargetWithBody(ctx context.Context, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
+	//
+	// `is_default: true` makes it the platform default (exactly one is).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+	UpdatePlatformStorageTarget(ctx context.Context, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PlatformUsage Usage totals per organisation (platform admin)
 	//
@@ -5105,6 +5378,63 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/orgs/{org}/quotas (the `GetOrgQuotas` operationId).
 	GetOrgQuotas(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListOrgStorageTargets The organisation's own backup storage targets (owners and admins)
+	//
+	// Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/storage-targets (the `ListOrgStorageTargets` operationId).
+	ListOrgStorageTargets(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgStorageTargetWithBody Add an org target after a live test
+	//
+	// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+	CreateOrgStorageTargetWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgStorageTarget Add an org target after a live test
+	//
+	// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+	CreateOrgStorageTarget(ctx context.Context, org OrgID, body CreateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrgStorageTarget Delete an org target
+	//
+	// Refused (409 `target_in_use`) while a project uses it, and while it
+	// holds unexpired backups unless `accept_unrestorable=true`: those
+	// backups then become unrestorable. The bucket is not touched.
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/storage-targets/{target_id} (the `DeleteOrgStorageTarget` operationId).
+	DeleteOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, params *DeleteOrgStorageTargetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgStorageTarget One org target (never its credentials)
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/storage-targets/{target_id} (the `GetOrgStorageTarget` operationId).
+	GetOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateOrgStorageTargetWithBody Change an org target after a live test
+	//
+	// Empty `access_key` or `secret_key` keep the stored ones.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+	UpdateOrgStorageTargetWithBody(ctx context.Context, org OrgID, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateOrgStorageTarget Change an org target after a live test
+	//
+	// Empty `access_key` or `secret_key` keep the stored ones.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+	UpdateOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrgTokens Every token scoped to the organisation (owners and admins)
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/tokens (the `ListOrgTokens` operationId).
@@ -5188,6 +5518,37 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/audit (the `ListProjectAudit` operationId).
 	ListProjectAudit(ctx context.Context, id ProjectID, params *ListProjectAuditParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableProjectBackupKeyWithBody Give the project its own backup key
+	//
+	// Generates the key (idempotent unless `rotate`); new backups use it,
+	// existing backups keep theirs. Download it with
+	// `GET /projects/{id}/backup-key/download`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+	EnableProjectBackupKeyWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableProjectBackupKey Give the project its own backup key
+	//
+	// Generates the key (idempotent unless `rotate`); new backups use it,
+	// existing backups keep theirs. Download it with
+	// `GET /projects/{id}/backup-key/download`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+	EnableProjectBackupKey(ctx context.Context, id ProjectID, body EnableProjectBackupKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadProjectBackupKey Download the project's backup key with a README (re-authentication)
+	//
+	// The OpenPGP private key, armored, after a README on decrypting and
+	// restoring with standard tools (gpg, pg_restore). Needs a recent
+	// re-authentication (403 `reauth_required`); every download is audited.
+	//
+	// Corresponds with GET /api/v1/projects/{id}/backup-key/download (the `DownloadProjectBackupKey` operationId).
+	DownloadProjectBackupKey(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateProjectBackup Back up a project now
 	//
@@ -5501,6 +5862,37 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/storage (the `GetProjectStorage` operationId).
 	GetProjectStorage(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetProjectStorageTarget Where the project's backups go, its key, and the targets it can use
+	//
+	// Corresponds with GET /api/v1/projects/{id}/storage-target (the `GetProjectStorageTarget` operationId).
+	GetProjectStorageTarget(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectStorageTargetWithBody Send the project's new backups to another target
+	//
+	// `target_id` null is the platform default. Existing backups keep
+	// their target and stay restorable. `copy_existing` copies them to the
+	// new target as an operation, verified by checksum; `delete_originals`
+	// then deletes the originals. A dedicated project's WAL-G is
+	// reconfigured and a fresh base backup taken at once.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+	SetProjectStorageTargetWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectStorageTarget Send the project's new backups to another target
+	//
+	// `target_id` null is the platform default. Existing backups keep
+	// their target and stay restorable. `copy_existing` copies them to the
+	// new target as an operation, verified by checksum; `delete_originals`
+	// then deletes the originals. A dedicated project's WAL-G is
+	// reconfigured and a fresh base backup taken at once.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+	SetProjectStorageTarget(ctx context.Context, id ProjectID, body SetProjectStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SwitchProjectCredentialsWithBody Switch a V1 project to opaque credentials (V2 §10.2)
 	//
 	// Creates an opaque owner role with a new password, returned once. The
@@ -5783,6 +6175,28 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/setup/complete (the `CompleteSetup` operationId).
 	CompleteSetup(ctx context.Context, body CompleteSetupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestStorageTargetWithBody Run the live write/read/list/delete test without saving
+	//
+	// With `target_id`, empty credentials are taken from that stored
+	// target (one of the organisation's, or a platform target for the
+	// platform admin).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+	TestStorageTargetWithBody(ctx context.Context, params *TestStorageTargetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestStorageTarget Run the live write/read/list/delete test without saving
+	//
+	// With `target_id`, empty credentials are taken from that stored
+	// target (one of the organisation's, or a platform target for the
+	// platform admin).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+	TestStorageTarget(ctx context.Context, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTerms The current terms of use and privacy notice (public)
 	//
@@ -6473,6 +6887,127 @@ func (c *Client) PutTokenSettings(ctx context.Context, body PutTokenSettingsJSON
 // Corresponds with GET /api/v1/admin/shared-clusters (the `ListSharedClusters` operationId).
 func (c *Client) ListSharedClusters(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSharedClustersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPlatformStorageTargets Platform storage targets (platform admin)
+//
+// Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+//
+// Corresponds with GET /api/v1/admin/storage-targets (the `ListPlatformStorageTargets` operationId).
+func (c *Client) ListPlatformStorageTargets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPlatformStorageTargetsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePlatformStorageTargetWithBody Add a platform target after a live test (platform admin)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+func (c *Client) CreatePlatformStorageTargetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePlatformStorageTargetRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePlatformStorageTarget Add a platform target after a live test (platform admin)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+func (c *Client) CreatePlatformStorageTarget(ctx context.Context, body CreatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePlatformStorageTargetRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeletePlatformStorageTarget Delete a platform target (platform admin)
+//
+// The default can't be deleted; otherwise as for org targets.
+//
+// Corresponds with DELETE /api/v1/admin/storage-targets/{target_id} (the `DeletePlatformStorageTarget` operationId).
+func (c *Client) DeletePlatformStorageTarget(ctx context.Context, targetId TargetID, params *DeletePlatformStorageTargetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePlatformStorageTargetRequest(c.Server, targetId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPlatformStorageTarget One platform target (platform admin)
+//
+// Corresponds with GET /api/v1/admin/storage-targets/{target_id} (the `GetPlatformStorageTarget` operationId).
+func (c *Client) GetPlatformStorageTarget(ctx context.Context, targetId TargetID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPlatformStorageTargetRequest(c.Server, targetId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePlatformStorageTargetWithBody Change a platform target after a live test (platform admin)
+//
+// `is_default: true` makes it the platform default (exactly one is).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+func (c *Client) UpdatePlatformStorageTargetWithBody(ctx context.Context, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePlatformStorageTargetRequestWithBody(c.Server, targetId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
+//
+// `is_default: true` makes it the platform default (exactly one is).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+func (c *Client) UpdatePlatformStorageTarget(ctx context.Context, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePlatformStorageTargetRequest(c.Server, targetId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -8114,6 +8649,133 @@ func (c *Client) GetOrgQuotas(ctx context.Context, org OrgID, reqEditors ...Requ
 	return c.Client.Do(req)
 }
 
+// ListOrgStorageTargets The organisation's own backup storage targets (owners and admins)
+//
+// Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+//
+// Corresponds with GET /api/v1/orgs/{org}/storage-targets (the `ListOrgStorageTargets` operationId).
+func (c *Client) ListOrgStorageTargets(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgStorageTargetsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgStorageTargetWithBody Add an org target after a live test
+//
+// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+func (c *Client) CreateOrgStorageTargetWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgStorageTargetRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgStorageTarget Add an org target after a live test
+//
+// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+func (c *Client) CreateOrgStorageTarget(ctx context.Context, org OrgID, body CreateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgStorageTargetRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteOrgStorageTarget Delete an org target
+//
+// Refused (409 `target_in_use`) while a project uses it, and while it
+// holds unexpired backups unless `accept_unrestorable=true`: those
+// backups then become unrestorable. The bucket is not touched.
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/storage-targets/{target_id} (the `DeleteOrgStorageTarget` operationId).
+func (c *Client) DeleteOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, params *DeleteOrgStorageTargetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrgStorageTargetRequest(c.Server, org, targetId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgStorageTarget One org target (never its credentials)
+//
+// Corresponds with GET /api/v1/orgs/{org}/storage-targets/{target_id} (the `GetOrgStorageTarget` operationId).
+func (c *Client) GetOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgStorageTargetRequest(c.Server, org, targetId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateOrgStorageTargetWithBody Change an org target after a live test
+//
+// Empty `access_key` or `secret_key` keep the stored ones.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+func (c *Client) UpdateOrgStorageTargetWithBody(ctx context.Context, org OrgID, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrgStorageTargetRequestWithBody(c.Server, org, targetId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateOrgStorageTarget Change an org target after a live test
+//
+// Empty `access_key` or `secret_key` keep the stored ones.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+func (c *Client) UpdateOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrgStorageTargetRequest(c.Server, org, targetId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListOrgTokens Every token scoped to the organisation (owners and admins)
 //
 // Corresponds with GET /api/v1/orgs/{org}/tokens (the `ListOrgTokens` operationId).
@@ -8308,6 +8970,67 @@ func (c *Client) GetProject(ctx context.Context, id ProjectID, reqEditors ...Req
 // Corresponds with GET /api/v1/projects/{id}/audit (the `ListProjectAudit` operationId).
 func (c *Client) ListProjectAudit(ctx context.Context, id ProjectID, params *ListProjectAuditParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectAuditRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnableProjectBackupKeyWithBody Give the project its own backup key
+//
+// Generates the key (idempotent unless `rotate`); new backups use it,
+// existing backups keep theirs. Download it with
+// `GET /projects/{id}/backup-key/download`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+func (c *Client) EnableProjectBackupKeyWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableProjectBackupKeyRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnableProjectBackupKey Give the project its own backup key
+//
+// Generates the key (idempotent unless `rotate`); new backups use it,
+// existing backups keep theirs. Download it with
+// `GET /projects/{id}/backup-key/download`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+func (c *Client) EnableProjectBackupKey(ctx context.Context, id ProjectID, body EnableProjectBackupKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableProjectBackupKeyRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadProjectBackupKey Download the project's backup key with a README (re-authentication)
+//
+// The OpenPGP private key, armored, after a README on decrypting and
+// restoring with standard tools (gpg, pg_restore). Needs a recent
+// re-authentication (403 `reauth_required`); every download is audited.
+//
+// Corresponds with GET /api/v1/projects/{id}/backup-key/download (the `DownloadProjectBackupKey` operationId).
+func (c *Client) DownloadProjectBackupKey(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadProjectBackupKeyRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -9020,6 +9743,67 @@ func (c *Client) GetProjectStorage(ctx context.Context, id ProjectID, reqEditors
 	return c.Client.Do(req)
 }
 
+// GetProjectStorageTarget Where the project's backups go, its key, and the targets it can use
+//
+// Corresponds with GET /api/v1/projects/{id}/storage-target (the `GetProjectStorageTarget` operationId).
+func (c *Client) GetProjectStorageTarget(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectStorageTargetRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetProjectStorageTargetWithBody Send the project's new backups to another target
+//
+// `target_id` null is the platform default. Existing backups keep
+// their target and stay restorable. `copy_existing` copies them to the
+// new target as an operation, verified by checksum; `delete_originals`
+// then deletes the originals. A dedicated project's WAL-G is
+// reconfigured and a fresh base backup taken at once.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+func (c *Client) SetProjectStorageTargetWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectStorageTargetRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetProjectStorageTarget Send the project's new backups to another target
+//
+// `target_id` null is the platform default. Existing backups keep
+// their target and stay restorable. `copy_existing` copies them to the
+// new target as an operation, verified by checksum; `delete_originals`
+// then deletes the originals. A dedicated project's WAL-G is
+// reconfigured and a fresh base backup taken at once.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+func (c *Client) SetProjectStorageTarget(ctx context.Context, id ProjectID, body SetProjectStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectStorageTargetRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // SwitchProjectCredentialsWithBody Switch a V1 project to opaque credentials (V2 §10.2)
 //
 // Creates an opaque owner role with a new password, returned once. The
@@ -9653,6 +10437,48 @@ func (c *Client) CompleteSetupWithBody(ctx context.Context, contentType string, 
 // Corresponds with POST /api/v1/setup/complete (the `CompleteSetup` operationId).
 func (c *Client) CompleteSetup(ctx context.Context, body CompleteSetupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCompleteSetupRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// TestStorageTargetWithBody Run the live write/read/list/delete test without saving
+//
+// With `target_id`, empty credentials are taken from that stored
+// target (one of the organisation's, or a platform target for the
+// platform admin).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+func (c *Client) TestStorageTargetWithBody(ctx context.Context, params *TestStorageTargetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestStorageTargetRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// TestStorageTarget Run the live write/read/list/delete test without saving
+//
+// With `target_id`, empty credentials are taken from that stored
+// target (one of the organisation's, or a platform target for the
+// platform admin).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+func (c *Client) TestStorageTarget(ctx context.Context, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestStorageTargetRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10856,6 +11682,215 @@ func NewListSharedClustersRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListPlatformStorageTargetsRequest constructs an http.Request for the ListPlatformStorageTargets method
+func NewListPlatformStorageTargetsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/storage-targets")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreatePlatformStorageTargetRequest calls the generic CreatePlatformStorageTarget builder with application/json body
+func NewCreatePlatformStorageTargetRequest(server string, body CreatePlatformStorageTargetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePlatformStorageTargetRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreatePlatformStorageTargetRequestWithBody constructs an http.Request for the CreatePlatformStorageTarget method, with any body, and a specified content type
+func NewCreatePlatformStorageTargetRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/storage-targets")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeletePlatformStorageTargetRequest constructs an http.Request for the DeletePlatformStorageTarget method
+func NewDeletePlatformStorageTargetRequest(server string, targetId TargetID, params *DeletePlatformStorageTargetParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "target_id", targetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/storage-targets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.AcceptUnrestorable != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "accept_unrestorable", *params.AcceptUnrestorable, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPlatformStorageTargetRequest constructs an http.Request for the GetPlatformStorageTarget method
+func NewGetPlatformStorageTargetRequest(server string, targetId TargetID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "target_id", targetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/storage-targets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdatePlatformStorageTargetRequest calls the generic UpdatePlatformStorageTarget builder with application/json body
+func NewUpdatePlatformStorageTargetRequest(server string, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdatePlatformStorageTargetRequestWithBody(server, targetId, "application/json", bodyReader)
+}
+
+// NewUpdatePlatformStorageTargetRequestWithBody constructs an http.Request for the UpdatePlatformStorageTarget method, with any body, and a specified content type
+func NewUpdatePlatformStorageTargetRequestWithBody(server string, targetId TargetID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "target_id", targetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/storage-targets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -13644,6 +14679,250 @@ func NewGetOrgQuotasRequest(server string, org OrgID) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListOrgStorageTargetsRequest constructs an http.Request for the ListOrgStorageTargets method
+func NewListOrgStorageTargetsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/storage-targets", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateOrgStorageTargetRequest calls the generic CreateOrgStorageTarget builder with application/json body
+func NewCreateOrgStorageTargetRequest(server string, org OrgID, body CreateOrgStorageTargetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrgStorageTargetRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewCreateOrgStorageTargetRequestWithBody constructs an http.Request for the CreateOrgStorageTarget method, with any body, and a specified content type
+func NewCreateOrgStorageTargetRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/storage-targets", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrgStorageTargetRequest constructs an http.Request for the DeleteOrgStorageTarget method
+func NewDeleteOrgStorageTargetRequest(server string, org OrgID, targetId TargetID, params *DeleteOrgStorageTargetParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "target_id", targetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/storage-targets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.AcceptUnrestorable != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "accept_unrestorable", *params.AcceptUnrestorable, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrgStorageTargetRequest constructs an http.Request for the GetOrgStorageTarget method
+func NewGetOrgStorageTargetRequest(server string, org OrgID, targetId TargetID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "target_id", targetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/storage-targets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateOrgStorageTargetRequest calls the generic UpdateOrgStorageTarget builder with application/json body
+func NewUpdateOrgStorageTargetRequest(server string, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateOrgStorageTargetRequestWithBody(server, org, targetId, "application/json", bodyReader)
+}
+
+// NewUpdateOrgStorageTargetRequestWithBody constructs an http.Request for the UpdateOrgStorageTarget method, with any body, and a specified content type
+func NewUpdateOrgStorageTargetRequestWithBody(server string, org OrgID, targetId TargetID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "target_id", targetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/storage-targets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListOrgTokensRequest constructs an http.Request for the ListOrgTokens method
 func NewListOrgTokensRequest(server string, org OrgID) (*http.Request, error) {
 	var err error
@@ -14210,6 +15489,87 @@ func NewListProjectAuditRequest(server string, id ProjectID, params *ListProject
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
 		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewEnableProjectBackupKeyRequest calls the generic EnableProjectBackupKey builder with application/json body
+func NewEnableProjectBackupKeyRequest(server string, id ProjectID, body EnableProjectBackupKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEnableProjectBackupKeyRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewEnableProjectBackupKeyRequestWithBody constructs an http.Request for the EnableProjectBackupKey method, with any body, and a specified content type
+func NewEnableProjectBackupKeyRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/backup-key", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDownloadProjectBackupKeyRequest constructs an http.Request for the DownloadProjectBackupKey method
+func NewDownloadProjectBackupKeyRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/backup-key/download", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -15326,6 +16686,87 @@ func NewGetProjectStorageRequest(server string, id ProjectID) (*http.Request, er
 	return req, nil
 }
 
+// NewGetProjectStorageTargetRequest constructs an http.Request for the GetProjectStorageTarget method
+func NewGetProjectStorageTargetRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/storage-target", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetProjectStorageTargetRequest calls the generic SetProjectStorageTarget builder with application/json body
+func NewSetProjectStorageTargetRequest(server string, id ProjectID, body SetProjectStorageTargetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectStorageTargetRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetProjectStorageTargetRequestWithBody constructs an http.Request for the SetProjectStorageTarget method, with any body, and a specified content type
+func NewSetProjectStorageTargetRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/storage-target", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSwitchProjectCredentialsRequest calls the generic SwitchProjectCredentials builder with application/json body
 func NewSwitchProjectCredentialsRequest(server string, id ProjectID, body SwitchProjectCredentialsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -16407,6 +17848,73 @@ func NewCompleteSetupRequestWithBody(server string, contentType string, body io.
 	return req, nil
 }
 
+// NewTestStorageTargetRequest calls the generic TestStorageTarget builder with application/json body
+func NewTestStorageTargetRequest(server string, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTestStorageTargetRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewTestStorageTargetRequestWithBody constructs an http.Request for the TestStorageTarget method, with any body, and a specified content type
+func NewTestStorageTargetRequestWithBody(server string, params *TestStorageTargetParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/storage-targets/test")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Org != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "org", *params.Org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetTermsRequest constructs an http.Request for the GetTerms method
 func NewGetTermsRequest(server string) (*http.Request, error) {
 	var err error
@@ -16964,6 +18472,63 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/admin/shared-clusters (the `ListSharedClusters` operationId).
 	ListSharedClustersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSharedClustersResponse, error)
+
+	// ListPlatformStorageTargetsWithResponse Platform storage targets (platform admin)
+	//
+	// Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/storage-targets (the `ListPlatformStorageTargets` operationId).
+	ListPlatformStorageTargetsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPlatformStorageTargetsResponse, error)
+
+	// CreatePlatformStorageTargetWithBodyWithResponse Add a platform target after a live test (platform admin)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+	CreatePlatformStorageTargetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePlatformStorageTargetResponse, error)
+
+	// CreatePlatformStorageTargetWithResponse Add a platform target after a live test (platform admin)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+	CreatePlatformStorageTargetWithResponse(ctx context.Context, body CreatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePlatformStorageTargetResponse, error)
+
+	// DeletePlatformStorageTargetWithResponse Delete a platform target (platform admin)
+	//
+	// The default can't be deleted; otherwise as for org targets.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/admin/storage-targets/{target_id} (the `DeletePlatformStorageTarget` operationId).
+	DeletePlatformStorageTargetWithResponse(ctx context.Context, targetId TargetID, params *DeletePlatformStorageTargetParams, reqEditors ...RequestEditorFn) (*DeletePlatformStorageTargetResponse, error)
+
+	// GetPlatformStorageTargetWithResponse One platform target (platform admin)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/storage-targets/{target_id} (the `GetPlatformStorageTarget` operationId).
+	GetPlatformStorageTargetWithResponse(ctx context.Context, targetId TargetID, reqEditors ...RequestEditorFn) (*GetPlatformStorageTargetResponse, error)
+
+	// UpdatePlatformStorageTargetWithBodyWithResponse Change a platform target after a live test (platform admin)
+	//
+	// `is_default: true` makes it the platform default (exactly one is).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+	UpdatePlatformStorageTargetWithBodyWithResponse(ctx context.Context, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePlatformStorageTargetResponse, error)
+
+	// UpdatePlatformStorageTargetWithResponse Change a platform target after a live test (platform admin)
+	//
+	// `is_default: true` makes it the platform default (exactly one is).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+	UpdatePlatformStorageTargetWithResponse(ctx context.Context, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlatformStorageTargetResponse, error)
 
 	// PlatformUsageWithResponse Usage totals per organisation (platform admin)
 	//
@@ -17716,6 +19281,69 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/orgs/{org}/quotas (the `GetOrgQuotas` operationId).
 	GetOrgQuotasWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgQuotasResponse, error)
 
+	// ListOrgStorageTargetsWithResponse The organisation's own backup storage targets (owners and admins)
+	//
+	// Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/storage-targets (the `ListOrgStorageTargets` operationId).
+	ListOrgStorageTargetsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgStorageTargetsResponse, error)
+
+	// CreateOrgStorageTargetWithBodyWithResponse Add an org target after a live test
+	//
+	// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+	CreateOrgStorageTargetWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgStorageTargetResponse, error)
+
+	// CreateOrgStorageTargetWithResponse Add an org target after a live test
+	//
+	// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+	CreateOrgStorageTargetWithResponse(ctx context.Context, org OrgID, body CreateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgStorageTargetResponse, error)
+
+	// DeleteOrgStorageTargetWithResponse Delete an org target
+	//
+	// Refused (409 `target_in_use`) while a project uses it, and while it
+	// holds unexpired backups unless `accept_unrestorable=true`: those
+	// backups then become unrestorable. The bucket is not touched.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/storage-targets/{target_id} (the `DeleteOrgStorageTarget` operationId).
+	DeleteOrgStorageTargetWithResponse(ctx context.Context, org OrgID, targetId TargetID, params *DeleteOrgStorageTargetParams, reqEditors ...RequestEditorFn) (*DeleteOrgStorageTargetResponse, error)
+
+	// GetOrgStorageTargetWithResponse One org target (never its credentials)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/storage-targets/{target_id} (the `GetOrgStorageTarget` operationId).
+	GetOrgStorageTargetWithResponse(ctx context.Context, org OrgID, targetId TargetID, reqEditors ...RequestEditorFn) (*GetOrgStorageTargetResponse, error)
+
+	// UpdateOrgStorageTargetWithBodyWithResponse Change an org target after a live test
+	//
+	// Empty `access_key` or `secret_key` keep the stored ones.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+	UpdateOrgStorageTargetWithBodyWithResponse(ctx context.Context, org OrgID, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrgStorageTargetResponse, error)
+
+	// UpdateOrgStorageTargetWithResponse Change an org target after a live test
+	//
+	// Empty `access_key` or `secret_key` keep the stored ones.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+	UpdateOrgStorageTargetWithResponse(ctx context.Context, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrgStorageTargetResponse, error)
+
 	// ListOrgTokensWithResponse Every token scoped to the organisation (owners and admins)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -17815,6 +19443,39 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/audit (the `ListProjectAudit` operationId).
 	ListProjectAuditWithResponse(ctx context.Context, id ProjectID, params *ListProjectAuditParams, reqEditors ...RequestEditorFn) (*ListProjectAuditResponse, error)
+
+	// EnableProjectBackupKeyWithBodyWithResponse Give the project its own backup key
+	//
+	// Generates the key (idempotent unless `rotate`); new backups use it,
+	// existing backups keep theirs. Download it with
+	// `GET /projects/{id}/backup-key/download`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+	EnableProjectBackupKeyWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnableProjectBackupKeyResponse, error)
+
+	// EnableProjectBackupKeyWithResponse Give the project its own backup key
+	//
+	// Generates the key (idempotent unless `rotate`); new backups use it,
+	// existing backups keep theirs. Download it with
+	// `GET /projects/{id}/backup-key/download`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+	EnableProjectBackupKeyWithResponse(ctx context.Context, id ProjectID, body EnableProjectBackupKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectBackupKeyResponse, error)
+
+	// DownloadProjectBackupKeyWithResponse Download the project's backup key with a README (re-authentication)
+	//
+	// The OpenPGP private key, armored, after a README on decrypting and
+	// restoring with standard tools (gpg, pg_restore). Needs a recent
+	// re-authentication (403 `reauth_required`); every download is audited.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/backup-key/download (the `DownloadProjectBackupKey` operationId).
+	DownloadProjectBackupKeyWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DownloadProjectBackupKeyResponse, error)
 
 	// CreateProjectBackupWithResponse Back up a project now
 	//
@@ -18154,6 +19815,39 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/storage (the `GetProjectStorage` operationId).
 	GetProjectStorageWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectStorageResponse, error)
 
+	// GetProjectStorageTargetWithResponse Where the project's backups go, its key, and the targets it can use
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/storage-target (the `GetProjectStorageTarget` operationId).
+	GetProjectStorageTargetWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectStorageTargetResponse, error)
+
+	// SetProjectStorageTargetWithBodyWithResponse Send the project's new backups to another target
+	//
+	// `target_id` null is the platform default. Existing backups keep
+	// their target and stay restorable. `copy_existing` copies them to the
+	// new target as an operation, verified by checksum; `delete_originals`
+	// then deletes the originals. A dedicated project's WAL-G is
+	// reconfigured and a fresh base backup taken at once.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+	SetProjectStorageTargetWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectStorageTargetResponse, error)
+
+	// SetProjectStorageTargetWithResponse Send the project's new backups to another target
+	//
+	// `target_id` null is the platform default. Existing backups keep
+	// their target and stay restorable. `copy_existing` copies them to the
+	// new target as an operation, verified by checksum; `delete_originals`
+	// then deletes the originals. A dedicated project's WAL-G is
+	// reconfigured and a fresh base backup taken at once.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+	SetProjectStorageTargetWithResponse(ctx context.Context, id ProjectID, body SetProjectStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectStorageTargetResponse, error)
+
 	// SwitchProjectCredentialsWithBodyWithResponse Switch a V1 project to opaque credentials (V2 §10.2)
 	//
 	// Creates an opaque owner role with a new password, returned once. The
@@ -18464,6 +20158,28 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/setup/complete (the `CompleteSetup` operationId).
 	CompleteSetupWithResponse(ctx context.Context, body CompleteSetupJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteSetupResponse, error)
+
+	// TestStorageTargetWithBodyWithResponse Run the live write/read/list/delete test without saving
+	//
+	// With `target_id`, empty credentials are taken from that stored
+	// target (one of the organisation's, or a platform target for the
+	// platform admin).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+	TestStorageTargetWithBodyWithResponse(ctx context.Context, params *TestStorageTargetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestStorageTargetResponse, error)
+
+	// TestStorageTargetWithResponse Run the live write/read/list/delete test without saving
+	//
+	// With `target_id`, empty credentials are taken from that stored
+	// target (one of the organisation's, or a platform target for the
+	// platform admin).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+	TestStorageTargetWithResponse(ctx context.Context, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*TestStorageTargetResponse, error)
 
 	// GetTermsWithResponse The current terms of use and privacy notice (public)
 	//
@@ -19710,6 +21426,246 @@ func (r ListSharedClustersResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListSharedClustersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPlatformStorageTargetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTargetList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPlatformStorageTargetsResponse) GetJSON200() *StorageTargetList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListPlatformStorageTargetsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPlatformStorageTargetsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPlatformStorageTargetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPlatformStorageTargetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPlatformStorageTargetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreatePlatformStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTargetSaveResult
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *StorageTargetSaveResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreatePlatformStorageTargetResponse) GetJSON200() *StorageTargetSaveResult {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePlatformStorageTargetResponse) GetJSON201() *StorageTargetSaveResult {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreatePlatformStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreatePlatformStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePlatformStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePlatformStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreatePlatformStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeletePlatformStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeletePlatformStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeletePlatformStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePlatformStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePlatformStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeletePlatformStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPlatformStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTarget
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPlatformStorageTargetResponse) GetJSON200() *StorageTarget {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetPlatformStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPlatformStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPlatformStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPlatformStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPlatformStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdatePlatformStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTargetSaveResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePlatformStorageTargetResponse) GetJSON200() *StorageTargetSaveResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdatePlatformStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdatePlatformStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdatePlatformStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdatePlatformStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdatePlatformStorageTargetResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -22710,6 +24666,246 @@ func (r GetOrgQuotasResponse) ContentType() string {
 	return ""
 }
 
+type ListOrgStorageTargetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTargetList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgStorageTargetsResponse) GetJSON200() *StorageTargetList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListOrgStorageTargetsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgStorageTargetsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgStorageTargetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgStorageTargetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgStorageTargetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateOrgStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTargetSaveResult
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *StorageTargetSaveResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateOrgStorageTargetResponse) GetJSON200() *StorageTargetSaveResult {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateOrgStorageTargetResponse) GetJSON201() *StorageTargetSaveResult {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateOrgStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateOrgStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrgStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrgStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateOrgStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteOrgStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteOrgStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteOrgStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrgStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrgStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteOrgStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTarget
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgStorageTargetResponse) GetJSON200() *StorageTarget {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateOrgStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTargetSaveResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateOrgStorageTargetResponse) GetJSON200() *StorageTargetSaveResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateOrgStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateOrgStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateOrgStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateOrgStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateOrgStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListOrgTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -23170,6 +25366,95 @@ func (r ListProjectAuditResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListProjectAuditResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnableProjectBackupKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectBackupKey
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnableProjectBackupKeyResponse) GetJSON200() *ProjectBackupKey {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EnableProjectBackupKeyResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnableProjectBackupKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnableProjectBackupKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnableProjectBackupKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnableProjectBackupKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadProjectBackupKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DownloadProjectBackupKeyResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadProjectBackupKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadProjectBackupKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadProjectBackupKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadProjectBackupKeyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -24417,6 +26702,102 @@ func (r GetProjectStorageResponse) ContentType() string {
 	return ""
 }
 
+type GetProjectStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectBackupStorage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectStorageTargetResponse) GetJSON200() *ProjectBackupStorage {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetProjectStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetProjectStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectStorageTargetResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetProjectStorageTargetResponse) GetJSON200() *ProjectStorageTargetResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetProjectStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetProjectStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type SwitchProjectCredentialsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -25624,6 +28005,54 @@ func (r CompleteSetupResponse) ContentType() string {
 	return ""
 }
 
+type TestStorageTargetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageTestResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r TestStorageTargetResponse) GetJSON200() *StorageTestResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r TestStorageTargetResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r TestStorageTargetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r TestStorageTargetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestStorageTargetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r TestStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetTermsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -26484,6 +28913,105 @@ func (c *ClientWithResponses) ListSharedClustersWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseListSharedClustersResponse(rsp)
+}
+
+// ListPlatformStorageTargetsWithResponse Platform storage targets (platform admin)
+//
+// Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/storage-targets (the `ListPlatformStorageTargets` operationId).
+func (c *ClientWithResponses) ListPlatformStorageTargetsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPlatformStorageTargetsResponse, error) {
+	rsp, err := c.ListPlatformStorageTargets(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPlatformStorageTargetsResponse(rsp)
+}
+
+// CreatePlatformStorageTargetWithBodyWithResponse Add a platform target after a live test (platform admin)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+func (c *ClientWithResponses) CreatePlatformStorageTargetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePlatformStorageTargetResponse, error) {
+	rsp, err := c.CreatePlatformStorageTargetWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePlatformStorageTargetResponse(rsp)
+}
+
+// CreatePlatformStorageTargetWithResponse Add a platform target after a live test (platform admin)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/storage-targets (the `CreatePlatformStorageTarget` operationId).
+func (c *ClientWithResponses) CreatePlatformStorageTargetWithResponse(ctx context.Context, body CreatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePlatformStorageTargetResponse, error) {
+	rsp, err := c.CreatePlatformStorageTarget(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePlatformStorageTargetResponse(rsp)
+}
+
+// DeletePlatformStorageTargetWithResponse Delete a platform target (platform admin)
+//
+// The default can't be deleted; otherwise as for org targets.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/admin/storage-targets/{target_id} (the `DeletePlatformStorageTarget` operationId).
+func (c *ClientWithResponses) DeletePlatformStorageTargetWithResponse(ctx context.Context, targetId TargetID, params *DeletePlatformStorageTargetParams, reqEditors ...RequestEditorFn) (*DeletePlatformStorageTargetResponse, error) {
+	rsp, err := c.DeletePlatformStorageTarget(ctx, targetId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePlatformStorageTargetResponse(rsp)
+}
+
+// GetPlatformStorageTargetWithResponse One platform target (platform admin)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/storage-targets/{target_id} (the `GetPlatformStorageTarget` operationId).
+func (c *ClientWithResponses) GetPlatformStorageTargetWithResponse(ctx context.Context, targetId TargetID, reqEditors ...RequestEditorFn) (*GetPlatformStorageTargetResponse, error) {
+	rsp, err := c.GetPlatformStorageTarget(ctx, targetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPlatformStorageTargetResponse(rsp)
+}
+
+// UpdatePlatformStorageTargetWithBodyWithResponse Change a platform target after a live test (platform admin)
+//
+// `is_default: true` makes it the platform default (exactly one is).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+func (c *ClientWithResponses) UpdatePlatformStorageTargetWithBodyWithResponse(ctx context.Context, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePlatformStorageTargetResponse, error) {
+	rsp, err := c.UpdatePlatformStorageTargetWithBody(ctx, targetId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePlatformStorageTargetResponse(rsp)
+}
+
+// UpdatePlatformStorageTargetWithResponse Change a platform target after a live test (platform admin)
+//
+// `is_default: true` makes it the platform default (exactly one is).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
+func (c *ClientWithResponses) UpdatePlatformStorageTargetWithResponse(ctx context.Context, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlatformStorageTargetResponse, error) {
+	rsp, err := c.UpdatePlatformStorageTarget(ctx, targetId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePlatformStorageTargetResponse(rsp)
 }
 
 // PlatformUsageWithResponse Usage totals per organisation (platform admin)
@@ -27807,6 +30335,111 @@ func (c *ClientWithResponses) GetOrgQuotasWithResponse(ctx context.Context, org 
 	return ParseGetOrgQuotasResponse(rsp)
 }
 
+// ListOrgStorageTargetsWithResponse The organisation's own backup storage targets (owners and admins)
+//
+// Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/storage-targets (the `ListOrgStorageTargets` operationId).
+func (c *ClientWithResponses) ListOrgStorageTargetsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgStorageTargetsResponse, error) {
+	rsp, err := c.ListOrgStorageTargets(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgStorageTargetsResponse(rsp)
+}
+
+// CreateOrgStorageTargetWithBodyWithResponse Add an org target after a live test
+//
+// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+func (c *ClientWithResponses) CreateOrgStorageTargetWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgStorageTargetResponse, error) {
+	rsp, err := c.CreateOrgStorageTargetWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgStorageTargetResponse(rsp)
+}
+
+// CreateOrgStorageTargetWithResponse Add an org target after a live test
+//
+// Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/storage-targets (the `CreateOrgStorageTarget` operationId).
+func (c *ClientWithResponses) CreateOrgStorageTargetWithResponse(ctx context.Context, org OrgID, body CreateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgStorageTargetResponse, error) {
+	rsp, err := c.CreateOrgStorageTarget(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgStorageTargetResponse(rsp)
+}
+
+// DeleteOrgStorageTargetWithResponse Delete an org target
+//
+// Refused (409 `target_in_use`) while a project uses it, and while it
+// holds unexpired backups unless `accept_unrestorable=true`: those
+// backups then become unrestorable. The bucket is not touched.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/storage-targets/{target_id} (the `DeleteOrgStorageTarget` operationId).
+func (c *ClientWithResponses) DeleteOrgStorageTargetWithResponse(ctx context.Context, org OrgID, targetId TargetID, params *DeleteOrgStorageTargetParams, reqEditors ...RequestEditorFn) (*DeleteOrgStorageTargetResponse, error) {
+	rsp, err := c.DeleteOrgStorageTarget(ctx, org, targetId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrgStorageTargetResponse(rsp)
+}
+
+// GetOrgStorageTargetWithResponse One org target (never its credentials)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/storage-targets/{target_id} (the `GetOrgStorageTarget` operationId).
+func (c *ClientWithResponses) GetOrgStorageTargetWithResponse(ctx context.Context, org OrgID, targetId TargetID, reqEditors ...RequestEditorFn) (*GetOrgStorageTargetResponse, error) {
+	rsp, err := c.GetOrgStorageTarget(ctx, org, targetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgStorageTargetResponse(rsp)
+}
+
+// UpdateOrgStorageTargetWithBodyWithResponse Change an org target after a live test
+//
+// Empty `access_key` or `secret_key` keep the stored ones.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+func (c *ClientWithResponses) UpdateOrgStorageTargetWithBodyWithResponse(ctx context.Context, org OrgID, targetId TargetID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrgStorageTargetResponse, error) {
+	rsp, err := c.UpdateOrgStorageTargetWithBody(ctx, org, targetId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateOrgStorageTargetResponse(rsp)
+}
+
+// UpdateOrgStorageTargetWithResponse Change an org target after a live test
+//
+// Empty `access_key` or `secret_key` keep the stored ones.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
+func (c *ClientWithResponses) UpdateOrgStorageTargetWithResponse(ctx context.Context, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrgStorageTargetResponse, error) {
+	rsp, err := c.UpdateOrgStorageTarget(ctx, org, targetId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateOrgStorageTargetResponse(rsp)
+}
+
 // ListOrgTokensWithResponse Every token scoped to the organisation (owners and admins)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -27977,6 +30610,57 @@ func (c *ClientWithResponses) ListProjectAuditWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseListProjectAuditResponse(rsp)
+}
+
+// EnableProjectBackupKeyWithBodyWithResponse Give the project its own backup key
+//
+// Generates the key (idempotent unless `rotate`); new backups use it,
+// existing backups keep theirs. Download it with
+// `GET /projects/{id}/backup-key/download`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+func (c *ClientWithResponses) EnableProjectBackupKeyWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnableProjectBackupKeyResponse, error) {
+	rsp, err := c.EnableProjectBackupKeyWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableProjectBackupKeyResponse(rsp)
+}
+
+// EnableProjectBackupKeyWithResponse Give the project its own backup key
+//
+// Generates the key (idempotent unless `rotate`); new backups use it,
+// existing backups keep theirs. Download it with
+// `GET /projects/{id}/backup-key/download`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/backup-key (the `EnableProjectBackupKey` operationId).
+func (c *ClientWithResponses) EnableProjectBackupKeyWithResponse(ctx context.Context, id ProjectID, body EnableProjectBackupKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectBackupKeyResponse, error) {
+	rsp, err := c.EnableProjectBackupKey(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableProjectBackupKeyResponse(rsp)
+}
+
+// DownloadProjectBackupKeyWithResponse Download the project's backup key with a README (re-authentication)
+//
+// The OpenPGP private key, armored, after a README on decrypting and
+// restoring with standard tools (gpg, pg_restore). Needs a recent
+// re-authentication (403 `reauth_required`); every download is audited.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/backup-key/download (the `DownloadProjectBackupKey` operationId).
+func (c *ClientWithResponses) DownloadProjectBackupKeyWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DownloadProjectBackupKeyResponse, error) {
+	rsp, err := c.DownloadProjectBackupKey(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadProjectBackupKeyResponse(rsp)
 }
 
 // CreateProjectBackupWithResponse Back up a project now
@@ -28551,6 +31235,57 @@ func (c *ClientWithResponses) GetProjectStorageWithResponse(ctx context.Context,
 	return ParseGetProjectStorageResponse(rsp)
 }
 
+// GetProjectStorageTargetWithResponse Where the project's backups go, its key, and the targets it can use
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/storage-target (the `GetProjectStorageTarget` operationId).
+func (c *ClientWithResponses) GetProjectStorageTargetWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectStorageTargetResponse, error) {
+	rsp, err := c.GetProjectStorageTarget(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectStorageTargetResponse(rsp)
+}
+
+// SetProjectStorageTargetWithBodyWithResponse Send the project's new backups to another target
+//
+// `target_id` null is the platform default. Existing backups keep
+// their target and stay restorable. `copy_existing` copies them to the
+// new target as an operation, verified by checksum; `delete_originals`
+// then deletes the originals. A dedicated project's WAL-G is
+// reconfigured and a fresh base backup taken at once.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+func (c *ClientWithResponses) SetProjectStorageTargetWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectStorageTargetResponse, error) {
+	rsp, err := c.SetProjectStorageTargetWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectStorageTargetResponse(rsp)
+}
+
+// SetProjectStorageTargetWithResponse Send the project's new backups to another target
+//
+// `target_id` null is the platform default. Existing backups keep
+// their target and stay restorable. `copy_existing` copies them to the
+// new target as an operation, verified by checksum; `delete_originals`
+// then deletes the originals. A dedicated project's WAL-G is
+// reconfigured and a fresh base backup taken at once.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/storage-target (the `SetProjectStorageTarget` operationId).
+func (c *ClientWithResponses) SetProjectStorageTargetWithResponse(ctx context.Context, id ProjectID, body SetProjectStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectStorageTargetResponse, error) {
+	rsp, err := c.SetProjectStorageTarget(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectStorageTargetResponse(rsp)
+}
+
 // SwitchProjectCredentialsWithBodyWithResponse Switch a V1 project to opaque credentials (V2 §10.2)
 //
 // Creates an opaque owner role with a new password, returned once. The
@@ -29076,6 +31811,40 @@ func (c *ClientWithResponses) CompleteSetupWithResponse(ctx context.Context, bod
 		return nil, err
 	}
 	return ParseCompleteSetupResponse(rsp)
+}
+
+// TestStorageTargetWithBodyWithResponse Run the live write/read/list/delete test without saving
+//
+// With `target_id`, empty credentials are taken from that stored
+// target (one of the organisation's, or a platform target for the
+// platform admin).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+func (c *ClientWithResponses) TestStorageTargetWithBodyWithResponse(ctx context.Context, params *TestStorageTargetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestStorageTargetResponse, error) {
+	rsp, err := c.TestStorageTargetWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestStorageTargetResponse(rsp)
+}
+
+// TestStorageTargetWithResponse Run the live write/read/list/delete test without saving
+//
+// With `target_id`, empty credentials are taken from that stored
+// target (one of the organisation's, or a platform target for the
+// platform admin).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
+func (c *ClientWithResponses) TestStorageTargetWithResponse(ctx context.Context, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*TestStorageTargetResponse, error) {
+	rsp, err := c.TestStorageTarget(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestStorageTargetResponse(rsp)
 }
 
 // GetTermsWithResponse The current terms of use and privacy notice (public)
@@ -30002,6 +32771,174 @@ func ParseListSharedClustersResponse(rsp *http.Response) (*ListSharedClustersRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SharedClusterList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPlatformStorageTargetsResponse parses an HTTP response from a ListPlatformStorageTargetsWithResponse call
+func ParseListPlatformStorageTargetsResponse(rsp *http.Response) (*ListPlatformStorageTargetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPlatformStorageTargetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTargetList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreatePlatformStorageTargetResponse parses an HTTP response from a CreatePlatformStorageTargetWithResponse call
+func ParseCreatePlatformStorageTargetResponse(rsp *http.Response) (*CreatePlatformStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePlatformStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTargetSaveResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest StorageTargetSaveResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeletePlatformStorageTargetResponse parses an HTTP response from a DeletePlatformStorageTargetWithResponse call
+func ParseDeletePlatformStorageTargetResponse(rsp *http.Response) (*DeletePlatformStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePlatformStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPlatformStorageTargetResponse parses an HTTP response from a GetPlatformStorageTargetWithResponse call
+func ParseGetPlatformStorageTargetResponse(rsp *http.Response) (*GetPlatformStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPlatformStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTarget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdatePlatformStorageTargetResponse parses an HTTP response from a UpdatePlatformStorageTargetWithResponse call
+func ParseUpdatePlatformStorageTargetResponse(rsp *http.Response) (*UpdatePlatformStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdatePlatformStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTargetSaveResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32092,6 +35029,174 @@ func ParseGetOrgQuotasResponse(rsp *http.Response) (*GetOrgQuotasResponse, error
 	return response, nil
 }
 
+// ParseListOrgStorageTargetsResponse parses an HTTP response from a ListOrgStorageTargetsWithResponse call
+func ParseListOrgStorageTargetsResponse(rsp *http.Response) (*ListOrgStorageTargetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgStorageTargetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTargetList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateOrgStorageTargetResponse parses an HTTP response from a CreateOrgStorageTargetWithResponse call
+func ParseCreateOrgStorageTargetResponse(rsp *http.Response) (*CreateOrgStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrgStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTargetSaveResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest StorageTargetSaveResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteOrgStorageTargetResponse parses an HTTP response from a DeleteOrgStorageTargetWithResponse call
+func ParseDeleteOrgStorageTargetResponse(rsp *http.Response) (*DeleteOrgStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrgStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgStorageTargetResponse parses an HTTP response from a GetOrgStorageTargetWithResponse call
+func ParseGetOrgStorageTargetResponse(rsp *http.Response) (*GetOrgStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTarget
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateOrgStorageTargetResponse parses an HTTP response from a UpdateOrgStorageTargetWithResponse call
+func ParseUpdateOrgStorageTargetResponse(rsp *http.Response) (*UpdateOrgStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateOrgStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTargetSaveResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOrgTokensResponse parses an HTTP response from a ListOrgTokensWithResponse call
 func ParseListOrgTokensResponse(rsp *http.Response) (*ListOrgTokensResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -32405,6 +35510,65 @@ func ParseListProjectAuditResponse(rsp *http.Response) (*ListProjectAuditRespons
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnableProjectBackupKeyResponse parses an HTTP response from a EnableProjectBackupKeyWithResponse call
+func ParseEnableProjectBackupKeyResponse(rsp *http.Response) (*EnableProjectBackupKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnableProjectBackupKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectBackupKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadProjectBackupKeyResponse parses an HTTP response from a DownloadProjectBackupKeyWithResponse call
+func ParseDownloadProjectBackupKeyResponse(rsp *http.Response) (*DownloadProjectBackupKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadProjectBackupKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -33274,6 +36438,72 @@ func ParseGetProjectStorageResponse(rsp *http.Response) (*GetProjectStorageRespo
 	return response, nil
 }
 
+// ParseGetProjectStorageTargetResponse parses an HTTP response from a GetProjectStorageTargetWithResponse call
+func ParseGetProjectStorageTargetResponse(rsp *http.Response) (*GetProjectStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectBackupStorage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetProjectStorageTargetResponse parses an HTTP response from a SetProjectStorageTargetWithResponse call
+func ParseSetProjectStorageTargetResponse(rsp *http.Response) (*SetProjectStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectStorageTargetResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseSwitchProjectCredentialsResponse parses an HTTP response from a SwitchProjectCredentialsWithResponse call
 func ParseSwitchProjectCredentialsResponse(rsp *http.Response) (*SwitchProjectCredentialsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -34092,6 +37322,39 @@ func ParseCompleteSetupResponse(rsp *http.Response) (*CompleteSetupResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SessionState
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestStorageTargetResponse parses an HTTP response from a TestStorageTargetWithResponse call
+func ParseTestStorageTargetResponse(rsp *http.Response) (*TestStorageTargetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestStorageTargetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageTestResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

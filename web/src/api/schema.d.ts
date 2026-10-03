@@ -1418,6 +1418,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/storage-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organisation's own backup storage targets (owners and admins)
+         * @description Org targets are buckets the organisation brings; backups there don't count against its backup quota (V2 §6).
+         */
+        get: operations["listOrgStorageTargets"];
+        put?: never;
+        /**
+         * Add an org target after a live test
+         * @description Runs the write/read/list/delete test under the prefix and saves only if it passes (`saved`). Credentials are sealed with the master key and never shown again.
+         */
+        post: operations["createOrgStorageTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/storage-targets/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One org target (never its credentials) */
+        get: operations["getOrgStorageTarget"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an org target
+         * @description Refused (409 `target_in_use`) while a project uses it, and while it
+         *     holds unexpired backups unless `accept_unrestorable=true`: those
+         *     backups then become unrestorable. The bucket is not touched.
+         */
+        delete: operations["deleteOrgStorageTarget"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an org target after a live test
+         * @description Empty `access_key` or `secret_key` keep the stored ones.
+         */
+        patch: operations["updateOrgStorageTarget"];
+        trace?: never;
+    };
+    "/api/v1/storage-targets/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the live write/read/list/delete test without saving
+         * @description With `target_id`, empty credentials are taken from that stored
+         *     target (one of the organisation's, or a platform target for the
+         *     platform admin).
+         */
+        post: operations["testStorageTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform storage targets (platform admin)
+         * @description Storage on platform targets counts against each organisation's backup quota. Org targets are not listed.
+         */
+        get: operations["listPlatformStorageTargets"];
+        put?: never;
+        /** Add a platform target after a live test (platform admin) */
+        post: operations["createPlatformStorageTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage-targets/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One platform target (platform admin) */
+        get: operations["getPlatformStorageTarget"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a platform target (platform admin)
+         * @description The default can't be deleted; otherwise as for org targets.
+         */
+        delete: operations["deletePlatformStorageTarget"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a platform target after a live test (platform admin)
+         * @description `is_default: true` makes it the platform default (exactly one is).
+         */
+        patch: operations["updatePlatformStorageTarget"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/storage-target": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the project's backups go, its key, and the targets it can use */
+        get: operations["getProjectStorageTarget"];
+        /**
+         * Send the project's new backups to another target
+         * @description `target_id` null is the platform default. Existing backups keep
+         *     their target and stay restorable. `copy_existing` copies them to the
+         *     new target as an operation, verified by checksum; `delete_originals`
+         *     then deletes the originals. A dedicated project's WAL-G is
+         *     reconfigured and a fresh base backup taken at once.
+         */
+        put: operations["setProjectStorageTarget"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/backup-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give the project its own backup key
+         * @description Generates the key (idempotent unless `rotate`); new backups use it,
+         *     existing backups keep theirs. Download it with
+         *     `GET /projects/{id}/backup-key/download`.
+         */
+        post: operations["enableProjectBackupKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/backup-key/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the project's backup key with a README (re-authentication)
+         * @description The OpenPGP private key, armored, after a README on decrypting and
+         *     restoring with standard tools (gpg, pg_restore). Needs a recent
+         *     re-authentication (403 `reauth_required`); every download is audited.
+         */
+        get: operations["downloadProjectBackupKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/tokens": {
         parameters: {
             query?: never;
@@ -2779,8 +2967,20 @@ export interface components {
             project_name?: string | null;
             project_deleted?: boolean;
             kind: components["schemas"]["BackupKind"];
-            /** @enum {string} */
-            status: "running" | "succeeded" | "failed";
+            /**
+             * @description `copied`: copied to another target (the copy is its own backup); the original is kept until deleted.
+             * @enum {string}
+             */
+            status: "running" | "succeeded" | "failed" | "copied";
+            /** @description The target's name ("an org target" where its name isn't the viewer's to see). */
+            storage_target?: string | null;
+            storage_kind?: components["schemas"]["StorageTargetKind"];
+            /**
+             * @description `project`: an OpenPGP message to the project's own key (opens with gpg).
+             * @enum {string}
+             */
+            encryption?: "instance" | "project";
+            key_fingerprint?: string | null;
             /** Format: int64 */
             size_bytes?: number | null;
             checksum?: string | null;
@@ -2821,6 +3021,111 @@ export interface components {
         RestoreResponse: {
             operation: components["schemas"]["Operation"];
             credentials?: components["schemas"]["ProjectCredentials"];
+        };
+        /** @enum {string} */
+        StorageTargetKind: "platform" | "org";
+        StorageTargetRequest: {
+            name: string;
+            /** @example https://s3.eu-central-1.amazonaws.com */
+            endpoint: string;
+            region?: string;
+            bucket: string;
+            prefix?: string;
+            /** @description Empty on an update keeps the stored one. */
+            access_key?: string;
+            /** @description Empty on an update keeps the stored one. */
+            secret_key?: string;
+            path_style?: boolean;
+            /** @description Platform targets only. */
+            is_default?: boolean;
+        };
+        StorageTargetTestRequest: {
+            /**
+             * Format: uuid
+             * @description A stored target whose credentials fill in empty ones.
+             */
+            target_id?: string;
+            endpoint: string;
+            region?: string;
+            bucket: string;
+            prefix?: string;
+            access_key?: string;
+            secret_key?: string;
+            path_style?: boolean;
+        };
+        StorageTarget: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            kind: components["schemas"]["StorageTargetKind"];
+            endpoint: string;
+            region: string;
+            bucket: string;
+            prefix: string;
+            path_style: boolean;
+            is_default: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at?: string;
+            usage: components["schemas"]["StorageTargetUsage"];
+        };
+        StorageTargetUsage: {
+            /** @description Live projects whose new backups go here. */
+            projects: number;
+            /** @description Unexpired backups stored here. */
+            backups: number;
+            /** Format: int64 */
+            bytes: number;
+        };
+        StorageTargetList: {
+            items: components["schemas"]["StorageTarget"][];
+        };
+        StorageTargetSaveResult: {
+            saved: boolean;
+            test: components["schemas"]["StorageTestResult"];
+            target?: components["schemas"]["StorageTarget"];
+        };
+        ProjectStorageChoice: {
+            /**
+             * Format: uuid
+             * @description Null is the platform default (followed if it changes).
+             */
+            id?: string | null;
+            kind: components["schemas"]["StorageTargetKind"];
+            name: string;
+            is_default: boolean;
+        };
+        ProjectBackupKey: {
+            /** @description False means new backups use the instance key. */
+            enabled: boolean;
+            /** Format: uuid */
+            id?: string;
+            /** @description The OpenPGP fingerprint, as gpg shows it. */
+            fingerprint?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ProjectBackupKeyRequest: {
+            /** @description Replace an existing key; backups made with the old one keep it. */
+            rotate?: boolean;
+        };
+        ProjectBackupStorage: {
+            target: components["schemas"]["ProjectStorageChoice"];
+            key: components["schemas"]["ProjectBackupKey"];
+            choices: components["schemas"]["ProjectStorageChoice"][];
+            /** @description Whether new backups count against the organisation's backup quota (platform targets do). */
+            counts_toward_quota: boolean;
+        };
+        ProjectStorageTargetRequest: {
+            /** Format: uuid */
+            target_id?: string | null;
+            copy_existing?: boolean;
+            delete_originals?: boolean;
+        };
+        ProjectStorageTargetResult: {
+            storage: components["schemas"]["ProjectBackupStorage"];
+            operation?: components["schemas"]["Operation"];
         };
         StorageRequest: {
             /** @example https://s3.eu-central-1.amazonaws.com */
@@ -4207,6 +4512,9 @@ export interface components {
     parameters: {
         SchemaName: string;
         TableName: string;
+        TargetID: string;
+        /** @description Delete even though the target holds unexpired backups, which become unrestorable. */
+        AcceptUnrestorable: boolean;
         TokenID: string;
         RequestID: string;
         OrgID: string;
@@ -6350,6 +6658,399 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgStorageTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrgStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description The test failed; nothing was saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            /** @description Saved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTarget"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrgStorageTarget: {
+        parameters: {
+            query?: {
+                /** @description Delete even though the target holds unexpired backups, which become unrestorable. */
+                accept_unrestorable?: components["parameters"]["AcceptUnrestorable"];
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrgStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result; `saved` says whether the target changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testStorageTarget: {
+        parameters: {
+            query?: {
+                /** @description The organisation to list; your personal organisation when omitted. */
+                org?: components["parameters"]["OrgQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPlatformStorageTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPlatformStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description The test failed; nothing was saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            /** @description Saved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPlatformStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTarget"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deletePlatformStorageTarget: {
+        parameters: {
+            query?: {
+                /** @description Delete even though the target holds unexpired backups, which become unrestorable. */
+                accept_unrestorable?: components["parameters"]["AcceptUnrestorable"];
+            };
+            header?: never;
+            path: {
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePlatformStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_id: components["parameters"]["TargetID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Test result; `saved` says whether the target changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageTargetSaveResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBackupStorage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setProjectStorageTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectStorageTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Switched; `operation` is set when work was queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectStorageTargetResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableProjectBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProjectBackupKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description The key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBackupKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadProjectBackupKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
             };
             default: components["responses"]["Error"];
         };

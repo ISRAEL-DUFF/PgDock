@@ -30,10 +30,19 @@ import (
 	"github.com/israel-duff/pgdock/internal/walg"
 )
 
-// Secrets supplies backup storage and the backup key (the backup service).
+// Secrets supplies backup storage and keys (the backup service).
 type Secrets interface {
+	// StorageTarget is the platform default target.
 	StorageTarget(ctx context.Context) (uuid.UUID, storage.Target, error)
+	// BackupKey is the instance backup key.
 	BackupKey(ctx context.Context) ([]byte, error)
+	// TargetByID opens any target (platform or org).
+	TargetByID(ctx context.Context, id uuid.UUID) (storage.Target, error)
+	// ProjectPGPKey is the OpenPGP key of a per-project backup key.
+	ProjectPGPKey(ctx context.Context, keyID uuid.UUID) (string, error)
+	// ProjectWALG is where a project's archive should be now and with which
+	// key (nil: the instance key), V2 s6.
+	ProjectWALG(ctx context.Context, p store.Project) (uuid.UUID, *uuid.UUID, error)
 }
 
 // Config tunes the tier.
@@ -198,24 +207,68 @@ func opPITR(op store.Operation) (*pitrParams, error) {
 	return p.PITR, nil
 }
 
-// walgFor is where an instance archives (its walg_prefix).
+// walgFor is where an instance archives: its walg_prefix on its WAL-G
+// target, with its WAL-G key.
 func (s *Service) walgFor(ctx context.Context, inst store.Instance) (agentapi.WALG, error) {
 	if inst.WalgPrefix == nil {
 		return agentapi.WALG{}, fmt.Errorf("instance %s has no WAL-G prefix", inst.ID)
 	}
-	_, target, err := s.secrets.StorageTarget(ctx)
+	return s.walgAt(ctx, inst.WalgTargetID, inst.WalgKeyID, *inst.WalgPrefix)
+}
+
+// walgAt is an archive's location and key. A nil target is the platform
+// default; a nil key is the instance backup key.
+func (s *Service) walgAt(ctx context.Context, targetID, keyID *uuid.UUID, prefix string) (agentapi.WALG, error) {
+	var target storage.Target
+	var err error
+	if targetID == nil {
+		_, target, err = s.secrets.StorageTarget(ctx)
+	} else {
+		target, err = s.secrets.TargetByID(ctx, *targetID)
+	}
 	if err != nil {
 		return agentapi.WALG{}, jobs.Permanent(err)
 	}
-	bk, err := s.secrets.BackupKey(ctx)
-	if err != nil {
-		return agentapi.WALG{}, jobs.Permanent(err)
+	var key string
+	if keyID != nil {
+		key, err = s.secrets.ProjectPGPKey(ctx, *keyID)
+	} else {
+		var bk []byte
+		if bk, err = s.secrets.BackupKey(ctx); err != nil {
+			return agentapi.WALG{}, jobs.Permanent(err)
+		}
+		key, err = walg.PGPKey(bk)
 	}
-	key, err := walg.PGPKey(bk)
 	if err != nil {
 		return agentapi.WALG{}, err
 	}
-	return agentapi.WALG{Storage: target, Prefix: *inst.WalgPrefix, PGPKey: key}, nil
+	return agentapi.WALG{Storage: target, Prefix: prefix, PGPKey: key}, nil
+}
+
+// walgForBackup is where a base backup's archive is: the target, key, and
+// prefix recorded with it (V2 s6: switching keeps old backups restorable).
+func (s *Service) walgForBackup(ctx context.Context, b store.Backup, inst store.Instance) (agentapi.WALG, error) {
+	if b.WalgPrefix == nil {
+		return s.walgFor(ctx, inst)
+	}
+	return s.walgAt(ctx, b.StorageTargetID, b.EncryptionKeyID, *b.WalgPrefix)
+}
+
+// placeArchive records, for an instance that has never run, the target and
+// key its project's backups use now.
+func (s *Service) placeArchive(ctx context.Context, inst store.Instance, p store.Project) (store.Instance, error) {
+	if inst.WalgTargetID != nil || inst.WalgPrefix == nil {
+		return inst, nil
+	}
+	targetID, keyID, err := s.secrets.ProjectWALG(ctx, p)
+	if err != nil {
+		return inst, jobs.Permanent(err)
+	}
+	q := store.New(s.db)
+	if err := q.SetInstanceWALG(ctx, store.SetInstanceWALGParams{ID: inst.ID, WalgPrefix: inst.WalgPrefix, WalgTargetID: &targetID, WalgKeyID: keyID}); err != nil {
+		return inst, err
+	}
+	return q.GetInstance(ctx, inst.ID)
 }
 
 func randomPassword() string {
@@ -282,6 +335,9 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 		}
 		inst.AdminSecret = sealed
 	}
+	if inst, err = s.placeArchive(ctx, inst, p); err != nil {
+		return err
+	}
 	spec, err := s.instanceSpec(ctx, inst)
 	if err != nil {
 		return err
@@ -292,7 +348,11 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 		if err != nil {
 			return jobs.Permanent(fmt.Errorf("source instance: %w", err))
 		}
-		srcWALG, err := s.walgFor(ctx, src)
+		srcBackup, err := q.GetBackup(ctx, pitr.BackupID)
+		if err != nil {
+			return jobs.Permanent(fmt.Errorf("source base backup: %w", err))
+		}
+		srcWALG, err := s.walgForBackup(ctx, srcBackup, src)
 		if err != nil {
 			return err
 		}
@@ -455,7 +515,7 @@ func (s *Service) adoptRestore(ctx context.Context, inst store.Instance, p store
 			}
 		}
 		for _, stmt := range []string{
-			"ALTER SYSTEM RESET restore_command", "ALTER SYSTEM RESET recovery_target_time",
+			"ALTER SYSTEM RESET restore_command", "ALTER SYSTEM RESET recovery_end_command", "ALTER SYSTEM RESET recovery_target_time",
 			"ALTER SYSTEM RESET recovery_target_action", "SELECT pg_reload_conf()",
 		} {
 			if _, err := conn.Exec(ctx, stmt); err != nil {
@@ -564,9 +624,13 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 	if err != nil {
 		return store.Backup{}, err
 	}
-	targetID, _, err := s.secrets.StorageTarget(ctx)
-	if err != nil {
-		return store.Backup{}, jobs.Permanent(err)
+	targetID := inst.WalgTargetID
+	if targetID == nil {
+		id, _, err := s.secrets.StorageTarget(ctx)
+		if err != nil {
+			return store.Backup{}, jobs.Permanent(err)
+		}
+		targetID = &id
 	}
 	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
 	if err != nil {
@@ -583,7 +647,8 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 	size := b.CompressedSize
 	row, err := q.InsertBaseBackup(ctx, store.InsertBaseBackupParams{
 		ProjectID: &p.ID, ObjectKey: b.Name, StartedAt: b.StartTime, FinishedAt: &b.FinishTime,
-		SizeBytes: &size, StorageTargetID: &targetID, OperationID: opID,
+		SizeBytes: &size, StorageTargetID: targetID, OperationID: opID,
+		EncryptionKeyID: inst.WalgKeyID, WalgPrefix: inst.WalgPrefix,
 	})
 	if err != nil {
 		return store.Backup{}, err
@@ -594,7 +659,7 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 		for _, l := range list {
 			keep[l.Name] = true
 		}
-		rows, _ := q.ListBaseBackups(ctx, &p.ID)
+		rows, _ := q.ListBaseBackups(ctx, store.ListBaseBackupsParams{ProjectID: &p.ID, WalgPrefix: inst.WalgPrefix})
 		for _, r := range rows {
 			if !keep[r.ObjectKey] {
 				_ = q.MarkBackupDeleted(ctx, r.ID)
@@ -660,8 +725,8 @@ func (s *Service) removeInstance(ctx context.Context, inst store.Instance) (node
 		return "", archived, err
 	}
 	if inst.WalgPrefix != nil {
-		if _, target, err := s.secrets.StorageTarget(ctx); err == nil {
-			if c, err := storage.New(target); err == nil {
+		if w, err := s.walgFor(ctx, inst); err == nil {
+			if c, err := storage.New(w.Storage); err == nil {
 				archived.attempted = true
 				archived.objects, archived.err = c.DeletePrefix(ctx, *inst.WalgPrefix)
 			}
