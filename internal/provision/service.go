@@ -115,6 +115,10 @@ type Service struct {
 }
 
 // ErrNoDedicated means the dedicated tier is not available.
+// ErrUnreachable is a project's database instance that did not answer: down,
+// stopped, or its node offline. Retrying later may work.
+var ErrUnreachable = errors.New("the project's database is not reachable")
+
 var ErrNoDedicated = errors.New("the dedicated tier is not available on this server")
 
 // NewService returns a Service.

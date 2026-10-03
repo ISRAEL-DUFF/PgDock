@@ -56,7 +56,7 @@ func (s *Server) tokenSession(ctx context.Context, secret string) (auth.Session,
 	}
 	return auth.Session{
 		UserID: t.UserID, Email: t.Email, Name: t.UserName, PlatformRole: t.PlatformRole,
-		Token: &auth.TokenGrant{ID: t.ID, OrgID: t.OrgID, Name: t.Name, Scopes: t.Scopes, Projects: t.Projects},
+		Token: &auth.TokenGrant{ID: t.ID, OrgID: t.OrgID, Name: t.Name, Scopes: t.Scopes, Projects: t.Projects, ExpiresAt: t.ExpiresAt},
 	}, 0, "", ""
 }
 

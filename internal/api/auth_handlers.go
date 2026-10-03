@@ -15,7 +15,12 @@ import (
 )
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(v); err != nil {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16))
+	// A field the endpoint doesn't know is a mistake in the request, and
+	// ignoring it is not harmless: on a replace-style PUT a misspelled field
+	// reads as an empty value and wipes what was there.
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return false
 	}
@@ -64,7 +69,7 @@ func genUser(sess auth.Session) *gen.User {
 		u.Name = &n
 	}
 	if t := sess.Token; t != nil {
-		g := &gen.TokenGrant{Id: t.ID, Name: t.Name, OrgId: t.OrgID}
+		g := &gen.TokenGrant{Id: t.ID, Name: t.Name, OrgId: t.OrgID, ExpiresAt: t.ExpiresAt}
 		for _, sc := range t.Scopes {
 			g.Scopes = append(g.Scopes, gen.TokenScope(sc))
 		}

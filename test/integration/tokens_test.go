@@ -123,6 +123,11 @@ func TestAPITokens(t *testing.T) {
 	if code, _ := e.BearerDo(read, "GET", "/api/v1/me", nil, &me); code != http.StatusOK || me.Token == nil || me.Token.OrgId != e.OrgID {
 		t.Fatalf("whoami: %d %+v", code, me)
 	}
+	// The expiry is the token's own (the default is 90 days); it used to come
+	// back as the zero time.
+	if d := time.Until(me.Token.ExpiresAt); d < 89*24*time.Hour || d > 91*24*time.Hour {
+		t.Errorf("whoami expires_at = %s, want about 90 days from now", me.Token.ExpiresAt)
+	}
 	team := e.CreateOrg("Team")
 	var orgs gen.OrgList
 	if code, _ := e.BearerDo(read, "GET", "/api/v1/orgs", nil, &orgs); code != http.StatusOK || len(orgs.Items) != 1 || orgs.Items[0].Id != e.OrgID {

@@ -325,7 +325,7 @@ func (s *Server) provisionError(w http.ResponseWriter, what string, err error) {
 			msg = "no shared cluster is available for new projects"
 		}
 		writeError(w, http.StatusServiceUnavailable, "no_capacity", msg)
-	case errors.Is(err, provision.ErrNoDedicated):
+	case errors.Is(err, provision.ErrNoDedicated), errors.Is(err, provision.ErrUnreachable):
 		writeError(w, http.StatusServiceUnavailable, "unavailable", err.Error())
 	default:
 		s.internalError(w, what, err)
