@@ -3,6 +3,7 @@ package nodes
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/israel-duff/pgdock/internal/store"
@@ -10,31 +11,30 @@ import (
 )
 
 // ErrIncompatibleAgent means a node's agent runs a different major version
-// than pgdock-server (spec §11.3: no work is scheduled on it).
+// than pgdock-server, or an older minor (spec §11.3: no work is scheduled on it).
 var ErrIncompatibleAgent = errors.New("incompatible agent version")
 
-// major returns the major version of a release like "v1.2.3" or "1.2.3",
+// parse returns the major and minor of a release like "v1.2.3" or "1.2.3",
 // and false for development builds ("dev", a commit).
-func major(v string) (string, bool) {
-	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
-	m, rest, found := strings.Cut(v, ".")
-	if !found || m == "" || rest == "" {
-		return "", false
+func parse(v string) (major, minor int, ok bool) {
+	parts := strings.SplitN(strings.TrimPrefix(strings.TrimSpace(v), "v"), ".", 3)
+	if len(parts) < 2 {
+		return 0, 0, false
 	}
-	for _, c := range m {
-		if c < '0' || c > '9' {
-			return "", false
-		}
-	}
-	return m, true
+	major, err1 := strconv.Atoi(parts[0])
+	minor, err2 := strconv.Atoi(parts[1])
+	return major, minor, err1 == nil && err2 == nil && major >= 0 && minor >= 0
 }
 
 // Compatible reports whether an agent version may take work from a server
-// version: same major version; development builds match anything.
+// version: the same major version, and not an older minor, since a server
+// sends work an older agent doesn't know how to do. A newer minor is fine
+// (agents are upgraded before the server), and development builds match
+// anything.
 func Compatible(server, agent string) bool {
-	sm, sok := major(server)
-	am, aok := major(agent)
-	return !sok || !aok || sm == am
+	sm, sn, sok := parse(server)
+	am, an, aok := parse(agent)
+	return !sok || !aok || (sm == am && an >= sn)
 }
 
 // checkVersion refuses a node whose agent last reported an incompatible

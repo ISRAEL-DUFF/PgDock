@@ -89,6 +89,36 @@ func (q *Queries) LatestMetrics(ctx context.Context, since time.Time) ([]LatestM
 	return items, nil
 }
 
+const listOrgNames = `-- name: ListOrgNames :many
+SELECT id, name FROM organizations
+`
+
+type ListOrgNamesRow struct {
+	ID   uuid.UUID
+	Name string
+}
+
+// tenant: system - the Prometheus export labels each series with its organisation, which the platform admin may see (V2 s2.4).
+func (q *Queries) ListOrgNames(ctx context.Context) ([]ListOrgNamesRow, error) {
+	rows, err := q.db.Query(ctx, listOrgNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOrgNamesRow
+	for rows.Next() {
+		var i ListOrgNamesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const metricSeries = `-- name: MetricSeries :many
 SELECT metric, ts, value FROM metric_points
 WHERE scope = $1 AND scope_id = $2 AND resolution = $3

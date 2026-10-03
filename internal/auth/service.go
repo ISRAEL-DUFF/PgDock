@@ -161,7 +161,8 @@ type TokenGrant struct {
 	Name   string
 	Scopes []string
 	// Projects restricts the token; nil means all the user's projects.
-	Projects []uuid.UUID
+	Projects  []uuid.UUID
+	ExpiresAt time.Time
 }
 
 // PlatformAdmin reports whether the session's user runs the platform.

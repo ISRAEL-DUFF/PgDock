@@ -766,7 +766,7 @@ func (s *Server) ApproveDedicatedRequest(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	var req gen.DecideRequest
-	if !decodeJSON(w, r, &req) {
+	if !decodeOptionalJSON(w, r, &req) {
 		return
 	}
 	q := store.New(s.db)
@@ -834,7 +834,7 @@ func (s *Server) raiseAllowance(r *http.Request, org uuid.UUID, prof requestProf
 // RejectDedicatedRequest implements POST /api/v1/admin/dedicated-requests/{request_id}/reject.
 func (s *Server) RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, id gen.RequestID) {
 	var req gen.DecideRequest
-	if !decodeJSON(w, r, &req) {
+	if !decodeOptionalJSON(w, r, &req) {
 		return
 	}
 	q := store.New(s.db)

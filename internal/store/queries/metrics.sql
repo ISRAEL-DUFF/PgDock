@@ -28,6 +28,10 @@ WHERE scope = @scope AND scope_id = @scope_id AND resolution = @resolution
   AND ts >= @since AND (cardinality(@metrics::text[]) = 0 OR metric = ANY(@metrics::text[]))
 ORDER BY metric, ts;
 
+-- name: ListOrgNames :many
+-- tenant: system - the Prometheus export labels each series with its organisation, which the platform admin may see (V2 s2.4).
+SELECT id, name FROM organizations;
+
 -- name: LatestMetrics :many
 -- tenant: system - the metrics collector, or a project the request already authorized.
 SELECT DISTINCT ON (scope, scope_id, metric) scope, scope_id, metric, ts, value

@@ -66,6 +66,11 @@ docker build ${PGDOCK_BUILD_FLAGS:-} -t "${PGDOCK_IMAGE:-pgdock:local}" ../..
 # shellcheck disable=SC2086
 docker build ${PGDOCK_BUILD_FLAGS:-} --target agent -t "${PGDOCK_AGENT_IMAGE:-pgdock-agent:local}" ../..
 docker compose up -d --no-build --wait
+# The poolers bind-mount single config files. A checkout replaces the file
+# (a new inode), so a running pooler keeps reading the old one, or a
+# truncated copy of it, and compose sees no change. Recreate them so they
+# pick up this version's config; clients reconnect within a second or two.
+docker compose up -d --no-build --wait --force-recreate --no-deps pooler-session pooler-tx
 
 echo
 echo "PGDock is running: https://$(grep '^PGDOCK_UI_DOMAIN=' .env | cut -d= -f2-)"

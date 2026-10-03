@@ -179,7 +179,7 @@ func (s *Service) preflight(ctx context.Context, p store.Project, o DemoteOption
 	}
 	db, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
 	if err != nil {
-		return plan, err
+		return plan, fmt.Errorf("%w: it can't be checked for demotion until the instance is running again: %w", provision.ErrUnreachable, err)
 	}
 	defer db.Close(context.Background())
 
