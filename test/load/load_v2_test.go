@@ -219,7 +219,7 @@ func TestLoadV2(t *testing.T) {
 	var rmu sync.Mutex
 	got := map[string][]delivery{}
 	var received atomic.Int64
-	rc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	rc := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		var ev struct {
 			Record struct {
 				N  int       `json:"n"`

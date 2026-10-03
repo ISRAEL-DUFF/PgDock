@@ -169,7 +169,7 @@ func TestFailureDeliveryWorkerKilled(t *testing.T) {
 		first atomic.Bool
 		held  = make(chan struct{})
 	)
-	rc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	rc := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		if first.CompareAndSwap(false, true) {
 			close(held)

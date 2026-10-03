@@ -455,7 +455,7 @@ func (a *App) backupDownload(args []string) error {
 	}
 	c, cancel := context.WithTimeout(context.Background(), 6*time.Hour)
 	defer cancel()
-	resp, err := a.api.ClientInterface.DownloadBackup(c, bid)
+	resp, err := a.api.DownloadBackup(c, bid)
 	if err != nil {
 		return fmt.Errorf("could not reach the server: %w", err)
 	}
