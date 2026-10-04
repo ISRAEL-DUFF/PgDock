@@ -5,9 +5,18 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Platform admins
+- A platform admin can make another account a platform admin, or an
+  ordinary user again (Admin → Users → Make admin / Remove admin), with a
+  fresh password and code. The account must be active, approved, verified
+  and have two-factor set up; its sessions end and it is emailed; the last
+  active admin can't be removed. Setup still makes exactly one admin, so
+  add a second (docs/install.md, docs/admin-runbook.md).
+- Recovery when no admin can sign in: `pgdock-server admin list | promote |
+  demote | reset-2fa | reset-password <email>`, run on the server. Changes
+  are audited as done on the server. See docs/operations.md.
+
 ### SQL filter bar
-- Text fields show focus with a thin accent border and a soft glow, not the
-  heavy 2px outline buttons and links get.
 - The Table Editor has a filter bar above the grid: type a condition as
   you would after `WHERE` (`email = 'a@b.com' or phone like '081%'`) and
   press Enter. Suggestions (Ctrl+Space, or as you type) list the table's
@@ -24,6 +33,8 @@ bundle share one version (spec §11.5).
   and export endpoints.
 
 ### UI fixes from QA
+- Text fields show focus with a thin accent border and a soft glow, not the
+  heavy 2px outline buttons and links get.
 - Phones: the top bar's switchers no longer overlap (names and badges
   show from the `sm` breakpoint up), and the Table Editor and SQL Editor
   show their table or query list and the editor in turns, with a
