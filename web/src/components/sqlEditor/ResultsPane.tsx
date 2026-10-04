@@ -19,7 +19,11 @@ function StatementGrid({ r }: { r: Statement }) {
         key: String(j),
         name: c.name,
         resizable: true,
-        width: Math.min(Math.max(c.name.length * 8 + c.type.length * 7 + 48, 100), 360),
+        // Wide enough for the header and the first rows' values.
+        width: Math.min(
+          Math.max(c.name.length * 8 + c.type.length * 7 + 48, ...r.rows.slice(0, 50).map((row) => (row[j]?.length ?? 4) * 7.5 + 24), 100),
+          360,
+        ),
         renderHeaderCell: () => (
           <span className="flex items-center gap-1.5 px-2">
             <span className="truncate text-[12px] font-medium">{c.name}</span>
@@ -32,7 +36,7 @@ function StatementGrid({ r }: { r: Statement }) {
         },
       })),
     ],
-    [r.columns],
+    [r.columns, r.rows],
   );
   const rows = useMemo(() => r.rows.map((v, i) => ({ i, v: v.map((x) => x ?? null) })), [r.rows]);
   return (
