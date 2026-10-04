@@ -1206,7 +1206,10 @@ test.describe("with the saved session", () => {
     const editBody = async (p: Page, from: string, to: string) => {
       await p.getByTestId("grid-row").filter({ hasText: from }).getByTestId("cell-body").dblclick();
       await p.getByTestId("cell-input-body").fill(to);
+      // The grid shows the new value at once; wait for the save itself.
+      const saved = p.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith("/changes"));
       await p.getByTestId("cell-input-body").press("Enter");
+      await saved;
     };
     await openTable(page, "facts");
     await expect(page.getByTestId("table-grid")).toContainText("shared");
