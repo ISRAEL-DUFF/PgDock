@@ -266,6 +266,14 @@ share, favourite and reopen across devices; the e2e SQL journey passes.
 - **Project Settings:** General, Compute and tier (the promote and demote
   wizards in side panels), Members, Backup storage and key, Danger zone.
 
+**Built:** Project Settings has four pages (General, Database, Compute
+and tier, Backup storage); the Database section adds Extensions and
+Migrations (the schema changes made in the table editor, from the audit
+log, downloadable as one SQL file); Logs lists the project's operations
+with each one's live step log. Pages use shared blocks in
+`components/ui/page.tsx` (Page, Section, Panel, FormRow, Stat,
+KeyValues).
+
 **Done when:** every project page is in the new style, no old `Card`
 layout remains in project pages, and the e2e journeys pass.
 

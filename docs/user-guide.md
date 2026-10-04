@@ -43,7 +43,7 @@ Org owners and admins are admins of every project in the organisation.
 ### Members and invitations
 
 **Organisation → Members** invites by email with an org role, and
-optionally project roles; **Project → Members** adds someone to one project
+optionally project roles; **Project Settings → Members** adds someone to one project
 (they join the organisation as a member). Invitations last 7 days and can
 be revoked until they're accepted. If the address already has an account,
 accepting just adds the membership.
@@ -63,7 +63,7 @@ the project's owner role. People shouldn't share it: each member gets
 their own login per project, so removing someone never means changing the
 app's password.
 
-**Project → Connect → Get my credentials** creates yours,
+**Project Settings → Members → Get my credentials** creates yours,
 `<database>_u_<id>`, and shows its password once; you can rotate it any
 time. Admins and developers get read/write access (what they create is
 owned by the project, so the app can use it); read-only members get read
@@ -91,7 +91,7 @@ feature, or one per pull request in CI ([CLI guide](cli.md#a-database-branch-per
 ## Backups and your own bucket
 
 Projects are backed up nightly (dedicated ones also continuously, with
-point-in-time recovery for 7 days). **Project → Backups** lists them,
+point-in-time recovery for 7 days). **Database → Backups** lists them,
 backs up now, restores into a new project, or restores in place (after a
 safety backup, for project admins, with your password and code).
 
@@ -119,7 +119,7 @@ own bucket, which then doesn't count against your backup quota:
    before it saves the target; the key is encrypted and never shown again.
    Nobody outside your organisation, including the platform admin, sees
    it.
-3. **Project → Backups → Storage**: pick the target. New backups go there;
+3. **Project Settings → Backup storage**: pick the target. New backups go there;
    existing ones stay restorable where they are, or can be copied over.
 4. Optionally **enable a project backup key** and download it (with your
    password and code). New backups are then encrypted with a key you hold,

@@ -15,7 +15,7 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
   | Restore test failed | critical | The latest weekly restore test failed |
   | Node disk | warning | A node's data disk is over 85% full |
   | Node unreachable | critical | A node's agent has not answered for 2+ minutes |
-  | Project disk | warning | A project is larger than its disk warning (Settings → Guardrails) |
+  | Project disk | warning | A project is larger than its disk warning (Project Settings → Database) |
   | Pooler down | critical | A PgBouncer's admin console does not answer |
   | Isolation check | critical | The nightly tenant-isolation check found a problem |
 
@@ -116,7 +116,7 @@ Shared-tier projects are measured every minute:
   transaction (`BEGIN READ WRITE`), and the SQL console works.
 - **120%** (or 100% with the node's disk 95% full): apps cannot log in.
   The console and table browser still work; delete data there, then
-  **Reclaim space** (Settings → Storage) to give the space back.
+  **Reclaim space** (Project Settings → Database) to give the space back.
 
 Locks lift at the next check once the project is under the limit.
 Statements running over 10 minutes are cancelled and transactions idle
@@ -149,7 +149,7 @@ New projects' databases and roles are named `p_<random>`, so other
 tenants cannot learn them. Projects from before V2 are renamed on the
 server side and keep their old name as an alias, so their URLs keep
 working; their role name stays visible until an admin uses **Switch to
-opaque credentials** (Settings), which issues new URLs and keeps the old
+opaque credentials** (Project Settings → Database), which issues new URLs and keeps the old
 ones working for a grace period. Members' personal database logins
 (`<database>_u_<member>`) are renamed at once, with the same password: their
 old user name stops working, so members copy the new connection string.
@@ -205,7 +205,7 @@ change as plain SQL, goose or dbmate, to apply to other environments.
 A branch is a throwaway copy of a project on the shared tier (on the
 organisation's own shared cluster if it has one), from its latest backup
 or live, schema only or with data. Developers and above create them under
-**Project → Branches** or with `pgdock branch create`; they expire after
+**Database → Branches** or with `pgdock branch create`; they expire after
 7 days unless given another TTL (1 hour to 30 days, or kept), the
 creator is emailed a day before, and an hourly job deletes expired ones
 without a final backup. **Reset** refills a branch from its parent while
@@ -217,7 +217,7 @@ branch can't have branches of its own.
 Branches count toward the organisation's branch quota (10 on Personal,
 25 on Team) but not its projects, and toward its shared storage; usage
 records branch-hours and branch GB-hours. They take no nightly backups
-unless a project admin turns them on (**Settings → Data**). Mark a
+unless a project admin turns them on (**Project Settings → General → Data**). Mark a
 project **Contains sensitive data** (or make it the organisation's
 default under **Organisation → Projects**) and its branches copy the
 schema only, unless a project admin asks for the data. Webhooks and
@@ -243,10 +243,10 @@ for that.
   up to 20 backends; the load test ([load test](load-test.md)) ran 150
   projects with ten busy ones on 4 vCPU.
 - When a project outgrows the shared tier (sustained load, a large
-  database), **promote** it (Settings → Promote to dedicated): same URL,
+  database), **promote** it (Project Settings → Compute and tier): same URL,
   a short write freeze.
-- When it no longer needs its own instance, **demote** it (Settings →
-  Move back to shared, or `pgdock demote`). The preflight checks the size
+- When it no longer needs its own instance, **demote** it (Project Settings →
+  Compute and tier → Move back to shared, or `pgdock demote`). The preflight checks the size
   against the organisation's shared storage limits, extensions against
   the shared allow-list, custom roles, peak connections, database
   settings that will reset, and a shared cluster with room for the
