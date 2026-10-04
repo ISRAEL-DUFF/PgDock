@@ -50,17 +50,18 @@ const hex = (v: string) => v.replace("#", "");
 export function applyMonacoTheme() {
   const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
   const name = dark ? "pgdock-dark" : "pgdock-light";
-  const accent = cssVar("--accent", dark ? "#8b5cf6" : "#7c3aed");
+  const accent = cssVar("--accent", "#7c3aed");
+  const accentText = cssVar("--accent-text", dark ? "#a78bfa" : "#6d28d9");
   monaco.editor.defineTheme(name, {
     base: dark ? "vs-dark" : "vs",
     inherit: true,
     rules: [
-      { token: "keyword", foreground: hex(accent), fontStyle: "bold" },
+      { token: "keyword", foreground: hex(accentText), fontStyle: "bold" },
       { token: "operator", foreground: hex(cssVar("--fg-light", "#b4b4b4")) },
-      { token: "string", foreground: hex(cssVar("--ok", "#3ecf8e")) },
-      { token: "number", foreground: hex(cssVar("--warn", "#f5a524")) },
+      { token: "string", foreground: hex(cssVar("--ok-text", "#3ecf8e")) },
+      { token: "number", foreground: hex(cssVar("--warn-text", "#f5a524")) },
       { token: "comment", foreground: hex(cssVar("--muted", "#8f8f8f")), fontStyle: "italic" },
-      { token: "predefined", foreground: hex(cssVar("--warn", "#f5a524")) },
+      { token: "predefined", foreground: hex(cssVar("--warn-text", "#f5a524")) },
     ],
     colors: {
       "editor.background": cssVar("--bg", dark ? "#121212" : "#fcfcfc"),
