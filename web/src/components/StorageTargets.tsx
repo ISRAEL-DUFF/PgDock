@@ -12,7 +12,7 @@ import {
 import type { components } from "../api/schema";
 import { formatBytes, formatDate } from "../lib/format";
 import { useOperationToast } from "./Toasts";
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner, Table } from "./ui";
+import { Alert, Badge, Button, Panel, EmptyState, Field, Input, Modal, Select, Spinner, Table } from "./ui";
 
 type TargetRequest = components["schemas"]["StorageTargetRequest"];
 
@@ -248,9 +248,9 @@ export function StorageTargetsPanel({ org }: { org?: string }) {
           <Button onClick={() => setEditing("new")}>Add a target</Button>
         </div>
       ) : (
-        <Card title={editing === "new" ? "New storage target" : `Edit ${editing.name}`}>
+        <Panel title={editing === "new" ? "New storage target" : `Edit ${editing.name}`}>
           <TargetForm key={editing === "new" ? "new" : editing.id} org={org} target={editing === "new" ? undefined : editing} onDone={() => setEditing(null)} />
-        </Card>
+        </Panel>
       )}
       {deleting && <DeleteTarget org={org} target={deleting} onClose={() => setDeleting(null)} />}
     </div>
@@ -366,7 +366,7 @@ export function ProjectStorageCard({ p, canManage }: { p: Project; canManage: bo
     }
   };
   return (
-    <Card title="Storage">
+    <Panel title="Storage">
       <div className="flex flex-col gap-4 text-sm" data-testid="project-storage">
         <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
           <dt className="text-muted">New backups go to</dt>
@@ -450,6 +450,6 @@ export function ProjectStorageCard({ p, canManage }: { p: Project; canManage: bo
         {err && <Alert>{err}</Alert>}
       </div>
       {downloading && <DownloadKeyModal p={p} onClose={() => setDownloading(false)} />}
-    </Card>
+    </Panel>
   );
 }

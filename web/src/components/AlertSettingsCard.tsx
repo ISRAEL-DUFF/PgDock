@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type AlertSettingsRequest } from "../api/client";
 import { useOperationToast } from "./Toasts";
-import { Alert, Button, Card, Field, Input, Select, Spinner, StatusBadge, Table } from "./ui";
+import { Alert, Button, Panel, Field, Input, Select, Spinner, StatusBadge, Table } from "./ui";
 import { formatDate } from "../lib/format";
 
 /** Alert channels: a webhook and optional SMTP email (spec §8.8). */
@@ -79,7 +79,7 @@ export function AlertSettingsCard() {
   };
 
   return (
-    <Card title="Alerts">
+    <Panel title="Alerts">
       <form className="flex flex-col gap-4" onSubmit={save}>
         <p className="text-sm text-muted">
           Backup failed or overdue, restore test failed, node disk above 85%, node unreachable for 2 minutes, project over its disk warning, pooler
@@ -131,7 +131,7 @@ export function AlertSettingsCard() {
           </Button>
         </div>
       </form>
-    </Card>
+    </Panel>
   );
 }
 
@@ -156,7 +156,7 @@ export function IsolationChecksCard() {
     }
   };
   return (
-    <Card
+    <Panel
       title="Tenant isolation"
       actions={
         <Button className="text-xs" onClick={run} busy={busy}>
@@ -183,6 +183,6 @@ export function IsolationChecksCard() {
           ))}
         </Table>
       )}
-    </Card>
+    </Panel>
   );
 }

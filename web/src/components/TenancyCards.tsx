@@ -5,7 +5,7 @@ import { api, errorMessage, type Project, type SwitchedCredentials } from "../ap
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { OperationLog } from "./OperationLog";
-import { Alert, Badge, Button, Card, CopyField, cx, Field, Input, Table } from "./ui";
+import { Alert, Badge, Button, Panel, CopyField, cx, Field, Input, Table } from "./ui";
 
 const STATE_TEXT: Record<string, { tone: "warn" | "danger"; title: string; body: string }> = {
   warn: { tone: "warn", title: "Nearly full", body: "This project is over 90% of its storage limit. At 100% it becomes read-only; at 120% apps can no longer connect." },
@@ -38,7 +38,7 @@ export function StorageBanner({ p }: { p: Project }) {
         <strong>{s.title}.</strong> {s.body}
       </span>
       {p.my_role === "admin" && (
-        <Link to="/projects/$id/settings" params={{ id: p.id }} hash="storage" className="font-medium underline">
+        <Link to="/projects/$id/settings/database" params={{ id: p.id }} hash="storage" className="font-medium underline">
           Reclaim space
         </Link>
       )}
@@ -69,7 +69,7 @@ export function StorageCard({ p }: { p: Project }) {
     }
   };
   return (
-    <Card title="Storage">
+    <Panel title="Storage">
       <div id="storage" className="flex flex-col gap-3" data-testid="storage-card">
         <div className="flex items-center justify-between text-sm">
           <span>
@@ -108,7 +108,7 @@ export function StorageCard({ p }: { p: Project }) {
         {err && <Alert>{err}</Alert>}
         {opId && <OperationLog log={stream.log} live={!stream.done} />}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -133,7 +133,7 @@ export function SwitchCredentialsCard({ p }: { p: Project }) {
     }
   };
   return (
-    <Card title="Opaque credentials">
+    <Panel title="Opaque credentials">
       <div className="flex flex-col gap-3" data-testid="switch-credentials">
         {done ? (
           <>
@@ -161,7 +161,7 @@ export function SwitchCredentialsCard({ p }: { p: Project }) {
         )}
         {err && <Alert>{err}</Alert>}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -170,7 +170,7 @@ export function ReapedCard({ p }: { p: Project }) {
   const q = useQuery({ queryKey: ["project", p.id, "reaped"], queryFn: () => api.reapedSessions(p.id), enabled: p.tier === "shared" });
   if (!q.data || q.data.items.length === 0) return null;
   return (
-    <Card title="Ended by PGDock">
+    <Panel title="Ended by PGDock">
       <p className="mb-2 text-xs text-muted">On the shared tier, statements running over 10 minutes are cancelled and sessions idle in a transaction over 5 minutes are ended.</p>
       <Table head={["When", "What", "Role", "Ran for", "Query"]}>
         {q.data.items.map((r, i) => (
@@ -185,6 +185,6 @@ export function ReapedCard({ p }: { p: Project }) {
           </tr>
         ))}
       </Table>
-    </Card>
+    </Panel>
   );
 }

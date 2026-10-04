@@ -7,3 +7,4 @@ export * from "./popover";
 export * from "./panel";
 export * from "./controls";
 export * from "./toast";
+export * from "./page";

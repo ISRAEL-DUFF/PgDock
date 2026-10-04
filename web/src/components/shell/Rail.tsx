@@ -167,7 +167,7 @@ export function SectionSidebar({
         className="flex flex-col gap-0.5 p-3"
       >
         {item.sidebar.links.map((l) => {
-          const active = isActive(pathname, [l.to]);
+          const active = isActive(pathname, [l.to], true);
           return (
             <Link
               key={l.to}

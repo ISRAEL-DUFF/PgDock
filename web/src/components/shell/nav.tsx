@@ -78,9 +78,18 @@ export function projectRail(
           { label: "Scheduled jobs", to: `${base}/jobs` },
         ]
       : []),
+    { label: "Extensions", to: `${base}/extensions` },
+    ...(admin ? [{ label: "Migrations", to: `${base}/migrations` }] : []),
   ];
   const settings: SideLink[] = [
-    ...(admin ? [{ label: "General", to: `${base}/settings` }] : []),
+    ...(admin
+      ? [
+          { label: "General", to: `${base}/settings` },
+          { label: "Database", to: `${base}/settings/database` },
+          { label: "Compute and tier", to: `${base}/settings/compute` },
+          { label: "Backup storage", to: `${base}/settings/storage` },
+        ]
+      : []),
     { label: "Members", to: `${base}/members` },
     { label: "Connection", to: `${base}/connect` },
   ];
@@ -123,6 +132,13 @@ export function projectRail(
       to: `${base}/metrics`,
       match: [`${base}/metrics`],
       divider: true,
+    },
+    {
+      key: "logs",
+      label: "Logs",
+      icon: ScrollText,
+      to: `${base}/logs`,
+      match: [`${base}/logs`],
     },
     {
       key: "settings",

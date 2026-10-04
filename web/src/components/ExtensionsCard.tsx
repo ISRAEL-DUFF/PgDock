@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage, type Project } from "../api/client";
-import { Alert, Badge, Button, Card, Spinner, Table } from "./ui";
+import { Alert, Badge, Button, Panel, Spinner, Table } from "./ui";
 
 /** The extension allow-list for a project (spec §7.4). */
 export function ExtensionsCard({ p }: { p: Project }) {
@@ -10,7 +10,7 @@ export function ExtensionsCard({ p }: { p: Project }) {
   const q = useQuery({ queryKey: key, queryFn: () => api.extensions(p.id), enabled: p.status === "active" });
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  if (p.status !== "active") return null;
+  if (p.status !== "active") return <p className="text-[13px] text-muted">Extensions can be enabled once the project is active.</p>;
 
   const enable = async (name: string) => {
     setBusy(name);
@@ -25,11 +25,7 @@ export function ExtensionsCard({ p }: { p: Project }) {
   };
 
   return (
-    <Card title="Extensions">
-      <p className="mb-3 text-sm text-muted">
-        Allow-listed extensions can be enabled here; they are created in the <span className="font-mono">public</span> schema.
-        {p.tier === "shared" && " The dedicated tier allows a few more."}
-      </p>
+    <Panel bodyClassName="p-0">
       {err && (
         <div className="mb-3">
           <Alert>{err}</Alert>
@@ -66,6 +62,6 @@ export function ExtensionsCard({ p }: { p: Project }) {
           ))}
         </Table>
       )}
-    </Card>
+    </Panel>
   );
 }

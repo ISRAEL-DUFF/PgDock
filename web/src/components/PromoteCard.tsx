@@ -4,7 +4,7 @@ import { api, errorMessage, type DedicatedRequest, type Project } from "../api/c
 import { formatBytes } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { OperationLog } from "./OperationLog";
-import { Alert, Button, Card, Field, Input, Select, StatusBadge } from "./ui";
+import { Alert, Button, Panel, SidePanel, Field, Input, Select, StatusBadge } from "./ui";
 
 function duration(seconds: number): string {
   if (seconds < 90) return `about ${seconds} s`;
@@ -62,18 +62,18 @@ export function PromoteCard({ p }: { p: Project }) {
 
   if (request) {
     return (
-      <Card title="Promote to dedicated">
+      <Panel title="Promote to dedicated">
         <Alert tone="ok" title="Request sent">
-          This is beyond your organisation&rsquo;s dedicated allowance, so the platform admin decides. You&rsquo;ll get an email either way; the promotion starts as
-          soon as it&rsquo;s approved.
+          This is beyond your organisation&rsquo;s dedicated allowance, so the platform admin decides. You&rsquo;ll get an email either way; the promotion
+          starts as soon as it&rsquo;s approved.
         </Alert>
-      </Card>
+      </Panel>
     );
   }
 
   if (opId) {
     return (
-      <Card title="Promotion" actions={stream.status && <StatusBadge status={stream.status} />}>
+      <Panel title="Promotion" actions={stream.status && <StatusBadge status={stream.status} />}>
         <OperationLog log={stream.log} live={!stream.done} />
         {stream.status === "succeeded" && (
           <p className="mt-3 text-sm text-ok" data-testid="promote-done">
@@ -85,20 +85,32 @@ export function PromoteCard({ p }: { p: Project }) {
             <Alert title="Promotion failed">{stream.error}. The project stays on the shared tier with no data lost.</Alert>
           </div>
         )}
-      </Card>
+      </Panel>
     );
   }
 
   return (
-    <Card title="Promote to dedicated">
-      {!open ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted">
-            Move this project to its own Postgres instance with continuous backups and point-in-time recovery. The URL and password stay the same.
-          </p>
-          <Button onClick={() => setOpen(true)}>Promote…</Button>
-        </div>
-      ) : (
+    <Panel title="Promote to dedicated">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          Move this project to its own Postgres instance with continuous backups and point-in-time recovery. The URL and password stay the same.
+        </p>
+        <Button onClick={() => setOpen(true)}>Promote…</Button>
+      </div>
+      <SidePanel
+        open={open}
+        onOpenChange={setOpen}
+        size="large"
+        title="Promote to dedicated"
+        footer={
+          <>
+            <Button onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="primary" onClick={promote} busy={busy} disabled={nodes.data !== undefined && targets.length === 0}>
+              Promote now
+            </Button>
+          </>
+        }
+      >
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Target node">
@@ -143,8 +155,8 @@ export function PromoteCard({ p }: { p: Project }) {
           {estimate.data && (
             <Alert tone="accent" title={`Estimated write freeze: ${duration(estimate.data.estimated_downtime_seconds)}`}>
               <span data-testid="promote-estimate">
-                The database is {formatBytes(estimate.data.size_bytes)}. During the freeze, apps on the pooled URL wait rather than fail; session
-                connections are dropped once and reconnect.
+                The database is {formatBytes(estimate.data.size_bytes)}. During the freeze, apps on the pooled URL wait rather than fail; session connections
+                are dropped once and reconnect.
               </span>
             </Alert>
           )}
@@ -157,14 +169,8 @@ export function PromoteCard({ p }: { p: Project }) {
           </ol>
           {nodes.data && targets.length === 0 && <Alert tone="warn">No node with an agent takes dedicated instances (see Nodes).</Alert>}
           {err && <Alert>{err}</Alert>}
-          <div className="flex gap-2">
-            <Button variant="primary" onClick={promote} busy={busy} disabled={nodes.data !== undefined && targets.length === 0}>
-              Promote now
-            </Button>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-          </div>
         </div>
-      )}
-    </Card>
+      </SidePanel>
+    </Panel>
   );
 }

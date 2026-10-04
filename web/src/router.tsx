@@ -41,6 +41,12 @@ const ProjectLayout = lazyRouteComponent(() => import("./pages/ProjectOverview")
 const ProjectOverviewPage = lazyRouteComponent(() => import("./pages/ProjectOverview"), "ProjectOverviewPage");
 const ProjectMetricsPage = lazyRouteComponent(() => import("./pages/ProjectMetrics"), "ProjectMetricsPage");
 const ProjectSettingsPage = lazyRouteComponent(() => import("./pages/ProjectSettings"), "ProjectSettingsPage");
+const ProjectDatabaseSettingsPage = lazyRouteComponent(() => import("./pages/ProjectSettings"), "ProjectDatabaseSettingsPage");
+const ProjectComputePage = lazyRouteComponent(() => import("./pages/ProjectSettings"), "ProjectComputePage");
+const ProjectStorageSettingsPage = lazyRouteComponent(() => import("./pages/ProjectSettings"), "ProjectStorageSettingsPage");
+const ProjectExtensionsPage = lazyRouteComponent(() => import("./pages/ProjectExtensions"), "ProjectExtensionsPage");
+const ProjectMigrationsPage = lazyRouteComponent(() => import("./pages/ProjectMigrations"), "ProjectMigrationsPage");
+const ProjectLogsPage = lazyRouteComponent(() => import("./pages/ProjectLogs"), "ProjectLogsPage");
 const ProjectSqlPage = lazyRouteComponent(() => import("./pages/ProjectSql"), "ProjectSqlPage");
 const ProjectTablesPage = lazyRouteComponent(() => import("./pages/ProjectTables"), "ProjectTablesPage");
 const ProjectsPage = lazyRouteComponent(() => import("./pages/Projects"), "ProjectsPage");
@@ -129,6 +135,12 @@ const projectBranches = createRoute({ getParentRoute: () => project, path: "/bra
 const projectWebhooks = createRoute({ getParentRoute: () => project, path: "/webhooks", component: ProjectWebhooksPage });
 const projectJobs = createRoute({ getParentRoute: () => project, path: "/jobs", component: ProjectJobsPage });
 const projectSettings = createRoute({ getParentRoute: () => project, path: "/settings", component: ProjectSettingsPage });
+const projectDatabaseSettings = createRoute({ getParentRoute: () => project, path: "/settings/database", component: ProjectDatabaseSettingsPage });
+const projectCompute = createRoute({ getParentRoute: () => project, path: "/settings/compute", component: ProjectComputePage });
+const projectStorageSettings = createRoute({ getParentRoute: () => project, path: "/settings/storage", component: ProjectStorageSettingsPage });
+const projectExtensions = createRoute({ getParentRoute: () => project, path: "/extensions", component: ProjectExtensionsPage });
+const projectMigrations = createRoute({ getParentRoute: () => project, path: "/migrations", component: ProjectMigrationsPage });
+const projectLogs = createRoute({ getParentRoute: () => project, path: "/logs", component: ProjectLogsPage });
 const projectMembers = createRoute({ getParentRoute: () => project, path: "/members", component: ProjectMembersPage });
 const account = createRoute({ getParentRoute: () => app, path: "/account", component: AccountPage });
 const device = createRoute({
@@ -175,7 +187,8 @@ const routeTree = root.addChildren([
     newProject,
     importProject,
     project.addChildren([projectOverview, projectConnect, projectSql, projectTables, projectBackups,
-    projectBranches, projectWebhooks, projectJobs, projectMetrics, projectMembers, projectSettings]),
+    projectBranches, projectWebhooks, projectJobs, projectMetrics, projectMembers, projectSettings,
+      projectDatabaseSettings, projectCompute, projectStorageSettings, projectExtensions, projectMigrations, projectLogs]),
     account,
     device,
     orgMembers,

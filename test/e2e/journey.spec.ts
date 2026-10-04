@@ -71,6 +71,12 @@ const projectSections: Record<string, [string, string?]> = {
   Members: ["settings", "Members"],
   SQL: ["sql"],
   Tables: ["tables"],
+  "Database settings": ["settings", "Database"],
+  Compute: ["settings", "Compute and tier"],
+  Storage: ["settings", "Backup storage"],
+  Extensions: ["database", "Extensions"],
+  Migrations: ["database", "Migrations"],
+  Logs: ["logs"],
   Metrics: ["reports"],
   Backups: ["database", "Backups"],
   Branches: ["database", "Branches"],
@@ -382,7 +388,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await shot(page, "05-connect");
 
   // 7. Change a guardrail; it applies to the live database.
-  await projectTab(page, "Settings");
+  await projectTab(page, "Database settings");
   await page.getByLabel("Statement timeout").fill("15s");
   await page.getByRole("button", { name: "Save guardrails" }).click();
   await expect(page.getByText("Saved; applying to the database and pooler.")).toBeVisible();
@@ -714,7 +720,7 @@ test.describe("with the saved session", () => {
 
     // The wizard: target, size, the estimate, then live progress.
     await page.getByRole("link", { name: "Open the project" }).click();
-    await projectTab(page, "Settings");
+    await projectTab(page, "Compute");
     await page.getByRole("button", { name: "Promote…" }).click();
     await expect(page.getByText(/Estimated write freeze: about \d+ s/)).toBeVisible();
     await expect(page.getByTestId("promote-estimate")).toContainText("The database is");
@@ -769,7 +775,7 @@ test.describe("with the saved session", () => {
       await w?.end().catch(() => {});
     })();
     await expect.poll(() => acked.length).toBeGreaterThan(before + 20);
-    await projectTab(page, "Settings");
+    await projectTab(page, "Compute");
     await page.getByRole("button", { name: "Demote…" }).click();
     await expect(page.getByTestId("demote-checks").locator("li")).toHaveCount(7);
     for (const name of ["size", "extensions", "roles", "allowance", "capacity"]) {
@@ -871,8 +877,8 @@ test.describe("with the saved session", () => {
     await expect(editor).toContainText("pg_sleep(60)");
 
     // The read-only toggle (project settings) refuses writes in the console.
-    await projectTab(page, "Settings");
-    await page.getByLabel("SQL console is read-only").check();
+    await projectTab(page, "Database settings");
+    await page.getByLabel("SQL console is read-only").click();
     await page.getByRole("button", { name: "Save guardrails" }).click();
     await expect(page.getByText("Saved")).toBeVisible({ timeout: 30_000 });
     await projectTab(page, "SQL");
@@ -882,7 +888,7 @@ test.describe("with the saved session", () => {
     expect(await count(pooledURL, "SELECT count(*) FROM notes")).toBe(120);
 
     // Extensions: enable pg_stat_statements for the top-queries table.
-    await projectTab(page, "Settings");
+    await projectTab(page, "Extensions");
     await page.getByTestId("ext-pg_stat_statements").getByRole("button", { name: "Enable" }).click();
     await expect(page.getByTestId("ext-pg_stat_statements")).toContainText("enabled");
     await expect(page.getByTestId("ext-postgis")).toContainText("dedicated tier only");
@@ -922,7 +928,7 @@ test.describe("with the saved session", () => {
       await page.reload();
       await expect(page.getByRole("cell", { name: /SELECT count\(\*\) FROM notes/ })).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
-    await page.getByRole("radio", { name: "24h" }).click();
+    await page.getByRole("radio", { name: "Last 24 hours" }).click();
     await expect(page.getByTestId("latest-size_bytes")).toContainText(/(KiB|MiB)/);
     await shot(page, "29-metrics");
     await app.end();
@@ -1338,7 +1344,7 @@ test.describe("with the saved session", () => {
     await page.getByLabel("I've saved the password somewhere safe").check();
     await page.getByRole("button", { name: "Done" }).click();
     await page.getByRole("link", { name: "Open the project" }).click();
-    await projectTab(page, "Backups");
+    await projectTab(page, "Storage");
     const storage = page.getByTestId("project-storage");
     await expect(storage.getByTestId("project-storage-target")).toContainText("counts toward your backup quota");
     await storage.getByRole("button", { name: "Use a project key" }).click();
@@ -1349,14 +1355,16 @@ test.describe("with the saved session", () => {
     await expect(storage.getByTestId("project-storage-target")).toContainText("Our bucket");
     await expect(storage.getByTestId("project-storage-target")).toContainText("doesn't count toward your backup quota");
 
+    await shot(page, "42-project-storage");
+    await projectTab(page, "Backups");
     await page.getByRole("button", { name: "Back up now" }).click();
     const row = page.getByTestId("backup-row").first();
     await expect(row).toContainText("succeeded", { timeout: 60_000 });
     await expect(row.getByTestId("backup-storage")).toContainText("Our bucket");
     await expect(row.getByTestId("backup-storage")).toContainText("project key");
-    await shot(page, "42-project-storage");
 
     // The key file, after confirming it's you.
+    await projectTab(page, "Storage");
     await storage.getByRole("button", { name: "Download key…" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Your password").fill(password);
