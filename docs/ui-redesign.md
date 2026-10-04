@@ -291,6 +291,16 @@ layout remains in project pages, and the e2e journeys pass.
   Alerts, Operations, Audit and Settings, in the same list and side-panel
   style.
 
+**Built:** the organisation home is a grid of project cards (status,
+tier, node, last backup, with each project's branches listed inside) with
+a grid/list toggle that is remembered. New project is a settings-style
+form. Organisation settings and Account are sections of panels with
+label rows, switches and Save/Cancel footers, and a danger zone for
+deletion. Invitations, new API tokens and plan edits open in side panels;
+Usage shows its totals as stat tiles. `Card`, `PageHeader` and `Modal`
+are gone from the kit: pages use `Page`/`PageHeading`, `Panel` and the
+Radix `Dialog`/`SidePanel`.
+
 **Done when:** no page uses the old layout components; they are deleted.
 
 ### Phase 6: Polish

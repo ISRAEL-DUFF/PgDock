@@ -22,7 +22,8 @@ code). A password reset by email signs you out everywhere.
 Everything you create belongs to an **organisation**. You start with a
 personal one ("<your name>'s projects"); you can create more, and be
 invited into other people's. The switcher at the top changes which one you
-are looking at.
+are looking at. Its home page shows the projects as cards, each with its
+branches listed inside; the toggle beside the filters switches to a list.
 
 | Org role | Can |
 | --- | --- |
