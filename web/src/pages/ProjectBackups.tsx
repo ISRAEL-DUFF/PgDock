@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
+import { Archive } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Backup, type Project, type ProjectCredentials } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { ProvisionProgress } from "../components/ProvisionProgress";
-import { ProjectStorageCard } from "../components/StorageTargets";
 import { useOperationToast } from "../components/Toasts";
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Spinner, StatusBadge, Table } from "../components/ui";
+import { Alert, Badge, Button, Dialog, EmptyState, Field, Input, KeyValues, Page, Panel, Section, StatusBadge, Table, TableSkeleton } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 import { useCurrentOrg } from "../lib/org";
 import { useProject } from "./ProjectOverview";
@@ -62,7 +62,16 @@ export function ProjectBackupsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page
+      title="Backups"
+      description="Encrypted backups of this project, kept by retention; restore one into a new project or in place."
+      actions={
+        <Button variant="primary" onClick={backupNow} busy={busy} disabled={!ready || p.status !== "active"}>
+          Back up now
+        </Button>
+      }
+      testId="project-backups"
+    >
       {ov && !ready && (
         <Alert tone="warn" title="Backups are not configured">
           Set up S3 storage and the backup key in{" "}
@@ -72,106 +81,122 @@ export function ProjectBackupsPage() {
           first.
         </Alert>
       )}
-      <Card
-        title="Backups"
+      {err && <Alert>{err}</Alert>}
+      <Panel
+        title="Schedule"
         actions={
-          <Button variant="primary" className="text-xs" onClick={backupNow} busy={busy} disabled={!ready || p.status !== "active"}>
-            Back up now
-          </Button>
+          p.my_role === "admin" && (
+            <Link
+              to="/projects/$id/settings/storage"
+              params={{ id: p.id }}
+              className="text-[12px] text-accent-text underline underline-offset-2 hover:no-underline"
+            >
+              Backup storage
+            </Link>
+          )
         }
       >
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-          <dt className="text-muted">Last backup</dt>
-          <dd data-testid="last-backup">
-            {p.last_backup_at ? (
-              <span className={backupIsStale(p.last_backup_at) ? "text-warn" : undefined}>
-                {formatDate(p.last_backup_at)} ({relativeTime(p.last_backup_at)})
-              </span>
-            ) : (
-              <span className="text-warn">never</span>
-            )}
-          </dd>
-          {ov && (
-            <>
-              <dt className="text-muted">Schedule</dt>
-              <dd>
-                {p.tier === "dedicated" ? "Daily base backup with WAL archived continuously" : "Nightly logical dump"}, starting{" "}
-                {String(ov.window_hour_utc).padStart(2, "0")}:00 UTC (spread over the following hours)
-              </dd>
-              <dt className="text-muted">Retention</dt>
-              <dd>
-                {p.tier === "dedicated"
-                  ? "7 full base backups (about 7 days of point-in-time recovery)"
-                  : `${ov.retention_daily} daily + ${ov.retention_weekly} weekly; final and safety backups 30 days`}
-              </dd>
-              <dt className="text-muted">Encryption</dt>
-              <dd>
-                {p.tier === "dedicated" ? "OpenPGP (WAL-G)" : "Encrypted before upload"}, with the instance backup key unless the project has its own (Storage below)
-                {ov.key.fingerprint && <span className="ml-1 font-mono text-xs text-muted">(key {ov.key.fingerprint})</span>}
-              </dd>
-            </>
-          )}
-        </dl>
-        {err && (
-          <div className="mt-3">
-            <Alert>{err}</Alert>
-          </div>
-        )}
-      </Card>
-      <ProjectStorageCard p={p} canManage={p.my_role === "admin"} />
-      {p.tier === "dedicated" && <PITRCard p={p} onCreated={setCreated} />}
-      {list.isPending && <Spinner />}
-      {list.isError && <Alert>{errorMessage(list.error)}</Alert>}
-      {list.data && list.data.items.length === 0 && <EmptyState title="No backups yet">The first nightly backup runs tonight, or back up now.</EmptyState>}
-      {list.data && list.data.items.length > 0 && (
-        <Table head={["Taken", "Kind", "Status", "Stored on", "Size", "Expires", ""]}>
-          {list.data.items.map((b) => (
-            <tr key={b.id} data-testid="backup-row">
-              <td className="px-3 py-2">{formatDate(b.finished_at ?? b.started_at)}</td>
-              <td className="px-3 py-2">
-                <Badge tone={b.kind === "logical" ? "muted" : "accent"}>
-                  {/* A shared project's base backups are from before its demotion (V2 §5.4). */}
-                  {b.kind === "base" && p?.tier === "shared" ? "Dedicated (pre-demotion)" : (kindLabels[b.kind] ?? b.kind)}
-                </Badge>
-              </td>
-              <td className="px-3 py-2">
-                <StatusBadge status={b.status} />
-                {b.error && <p className="mt-1 max-w-xs truncate text-xs text-danger" title={b.error}>{b.error}</p>}
-              </td>
-              <td className="px-3 py-2 text-muted" data-testid="backup-storage">
-                {b.storage_target ?? "—"}
-                {b.encryption === "project" && (
-                  <span className="ml-1" title={`Encrypted with the project's key ${b.key_fingerprint ?? ""}`}>
-                    <Badge tone="accent">project key</Badge>
+        <KeyValues
+          items={[
+            [
+              "Last backup",
+              <span key="l" data-testid="last-backup">
+                {p.last_backup_at ? (
+                  <span className={backupIsStale(p.last_backup_at) ? "text-warn-text" : undefined}>
+                    {formatDate(p.last_backup_at)} ({relativeTime(p.last_backup_at)})
                   </span>
+                ) : (
+                  <span className="text-warn-text">never</span>
                 )}
-              </td>
-              <td className="px-3 py-2 text-muted">{b.size_bytes != null ? formatBytes(b.size_bytes) : "—"}</td>
-              <td className="px-3 py-2 text-muted">{b.expires_at ? formatDate(b.expires_at) : "by retention"}</td>
-              <td className="px-3 py-2 text-right">
-                {b.status === "succeeded" && canExport && b.kind !== "base" && (
-                  <a
-                    className="mr-2 text-xs text-accent hover:underline"
-                    href={`/api/v1/backups/${b.id}/download`}
-                    download
-                    data-testid="backup-download"
-                    title="A pg_dump file, for pg_restore"
-                  >
-                    Download
-                  </a>
-                )}
-                {b.status === "succeeded" && (
-                  <Button className="text-xs" onClick={() => setRestoring(b)}>
-                    Restore
-                  </Button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </Table>
-      )}
+              </span>,
+            ],
+            ...(ov
+              ? ([
+                  [
+                    "Schedule",
+                    `${p.tier === "dedicated" ? "Daily base backup with WAL archived continuously" : "Nightly logical dump"}, starting ${String(ov.window_hour_utc).padStart(2, "0")}:00 UTC (spread over the following hours)`,
+                  ],
+                  [
+                    "Retention",
+                    p.tier === "dedicated"
+                      ? "7 full base backups (about 7 days of point-in-time recovery)"
+                      : `${ov.retention_daily} daily + ${ov.retention_weekly} weekly; final and safety backups 30 days`,
+                  ],
+                  [
+                    "Encryption",
+                    <span key="e">
+                      {p.tier === "dedicated" ? "OpenPGP (WAL-G)" : "Encrypted before upload"}, with the instance backup key unless the project has its own
+                      {ov.key.fingerprint && <span className="ml-1 font-mono text-xs text-muted">(key {ov.key.fingerprint})</span>}
+                    </span>,
+                  ],
+                ] as [React.ReactNode, React.ReactNode][])
+              : []),
+          ]}
+        />
+      </Panel>
+      {p.tier === "dedicated" && <PITRCard p={p} onCreated={setCreated} />}
+      <Section title="All backups">
+        {list.isPending && <TableSkeleton cols={5} />}
+        {list.isError && <Alert>{errorMessage(list.error)}</Alert>}
+        {list.data && list.data.items.length === 0 && (
+          <EmptyState title="No backups yet" icon={<Archive />}>
+            The first nightly backup runs tonight, or back up now.
+          </EmptyState>
+        )}
+        {list.data && list.data.items.length > 0 && (
+          <Table head={["Taken", "Kind", "Status", "Stored on", "Size", "Expires", ""]}>
+            {list.data.items.map((b) => (
+              <tr key={b.id} data-testid="backup-row">
+                <td className="px-3 py-2">{formatDate(b.finished_at ?? b.started_at)}</td>
+                <td className="px-3 py-2">
+                  <Badge tone={b.kind === "logical" ? "muted" : "accent"}>
+                    {/* A shared project's base backups are from before its demotion (V2 §5.4). */}
+                    {b.kind === "base" && p?.tier === "shared" ? "Dedicated (pre-demotion)" : (kindLabels[b.kind] ?? b.kind)}
+                  </Badge>
+                </td>
+                <td className="px-3 py-2">
+                  <StatusBadge status={b.status} />
+                  {b.error && (
+                    <p className="mt-1 max-w-xs truncate text-xs text-danger-text" title={b.error}>
+                      {b.error}
+                    </p>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-muted" data-testid="backup-storage">
+                  {b.storage_target ?? "—"}
+                  {b.encryption === "project" && (
+                    <span className="ml-1" title={`Encrypted with the project's key ${b.key_fingerprint ?? ""}`}>
+                      <Badge tone="accent">project key</Badge>
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-muted">{b.size_bytes != null ? formatBytes(b.size_bytes) : "—"}</td>
+                <td className="px-3 py-2 text-muted">{b.expires_at ? formatDate(b.expires_at) : "by retention"}</td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  {b.status === "succeeded" && canExport && b.kind !== "base" && (
+                    <a
+                      className="mr-3 text-xs text-accent-text underline underline-offset-2 hover:no-underline"
+                      href={`/api/v1/backups/${b.id}/download`}
+                      download
+                      data-testid="backup-download"
+                      title="A pg_dump file, for pg_restore"
+                    >
+                      Download
+                    </a>
+                  )}
+                  {b.status === "succeeded" && (
+                    <Button size="tiny" onClick={() => setRestoring(b)}>
+                      Restore
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </Section>
       {restoring && <RestoreDialog p={p} backup={restoring} onClose={() => setRestoring(null)} onCreated={setCreated} />}
-    </div>
+    </Page>
   );
 }
 
@@ -237,11 +262,11 @@ export function RestoreDialog({
   }
 
   return (
-    <Modal title="Restore backup" open onClose={onClose}>
+    <Dialog open onOpenChange={(o) => !o && onClose()} title="Restore backup" testId="restore-dialog" className="w-[min(36rem,calc(100vw-2rem))]">
       <form className="flex flex-col gap-4" onSubmit={restoreNew}>
         <p className="text-sm text-muted">
-          Backup from {when}. Restoring into a new project leaves {p ? p.name : "everything else"} untouched, so you can inspect the result before
-          switching your app over.
+          Backup from {when}. Restoring into a new project leaves {p ? p.name : "everything else"} untouched, so you can inspect the result before switching
+          your app over.
         </p>
         <Field label="New project name">
           {(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} autoFocus />}
@@ -249,7 +274,7 @@ export function RestoreDialog({
         {err && <Alert>{err}</Alert>}
         <div className="flex flex-wrap items-center justify-between gap-2">
           {canInPlace ? (
-            <Button variant="ghost" className="px-0 text-xs text-danger" onClick={() => setMode("in_place")}>
+            <Button variant="ghost" className="px-0 text-xs text-danger-text" onClick={() => setMode("in_place")}>
               Restore in place instead…
             </Button>
           ) : (
@@ -263,7 +288,7 @@ export function RestoreDialog({
           </div>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -296,14 +321,13 @@ function PITRCard({ p, onCreated }: { p: Project; onCreated: (c: ProjectCredenti
     }
   };
   return (
-    <Card title="Point-in-time recovery">
+    <Panel title="Point-in-time recovery">
       {!w ? (
         <p className="text-sm text-muted">Available once the first base backup has finished.</p>
       ) : (
         <form className="flex flex-col gap-3" onSubmit={submit}>
           <p className="text-sm text-muted" data-testid="pitr-window">
-            Any moment from {formatDate(w.from)} until now can be restored into a new dedicated project on the same node. This project is not
-            changed.
+            Any moment from {formatDate(w.from)} until now can be restored into a new dedicated project on the same node. This project is not changed.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Restore to (your local time)" hint="Leave empty for the latest point.">
@@ -319,9 +343,7 @@ function PITRCard({ p, onCreated }: { p: Project; onCreated: (c: ProjectCredenti
                 />
               )}
             </Field>
-            <Field label="New project name">
-              {(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} />}
-            </Field>
+            <Field label="New project name">{(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
           </div>
           {err && <Alert>{err}</Alert>}
           <div>
@@ -331,6 +353,6 @@ function PITRCard({ p, onCreated }: { p: Project; onCreated: (c: ProjectCredenti
           </div>
         </form>
       )}
-    </Card>
+    </Panel>
   );
 }

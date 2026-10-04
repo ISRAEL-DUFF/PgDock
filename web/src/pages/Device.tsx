@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage, type TokenScope } from "../api/client";
 import { ScopePicker } from "../components/Tokens";
-import { Alert, Button, Card, Field, Input, PageHeader, Select, Spinner } from "../components/ui";
+import { Alert, Button, Panel, Field, Input, PageHeading, Select, PanelSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 
 /** Approve a CLI device login (V2 §7.1): pick the organisation and scopes. */
@@ -14,8 +14,8 @@ export function DevicePage() {
   if (!code) {
     return (
       <>
-        <PageHeader title="Log in the pgdock CLI" />
-        <Card className="max-w-md">
+        <PageHeading title="Log in the pgdock CLI" />
+        <Panel className="max-w-md">
           <form
             className="flex flex-col gap-3"
             onSubmit={(e) => {
@@ -24,13 +24,15 @@ export function DevicePage() {
             }}
           >
             <Field label="Code shown in your terminal">
-              {(id) => <Input id={id} value={entered} onChange={(e) => setEntered(e.target.value)} placeholder="BCDF-GHJK" className="font-mono uppercase" autoFocus />}
+              {(id) => (
+                <Input id={id} value={entered} onChange={(e) => setEntered(e.target.value)} placeholder="BCDF-GHJK" className="font-mono uppercase" autoFocus />
+              )}
             </Field>
             <Button type="submit" variant="primary" className="self-start" disabled={!entered.trim()}>
               Continue
             </Button>
           </form>
-        </Card>
+        </Panel>
       </>
     );
   }
@@ -52,22 +54,24 @@ function Approve({ code }: { code: string }) {
   if (done) {
     return (
       <>
-        <PageHeader title="Log in the pgdock CLI" />
-        <Card className="max-w-lg">
+        <PageHeading title="Log in the pgdock CLI" />
+        <Panel className="max-w-lg">
           <p className="text-sm" data-testid={`device-${done}`}>
             {done === "approved" ? "Approved. Return to your terminal: the CLI is logged in." : "Denied. The CLI was not logged in."}
           </p>
-        </Card>
+        </Panel>
       </>
     );
   }
-  if (req.isPending) return <Spinner />;
+  if (req.isPending) return <PanelSkeleton rows={2} />;
   if (req.isError) {
     const gone = req.error instanceof ApiRequestError && req.error.status === 404;
     return (
       <>
-        <PageHeader title="Log in the pgdock CLI" />
-        <Alert>{gone ? `No pending login with the code ${code}. It may have expired (codes last 10 minutes): run pgdock login again.` : errorMessage(req.error)}</Alert>
+        <PageHeading title="Log in the pgdock CLI" />
+        <Alert>
+          {gone ? `No pending login with the code ${code}. It may have expired (codes last 10 minutes): run pgdock login again.` : errorMessage(req.error)}
+        </Alert>
       </>
     );
   }
@@ -78,7 +82,9 @@ function Approve({ code }: { code: string }) {
     setBusy(true);
     setErr(null);
     try {
-      await api.approveDevice(approve ? { user_code: r.user_code, approve: true, org_id: org, scopes: chosen, expires_in_days: days } : { user_code: r.user_code, approve: false });
+      await api.approveDevice(
+        approve ? { user_code: r.user_code, approve: true, org_id: org, scopes: chosen, expires_in_days: days } : { user_code: r.user_code, approve: false },
+      );
       setDone(approve ? "approved" : "denied");
     } catch (e) {
       setErr(errorMessage(e));
@@ -88,8 +94,11 @@ function Approve({ code }: { code: string }) {
   };
   return (
     <>
-      <PageHeader title="Log in the pgdock CLI" subtitle={`Code ${r.user_code}, requested by “${r.client_name || "pgdock CLI"}”. Expires ${formatDate(r.expires_at)}.`} />
-      <Card className="max-w-lg">
+      <PageHeading
+        title="Log in the pgdock CLI"
+        description={`Code ${r.user_code}, requested by “${r.client_name || "pgdock CLI"}”. Expires ${formatDate(r.expires_at)}.`}
+      />
+      <Panel className="max-w-lg">
         <form className="flex flex-col gap-4" onSubmit={(e) => void decide(true, e)}>
           <Alert tone="warn">Only approve a code you started yourself, in your own terminal, just now.</Alert>
           <Field label="Organisation" hint="The CLI will act in this organisation only.">
@@ -126,7 +135,7 @@ function Approve({ code }: { code: string }) {
             </Button>
           </div>
         </form>
-      </Card>
+      </Panel>
     </>
   );
 }

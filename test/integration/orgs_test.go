@@ -403,6 +403,14 @@ func TestProjectTransfer(t *testing.T) {
 		t.Fatalf("invite hank: %d", code)
 	}
 	hank := e.AcceptInvitation(e.MailToken("hank@example.com", "invitation"), "hank@example.com")
+	// A saved query, favourited by hank, goes with the project.
+	var saved gen.SavedQuery
+	if code := e.Do("POST", "/api/v1/projects/"+pid+"/queries", map[string]any{"name": "Report", "sql": "select 1", "visibility": "shared"}, &saved); code != http.StatusCreated {
+		t.Fatalf("save a query: %d", code)
+	}
+	if code := hank.Do("PUT", "/api/v1/projects/"+pid+"/queries/"+saved.Id.String()+"/favorite", map[string]any{"favorite": true}, nil); code != http.StatusOK {
+		t.Fatalf("hank's favourite: %d", code)
+	}
 	var creds gen.PersonalCredentials
 	if code := hank.Do("POST", "/api/v1/projects/"+pid+"/credentials", nil, &creds); code != http.StatusOK {
 		t.Fatalf("hank's credentials: %d", code)
@@ -420,6 +428,10 @@ func TestProjectTransfer(t *testing.T) {
 	hank.Do("GET", "/api/v1/projects?org="+org.Id.String(), nil, &list)
 	if len(list.Items) != 1 || list.Items[0].Id != app.Project.Id {
 		t.Fatalf("hank's view of the new org: %+v", list)
+	}
+	var queries gen.SavedQueryList
+	if code := hank.Do("GET", "/api/v1/projects/"+pid+"/queries", nil, &queries); code != http.StatusOK || len(queries.Items) != 1 || !queries.Items[0].Favorite {
+		t.Fatalf("saved queries after the transfer: %d %+v", code, queries.Items)
 	}
 	c := e.MustConnect(creds.Connection.SessionUrl)
 	var one int

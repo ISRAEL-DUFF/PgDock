@@ -1326,6 +1326,16 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: order
+          in: query
+          description: |
+            Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+            several sort by each column in turn. Takes the place of sort and
+            desc.
+          schema:
+            type: array
+            items:
+              type: string
         - name: format
           in: query
           schema:
@@ -1344,6 +1354,52 @@ paths:
                 type: array
                 items:
                   type: object
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/count:
+    get:
+      operationId: countTableRows
+      summary: How many rows the grid holds, filtered
+      description: |
+        Exact, unless the table is big and unfiltered (the planner's
+        estimate) or counting takes over 5 seconds.
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+        - name: filter
+          in: query
+          description: Repeatable, as for the rows.
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: The count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RowCount"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/tables/{schema}/{table}/definition:
+    get:
+      operationId: getTableDefinition
+      summary: The table, view or materialized view as DDL
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SchemaName"
+        - $ref: "#/components/parameters/TableName"
+      responses:
+        "200":
+          description: The definition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TableDefinition"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/tables/{schema}/{table}/changes:
@@ -1461,6 +1517,121 @@ paths:
                 $ref: "#/components/schemas/SchemaMigration"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/queries:
+    get:
+      operationId: listSavedQueries
+      summary: The SQL Editor's saved queries - your own and the shared ones
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQueryList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createSavedQuery
+      summary: Save a query (private unless shared)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedQueryRequest"
+      responses:
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/queries/{query_id}:
+    get:
+      operationId: getSavedQuery
+      summary: A saved query
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      responses:
+        "200":
+          description: The query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateSavedQuery
+      summary: Rename, edit, share or unshare your own query
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedQueryPatch"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteSavedQuery
+      summary: Delete your own query (project admins may delete shared ones)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/queries/{query_id}/favorite:
+    put:
+      operationId: setSavedQueryFavorite
+      summary: Add a query to your favourites, or take it out
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [favorite]
+              properties:
+                favorite:
+                  type: boolean
+      responses:
+        "200":
+          description: The query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/editor-preferences:
     get:
       operationId: getEditorPreferences
@@ -1482,8 +1653,8 @@ paths:
       operationId: getTableRows
       summary: A page of a table's rows, filtered and sorted
       description: |
-        50 rows per page, keyset-paginated on the primary key where there is
-        one (spec §8.6). Pass the previous page's `next` as `after`. Editable
+        50 rows per page by default (up to 1,000), keyset-paginated on the
+        primary key where there is one (spec §8.6), or by offset when asked. Pass the previous page's `next` as `after`. Editable
         tables return each row's `xmin`, for the row editor's conflict
         detection (V2 §4.2).
       tags: [console]
@@ -1518,16 +1689,33 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: order
+          in: query
+          description: |
+            Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+            several sort by each column in turn. Takes the place of sort and
+            desc.
+          schema:
+            type: array
+            items:
+              type: string
         - name: after
           in: query
           schema:
             type: string
+        - name: offset
+          in: query
+          description: Numbered pages - offset paging from this row, whatever the table's keys.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
         - name: limit
           in: query
           schema:
             type: integer
             minimum: 1
-            maximum: 50
+            maximum: 1000
       responses:
         "200":
           description: The page.
@@ -3936,6 +4124,13 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   parameters:
+    SavedQueryID:
+      name: query_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     SchemaName:
       name: schema
       in: path
@@ -6129,7 +6324,7 @@ components:
             $ref: "#/components/schemas/DbSchemaNode"
     DbSchemaNode:
       type: object
-      required: [name, tables]
+      required: [name, tables, enums]
       properties:
         name:
           type: string
@@ -6137,6 +6332,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DbTable"
+        enums:
+          type: array
+          items:
+            $ref: "#/components/schemas/DbEnum"
+    DbEnum:
+      type: object
+      required: [name, values]
+      properties:
+        name:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
     DbTable:
       type: object
       required: [name, kind, size_bytes, primary_key, columns, indexes]
@@ -6194,6 +6403,22 @@ components:
           type: boolean
         unique:
           type: boolean
+    RowCount:
+      type: object
+      required: [count, estimated]
+      properties:
+        count:
+          type: integer
+          format: int64
+          nullable: true
+        estimated:
+          type: boolean
+    TableDefinition:
+      type: object
+      required: [sql]
+      properties:
+        sql:
+          type: string
     TablePage:
       type: object
       required: [columns, rows, order, key_columns]
@@ -6265,6 +6490,9 @@ components:
           type: integer
           format: int64
           nullable: true
+        comment:
+          type: string
+          nullable: true
         editable:
           type: boolean
         read_only_reason:
@@ -6296,6 +6524,9 @@ components:
         identity:
           type: string
           enum: [always, by_default]
+        comment:
+          type: string
+          nullable: true
     ForeignKey:
       type: object
       required: [name, columns, ref_schema, ref_table, ref_columns, on_delete, on_update]
@@ -6329,6 +6560,10 @@ components:
           enum: [check, unique, primary_key, foreign_key, exclusion]
         definition:
           type: string
+        columns:
+          type: array
+          items:
+            type: string
     RowChange:
       type: object
       required: [op]
@@ -6439,6 +6674,31 @@ components:
           type: boolean
         comment:
           type: string
+        unique:
+          type: boolean
+        check:
+          type: string
+          description: A CHECK expression on the column.
+        references:
+          $ref: "#/components/schemas/ColumnRef"
+    ColumnRef:
+      type: object
+      required: [table, column]
+      description: A column's foreign key.
+      properties:
+        schema:
+          type: string
+          description: Defaults to the table's schema.
+        table:
+          type: string
+        column:
+          type: string
+        on_delete:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
+        on_update:
+          type: string
+          enum: [NO ACTION, RESTRICT, CASCADE, SET NULL, SET DEFAULT]
     SchemaChange:
       type: object
       required: [kind]
@@ -6446,7 +6706,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [create_schema, drop_schema, create_table, rename_table, drop_table, add_column, rename_column, drop_column, alter_column, add_check, add_unique, add_foreign_key, drop_constraint, create_index, drop_index, create_enum, add_enum_value]
+          enum: [create_schema, drop_schema, create_table, rename_table, drop_table, add_column, rename_column, drop_column, alter_column, add_check, add_unique, add_foreign_key, drop_constraint, create_index, drop_index, create_enum, add_enum_value, set_comment, duplicate_table, batch]
         schema:
           type: string
           default: public
@@ -6519,6 +6779,14 @@ components:
           type: string
         before_value:
           type: string
+        with_data:
+          type: boolean
+          description: duplicate_table - copy the rows too.
+        changes:
+          type: array
+          description: batch - changes to one table, run in one transaction; a rename comes last.
+          items:
+            $ref: "#/components/schemas/SchemaChange"
     SchemaPreviewRequest:
       type: object
       required: [change]
@@ -6610,6 +6878,69 @@ components:
         format:
           type: string
           enum: [sql, goose, dbmate]
+    SavedQuery:
+      type: object
+      required: [id, project_id, name, sql, visibility, favorite, mine, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sql:
+          type: string
+        visibility:
+          type: string
+          enum: [private, shared]
+        favorite:
+          type: boolean
+          description: In your favourites.
+        mine:
+          type: boolean
+          description: You own it, so you can edit it.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SavedQueryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedQuery"
+    SavedQueryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        sql:
+          type: string
+          maxLength: 200000
+        visibility:
+          type: string
+          enum: [private, shared]
+          default: private
+    SavedQueryPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        sql:
+          type: string
+          maxLength: 200000
+        visibility:
+          type: string
+          enum: [private, shared]
     EditorPreferences:
       type: object
       required: [migration_format]

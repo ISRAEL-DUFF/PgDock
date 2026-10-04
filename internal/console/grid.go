@@ -51,9 +51,13 @@ type Sort struct {
 // GridQuery is what the grid asks for.
 type GridQuery struct {
 	Filters []Filter
-	Sort    *Sort
-	After   string
-	Limit   int
+	// Sorts orders by several columns, in turn.
+	Sorts []Sort
+	After string
+	Limit int
+	// Offset asks for numbered pages: offset paging from here, whatever
+	// the table's keys (the table editor's page numbers).
+	Offset *int64
 }
 
 // Page is one page of a table's rows.
@@ -201,6 +205,7 @@ type gridSQL struct {
 	order  string
 	xmin   bool
 	keyed  bool // keyset on the primary key
+	cur    cursor
 }
 
 func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit int) (gridSQL, error) {
@@ -214,8 +219,13 @@ func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit 
 	if cond != "" {
 		conds = append(conds, cond)
 	}
-	if q.Sort != nil && !slices.Contains(r.cols, q.Sort.Column) {
-		return g, fmt.Errorf("%w: no column %q", ErrBadQuery, q.Sort.Column)
+	for _, so := range q.Sorts {
+		if !slices.Contains(r.cols, so.Column) {
+			return g, fmt.Errorf("%w: no column %q", ErrBadQuery, so.Column)
+		}
+	}
+	if len(q.Sorts) > 10 {
+		return g, fmt.Errorf("%w: at most 10 sorts", ErrBadQuery)
 	}
 	sel := "*"
 	if r.editable() {
@@ -223,12 +233,12 @@ func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit 
 		sel = "xmin::text AS " + provision.Ident(xminCol) + ", *"
 	}
 	dir := ""
-	if q.Sort != nil && q.Sort.Desc {
+	if len(q.Sorts) == 1 && q.Sorts[0].Desc {
 		dir = " DESC"
 	}
 	var order string
 	switch {
-	case len(r.pk) > 0 && (q.Sort == nil || (len(r.pk) == 1 && q.Sort.Column == r.pk[0])):
+	case q.Offset == nil && len(r.pk) > 0 && (len(q.Sorts) == 0 || (len(r.pk) == 1 && len(q.Sorts) == 1 && q.Sorts[0].Column == r.pk[0])):
 		g.order, g.keyed = "primary_key", true
 		if cur.CTID != "" || cur.Offset != 0 || (cur.Key != nil && len(cur.Key) != len(r.pk)) {
 			return g, ErrBadCursor
@@ -255,7 +265,7 @@ func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit 
 			parts[i] = c + dir
 		}
 		order = " ORDER BY " + strings.Join(parts, ", ")
-	case q.Sort == nil && (r.kind == "r" || r.kind == "m"):
+	case q.Offset == nil && len(q.Sorts) == 0 && (r.kind == "r" || r.kind == "m"):
 		g.order, g.extra = "ctid", g.extra+1
 		sel = "ctid, " + sel
 		if cur.Key != nil || cur.Offset != 0 {
@@ -271,24 +281,39 @@ func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit 
 		if cur.Key != nil || cur.CTID != "" {
 			return g, ErrBadCursor
 		}
-		if q.Sort != nil {
-			order = " ORDER BY " + provision.Ident(q.Sort.Column) + dir
-			if dir != "" {
-				order += " NULLS LAST"
+		if q.Offset != nil {
+			if *q.Offset < 0 {
+				return g, fmt.Errorf("%w: offset is negative", ErrBadQuery)
 			}
-			// A stable tiebreak, so pages don't repeat rows.
-			for _, c := range r.pk {
-				order += ", " + provision.Ident(c)
+			cur.Offset = *q.Offset
+		}
+		var parts []string
+		for _, so := range q.Sorts {
+			p := provision.Ident(so.Column)
+			if so.Desc {
+				p += " DESC NULLS LAST"
 			}
+			parts = append(parts, p)
+		}
+		// A stable tiebreak, so pages don't repeat rows.
+		for _, c := range r.pk {
+			parts = append(parts, provision.Ident(c))
+		}
+		if len(r.pk) == 0 && (r.kind == "r" || r.kind == "m") {
+			parts = append(parts, "ctid")
+		}
+		if len(parts) > 0 {
+			order = " ORDER BY " + strings.Join(parts, ", ")
 		}
 	}
+	g.cur = cur
 	g.sql = "SELECT " + sel + " FROM " + rel
 	if len(conds) > 0 {
 		g.sql += " WHERE " + strings.Join(conds, " AND ")
 	}
 	g.sql += order
-	if g.order == "offset" && cur.Offset > 0 {
-		g.sql += " OFFSET " + strconv.FormatInt(cur.Offset, 10)
+	if g.order == "offset" && g.cur.Offset > 0 {
+		g.sql += " OFFSET " + strconv.FormatInt(g.cur.Offset, 10)
 	}
 	if limit > 0 {
 		g.sql += " LIMIT " + strconv.Itoa(limit)
@@ -300,9 +325,10 @@ func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit 
 // as asked (V2 §4.1).
 func (s *Service) Rows(ctx context.Context, projectID uuid.UUID, schema, table string, q GridQuery) (Page, error) {
 	limit := q.Limit
-	if limit <= 0 || limit > PageSize {
+	if limit <= 0 {
 		limit = PageSize
 	}
+	limit = min(limit, MaxPageSize)
 	cur, err := decodeCursor(q.After)
 	if err != nil {
 		return Page{}, err
@@ -321,6 +347,7 @@ func (s *Service) Rows(ctx context.Context, projectID uuid.UUID, schema, table s
 		if !g.keyed {
 			page.KeyCols = []string{}
 		}
+		cur = g.cur
 		page.LargeOffset = g.order == "offset" && cur.Offset >= LargeOffset
 		rr := conn.PgConn().ExecParams(ctx, g.sql, g.params, nil, nil, nil)
 		fds := rr.FieldDescriptions()

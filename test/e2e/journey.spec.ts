@@ -6,7 +6,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFile } from "node:child_process";
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
+import AxeBuilder from "@axe-core/playwright";
+import fs, { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import pg from "pg";
@@ -45,17 +46,98 @@ const stateFile = "test-results/.session.json";
 
 // Optional screenshots of key screens, in both themes, for review.
 const shotDir = process.env.PGDOCK_E2E_SCREENSHOTS;
+/** Checks a screen against WCAG 2.1 A and AA with axe: serious and
+ * critical issues fail the run (docs/ui-redesign.md, phase 6). With
+ * PGDOCK_E2E_AXE=report they are written to axe.jsonl instead. */
+async function a11y(page: Page, name: string, theme: string) {
+  const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  const bad = r.violations
+    .filter((v) => v.impact === "serious" || v.impact === "critical")
+    .map((v) => `${v.id} (${v.impact}): ${v.help} — ${v.nodes.map((n) => n.target.join(" ")).slice(0, 5).join(" | ")}`);
+  if (process.env.PGDOCK_E2E_AXE === "report") {
+    if (shotDir && bad.length) fs.appendFileSync(`${shotDir}/axe.jsonl`, JSON.stringify({ name, theme, bad }) + "\n");
+    return;
+  }
+  expect.soft(bad, `accessibility of ${name} (${theme})`).toEqual([]);
+}
+
 async function shot(page: Page, name: string) {
-  if (!shotDir) return;
-  await page.screenshot({ path: `${shotDir}/${name}-light.png`, fullPage: true });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await page.waitForTimeout(400); // let colour transitions finish
-  await page.screenshot({ path: `${shotDir}/${name}-dark.png`, fullPage: true });
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.waitForTimeout(400);
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate((t) => {
+      localStorage.setItem("pgdock.theme", t);
+      document.documentElement.dataset.theme = t;
+    }, theme);
+    await page.waitForTimeout(400); // let colour transitions finish
+    await a11y(page, name, theme);
+    if (shotDir) await page.screenshot({ path: `${shotDir}/${name}-${theme}.png`, fullPage: true });
+  }
+  await page.evaluate(() => {
+    localStorage.setItem("pgdock.theme", "dark");
+    document.documentElement.dataset.theme = "dark";
+  });
 }
 
 /** Opens the app with the session saved by the first test. */
+// The shell's navigation (docs/ui-redesign.md): a project's old tabs are
+// now rail sections, some with their own sidebar.
+const projectSections: Record<string, [string, string?]> = {
+  Overview: ["overview"],
+  Connect: ["settings", "Connection"],
+  Settings: ["settings", "General"],
+  Members: ["settings", "Members"],
+  SQL: ["sql"],
+  Tables: ["tables"],
+  "Database settings": ["settings", "Database"],
+  Compute: ["settings", "Compute and tier"],
+  Storage: ["settings", "Backup storage"],
+  Extensions: ["database", "Extensions"],
+  Migrations: ["database", "Migrations"],
+  Logs: ["logs"],
+  Metrics: ["reports"],
+  Backups: ["database", "Backups"],
+  Branches: ["database", "Branches"],
+  Branch: ["database", "Branch"],
+  Webhooks: ["database", "Webhooks"],
+  Jobs: ["database", "Scheduled jobs"],
+};
+
+async function projectTab(page: Page, tab: string) {
+  const [rail, link] = projectSections[tab];
+  await page.getByTestId(`rail-${rail}`).click();
+  // The rail expands over the page while hovered.
+  await page.mouse.move(900, 500);
+  if (link) await page.getByTestId("section-sidebar").getByRole("link", { name: link, exact: true }).click();
+}
+
+/** A platform admin page, switching to the platform area first. */
+async function platformNav(page: Page, label: string) {
+  const nav = page.getByRole("navigation", { name: "Platform" });
+  if (!(await nav.isVisible())) {
+    await page.getByTestId("org-switcher").click();
+    await page.getByTestId("platform-link").click();
+  }
+  await nav.getByRole("link", { name: label, exact: true }).click();
+  await page.mouse.move(900, 500);
+}
+
+// The organisation's pages: leave the project through the logo first.
+async function orgNav(page: Page, label: string) {
+  const nav = page.getByRole("navigation", { name: "Organisation" });
+  if (!(await nav.isVisible())) await page.getByLabel("PGDock home").click();
+  await nav.getByRole("link", { name: label, exact: true }).click();
+  await page.mouse.move(900, 500);
+}
+
+async function signOut(page: Page) {
+  await page.getByTestId("user-menu").click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+}
+
+async function switchOrg(page: Page, id: string) {
+  await page.getByTestId("org-switcher").click();
+  await page.getByTestId(`org-option-${id}`).click();
+}
+
 async function signedIn(page: Page) {
   await page.goto("/projects");
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
@@ -317,13 +399,12 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await shot(page, "04-overview");
 
   // 6. Connect page snippets carry the real host and database.
-  const projectTabs = page.getByRole("navigation", { name: "Project" });
-  await projectTabs.getByRole("link", { name: "Connect" }).click();
+  await projectTab(page, "Connect");
   await expect(page.getByText(`psql 'postgresql://${rows[0].db}_owner:YOUR_PASSWORD@${dbHost}`)).toBeVisible();
   await shot(page, "05-connect");
 
   // 7. Change a guardrail; it applies to the live database.
-  await projectTabs.getByRole("link", { name: "Settings" }).click();
+  await projectTab(page, "Database settings");
   await page.getByLabel("Statement timeout").fill("15s");
   await page.getByRole("button", { name: "Save guardrails" }).click();
   await expect(page.getByText("Saved; applying to the database and pooler.")).toBeVisible();
@@ -348,20 +429,20 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await page.getByRole("button", { name: "Done" }).click();
 
   // 9. Operations and the audit log recorded it all.
-  await page.getByRole("link", { name: "Operations", exact: true }).click();
+  await orgNav(page, "Operations");
   await expect(page.getByRole("link", { name: "rotate" }).first()).toBeVisible();
   await page.getByRole("link", { name: "create" }).first().click();
   await expect(page.getByTestId("operation-log")).toContainText("is active");
-  await page.getByRole("link", { name: "Audit log" }).click();
+  await orgNav(page, "Audit log");
   for (const action of ["project.create", "project.update", "project.rotate_password"]) {
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
   await shot(page, "06-audit");
-  await page.getByRole("link", { name: "Platform audit" }).click();
+  await platformNav(page, "Platform audit");
   await expect(page.getByRole("cell", { name: "setup.complete", exact: true }).first()).toBeVisible();
 
   // 10. Sign out and back in with password + TOTP.
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login/);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("wrong password, clearly");
@@ -375,7 +456,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
 
   // 11. Delete needs the typed name plus password and code.
   await page.getByRole("link", { name: "My Blog", exact: true }).click();
-  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+  await projectTab(page, "Settings");
   await page.getByRole("button", { name: "Delete project" }).click();
   const dialog = page.getByRole("dialog");
   const confirm = dialog.getByRole("button", { name: "Delete project" });
@@ -427,8 +508,7 @@ test.describe("with the saved session", () => {
 
     // 2. Back it up from the Backups tab.
     await page.getByRole("link", { name: "Open the project" }).click();
-    const tabs = page.getByRole("navigation", { name: "Project" });
-    await tabs.getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await expect(page.getByTestId("last-backup")).toHaveText("never");
     await page.getByRole("button", { name: "Back up now" }).click();
     await expect(page.getByTestId("backup-row").first()).toContainText("succeeded", { timeout: 60_000 });
@@ -461,7 +541,7 @@ test.describe("with the saved session", () => {
     // 5. Restore in place: typed name, password and code; same URL afterwards.
     await page.goto("/projects");
     await page.getByRole("link", { name: "Notes", exact: true }).click();
-    await tabs.getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await page.getByTestId("backup-row").last().getByRole("button", { name: "Restore" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Restore in place instead…" }).click();
     const confirm = page.getByRole("dialog").getByRole("button", { name: "Restore in place" });
@@ -478,7 +558,7 @@ test.describe("with the saved session", () => {
 
     // 6. The projects list shows the last backup.
     await page.goto("/projects");
-    const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: "Notes", exact: true }) });
+    const row = page.getByTestId("project-card").filter({ has: page.getByRole("link", { name: "Notes", exact: true }) });
     await expect(row.getByTestId("last-backup-cell")).not.toContainText("never");
     await shot(page, "15-projects-last-backup");
 
@@ -583,7 +663,7 @@ test.describe("with the saved session", () => {
     await shot(page, "19-dedicated-overview");
 
     // 4. Point-in-time recovery into a new project, from the Backups tab.
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await expect(page.getByTestId("backup-row").first()).toContainText("Base backup (WAL-G)");
     await expect(page.getByTestId("pitr-window")).toBeVisible();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -606,7 +686,7 @@ test.describe("with the saved session", () => {
     await page.getByRole("button", { name: "Done" }).click();
 
     // 5. The node page lists both dedicated instances.
-    await page.getByRole("link", { name: "Nodes", exact: true }).click();
+    await platformNav(page, "Nodes");
     await page.getByRole("link", { name: "local" }).click();
     await expect(page.getByTestId("node-docker")).toHaveText("ok");
     await expect(page.getByTestId("instance-row").filter({ hasText: "dedicated" })).toHaveCount(2);
@@ -656,7 +736,7 @@ test.describe("with the saved session", () => {
 
     // The wizard: target, size, the estimate, then live progress.
     await page.getByRole("link", { name: "Open the project" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+    await projectTab(page, "Compute");
     await page.getByRole("button", { name: "Promote…" }).click();
     await expect(page.getByText(/Estimated write freeze: about \d+ s/)).toBeVisible();
     await expect(page.getByTestId("promote-estimate")).toContainText("The database is");
@@ -684,7 +764,7 @@ test.describe("with the saved session", () => {
     await c.end();
     expect(errors).toEqual([]); // the pooled URL waited out the freeze
 
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
+    await projectTab(page, "Overview");
     await expect(page.getByText("Promoted to the dedicated tier")).toBeVisible();
     await expect(page.getByTestId("instance-card")).toBeVisible();
     await shot(page, "25-promoted-overview");
@@ -711,7 +791,7 @@ test.describe("with the saved session", () => {
       await w?.end().catch(() => {});
     })();
     await expect.poll(() => acked.length).toBeGreaterThan(before + 20);
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Settings" }).click();
+    await projectTab(page, "Compute");
     await page.getByRole("button", { name: "Demote…" }).click();
     await expect(page.getByTestId("demote-checks").locator("li")).toHaveCount(7);
     for (const name of ["size", "extensions", "roles", "allowance", "capacity"]) {
@@ -738,9 +818,9 @@ test.describe("with the saved session", () => {
     await d.end();
     expect(errors).toEqual([]);
 
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
+    await projectTab(page, "Overview");
     await expect(page.getByText("Demoted to the shared tier")).toBeVisible();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Backups");
     await expect(page.getByTestId("backup-row").filter({ hasText: "Dedicated (pre-demotion)" }).first()).toBeVisible();
     await shot(page, "28-demoted-backups");
   });
@@ -756,18 +836,19 @@ test.describe("with the saved session", () => {
     // An app holding a pooled connection, for the connection charts.
     const app = await connect(pooledURL);
     await page.getByRole("link", { name: "Open the project" }).click();
-    const tabs = page.getByRole("navigation", { name: "Project" });
 
-    // SQL console: run statements as the project role (Ctrl+Enter).
-    const editor = page.getByTestId("sql-editor");
+    // SQL Editor: a new saved query, run as the project role (Ctrl+Enter).
+    const editor = page.getByTestId("sql-editor-host");
     const runSQL = async (sql: string) => {
       await editor.click();
       await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.insertText(sql);
       await page.keyboard.press("ControlOrMeta+Enter");
     };
-    await tabs.getByRole("link", { name: "SQL" }).click();
+    await projectTab(page, "SQL");
     await expect(page.getByText("Queries run against the live database")).toBeVisible();
+    await page.getByTestId("create-query").click();
+    await expect(page.getByTestId("query-name")).toHaveText("Untitled query");
     await runSQL(
       "CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL);\n" +
         "INSERT INTO notes (body) SELECT 'note ' || g FROM generate_series(1, 120) g;\n" +
@@ -783,59 +864,75 @@ test.describe("with the saved session", () => {
     // CSV export of the displayed rows.
     await runSQL("SELECT id, body FROM notes ORDER BY id LIMIT 3");
     await expect(page.getByTestId("sql-grid")).toContainText("note 3");
-    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export CSV" }).click()]);
+    await page.getByRole("button", { name: "Export" }).click();
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download CSV" }).click()]);
     expect(readFileSync((await dl.path())!, "utf8")).toBe("id,body\r\n1,note 1\r\n2,note 2\r\n3,note 3\r\n");
 
     // Errors point at the problem; Cancel stops a running query.
     await runSQL("SELECT * FROM missing_table");
     await expect(page.getByTestId("sql-error")).toContainText('relation "missing_table" does not exist');
-    await expect(page.getByTestId("sql-error")).toContainText("line 1, column 15");
+    await expect(page.getByTestId("sql-error")).toContainText("LINE 1, COLUMN 15");
     await runSQL("SELECT pg_sleep(60)");
     await page.getByTestId("sql-cancel").click();
     await expect(page.getByTestId("sql-error")).toContainText("canceling statement due to user request", { timeout: 15_000 });
     // The history is this browser's own.
+    await page.getByRole("button", { name: "History" }).click();
     await expect(page.getByRole("button", { name: "SELECT pg_sleep(60)" })).toBeVisible();
 
+    // The query is saved as you type: rename it, share it, and it is there
+    // after a reload.
+    await expect(page.getByTestId("save-status")).toHaveText("Saved");
+    await page.getByTestId("query-name").click();
+    await page.getByTestId("rename-input").fill("Sleepy report");
+    await page.getByTestId("rename-save").click();
+    await page.getByRole("button", { name: "Sleepy report actions" }).click();
+    await page.getByTestId("share-query").click();
+    await expect(page.getByTestId("shared-queries")).toContainText("Sleepy report");
+    await page.reload();
+    await expect(page.getByTestId("query-name")).toHaveText("Sleepy report");
+    await expect(editor).toContainText("pg_sleep(60)");
+
     // The read-only toggle (project settings) refuses writes in the console.
-    await tabs.getByRole("link", { name: "Settings" }).click();
-    await page.getByLabel("SQL console is read-only").check();
+    await projectTab(page, "Database settings");
+    await page.getByLabel("SQL console is read-only").click();
     await page.getByRole("button", { name: "Save guardrails" }).click();
     await expect(page.getByText("Saved")).toBeVisible({ timeout: 30_000 });
-    await tabs.getByRole("link", { name: "SQL" }).click();
+    await projectTab(page, "SQL");
     await expect(page.getByText("read-only", { exact: true }).first()).toBeVisible();
     await runSQL("DELETE FROM notes");
     await expect(page.getByTestId("sql-error")).toContainText("cannot execute DELETE in a read-only transaction");
     expect(await count(pooledURL, "SELECT count(*) FROM notes")).toBe(120);
 
     // Extensions: enable pg_stat_statements for the top-queries table.
-    await tabs.getByRole("link", { name: "Settings" }).click();
+    await projectTab(page, "Extensions");
     await page.getByTestId("ext-pg_stat_statements").getByRole("button", { name: "Enable" }).click();
     await expect(page.getByTestId("ext-pg_stat_statements")).toContainText("enabled");
     await expect(page.getByTestId("ext-postgis")).toContainText("dedicated tier only");
     await shot(page, "27-extensions");
 
-    // Table browser: the schema tree, table facts, and keyset pages.
-    await tabs.getByRole("link", { name: "Tables" }).click();
-    await page.getByTestId("schema-tree").getByRole("button", { name: "notes" }).click();
-    await expect(page.getByTestId("table-info")).toContainText("Primary key");
-    await expect(page.getByText("2 columns, 1 indexes")).toBeVisible();
+    // Table editor: the sidebar, the record count, numbered pages, and
+    // the table's definition.
+    await projectTab(page, "Tables");
+    await page.getByTestId("schema-tree").getByRole("button", { name: "notes", exact: true }).click();
+    await expect(page.getByTestId("record-count")).toHaveText("120 records");
     const grid = page.getByTestId("table-grid");
-    await expect(grid).toContainText("note 50");
-    await expect(grid).not.toContainText("note 51");
-    await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByTestId("page-number")).toHaveText("Page 2");
-    await expect(grid).toContainText("note 51");
-    await expect(grid).toContainText("note 100");
-    await shot(page, "28-table-browser");
-    await page.getByRole("button", { name: "Next" }).click();
+    await expect(grid).toContainText("note 1");
+    await expect(page.getByTestId("page-number")).toHaveText("of 2");
+    await page.getByRole("button", { name: "Next page" }).click();
+    await expect(page.getByTestId("page-input")).toHaveValue("2");
+    await expect(grid).toContainText("note 101");
     await expect(grid).toContainText("note 120");
-    await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
-    await page.getByRole("button", { name: "Previous" }).click();
-    await expect(page.getByTestId("page-number")).toHaveText("Page 2");
+    await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
+    await shot(page, "28-table-browser");
+    await page.getByRole("button", { name: "Previous page" }).click();
+    await expect(page.getByTestId("page-input")).toHaveValue("1");
+    await page.getByRole("radio", { name: "Definition" }).click();
+    await expect(page.getByTestId("table-definition-host")).toContainText('CREATE TABLE "public"."notes"');
+    await page.getByRole("radio", { name: "Data" }).click();
 
     // Traffic, then the metrics charts: size and connection trends.
     for (let i = 0; i < 30; i++) await app.query("SELECT count(*) FROM notes");
-    await tabs.getByRole("link", { name: "Metrics" }).click();
+    await projectTab(page, "Metrics");
     await expect(page.getByRole("img", { name: "Database size" })).toBeVisible();
     await expect(async () => {
       await page.reload();
@@ -847,7 +944,7 @@ test.describe("with the saved session", () => {
       await page.reload();
       await expect(page.getByRole("cell", { name: /SELECT count\(\*\) FROM notes/ })).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
-    await page.getByRole("radio", { name: "24h" }).click();
+    await page.getByRole("radio", { name: "Last 24 hours" }).click();
     await expect(page.getByTestId("latest-size_bytes")).toContainText(/(KiB|MiB)/);
     await shot(page, "29-metrics");
     await app.end();
@@ -868,7 +965,7 @@ test.describe("with the saved session", () => {
     await page.getByRole("button", { name: "Check now" }).click();
     await expect(page.getByTestId("isolation-row").first()).toContainText("succeeded", { timeout: 90_000 });
     await shot(page, "31-settings-alerts");
-    await page.getByRole("navigation").getByRole("link", { name: "Alerts" }).first().click();
+    await platformNav(page, "Alerts");
     await expect(page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();
     // The poolers starting after the server is not "pooler down" (other
     // alerts, like a full disk on the test host, may be real).
@@ -974,10 +1071,11 @@ test.describe("with the saved session", () => {
   test("usage: a week of hourly storage on the Usage page", async ({ page }) => {
     await signedIn(page);
     // A new organisation, so only this project's storage is counted.
-    await page.getByTestId("org-switcher").selectOption("__new");
+    await page.getByTestId("org-switcher").click();
+    await page.getByTestId("new-org").click();
     await page.getByLabel("Name").fill("Metered team");
-    await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.getByTestId("org-switcher").locator("option:checked")).toHaveText("Metered team");
+    await page.getByRole("button", { name: "Create organisation" }).click();
+    await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
     await page.goto("/projects/new");
     await page.getByLabel("Name").fill("Metered");
     await page.getByRole("button", { name: "Create project" }).click();
@@ -1102,7 +1200,7 @@ test.describe("with the saved session", () => {
     expect(me.body.token.org_id).toBe(metered.id);
 
     // The org's owners see every token scoped to it, and can revoke one.
-    await page.getByTestId("org-switcher").selectOption(metered.id);
+    await switchOrg(page, metered.id);
     await page.goto("/org/settings");
     await expect(page.getByTestId("org-tokens")).toContainText("pgdock CLI on ci-runner");
     page.once("dialog", (d) => void d.accept());
@@ -1115,51 +1213,71 @@ test.describe("with the saved session", () => {
     await signedIn(page);
     const mine = (await page.evaluate(async () => (await fetch("/api/v1/projects")).json())) as { items: { id: string; name: string }[] };
     const team = mine.items.find((p) => p.name === "Team data")!;
-    const openFacts = async (p: Page) => {
+    const openTable = async (p: Page, name: string) => {
       await p.goto(`/projects/${team.id}/tables`);
-      await p.getByTestId("schema-tree").getByRole("button", { name: "facts" }).click();
-      await expect(p.getByTestId("table-grid")).toContainText("shared");
+      await p.getByTestId("schema-tree").getByRole("button", { name, exact: true }).click();
+      await expect(p.getByTestId(`tab-${name}`)).toBeVisible();
     };
+    // Double-click a cell, type, Enter: saved straight away, as in Studio.
     const editBody = async (p: Page, from: string, to: string) => {
       await p.getByTestId("grid-row").filter({ hasText: from }).getByTestId("cell-body").dblclick();
       await p.getByTestId("cell-input-body").fill(to);
-      await p.getByTestId("cell-ok").click();
+      // The grid shows the new value at once; wait for the save itself.
+      const saved = p.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith("/changes"));
+      await p.getByTestId("cell-input-body").press("Enter");
+      await saved;
     };
-    await openFacts(page);
+    await openTable(page, "facts");
+    await expect(page.getByTestId("table-grid")).toContainText("shared");
 
-    // Edit a cell: staged, highlighted, then saved in one transaction.
     await editBody(page, "shared", "shared (mine)");
-    await expect(page.getByTestId("pending-changes")).toContainText("1 update");
-    await page.getByTestId("save-rows").click();
-    await expect(page.getByTestId("save-summary")).toHaveText("1 update");
-    await page.getByTestId("confirm-save").click();
-    await expect(page.getByTestId("pending-changes")).toHaveCount(0);
+    await expect(page.getByTestId("table-grid")).toContainText("shared (mine)");
+    await page.reload();
     await expect(page.getByTestId("table-grid")).toContainText("shared (mine)");
 
-    // Two sessions edit the same row: the second save is a conflict.
+    // Two sessions edit the same row: the second is told, and nothing of
+    // theirs is overwritten.
     const otherCtx = await browser.newContext({ storageState: stateFile });
     const other = await otherCtx.newPage();
-    await openFacts(other);
-    await editBody(page, "shared (mine)", "mine again");
+    await openTable(other, "facts");
+    await expect(other.getByTestId("table-grid")).toContainText("shared (mine)");
     await editBody(other, "shared (mine)", "theirs");
-    await other.getByTestId("save-rows").click();
-    await other.getByTestId("confirm-save").click();
     await expect(other.getByTestId("table-grid")).toContainText("theirs");
-    await page.getByTestId("save-rows").click();
-    await page.getByTestId("confirm-save").click();
-    await expect(page.getByTestId("row-conflict")).toContainText("theirs");
+    await editBody(page, "shared (mine)", "mine again");
+    await expect(page.getByText("Someone changed this row since you loaded it")).toBeVisible();
     await shot(page, "39-row-conflict");
-    await page.getByTestId("conflict-discard").click();
     await expect(page.getByTestId("table-grid")).toContainText("theirs");
     await otherCtx.close();
 
-    // Add a column: preview the SQL, save it as a goose migration, run it.
-    await page.getByTestId("tab-structure").click();
-    await page.getByTestId("add-column").click();
-    await page.getByRole("dialog").getByLabel("Name").fill("summary");
-    await page.getByRole("dialog").getByLabel("Type").fill("text");
-    await page.getByRole("dialog").getByLabel("Default").fill("''");
-    await page.getByTestId("schema-form-preview").click();
+    // Insert a row from the side panel, filter to it, then delete it.
+    await page.getByTestId("insert-menu").click();
+    await page.getByTestId("insert-row").click();
+    await page.getByTestId("row-field-id").fill("2");
+    await page.getByTestId("row-field-body").fill("from the panel");
+    await page.getByTestId("row-panel-save").click();
+    await expect(page.getByTestId("record-count")).toHaveText("2 records");
+    await page.getByTestId("filter-button").click();
+    await page.getByTestId("add-filter").click();
+    await page.getByLabel("Filter column").selectOption("body");
+    await page.getByLabel("Filter value").fill("from the panel");
+    await page.getByTestId("apply-filter").click();
+    await expect(page.getByTestId("record-count")).toHaveText("1 record");
+    await expect(page.getByTestId("table-grid")).not.toContainText("theirs");
+    await page.getByTestId("grid-row").getByRole("checkbox").check();
+    await page.getByTestId("delete-rows").click();
+    await page.getByTestId("confirm-delete-rows").click();
+    await expect(page.getByTestId("record-count")).toHaveText("0 records");
+    await page.getByTestId("filter-button").click();
+    await page.getByRole("button", { name: "Remove filter" }).click();
+    await page.getByTestId("apply-filter").click();
+    await expect(page.getByTestId("record-count")).toHaveText("1 record");
+
+    // Add a column: review the SQL, save it as a goose migration, run it.
+    await page.getByTestId("insert-menu").click();
+    await page.getByTestId("insert-column").click();
+    await page.getByTestId("column-name").fill("summary");
+    await page.getByTestId("column-panel").getByLabel("Default value").fill("''");
+    await page.getByTestId("column-panel-save").click();
     await expect(page.getByTestId("schema-preview")).toContainText('ADD COLUMN "summary" text DEFAULT');
     await page.getByTestId("migration-format").selectOption("goose");
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("save-migration").click()]);
@@ -1172,12 +1290,43 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("column-summary")).toBeVisible();
 
     // A type change that rewrites the table says so before anything runs.
-    await page.getByTestId("alter-id").click();
-    await page.getByRole("dialog").getByLabel("Type").fill("bigint");
-    await page.getByTestId("schema-form-preview").click();
+    await page.getByTestId("column-menu-id").click();
+    await page.getByRole("menuitem", { name: "Edit column" }).click();
+    await page.getByTestId("column-panel").getByTestId("type-picker").click();
+    await page.getByLabel("Search types").fill("int8");
+    await page.getByTestId("type-int8").click();
+    await page.getByTestId("column-panel-save").click();
     await expect(page.getByTestId("schema-risks")).toContainText("Rewrites the table and blocks writes. Estimated size:");
     await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
     await expect(page.getByTestId("column-id")).toContainText("integer");
+
+    // A new table with a foreign key to facts, then a row that links to it.
+    await page.getByTestId("new-table").click();
+    await page.getByTestId("table-name").fill("fact_notes");
+    await page.getByTestId("table-panel-add-column").click();
+    const fkRow = page.getByTestId("column-row").last();
+    await fkRow.getByLabel("Column name").fill("fact_id");
+    await fkRow.getByTestId("type-picker").click();
+    await page.getByTestId("type-int4").click();
+    await fkRow.getByTestId("add-foreign-key").click();
+    await fkRow.getByLabel("Referenced table").selectOption("facts");
+    await fkRow.getByLabel("Referenced column").selectOption("id");
+    await fkRow.getByLabel("On delete").selectOption("CASCADE");
+    await shot(page, "40b-new-table-panel");
+    await page.getByTestId("table-panel-save").click();
+    await expect(page.getByTestId("schema-preview")).toContainText('REFERENCES "public"."facts" ("id") ON DELETE CASCADE');
+    await page.getByTestId("schema-run").click();
+    await expect(page.getByTestId("tab-fact_notes")).toBeVisible();
+    await expect(page.getByText("This table is empty")).toBeVisible();
+    await page.getByTestId("insert-menu").click();
+    await page.getByTestId("insert-row").click();
+    await page.getByTestId("row-field-fact_id").fill("1");
+    await page.getByTestId("row-panel-save").click();
+    await expect(page.getByTestId("record-count")).toHaveText("1 record");
+    await page.getByTestId("fk-fact_id").click();
+    await expect(page.getByTestId("fk-panel")).toContainText("theirs");
+    await shot(page, "40c-foreign-row");
   });
   // The M12 "done when", through the browser: the organisation brings its
   // own bucket, a project gets its own key and sends its backups there, and
@@ -1214,7 +1363,7 @@ test.describe("with the saved session", () => {
     await page.getByLabel("I've saved the password somewhere safe").check();
     await page.getByRole("button", { name: "Done" }).click();
     await page.getByRole("link", { name: "Open the project" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Backups" }).click();
+    await projectTab(page, "Storage");
     const storage = page.getByTestId("project-storage");
     await expect(storage.getByTestId("project-storage-target")).toContainText("counts toward your backup quota");
     await storage.getByRole("button", { name: "Use a project key" }).click();
@@ -1225,14 +1374,16 @@ test.describe("with the saved session", () => {
     await expect(storage.getByTestId("project-storage-target")).toContainText("Our bucket");
     await expect(storage.getByTestId("project-storage-target")).toContainText("doesn't count toward your backup quota");
 
+    await shot(page, "42-project-storage");
+    await projectTab(page, "Backups");
     await page.getByRole("button", { name: "Back up now" }).click();
     const row = page.getByTestId("backup-row").first();
     await expect(row).toContainText("succeeded", { timeout: 60_000 });
     await expect(row.getByTestId("backup-storage")).toContainText("Our bucket");
     await expect(row.getByTestId("backup-storage")).toContainText("project key");
-    await shot(page, "42-project-storage");
 
     // The key file, after confirming it's you.
+    await projectTab(page, "Storage");
     await storage.getByRole("button", { name: "Download key…" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Your password").fill(password);
@@ -1263,7 +1414,7 @@ test.describe("with the saved session", () => {
 
     // A branch, copied live (there is no backup yet), kept 3 days.
     await page.getByRole("link", { name: "Open the project" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branches" }).click();
+    await projectTab(page, "Branches");
     await page.getByRole("button", { name: "New branch" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Branch name").fill("try-migration");
@@ -1283,7 +1434,7 @@ test.describe("with the saved session", () => {
     db = await connect(branchURL);
     await db.query("DELETE FROM entries");
     await db.end();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    await projectTab(page, "Branch");
     const controls = page.getByTestId("branch-controls");
     await expect(controls.getByTestId("branch-expiry")).toContainText("in ");
     await controls.getByTestId("reset-branch").click();
@@ -1304,7 +1455,7 @@ test.describe("with the saved session", () => {
 
     // Delete it (re-authentication, like any delete).
     await nested.getByRole("link", { name: "try-migration" }).click();
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Branch", exact: true }).click();
+    await projectTab(page, "Branch");
     await page.getByRole("button", { name: "Delete branch…" }).click();
     const confirm = page.getByRole("dialog");
     await confirm.getByTestId("confirm-name").fill("try-migration");
@@ -1378,9 +1529,10 @@ test.describe("with the saved session", () => {
     await page.getByTestId("webhook-test").click();
     await expect(page.getByTestId("webhook-message")).toContainText("Test event delivered");
     await shot(page, "47-webhook-log");
+    await page.keyboard.press("Escape");
 
     // A scheduled job, run now.
-    await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Jobs" }).click();
+    await projectTab(page, "Jobs");
     await page.getByRole("button", { name: "New job" }).click();
     const jd = page.getByRole("dialog");
     await jd.getByLabel("Name").fill("count-orders");
@@ -1394,5 +1546,46 @@ test.describe("with the saved session", () => {
     expect(await count(url, "SELECT n FROM order_counts")).toBe(1);
     await shot(page, "48-job-run");
     await db.end();
+  });
+
+  test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects");
+    await page.getByTestId("project-card").first().getByRole("link").first().click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+    const unfocus = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    // "?" lists every shortcut.
+    await unfocus();
+    await page.keyboard.press("?");
+    await expect(page.getByTestId("shortcuts-sheet")).toContainText("Format the SQL");
+    await shot(page, "49-shortcuts");
+    await page.keyboard.press("Escape");
+
+    // "g" then a letter jumps to a section.
+    await unfocus();
+    await page.keyboard.press("g");
+    await page.keyboard.press("l");
+    await expect(page).toHaveURL(new RegExp(`/projects/${id}/logs$`));
+    await unfocus();
+    await page.keyboard.press("g");
+    await page.keyboard.press("o");
+    await expect(page).toHaveURL(new RegExp(`/projects/${id}$`));
+
+    // On a phone the rail and the section menu are one drawer.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/projects/${id}/backups`);
+    await expect(page.getByTestId("rail")).toBeHidden();
+    await page.getByTestId("mobile-menu").click();
+    const drawer = page.getByTestId("mobile-nav");
+    await expect(drawer.getByRole("link", { name: "Backups", exact: true })).toHaveAttribute("aria-current", "page");
+    await shot(page, "50-mobile-menu");
+    await drawer.getByRole("link", { name: "SQL Editor" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${id}/sql$`));
+    await expect(drawer).toBeHidden();
+    await page.goto("/projects");
+    await expect(page.getByTestId("project-card").first()).toBeVisible();
+    await shot(page, "51-mobile-projects");
   });
 });

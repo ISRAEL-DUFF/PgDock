@@ -340,7 +340,7 @@ func TestTableBrowser(t *testing.T) {
 		"/tables/public/nope/rows":                http.StatusNotFound,
 		"/tables/pg_catalog/pg_authid/rows":       http.StatusNotFound,
 		"/tables/public/notes/rows?after=garbage": http.StatusBadRequest,
-		"/tables/public/notes/rows?limit=51":      http.StatusBadRequest,
+		"/tables/public/notes/rows?limit=1001":    http.StatusBadRequest,
 	} {
 		if code := e.Do("GET", "/api/v1/projects/"+id+path, nil, nil); code != want {
 			t.Errorf("%s: %d, want %d", path, code, want)
@@ -504,8 +504,11 @@ func TestExtensionsAndMetrics(t *testing.T) {
 		t.Fatalf("wrong token: %d", code)
 	}
 	code, body := e.GetText("/metrics", http.Header{"Authorization": {"Bearer " + token}}, false)
+	// Project series carry the opaque id and the organisation, never the
+	// tenant's project or database name (V2 s2.4).
 	if code != http.StatusOK || !strings.Contains(body, "# TYPE pgdock_project_size_bytes gauge") ||
-		!strings.Contains(body, `pgdock_project_tps{project_id="`+id+`",project="Measured",database="`+c.Project.DbName+`",tier="shared"} `) {
+		!strings.Contains(body, `pgdock_project_tps{project_id="`+id+`",org_id="`) ||
+		strings.Contains(body, `"Measured"`) || strings.Contains(body, c.Project.DbName) {
 		t.Fatalf("token /metrics: %d\n%s", code, body)
 	}
 	if code, _ := e.GetText("/metrics", nil, true); code != http.StatusOK {

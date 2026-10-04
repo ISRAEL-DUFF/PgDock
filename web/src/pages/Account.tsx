@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage } from "../api/client";
-import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Dialog, Field, FormRow, Input, Page, Panel, Section, Table, PageSkeleton } from "../components/ui";
 import { TokensCard } from "../components/Tokens";
 import { formatDate, relativeTime } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
@@ -11,19 +11,26 @@ import { refreshSession, sessionQuery } from "../lib/session";
 /** Profile, password, two-factor, sessions, tokens, and invitations (V2 §13). */
 export function AccountPage() {
   const { data: session } = useQuery(sessionQuery);
-  if (!session?.user) return <Spinner />;
+  if (!session?.user) return <PageSkeleton />;
   return (
-    <>
-      <PageHeader title="Your account" subtitle={session.user.email} />
-      <div className="flex max-w-3xl flex-col gap-4">
+    <Page title="Account" description="Your profile, how you sign in, and the tokens that act for you.">
+      <div className="flex max-w-4xl flex-col gap-8">
         <InvitationsCard />
-        <ProfileCard />
-        <PasswordCard />
-        <RecoveryCard />
-        <SessionsCard />
-        <TokensCard />
+        <Section title="Profile">
+          <ProfileCard />
+        </Section>
+        <Section title="Security" description="Signing in needs your password and a code from your authenticator app.">
+          <PasswordCard />
+          <RecoveryCard />
+        </Section>
+        <Section title="Sessions" description="Browsers signed in as you. Revoke any you don't recognise.">
+          <SessionsCard />
+        </Section>
+        <Section title="Access tokens">
+          <TokensCard />
+        </Section>
       </div>
-    </>
+    </Page>
   );
 }
 
@@ -34,7 +41,7 @@ function InvitationsCard() {
   const [err, setErr] = useState<string | null>(null);
   if (!q.data?.items.length) return null;
   return (
-    <Card title="Invitations">
+    <Panel title="Invitations" description="Organisations that invited you." tone="warn">
       <div id="invitations" className="flex flex-col gap-2">
         {q.data.items.map((i) => (
           <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -65,7 +72,7 @@ function InvitationsCard() {
         ))}
         {err && <Alert>{err}</Alert>}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -91,16 +98,35 @@ function ProfileCard() {
     }
   };
   return (
-    <Card title="Profile">
-      <form className="flex flex-col gap-3" onSubmit={save}>
-        <Field label="Name">{(id) => <Input id={id} value={value} onChange={(e) => setName(e.target.value)} maxLength={100} />}</Field>
-        <p className="text-xs text-muted">Platform role: {session?.user?.platform_role === "platform_admin" ? "platform admin" : "user"}</p>
+    <Panel
+      footer={
+        <>
+          <Button disabled={name === null} onClick={() => setName(null)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="profile-form" variant="primary" busy={busy} disabled={name === null}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <form id="profile-form" onSubmit={save}>
+        <FormRow label="Name" htmlFor="profile-name">
+          <Input id="profile-name" value={value} onChange={(e) => setName(e.target.value)} maxLength={100} />
+        </FormRow>
+        <FormRow label="Email" description="Ask a platform admin to change it.">
+          <Input value={session?.user?.email ?? ""} readOnly disabled aria-label="Email" />
+        </FormRow>
+        <FormRow label="Platform role">
+          <div>
+            <Badge tone={session?.user?.platform_role === "platform_admin" ? "accent" : "muted"}>
+              {session?.user?.platform_role === "platform_admin" ? "Platform admin" : "User"}
+            </Badge>
+          </div>
+        </FormRow>
         {err && <Alert>{err}</Alert>}
-        <Button type="submit" busy={busy} className="self-start" disabled={name === null}>
-          Save
-        </Button>
       </form>
-    </Card>
+    </Panel>
   );
 }
 
@@ -125,20 +151,25 @@ function PasswordCard() {
     }
   };
   return (
-    <Card title="Password">
-      <form className="flex flex-col gap-3" onSubmit={save}>
-        <Field label="Current password">
-          {(id) => <Input id={id} type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />}
-        </Field>
-        <Field label="New password" hint="At least 12 characters.">
-          {(id) => <Input id={id} type="password" required minLength={12} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />}
-        </Field>
-        {msg && <Alert tone={msg.ok ? "ok" : "danger"}>{msg.text}</Alert>}
-        <Button type="submit" busy={busy} className="self-start" disabled={next.length < 12 || !current}>
+    <Panel
+      title="Password"
+      description="Changing it signs out your other sessions."
+      footer={
+        <Button type="submit" form="password-form" variant="primary" busy={busy} disabled={next.length < 12 || !current}>
           Change password
         </Button>
+      }
+    >
+      <form id="password-form" onSubmit={save}>
+        <FormRow label="Current password" htmlFor="current-password">
+          <Input id="current-password" type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        </FormRow>
+        <FormRow label="New password" description="At least 12 characters." htmlFor="new-password">
+          <Input id="new-password" type="password" required minLength={12} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
+        </FormRow>
+        {msg && <Alert tone={msg.ok ? "ok" : "danger"}>{msg.text}</Alert>}
       </form>
-    </Card>
+    </Panel>
   );
 }
 
@@ -169,19 +200,42 @@ function RecoveryCard() {
   };
   const left = q.data?.remaining ?? 0;
   return (
-    <Card title="Two-factor recovery codes" actions={<Button className="text-xs" onClick={() => setOpen(true)}>New codes</Button>}>
-      <p className="text-sm">
-        {left} of 10 unused codes left.{" "}
-        {left <= 3 && <span className="text-warn">Make new ones before you run out.</span>}
-      </p>
-      <Modal title="New recovery codes" open={open} onClose={() => { setOpen(false); setCodes(null); }}>
+    <Panel title="Two-factor recovery codes" description="Each signs you in once if you lose your authenticator.">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px]">
+          <span className={left <= 3 ? "text-warn-text" : undefined}>{left} of 10</span> unused codes left.{" "}
+          {left <= 3 && <span className="text-warn-text">Make new ones before you run out.</span>}
+        </p>
+        <Button onClick={() => setOpen(true)}>New codes</Button>
+      </div>
+      <Dialog
+        title="New recovery codes"
+        open={open}
+        onOpenChange={(o) =>
+          !o &&
+          (() => {
+            setOpen(false);
+            setCodes(null);
+          })()
+        }
+      >
         {codes ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted">Your old codes no longer work. Save these; they are shown only once.</p>
             <ul className="grid grid-cols-2 gap-1 rounded-md border border-line bg-surface-2 p-3 font-mono text-sm" data-testid="new-recovery-codes">
-              {codes.map((c) => <li key={c}>{c}</li>)}
+              {codes.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
             </ul>
-            <Button variant="primary" onClick={() => { setOpen(false); setCodes(null); }}>Done</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setOpen(false);
+                setCodes(null);
+              }}
+            >
+              Done
+            </Button>
           </div>
         ) : (
           <form className="flex flex-col gap-3" onSubmit={regenerate}>
@@ -189,11 +243,13 @@ function RecoveryCard() {
             <Field label="Password">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
             <Field label="Authenticator code">{(id) => <Input id={id} inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />}</Field>
             {err && <Alert>{err}</Alert>}
-            <Button type="submit" variant="primary" busy={busy} disabled={!password || code.length < 6}>Make new codes</Button>
+            <Button type="submit" variant="primary" busy={busy} disabled={!password || code.length < 6}>
+              Make new codes
+            </Button>
           </form>
         )}
-      </Modal>
-    </Card>
+      </Dialog>
+    </Panel>
   );
 }
 
@@ -202,7 +258,7 @@ function SessionsCard() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   return (
-    <Card title="Sessions">
+    <>
       {q.data && (
         <Table head={["Device", "IP", "Signed in", "Last seen", ""]}>
           {q.data.items.map((s) => (
@@ -231,6 +287,6 @@ function SessionsCard() {
           ))}
         </Table>
       )}
-    </Card>
+    </>
   );
 }

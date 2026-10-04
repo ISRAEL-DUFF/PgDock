@@ -27,14 +27,18 @@ export function LineChart({
   to,
   format,
   label,
+  compact,
 }: {
   series: ChartSeries[];
   from: number;
   to: number;
   format: (v: number) => string;
   label: string;
+  /** A short chart, for the project overview. */
+  compact?: boolean;
 }) {
   const clip = useId();
+  const fade = useId();
   const [hover, setHover] = useState<number | null>(null);
   const max = useMemo(() => niceMax(Math.max(0, ...series.flatMap((s) => s.points.map((p) => p.value)))), [series]);
   const span = Math.max(1, to - from);
@@ -58,7 +62,7 @@ export function LineChart({
     <figure className="relative">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="h-40 w-full"
+        className={compact ? "h-36 w-full" : "h-44 w-full"}
         role="img"
         aria-label={label}
         onMouseMove={(e) => {
@@ -72,6 +76,10 @@ export function LineChart({
           <clipPath id={clip}>
             <rect x={PAD.l} y={PAD.t} width={W - PAD.l - PAD.r} height={H - PAD.t - PAD.b} />
           </clipPath>
+          <linearGradient id={fade} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={series[0]?.color ?? "var(--accent)"} stopOpacity="0.28" />
+            <stop offset="1" stopColor={series[0]?.color ?? "var(--accent)"} stopOpacity="0" />
+          </linearGradient>
         </defs>
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
@@ -94,9 +102,9 @@ export function LineChart({
             return (
               <g key={s.name}>
                 {series.length === 1 && pts.length > 1 && (
-                  <path d={`${d}L${pts[pts.length - 1][0]},${y(0)}L${pts[0][0]},${y(0)}Z`} fill={s.color} opacity="0.12" />
+                  <path d={`${d}L${pts[pts.length - 1][0]},${y(0)}L${pts[0][0]},${y(0)}Z`} fill={`url(#${fade})`} />
                 )}
-                <path d={d} fill="none" stroke={s.color} strokeWidth="1.75" strokeLinejoin="round" />
+                <path d={d} fill="none" stroke={s.color} strokeWidth="1.75" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                 {pts.length < 3 && pts.map(([px, py], i) => <circle key={i} cx={px} cy={py} r="2.5" fill={s.color} />)}
               </g>
             );
@@ -110,7 +118,7 @@ export function LineChart({
         )}
       </svg>
       {hv && (
-        <figcaption className="pointer-events-none absolute top-1 right-2 rounded border border-line bg-surface px-2 py-1 text-xs shadow-sm">
+        <figcaption className="pointer-events-none absolute top-1 right-2 rounded-md border border-line-strong bg-surface-2 px-2.5 py-1.5 text-[11px] shadow-lg">
           <div className="text-muted">{new Date(hv.ts).toLocaleString()}</div>
           {series.map((s) => {
             const p = s.points.find((q) => Date.parse(q.ts) === hv.ts);

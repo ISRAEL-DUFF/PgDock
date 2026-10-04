@@ -341,6 +341,60 @@ func (e BranchResetRequestSource) Valid() bool {
 	}
 }
 
+// Defines values for ColumnRefOnDelete.
+const (
+	ColumnRefOnDeleteCASCADE    ColumnRefOnDelete = "CASCADE"
+	ColumnRefOnDeleteNOACTION   ColumnRefOnDelete = "NO ACTION"
+	ColumnRefOnDeleteRESTRICT   ColumnRefOnDelete = "RESTRICT"
+	ColumnRefOnDeleteSETDEFAULT ColumnRefOnDelete = "SET DEFAULT"
+	ColumnRefOnDeleteSETNULL    ColumnRefOnDelete = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the ColumnRefOnDelete enum.
+func (e ColumnRefOnDelete) Valid() bool {
+	switch e {
+	case ColumnRefOnDeleteCASCADE:
+		return true
+	case ColumnRefOnDeleteNOACTION:
+		return true
+	case ColumnRefOnDeleteRESTRICT:
+		return true
+	case ColumnRefOnDeleteSETDEFAULT:
+		return true
+	case ColumnRefOnDeleteSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ColumnRefOnUpdate.
+const (
+	ColumnRefOnUpdateCASCADE    ColumnRefOnUpdate = "CASCADE"
+	ColumnRefOnUpdateNOACTION   ColumnRefOnUpdate = "NO ACTION"
+	ColumnRefOnUpdateRESTRICT   ColumnRefOnUpdate = "RESTRICT"
+	ColumnRefOnUpdateSETDEFAULT ColumnRefOnUpdate = "SET DEFAULT"
+	ColumnRefOnUpdateSETNULL    ColumnRefOnUpdate = "SET NULL"
+)
+
+// Valid indicates whether the value is a known member of the ColumnRefOnUpdate enum.
+func (e ColumnRefOnUpdate) Valid() bool {
+	switch e {
+	case ColumnRefOnUpdateCASCADE:
+		return true
+	case ColumnRefOnUpdateNOACTION:
+		return true
+	case ColumnRefOnUpdateRESTRICT:
+		return true
+	case ColumnRefOnUpdateSETDEFAULT:
+		return true
+	case ColumnRefOnUpdateSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateNodeRequestRole.
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
@@ -1097,6 +1151,60 @@ func (e RowChangeOp) Valid() bool {
 	}
 }
 
+// Defines values for SavedQueryVisibility.
+const (
+	SavedQueryVisibilityPrivate SavedQueryVisibility = "private"
+	SavedQueryVisibilityShared  SavedQueryVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryVisibility enum.
+func (e SavedQueryVisibility) Valid() bool {
+	switch e {
+	case SavedQueryVisibilityPrivate:
+		return true
+	case SavedQueryVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavedQueryPatchVisibility.
+const (
+	SavedQueryPatchVisibilityPrivate SavedQueryPatchVisibility = "private"
+	SavedQueryPatchVisibilityShared  SavedQueryPatchVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryPatchVisibility enum.
+func (e SavedQueryPatchVisibility) Valid() bool {
+	switch e {
+	case SavedQueryPatchVisibilityPrivate:
+		return true
+	case SavedQueryPatchVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavedQueryRequestVisibility.
+const (
+	SavedQueryRequestVisibilityPrivate SavedQueryRequestVisibility = "private"
+	SavedQueryRequestVisibilityShared  SavedQueryRequestVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryRequestVisibility enum.
+func (e SavedQueryRequestVisibility) Valid() bool {
+	switch e {
+	case SavedQueryRequestVisibilityPrivate:
+		return true
+	case SavedQueryRequestVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SchemaChangeKind.
 const (
 	AddCheck       SchemaChangeKind = "add_check"
@@ -1105,6 +1213,7 @@ const (
 	AddForeignKey  SchemaChangeKind = "add_foreign_key"
 	AddUnique      SchemaChangeKind = "add_unique"
 	AlterColumn    SchemaChangeKind = "alter_column"
+	Batch          SchemaChangeKind = "batch"
 	CreateEnum     SchemaChangeKind = "create_enum"
 	CreateIndex    SchemaChangeKind = "create_index"
 	CreateSchema   SchemaChangeKind = "create_schema"
@@ -1114,8 +1223,10 @@ const (
 	DropIndex      SchemaChangeKind = "drop_index"
 	DropSchema     SchemaChangeKind = "drop_schema"
 	DropTable      SchemaChangeKind = "drop_table"
+	DuplicateTable SchemaChangeKind = "duplicate_table"
 	RenameColumn   SchemaChangeKind = "rename_column"
 	RenameTable    SchemaChangeKind = "rename_table"
+	SetComment     SchemaChangeKind = "set_comment"
 )
 
 // Valid indicates whether the value is a known member of the SchemaChangeKind enum.
@@ -1132,6 +1243,8 @@ func (e SchemaChangeKind) Valid() bool {
 	case AddUnique:
 		return true
 	case AlterColumn:
+		return true
+	case Batch:
 		return true
 	case CreateEnum:
 		return true
@@ -1151,9 +1264,13 @@ func (e SchemaChangeKind) Valid() bool {
 		return true
 	case DropTable:
 		return true
+	case DuplicateTable:
+		return true
 	case RenameColumn:
 		return true
 	case RenameTable:
+		return true
+	case SetComment:
 		return true
 	default:
 		return false
@@ -2300,6 +2417,23 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"new_password"`
 }
 
+// ColumnRef A column's foreign key.
+type ColumnRef struct {
+	Column   string             `json:"column"`
+	OnDelete *ColumnRefOnDelete `json:"on_delete,omitempty"`
+	OnUpdate *ColumnRefOnUpdate `json:"on_update,omitempty"`
+
+	// Schema Defaults to the table's schema.
+	Schema *string `json:"schema,omitempty"`
+	Table  string  `json:"table"`
+}
+
+// ColumnRefOnDelete defines model for ColumnRef.OnDelete.
+type ColumnRefOnDelete string
+
+// ColumnRefOnUpdate defines model for ColumnRef.OnUpdate.
+type ColumnRefOnUpdate string
+
 // ConnectionInfo defines model for ConnectionInfo.
 type ConnectionInfo struct {
 	// Database Example: blog_k2f9
@@ -2397,6 +2531,12 @@ type DbColumn struct {
 	Type     string  `json:"type"`
 }
 
+// DbEnum defines model for DbEnum.
+type DbEnum struct {
+	Name   string   `json:"name"`
+	Values []string `json:"values"`
+}
+
 // DbHostRequest defines model for DbHostRequest.
 type DbHostRequest struct {
 	// DbHost Example: db.example.com
@@ -2418,6 +2558,7 @@ type DbSchema struct {
 
 // DbSchemaNode defines model for DbSchemaNode.
 type DbSchemaNode struct {
+	Enums  []DbEnum  `json:"enums"`
 	Name   string    `json:"name"`
 	Tables []DbTable `json:"tables"`
 }
@@ -2618,6 +2759,7 @@ type EditColumn struct {
 
 	// Category pg_type.typcategory (B boolean, N numeric, S string, D date/time, U user, E enum, A array…).
 	Category   string              `json:"category"`
+	Comment    *string             `json:"comment,omitempty"`
 	Default    *string             `json:"default,omitempty"`
 	EnumValues *[]string           `json:"enum_values,omitempty"`
 	Generated  bool                `json:"generated"`
@@ -3702,6 +3844,12 @@ type RowConflict struct {
 	Xmin  *string `json:"xmin,omitempty"`
 }
 
+// RowCount defines model for RowCount.
+type RowCount struct {
+	Count     *int64 `json:"count"`
+	Estimated bool   `json:"estimated"`
+}
+
 // SaveRowsRequest defines model for SaveRowsRequest.
 type SaveRowsRequest struct {
 	Changes []RowChange `json:"changes"`
@@ -3718,6 +3866,51 @@ type SaveRowsResult struct {
 	// Summary Example: 3 updates, 1 insert, 2 deletes
 	Summary string `json:"summary"`
 }
+
+// SavedQuery defines model for SavedQuery.
+type SavedQuery struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Favorite In your favourites.
+	Favorite bool               `json:"favorite"`
+	Id       openapi_types.UUID `json:"id"`
+
+	// Mine You own it, so you can edit it.
+	Mine       bool                 `json:"mine"`
+	Name       string               `json:"name"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	Sql        string               `json:"sql"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Visibility SavedQueryVisibility `json:"visibility"`
+}
+
+// SavedQueryVisibility defines model for SavedQuery.Visibility.
+type SavedQueryVisibility string
+
+// SavedQueryList defines model for SavedQueryList.
+type SavedQueryList struct {
+	Items []SavedQuery `json:"items"`
+}
+
+// SavedQueryPatch defines model for SavedQueryPatch.
+type SavedQueryPatch struct {
+	Name       *string                    `json:"name,omitempty"`
+	Sql        *string                    `json:"sql,omitempty"`
+	Visibility *SavedQueryPatchVisibility `json:"visibility,omitempty"`
+}
+
+// SavedQueryPatchVisibility defines model for SavedQueryPatch.Visibility.
+type SavedQueryPatchVisibility string
+
+// SavedQueryRequest defines model for SavedQueryRequest.
+type SavedQueryRequest struct {
+	Name       string                       `json:"name"`
+	Sql        *string                      `json:"sql,omitempty"`
+	Visibility *SavedQueryRequestVisibility `json:"visibility,omitempty"`
+}
+
+// SavedQueryRequestVisibility defines model for SavedQueryRequest.Visibility.
+type SavedQueryRequestVisibility string
 
 // SavedRow defines model for SavedRow.
 type SavedRow struct {
@@ -3746,8 +3939,11 @@ type SchemaApplyRequest struct {
 
 // SchemaChange One change (V2 §4.3); which fields apply depends on `kind`.
 type SchemaChange struct {
-	BeforeValue  *string             `json:"before_value,omitempty"`
-	Cascade      *bool               `json:"cascade,omitempty"`
+	BeforeValue *string `json:"before_value,omitempty"`
+	Cascade     *bool   `json:"cascade,omitempty"`
+
+	// Changes batch - changes to one table, run in one transaction; a rename comes last.
+	Changes      *[]SchemaChange     `json:"changes,omitempty"`
 	Column       *SchemaColumnDef    `json:"column,omitempty"`
 	ColumnName   *string             `json:"column_name,omitempty"`
 	Columns      *[]SchemaColumnDef  `json:"columns,omitempty"`
@@ -3778,6 +3974,9 @@ type SchemaChange struct {
 	Value      *string               `json:"value,omitempty"`
 	Values     *[]string             `json:"values,omitempty"`
 	Where      *string               `json:"where,omitempty"`
+
+	// WithData duplicate_table - copy the rows too.
+	WithData *bool `json:"with_data,omitempty"`
 }
 
 // SchemaChangeKind defines model for SchemaChange.Kind.
@@ -3794,6 +3993,8 @@ type SchemaChangeOnUpdate string
 
 // SchemaColumnDef defines model for SchemaColumnDef.
 type SchemaColumnDef struct {
+	// Check A CHECK expression on the column.
+	Check   *string `json:"check,omitempty"`
 	Comment *string `json:"comment,omitempty"`
 
 	// Default An SQL expression, e.g. now() or 'draft'.
@@ -3802,8 +4003,12 @@ type SchemaColumnDef struct {
 	Nullable   *bool   `json:"nullable,omitempty"`
 	PrimaryKey *bool   `json:"primary_key,omitempty"`
 
+	// References A column's foreign key.
+	References *ColumnRef `json:"references,omitempty"`
+
 	// Type Example: text
-	Type string `json:"type"`
+	Type   string `json:"type"`
+	Unique *bool  `json:"unique,omitempty"`
 }
 
 // SchemaMigration defines model for SchemaMigration.
@@ -4157,6 +4362,7 @@ type SwitchedCredentials struct {
 
 // TableConstraint defines model for TableConstraint.
 type TableConstraint struct {
+	Columns    *[]string           `json:"columns,omitempty"`
 	Definition string              `json:"definition"`
 	Kind       TableConstraintKind `json:"kind"`
 	Name       string              `json:"name"`
@@ -4164,6 +4370,11 @@ type TableConstraint struct {
 
 // TableConstraintKind defines model for TableConstraint.Kind.
 type TableConstraintKind string
+
+// TableDefinition defines model for TableDefinition.
+type TableDefinition struct {
+	Sql string `json:"sql"`
+}
 
 // TableFootprint defines model for TableFootprint.
 type TableFootprint struct {
@@ -4176,6 +4387,7 @@ type TableFootprint struct {
 // TableInfo defines model for TableInfo.
 type TableInfo struct {
 	Columns        []EditColumn      `json:"columns"`
+	Comment        *string           `json:"comment,omitempty"`
 	Constraints    []TableConstraint `json:"constraints"`
 	Editable       bool              `json:"editable"`
 	ForeignKeys    []ForeignKey      `json:"foreign_keys"`
@@ -4578,6 +4790,9 @@ type ProjectID = openapi_types.UUID
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
 
+// SavedQueryID defines model for SavedQueryID.
+type SavedQueryID = openapi_types.UUID
+
 // SchemaName defines model for SchemaName.
 type SchemaName = string
 
@@ -4773,13 +4988,29 @@ type GetProjectMetricsParams struct {
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
 
+// SetSavedQueryFavoriteJSONBody defines parameters for SetSavedQueryFavorite.
+type SetSavedQueryFavoriteJSONBody struct {
+	Favorite bool `json:"favorite"`
+}
+
+// CountTableRowsParams defines parameters for CountTableRows.
+type CountTableRowsParams struct {
+	// Filter Repeatable, as for the rows.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
 // ExportTableRowsParams defines parameters for ExportTableRows.
 type ExportTableRowsParams struct {
 	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
-	Filter *[]string                    `form:"filter,omitempty" json:"filter,omitempty"`
-	Sort   *string                      `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc   *bool                        `form:"desc,omitempty" json:"desc,omitempty"`
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+	Sort   *string   `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc   *bool     `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+	// several sort by each column in turn. Takes the place of sort and
+	// desc.
+	Order  *[]string                    `form:"order,omitempty" json:"order,omitempty"`
 	Format *ExportTableRowsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
 }
 
@@ -4794,10 +5025,18 @@ type GetTableRowsParams struct {
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
 
 	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
-	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
-	After *string `form:"after,omitempty" json:"after,omitempty"`
-	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc *bool   `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
+	// several sort by each column in turn. Takes the place of sort and
+	// desc.
+	Order *[]string `form:"order,omitempty" json:"order,omitempty"`
+	After *string   `form:"after,omitempty" json:"after,omitempty"`
+
+	// Offset Numbered pages - offset paging from this row, whatever the table's keys.
+	Offset *int64 `form:"offset,omitempty" json:"offset,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListWebhookDeliveriesParams defines parameters for ListWebhookDeliveries.
@@ -5003,6 +5242,15 @@ type RestoreProjectPITRJSONRequestBody = PitrRequest
 
 // PromoteProjectJSONRequestBody defines body for PromoteProject for application/json ContentType.
 type PromoteProjectJSONRequestBody = PromoteRequest
+
+// CreateSavedQueryJSONRequestBody defines body for CreateSavedQuery for application/json ContentType.
+type CreateSavedQueryJSONRequestBody = SavedQueryRequest
+
+// UpdateSavedQueryJSONRequestBody defines body for UpdateSavedQuery for application/json ContentType.
+type UpdateSavedQueryJSONRequestBody = SavedQueryPatch
+
+// SetSavedQueryFavoriteJSONRequestBody defines body for SetSavedQueryFavorite for application/json ContentType.
+type SetSavedQueryFavoriteJSONRequestBody SetSavedQueryFavoriteJSONBody
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
@@ -5507,6 +5755,24 @@ type ServerInterface interface {
 	// PromoteProject Promote a shared project to a dedicated instance
 	// (POST /api/v1/projects/{id}/promote)
 	PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListSavedQueries The SQL Editor's saved queries - your own and the shared ones
+	// (GET /api/v1/projects/{id}/queries)
+	ListSavedQueries(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateSavedQuery Save a query (private unless shared)
+	// (POST /api/v1/projects/{id}/queries)
+	CreateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteSavedQuery Delete your own query (project admins may delete shared ones)
+	// (DELETE /api/v1/projects/{id}/queries/{query_id})
+	DeleteSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
+	// GetSavedQuery A saved query
+	// (GET /api/v1/projects/{id}/queries/{query_id})
+	GetSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
+	// UpdateSavedQuery Rename, edit, share or unshare your own query
+	// (PATCH /api/v1/projects/{id}/queries/{query_id})
+	UpdateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
+	// SetSavedQueryFavorite Add a query to your favourites, or take it out
+	// (PUT /api/v1/projects/{id}/queries/{query_id}/favorite)
+	SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
 	// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
 	// (GET /api/v1/projects/{id}/reaped)
 	ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5558,6 +5824,12 @@ type ServerInterface interface {
 	// SaveTableChanges Save staged row edits in one transaction
 	// (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
 	SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
+	// CountTableRows How many rows the grid holds, filtered
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/count)
+	CountTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params CountTableRowsParams)
+	// GetTableDefinition The table, view or materialized view as DDL
+	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/definition)
+	GetTableDefinition(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
 	// ExportTableRows Export filtered, sorted rows as CSV or JSON (at most 100,000)
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table}/export)
 	ExportTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params ExportTableRowsParams)
@@ -6536,6 +6808,42 @@ func (_ Unimplemented) PromoteProject(w http.ResponseWriter, r *http.Request, id
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListSavedQueries The SQL Editor's saved queries - your own and the shared ones
+// (GET /api/v1/projects/{id}/queries)
+func (_ Unimplemented) ListSavedQueries(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateSavedQuery Save a query (private unless shared)
+// (POST /api/v1/projects/{id}/queries)
+func (_ Unimplemented) CreateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteSavedQuery Delete your own query (project admins may delete shared ones)
+// (DELETE /api/v1/projects/{id}/queries/{query_id})
+func (_ Unimplemented) DeleteSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetSavedQuery A saved query
+// (GET /api/v1/projects/{id}/queries/{query_id})
+func (_ Unimplemented) GetSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateSavedQuery Rename, edit, share or unshare your own query
+// (PATCH /api/v1/projects/{id}/queries/{query_id})
+func (_ Unimplemented) UpdateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetSavedQueryFavorite Add a query to your favourites, or take it out
+// (PUT /api/v1/projects/{id}/queries/{query_id}/favorite)
+func (_ Unimplemented) SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
 // (GET /api/v1/projects/{id}/reaped)
 func (_ Unimplemented) ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -6635,6 +6943,18 @@ func (_ Unimplemented) GetTableInfo(w http.ResponseWriter, r *http.Request, id P
 // SaveTableChanges Save staged row edits in one transaction
 // (POST /api/v1/projects/{id}/tables/{schema}/{table}/changes)
 func (_ Unimplemented) SaveTableChanges(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CountTableRows How many rows the grid holds, filtered
+// (GET /api/v1/projects/{id}/tables/{schema}/{table}/count)
+func (_ Unimplemented) CountTableRows(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName, params CountTableRowsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTableDefinition The table, view or materialized view as DDL
+// (GET /api/v1/projects/{id}/tables/{schema}/{table}/definition)
+func (_ Unimplemented) GetTableDefinition(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10779,6 +11099,198 @@ func (siw *ServerInterfaceWrapper) PromoteProject(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListSavedQueries operation middleware
+func (siw *ServerInterfaceWrapper) ListSavedQueries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSavedQueries(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) CreateSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSavedQuery(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteSavedQuery(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) GetSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSavedQuery(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSavedQuery(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetSavedQueryFavorite operation middleware
+func (siw *ServerInterfaceWrapper) SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetSavedQueryFavorite(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListReapedSessions operation middleware
 func (siw *ServerInterfaceWrapper) ListReapedSessions(w http.ResponseWriter, r *http.Request) {
 
@@ -11257,6 +11769,110 @@ func (siw *ServerInterfaceWrapper) SaveTableChanges(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// CountTableRows operation middleware
+func (siw *ServerInterfaceWrapper) CountTableRows(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CountTableRowsParams
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", r.URL.Query(), &params.Filter, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CountTableRows(w, r, id, schema, table, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTableDefinition operation middleware
+func (siw *ServerInterfaceWrapper) GetTableDefinition(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema SchemaName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table TableName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTableDefinition(w, r, id, schema, table)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ExportTableRows operation middleware
 func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *http.Request) {
 
@@ -11328,6 +11944,19 @@ func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "desc"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "desc", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", r.URL.Query(), &params.Order, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
 		}
 		return
 	}
@@ -11431,6 +12060,19 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", r.URL.Query(), &params.Order, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "after" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", r.URL.Query(), &params.After, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -11440,6 +12082,19 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "after"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
 		}
 		return
 	}
@@ -12568,6 +13223,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/export", wrapper.ExportTableRows)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/count", wrapper.CountTableRows)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/definition", wrapper.GetTableDefinition)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/tables/{schema}/{table}/changes", wrapper.SaveTableChanges)
 	})
 	r.Group(func(r chi.Router) {
@@ -12578,6 +13239,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/migration", wrapper.SchemaMigration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/queries", wrapper.ListSavedQueries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/queries", wrapper.CreateSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}", wrapper.DeleteSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}", wrapper.GetSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}", wrapper.UpdateSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}/favorite", wrapper.SetSavedQueryFavorite)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/editor-preferences", wrapper.GetEditorPreferences)

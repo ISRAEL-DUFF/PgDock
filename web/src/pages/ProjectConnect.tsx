@@ -1,14 +1,25 @@
 import { useState } from "react";
-import { Card, CodeBlock, CopyField } from "../components/ui";
-import { cx } from "../components/ui";
+import { CodeBlock, CopyField, Page, Panel, cx } from "../components/ui";
+import type { Project } from "../api/client";
 import { useProject } from "./ProjectOverview";
 
 export function ProjectConnectPage() {
   const { data: p } = useProject();
-  const [tab, setTab] = useState("psql");
   if (!p) return null;
+  return (
+    <Page title="Connect to your project" description="Connection details and snippets for your app, migrations and tools." testId="project-connect">
+      <ConnectPanel p={p} />
+    </Page>
+  );
+}
+
+/** Connection strings and snippets: the Connect page, and the top bar's
+ * Connect dialog. */
+export function ConnectPanel({ p }: { p: Project }) {
+  const [tab, setTab] = useState("psql");
   const c = p.connection;
-  const pw = (url: string) => url.replace(`${c.user}@`, `${c.user}:YOUR_PASSWORD@`);
+  const pw = (url: string) =>
+    url.replace(`${c.user}@`, `${c.user}:YOUR_PASSWORD@`);
   const pooled = pw(c.pooled_url);
   const session = pw(c.session_url);
 
@@ -45,35 +56,45 @@ datasource db {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card title="Connection details">
+      <Panel title="Connection details">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <CopyField label="Host" value={c.host} />
           <CopyField label="Database" value={c.database} />
           <CopyField label="User" value={c.user} />
           <CopyField label="SSL mode" value={c.sslmode} />
-          <CopyField label="Pooled port (transaction mode)" value={String(c.pooled_port)} />
+          <CopyField
+            label="Pooled port (transaction mode)"
+            value={String(c.pooled_port)}
+          />
           <CopyField label="Session port" value={String(c.session_port)} />
         </div>
         <p className="mt-3 text-xs text-muted">
-          Use the pooled port for application traffic and serverless functions; use the session port for migrations, <code>LISTEN</code>,
-          and advisory locks. The password was shown once at creation; rotate it in Settings if you need a new one.
+          Use the pooled port for application traffic and serverless functions;
+          use the session port for migrations, <code>LISTEN</code>, and advisory
+          locks. The password was shown once at creation; rotate it in Settings
+          if you need a new one.
         </p>
-      </Card>
-      <Card title="Snippets">
+      </Panel>
+      <Panel title="Snippets">
         <div className="mb-3 flex flex-wrap gap-1">
           {Object.keys(snippets).map((k) => (
             <button
               key={k}
               type="button"
               onClick={() => setTab(k)}
-              className={cx("rounded-md px-2.5 py-1 text-xs", tab === k ? "bg-surface-2 font-medium text-fg" : "text-muted hover:text-fg")}
+              className={cx(
+                "rounded-md border px-2.5 py-1 text-xs",
+                tab === k
+                  ? "border-line-strong bg-surface-3 text-fg"
+                  : "border-transparent text-muted hover:text-fg",
+              )}
             >
               {k}
             </button>
           ))}
         </div>
         <CodeBlock code={snippets[tab]} />
-      </Card>
+      </Panel>
     </div>
   );
 }

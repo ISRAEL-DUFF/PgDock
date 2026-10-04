@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type InvitationCreated, type PersonalCredentials, type ProjectRole } from "../api/client";
-import { Alert, Badge, Button, Card, CopyField, Field, Input, Select, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, CopyField, Page, Panel, Field, Input, Select, Table, PageSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { sessionQuery } from "../lib/session";
 import { AuditView } from "./Audit";
@@ -26,7 +26,7 @@ export function ProjectMembersPage() {
   const [err, setErr] = useState<string | null>(null);
   const [invited, setInvited] = useState<InvitationCreated | null>(null);
   const [added, setAdded] = useState(false);
-  if (!p) return <Spinner />;
+  if (!p) return <PageSkeleton />;
   const admin = p.my_role === "admin";
   const refresh = () => qc.invalidateQueries({ queryKey: ["project", p.id, "members"] });
   const act = async (f: () => Promise<unknown>) => {
@@ -58,9 +58,9 @@ export function ProjectMembersPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page title="Members" description="Who can use this project, with what role, and their personal database logins." testId="project-members">
       <MyCredentials projectId={p.id} />
-      <Card title="Members">
+      <Panel title="Members">
         {members.data && (
           <Table head={["Member", "Role", "Login", ""]}>
             {members.data.items.map((m) => (
@@ -75,7 +75,11 @@ export function ProjectMembersPage() {
                       admin <Badge>org {m.org_role}</Badge>
                     </span>
                   ) : admin && m.user_id !== session?.user?.id ? (
-                    <Select aria-label={`Role of ${m.email}`} value={m.role} onChange={(e) => act(() => api.setProjectRole(p.id, m.user_id, e.target.value as ProjectRole))}>
+                    <Select
+                      aria-label={`Role of ${m.email}`}
+                      value={m.role}
+                      onChange={(e) => act(() => api.setProjectRole(p.id, m.user_id, e.target.value as ProjectRole))}
+                    >
                       {roles.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.label}
@@ -132,9 +136,9 @@ export function ProjectMembersPage() {
             <Alert>{err}</Alert>
           </div>
         )}
-      </Card>
+      </Panel>
       {admin && <AuditView embedded title="Project audit log" scope={`project:${p.id}`} load={(q) => api.projectAudit(p.id, q)} />}
-    </div>
+    </Page>
   );
 }
 
@@ -159,7 +163,7 @@ function MyCredentials({ projectId }: { projectId: string }) {
   };
   const info = q.data;
   return (
-    <Card title="Your database login">
+    <Panel title="Your database login">
       <div className="flex flex-col gap-3" data-testid="my-credentials">
         <p className="text-sm text-muted">
           Your own login to this database, separate from the app's password, so removing you never means rotating it. Your role gives{" "}
@@ -181,6 +185,6 @@ function MyCredentials({ projectId }: { projectId: string }) {
         )}
         {err && <Alert>{err}</Alert>}
       </div>
-    </Card>
+    </Panel>
   );
 }

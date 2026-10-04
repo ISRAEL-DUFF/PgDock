@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type APIToken, type CreatedToken, type TokenScope } from "../api/client";
 import { formatDate, relativeTime } from "../lib/format";
-import { Alert, Badge, Button, Card, CodeBlock, CopyField, Field, Input, Modal, Select, Table } from "./ui";
+import { Alert, Badge, Button, Panel, CodeBlock, CopyField, Field, Input, Select, SidePanel, Table } from "./ui";
 
 export const SCOPE_TEXT: Record<TokenScope, string> = {
   read: "View everything you can see in the organisation, and run read-only SQL",
@@ -132,16 +132,37 @@ function NewTokenModal({ open, onClose }: { open: boolean; onClose: () => void }
     }
   };
   return (
-    <Modal title="New API token" open={open} onClose={close}>
-      {created ? (
-        <div className="flex flex-col gap-4">
-          <TokenSecret created={created} />
-          <Button variant="primary" className="self-end" onClick={close}>
+    <SidePanel
+      title="New API token"
+      description="For the pgdock CLI, CI jobs and scripts."
+      open={open}
+      onOpenChange={(o) => !o && close()}
+      footer={
+        created ? (
+          <Button variant="primary" onClick={close}>
             Done
           </Button>
-        </div>
+        ) : (
+          <>
+            <Button onClick={close}>Cancel</Button>
+            <Button
+              type="submit"
+              form="new-token-form"
+              variant="primary"
+              busy={busy}
+              disabled={!name.trim() || !org || (projects !== null && projects.length === 0)}
+              data-testid="create-token"
+            >
+              Create token
+            </Button>
+          </>
+        )
+      }
+    >
+      {created ? (
+        <TokenSecret created={created} />
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form id="new-token-form" className="flex flex-col gap-5" onSubmit={submit}>
           <Field label="Name" hint="What it's for, e.g. “GitHub Actions — blog”.">
             {(id) => <Input id={id} required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} autoFocus />}
           </Field>
@@ -171,15 +192,9 @@ function NewTokenModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
           </Field>
           {err && <Alert>{err}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button onClick={close}>Cancel</Button>
-            <Button type="submit" variant="primary" busy={busy} disabled={!name.trim() || !org || (projects !== null && projects.length === 0)} data-testid="create-token">
-              Create token
-            </Button>
-          </div>
         </form>
       )}
-    </Modal>
+    </SidePanel>
   );
 }
 
@@ -196,9 +211,7 @@ function TokenRows({ items, revoke, showOrg, showUser }: { items: APIToken[]; re
           {showOrg && <td className="px-3 py-1.5 text-xs">{t.org_name}</td>}
           <td className="px-3 py-1.5 font-mono text-xs">{t.scopes.join(", ")}</td>
           <td className="px-3 py-1.5 text-xs">{t.project_ids ? `${t.project_ids.length} only` : "all"}</td>
-          <td className="px-3 py-1.5 text-xs">
-            {t.status === "active" ? formatDate(t.expires_at) : <Badge tone={statusTone(t.status)}>{t.status}</Badge>}
-          </td>
+          <td className="px-3 py-1.5 text-xs">{t.status === "active" ? formatDate(t.expires_at) : <Badge tone={statusTone(t.status)}>{t.status}</Badge>}</td>
           <td className="px-3 py-1.5 text-xs text-muted">
             {t.last_used_at ? `${relativeTime(t.last_used_at)}${t.last_used_ip ? ` from ${t.last_used_ip}` : ""}` : "never"}
           </td>
@@ -231,8 +244,8 @@ export function TokensCard() {
     }
   };
   return (
-    <Card
-      title="API tokens"
+    <Panel
+      title="Your API tokens"
       actions={
         <Button onClick={() => setOpen(true)} data-testid="new-token">
           New token
@@ -248,7 +261,7 @@ export function TokensCard() {
         {err && <Alert>{err}</Alert>}
       </div>
       <NewTokenModal open={open} onClose={() => setOpen(false)} />
-    </Card>
+    </Panel>
   );
 }
 
@@ -267,13 +280,13 @@ export function OrgTokensCard({ orgId }: { orgId: string }) {
     }
   };
   return (
-    <Card title="API tokens">
+    <Panel title="API tokens">
       <div className="flex flex-col gap-3" data-testid="org-tokens">
         <p className="text-sm text-muted">Every member's tokens for this organisation. Revoking one stops it at once.</p>
         {q.data && (q.data.items.length ? <TokenRows items={q.data.items} revoke={revoke} showUser /> : <p className="text-sm text-muted">None yet.</p>)}
         {err && <Alert>{err}</Alert>}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -296,20 +309,18 @@ export function TokenSettingsCard() {
     }
   };
   return (
-    <Card title="API tokens">
+    <Panel title="API tokens">
       <form className="flex items-end gap-2" onSubmit={save}>
         <Field label="Longest expiry (days)" hint="Up to 365. New tokens can't be made to last longer.">
-          {(id) => <Input id={id} type="number" min={1} max={365} className="w-28" value={days ?? q.data.max_days} onChange={(e) => setDays(Number(e.target.value))} />}
+          {(id) => (
+            <Input id={id} type="number" min={1} max={365} className="w-28" value={days ?? q.data.max_days} onChange={(e) => setDays(Number(e.target.value))} />
+          )}
         </Field>
         <Button type="submit" disabled={days === null}>
           Save
         </Button>
       </form>
-      {msg && (
-        <Alert tone={msg.ok ? "ok" : "danger"}>
-          {msg.text}
-        </Alert>
-      )}
-    </Card>
+      {msg && <Alert tone={msg.ok ? "ok" : "danger"}>{msg.text}</Alert>}
+    </Panel>
   );
 }

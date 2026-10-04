@@ -15,7 +15,7 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
   | Restore test failed | critical | The latest weekly restore test failed |
   | Node disk | warning | A node's data disk is over 85% full |
   | Node unreachable | critical | A node's agent has not answered for 2+ minutes |
-  | Project disk | warning | A project is larger than its disk warning (Settings → Guardrails) |
+  | Project disk | warning | A project is larger than its disk warning (Project Settings → Database) |
   | Pooler down | critical | A PgBouncer's admin console does not answer |
   | Isolation check | critical | The nightly tenant-isolation check found a problem |
 
@@ -116,7 +116,7 @@ Shared-tier projects are measured every minute:
   transaction (`BEGIN READ WRITE`), and the SQL console works.
 - **120%** (or 100% with the node's disk 95% full): apps cannot log in.
   The console and table browser still work; delete data there, then
-  **Reclaim space** (Settings → Storage) to give the space back.
+  **Reclaim space** (Project Settings → Database) to give the space back.
 
 Locks lift at the next check once the project is under the limit.
 Statements running over 10 minutes are cancelled and transactions idle
@@ -149,32 +149,63 @@ New projects' databases and roles are named `p_<random>`, so other
 tenants cannot learn them. Projects from before V2 are renamed on the
 server side and keep their old name as an alias, so their URLs keep
 working; their role name stays visible until an admin uses **Switch to
-opaque credentials** (Settings), which issues new URLs and keeps the old
+opaque credentials** (Project Settings → Database), which issues new URLs and keeps the old
 ones working for a grace period. Members' personal database logins
 (`<database>_u_<member>`) are renamed at once, with the same password: their
 old user name stops working, so members copy the new connection string.
 
+## The SQL Editor
+
+The **SQL Editor** is laid out as Supabase Studio's. Queries run against
+the live database as the project's owner role, at most 1,000 rows shown
+per statement, with a 30-second timeout unless you pick a longer one; run
+read-only from the role picker, and read-only members and projects whose
+console is read-only always do. ⌘↵ runs the selection or everything,
+⌘⇧F formats, and the editor completes schema, table and column names.
+Long queries can be cancelled; errors are marked where Postgres found
+them; results export as CSV or JSON.
+
+Queries are saved as you type. Each member keeps their own (**Private**),
+can share one with everyone who can use the project's console
+(**Shared**), and marks favourites for themselves. Only a query's owner
+edits it (others duplicate it to change it); project admins may also
+delete shared ones. Saved queries are deleted with the project and move
+with it to another organisation. The editor's run history stays in the
+browser.
+
 ## The table editor
 
-Project members edit data and schema under **Tables** (developers and
-above; read-only members browse and export). Rows: filter, sort,
-double-click to edit, then **Save**; everything in one save commits or
-none of it, and if someone changed a row since you loaded it you see a
-conflict instead of overwriting their change. Tables need a primary key
-to be editable. **Structure**: every change shows its SQL and risk notes
-first, such as "Rewrites the table and blocks writes" for a type change,
-and runs with a 5-second lock timeout, so it fails fast rather than
-queueing behind a long transaction. Indexes build concurrently. Schema
-changes are in the project's audit log with their SQL. **Save as
-migration** exports the change as plain SQL, goose or dbmate, to apply
-to other environments.
+Project members edit data and schema in the **Table Editor**, laid out as
+Supabase Studio's (developers and above; read-only members browse and
+export). The sidebar lists the schema's tables, views and other objects,
+each with a menu to edit, duplicate, copy the name of, export or delete
+it; open tables stay as tabs. Rows: **Filter** and **Sort** (several
+columns), pages of 100 to 1,000 with the record count (an estimate on big
+unfiltered tables), and **Definition** shows the table's DDL.
+Double-click a cell to edit it: the change saves at once, checked
+against the column's type, and if someone changed the row since you
+loaded it you get a "Someone changed this row" message instead of
+overwriting their change. JSON cells open a larger editor; foreign-key
+cells link to the row they reference. **Insert** adds a row or a column
+from a side panel; select rows to delete them. Tables need a primary key
+to be editable.
+
+Schema changes (new table, edit table, add or edit a column, with
+foreign keys, unique and check constraints) are made in side panels and
+then reviewed: every change shows its SQL and risk notes first, such as
+"Rewrites the table and blocks writes" for a type change, and runs with
+a 5-second lock timeout, so it fails fast rather than queueing behind a
+long transaction. Editing a table runs all its changes in one
+transaction. Indexes build concurrently. Schema changes are in the
+project's audit log with their SQL. **Save as migration** exports the
+change as plain SQL, goose or dbmate, to apply to other environments.
 
 ## Branches
 
 A branch is a throwaway copy of a project on the shared tier (on the
 organisation's own shared cluster if it has one), from its latest backup
 or live, schema only or with data. Developers and above create them under
-**Project → Branches** or with `pgdock branch create`; they expire after
+**Database → Branches** or with `pgdock branch create`; they expire after
 7 days unless given another TTL (1 hour to 30 days, or kept), the
 creator is emailed a day before, and an hourly job deletes expired ones
 without a final backup. **Reset** refills a branch from its parent while
@@ -186,7 +217,7 @@ branch can't have branches of its own.
 Branches count toward the organisation's branch quota (10 on Personal,
 25 on Team) but not its projects, and toward its shared storage; usage
 records branch-hours and branch GB-hours. They take no nightly backups
-unless a project admin turns them on (**Settings → Data**). Mark a
+unless a project admin turns them on (**Project Settings → General → Data**). Mark a
 project **Contains sensitive data** (or make it the organisation's
 default under **Organisation → Projects**) and its branches copy the
 schema only, unless a project admin asks for the data. Webhooks and
@@ -212,10 +243,10 @@ for that.
   up to 20 backends; the load test ([load test](load-test.md)) ran 150
   projects with ten busy ones on 4 vCPU.
 - When a project outgrows the shared tier (sustained load, a large
-  database), **promote** it (Settings → Promote to dedicated): same URL,
+  database), **promote** it (Project Settings → Compute and tier): same URL,
   a short write freeze.
-- When it no longer needs its own instance, **demote** it (Settings →
-  Move back to shared, or `pgdock demote`). The preflight checks the size
+- When it no longer needs its own instance, **demote** it (Project Settings →
+  Compute and tier → Move back to shared, or `pgdock demote`). The preflight checks the size
   against the organisation's shared storage limits, extensions against
   the shared allow-list, custom roles, peak connections, database
   settings that will reset, and a shared cluster with room for the

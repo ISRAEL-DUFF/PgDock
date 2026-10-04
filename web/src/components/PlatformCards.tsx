@@ -2,13 +2,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type MailSettingsRequest, type SignupSettings } from "../api/client";
 import { formatDate } from "../lib/format";
-import { Alert, Button, Card, Field, Input, Select } from "./ui";
+import { Alert, Button, Panel, Field, Input, Select } from "./ui";
 
 /**
  * Platform SMTP (V2 §3.1): saved only after a test message goes out, since
  * verification, password resets, and invitations depend on it.
  */
-export function MailSettingsForm({ defaultTo, onSaved, submitLabel = "Send a test and save" }: { defaultTo?: string; onSaved?: () => void; submitLabel?: string }) {
+export function MailSettingsForm({
+  defaultTo,
+  onSaved,
+  submitLabel = "Send a test and save",
+}: {
+  defaultTo?: string;
+  onSaved?: () => void;
+  submitLabel?: string;
+}) {
   const q = useQuery({ queryKey: ["settings", "mail"], queryFn: api.mailSettings });
   const qc = useQueryClient();
   const cur = q.data;
@@ -57,7 +65,9 @@ export function MailSettingsForm({ defaultTo, onSaved, submitLabel = "Send a tes
   return (
     <form className="flex flex-col gap-3" onSubmit={submit} data-testid="mail-form">
       <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-        <Field label="SMTP host">{(id) => <Input id={id} required value={v.host} onChange={set("host")} placeholder="smtp.example.com" className="font-mono" />}</Field>
+        <Field label="SMTP host">
+          {(id) => <Input id={id} required value={v.host} onChange={set("host")} placeholder="smtp.example.com" className="font-mono" />}
+        </Field>
         <Field label="Port" hint="Blank: by TLS mode">
           {(id) => <Input id={id} type="number" min={1} max={65535} value={v.port ?? ""} onChange={set("port")} />}
         </Field>
@@ -93,7 +103,17 @@ export function MailCard() {
   const [editing, setEditing] = useState(false);
   const m = q.data;
   return (
-    <Card title="Email (SMTP)" actions={m?.configured && !editing && <Button className="text-xs" onClick={() => setEditing(true)}>Change</Button>}>
+    <Panel
+      title="Email (SMTP)"
+      actions={
+        m?.configured &&
+        !editing && (
+          <Button className="text-xs" onClick={() => setEditing(true)}>
+            Change
+          </Button>
+        )
+      }
+    >
       {m && (!m.configured || editing) ? (
         <>
           {!m.configured && (
@@ -113,7 +133,7 @@ export function MailCard() {
           <dd>{m?.from}</dd>
         </dl>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -150,7 +170,7 @@ export function SignupCard() {
     }
   };
   return (
-    <Card title="Sign-up">
+    <Panel title="Sign-up">
       <form className="flex flex-col gap-3" onSubmit={save}>
         <fieldset className="flex flex-col gap-2">
           {modes.map((o) => (
@@ -172,7 +192,7 @@ export function SignupCard() {
           Save
         </Button>
       </form>
-    </Card>
+    </Panel>
   );
 }
 
@@ -206,14 +226,37 @@ export function TermsCard() {
     }
   };
   return (
-    <Card title="Terms of use and privacy" actions={!editing && <Button className="text-xs" onClick={start}>Publish a new version</Button>}>
+    <Panel
+      title="Terms of use and privacy"
+      actions={
+        !editing && (
+          <Button className="text-xs" onClick={start}>
+            Publish a new version
+          </Button>
+        )
+      }
+    >
       {editing ? (
         <form className="flex flex-col gap-3" onSubmit={publish}>
           <Field label="Terms of use (Markdown)">
-            {(id) => <textarea id={id} className="h-48 rounded-md border border-line bg-surface p-2 font-mono text-xs" value={terms} onChange={(e) => setTerms(e.target.value)} />}
+            {(id) => (
+              <textarea
+                id={id}
+                className="h-48 rounded-md border border-line bg-surface p-2 font-mono text-xs"
+                value={terms}
+                onChange={(e) => setTerms(e.target.value)}
+              />
+            )}
           </Field>
           <Field label="Privacy notice (Markdown)">
-            {(id) => <textarea id={id} className="h-32 rounded-md border border-line bg-surface p-2 font-mono text-xs" value={privacy} onChange={(e) => setPrivacy(e.target.value)} />}
+            {(id) => (
+              <textarea
+                id={id}
+                className="h-32 rounded-md border border-line bg-surface p-2 font-mono text-xs"
+                value={privacy}
+                onChange={(e) => setPrivacy(e.target.value)}
+              />
+            )}
           </Field>
           <p className="text-xs text-muted">Everyone, you included, accepts the new version at their next visit.</p>
           {err && <Alert>{err}</Alert>}
@@ -229,6 +272,6 @@ export function TermsCard() {
           Version {t?.version ?? "—"}, published {formatDate(t?.published_at)}.
         </p>
       )}
-    </Card>
+    </Panel>
   );
 }

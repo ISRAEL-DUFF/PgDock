@@ -392,6 +392,25 @@ type RetiredDatabase struct {
 	CreatedAt  time.Time
 }
 
+type SavedQuery struct {
+	ID         uuid.UUID
+	OrgID      uuid.UUID
+	ProjectID  uuid.UUID
+	OwnerID    uuid.UUID
+	Name       string
+	Sql        string
+	Visibility string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type SavedQueryFavorite struct {
+	QueryID   uuid.UUID
+	UserID    uuid.UUID
+	OrgID     uuid.UUID
+	CreatedAt time.Time
+}
+
 type ScheduledJob struct {
 	ID                  uuid.UUID
 	ProjectID           uuid.UUID

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage } from "../api/client";
-import { Alert, Button, Card, PageHeader, Spinner, StatusBadge } from "../components/ui";
+import { Alert, Button, Panel, PageHeading, StatusBadge, PageSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { AlertSettingsCard, IsolationChecksCard } from "../components/AlertSettingsCard";
 import { BackupKeyPanel, StorageForm } from "../components/BackupSetup";
@@ -16,21 +16,32 @@ export function SettingsPage() {
   const [editStorage, setEditStorage] = useState(false);
   const storage = useQuery({ queryKey: ["settings", "storage"], queryFn: api.storage });
   const ov = useQuery({ queryKey: ["backups", "overview"], queryFn: () => api.backupOverview(), refetchInterval: 15_000 });
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PageSkeleton />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const s = q.data;
   const t = s.tls;
   return (
     <>
-      <PageHeader title="Platform settings" />
+      <PageHeading title="Platform settings" />
       <div className="flex max-w-3xl flex-col gap-4">
-        <Card title="Database hostname" actions={!editing && <Button className="text-xs" onClick={() => setEditing(true)}>Change</Button>}>
+        <Panel
+          title="Database hostname"
+          actions={
+            !editing && (
+              <Button className="text-xs" onClick={() => setEditing(true)}>
+                Change
+              </Button>
+            )
+          }
+        >
           {editing ? (
             <HostStep submitLabel="Save" onDone={() => setEditing(false)} />
           ) : (
             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
               <dt className="text-muted">Hostname</dt>
-              <dd className="font-mono" data-testid="db-host">{s.db_host}</dd>
+              <dd className="font-mono" data-testid="db-host">
+                {s.db_host}
+              </dd>
               <dt className="text-muted">Ports</dt>
               <dd>
                 {s.pooled_port} (pooled) · {s.session_port} (session)
@@ -39,8 +50,8 @@ export function SettingsPage() {
               <dd>{s.sslmode}</dd>
             </dl>
           )}
-        </Card>
-        <Card title="Pooler TLS" actions={<StatusBadge status={t.state} />}>
+        </Panel>
+        <Panel title="Pooler TLS" actions={<StatusBadge status={t.state} />}>
           <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt className="text-muted">Mode</dt>
             <dd>{t.mode}</dd>
@@ -56,10 +67,17 @@ export function SettingsPage() {
               <Alert tone="warn">{t.error}</Alert>
             </div>
           )}
-        </Card>
-        <Card
+        </Panel>
+        <Panel
           title="Backup storage"
-          actions={storage.data?.configured && !editStorage && <Button className="text-xs" onClick={() => setEditStorage(true)}>Change</Button>}
+          actions={
+            storage.data?.configured &&
+            !editStorage && (
+              <Button className="text-xs" onClick={() => setEditStorage(true)}>
+                Change
+              </Button>
+            )
+          }
         >
           {storage.data && (!storage.data.configured || editStorage) ? (
             <StorageForm onSaved={() => setEditStorage(false)} />
@@ -75,15 +93,15 @@ export function SettingsPage() {
               <dd className="font-mono text-xs">{storage.data?.access_key}</dd>
             </dl>
           )}
-        </Card>
-        <Card title="Platform storage targets">
+        </Panel>
+        <Panel title="Platform storage targets">
           <StorageTargetsPanel />
-        </Card>
-        <Card title="Backup key">
+        </Panel>
+        <Panel title="Backup key">
           <BackupKeyPanel />
-        </Card>
+        </Panel>
         {ov.data && (
-          <Card title="Backup checks">
+          <Panel title="Backup checks">
             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
               <dt className="text-muted">Weekly restore test</dt>
               <dd>
@@ -100,7 +118,7 @@ export function SettingsPage() {
               <dt className="text-muted">Agent</dt>
               <dd>{ov.data.agent_available ? "registered" : "none registered (see Nodes)"}</dd>
             </dl>
-          </Card>
+          </Panel>
         )}
         <AlertSettingsCard />
         <IsolationChecksCard />

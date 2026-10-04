@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage, type BackupKeyInfo, type StorageRequest, type StorageTestResult } from "../api/client";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
-import { Alert, Badge, Button, CodeBlock, CopyField, Field, Input, Modal, Spinner, StatusBadge, Table } from "./ui";
+import { Alert, Badge, Button, CodeBlock, CopyField, Field, Input, Dialog, StatusBadge, Table, PanelSkeleton } from "./ui";
 
 // ---- S3 storage ------------------------------------------------------------
 
@@ -15,7 +15,7 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
   const [busy, setBusy] = useState<"test" | "save" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  if (current.isPending) return <Spinner />;
+  if (current.isPending) return <PanelSkeleton />;
   const c = current.data;
   const v: StorageRequest = form ?? {
     endpoint: c?.endpoint ?? "",
@@ -58,7 +58,14 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Endpoint" hint="AWS, Backblaze B2, Cloudflare R2, MinIO, …">
           {(id) => (
-            <Input id={id} required value={v.endpoint} onChange={(e) => set({ endpoint: e.target.value })} className="font-mono" placeholder="https://s3.eu-central-1.amazonaws.com" />
+            <Input
+              id={id}
+              required
+              value={v.endpoint}
+              onChange={(e) => set({ endpoint: e.target.value })}
+              className="font-mono"
+              placeholder="https://s3.eu-central-1.amazonaws.com"
+            />
           )}
         </Field>
         <Field label="Region">
@@ -71,7 +78,9 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
           {(id) => <Input id={id} value={v.prefix ?? ""} onChange={(e) => set({ prefix: e.target.value })} className="font-mono" />}
         </Field>
         <Field label="Access key">
-          {(id) => <Input id={id} required value={v.access_key} onChange={(e) => set({ access_key: e.target.value })} className="font-mono" autoComplete="off" />}
+          {(id) => (
+            <Input id={id} required value={v.access_key} onChange={(e) => set({ access_key: e.target.value })} className="font-mono" autoComplete="off" />
+          )}
         </Field>
         <Field label="Secret key" hint={c?.configured ? "Leave empty to keep the stored one." : undefined}>
           {(id) => (
@@ -93,7 +102,10 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
         Path-style addressing (MinIO and most self-hosted S3)
       </label>
       {result && (
-        <Alert tone={result.ok ? "ok" : "danger"} title={result.ok ? (result.saved ? "Live test passed; saved" : "Live test passed") : "Live test failed; not saved"}>
+        <Alert
+          tone={result.ok ? "ok" : "danger"}
+          title={result.ok ? (result.saved ? "Live test passed; saved" : "Live test passed") : "Live test failed; not saved"}
+        >
           <ul className="text-xs" data-testid="storage-test-steps">
             {result.steps.map((s) => (
               <li key={s.step}>
@@ -151,7 +163,7 @@ export function BackupKeyPanel({ onConfirmed }: { onConfirmed?: () => void }) {
   const [reauth, setReauth] = useState(false);
   const [reconfirm, setReconfirm] = useState(false);
 
-  if (info.isPending) return <Spinner />;
+  if (info.isPending) return <PanelSkeleton rows={2} />;
   const k = info.data;
 
   const generate = async () => {
@@ -172,8 +184,7 @@ export function BackupKeyPanel({ onConfirmed }: { onConfirmed?: () => void }) {
     return (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted">
-          Backups are encrypted before upload with a key PGDock generates. Losing it means losing the backups, so you download it now and keep
-          it offline.
+          Backups are encrypted before upload with a key PGDock generates. Losing it means losing the backups, so you download it now and keep it offline.
         </p>
         {err && <Alert>{err}</Alert>}
         <div>
@@ -351,7 +362,7 @@ function ExportKeyModal({ open, onClose, info }: { open: boolean; onClose: () =>
     }
   };
   return (
-    <Modal title="Download the backup key" open={open} onClose={onClose}>
+    <Dialog title="Download the backup key" open={open} onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">Confirm it's you first.</p>
         <Field label="Your password">
@@ -368,7 +379,7 @@ function ExportKeyModal({ open, onClose, info }: { open: boolean; onClose: () =>
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -379,7 +390,7 @@ export function NodesPanel() {
   const q = useQuery({ queryKey: ["nodes"], queryFn: api.nodes, refetchInterval: 5000 });
   const [token, setToken] = useState<{ node: string; command: string; expires: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PanelSkeleton rows={2} />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   return (
     <div className="flex flex-col gap-3">

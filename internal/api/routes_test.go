@@ -426,8 +426,14 @@ var specMatrix = map[authz.Action][]string{
 		// §4.1 the grid's table details and export; previewing a schema
 		// change and rendering it as a migration change nothing
 		"GET /api/v1/projects/{id}/tables/{schema}/{table}", "GET /api/v1/projects/{id}/tables/{schema}/{table}/export",
+		"GET /api/v1/projects/{id}/tables/{schema}/{table}/count", "GET /api/v1/projects/{id}/tables/{schema}/{table}/definition",
 		"POST /api/v1/projects/{id}/schema/preview", "POST /api/v1/projects/{id}/schema/migration",
 		"GET /api/v1/projects/{id}/editor-preferences",
+		// the SQL Editor's saved queries: your own, and the shared ones
+		// (owners edit, admins also delete shared ones: in the handler)
+		"GET /api/v1/projects/{id}/queries", "POST /api/v1/projects/{id}/queries",
+		"GET /api/v1/projects/{id}/queries/{query_id}", "PATCH /api/v1/projects/{id}/queries/{query_id}",
+		"DELETE /api/v1/projects/{id}/queries/{query_id}", "PUT /api/v1/projects/{id}/queries/{query_id}/favorite",
 	},
 	// "Table editor — rows and schema"
 	authz.TableEdit: {"POST /api/v1/projects/{id}/tables/{schema}/{table}/changes", "POST /api/v1/projects/{id}/schema/apply"},

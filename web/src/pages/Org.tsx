@@ -2,7 +2,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type InvitationCreated, type Org, type OrgMember, type OrgRole, type ProjectRole } from "../api/client";
-import { Alert, Badge, Button, Card, CopyField, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, Table } from "../components/ui";
+import { Search } from "lucide-react";
+import {
+  Alert,
+  Badge,
+  Button,
+  CopyField,
+  Dialog,
+  EmptyState,
+  Field,
+  FormRow,
+  Input,
+  Page,
+  Panel,
+  Section,
+  Select,
+  SidePanel,
+  Switch,
+  Table,
+  PageSkeleton,
+  TableSkeleton,
+} from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { canManageOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { StorageTargetsPanel } from "../components/StorageTargets";
@@ -28,7 +48,8 @@ export function OrgMembersPage() {
   const [inviting, setInviting] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  if (!org) return <Spinner />;
+  const [search, setSearch] = useState("");
+  if (!org) return <PageSkeleton />;
   const owner = org.role === "owner";
   const refresh = () => qc.invalidateQueries({ queryKey: ["org", org.id] });
 
@@ -42,50 +63,59 @@ export function OrgMembersPage() {
     }
   };
 
+  const needle = search.trim().toLowerCase();
+  const shown = (members.data?.items ?? []).filter((m) => !needle || m.email.toLowerCase().includes(needle) || (m.name ?? "").toLowerCase().includes(needle));
+
   return (
-    <>
-      <PageHeader
-        title="Members"
-        subtitle={`People in ${org.name}. Owners and admins manage everything; members see the projects they're added to.`}
-        actions={
-          <div className="flex gap-2">
-            {owner && (
-              <Button onClick={() => setTransferring(true)} data-testid="transfer-ownership">
-                Transfer ownership
-              </Button>
-            )}
-            {!org.personal && (
-              <Button
-                onClick={() =>
-                  act(async () => {
-                    await api.leaveOrg(org.id);
-                    await qc.invalidateQueries({ queryKey: ["orgs"] });
-                    const mine = (await api.orgs()).items.find((o) => o.personal);
-                    if (mine) setCurrentOrg(mine.id);
-                    await navigate({ to: "/projects" });
-                  })
-                }
-              >
-                Leave
-              </Button>
-            )}
-            {manage && (
-              <Button variant="primary" onClick={() => setInviting(true)} data-testid="invite-member">
-                Invite
-              </Button>
-            )}
-          </div>
-        }
-      />
-      {err && (
-        <div className="mb-3">
-          <Alert>{err}</Alert>
-        </div>
-      )}
-      {members.isPending && <Spinner />}
+    <Page
+      title="Members"
+      description={`People in ${org.name}. Owners and admins manage everything; members see the projects they're added to.`}
+      actions={
+        <>
+          {owner && (
+            <Button onClick={() => setTransferring(true)} data-testid="transfer-ownership">
+              Transfer ownership
+            </Button>
+          )}
+          {!org.personal && (
+            <Button
+              onClick={() =>
+                act(async () => {
+                  await api.leaveOrg(org.id);
+                  await qc.invalidateQueries({ queryKey: ["orgs"] });
+                  const mine = (await api.orgs()).items.find((o) => o.personal);
+                  if (mine) setCurrentOrg(mine.id);
+                  await navigate({ to: "/projects" });
+                })
+              }
+            >
+              Leave
+            </Button>
+          )}
+          {manage && (
+            <Button variant="primary" onClick={() => setInviting(true)} data-testid="invite-member">
+              Invite member
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+        <input
+          type="search"
+          placeholder="Filter members"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Filter members"
+          className="h-[30px] w-64 rounded-md border border-line-strong bg-surface-2 pr-2 pl-7 text-[13px] text-fg placeholder:text-muted focus:border-accent focus:outline-none"
+        />
+      </div>
+      {err && <Alert>{err}</Alert>}
+      {members.isPending && <TableSkeleton cols={5} />}
       {members.data && (
         <Table head={["Member", "Role", "Projects", "2FA", "Last active", ""]}>
-          {members.data.items.map((m) => (
+          {shown.map((m) => (
             <tr key={m.user_id} data-testid={`member-${m.email}`}>
               <td className="px-3 py-2">
                 <div className="font-medium">{m.name || m.email}</div>
@@ -99,22 +129,33 @@ export function OrgMembersPage() {
                     value={m.role}
                     onChange={(e) => act(() => api.setOrgRole(org.id, m.user_id, e.target.value as OrgRole))}
                   >
-                    {orgRoles.filter((r) => owner || r !== "owner" || m.role === "owner").map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
+                    {orgRoles
+                      .filter((r) => owner || r !== "owner" || m.role === "owner")
+                      .map((r) => (
+                        <option key={r}>{r}</option>
+                      ))}
                   </Select>
                 ) : (
                   m.role
                 )}
               </td>
               <td className="px-3 py-2 text-xs">
-                {m.role === "member" ? (m.projects.length ? m.projects.map((p) => `${p.project_name} (${p.role.replace("_", "-")})`).join(", ") : "none") : "all (admin)"}
+                {m.role === "member"
+                  ? m.projects.length
+                    ? m.projects.map((p) => `${p.project_name} (${p.role.replace("_", "-")})`).join(", ")
+                    : "none"
+                  : "all (admin)"}
               </td>
               <td className="px-3 py-2">{m.totp_enabled ? <Badge tone="ok">on</Badge> : <Badge tone="warn">not set up</Badge>}</td>
               <td className="px-3 py-2 text-xs text-muted">{m.last_active_at ? relativeTime(m.last_active_at) : "—"}</td>
               <td className="px-3 py-2 text-right">
                 {manage && m.user_id !== session?.user?.id && (owner || m.role !== "owner") && (
-                  <Button className="text-xs" variant="danger" onClick={() => act(() => api.removeOrgMember(org.id, m.user_id))} data-testid={`remove-${m.email}`}>
+                  <Button
+                    className="text-xs"
+                    variant="danger"
+                    onClick={() => act(() => api.removeOrgMember(org.id, m.user_id))}
+                    data-testid={`remove-${m.email}`}
+                  >
                     Remove
                   </Button>
                 )}
@@ -124,8 +165,7 @@ export function OrgMembersPage() {
         </Table>
       )}
       {manage && invitations.data && invitations.data.items.length > 0 && (
-        <div className="mt-6">
-          <h2 className="mb-2 font-semibold">Pending invitations</h2>
+        <Section title="Pending invitations" description="Each link works once and expires after 7 days.">
           <Table head={["Email", "Role", "Invited by", "Expires", ""]}>
             {invitations.data.items.map((i) => (
               <tr key={i.id}>
@@ -141,16 +181,28 @@ export function OrgMembersPage() {
               </tr>
             ))}
           </Table>
-        </div>
+        </Section>
       )}
-      <InviteModal orgId={org.id} canInviteOwners={owner} open={inviting} onClose={() => { setInviting(false); void refresh(); }} />
+      <InviteModal
+        orgId={org.id}
+        canInviteOwners={owner}
+        open={inviting}
+        onClose={() => {
+          setInviting(false);
+          void refresh();
+        }}
+      />
       <TransferOwnershipModal
         orgId={org.id}
         members={(members.data?.items ?? []).filter((m) => m.user_id !== session?.user?.id)}
         open={transferring}
-        onClose={() => { setTransferring(false); void refresh(); void qc.invalidateQueries({ queryKey: ["orgs"] }); }}
+        onClose={() => {
+          setTransferring(false);
+          void refresh();
+          void qc.invalidateQueries({ queryKey: ["orgs"] });
+        }}
       />
-    </>
+    </Page>
   );
 }
 
@@ -190,7 +242,9 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
     setErr(null);
     try {
       const picks = Object.entries(access).filter(([, r]) => r) as [string, ProjectRole][];
-      setCreated(await api.inviteOrgMember(orgId, { email, role, projects: role === "member" ? picks.map(([project_id, r]) => ({ project_id, role: r })) : [] }));
+      setCreated(
+        await api.inviteOrgMember(orgId, { email, role, projects: role === "member" ? picks.map(([project_id, r]) => ({ project_id, role: r })) : [] }),
+      );
     } catch (e) {
       setErr(errorMessage(e));
     } finally {
@@ -198,44 +252,69 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
     }
   };
   return (
-    <Modal title="Invite to the organisation" open={open} onClose={close}>
+    <SidePanel
+      title="Invite a member"
+      description="They get an email with a link to join; you also get the link to pass on yourself."
+      open={open}
+      onOpenChange={(o) => !o && close()}
+      footer={
+        created ? (
+          <Button variant="primary" onClick={close}>
+            Done
+          </Button>
+        ) : (
+          <>
+            <Button onClick={close}>Cancel</Button>
+            <Button type="submit" form="invite-form" variant="primary" busy={busy}>
+              Send invitation
+            </Button>
+          </>
+        )
+      }
+    >
       {created ? (
-        <div className="flex flex-col gap-3">
-          <InvitationResult created={created} />
-          <Button variant="primary" onClick={close}>Done</Button>
-        </div>
+        <InvitationResult created={created} />
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form id="invite-form" className="flex flex-col gap-4" onSubmit={submit}>
           <Field label="Email">{(id) => <Input id={id} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />}</Field>
           <Field label="Organisation role" hint="Owners and admins are admins of every project; members only of the projects you pick.">
             {(id) => (
               <Select id={id} value={role} onChange={(e) => setRole(e.target.value as OrgRole)}>
-                {orgRoles.filter((r) => canInviteOwners || r !== "owner").map((r) => <option key={r}>{r}</option>)}
+                {orgRoles
+                  .filter((r) => canInviteOwners || r !== "owner")
+                  .map((r) => (
+                    <option key={r}>{r}</option>
+                  ))}
               </Select>
             )}
           </Field>
           {role === "member" && (projects.data?.items.length ?? 0) > 0 && (
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-medium">Project access</legend>
+            <fieldset className="flex flex-col overflow-hidden rounded-md border border-line">
+              <legend className="sr-only">Project access</legend>
+              <div className="border-b border-line bg-surface-2 px-3 py-2 text-[12px] text-muted">Project access</div>
               {projects.data!.items.map((p) => (
-                <label key={p.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span>{p.name}</span>
-                  <Select aria-label={`Access to ${p.name}`} value={access[p.id] ?? ""} onChange={(e) => setAccess((a) => ({ ...a, [p.id]: e.target.value as ProjectRole | "" }))}>
+                <label key={p.id} className="flex items-center justify-between gap-2 border-b border-line px-3 py-2 text-[13px] last:border-0">
+                  <span className="truncate">{p.name}</span>
+                  <Select
+                    aria-label={`Access to ${p.name}`}
+                    value={access[p.id] ?? ""}
+                    onChange={(e) => setAccess((a) => ({ ...a, [p.id]: e.target.value as ProjectRole | "" }))}
+                  >
                     <option value="">No access</option>
-                    {projectRoles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                    {projectRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label}
+                      </option>
+                    ))}
                   </Select>
                 </label>
               ))}
             </fieldset>
           )}
           {err && <Alert>{err}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button onClick={close}>Cancel</Button>
-            <Button type="submit" variant="primary" busy={busy}>Send invitation</Button>
-          </div>
         </form>
       )}
-    </Modal>
+    </SidePanel>
   );
 }
 
@@ -260,14 +339,18 @@ function TransferOwnershipModal({ orgId, members, open, onClose }: { orgId: stri
     }
   };
   return (
-    <Modal title="Transfer ownership" open={open} onClose={onClose}>
+    <Dialog title="Transfer ownership" open={open} onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">They become an owner and you become an admin.</p>
         <Field label="New owner">
           {(id) => (
             <Select id={id} required value={to} onChange={(e) => setTo(e.target.value)}>
               <option value="">Choose a member…</option>
-              {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>)}
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.name || m.email}
+                </option>
+              ))}
             </Select>
           )}
         </Field>
@@ -276,10 +359,12 @@ function TransferOwnershipModal({ orgId, members, open, onClose }: { orgId: stri
         {err && <Alert>{err}</Alert>}
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={busy} disabled={!to || !password || code.length < 6}>Transfer</Button>
+          <Button type="submit" variant="primary" busy={busy} disabled={!to || !password || code.length < 6}>
+            Transfer
+          </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -291,7 +376,7 @@ export function OrgSettingsPage() {
   const [slug, setSlug] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  if (!org) return <Spinner />;
+  if (!org) return <PageSkeleton />;
   if (!canManageOrg(org)) return <EmptyState title="Only owners and admins change organisation settings" />;
   const save = async (patch: Parameters<typeof api.updateOrg>[1]) => {
     setBusy(true);
@@ -307,64 +392,84 @@ export function OrgSettingsPage() {
       setBusy(false);
     }
   };
+  const dirty = name !== null || slug !== null;
   return (
-    <>
-      <PageHeader title="Organisation" subtitle={org.personal ? "Your personal organisation. Invite others into it like any other." : undefined} />
-      <div className="flex max-w-2xl flex-col gap-4">
-        <Card title="Name">
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save({ name: name ?? undefined, slug: slug ?? undefined });
-            }}
+    <Page title="Organisation settings" description={org.personal ? "Your personal organisation. Invite others into it like any other." : undefined}>
+      <div className="flex max-w-4xl flex-col gap-8">
+        <Section title="General">
+          <Panel
+            footer={
+              <>
+                <Button
+                  disabled={!dirty}
+                  onClick={() => {
+                    setName(null);
+                    setSlug(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" form="org-general" variant="primary" busy={busy} disabled={!dirty}>
+                  Save
+                </Button>
+              </>
+            }
           >
-            <Field label="Name">{(id) => <Input id={id} value={name ?? org.name} onChange={(e) => setName(e.target.value)} maxLength={64} />}</Field>
-            <Field label="Slug">{(id) => <Input id={id} value={slug ?? org.slug} onChange={(e) => setSlug(e.target.value)} className="font-mono" />}</Field>
-            <Button type="submit" busy={busy} className="self-start" disabled={name === null && slug === null}>Save</Button>
-          </form>
-        </Card>
-        <Card title="Projects">
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={org.members_can_create_projects}
-              onChange={(e) => void save({ members_can_create_projects: e.target.checked })}
-              className="mt-1"
-              data-testid="members-can-create"
-            />
-            <span>
-              <span className="font-medium">Members can create projects</span>
-              <span className="block text-muted">They become the admin of what they create.</span>
-            </span>
-          </label>
-          <label className="mt-3 flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={!!org.sensitive_by_default}
-              onChange={(e) => void save({ sensitive_by_default: e.target.checked })}
-              className="mt-1"
-              data-testid="sensitive-by-default"
-            />
-            <span>
-              <span className="font-medium">New projects contain sensitive data</span>
-              <span className="block text-muted">Their branches copy the schema only unless a project admin asks for the data.</span>
-            </span>
-          </label>
-        </Card>
-        <Card title="Plan">
-          <p className="text-sm">
-            {org.plan} plan. Ask the platform admin to change it.
-          </p>
-        </Card>
-        <OrgTokensCard orgId={org.id} />
-        <Card title="Backup storage">
-          <StorageTargetsPanel org={org.id} />
-        </Card>
+            <form
+              id="org-general"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save({ name: name ?? undefined, slug: slug ?? undefined });
+              }}
+            >
+              <FormRow label="Organisation name" htmlFor="org-name">
+                <Input id="org-name" aria-label="Name" value={name ?? org.name} onChange={(e) => setName(e.target.value)} maxLength={64} />
+              </FormRow>
+              <FormRow label="Slug" description="Used in the CLI and API." htmlFor="org-slug">
+                <Input id="org-slug" aria-label="Slug" value={slug ?? org.slug} onChange={(e) => setSlug(e.target.value)} className="font-mono" />
+              </FormRow>
+              <FormRow label="Plan" description="Ask the platform admin to change it.">
+                <div>
+                  <Badge tone="accent">{org.plan}</Badge>
+                </div>
+              </FormRow>
+            </form>
+          </Panel>
+        </Section>
+        <Section title="Projects">
+          <Panel>
+            <FormRow label="Members can create projects" description="They become the admin of what they create.">
+              <Switch
+                checked={org.members_can_create_projects}
+                onCheckedChange={(v) => void save({ members_can_create_projects: v })}
+                aria-label="Members can create projects"
+                data-testid="members-can-create"
+              />
+            </FormRow>
+            <FormRow label="New projects contain sensitive data" description="Their branches copy the schema only unless a project admin asks for the data.">
+              <Switch
+                checked={!!org.sensitive_by_default}
+                onCheckedChange={(v) => void save({ sensitive_by_default: v })}
+                aria-label="New projects contain sensitive data"
+                data-testid="sensitive-by-default"
+              />
+            </FormRow>
+          </Panel>
+        </Section>
         {err && <Alert>{err}</Alert>}
-        {org.role === "owner" && !org.personal && org.status === "active" && <DeleteOrgCard org={org} />}
+        <OrgTokensCard orgId={org.id} />
+        <Section title="Backup storage" description="Where this organisation's projects keep their backups, unless a project picks its own.">
+          <Panel>
+            <StorageTargetsPanel org={org.id} />
+          </Panel>
+        </Section>
+        {org.role === "owner" && !org.personal && org.status === "active" && (
+          <Section title="Danger zone">
+            <DeleteOrgCard org={org} />
+          </Section>
+        )}
       </div>
-    </>
+    </Page>
   );
 }
 
@@ -394,21 +499,25 @@ function DeleteOrgCard({ org }: { org: Org }) {
     }
   };
   return (
-    <Card title="Delete organisation">
+    <Panel tone="danger">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">
-          Its projects go offline at once, and are deleted (each with a final backup kept for 30 days) after 7 days. Until then any owner can cancel.
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px]">Delete this organisation</p>
+          <p className="mt-0.5 text-[12px] text-muted">
+            Its projects go offline at once, and are deleted (each with a final backup kept for 30 days) after 7 days. Until then any owner can cancel.
+          </p>
+        </div>
         <Button variant="danger" onClick={() => setOpen(true)} data-testid="delete-org">
           Delete…
         </Button>
       </div>
-      <Modal title={`Delete ${org.name}`} open={open} onClose={() => setOpen(false)}>
+      <Dialog title={`Delete ${org.name}`} open={open} onOpenChange={setOpen}>
         <form className="flex flex-col gap-3" onSubmit={submit}>
           <Field label={`Type ${org.name} to confirm`}>{(id) => <Input id={id} value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>
           {org.project_count > 0 && (
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Delete its {org.project_count} project{org.project_count === 1 ? "" : "s"} too
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Delete its {org.project_count} project
+              {org.project_count === 1 ? "" : "s"} too
             </label>
           )}
           <Field label="Your password">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
@@ -418,7 +527,7 @@ function DeleteOrgCard({ org }: { org: Org }) {
             Delete in 7 days
           </Button>
         </form>
-      </Modal>
-    </Card>
+      </Dialog>
+    </Panel>
   );
 }

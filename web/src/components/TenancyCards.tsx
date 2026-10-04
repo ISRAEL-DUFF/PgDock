@@ -5,10 +5,14 @@ import { api, errorMessage, type Project, type SwitchedCredentials } from "../ap
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { OperationLog } from "./OperationLog";
-import { Alert, Badge, Button, Card, CopyField, cx, Field, Input, Table } from "./ui";
+import { Alert, Badge, Button, Panel, CopyField, cx, Field, Input, Table } from "./ui";
 
 const STATE_TEXT: Record<string, { tone: "warn" | "danger"; title: string; body: string }> = {
-  warn: { tone: "warn", title: "Nearly full", body: "This project is over 90% of its storage limit. At 100% it becomes read-only; at 120% apps can no longer connect." },
+  warn: {
+    tone: "warn",
+    title: "Nearly full",
+    body: "This project is over 90% of its storage limit. At 100% it becomes read-only; at 120% apps can no longer connect.",
+  },
   soft: {
     tone: "danger",
     title: "Read-only: storage limit reached",
@@ -29,7 +33,7 @@ export function StorageBanner({ p }: { p: Project }) {
     <div
       className={cx(
         "mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm",
-        s.tone === "warn" ? "border-warn/40 bg-warn/10 text-warn" : "border-danger/40 bg-danger/10 text-danger",
+        s.tone === "warn" ? "border-warn/40 bg-warn/10 text-warn-text" : "border-danger/40 bg-danger/10 text-danger-text",
       )}
       role="alert"
       data-testid="storage-banner"
@@ -38,7 +42,7 @@ export function StorageBanner({ p }: { p: Project }) {
         <strong>{s.title}.</strong> {s.body}
       </span>
       {p.my_role === "admin" && (
-        <Link to="/projects/$id/settings" params={{ id: p.id }} hash="storage" className="font-medium underline">
+        <Link to="/projects/$id/settings/database" params={{ id: p.id }} hash="storage" className="font-medium underline">
           Reclaim space
         </Link>
       )}
@@ -69,23 +73,28 @@ export function StorageCard({ p }: { p: Project }) {
     }
   };
   return (
-    <Card title="Storage">
+    <Panel title="Storage">
       <div id="storage" className="flex flex-col gap-3" data-testid="storage-card">
         <div className="flex items-center justify-between text-sm">
           <span>
             {s.size_bytes != null ? formatBytes(s.size_bytes) : "Not measured yet"}
             {s.limit_bytes ? ` of ${formatBytes(s.limit_bytes)}` : " (no limit)"}
           </span>
-          {s.state !== "none" && <Badge tone={s.state === "warn" ? "warn" : "danger"}>{s.state === "warn" ? "nearly full" : s.state === "soft" ? "read-only" : "offline"}</Badge>}
+          {s.state !== "none" && (
+            <Badge tone={s.state === "warn" ? "warn" : "danger"}>{s.state === "warn" ? "nearly full" : s.state === "soft" ? "read-only" : "offline"}</Badge>
+          )}
         </div>
         {ratio != null && (
           <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-            <div className={cx("h-full rounded-full", ratio >= 1 ? "bg-danger" : ratio >= 0.9 ? "bg-warn" : "bg-accent")} style={{ width: `${Math.min(100, Math.max(2, ratio * 100))}%` }} />
+            <div
+              className={cx("h-full rounded-full", ratio >= 1 ? "bg-danger" : ratio >= 0.9 ? "bg-warn" : "bg-accent")}
+              style={{ width: `${Math.min(100, Math.max(2, ratio * 100))}%` }}
+            />
           </div>
         )}
         <p className="text-xs text-muted">
-          Deleted rows keep their space until the table is rewritten. Reclaim space runs VACUUM FULL on one table, which locks it while it runs; locks lift at the next size
-          check (every 5 minutes).
+          Deleted rows keep their space until the table is rewritten. Reclaim space runs VACUUM FULL on one table, which locks it while it runs; locks lift at
+          the next size check (every 5 minutes).
         </p>
         {s.tables.length > 0 && (
           <Table head={["Table", "Size", "Dead rows", ""]}>
@@ -108,7 +117,7 @@ export function StorageCard({ p }: { p: Project }) {
         {err && <Alert>{err}</Alert>}
         {opId && <OperationLog log={stream.log} live={!stream.done} />}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -133,7 +142,7 @@ export function SwitchCredentialsCard({ p }: { p: Project }) {
     }
   };
   return (
-    <Card title="Opaque credentials">
+    <Panel title="Opaque credentials">
       <div className="flex flex-col gap-3" data-testid="switch-credentials">
         {done ? (
           <>
@@ -148,11 +157,14 @@ export function SwitchCredentialsCard({ p }: { p: Project }) {
         ) : (
           <>
             <p className="text-sm text-muted">
-              This project was created before PGDock used opaque names, so its role name ({p.owner_role}) is visible to other tenants on the same cluster. Switching
-              gives it an opaque role and a new password; the old ones keep working for a grace period, then stop. Members' personal database logins are renamed straight away (same password, new user name), so they need to copy the new connection string.
+              This project was created before PGDock used opaque names, so its role name ({p.owner_role}) is visible to other tenants on the same cluster.
+              Switching gives it an opaque role and a new password; the old ones keep working for a grace period, then stop. Members' personal database logins
+              are renamed straight away (same password, new user name), so they need to copy the new connection string.
             </p>
             <div className="flex items-end gap-2">
-              <Field label="Grace period (days)">{(id) => <Input id={id} type="number" min={1} max={90} className="w-24" value={days} onChange={(e) => setDays(Number(e.target.value))} />}</Field>
+              <Field label="Grace period (days)">
+                {(id) => <Input id={id} type="number" min={1} max={90} className="w-24" value={days} onChange={(e) => setDays(Number(e.target.value))} />}
+              </Field>
               <Button variant="primary" busy={busy} onClick={run} data-testid="switch-credentials-run">
                 Switch to opaque credentials
               </Button>
@@ -161,7 +173,7 @@ export function SwitchCredentialsCard({ p }: { p: Project }) {
         )}
         {err && <Alert>{err}</Alert>}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -170,8 +182,10 @@ export function ReapedCard({ p }: { p: Project }) {
   const q = useQuery({ queryKey: ["project", p.id, "reaped"], queryFn: () => api.reapedSessions(p.id), enabled: p.tier === "shared" });
   if (!q.data || q.data.items.length === 0) return null;
   return (
-    <Card title="Ended by PGDock">
-      <p className="mb-2 text-xs text-muted">On the shared tier, statements running over 10 minutes are cancelled and sessions idle in a transaction over 5 minutes are ended.</p>
+    <Panel title="Ended by PGDock">
+      <p className="mb-2 text-xs text-muted">
+        On the shared tier, statements running over 10 minutes are cancelled and sessions idle in a transaction over 5 minutes are ended.
+      </p>
       <Table head={["When", "What", "Role", "Ran for", "Query"]}>
         {q.data.items.map((r, i) => (
           <tr key={i} data-testid="reaped-session">
@@ -185,6 +199,6 @@ export function ReapedCard({ p }: { p: Project }) {
           </tr>
         ))}
       </Table>
-    </Card>
+    </Panel>
   );
 }

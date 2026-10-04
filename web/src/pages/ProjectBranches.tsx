@@ -5,7 +5,26 @@ import { api, errorMessage, type Project, type ProjectCredentials } from "../api
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { ProvisionProgress } from "../components/ProvisionProgress";
 import { useOperationToast } from "../components/Toasts";
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner, StatusBadge, Table } from "../components/ui";
+import { GitBranch, GitBranchPlus } from "lucide-react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Dialog,
+  EmptyState,
+  Field,
+  FormRow,
+  Input,
+  KeyValues,
+  Page,
+  Panel,
+  Section,
+  Select,
+  SidePanel,
+  StatusBadge,
+  Table,
+  TableSkeleton,
+} from "../components/ui";
 import { formatDate, timeUntil } from "../lib/format";
 import { useProject } from "./ProjectOverview";
 
@@ -31,7 +50,7 @@ function Expiry({ b }: { b: Project }) {
   if (!at) return <span className="text-muted">never</span>;
   const soon = new Date(at).getTime() - Date.now() < 24 * 3600 * 1000;
   return (
-    <span className={soon ? "text-warn" : "text-muted"} title={formatDate(at)} data-testid="branch-expiry">
+    <span className={soon ? "text-warn-text" : "text-muted"} title={formatDate(at)} data-testid="branch-expiry">
       {timeUntil(at)}
     </span>
   );
@@ -54,26 +73,31 @@ function BranchList({ p }: { p: Project }) {
   const [created, setCreated] = useState<ProjectCredentials | null>(null);
   if (created) return <ProvisionProgress creds={created} progressTitle="Branch" />;
   return (
-    <div className="flex flex-col gap-4">
-      <Card
-        title="Branches"
-        actions={
-          canBranch(p) && (
-            <Button variant="primary" className="text-xs" onClick={() => setCreating(true)} disabled={p.status !== "active"}>
-              New branch
-            </Button>
-          )
-        }
-      >
-        <p className="text-sm text-muted">
-          A branch is a throwaway copy of {p.name} on the shared tier, with its own connection strings: try a migration, give a pull request its
-          own database, or debug against real data. Resets keep its URL and password. Webhooks and scheduled jobs are not copied.
+    <Page
+      title="Branches"
+      description={
+        <>
+          Throwaway copies of {p.name} on the shared tier, each with its own connection strings: try a migration, give a pull request its own database, or debug
+          against real data. Resets keep a branch's URL and password; webhooks and scheduled jobs are not copied.
           {p.sensitive_data && " This project contains sensitive data, so branches copy the schema only unless a project admin asks for the data."}
-        </p>
-      </Card>
-      {q.isPending && <Spinner />}
+        </>
+      }
+      actions={
+        canBranch(p) && (
+          <Button variant="primary" icon={<GitBranchPlus className="h-3.5 w-3.5" />} onClick={() => setCreating(true)} disabled={p.status !== "active"}>
+            New branch
+          </Button>
+        )
+      }
+      testId="project-branches"
+    >
+      {q.isPending && <TableSkeleton rows={3} cols={5} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <EmptyState title="No branches" />}
+      {q.data && q.data.items.length === 0 && (
+        <EmptyState title="No branches" icon={<GitBranch />}>
+          Create one to try a change without touching {p.name}.
+        </EmptyState>
+      )}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Branch", "Status", "Contents", "Expires", "Created"]}>
           {q.data.items.map((b) => (
@@ -97,7 +121,7 @@ function BranchList({ p }: { p: Project }) {
         </Table>
       )}
       {creating && <CreateBranchDialog p={p} onClose={() => setCreating(false)} onCreated={setCreated} />}
-    </div>
+    </Page>
   );
 }
 
@@ -126,8 +150,21 @@ function CreateBranchDialog({ p, onClose, onCreated }: { p: Project; onClose: ()
     }
   };
   return (
-    <Modal title={`Branch ${p.name}`} open onClose={onClose}>
-      <form className="flex flex-col gap-4" onSubmit={submit}>
+    <SidePanel
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={`Create a branch of ${p.name}`}
+      description="A copy on the shared tier, with its own connection strings."
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="create-branch" variant="primary" busy={busy} disabled={!name.trim()}>
+            Create branch
+          </Button>
+        </>
+      }
+    >
+      <form id="create-branch" className="flex flex-col gap-5" onSubmit={submit}>
         <Field label="Branch name">
           {(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} placeholder="feature-login" autoFocus />}
         </Field>
@@ -169,14 +206,8 @@ function CreateBranchDialog({ p, onClose, onCreated }: { p: Project; onClose: ()
         </Field>
         <p className="text-xs text-muted">Webhooks and scheduled jobs are not copied to the branch. It counts toward your organisation's branch quota.</p>
         {err && <Alert>{err}</Alert>}
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={busy} disabled={!name.trim()}>
-            Create branch
-          </Button>
-        </div>
       </form>
-    </Modal>
+    </SidePanel>
   );
 }
 
@@ -209,99 +240,112 @@ function BranchControls({ b }: { b: Project }) {
     }
   };
   return (
-    <div className="flex flex-col gap-4" data-testid="branch-controls">
-      <Card title="This is a branch">
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-          <dt className="text-muted">Parent</dt>
-          <dd>
-            {parent.data ? (
-              <Link to="/projects/$id/branches" params={{ id: parent.data.id }} className="hover:underline">
-                {parent.data.name}
-              </Link>
-            ) : (
-              "—"
-            )}
-          </dd>
-          <dt className="text-muted">Contents</dt>
-          <dd>{contents(b)}</dd>
-          <dt className="text-muted">Expires</dt>
-          <dd>
-            <Expiry b={b} />
-            {b.branch?.expires_at && <span className="ml-2 text-xs text-muted">({formatDate(b.branch.expires_at)})</span>}
-          </dd>
-          <dt className="text-muted">Backups</dt>
-          <dd>{b.branch?.backups ? "nightly" : "none (branches are disposable)"}</dd>
-        </dl>
-      </Card>
+    <Page
+      title={
+        <span className="flex items-center gap-3">
+          {b.name} <Badge tone="accent">branch</Badge> {b.status !== "active" && <Badge tone="warn">{b.status}</Badge>}
+        </span>
+      }
+      description={
+        parent.data ? (
+          <>
+            A branch of{" "}
+            <Link to="/projects/$id/branches" params={{ id: parent.data.id }} className="text-accent-text underline underline-offset-2 hover:no-underline">
+              {parent.data.name}
+            </Link>
+            .
+          </>
+        ) : undefined
+      }
+      testId="branch-controls"
+    >
+      <Panel title="This branch">
+        <KeyValues
+          items={[
+            ["Contents", contents(b)],
+            [
+              "Expires",
+              <span key="e">
+                <Expiry b={b} />
+                {b.branch?.expires_at && <span className="ml-2 text-xs text-muted">({formatDate(b.branch.expires_at)})</span>}
+              </span>,
+            ],
+            ["Backups", b.branch?.backups ? "nightly" : "none (branches are disposable)"],
+          ]}
+        />
+      </Panel>
       {can && (
-        <Card title="Reset from the parent">
-          <p className="text-sm text-muted">
-            Replaces the branch's data with a fresh copy of its parent. The database name, URL, password and everyone's logins stay the same, so CI
-            and .env files keep working. Clients wait at the pooler while it runs.
-          </p>
-          <div className="mt-3">
-            <Button onClick={() => setResetting(true)} disabled={b.status !== "active" && b.status !== "error"} data-testid="reset-branch">
-              Reset branch…
-            </Button>
-          </div>
-        </Card>
+        <Panel title="Manage">
+          <FormRow
+            label="Reset from the parent"
+            description="Replaces the branch's data with a fresh copy of its parent. The database name, URL, password and everyone's logins stay the same; clients wait at the pooler while it runs."
+          >
+            <div>
+              <Button onClick={() => setResetting(true)} disabled={b.status !== "active" && b.status !== "error"} data-testid="reset-branch">
+                Reset branch…
+              </Button>
+            </div>
+          </FormRow>
+          <FormRow label="Expiry" description="Branches are deleted when they expire.">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select aria-label="Expire" value={extend} onChange={(e) => setExtend(Number(e.target.value))} data-testid="extend-ttl">
+                {TTLS.map((t) => (
+                  <option key={t.hours} value={t.hours}>
+                    {t.hours ? `${t.label} from now` : t.label}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                busy={busy === "extend"}
+                data-testid="extend-branch"
+                onClick={() =>
+                  run("extend", async () => {
+                    await api.updateProject(b.id, extend ? { expires_at: new Date(Date.now() + extend * 3600 * 1000).toISOString() } : { no_expiry: true });
+                  })
+                }
+              >
+                Set expiry
+              </Button>
+            </div>
+          </FormRow>
+          <FormRow label="Detach" description="Keeps the data and credentials; it then counts as a project and can be promoted.">
+            <div>
+              <Button
+                busy={busy === "detach"}
+                onClick={() =>
+                  run("detach", async () => {
+                    await api.detachBranch(b.id);
+                  })
+                }
+              >
+                Detach into a standalone project
+              </Button>
+            </div>
+          </FormRow>
+        </Panel>
       )}
       {can && (
-        <Card title="Keep it longer">
-          <div className="flex flex-wrap items-end gap-2">
-            <Field label="Expire">
-              {(id) => (
-                <Select id={id} value={extend} onChange={(e) => setExtend(Number(e.target.value))} data-testid="extend-ttl">
-                  {TTLS.map((t) => (
-                    <option key={t.hours} value={t.hours}>
-                      {t.hours ? `${t.label} from now` : t.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <Button
-              busy={busy === "extend"}
-              data-testid="extend-branch"
-              onClick={() =>
-                run("extend", async () => {
-                  await api.updateProject(
-                    b.id,
-                    extend ? { expires_at: new Date(Date.now() + extend * 3600 * 1000).toISOString() } : { no_expiry: true },
-                  );
-                })
-              }
-            >
-              Set expiry
-            </Button>
-            <Button
-              variant="ghost"
-              busy={busy === "detach"}
-              onClick={() =>
-                run("detach", async () => {
-                  await api.detachBranch(b.id);
-                })
-              }
-            >
-              Detach into a standalone project
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-muted">Detaching keeps the data and credentials; it then counts as a project and can be promoted.</p>
-        </Card>
-      )}
-      {can && (
-        <div>
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            Delete branch…
-          </Button>
-        </div>
+        <Section title="Danger zone">
+          <Panel tone="danger">
+            <FormRow label="Delete branch" description={b.branch?.backups ? "A final backup is taken first." : "Branches take no final backup."}>
+              <div>
+                <Button variant="danger" onClick={() => setDeleting(true)}>
+                  Delete branch…
+                </Button>
+              </div>
+            </FormRow>
+          </Panel>
+        </Section>
       )}
       {err && <Alert>{err}</Alert>}
       {resetting && (
-        <Modal title={`Reset ${b.name}`} open onClose={() => setResetting(false)}>
-          <div className="flex flex-col gap-3 text-sm">
-            <p>Everything in {b.name} is replaced with a copy of its parent{b.branch?.source === "live" ? " as it is now" : "'s latest backup"}.</p>
-            <div className="flex justify-end gap-2">
+        <Dialog
+          open
+          onOpenChange={(o) => !o && setResetting(false)}
+          title={`Reset ${b.name}`}
+          description={`Everything in ${b.name} is replaced with a copy of its parent${b.branch?.source === "live" ? " as it is now" : "'s latest backup"}.`}
+          footer={
+            <>
               <Button onClick={() => setResetting(false)}>Cancel</Button>
               <Button
                 variant="primary"
@@ -317,9 +361,9 @@ function BranchControls({ b }: { b: Project }) {
               >
                 Reset branch
               </Button>
-            </div>
-          </div>
-        </Modal>
+            </>
+          }
+        />
       )}
       <ConfirmDestroy
         open={deleting}
@@ -334,7 +378,6 @@ function BranchControls({ b }: { b: Project }) {
           await refresh();
         }}
       />
-      {b.status !== "active" && <Badge tone="warn">{b.status}</Badge>}
-    </div>
+    </Page>
   );
 }

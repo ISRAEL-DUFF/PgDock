@@ -3,7 +3,7 @@ import { useState } from "react";
 import { errorMessage, type MetricRange, type MetricsResponse } from "../api/client";
 import { formatBytes } from "../lib/format";
 import { LineChart, type ChartSeries } from "./LineChart";
-import { Alert, Card, Spinner, cx } from "./ui";
+import { Alert, Panel, Segmented, Spinner } from "./ui";
 
 const ranges: MetricRange[] = ["1h", "24h", "7d"];
 const rangeMs: Record<MetricRange, number> = { "1h": 3600_000, "24h": 86400_000, "7d": 7 * 86400_000 };
@@ -28,19 +28,8 @@ export const fmt = {
 
 export function RangePicker({ value, onChange }: { value: MetricRange; onChange: (r: MetricRange) => void }) {
   return (
-    <div role="radiogroup" aria-label="Range" className="inline-flex rounded-md border border-line">
-      {ranges.map((r) => (
-        <button
-          key={r}
-          type="button"
-          role="radio"
-          aria-checked={value === r}
-          onClick={() => onChange(r)}
-          className={cx("px-2.5 py-1 text-xs", value === r ? "bg-accent text-accent-fg" : "text-muted hover:text-fg")}
-        >
-          {r}
-        </button>
-      ))}
+    <div aria-label="Range">
+      <Segmented value={value} onChange={onChange} options={ranges.map((r) => ({ value: r, label: r === "1h" ? "Last hour" : r === "24h" ? "Last 24 hours" : "Last 7 days" }))} />
     </div>
   );
 }
@@ -80,7 +69,7 @@ export function MetricCharts({
               const series: ChartSeries[] = c.metrics.map((m, i) => ({ name: m.name, color: colors[i % colors.length], points: byMetric.get(m.metric) ?? [] }));
               const latest = series.map((s) => s.points[s.points.length - 1]?.value);
               return (
-                <Card
+                <Panel
                   key={c.title}
                   title={c.title}
                   actions={
@@ -101,7 +90,7 @@ export function MetricCharts({
                       ))}
                     </div>
                   )}
-                </Card>
+                </Panel>
               );
             })}
           </div>

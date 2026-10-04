@@ -50,7 +50,7 @@ function OperationToast({ toast, onDone }: { toast: Toast; onDone: () => void })
         {s.status ? <StatusBadge status={s.status} /> : <Spinner />}
       </div>
       {last && <p className="mt-1 truncate font-mono text-xs text-muted">{last.msg}</p>}
-      {s.status === "failed" && s.error && <p className="mt-1 text-xs text-danger">{s.error}</p>}
+      {s.status === "failed" && s.error && <p className="mt-1 text-xs text-danger-text">{s.error}</p>}
     </div>
   );
 }

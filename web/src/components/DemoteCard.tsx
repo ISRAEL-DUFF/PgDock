@@ -4,7 +4,7 @@ import { api, errorMessage, type DemotePreflight, type Project } from "../api/cl
 import { formatBytes } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { OperationLog } from "./OperationLog";
-import { Alert, Badge, Button, Card, Field, Select, StatusBadge } from "./ui";
+import { Alert, Badge, Button, Panel, SidePanel, Field, Select, StatusBadge } from "./ui";
 
 const checkLabel: Record<DemotePreflight["checks"][number]["name"], string> = {
   size: "Size",
@@ -67,10 +67,10 @@ export function DemoteCard({ p }: { p: Project }) {
 
   if (opId) {
     return (
-      <Card title="Demotion" actions={stream.status && <StatusBadge status={stream.status} />}>
+      <Panel title="Demotion" actions={stream.status && <StatusBadge status={stream.status} />}>
         <OperationLog log={stream.log} live={!stream.done} />
         {stream.status === "succeeded" && (
-          <p className="mt-3 text-sm text-ok" data-testid="demote-done">
+          <p className="mt-3 text-sm text-ok-text" data-testid="demote-done">
             Demoted. The connection strings and passwords are unchanged; the stopped dedicated instance is kept for 48 hours, then destroyed.
           </p>
         )}
@@ -79,20 +79,32 @@ export function DemoteCard({ p }: { p: Project }) {
             <Alert title="Demotion failed">{stream.error}. The project stays on its dedicated instance with no data lost.</Alert>
           </div>
         )}
-      </Card>
+      </Panel>
     );
   }
 
   return (
-    <Card title="Move back to shared">
-      {!open ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted">
-            Demote this project to the shared tier to free its instance. The URL and every password stay the same; point-in-time recovery ends.
-          </p>
-          <Button onClick={() => setOpen(true)}>Demote…</Button>
-        </div>
-      ) : (
+    <Panel title="Move back to shared">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          Demote this project to the shared tier to free its instance. The URL and every password stay the same; point-in-time recovery ends.
+        </p>
+        <Button onClick={() => setOpen(true)}>Demote…</Button>
+      </div>
+      <SidePanel
+        open={open}
+        onOpenChange={setOpen}
+        size="large"
+        title="Move back to shared"
+        footer={
+          <>
+            <Button onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="primary" onClick={demote} busy={busy} disabled={!pf.data?.eligible || (warnings.length > 0 && !accepted)}>
+              Demote now
+            </Button>
+          </>
+        }
+      >
         <div className="flex flex-col gap-4">
           {targets.length > 1 && (
             <Field label="Target shared cluster">
@@ -126,8 +138,8 @@ export function DemoteCard({ p }: { p: Project }) {
               {pf.data.eligible && (
                 <Alert tone="accent" title={`Estimated write freeze: ${duration(pf.data.estimated_downtime_seconds)}`}>
                   The database is {formatBytes(pf.data.size_bytes)}
-                  {pf.data.target && <> and moves to node {pf.data.target.node_name}</>}. During the freeze, apps on the pooled URL wait rather than fail; session
-                  connections are dropped once and reconnect.
+                  {pf.data.target && <> and moves to node {pf.data.target.node_name}</>}. During the freeze, apps on the pooled URL wait rather than fail;
+                  session connections are dropped once and reconnect.
                 </Alert>
               )}
               {pf.data.resets.length > 0 && (
@@ -141,9 +153,9 @@ export function DemoteCard({ p }: { p: Project }) {
                 </div>
               )}
               <Alert tone="warn" title="Point-in-time recovery ends at the demotion">
-                The project switches to nightly logical backups, the first taken right away. Existing base backups stay restorable, labelled
-                &ldquo;dedicated (pre-demotion)&rdquo;, until their retention ends. The stopped instance is kept for {pf.data.retain_hours} hours as a rollback
-                option, then destroyed, which releases it from your dedicated allowance.
+                The project switches to nightly logical backups, the first taken right away. Existing base backups stay restorable, labelled &ldquo;dedicated
+                (pre-demotion)&rdquo;, until their retention ends. The stopped instance is kept for {pf.data.retain_hours} hours as a rollback option, then
+                destroyed, which releases it from your dedicated allowance.
               </Alert>
               {p.settings.console_read_only && (
                 <label className="flex items-start gap-2 text-sm">
@@ -163,14 +175,8 @@ export function DemoteCard({ p }: { p: Project }) {
             </>
           )}
           {err && <Alert>{err}</Alert>}
-          <div className="flex gap-2">
-            <Button variant="primary" onClick={demote} busy={busy} disabled={!pf.data?.eligible || (warnings.length > 0 && !accepted)}>
-              Demote now
-            </Button>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-          </div>
         </div>
-      )}
-    </Card>
+      </SidePanel>
+    </Panel>
   );
 }

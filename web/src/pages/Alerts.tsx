@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
+import { BellOff } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage, type AlertItem } from "../api/client";
-import { Alert, Badge, Card, EmptyState, PageHeader, Spinner, Table, cx } from "../components/ui";
+import { Alert, Badge, Panel, EmptyState, PageHeading, Spinner, Table, cx } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 
 const kindLabel: Record<string, string> = {
@@ -40,9 +41,9 @@ export function AlertsPage() {
   const q = useQuery({ queryKey: ["alerts", filter], queryFn: () => api.alerts(filter || undefined), refetchInterval: 15_000 });
   return (
     <>
-      <PageHeader
+      <PageHeading
         title="Alerts"
-        subtitle="Checked every 30 seconds; delivered to the webhook and email set in Settings."
+        description="Checked every 30 seconds; delivered to the webhook and email set in Settings."
         actions={
           <div role="radiogroup" aria-label="Filter" className="inline-flex rounded-md border border-line">
             {(["", "firing", "resolved"] as const).map((f) => (
@@ -65,9 +66,11 @@ export function AlertsPage() {
       ) : q.isError ? (
         <Alert>{errorMessage(q.error)}</Alert>
       ) : q.data.items.length === 0 ? (
-        <EmptyState title={filter === "resolved" ? "No resolved alerts" : "Nothing is wrong"}>No alerts {filter ? `(${filter})` : "yet"}.</EmptyState>
+        <EmptyState title={filter === "resolved" ? "No resolved alerts" : "Nothing is wrong"} icon={<BellOff />}>
+          No alerts {filter ? `(${filter})` : "yet"}.
+        </EmptyState>
       ) : (
-        <Card>
+        <Panel>
           <Table head={["", "Alert", "Target", "Started", "Status", "Notified"]}>
             {q.data.items.map((a) => (
               <tr key={a.id} data-testid="alert-row">
@@ -88,12 +91,20 @@ export function AlertsPage() {
                   {a.status === "firing" ? <Badge tone="danger">firing</Badge> : <span className="text-muted">resolved {relativeTime(a.resolved_at)}</span>}
                 </td>
                 <td className="px-3 py-2 text-xs text-muted">
-                  {a.delivery_error ? <span className="text-danger" title={a.delivery_error}>retrying</span> : a.notified_at ? "sent" : "—"}
+                  {a.delivery_error ? (
+                    <span className="text-danger-text" title={a.delivery_error}>
+                      retrying
+                    </span>
+                  ) : a.notified_at ? (
+                    "sent"
+                  ) : (
+                    "—"
+                  )}
                 </td>
               </tr>
             ))}
           </Table>
-        </Card>
+        </Panel>
       )}
     </>
   );

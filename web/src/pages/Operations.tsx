@@ -1,9 +1,10 @@
 import { Link, useParams } from "@tanstack/react-router";
+import { Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage } from "../api/client";
 import { OperationLog } from "../components/OperationLog";
-import { Alert, Card, EmptyState, PageHeader, Select, Spinner, StatusBadge, Table } from "../components/ui";
+import { Alert, Panel, EmptyState, PageHeading, Select, StatusBadge, Table, TableSkeleton, PageSkeleton } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { useCurrentOrg } from "../lib/org";
 import { sessionQuery } from "../lib/session";
@@ -16,14 +17,13 @@ export function OperationsPage() {
   const { data: session } = useQuery(sessionQuery);
   const q = useQuery({
     queryKey: ["operations", { status, org: org?.id, platform }],
-    queryFn: () =>
-      api.operations({ status: status || undefined, limit: 100, ...(platform ? { platform: "true" } : { org: org?.id }) }),
+    queryFn: () => api.operations({ status: status || undefined, limit: 100, ...(platform ? { platform: "true" } : { org: org?.id }) }),
     refetchInterval: 5000,
     enabled: !!org,
   });
   return (
     <>
-      <PageHeader title="Operations" subtitle="Every long action runs as an operation with a step log." />
+      <PageHeading title="Operations" description="Every long action runs as an operation with a step log." />
       <div className="mb-3 flex flex-wrap items-center gap-3">
         {session?.user?.platform_role === "platform_admin" && (
           <Select value={platform ? "platform" : "org"} onChange={(e) => setPlatform(e.target.value === "platform")} aria-label="Scope">
@@ -38,9 +38,13 @@ export function OperationsPage() {
           ))}
         </Select>
       </div>
-      {q.isPending && <Spinner />}
+      {q.isPending && <TableSkeleton rows={8} cols={5} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <EmptyState title="No operations yet" />}
+      {q.data && q.data.items.length === 0 && (
+        <EmptyState title="No operations yet" icon={<Activity />}>
+          Backups, restores, promotions and other long actions show up here with their step logs.
+        </EmptyState>
+      )}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Kind", "Status", "Attempts", "Started", "Finished"]}>
           {q.data.items.map((o) => (
@@ -71,7 +75,7 @@ export function OperationDetailPage() {
   const q = useQuery({ queryKey: ["operation", id], queryFn: () => api.operation(id) });
   const finished = q.data && (q.data.status === "succeeded" || q.data.status === "failed");
   const stream = useOperationStream(q.data && !finished ? id : null);
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PageSkeleton />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const o = q.data;
   const log = finished ? o.log : stream.log;
@@ -79,22 +83,26 @@ export function OperationDetailPage() {
   const error = finished ? o.error : stream.error;
   return (
     <>
-      <PageHeader
+      <PageHeading
         title={
           <span className="flex items-center gap-2">
             {o.kind} <StatusBadge status={status} />
           </span>
         }
-        subtitle={<span className="font-mono text-xs">{o.id}</span>}
+        description={<span className="font-mono text-xs">{o.id}</span>}
       />
       <div className="flex flex-col gap-4">
-        <Card>
+        <Panel>
           <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             {o.project_id && (
               <>
                 <dt className="text-muted">Project</dt>
                 <dd>
-                  <Link to="/projects/$id" params={{ id: o.project_id }} className="font-mono text-xs text-accent hover:underline">
+                  <Link
+                    to="/projects/$id"
+                    params={{ id: o.project_id }}
+                    className="font-mono text-xs text-accent-text underline underline-offset-2 hover:no-underline"
+                  >
                     {o.project_id}
                   </Link>
                 </dd>
@@ -112,10 +120,10 @@ export function OperationDetailPage() {
               <Alert title="Failed">{error}</Alert>
             </div>
           )}
-        </Card>
-        <Card title={finished ? "Log" : "Live log"}>
+        </Panel>
+        <Panel title={finished ? "Log" : "Live log"}>
           <OperationLog log={log} live={!finished} />
-        </Card>
+        </Panel>
       </div>
     </>
   );

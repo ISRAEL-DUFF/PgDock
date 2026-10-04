@@ -53,6 +53,25 @@ func gatherState(ctx context.Context, conn *pgx.Conn, c schemaedit.Change) (sche
 	if schema == "" {
 		schema = "public"
 	}
+	if c.Kind == schemaedit.Batch {
+		for _, sub := range c.Changes {
+			if sub.Kind == schemaedit.Batch {
+				return st, fmt.Errorf("%w: batches don't nest", schemaedit.ErrInvalid)
+			}
+			if sub.Schema == "" {
+				sub.Schema = schema
+			}
+			if sub.Table == "" {
+				sub.Table = c.Table
+			}
+			sst, err := gatherState(ctx, conn, sub)
+			if err != nil {
+				return st, err
+			}
+			st.Batch = append(st.Batch, sst)
+		}
+		return st, nil
+	}
 	// New types must exist (to_regtype also accepts modifiers).
 	var types []string
 	if c.Column != nil {
@@ -131,6 +150,23 @@ func gatherState(ctx context.Context, conn *pgx.Conn, c schemaedit.Change) (sche
 			WHERE con.conrelid = to_regclass($1) AND con.conname = $2`, schemaedit.Ident(schema)+"."+schemaedit.Ident(c.Table), c.Name).Scan(&st.ObjectDef)
 	case schemaedit.DropIndex:
 		_ = conn.QueryRow(ctx, `SELECT pg_get_indexdef(to_regclass($1))`, schemaedit.Ident(schema)+"."+schemaedit.Ident(c.Name)).Scan(&st.ObjectDef)
+	case schemaedit.SetComment:
+		rel := schemaedit.Ident(schema) + "." + schemaedit.Ident(c.Table)
+		if c.ColumnName == "" {
+			_ = conn.QueryRow(ctx, `SELECT obj_description(to_regclass($1), 'pg_class')`, rel).Scan(&st.OldComment)
+		} else {
+			_ = conn.QueryRow(ctx, `SELECT col_description(to_regclass($1), a.attnum) FROM pg_attribute a
+				WHERE a.attrelid = to_regclass($1) AND a.attname = $2`, rel, c.ColumnName).Scan(&st.OldComment)
+		}
+	case schemaedit.DuplicateTable:
+		err := conn.QueryRow(ctx, `
+			SELECT COALESCE(array_agg(a.attname ORDER BY a.attnum) FILTER (WHERE a.attgenerated = ''), '{}'),
+			       COALESCE(array_agg(a.attname ORDER BY a.attnum) FILTER (WHERE a.attidentity <> ''), '{}')
+			FROM pg_attribute a WHERE a.attrelid = to_regclass($1) AND a.attnum > 0 AND NOT a.attisdropped`,
+			schemaedit.Ident(schema)+"."+schemaedit.Ident(c.Table)).Scan(&st.CopyColumns, &st.IdentityColumns)
+		if err != nil {
+			return st, err
+		}
 	}
 	return st, nil
 }

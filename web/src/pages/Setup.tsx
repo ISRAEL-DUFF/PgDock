@@ -42,7 +42,7 @@ export function SetupPage() {
     <AuthShell wide>
       <ol className="mb-6 flex gap-2 text-xs">
         {steps.map((s, i) => (
-          <li key={s.id} className={i === current ? "font-semibold text-fg" : i < current ? "text-ok" : "text-muted"}>
+          <li key={s.id} className={i === current ? "font-semibold text-fg" : i < current ? "text-ok-text" : "text-muted"}>
             {i + 1}. {s.label}
             {i < steps.length - 1 && <span className="ml-2 text-muted">›</span>}
           </li>
@@ -70,8 +70,8 @@ export function SetupPage() {
         <div className="flex flex-col gap-4">
           <h1 className="text-lg font-semibold">Email</h1>
           <p className="text-sm text-muted">
-            PGDock emails people to confirm their address, reset passwords, and accept invitations, and sends alerts. It sends a test now and
-            saves the settings once the server accepts it.
+            PGDock emails people to confirm their address, reset passwords, and accept invitations, and sends alerts. It sends a test now and saves the settings
+            once the server accepts it.
           </p>
           <MailSettingsForm defaultTo={session?.user?.email} submitLabel="Send a test, save, and continue" onSaved={() => setStep("host")} />
         </div>
@@ -80,9 +80,7 @@ export function SetupPage() {
       {step === "storage" && (
         <div className="flex flex-col gap-4">
           <h1 className="text-lg font-semibold">Backup storage</h1>
-          <p className="text-sm text-muted">
-            Nightly backups go to an S3-compatible bucket. PGDock writes, reads, and deletes a test object before saving.
-          </p>
+          <p className="text-sm text-muted">Nightly backups go to an S3-compatible bucket. PGDock writes, reads, and deletes a test object before saving.</p>
           <StorageForm submitLabel="Test, save, and continue" onSaved={() => setStep("key")} />
           <Button variant="ghost" className="self-start px-0 text-xs" onClick={() => setStep("key")}>
             Skip for now (no backups until storage is set)
@@ -135,14 +133,23 @@ function AccountStep({ onDone }: { onDone: (e: SetupEnrollment) => void }) {
   return (
     <form className="flex flex-col gap-4" onSubmit={submit}>
       <h1 className="text-lg font-semibold">Create the platform admin account</h1>
-      <Field label="Setup code" hint={<>Printed in the server log: <code className="font-mono">docker compose logs pgdock-server</code></>}>
+      <Field
+        label="Setup code"
+        hint={
+          <>
+            Printed in the server log: <code className="font-mono">docker compose logs pgdock-server</code>
+          </>
+        }
+      >
         {(id) => <Input id={id} required value={setupCode} onChange={(e) => setSetupCode(e.target.value)} className="font-mono" autoComplete="off" autoFocus />}
       </Field>
       <Field label="Email">
         {(id) => <Input id={id} type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />}
       </Field>
       <Field label="Password" hint="At least 12 characters.">
-        {(id) => <Input id={id} type="password" required minLength={12} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+        {(id) => (
+          <Input id={id} type="password" required minLength={12} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        )}
       </Field>
       <Field label="Confirm password" error={mismatch ? "Passwords do not match." : null}>
         {(id) => <Input id={id} type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />}
@@ -194,7 +201,16 @@ function TotpStep({ enrollment, onDone }: { enrollment: SetupEnrollment; onDone:
       </div>
       <Field label="Code">
         {(id) => (
-          <Input id={id} inputMode="numeric" autoComplete="one-time-code" required value={code} onChange={(e) => setCode(e.target.value)} className="font-mono tracking-widest" autoFocus />
+          <Input
+            id={id}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="font-mono tracking-widest"
+            autoFocus
+          />
         )}
       </Field>
       {err && <Alert>{err}</Alert>}
@@ -245,8 +261,8 @@ export function HostStep({ onDone, submitLabel = "Save and continue" }: { onDone
     <form className="flex flex-col gap-4" onSubmit={save}>
       <h1 className="text-lg font-semibold">Database hostname</h1>
       <p className="text-sm text-muted">
-        Clients connect to this name, e.g. <code className="font-mono">db.example.com</code>. Point its DNS at this server; PGDock then gets a
-        TLS certificate for it.
+        Clients connect to this name, e.g. <code className="font-mono">db.example.com</code>. Point its DNS at this server; PGDock then gets a TLS certificate
+        for it.
       </p>
       <Field label="Hostname">
         {(id) => (
@@ -271,9 +287,11 @@ export function HostStep({ onDone, submitLabel = "Save and continue" }: { onDone
       {check && (
         <Alert tone={check.points_here ? "ok" : "warn"} title={check.points_here ? "DNS points at this server" : "DNS does not point here yet"}>
           <p className="font-mono text-xs">
-            {check.host} → {check.addresses.length ? check.addresses.join(", ") : check.error ?? "no addresses"}
+            {check.host} → {check.addresses.length ? check.addresses.join(", ") : (check.error ?? "no addresses")}
           </p>
-          {!check.points_here && <p className="mt-1 text-xs">This server: {check.server_addresses.join(", ") || "unknown"}. You can continue and fix DNS later.</p>}
+          {!check.points_here && (
+            <p className="mt-1 text-xs">This server: {check.server_addresses.join(", ") || "unknown"}. You can continue and fix DNS later.</p>
+          )}
         </Alert>
       )}
       {err && <Alert>{err}</Alert>}
@@ -300,7 +318,9 @@ function NodeStep({ onDone }: { onDone: () => void }) {
           Mutual TLS with a certificate from PGDock's own CA.
         </Alert>
       ) : (
-        <Alert tone="accent">Waiting for the agent… (check <code className="font-mono">docker compose logs pgdock-agent</code>)</Alert>
+        <Alert tone="accent">
+          Waiting for the agent… (check <code className="font-mono">docker compose logs pgdock-agent</code>)
+        </Alert>
       )}
       <Button variant={healthy ? "primary" : "ghost"} className={healthy ? undefined : "self-start px-0 text-xs"} onClick={onDone}>
         {healthy ? "Continue" : "Continue without an agent for now"}
