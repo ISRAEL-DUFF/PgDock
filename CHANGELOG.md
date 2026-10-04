@@ -3,6 +3,13 @@
 PGDock follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
+## Unreleased
+
+- `deploy/compose/preflight.sh <ui-host> <db-host>`: a read-only check to run
+  on the server before `install.sh` (OS, resources, Docker, DNS, ports,
+  outbound reach, optionally the backup bucket and mail server).
+  See docs/install.md.
+
 ## v2.1.0
 
 UI fixes found by testing the redesign, a SQL filter bar for the Table

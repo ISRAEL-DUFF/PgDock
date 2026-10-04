@@ -72,6 +72,32 @@ cd pgdock
 git checkout v2.1.0
 ```
 
+## Check the server first
+
+Before the installer, run the pre-flight check from the checkout. It changes
+nothing; it tells you what would stop the install:
+
+```sh
+cd deploy/compose
+./preflight.sh pgdock.example.com db.example.com
+```
+
+It checks the machine (Linux, CPUs, RAM, disk, clock), Docker and Compose,
+that both names resolve to this server's public address, that ports 80, 443,
+5432 and 6543 are free, and that the server can reach Let's Encrypt, Docker
+Hub and the package registries. To also test your backup bucket and mail
+server from here:
+
+```sh
+PGDOCK_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com \
+PGDOCK_SMTP_HOST=smtp.example.com PGDOCK_SMTP_PORT=587 \
+./preflight.sh pgdock.example.com db.example.com
+```
+
+Fix every **FAIL** and read each **WARN**. It can't see your cloud
+provider's firewall from inside the server: once PGDock is running, check
+from your laptop with `nc -vz <server address> 80 443 5432 6543`.
+
 ## 5. Run the installer
 
 <!-- docs-test -->
