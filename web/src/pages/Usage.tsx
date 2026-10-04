@@ -18,6 +18,12 @@ function rangeBounds(r: Range, now = new Date()): { from: Date; to: Date } {
   return { from: new Date(to.getTime() - (r === "7d" ? 7 : 30) * 86400_000), to };
 }
 
+/** "shared_storage_gb_hours" → "Shared storage GB hours". */
+function metricLabel(m: string) {
+  const s = m.replaceAll("_", " ").replace(/\b(gb|mb)\b/g, (u) => u.toUpperCase());
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /** One limit with a usage bar (V2 §13 "quota usage bars"). */
 export function QuotaBar({ q }: { q: QuotaItem }) {
   const meta = LIMIT_LABELS[q.limit] ?? { label: q.limit };
@@ -156,7 +162,7 @@ export function UsagePage() {
                   {usage.data.totals.map((t) => (
                     <Stat
                       key={t.metric}
-                      label={t.metric.replaceAll("_", " ")}
+                      label={metricLabel(t.metric)}
                       value={
                         <span className="font-mono">
                           {formatQuantity(t.quantity)} <span className="text-[13px] text-muted">{units[t.metric] ?? ""}</span>
