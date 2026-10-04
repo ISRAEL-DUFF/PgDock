@@ -1517,6 +1517,121 @@ paths:
                 $ref: "#/components/schemas/SchemaMigration"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/queries:
+    get:
+      operationId: listSavedQueries
+      summary: The SQL Editor's saved queries - your own and the shared ones
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQueryList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createSavedQuery
+      summary: Save a query (private unless shared)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedQueryRequest"
+      responses:
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/queries/{query_id}:
+    get:
+      operationId: getSavedQuery
+      summary: A saved query
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      responses:
+        "200":
+          description: The query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateSavedQuery
+      summary: Rename, edit, share or unshare your own query
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedQueryPatch"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteSavedQuery
+      summary: Delete your own query (project admins may delete shared ones)
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/queries/{query_id}/favorite:
+    put:
+      operationId: setSavedQueryFavorite
+      summary: Add a query to your favourites, or take it out
+      tags: [console]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/SavedQueryID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [favorite]
+              properties:
+                favorite:
+                  type: boolean
+      responses:
+        "200":
+          description: The query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/editor-preferences:
     get:
       operationId: getEditorPreferences
@@ -4009,6 +4124,13 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   parameters:
+    SavedQueryID:
+      name: query_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     SchemaName:
       name: schema
       in: path
@@ -6756,6 +6878,69 @@ components:
         format:
           type: string
           enum: [sql, goose, dbmate]
+    SavedQuery:
+      type: object
+      required: [id, project_id, name, sql, visibility, favorite, mine, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sql:
+          type: string
+        visibility:
+          type: string
+          enum: [private, shared]
+        favorite:
+          type: boolean
+          description: In your favourites.
+        mine:
+          type: boolean
+          description: You own it, so you can edit it.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SavedQueryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedQuery"
+    SavedQueryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        sql:
+          type: string
+          maxLength: 200000
+        visibility:
+          type: string
+          enum: [private, shared]
+          default: private
+    SavedQueryPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        sql:
+          type: string
+          maxLength: 200000
+        visibility:
+          type: string
+          enum: [private, shared]
     EditorPreferences:
       type: object
       required: [migration_format]

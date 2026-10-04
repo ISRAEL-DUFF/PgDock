@@ -1206,6 +1206,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/queries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The SQL Editor's saved queries - your own and the shared ones */
+        get: operations["listSavedQueries"];
+        put?: never;
+        /** Save a query (private unless shared) */
+        post: operations["createSavedQuery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/queries/{query_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A saved query */
+        get: operations["getSavedQuery"];
+        put?: never;
+        post?: never;
+        /** Delete your own query (project admins may delete shared ones) */
+        delete: operations["deleteSavedQuery"];
+        options?: never;
+        head?: never;
+        /** Rename, edit, share or unshare your own query */
+        patch: operations["updateSavedQuery"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/queries/{query_id}/favorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add a query to your favourites, or take it out */
+        put: operations["setSavedQueryFavorite"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/editor-preferences": {
         parameters: {
             query?: never;
@@ -4403,6 +4457,42 @@ export interface components {
             /** @enum {string} */
             format: "sql" | "goose" | "dbmate";
         };
+        SavedQuery: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            sql: string;
+            /** @enum {string} */
+            visibility: "private" | "shared";
+            /** @description In your favourites. */
+            favorite: boolean;
+            /** @description You own it, so you can edit it. */
+            mine: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        SavedQueryList: {
+            items: components["schemas"]["SavedQuery"][];
+        };
+        SavedQueryRequest: {
+            name: string;
+            sql?: string;
+            /**
+             * @default private
+             * @enum {string}
+             */
+            visibility: "private" | "shared";
+        };
+        SavedQueryPatch: {
+            name?: string;
+            sql?: string;
+            /** @enum {string} */
+            visibility?: "private" | "shared";
+        };
         EditorPreferences: {
             /** @enum {string} */
             migration_format: "sql" | "goose" | "dbmate";
@@ -5264,6 +5354,7 @@ export interface components {
         };
     };
     parameters: {
+        SavedQueryID: string;
         SchemaName: string;
         TableName: string;
         WebhookID: string;
@@ -7053,6 +7144,160 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SchemaMigration"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSavedQueries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQueryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createSavedQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQuery"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSavedQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                query_id: components["parameters"]["SavedQueryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The query. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQuery"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteSavedQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                query_id: components["parameters"]["SavedQueryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateSavedQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                query_id: components["parameters"]["SavedQueryID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedQueryPatch"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQuery"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setSavedQueryFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                query_id: components["parameters"]["SavedQueryID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    favorite: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The query. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQuery"];
                 };
             };
             default: components["responses"]["Error"];

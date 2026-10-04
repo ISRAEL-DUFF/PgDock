@@ -579,6 +579,13 @@ func (s *Service) Transfer(ctx context.Context, p store.Project, toOrg uuid.UUID
 		if err := q.MoveProjectDBUsers(ctx, store.MoveProjectDBUsersParams{ProjectID: p.ID, OrgID: p.OrgID, NewOrgID: toOrg}); err != nil {
 			return err
 		}
+		// Saved queries go with the project, favourites included.
+		if err := q.MoveProjectSavedQueryFavorites(ctx, store.MoveProjectSavedQueryFavoritesParams{ProjectID: p.ID, OrgID: p.OrgID, NewOrgID: toOrg}); err != nil {
+			return err
+		}
+		if err := q.MoveProjectSavedQueries(ctx, store.MoveProjectSavedQueriesParams{ProjectID: p.ID, OrgID: p.OrgID, NewOrgID: toOrg}); err != nil {
+			return err
+		}
 		// Tokens of the old organisation lose the project; those left
 		// with no projects are revoked (V2 §2.1).
 		if err := q.DropProjectFromTokens(ctx, store.DropProjectFromTokensParams{OrgID: p.OrgID, ProjectID: p.ID}); err != nil {

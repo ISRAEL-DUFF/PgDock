@@ -1155,6 +1155,60 @@ func (e RowChangeOp) Valid() bool {
 	}
 }
 
+// Defines values for SavedQueryVisibility.
+const (
+	SavedQueryVisibilityPrivate SavedQueryVisibility = "private"
+	SavedQueryVisibilityShared  SavedQueryVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryVisibility enum.
+func (e SavedQueryVisibility) Valid() bool {
+	switch e {
+	case SavedQueryVisibilityPrivate:
+		return true
+	case SavedQueryVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavedQueryPatchVisibility.
+const (
+	SavedQueryPatchVisibilityPrivate SavedQueryPatchVisibility = "private"
+	SavedQueryPatchVisibilityShared  SavedQueryPatchVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryPatchVisibility enum.
+func (e SavedQueryPatchVisibility) Valid() bool {
+	switch e {
+	case SavedQueryPatchVisibilityPrivate:
+		return true
+	case SavedQueryPatchVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavedQueryRequestVisibility.
+const (
+	SavedQueryRequestVisibilityPrivate SavedQueryRequestVisibility = "private"
+	SavedQueryRequestVisibilityShared  SavedQueryRequestVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryRequestVisibility enum.
+func (e SavedQueryRequestVisibility) Valid() bool {
+	switch e {
+	case SavedQueryRequestVisibilityPrivate:
+		return true
+	case SavedQueryRequestVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SchemaChangeKind.
 const (
 	AddCheck       SchemaChangeKind = "add_check"
@@ -3817,6 +3871,51 @@ type SaveRowsResult struct {
 	Summary string `json:"summary"`
 }
 
+// SavedQuery defines model for SavedQuery.
+type SavedQuery struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Favorite In your favourites.
+	Favorite bool               `json:"favorite"`
+	Id       openapi_types.UUID `json:"id"`
+
+	// Mine You own it, so you can edit it.
+	Mine       bool                 `json:"mine"`
+	Name       string               `json:"name"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	Sql        string               `json:"sql"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Visibility SavedQueryVisibility `json:"visibility"`
+}
+
+// SavedQueryVisibility defines model for SavedQuery.Visibility.
+type SavedQueryVisibility string
+
+// SavedQueryList defines model for SavedQueryList.
+type SavedQueryList struct {
+	Items []SavedQuery `json:"items"`
+}
+
+// SavedQueryPatch defines model for SavedQueryPatch.
+type SavedQueryPatch struct {
+	Name       *string                    `json:"name,omitempty"`
+	Sql        *string                    `json:"sql,omitempty"`
+	Visibility *SavedQueryPatchVisibility `json:"visibility,omitempty"`
+}
+
+// SavedQueryPatchVisibility defines model for SavedQueryPatch.Visibility.
+type SavedQueryPatchVisibility string
+
+// SavedQueryRequest defines model for SavedQueryRequest.
+type SavedQueryRequest struct {
+	Name       string                       `json:"name"`
+	Sql        *string                      `json:"sql,omitempty"`
+	Visibility *SavedQueryRequestVisibility `json:"visibility,omitempty"`
+}
+
+// SavedQueryRequestVisibility defines model for SavedQueryRequest.Visibility.
+type SavedQueryRequestVisibility string
+
 // SavedRow defines model for SavedRow.
 type SavedRow struct {
 	Index  int       `json:"index"`
@@ -4695,6 +4794,9 @@ type ProjectID = openapi_types.UUID
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
 
+// SavedQueryID defines model for SavedQueryID.
+type SavedQueryID = openapi_types.UUID
+
 // SchemaName defines model for SchemaName.
 type SchemaName = string
 
@@ -4889,6 +4991,11 @@ type GetProjectMetricsParams struct {
 
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
+
+// SetSavedQueryFavoriteJSONBody defines parameters for SetSavedQueryFavorite.
+type SetSavedQueryFavoriteJSONBody struct {
+	Favorite bool `json:"favorite"`
+}
 
 // CountTableRowsParams defines parameters for CountTableRows.
 type CountTableRowsParams struct {
@@ -5139,6 +5246,15 @@ type RestoreProjectPITRJSONRequestBody = PitrRequest
 
 // PromoteProjectJSONRequestBody defines body for PromoteProject for application/json ContentType.
 type PromoteProjectJSONRequestBody = PromoteRequest
+
+// CreateSavedQueryJSONRequestBody defines body for CreateSavedQuery for application/json ContentType.
+type CreateSavedQueryJSONRequestBody = SavedQueryRequest
+
+// UpdateSavedQueryJSONRequestBody defines body for UpdateSavedQuery for application/json ContentType.
+type UpdateSavedQueryJSONRequestBody = SavedQueryPatch
+
+// SetSavedQueryFavoriteJSONRequestBody defines body for SetSavedQueryFavorite for application/json ContentType.
+type SetSavedQueryFavoriteJSONRequestBody SetSavedQueryFavoriteJSONBody
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
@@ -6821,6 +6937,63 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/promote (the `PromoteProject` operationId).
 	PromoteProject(ctx context.Context, id ProjectID, body PromoteProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSavedQueries The SQL Editor's saved queries - your own and the shared ones
+	//
+	// Corresponds with GET /api/v1/projects/{id}/queries (the `ListSavedQueries` operationId).
+	ListSavedQueries(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSavedQueryWithBody Save a query (private unless shared)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+	CreateSavedQueryWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSavedQuery Save a query (private unless shared)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+	CreateSavedQuery(ctx context.Context, id ProjectID, body CreateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSavedQuery Delete your own query (project admins may delete shared ones)
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/queries/{query_id} (the `DeleteSavedQuery` operationId).
+	DeleteSavedQuery(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSavedQuery A saved query
+	//
+	// Corresponds with GET /api/v1/projects/{id}/queries/{query_id} (the `GetSavedQuery` operationId).
+	GetSavedQuery(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSavedQueryWithBody Rename, edit, share or unshare your own query
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+	UpdateSavedQueryWithBody(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSavedQuery Rename, edit, share or unshare your own query
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+	UpdateSavedQuery(ctx context.Context, id ProjectID, queryId SavedQueryID, body UpdateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetSavedQueryFavoriteWithBody Add a query to your favourites, or take it out
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+	SetSavedQueryFavoriteWithBody(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetSavedQueryFavorite Add a query to your favourites, or take it out
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+	SetSavedQueryFavorite(ctx context.Context, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
 	//
@@ -11062,6 +11235,153 @@ func (c *Client) PromoteProjectWithBody(ctx context.Context, id ProjectID, conte
 // Corresponds with POST /api/v1/projects/{id}/promote (the `PromoteProject` operationId).
 func (c *Client) PromoteProject(ctx context.Context, id ProjectID, body PromoteProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPromoteProjectRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListSavedQueries The SQL Editor's saved queries - your own and the shared ones
+//
+// Corresponds with GET /api/v1/projects/{id}/queries (the `ListSavedQueries` operationId).
+func (c *Client) ListSavedQueries(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSavedQueriesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateSavedQueryWithBody Save a query (private unless shared)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+func (c *Client) CreateSavedQueryWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSavedQueryRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateSavedQuery Save a query (private unless shared)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+func (c *Client) CreateSavedQuery(ctx context.Context, id ProjectID, body CreateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSavedQueryRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteSavedQuery Delete your own query (project admins may delete shared ones)
+//
+// Corresponds with DELETE /api/v1/projects/{id}/queries/{query_id} (the `DeleteSavedQuery` operationId).
+func (c *Client) DeleteSavedQuery(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSavedQueryRequest(c.Server, id, queryId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetSavedQuery A saved query
+//
+// Corresponds with GET /api/v1/projects/{id}/queries/{query_id} (the `GetSavedQuery` operationId).
+func (c *Client) GetSavedQuery(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSavedQueryRequest(c.Server, id, queryId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateSavedQueryWithBody Rename, edit, share or unshare your own query
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+func (c *Client) UpdateSavedQueryWithBody(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSavedQueryRequestWithBody(c.Server, id, queryId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateSavedQuery Rename, edit, share or unshare your own query
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+func (c *Client) UpdateSavedQuery(ctx context.Context, id ProjectID, queryId SavedQueryID, body UpdateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSavedQueryRequest(c.Server, id, queryId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetSavedQueryFavoriteWithBody Add a query to your favourites, or take it out
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+func (c *Client) SetSavedQueryFavoriteWithBody(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetSavedQueryFavoriteRequestWithBody(c.Server, id, queryId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetSavedQueryFavorite Add a query to your favourites, or take it out
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+func (c *Client) SetSavedQueryFavorite(ctx context.Context, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetSavedQueryFavoriteRequest(c.Server, id, queryId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18816,6 +19136,277 @@ func NewPromoteProjectRequestWithBody(server string, id ProjectID, contentType s
 	return req, nil
 }
 
+// NewListSavedQueriesRequest constructs an http.Request for the ListSavedQueries method
+func NewListSavedQueriesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/queries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSavedQueryRequest calls the generic CreateSavedQuery builder with application/json body
+func NewCreateSavedQueryRequest(server string, id ProjectID, body CreateSavedQueryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSavedQueryRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateSavedQueryRequestWithBody constructs an http.Request for the CreateSavedQuery method, with any body, and a specified content type
+func NewCreateSavedQueryRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/queries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteSavedQueryRequest constructs an http.Request for the DeleteSavedQuery method
+func NewDeleteSavedQueryRequest(server string, id ProjectID, queryId SavedQueryID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "query_id", queryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/queries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSavedQueryRequest constructs an http.Request for the GetSavedQuery method
+func NewGetSavedQueryRequest(server string, id ProjectID, queryId SavedQueryID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "query_id", queryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/queries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSavedQueryRequest calls the generic UpdateSavedQuery builder with application/json body
+func NewUpdateSavedQueryRequest(server string, id ProjectID, queryId SavedQueryID, body UpdateSavedQueryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSavedQueryRequestWithBody(server, id, queryId, "application/json", bodyReader)
+}
+
+// NewUpdateSavedQueryRequestWithBody constructs an http.Request for the UpdateSavedQuery method, with any body, and a specified content type
+func NewUpdateSavedQueryRequestWithBody(server string, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "query_id", queryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/queries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetSavedQueryFavoriteRequest calls the generic SetSavedQueryFavorite builder with application/json body
+func NewSetSavedQueryFavoriteRequest(server string, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetSavedQueryFavoriteRequestWithBody(server, id, queryId, "application/json", bodyReader)
+}
+
+// NewSetSavedQueryFavoriteRequestWithBody constructs an http.Request for the SetSavedQueryFavorite method, with any body, and a specified content type
+func NewSetSavedQueryFavoriteRequestWithBody(server string, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "query_id", queryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/queries/%s/favorite", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListReapedSessionsRequest constructs an http.Request for the ListReapedSessions method
 func NewListReapedSessionsRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -23121,6 +23712,69 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/promote (the `PromoteProject` operationId).
 	PromoteProjectWithResponse(ctx context.Context, id ProjectID, body PromoteProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteProjectResponse, error)
+
+	// ListSavedQueriesWithResponse The SQL Editor's saved queries - your own and the shared ones
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/queries (the `ListSavedQueries` operationId).
+	ListSavedQueriesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListSavedQueriesResponse, error)
+
+	// CreateSavedQueryWithBodyWithResponse Save a query (private unless shared)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+	CreateSavedQueryWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSavedQueryResponse, error)
+
+	// CreateSavedQueryWithResponse Save a query (private unless shared)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+	CreateSavedQueryWithResponse(ctx context.Context, id ProjectID, body CreateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSavedQueryResponse, error)
+
+	// DeleteSavedQueryWithResponse Delete your own query (project admins may delete shared ones)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/queries/{query_id} (the `DeleteSavedQuery` operationId).
+	DeleteSavedQueryWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*DeleteSavedQueryResponse, error)
+
+	// GetSavedQueryWithResponse A saved query
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/queries/{query_id} (the `GetSavedQuery` operationId).
+	GetSavedQueryWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*GetSavedQueryResponse, error)
+
+	// UpdateSavedQueryWithBodyWithResponse Rename, edit, share or unshare your own query
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+	UpdateSavedQueryWithBodyWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSavedQueryResponse, error)
+
+	// UpdateSavedQueryWithResponse Rename, edit, share or unshare your own query
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+	UpdateSavedQueryWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, body UpdateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSavedQueryResponse, error)
+
+	// SetSavedQueryFavoriteWithBodyWithResponse Add a query to your favourites, or take it out
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+	SetSavedQueryFavoriteWithBodyWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetSavedQueryFavoriteResponse, error)
+
+	// SetSavedQueryFavoriteWithResponse Add a query to your favourites, or take it out
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+	SetSavedQueryFavoriteWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody, reqEditors ...RequestEditorFn) (*SetSavedQueryFavoriteResponse, error)
 
 	// ListReapedSessionsWithResponse Statements and idle transactions the reaper ended (V2 §10.4)
 	//
@@ -30487,6 +31141,287 @@ func (r PromoteProjectResponse) ContentType() string {
 	return ""
 }
 
+type ListSavedQueriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SavedQueryList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListSavedQueriesResponse) GetJSON200() *SavedQueryList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListSavedQueriesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListSavedQueriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSavedQueriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSavedQueriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSavedQueriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSavedQueryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *SavedQuery
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateSavedQueryResponse) GetJSON201() *SavedQuery {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateSavedQueryResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateSavedQueryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSavedQueryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSavedQueryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSavedQueryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteSavedQueryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteSavedQueryResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteSavedQueryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSavedQueryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSavedQueryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteSavedQueryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetSavedQueryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SavedQuery
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSavedQueryResponse) GetJSON200() *SavedQuery {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetSavedQueryResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetSavedQueryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSavedQueryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSavedQueryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSavedQueryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateSavedQueryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SavedQuery
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateSavedQueryResponse) GetJSON200() *SavedQuery {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateSavedQueryResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateSavedQueryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSavedQueryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSavedQueryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateSavedQueryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetSavedQueryFavoriteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SavedQuery
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetSavedQueryFavoriteResponse) GetJSON200() *SavedQuery {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetSavedQueryFavoriteResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetSavedQueryFavoriteResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetSavedQueryFavoriteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetSavedQueryFavoriteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetSavedQueryFavoriteResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListReapedSessionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36206,6 +37141,123 @@ func (c *ClientWithResponses) PromoteProjectWithResponse(ctx context.Context, id
 		return nil, err
 	}
 	return ParsePromoteProjectResponse(rsp)
+}
+
+// ListSavedQueriesWithResponse The SQL Editor's saved queries - your own and the shared ones
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/queries (the `ListSavedQueries` operationId).
+func (c *ClientWithResponses) ListSavedQueriesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListSavedQueriesResponse, error) {
+	rsp, err := c.ListSavedQueries(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSavedQueriesResponse(rsp)
+}
+
+// CreateSavedQueryWithBodyWithResponse Save a query (private unless shared)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+func (c *ClientWithResponses) CreateSavedQueryWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSavedQueryResponse, error) {
+	rsp, err := c.CreateSavedQueryWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSavedQueryResponse(rsp)
+}
+
+// CreateSavedQueryWithResponse Save a query (private unless shared)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/queries (the `CreateSavedQuery` operationId).
+func (c *ClientWithResponses) CreateSavedQueryWithResponse(ctx context.Context, id ProjectID, body CreateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSavedQueryResponse, error) {
+	rsp, err := c.CreateSavedQuery(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSavedQueryResponse(rsp)
+}
+
+// DeleteSavedQueryWithResponse Delete your own query (project admins may delete shared ones)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/queries/{query_id} (the `DeleteSavedQuery` operationId).
+func (c *ClientWithResponses) DeleteSavedQueryWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*DeleteSavedQueryResponse, error) {
+	rsp, err := c.DeleteSavedQuery(ctx, id, queryId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSavedQueryResponse(rsp)
+}
+
+// GetSavedQueryWithResponse A saved query
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/queries/{query_id} (the `GetSavedQuery` operationId).
+func (c *ClientWithResponses) GetSavedQueryWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, reqEditors ...RequestEditorFn) (*GetSavedQueryResponse, error) {
+	rsp, err := c.GetSavedQuery(ctx, id, queryId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSavedQueryResponse(rsp)
+}
+
+// UpdateSavedQueryWithBodyWithResponse Rename, edit, share or unshare your own query
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+func (c *ClientWithResponses) UpdateSavedQueryWithBodyWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSavedQueryResponse, error) {
+	rsp, err := c.UpdateSavedQueryWithBody(ctx, id, queryId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSavedQueryResponse(rsp)
+}
+
+// UpdateSavedQueryWithResponse Rename, edit, share or unshare your own query
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/queries/{query_id} (the `UpdateSavedQuery` operationId).
+func (c *ClientWithResponses) UpdateSavedQueryWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, body UpdateSavedQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSavedQueryResponse, error) {
+	rsp, err := c.UpdateSavedQuery(ctx, id, queryId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSavedQueryResponse(rsp)
+}
+
+// SetSavedQueryFavoriteWithBodyWithResponse Add a query to your favourites, or take it out
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+func (c *ClientWithResponses) SetSavedQueryFavoriteWithBodyWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetSavedQueryFavoriteResponse, error) {
+	rsp, err := c.SetSavedQueryFavoriteWithBody(ctx, id, queryId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetSavedQueryFavoriteResponse(rsp)
+}
+
+// SetSavedQueryFavoriteWithResponse Add a query to your favourites, or take it out
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
+func (c *ClientWithResponses) SetSavedQueryFavoriteWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody, reqEditors ...RequestEditorFn) (*SetSavedQueryFavoriteResponse, error) {
+	rsp, err := c.SetSavedQueryFavorite(ctx, id, queryId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetSavedQueryFavoriteResponse(rsp)
 }
 
 // ListReapedSessionsWithResponse Statements and idle transactions the reaper ended (V2 §10.4)
@@ -42023,6 +43075,200 @@ func ParsePromoteProjectResponse(rsp *http.Response) (*PromoteProjectResponse, e
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSavedQueriesResponse parses an HTTP response from a ListSavedQueriesWithResponse call
+func ParseListSavedQueriesResponse(rsp *http.Response) (*ListSavedQueriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSavedQueriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SavedQueryList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSavedQueryResponse parses an HTTP response from a CreateSavedQueryWithResponse call
+func ParseCreateSavedQueryResponse(rsp *http.Response) (*CreateSavedQueryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSavedQueryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SavedQuery
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSavedQueryResponse parses an HTTP response from a DeleteSavedQueryWithResponse call
+func ParseDeleteSavedQueryResponse(rsp *http.Response) (*DeleteSavedQueryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSavedQueryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSavedQueryResponse parses an HTTP response from a GetSavedQueryWithResponse call
+func ParseGetSavedQueryResponse(rsp *http.Response) (*GetSavedQueryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSavedQueryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SavedQuery
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSavedQueryResponse parses an HTTP response from a UpdateSavedQueryWithResponse call
+func ParseUpdateSavedQueryResponse(rsp *http.Response) (*UpdateSavedQueryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSavedQueryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SavedQuery
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetSavedQueryFavoriteResponse parses an HTTP response from a SetSavedQueryFavoriteWithResponse call
+func ParseSetSavedQueryFavoriteResponse(rsp *http.Response) (*SetSavedQueryFavoriteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetSavedQueryFavoriteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SavedQuery
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

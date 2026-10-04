@@ -1151,6 +1151,60 @@ func (e RowChangeOp) Valid() bool {
 	}
 }
 
+// Defines values for SavedQueryVisibility.
+const (
+	SavedQueryVisibilityPrivate SavedQueryVisibility = "private"
+	SavedQueryVisibilityShared  SavedQueryVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryVisibility enum.
+func (e SavedQueryVisibility) Valid() bool {
+	switch e {
+	case SavedQueryVisibilityPrivate:
+		return true
+	case SavedQueryVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavedQueryPatchVisibility.
+const (
+	SavedQueryPatchVisibilityPrivate SavedQueryPatchVisibility = "private"
+	SavedQueryPatchVisibilityShared  SavedQueryPatchVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryPatchVisibility enum.
+func (e SavedQueryPatchVisibility) Valid() bool {
+	switch e {
+	case SavedQueryPatchVisibilityPrivate:
+		return true
+	case SavedQueryPatchVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavedQueryRequestVisibility.
+const (
+	SavedQueryRequestVisibilityPrivate SavedQueryRequestVisibility = "private"
+	SavedQueryRequestVisibilityShared  SavedQueryRequestVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the SavedQueryRequestVisibility enum.
+func (e SavedQueryRequestVisibility) Valid() bool {
+	switch e {
+	case SavedQueryRequestVisibilityPrivate:
+		return true
+	case SavedQueryRequestVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SchemaChangeKind.
 const (
 	AddCheck       SchemaChangeKind = "add_check"
@@ -3813,6 +3867,51 @@ type SaveRowsResult struct {
 	Summary string `json:"summary"`
 }
 
+// SavedQuery defines model for SavedQuery.
+type SavedQuery struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Favorite In your favourites.
+	Favorite bool               `json:"favorite"`
+	Id       openapi_types.UUID `json:"id"`
+
+	// Mine You own it, so you can edit it.
+	Mine       bool                 `json:"mine"`
+	Name       string               `json:"name"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	Sql        string               `json:"sql"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Visibility SavedQueryVisibility `json:"visibility"`
+}
+
+// SavedQueryVisibility defines model for SavedQuery.Visibility.
+type SavedQueryVisibility string
+
+// SavedQueryList defines model for SavedQueryList.
+type SavedQueryList struct {
+	Items []SavedQuery `json:"items"`
+}
+
+// SavedQueryPatch defines model for SavedQueryPatch.
+type SavedQueryPatch struct {
+	Name       *string                    `json:"name,omitempty"`
+	Sql        *string                    `json:"sql,omitempty"`
+	Visibility *SavedQueryPatchVisibility `json:"visibility,omitempty"`
+}
+
+// SavedQueryPatchVisibility defines model for SavedQueryPatch.Visibility.
+type SavedQueryPatchVisibility string
+
+// SavedQueryRequest defines model for SavedQueryRequest.
+type SavedQueryRequest struct {
+	Name       string                       `json:"name"`
+	Sql        *string                      `json:"sql,omitempty"`
+	Visibility *SavedQueryRequestVisibility `json:"visibility,omitempty"`
+}
+
+// SavedQueryRequestVisibility defines model for SavedQueryRequest.Visibility.
+type SavedQueryRequestVisibility string
+
 // SavedRow defines model for SavedRow.
 type SavedRow struct {
 	Index  int       `json:"index"`
@@ -4691,6 +4790,9 @@ type ProjectID = openapi_types.UUID
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
 
+// SavedQueryID defines model for SavedQueryID.
+type SavedQueryID = openapi_types.UUID
+
 // SchemaName defines model for SchemaName.
 type SchemaName = string
 
@@ -4885,6 +4987,11 @@ type GetProjectMetricsParams struct {
 
 // GetProjectMetricsParamsRange defines parameters for GetProjectMetrics.
 type GetProjectMetricsParamsRange string
+
+// SetSavedQueryFavoriteJSONBody defines parameters for SetSavedQueryFavorite.
+type SetSavedQueryFavoriteJSONBody struct {
+	Favorite bool `json:"favorite"`
+}
 
 // CountTableRowsParams defines parameters for CountTableRows.
 type CountTableRowsParams struct {
@@ -5135,6 +5242,15 @@ type RestoreProjectPITRJSONRequestBody = PitrRequest
 
 // PromoteProjectJSONRequestBody defines body for PromoteProject for application/json ContentType.
 type PromoteProjectJSONRequestBody = PromoteRequest
+
+// CreateSavedQueryJSONRequestBody defines body for CreateSavedQuery for application/json ContentType.
+type CreateSavedQueryJSONRequestBody = SavedQueryRequest
+
+// UpdateSavedQueryJSONRequestBody defines body for UpdateSavedQuery for application/json ContentType.
+type UpdateSavedQueryJSONRequestBody = SavedQueryPatch
+
+// SetSavedQueryFavoriteJSONRequestBody defines body for SetSavedQueryFavorite for application/json ContentType.
+type SetSavedQueryFavoriteJSONRequestBody SetSavedQueryFavoriteJSONBody
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
@@ -5639,6 +5755,24 @@ type ServerInterface interface {
 	// PromoteProject Promote a shared project to a dedicated instance
 	// (POST /api/v1/projects/{id}/promote)
 	PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListSavedQueries The SQL Editor's saved queries - your own and the shared ones
+	// (GET /api/v1/projects/{id}/queries)
+	ListSavedQueries(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateSavedQuery Save a query (private unless shared)
+	// (POST /api/v1/projects/{id}/queries)
+	CreateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteSavedQuery Delete your own query (project admins may delete shared ones)
+	// (DELETE /api/v1/projects/{id}/queries/{query_id})
+	DeleteSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
+	// GetSavedQuery A saved query
+	// (GET /api/v1/projects/{id}/queries/{query_id})
+	GetSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
+	// UpdateSavedQuery Rename, edit, share or unshare your own query
+	// (PATCH /api/v1/projects/{id}/queries/{query_id})
+	UpdateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
+	// SetSavedQueryFavorite Add a query to your favourites, or take it out
+	// (PUT /api/v1/projects/{id}/queries/{query_id}/favorite)
+	SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
 	// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
 	// (GET /api/v1/projects/{id}/reaped)
 	ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -6671,6 +6805,42 @@ func (_ Unimplemented) GetPromotionEstimate(w http.ResponseWriter, r *http.Reque
 // PromoteProject Promote a shared project to a dedicated instance
 // (POST /api/v1/projects/{id}/promote)
 func (_ Unimplemented) PromoteProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSavedQueries The SQL Editor's saved queries - your own and the shared ones
+// (GET /api/v1/projects/{id}/queries)
+func (_ Unimplemented) ListSavedQueries(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateSavedQuery Save a query (private unless shared)
+// (POST /api/v1/projects/{id}/queries)
+func (_ Unimplemented) CreateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteSavedQuery Delete your own query (project admins may delete shared ones)
+// (DELETE /api/v1/projects/{id}/queries/{query_id})
+func (_ Unimplemented) DeleteSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetSavedQuery A saved query
+// (GET /api/v1/projects/{id}/queries/{query_id})
+func (_ Unimplemented) GetSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateSavedQuery Rename, edit, share or unshare your own query
+// (PATCH /api/v1/projects/{id}/queries/{query_id})
+func (_ Unimplemented) UpdateSavedQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetSavedQueryFavorite Add a query to your favourites, or take it out
+// (PUT /api/v1/projects/{id}/queries/{query_id}/favorite)
+func (_ Unimplemented) SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10929,6 +11099,198 @@ func (siw *ServerInterfaceWrapper) PromoteProject(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListSavedQueries operation middleware
+func (siw *ServerInterfaceWrapper) ListSavedQueries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSavedQueries(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) CreateSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSavedQuery(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteSavedQuery(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) GetSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSavedQuery(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSavedQuery operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSavedQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSavedQuery(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetSavedQueryFavorite operation middleware
+func (siw *ServerInterfaceWrapper) SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId SavedQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetSavedQueryFavorite(w, r, id, queryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListReapedSessions operation middleware
 func (siw *ServerInterfaceWrapper) ListReapedSessions(w http.ResponseWriter, r *http.Request) {
 
@@ -12877,6 +13239,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/schema/migration", wrapper.SchemaMigration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/queries", wrapper.ListSavedQueries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/queries", wrapper.CreateSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}", wrapper.DeleteSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}", wrapper.GetSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}", wrapper.UpdateSavedQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/queries/{query_id}/favorite", wrapper.SetSavedQueryFavorite)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/editor-preferences", wrapper.GetEditorPreferences)
