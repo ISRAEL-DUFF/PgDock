@@ -241,6 +241,12 @@ Matches the second screenshot:
   deleted with the project and moved with a transfer. Saved by debounce
   as you type ("Saved" in the toolbar).
 
+**Built:** as above, with two notes. Monaco is bundled with the app
+(PostgreSQL and JSON only), and loads only on the SQL Editor, or when the
+table editor's Definition view or JSON editor first opens; its chunk is
+about 900 kB gzipped, the shell is unchanged. The "role switch" is a
+picker between the owner role (read/write) and read-only.
+
 **Done when:** queries run, cancel and export as today; queries save,
 share, favourite and reopen across devices; the e2e SQL journey passes.
 

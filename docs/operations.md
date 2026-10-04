@@ -154,6 +154,25 @@ ones working for a grace period. Members' personal database logins
 (`<database>_u_<member>`) are renamed at once, with the same password: their
 old user name stops working, so members copy the new connection string.
 
+## The SQL Editor
+
+The **SQL Editor** is laid out as Supabase Studio's. Queries run against
+the live database as the project's owner role, at most 1,000 rows shown
+per statement, with a 30-second timeout unless you pick a longer one; run
+read-only from the role picker, and read-only members and projects whose
+console is read-only always do. ⌘↵ runs the selection or everything,
+⌘⇧F formats, and the editor completes schema, table and column names.
+Long queries can be cancelled; errors are marked where Postgres found
+them; results export as CSV or JSON.
+
+Queries are saved as you type. Each member keeps their own (**Private**),
+can share one with everyone who can use the project's console
+(**Shared**), and marks favourites for themselves. Only a query's owner
+edits it (others duplicate it to change it); project admins may also
+delete shared ones. Saved queries are deleted with the project and move
+with it to another organisation. The editor's run history stays in the
+browser.
+
 ## The table editor
 
 Project members edit data and schema in the **Table Editor**, laid out as
