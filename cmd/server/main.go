@@ -389,7 +389,8 @@ func setupAuth(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyri
 		if _, err := rand.Read(b); err != nil {
 			return nil, err
 		}
-		code = base32.StdEncoding.EncodeToString(b)
+		// No "=" padding: it is easy to lose when copying the code.
+		code = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
 	}
 	if cfg.Insight.PublicURL == "" {
 		log.Warn("PGDOCK_PUBLIC_URL is not set: links in account and invitation emails will be relative")

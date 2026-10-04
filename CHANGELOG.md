@@ -3,6 +3,14 @@
 PGDock follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
+## Unreleased
+
+- Fixed: the first-run setup code printed by `install.sh` was missing its
+  trailing `=`, so the wizard called it wrong. The installer now prints the
+  whole code, new codes have no padding, and the server ignores spaces,
+  `=` padding and letter case when comparing. (The code still changes every
+  time the server restarts, unless `PGDOCK_SETUP_CODE` is set in `.env`.)
+
 ## v2.1.0
 
 UI fixes found by testing the redesign, a SQL filter bar for the Table

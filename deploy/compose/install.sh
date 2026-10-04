@@ -75,7 +75,7 @@ docker compose up -d --no-build --wait --force-recreate --no-deps pooler-session
 echo
 echo "PGDock is running: https://$(grep '^PGDOCK_UI_DOMAIN=' .env | cut -d= -f2-)"
 # The server logs JSON ("setup_code":"…") or text (setup_code=…).
-code=$(docker compose logs pgdock-server 2>/dev/null | grep -oE 'setup_code"?[=:]"?[A-Za-z0-9_-]+' | tail -1 | sed -E 's/.*[=:]"?//')
+code=$(docker compose logs pgdock-server 2>/dev/null | grep -oE 'setup_code"?[=:]"?[A-Za-z0-9_=-]+' | tail -1 | sed -E 's/^setup_code"?[=:]"?//')
 if [ -n "$code" ]; then
 	echo "First-run setup code: $code"
 else

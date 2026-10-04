@@ -96,3 +96,20 @@ func TestToken(t *testing.T) {
 		t.Fatal("bad tokens")
 	}
 }
+
+func TestSetupCodeMatches(t *testing.T) {
+	const code = "ABCDEFGHIJKLMNO="
+	for _, got := range []string{code, "ABCDEFGHIJKLMNO", " abcdefghijklmno= \n", "ABCDE FGHIJKLMNO"} {
+		if !SetupCodeMatches(got, code) {
+			t.Errorf("%q should match", got)
+		}
+	}
+	for _, got := range []string{"", "ABCDEFGHIJKLMN", "ABCDEFGHIJKLMNOP", "XBCDEFGHIJKLMNO="} {
+		if SetupCodeMatches(got, code) {
+			t.Errorf("%q should not match", got)
+		}
+	}
+	if SetupCodeMatches("", "") || SetupCodeMatches("=", "=") {
+		t.Error("an empty setup code must never match")
+	}
+}
