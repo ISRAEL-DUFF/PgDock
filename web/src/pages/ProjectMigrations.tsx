@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, FileCode } from "lucide-react";
 import { api, errorMessage, type AuditEntry } from "../api/client";
 import { Alert, Badge, Button, CodeBlock, CopyButton, EmptyState, Page, Panel, Spinner } from "../components/ui";
 import { download } from "../lib/csv";
@@ -45,7 +45,11 @@ export function ProjectMigrationsPage() {
       description="Schema changes made from the table editor, newest first. Each was reviewed before it ran; the SQL is what ran."
       actions={
         items.length > 0 && (
-          <Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => download(`${p.db_name}-migrations.sql`, migrationFile(items))} data-testid="download-migrations">
+          <Button
+            icon={<Download className="h-3.5 w-3.5" />}
+            onClick={() => download(`${p.db_name}-migrations.sql`, migrationFile(items))}
+            data-testid="download-migrations"
+          >
             Download as SQL
           </Button>
         )
@@ -57,7 +61,9 @@ export function ProjectMigrationsPage() {
       ) : q.isError ? (
         <Alert>{errorMessage(q.error)}</Alert>
       ) : items.length === 0 ? (
-        <EmptyState title="No schema changes yet">Changes you run from the table editor are listed here, with their SQL.</EmptyState>
+        <EmptyState title="No schema changes yet" icon={<FileCode />}>
+          Changes you run from the table editor are listed here, with their SQL.
+        </EmptyState>
       ) : (
         <div className="flex flex-col gap-3">
           {items.map((e) => {

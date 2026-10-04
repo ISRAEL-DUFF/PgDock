@@ -14,15 +14,21 @@
   --border-strong: #3e3e3e;
   --fg: #ededed;
   --fg-light: #b4b4b4;
-  --muted: #8f8f8f;
-  --accent: #8b5cf6;
-  --accent-strong: #7c3aed;
+  --muted: #9b9b9b;
+  /* Fills take white text; the -text colours are for text on the
+     surfaces. Every pair meets WCAG AA (4.5:1). */
+  --accent: #7c3aed;
+  --accent-strong: #6d28d9;
+  --accent-text: #a78bfa;
   --accent-fg: #ffffff;
   --accent-soft: rgb(139 92 246 / 0.14);
   --ok: #3ecf8e;
+  --ok-text: #3ecf8e;
   --warn: #f5a524;
-  --danger: #e5484d;
-  --danger-strong: #b4232a;
+  --warn-text: #f5a524;
+  --danger: #d1242f;
+  --danger-strong: #a40e26;
+  --danger-text: #ff6b70;
   --code-bg: #141414;
   color-scheme: dark;
 }
@@ -36,15 +42,19 @@
   --border-strong: #c8c8c8;
   --fg: #171717;
   --fg-light: #4d4d4d;
-  --muted: #707070;
+  --muted: #5f5f5f;
   --accent: #7c3aed;
   --accent-strong: #6d28d9;
+  --accent-text: #6d28d9;
   --accent-fg: #ffffff;
   --accent-soft: rgb(124 58 237 / 0.1);
   --ok: #18a058;
+  --ok-text: #0b6b38;
   --warn: #b26b00;
+  --warn-text: #875200;
   --danger: #d1242f;
   --danger-strong: #a40e26;
+  --danger-text: #a51d24;
   --code-bg: #f6f6f6;
   color-scheme: light;
 }
@@ -59,15 +69,19 @@
     --border-strong: #c8c8c8;
     --fg: #171717;
     --fg-light: #4d4d4d;
-    --muted: #707070;
+    --muted: #5f5f5f;
     --accent: #7c3aed;
     --accent-strong: #6d28d9;
+    --accent-text: #6d28d9;
     --accent-fg: #ffffff;
     --accent-soft: rgb(124 58 237 / 0.1);
     --ok: #18a058;
+    --ok-text: #0b6b38;
     --warn: #b26b00;
+    --warn-text: #875200;
     --danger: #d1242f;
     --danger-strong: #a40e26;
+    --danger-text: #a51d24;
     --code-bg: #f6f6f6;
     color-scheme: light;
   }
@@ -91,6 +105,10 @@
   --color-warn: var(--warn);
   --color-danger: var(--danger);
   --color-danger-strong: var(--danger-strong);
+  --color-accent-text: var(--accent-text);
+  --color-ok-text: var(--ok-text);
+  --color-warn-text: var(--warn-text);
+  --color-danger-text: var(--danger-text);
   --color-code: var(--code-bg);
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;

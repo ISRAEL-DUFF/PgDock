@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { Activity } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { api, errorMessage, type Operation } from "../api/client";
 import { OperationLog } from "../components/OperationLog";
-import { Alert, KeyValues, Page, Panel, Select, Spinner, StatusBadge, cx } from "../components/ui";
+import { Alert, KeyValues, Page, Panel, Select, StatusBadge, cx, EmptyState, TableSkeleton } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { useProject } from "./ProjectOverview";
@@ -49,13 +50,13 @@ export function ProjectLogsPage() {
       testId="project-logs"
     >
       {ops.isPending ? (
-        <Spinner />
+        <TableSkeleton rows={6} cols={3} />
       ) : ops.isError ? (
         <Alert>{errorMessage(ops.error)}</Alert>
       ) : items.length === 0 ? (
-        <Panel>
-          <p className="text-[13px] text-muted">No operations{status ? ` with status ${status}` : ""}.</p>
-        </Panel>
+        <EmptyState title={status ? `No ${status} operations` : "No operations yet"} icon={<Activity />}>
+          Backups, restores and other long actions on this project show up here with their step logs.
+        </EmptyState>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <Panel bodyClassName="p-0">
@@ -82,7 +83,7 @@ export function ProjectLogsPage() {
             <Panel
               title={sel.kind}
               actions={
-                <Link to="/operations/$id" params={{ id: sel.id }} className="text-[12px] text-accent hover:underline">
+                <Link to="/operations/$id" params={{ id: sel.id }} className="text-[12px] text-accent-text underline underline-offset-2 hover:no-underline">
                   Open
                 </Link>
               }

@@ -1,25 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  Bell,
-  Box,
-  Building2,
-  Check,
-  ChevronsUpDown,
-  LogOut,
-  Monitor,
-  Moon,
-  Plug,
-  Plus,
-  Search,
-  ShieldCheck,
-  Sun,
-  User,
-} from "lucide-react";
+import { Bell, Box, Building2, Check, ChevronsUpDown, LogOut, Menu, Monitor, Moon, Plug, Plus, Search, ShieldCheck, Sun, User } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { api, errorMessage, type Org, type Project } from "../../api/client";
 import { clearCurrentOrg, setCurrentOrg, useCurrentOrg } from "../../lib/org";
 import { sessionQuery } from "../../lib/session";
+import { keyLabel } from "../../lib/shortcuts";
 import { useTheme, type Theme } from "../../lib/theme";
 import { ConnectPanel } from "../../pages/ProjectConnect";
 import {
@@ -60,33 +46,35 @@ export function TopBar({
   ctx,
   project,
   onSearch,
+  onMenu,
 }: {
   ctx: ShellContext;
   project?: Project;
   onSearch: () => void;
+  /** Opens the navigation drawer on narrow screens. */
+  onMenu: () => void;
 }) {
   const { data: session } = useQuery(sessionQuery);
   const platformAdmin = session?.user?.platform_role === "platform_admin";
   const [connect, setConnect] = useState(false);
   return (
-    <header
-      className="flex h-12 shrink-0 items-center gap-1 border-b border-line bg-bg px-3"
-      data-testid="top-bar"
-    >
-      <Link
-        to="/projects"
-        className="mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-surface-2"
-        aria-label="PGDock home"
+    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-line bg-bg px-3" data-testid="top-bar">
+      <button
+        type="button"
+        onClick={onMenu}
+        aria-label="Open navigation"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-fg md:hidden"
+        data-testid="mobile-menu"
       >
+        <Menu className="h-4 w-4" strokeWidth={1.6} />
+      </button>
+      <Link to="/projects" className="mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-surface-2" aria-label="PGDock home">
         <LogoMark />
       </Link>
       <Slash />
       {ctx.kind === "platform" ? (
-        <span
-          className={cx(crumb, "hover:bg-transparent")}
-          data-testid="platform-crumb"
-        >
-          <ShieldCheck className="h-4 w-4 text-accent" strokeWidth={1.6} />
+        <span className={cx(crumb, "hover:bg-transparent")} data-testid="platform-crumb">
+          <ShieldCheck className="h-4 w-4 text-accent-text" strokeWidth={1.6} />
           Platform
           <Badge tone="accent">ADMIN</Badge>
         </span>
@@ -99,21 +87,10 @@ export function TopBar({
           <ProjectSwitcher project={project} />
           <Slash />
           <BranchSwitcher project={project} />
-          <Button
-            size="tiny"
-            className="ml-2"
-            icon={<Plug className="h-3.5 w-3.5" />}
-            onClick={() => setConnect(true)}
-            data-testid="connect-button"
-          >
+          <Button size="tiny" className="ml-2" icon={<Plug className="h-3.5 w-3.5" />} onClick={() => setConnect(true)} data-testid="connect-button">
             Connect
           </Button>
-          <Dialog
-            open={connect}
-            onOpenChange={setConnect}
-            title={`Connect to ${project.name}`}
-            className="w-[min(52rem,calc(100vw-2rem))]"
-          >
+          <Dialog open={connect} onOpenChange={setConnect} title={`Connect to ${project.name}`} className="w-[min(52rem,calc(100vw-2rem))]">
             <div className="max-h-[70vh] overflow-y-auto">
               <ConnectPanel p={project} />
             </div>
@@ -129,7 +106,7 @@ export function TopBar({
         >
           <Search className="h-3.5 w-3.5" />
           Search...
-          <kbd className="ml-auto font-sans text-[11px]">⌘K</kbd>
+          <kbd className="ml-auto font-sans text-[11px]">{keyLabel("mod+k")}</kbd>
         </button>
         <InvitationsIndicator />
         {platformAdmin && <AlertsIndicator />}
@@ -153,15 +130,8 @@ function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          className={crumb}
-          data-testid="org-switcher"
-          aria-label={`Organisation: ${org.name}`}
-        >
-          <Building2
-            className="h-4 w-4 shrink-0 text-muted"
-            strokeWidth={1.6}
-          />
+        <DropdownMenuTrigger className={crumb} data-testid="org-switcher" aria-label={`Organisation: ${org.name}`}>
+          <Building2 className="h-4 w-4 shrink-0 text-muted" strokeWidth={1.6} />
           <span className="truncate" data-testid="org-switcher-name">
             {org.name}
           </span>
@@ -174,9 +144,7 @@ function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
             <DropdownMenuItem
               key={o.id}
               data-testid={`org-option-${o.id}`}
-              icon={
-                o.id === org.id ? <Check className="h-3.5 w-3.5" /> : undefined
-              }
+              icon={o.id === org.id ? <Check className="h-3.5 w-3.5" /> : undefined}
               onSelect={() => {
                 setCurrentOrg(o.id);
                 void qc.invalidateQueries();
@@ -185,26 +153,16 @@ function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
             >
               <span className="flex items-center gap-2">
                 <span className="truncate">{o.name}</span>
-                {o.personal && (
-                  <span className="text-[11px] text-muted">personal</span>
-                )}
+                {o.personal && <span className="text-[11px] text-muted">personal</span>}
               </span>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            icon={<Plus className="h-3.5 w-3.5" />}
-            onSelect={() => setCreating(true)}
-            data-testid="new-org"
-          >
+          <DropdownMenuItem icon={<Plus className="h-3.5 w-3.5" />} onSelect={() => setCreating(true)} data-testid="new-org">
             New organisation
           </DropdownMenuItem>
           {platformAdmin && (
-            <DropdownMenuItem
-              icon={<ShieldCheck className="h-3.5 w-3.5" />}
-              onSelect={() => void navigate({ to: "/nodes" })}
-              data-testid="platform-link"
-            >
+            <DropdownMenuItem icon={<ShieldCheck className="h-3.5 w-3.5" />} onSelect={() => void navigate({ to: "/nodes" })} data-testid="platform-link">
               Platform admin
             </DropdownMenuItem>
           )}
@@ -215,13 +173,7 @@ function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
   );
 }
 
-function NewOrgDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-}) {
+function NewOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -251,32 +203,12 @@ function NewOrgDialog({
       title="New organisation"
       description="An organisation holds projects and the people who work on them. You become its owner."
     >
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={create}
-        data-testid="new-org-form"
-      >
-        <Field label="Name">
-          {(id) => (
-            <Input
-              id={id}
-              required
-              maxLength={64}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-          )}
-        </Field>
+      <form className="flex flex-col gap-4" onSubmit={create} data-testid="new-org-form">
+        <Field label="Name">{(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} autoFocus />}</Field>
         {err && <Alert>{err}</Alert>}
         <div className="flex justify-end gap-2">
           <Button onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            type="submit"
-            variant="primary"
-            busy={busy}
-            disabled={!name.trim()}
-          >
+          <Button type="submit" variant="primary" busy={busy} disabled={!name.trim()}>
             Create organisation
           </Button>
         </div>
@@ -305,25 +237,14 @@ function ProjectSwitcher({ project }: { project: Project }) {
     queryFn: () => api.projects(project.org_id),
   });
   const [q, setQ] = useState("");
-  const name = project.parent_project_id
-    ? (root.data?.name ?? "…")
-    : project.name;
+  const name = project.parent_project_id ? (root.data?.name ?? "…") : project.name;
   const items = useMemo(
-    () =>
-      (list.data?.items ?? []).filter(
-        (x) =>
-          !x.parent_project_id &&
-          x.name.toLowerCase().includes(q.trim().toLowerCase()),
-      ),
+    () => (list.data?.items ?? []).filter((x) => !x.parent_project_id && x.name.toLowerCase().includes(q.trim().toLowerCase())),
     [list.data, q],
   );
   return (
     <DropdownMenu onOpenChange={(o) => !o && setQ("")}>
-      <DropdownMenuTrigger
-        className={crumb}
-        data-testid="project-switcher"
-        aria-label={`Project: ${name}`}
-      >
+      <DropdownMenuTrigger className={crumb} data-testid="project-switcher" aria-label={`Project: ${name}`}>
         <Box className="h-4 w-4 shrink-0 text-muted" strokeWidth={1.6} />
         <span className="truncate">{name}</span>
         <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
@@ -343,31 +264,18 @@ function ProjectSwitcher({ project }: { project: Project }) {
           {items.map((x) => (
             <DropdownMenuItem
               key={x.id}
-              icon={
-                x.id === rootId ? <Check className="h-3.5 w-3.5" /> : undefined
-              }
-              onSelect={() =>
-                void navigate({ to: `/projects/${x.id}${subpath()}` })
-              }
+              icon={x.id === rootId ? <Check className="h-3.5 w-3.5" /> : undefined}
+              onSelect={() => void navigate({ to: `/projects/${x.id}${subpath()}` })}
             >
               {x.name}
             </DropdownMenuItem>
           ))}
-          {items.length === 0 && (
-            <p className="px-2 py-1.5 text-[13px] text-muted">
-              No projects found
-            </p>
-          )}
+          {items.length === 0 && <p className="px-2 py-1.5 text-[13px] text-muted">No projects found</p>}
         </div>
         <DropdownMenuSeparator className="m-0" />
         <div className="p-1">
-          <DropdownMenuItem onSelect={() => void navigate({ to: "/projects" })}>
-            All projects
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            icon={<Plus className="h-3.5 w-3.5" />}
-            onSelect={() => void navigate({ to: "/projects/new" })}
-          >
+          <DropdownMenuItem onSelect={() => void navigate({ to: "/projects" })}>All projects</DropdownMenuItem>
+          <DropdownMenuItem icon={<Plus className="h-3.5 w-3.5" />} onSelect={() => void navigate({ to: "/projects/new" })}>
             New project
           </DropdownMenuItem>
         </div>
@@ -386,22 +294,12 @@ function BranchSwitcher({ project }: { project: Project }) {
   });
   const [q, setQ] = useState("");
   const isBranch = !!project.parent_project_id;
-  const list = (branches.data?.items ?? []).filter((b) =>
-    b.name.toLowerCase().includes(q.trim().toLowerCase()),
-  );
+  const list = (branches.data?.items ?? []).filter((b) => b.name.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <DropdownMenu onOpenChange={(o) => !o && setQ("")}>
-      <DropdownMenuTrigger
-        className={crumb}
-        data-testid="branch-switcher"
-        aria-label={`Branch: ${isBranch ? project.name : "main"}`}
-      >
+      <DropdownMenuTrigger className={crumb} data-testid="branch-switcher" aria-label={`Branch: ${isBranch ? project.name : "main"}`}>
         <span className="truncate">{isBranch ? project.name : "main"}</span>
-        {isBranch ? (
-          <Badge tone="accent">PREVIEW</Badge>
-        ) : (
-          <Badge tone="warn">PRODUCTION</Badge>
-        )}
+        {isBranch ? <Badge tone="accent">PREVIEW</Badge> : <Badge tone="warn">PRODUCTION</Badge>}
         <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-72 p-0">
@@ -419,9 +317,7 @@ function BranchSwitcher({ project }: { project: Project }) {
           {"main".includes(q.trim().toLowerCase()) && (
             <DropdownMenuItem
               icon={!isBranch ? <Check className="h-3.5 w-3.5" /> : undefined}
-              onSelect={() =>
-                void navigate({ to: `/projects/${rootId}${subpath()}` })
-              }
+              onSelect={() => void navigate({ to: `/projects/${rootId}${subpath()}` })}
             >
               <span className="flex items-center gap-2">
                 main <Badge tone="warn">PRODUCTION</Badge>
@@ -431,14 +327,8 @@ function BranchSwitcher({ project }: { project: Project }) {
           {list.map((b) => (
             <DropdownMenuItem
               key={b.id}
-              icon={
-                b.id === project.id ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : undefined
-              }
-              onSelect={() =>
-                void navigate({ to: `/projects/${b.id}${subpath()}` })
-              }
+              icon={b.id === project.id ? <Check className="h-3.5 w-3.5" /> : undefined}
+              onSelect={() => void navigate({ to: `/projects/${b.id}${subpath()}` })}
             >
               <span className="flex items-center gap-2">
                 <span className="truncate">{b.name}</span>
@@ -449,21 +339,10 @@ function BranchSwitcher({ project }: { project: Project }) {
         </div>
         <DropdownMenuSeparator className="m-0" />
         <div className="p-1">
-          <DropdownMenuItem
-            icon={<Plus className="h-3.5 w-3.5" />}
-            onSelect={() =>
-              void navigate({ to: `/projects/${rootId}/branches` })
-            }
-          >
+          <DropdownMenuItem icon={<Plus className="h-3.5 w-3.5" />} onSelect={() => void navigate({ to: `/projects/${rootId}/branches` })}>
             Create branch
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() =>
-              void navigate({ to: `/projects/${rootId}/branches` })
-            }
-          >
-            Manage branches
-          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void navigate({ to: `/projects/${rootId}/branches` })}>Manage branches</DropdownMenuItem>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -551,7 +430,7 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent outline-none hover:ring-2 hover:ring-line-strong"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent-text outline-none hover:ring-2 hover:ring-line-strong"
         aria-label="Account menu"
         data-testid="user-menu"
       >
@@ -560,16 +439,10 @@ function UserMenu() {
       <DropdownMenuContent align="end" className="w-64">
         <div className="px-2 py-1.5">
           <p className="truncate text-[13px]">{user?.name || user?.email}</p>
-          {user?.name && (
-            <p className="truncate text-xs text-muted">{user.email}</p>
-          )}
+          {user?.name && <p className="truncate text-xs text-muted">{user.email}</p>}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          icon={<User className="h-3.5 w-3.5" />}
-          onSelect={() => void navigate({ to: "/account" })}
-          data-testid="account-link"
-        >
+        <DropdownMenuItem icon={<User className="h-3.5 w-3.5" />} onSelect={() => void navigate({ to: "/account" })} data-testid="account-link">
           Account
         </DropdownMenuItem>
         <DropdownMenuSub>
@@ -583,13 +456,7 @@ function UserMenu() {
             {themes.map((t) => (
               <DropdownMenuItem
                 key={t.value}
-                icon={
-                  theme === t.value ? (
-                    <Check className="h-3.5 w-3.5" />
-                  ) : (
-                    <t.icon className="h-3.5 w-3.5" />
-                  )
-                }
+                icon={theme === t.value ? <Check className="h-3.5 w-3.5" /> : <t.icon className="h-3.5 w-3.5" />}
                 onSelect={() => setTheme(t.value)}
               >
                 {t.label}
@@ -598,11 +465,7 @@ function UserMenu() {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          icon={<LogOut className="h-3.5 w-3.5" />}
-          onSelect={() => void logout()}
-          data-testid="sign-out"
-        >
+        <DropdownMenuItem icon={<LogOut className="h-3.5 w-3.5" />} onSelect={() => void logout()} data-testid="sign-out">
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

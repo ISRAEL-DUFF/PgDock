@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type AlertSettingsRequest } from "../api/client";
 import { useOperationToast } from "./Toasts";
-import { Alert, Button, Panel, Field, Input, Select, Spinner, StatusBadge, Table } from "./ui";
+import { Alert, Button, Panel, Field, Input, Select, StatusBadge, Table, PanelSkeleton } from "./ui";
 import { formatDate } from "../lib/format";
 
 /** Alert channels: a webhook and optional SMTP email (spec §8.8). */
@@ -27,7 +27,7 @@ export function AlertSettingsCard() {
       to: s.smtp?.to.join(", ") ?? "",
     }));
   }, [q.data]);
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PanelSkeleton />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const s = q.data;
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -82,8 +82,8 @@ export function AlertSettingsCard() {
     <Panel title="Alerts">
       <form className="flex flex-col gap-4" onSubmit={save}>
         <p className="text-sm text-muted">
-          Backup failed or overdue, restore test failed, node disk above 85%, node unreachable for 2 minutes, project over its disk warning, pooler
-          down, and a failed isolation check. Each alert is sent when it fires and when it resolves.
+          Backup failed or overdue, restore test failed, node disk above 85%, node unreachable for 2 minutes, project over its disk warning, pooler down, and a
+          failed isolation check. Each alert is sent when it fires and when it resolves.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Webhook URL" hint="POSTed JSON; Slack-style and generic receivers work.">
@@ -165,8 +165,8 @@ export function IsolationChecksCard() {
       }
     >
       <p className="mb-3 text-sm text-muted">
-        Every {q.data?.every_days ?? 7} days each shared cluster is checked against the isolation checklist: cluster settings and pg_hba.conf, every
-        project's role and database, and two throwaway tenants that try to reach each other. A failure raises an alert.
+        Every {q.data?.every_days ?? 7} days each shared cluster is checked against the isolation checklist: cluster settings and pg_hba.conf, every project's
+        role and database, and two throwaway tenants that try to reach each other. A failure raises an alert.
       </p>
       {err && <Alert>{err}</Alert>}
       {q.data && (
@@ -177,7 +177,7 @@ export function IsolationChecksCard() {
               <td className="px-3 py-1.5 text-xs text-muted">{c.last ? formatDate(c.last.finished_at ?? c.last.created_at) : "not yet"}</td>
               <td className="px-3 py-1.5 text-xs">
                 {c.last ? <StatusBadge status={c.last.status} /> : "—"}
-                {c.last?.error && <p className="mt-1 max-w-md text-danger">{c.last.error}</p>}
+                {c.last?.error && <p className="mt-1 max-w-md text-danger-text">{c.last.error}</p>}
               </td>
             </tr>
           ))}

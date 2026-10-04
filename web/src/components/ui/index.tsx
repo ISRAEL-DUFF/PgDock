@@ -8,3 +8,4 @@ export * from "./panel";
 export * from "./controls";
 export * from "./toast";
 export * from "./page";
+export * from "./skeleton";

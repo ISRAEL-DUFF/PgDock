@@ -3,7 +3,7 @@ import type { OperationLogEntry } from "../api/client";
 import { formatTime } from "../lib/format";
 import { cx } from "./ui";
 
-const levelColor: Record<string, string> = { info: "text-fg", warn: "text-warn", error: "text-danger" };
+const levelColor: Record<string, string> = { info: "text-fg", warn: "text-warn-text", error: "text-danger-text" };
 
 export function OperationLog({ log, live }: { log: OperationLogEntry[]; live?: boolean }) {
   const end = useRef<HTMLDivElement>(null);

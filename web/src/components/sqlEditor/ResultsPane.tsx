@@ -20,10 +20,7 @@ function StatementGrid({ r }: { r: Statement }) {
         name: c.name,
         resizable: true,
         // Wide enough for the header and the first rows' values.
-        width: Math.min(
-          Math.max(c.name.length * 8 + c.type.length * 7 + 48, ...r.rows.slice(0, 50).map((row) => (row[j]?.length ?? 4) * 7.5 + 24), 100),
-          360,
-        ),
+        width: Math.min(Math.max(c.name.length * 8 + c.type.length * 7 + 48, ...r.rows.slice(0, 50).map((row) => (row[j]?.length ?? 4) * 7.5 + 24), 100), 360),
         renderHeaderCell: () => (
           <span className="flex items-center gap-1.5 px-2">
             <span className="truncate text-[12px] font-medium">{c.name}</span>
@@ -32,7 +29,11 @@ function StatementGrid({ r }: { r: Statement }) {
         ),
         renderCell: ({ row }: { row: Row }) => {
           const v = row.v[j];
-          return <span className={cx(v == null && "text-muted")} title={v ?? "NULL"}>{v ?? "NULL"}</span>;
+          return (
+            <span className={cx(v == null && "text-muted")} title={v ?? "NULL"}>
+              {v ?? "NULL"}
+            </span>
+          );
         },
       })),
     ],
@@ -73,7 +74,15 @@ export function ResultsPane({
     if (!cur) return;
     const names = cur.columns.map((c) => c.name);
     if (fmt === "csv") download(`${fileName}.csv`, toCSV(names, cur.rows));
-    else download(`${fileName}.json`, JSON.stringify(cur.rows.map((row) => Object.fromEntries(names.map((n, j) => [n, row[j] ?? null]))), null, 2));
+    else
+      download(
+        `${fileName}.json`,
+        JSON.stringify(
+          cur.rows.map((row) => Object.fromEntries(names.map((n, j) => [n, row[j] ?? null]))),
+          null,
+          2,
+        ),
+      );
   };
 
   return (
@@ -101,7 +110,10 @@ export function ResultsPane({
                 key={i}
                 type="button"
                 onClick={() => setPicked(i)}
-                className={cx("rounded border px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap", i === idx ? "border-accent text-fg" : "border-line text-muted hover:text-fg")}
+                className={cx(
+                  "rounded border px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap",
+                  i === idx ? "border-accent text-fg" : "border-line text-muted hover:text-fg",
+                )}
               >
                 {i + 1}. {r.command}
               </button>
@@ -160,12 +172,14 @@ export function ResultsPane({
                 hint={res.error.hint}
                 where={res.error.position && result ? positionAt(result.query, res.error.position) : undefined}
               />
-              {res.results.length > 0 && <p className="mt-3 text-[12px] text-muted">The statements before it ran; see their results above the error with the statement buttons.</p>}
+              {res.results.length > 0 && (
+                <p className="mt-3 text-[12px] text-muted">The statements before it ran; see their results above the error with the statement buttons.</p>
+              )}
             </div>
           ) : cur && cur.columns.length > 0 ? (
             <>
               {cur.truncated && (
-                <p className="shrink-0 border-b border-line bg-warn/10 px-3 py-1.5 text-[12px] text-warn">
+                <p className="shrink-0 border-b border-line bg-warn/10 px-3 py-1.5 text-[12px] text-warn-text">
                   Showing the first {cur.rows.length.toLocaleString()} of {cur.row_count.toLocaleString()} rows.
                 </p>
               )}
@@ -176,7 +190,9 @@ export function ResultsPane({
             </>
           ) : (
             <div className="p-4 text-[13px] text-fg-light">
-              {cur && cur.row_count > 0 ? `Success. ${cur.row_count.toLocaleString()} row${cur.row_count === 1 ? "" : "s"} affected.` : "Success. No rows returned."}
+              {cur && cur.row_count > 0
+                ? `Success. ${cur.row_count.toLocaleString()} row${cur.row_count === 1 ? "" : "s"} affected.`
+                : "Success. No rows returned."}
             </div>
           )}
         </div>
@@ -188,9 +204,9 @@ export function ResultsPane({
 function ErrorBlock({ message, detail, hint, where }: { message: string; detail?: string; hint?: string; where?: { line: number; column: number } }) {
   return (
     <div className="flex gap-3 rounded-md border border-danger/40 bg-danger/10 p-3 font-mono text-[12px]">
-      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-text" />
       <div className="flex flex-col gap-1">
-        <p className="text-danger">{message}</p>
+        <p className="text-danger-text">{message}</p>
         {detail && <p>DETAIL: {detail}</p>}
         {hint && <p>HINT: {hint}</p>}
         {where && (

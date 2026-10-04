@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type InvitationCreated, type PersonalCredentials, type ProjectRole } from "../api/client";
-import { Alert, Badge, Button, CopyField, Page, Panel, Field, Input, Select, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, CopyField, Page, Panel, Field, Input, Select, Table, PageSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { sessionQuery } from "../lib/session";
 import { AuditView } from "./Audit";
@@ -26,7 +26,7 @@ export function ProjectMembersPage() {
   const [err, setErr] = useState<string | null>(null);
   const [invited, setInvited] = useState<InvitationCreated | null>(null);
   const [added, setAdded] = useState(false);
-  if (!p) return <Spinner />;
+  if (!p) return <PageSkeleton />;
   const admin = p.my_role === "admin";
   const refresh = () => qc.invalidateQueries({ queryKey: ["project", p.id, "members"] });
   const act = async (f: () => Promise<unknown>) => {
@@ -75,7 +75,11 @@ export function ProjectMembersPage() {
                       admin <Badge>org {m.org_role}</Badge>
                     </span>
                   ) : admin && m.user_id !== session?.user?.id ? (
-                    <Select aria-label={`Role of ${m.email}`} value={m.role} onChange={(e) => act(() => api.setProjectRole(p.id, m.user_id, e.target.value as ProjectRole))}>
+                    <Select
+                      aria-label={`Role of ${m.email}`}
+                      value={m.role}
+                      onChange={(e) => act(() => api.setProjectRole(p.id, m.user_id, e.target.value as ProjectRole))}
+                    >
                       {roles.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.label}

@@ -1,25 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Outlet, useRouterState } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../../api/client";
 import { useCurrentOrg } from "../../lib/org";
 import { sessionQuery } from "../../lib/session";
 import { BackupBanner, OrgBanners, TermsGate } from "../Layout";
 import { cx, Toaster, TooltipProvider } from "../ui";
 import { CommandMenu } from "./CommandMenu";
-import {
-  contextFor,
-  isActive,
-  orgRail,
-  platformRail,
-  projectRail,
-} from "./nav";
-import {
-  Rail,
-  SectionSidebar,
-  SidebarOpener,
-  useSidebarCollapsed,
-} from "./Rail";
+import { MobileNav } from "./MobileNav";
+import { ShortcutsSheet, useGlobalShortcuts } from "./Shortcuts";
+import { contextFor, isActive, orgRail, platformRail, projectRail } from "./nav";
+import { Rail, SectionSidebar, SidebarOpener, useSidebarCollapsed } from "./Rail";
 import { TopBar } from "./TopBar";
 
 /**
@@ -40,18 +31,21 @@ export function AppShell() {
   });
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const [search, setSearch] = useState(false);
+  const [help, setHelp] = useState(false);
+  const [menu, setMenu] = useState(false);
 
-  if (session?.terms_required)
-    return <TermsGate version={session.terms_required} />;
+  const rail = useMemo(
+    () => (ctx.kind === "project" ? (project.data ? projectRail(project.data) : []) : ctx.kind === "platform" ? platformRail() : orgRail(org)),
+    [ctx.kind, project.data, org],
+  );
+  useGlobalShortcuts({
+    rail,
+    onHelp: () => setHelp(true),
+    onToggleSidebar: () => setCollapsed(!collapsed),
+  });
 
-  const rail =
-    ctx.kind === "project"
-      ? project.data
-        ? projectRail(project.data)
-        : []
-      : ctx.kind === "platform"
-        ? platformRail()
-        : orgRail(org);
+  if (session?.terms_required) return <TermsGate version={session.terms_required} />;
+  const railLabel = ctx.kind === "project" ? "Project" : ctx.kind === "platform" ? "Platform" : "Organisation";
   const active = rail.find((r) => isActive(pathname, r.match, r.exact));
   const sidebar = active?.sidebar && !collapsed ? active : undefined;
   // The editors use the whole width; other pages read best narrower.
@@ -60,44 +54,17 @@ export function AppShell() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-screen flex-col bg-bg text-fg">
-        <TopBar
-          ctx={ctx}
-          project={project.data}
-          onSearch={() => setSearch(true)}
-        />
+        <TopBar ctx={ctx} project={project.data} onSearch={() => setSearch(true)} onMenu={() => setMenu(true)} />
         <div className="flex min-h-0 flex-1">
-          <Rail
-            items={rail}
-            pathname={pathname}
-            label={
-              ctx.kind === "project"
-                ? "Project"
-                : ctx.kind === "platform"
-                  ? "Platform"
-                  : "Organisation"
-            }
-          />
-          {sidebar && (
-            <SectionSidebar
-              item={sidebar}
-              pathname={pathname}
-              onCollapse={() => setCollapsed(true)}
-            />
-          )}
-          <main
-            className="relative min-w-0 flex-1 overflow-y-auto"
-            data-testid="main"
-          >
-            {active?.sidebar && collapsed && (
-              <SidebarOpener onOpen={() => setCollapsed(false)} />
-            )}
+          <Rail items={rail} pathname={pathname} label={railLabel} />
+          {sidebar && <SectionSidebar item={sidebar} pathname={pathname} onCollapse={() => setCollapsed(true)} />}
+          <main className="relative min-w-0 flex-1 overflow-y-auto" data-testid="main">
+            {active?.sidebar && collapsed && <SidebarOpener onOpen={() => setCollapsed(false)} />}
             <div
               className={cx(
                 // The table and SQL editors fill the page edge to edge,
                 // as Studio's do.
-                wide
-                  ? "flex h-full flex-col"
-                  : "mx-auto w-full max-w-6xl px-6 py-8 lg:px-10",
+                wide ? "flex h-full flex-col" : "mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10",
               )}
             >
               {platformAdmin && <BackupBanner />}
@@ -107,7 +74,9 @@ export function AppShell() {
           </main>
         </div>
       </div>
-      <CommandMenu open={search} onOpenChange={setSearch} pages={rail} />
+      <CommandMenu open={search} onOpenChange={setSearch} pages={rail} onShortcuts={() => setHelp(true)} />
+      <ShortcutsSheet open={help} onOpenChange={setHelp} rail={rail} />
+      <MobileNav open={menu} onOpenChange={setMenu} items={rail} pathname={pathname} label={railLabel} />
       <Toaster />
     </TooltipProvider>
   );

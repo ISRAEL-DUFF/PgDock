@@ -1,8 +1,24 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Inbox } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type AdminOrg, type DedicatedRequest, type Plan } from "../api/client";
-import { Alert, Badge, Button, Panel, Field, Input, Dialog, PageHeading, Select, SidePanel, Spinner, Table } from "../components/ui";
+import {
+  Alert,
+  Badge,
+  Button,
+  Panel,
+  Field,
+  Input,
+  Dialog,
+  PageHeading,
+  Select,
+  SidePanel,
+  Table,
+  TableSkeleton,
+  PageSkeleton,
+  EmptyState,
+} from "../components/ui";
 import { formatBytes, formatDate } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
 import { formatQuantity, LIMIT_LABELS, monthStart } from "../lib/usage";
@@ -24,7 +40,7 @@ export function AdminOrgsPage() {
       <div className="mb-3">
         <Input placeholder="Search name or slug" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" aria-label="Search organisations" />
       </div>
-      {orgs.isPending && <Spinner />}
+      {orgs.isPending && <TableSkeleton cols={5} />}
       {orgs.data && (
         <Table head={["Organisation", "Plan", "Members", "Projects", "Size", "Storage this month", "Status"]}>
           {orgs.data.items.map((o) => (
@@ -83,7 +99,7 @@ export function AdminOrgPage() {
   const clusters = useQuery({ queryKey: ["admin", "clusters"], queryFn: api.sharedClusters });
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PageSkeleton />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const o = q.data;
   const refresh = async () => {
@@ -527,7 +543,11 @@ export function DedicatedRequestsPage() {
           <option value="">All</option>
         </Select>
       </div>
-      {q.data && q.data.items.length === 0 && <p className="text-sm text-muted">Nothing waiting.</p>}
+      {q.data && q.data.items.length === 0 && (
+        <EmptyState title="Nothing waiting" icon={<Inbox />}>
+          Promotions beyond an allowance appear here for you to approve.
+        </EmptyState>
+      )}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Organisation", "Project", "Size", "Reason", "Asked", ""]}>
           {q.data.items.map((r) => (

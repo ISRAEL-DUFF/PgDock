@@ -70,7 +70,7 @@ export function DemoteCard({ p }: { p: Project }) {
       <Panel title="Demotion" actions={stream.status && <StatusBadge status={stream.status} />}>
         <OperationLog log={stream.log} live={!stream.done} />
         {stream.status === "succeeded" && (
-          <p className="mt-3 text-sm text-ok" data-testid="demote-done">
+          <p className="mt-3 text-sm text-ok-text" data-testid="demote-done">
             Demoted. The connection strings and passwords are unchanged; the stopped dedicated instance is kept for 48 hours, then destroyed.
           </p>
         )}

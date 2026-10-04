@@ -100,7 +100,14 @@ export function TablePanel({
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-4">
           <Field label="Name">
-            <Input value={t.name} onChange={(e) => setT({ ...t, name: e.target.value })} className="font-mono" autoFocus={!info} aria-label="Name" data-testid="table-name" />
+            <Input
+              value={t.name}
+              onChange={(e) => setT({ ...t, name: e.target.value })}
+              className="font-mono"
+              autoFocus={!info}
+              aria-label="Name"
+              data-testid="table-name"
+            />
           </Field>
           <Field label="Description" hint="Optional">
             <Input value={t.comment} onChange={(e) => setT({ ...t, comment: e.target.value })} aria-label="Description" />
@@ -121,7 +128,13 @@ export function TablePanel({
           {t.columns.map((c) => (
             <div key={c.key} className="flex flex-col gap-2 rounded-md border border-line bg-surface-2/40 p-2" data-testid="column-row">
               <div className="grid grid-cols-[1fr_11rem_1fr_3rem_4.5rem] items-center gap-2">
-                <Input value={c.name} onChange={(e) => setCol(c.key, { name: e.target.value })} placeholder="column_name" className="font-mono text-[12px]" aria-label="Column name" />
+                <Input
+                  value={c.name}
+                  onChange={(e) => setCol(c.key, { name: e.target.value })}
+                  placeholder="column_name"
+                  className="font-mono text-[12px]"
+                  aria-label="Column name"
+                />
                 <TypePicker value={c.type} onChange={(type) => setCol(c.key, { type })} enums={enums} label="Column type" />
                 <DefaultInput col={c} onChange={(p) => setCol(c.key, p)} />
                 <span className="flex justify-center">
@@ -132,7 +145,7 @@ export function TablePanel({
                   <button
                     type="button"
                     aria-label={`Remove ${c.name || "the column"}`}
-                    className="rounded p-1 text-muted hover:bg-surface-3 hover:text-danger"
+                    className="rounded p-1 text-muted hover:bg-surface-3 hover:text-danger-text"
                     onClick={() => setT((d) => ({ ...d, columns: d.columns.filter((x) => x.key !== c.key) }))}
                   >
                     <X className="h-4 w-4" />
@@ -142,7 +155,12 @@ export function TablePanel({
               <ForeignKeyEditor col={c} schema={t.schema} tree={tree} onChange={(ref) => setCol(c.key, { ref })} />
             </div>
           ))}
-          <Button className="self-start" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setT((d) => ({ ...d, columns: [...d.columns, blankColumn()] }))} data-testid="table-panel-add-column">
+          <Button
+            className="self-start"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => setT((d) => ({ ...d, columns: [...d.columns, blankColumn()] }))}
+            data-testid="table-panel-add-column"
+          >
             Add column
           </Button>
         </section>
@@ -228,7 +246,12 @@ export function ColumnPanel({
             <TypePicker value={c.type} onChange={(type) => set({ type })} enums={enumsIn(tree, info.schema)} />
           </Field>
           <Field label="">
-            <ToggleRow label="Define as array" hint="Allow the column to hold a list of the type" checked={c.isArray} onChange={(v) => set({ isArray: v, identity: v ? false : c.identity })} />
+            <ToggleRow
+              label="Define as array"
+              hint="Allow the column to hold a list of the type"
+              checked={c.isArray}
+              onChange={(v) => set({ isArray: v, identity: v ? false : c.identity })}
+            />
           </Field>
           <Field label="Default value" hint="Used when a row is inserted without a value for this column">
             <DefaultInput col={c} onChange={set} disabled={!!column && c.identity} />
@@ -242,10 +265,29 @@ export function ColumnPanel({
         <div className="border-t border-line" />
         <div className="flex flex-col gap-4">
           <SectionLabel>Constraints</SectionLabel>
-          <ToggleRow label="Allow nullable" hint="Allow the column to assume a NULL value if no value is provided" checked={c.nullable && !c.primaryKey} disabled={c.primaryKey} onChange={(v) => set({ nullable: v })} testId="column-nullable" />
-          <ToggleRow label="Is unique" hint="Enforce values in the column to be unique across rows" checked={c.unique || c.primaryKey} disabled={c.primaryKey} onChange={(v) => set({ unique: v })} />
+          <ToggleRow
+            label="Allow nullable"
+            hint="Allow the column to assume a NULL value if no value is provided"
+            checked={c.nullable && !c.primaryKey}
+            disabled={c.primaryKey}
+            onChange={(v) => set({ nullable: v })}
+            testId="column-nullable"
+          />
+          <ToggleRow
+            label="Is unique"
+            hint="Enforce values in the column to be unique across rows"
+            checked={c.unique || c.primaryKey}
+            disabled={c.primaryKey}
+            onChange={(v) => set({ unique: v })}
+          />
           <Field label="Check constraint" hint="An expression each row must satisfy">
-            <Input value={c.check} onChange={(e) => set({ check: e.target.value })} placeholder="length(name) < 50" className="font-mono text-[12px]" aria-label="Check constraint" />
+            <Input
+              value={c.check}
+              onChange={(e) => set({ check: e.target.value })}
+              placeholder="length(name) < 50"
+              className="font-mono text-[12px]"
+              aria-label="Check constraint"
+            />
           </Field>
         </div>
         {err && <Alert>{err}</Alert>}
@@ -309,7 +351,17 @@ export function RowPanel({
       onOpenChange={(o) => !o && onClose()}
       size="large"
       testId="row-panel"
-      title={row ? <>Update row from <code className="font-mono">{info.name}</code></> : <>Add new row to <code className="font-mono">{info.name}</code></>}
+      title={
+        row ? (
+          <>
+            Update row from <code className="font-mono">{info.name}</code>
+          </>
+        ) : (
+          <>
+            Add new row to <code className="font-mono">{info.name}</code>
+          </>
+        )
+      }
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -325,10 +377,17 @@ export function RowPanel({
           const kind = editorKind(c);
           const v = values[c.name];
           const isNull = row ? v == null : touched.has(c.name) && v == null;
-          const placeholder = !row && !touched.has(c.name) ? (c.default ? `Default: ${c.default}` : c.identity ? "Automatically generated" : "NULL") : isNull ? "NULL" : "";
+          const placeholder =
+            !row && !touched.has(c.name) ? (c.default ? `Default: ${c.default}` : c.identity ? "Automatically generated" : "NULL") : isNull ? "NULL" : "";
           const input =
             kind === "boolean" || kind === "enum" ? (
-              <Select aria-label={c.name} value={v ?? ""} onChange={(e) => set(c.name, e.target.value === "" ? null : e.target.value)} disabled={!!ro} data-testid={`row-field-${c.name}`}>
+              <Select
+                aria-label={c.name}
+                value={v ?? ""}
+                onChange={(e) => set(c.name, e.target.value === "" ? null : e.target.value)}
+                disabled={!!ro}
+                data-testid={`row-field-${c.name}`}
+              >
                 <option value="">{!row && !touched.has(c.name) && c.default ? `Default: ${c.default}` : "NULL"}</option>
                 {(kind === "boolean" ? ["t", "f"] : c.enum_values!).map((x) => (
                   <option key={x} value={x}>

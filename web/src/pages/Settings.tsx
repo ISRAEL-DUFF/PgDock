@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage } from "../api/client";
-import { Alert, Button, Panel, PageHeading, Spinner, StatusBadge } from "../components/ui";
+import { Alert, Button, Panel, PageHeading, StatusBadge, PageSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { AlertSettingsCard, IsolationChecksCard } from "../components/AlertSettingsCard";
 import { BackupKeyPanel, StorageForm } from "../components/BackupSetup";
@@ -16,7 +16,7 @@ export function SettingsPage() {
   const [editStorage, setEditStorage] = useState(false);
   const storage = useQuery({ queryKey: ["settings", "storage"], queryFn: api.storage });
   const ov = useQuery({ queryKey: ["backups", "overview"], queryFn: () => api.backupOverview(), refetchInterval: 15_000 });
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PageSkeleton />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const s = q.data;
   const t = s.tls;

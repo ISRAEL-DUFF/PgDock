@@ -1,24 +1,20 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { HardDrive } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import {
-  ApiRequestError,
-  api,
-  errorMessage,
-  type Project,
-  type ProjectBackupStorage,
-  type StorageTarget,
-  type StorageTestResult,
-} from "../api/client";
+import { ApiRequestError, api, errorMessage, type Project, type ProjectBackupStorage, type StorageTarget, type StorageTestResult } from "../api/client";
 import type { components } from "../api/schema";
 import { formatBytes, formatDate } from "../lib/format";
 import { useOperationToast } from "./Toasts";
-import { Alert, Badge, Button, Panel, EmptyState, Field, Input, Dialog, Select, Spinner, Table } from "./ui";
+import { Alert, Badge, Button, Panel, EmptyState, Field, Input, Dialog, Select, Table, TableSkeleton, PanelSkeleton } from "./ui";
 
 type TargetRequest = components["schemas"]["StorageTargetRequest"];
 
 function TestSteps({ result }: { result: StorageTestResult }) {
   return (
-    <Alert tone={result.ok ? "ok" : "danger"} title={result.ok ? (result.saved ? "Live test passed; saved" : "Live test passed") : "Live test failed; not saved"}>
+    <Alert
+      tone={result.ok ? "ok" : "danger"}
+      title={result.ok ? (result.saved ? "Live test passed; saved" : "Live test passed") : "Live test failed; not saved"}
+    >
       <ul className="text-xs" data-testid="storage-test-steps">
         {result.steps.map((s) => (
           <li key={s.step}>
@@ -88,16 +84,37 @@ function TargetForm({ org, target, onDone }: { org?: string; target?: StorageTar
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Name">{(id) => <Input id={id} required maxLength={100} value={v.name} onChange={(e) => set({ name: e.target.value })} />}</Field>
         <Field label="Endpoint" hint="AWS, Backblaze B2, Cloudflare R2, MinIO, …">
-          {(id) => <Input id={id} required value={v.endpoint} onChange={(e) => set({ endpoint: e.target.value })} className="font-mono" placeholder="https://s3.eu-central-1.amazonaws.com" />}
+          {(id) => (
+            <Input
+              id={id}
+              required
+              value={v.endpoint}
+              onChange={(e) => set({ endpoint: e.target.value })}
+              className="font-mono"
+              placeholder="https://s3.eu-central-1.amazonaws.com"
+            />
+          )}
         </Field>
-        <Field label="Region">{(id) => <Input id={id} value={v.region ?? ""} onChange={(e) => set({ region: e.target.value })} placeholder="us-east-1" />}</Field>
-        <Field label="Bucket">{(id) => <Input id={id} required value={v.bucket} onChange={(e) => set({ bucket: e.target.value })} className="font-mono" />}</Field>
+        <Field label="Region">
+          {(id) => <Input id={id} value={v.region ?? ""} onChange={(e) => set({ region: e.target.value })} placeholder="us-east-1" />}
+        </Field>
+        <Field label="Bucket">
+          {(id) => <Input id={id} required value={v.bucket} onChange={(e) => set({ bucket: e.target.value })} className="font-mono" />}
+        </Field>
         <Field label="Prefix" hint="Objects go under this path in the bucket.">
           {(id) => <Input id={id} value={v.prefix ?? ""} onChange={(e) => set({ prefix: e.target.value })} className="font-mono" />}
         </Field>
         <Field label="Access key" hint={target ? "Leave empty to keep the stored one." : undefined}>
           {(id) => (
-            <Input id={id} required={!target} value={v.access_key ?? ""} onChange={(e) => set({ access_key: e.target.value })} className="font-mono" autoComplete="off" placeholder={target ? "unchanged" : undefined} />
+            <Input
+              id={id}
+              required={!target}
+              value={v.access_key ?? ""}
+              onChange={(e) => set({ access_key: e.target.value })}
+              className="font-mono"
+              autoComplete="off"
+              placeholder={target ? "unchanged" : undefined}
+            />
           )}
         </Field>
         <Field label="Secret key" hint={target ? "Leave empty to keep the stored one." : "Sealed with the master key and never shown again."}>
@@ -164,9 +181,7 @@ function DeleteTarget({ org, target, onClose }: { org?: string; target: StorageT
     <Dialog title={`Delete ${target.name}`} open onOpenChange={(o) => !o && onClose()}>
       <div className="flex flex-col gap-3 text-sm">
         {target.usage.projects > 0 ? (
-          <Alert tone="warn">
-            {target.usage.projects} project(s) back up here. Switch them to another target (Backups → Storage) before deleting it.
-          </Alert>
+          <Alert tone="warn">{target.usage.projects} project(s) back up here. Switch them to another target (Backups → Storage) before deleting it.</Alert>
         ) : (
           <p className="text-muted">PGDock forgets the target and its credentials. The bucket itself is not touched.</p>
         )}
@@ -207,9 +222,9 @@ export function StorageTargetsPanel({ org }: { org?: string }) {
           ? "Buckets your organisation brings: any project in it can send its backups here (Backups → Storage). Storage here doesn't count against your backup quota, and only your organisation sees these targets."
           : "Available to every organisation. Exactly one is the default, which every project uses unless told otherwise. Storage here counts against each organisation's backup quota."}
       </p>
-      {q.isPending && <Spinner />}
+      {q.isPending && <TableSkeleton rows={2} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && editing !== "new" && <EmptyState title="No targets yet" />}
+      {q.data && q.data.items.length === 0 && editing !== "new" && <EmptyState title="No targets yet" icon={<HardDrive />} />}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Name", "Bucket", "Used by", "Stored", ""]}>
           {q.data.items.map((t) => (
@@ -290,8 +305,8 @@ function DownloadKeyModal({ p, onClose }: { p: Project; onClose: () => void }) {
     <Dialog title="Download the project's backup key" open onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">
-          The file holds the key and a README on decrypting and restoring with standard tools (gpg and pg_restore), without PGDock. Downloads are
-          recorded in the audit log. Confirm it's you first.
+          The file holds the key and a README on decrypting and restoring with standard tools (gpg and pg_restore), without PGDock. Downloads are recorded in
+          the audit log. Confirm it's you first.
         </p>
         <Field label="Your password">
           {(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />}
@@ -327,7 +342,7 @@ export function ProjectStorageCard({ p, canManage }: { p: Project; canManage: bo
   const [busy, setBusy] = useState<"switch" | "key" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PanelSkeleton rows={2} />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const st: ProjectBackupStorage = q.data;
   const current = choiceValue(st.target.id);
@@ -372,7 +387,9 @@ export function ProjectStorageCard({ p, canManage }: { p: Project; canManage: bo
           <dt className="text-muted">New backups go to</dt>
           <dd data-testid="project-storage-target">
             {st.target.name} <Badge tone={st.target.kind === "org" ? "accent" : "muted"}>{st.target.kind === "org" ? "your organisation's" : "platform"}</Badge>
-            <span className="ml-2 text-xs text-muted">{st.counts_toward_quota ? "counts toward your backup quota" : "doesn't count toward your backup quota"}</span>
+            <span className="ml-2 text-xs text-muted">
+              {st.counts_toward_quota ? "counts toward your backup quota" : "doesn't count toward your backup quota"}
+            </span>
           </dd>
           <dt className="text-muted">Encryption key</dt>
           <dd data-testid="project-backup-key">

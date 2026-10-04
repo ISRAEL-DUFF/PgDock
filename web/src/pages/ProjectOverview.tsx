@@ -7,7 +7,7 @@ import { StorageBanner } from "../components/TenancyCards";
 import { SquareTerminal, Table2 } from "lucide-react";
 import { LineChart, type ChartSeries } from "../components/LineChart";
 import { fmt } from "../components/Metrics";
-import { Alert, Badge, Button, CopyField, EmptyState, KeyValues, Page, Panel, Spinner, StateBadge, Stat, StatusBadge } from "../components/ui";
+import { Alert, Badge, Button, CopyField, EmptyState, KeyValues, Page, Panel, StateBadge, Stat, StatusBadge, PageSkeleton } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 
 export function useProject() {
@@ -21,7 +21,7 @@ export function useProject() {
 
 export function ProjectLayout() {
   const q = useProject();
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PageSkeleton />;
   if (q.isError) {
     // Another organisation's project and a missing one look the same (V2 §4.2).
     if (q.error instanceof ApiRequestError && q.error.status === 404)
@@ -150,7 +150,7 @@ export function ProjectOverviewPage() {
         <Panel
           title="Connect"
           actions={
-            <Link to="/projects/$id/connect" params={{ id: p.id }} className="text-[12px] text-accent hover:underline">
+            <Link to="/projects/$id/connect" params={{ id: p.id }} className="text-[12px] text-accent-text underline underline-offset-2 hover:no-underline">
               Snippets
             </Link>
           }
@@ -163,7 +163,7 @@ export function ProjectOverviewPage() {
         <Panel
           title="Recent operations"
           actions={
-            <Link to="/projects/$id/logs" params={{ id: p.id }} className="text-[12px] text-accent hover:underline">
+            <Link to="/projects/$id/logs" params={{ id: p.id }} className="text-[12px] text-accent-text underline underline-offset-2 hover:no-underline">
               All logs
             </Link>
           }

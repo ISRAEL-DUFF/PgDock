@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Command } from "cmdk";
-import { Box, LogOut, Moon, Plus, Search } from "lucide-react";
+import { Box, Keyboard, LogOut, Moon, Plus, Search } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { api } from "../../api/client";
 import { clearCurrentOrg, useCurrentOrg } from "../../lib/org";
@@ -16,10 +16,12 @@ export function CommandMenu({
   open,
   onOpenChange,
   pages,
+  onShortcuts,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   pages: RailItem[];
+  onShortcuts: () => void;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -67,18 +69,11 @@ export function CommandMenu({
         />
       </div>
       <Command.List className="max-h-[50vh] overflow-y-auto p-2">
-        <Command.Empty className="px-2 py-6 text-center text-[13px] text-muted">
-          No results.
-        </Command.Empty>
+        <Command.Empty className="px-2 py-6 text-center text-[13px] text-muted">No results.</Command.Empty>
         {pages.length > 0 && (
           <Group heading="Pages">
             {pages.map((p) => (
-              <Command.Item
-                key={p.key}
-                value={`page ${p.label}`}
-                onSelect={() => go(p.to)}
-                className={item}
-              >
+              <Command.Item key={p.key} value={`page ${p.label}`} onSelect={() => go(p.to)} className={item}>
                 <p.icon className="h-4 w-4" strokeWidth={1.6} />
                 {p.label}
               </Command.Item>
@@ -88,37 +83,27 @@ export function CommandMenu({
         {(projects.data?.items.length ?? 0) > 0 && (
           <Group heading="Projects">
             {projects.data!.items.map((p) => (
-              <Command.Item
-                key={p.id}
-                value={`project ${p.name} ${p.id}`}
-                onSelect={() => go(`/projects/${p.id}`)}
-                className={item}
-              >
+              <Command.Item key={p.id} value={`project ${p.name} ${p.id}`} onSelect={() => go(`/projects/${p.id}`)} className={item}>
                 <Box className="h-4 w-4" strokeWidth={1.6} />
                 {p.name}
-                {p.parent_project_id && (
-                  <span className="text-xs text-muted">branch</span>
-                )}
+                {p.parent_project_id && <span className="text-xs text-muted">branch</span>}
               </Command.Item>
             ))}
           </Group>
         )}
         <Group heading="Actions">
-          <Command.Item
-            value="new project"
-            onSelect={() => go("/projects/new")}
-            className={item}
-          >
+          <Command.Item value="new project" onSelect={() => go("/projects/new")} className={item}>
             <Plus className="h-4 w-4" strokeWidth={1.6} />
             New project
           </Command.Item>
-          <Command.Item
-            value="toggle theme"
-            onSelect={() => run(() => setTheme(nextTheme(theme)))}
-            className={item}
-          >
+          <Command.Item value="toggle theme" onSelect={() => run(() => setTheme(nextTheme(theme)))} className={item}>
             <Moon className="h-4 w-4" strokeWidth={1.6} />
             Switch theme (now {theme})
+          </Command.Item>
+          <Command.Item value="keyboard shortcuts" onSelect={() => run(onShortcuts)} className={item}>
+            <Keyboard className="h-4 w-4" strokeWidth={1.6} />
+            Keyboard shortcuts
+            <kbd className="ml-auto font-sans text-[11px] text-muted">?</kbd>
           </Command.Item>
           <Command.Item
             value="sign out"
@@ -145,13 +130,7 @@ export function CommandMenu({
   );
 }
 
-function Group({
-  heading,
-  children,
-}: {
-  heading: string;
-  children: ReactNode;
-}) {
+function Group({ heading, children }: { heading: string; children: ReactNode }) {
   return (
     <Command.Group
       heading={heading}

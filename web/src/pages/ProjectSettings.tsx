@@ -59,7 +59,12 @@ export function ProjectComputePage() {
       <Panel title="Tier">
         <KeyValues
           items={[
-            ["Tier", <Badge key="t" tone={p.tier === "dedicated" ? "accent" : "muted"}>{p.tier === "dedicated" ? "Dedicated" : "Shared"}</Badge>],
+            [
+              "Tier",
+              <Badge key="t" tone={p.tier === "dedicated" ? "accent" : "muted"}>
+                {p.tier === "dedicated" ? "Dedicated" : "Shared"}
+              </Badge>,
+            ],
             [
               "What that means",
               p.tier === "dedicated"
@@ -115,7 +120,7 @@ function GeneralPanel({ p }: { p: Project }) {
         title="General"
         footer={
           <>
-            {msg && <span className={msg.ok ? "mr-auto text-[12px] text-ok" : "mr-auto text-[12px] text-danger"}>{msg.text}</span>}
+            {msg && <span className={msg.ok ? "mr-auto text-[12px] text-ok-text" : "mr-auto text-[12px] text-danger-text"}>{msg.text}</span>}
             <Button
               disabled={!dirty}
               onClick={() => {
@@ -161,7 +166,12 @@ function DataPanel({ p }: { p: Project }) {
   return (
     <Panel title="Data">
       <FormRow label="Contains sensitive data" description="Branches copy the schema only unless a project admin asks for the data.">
-        <Switch checked={!!p.sensitive_data} onCheckedChange={(v) => void save({ sensitive_data: v })} aria-label="Contains sensitive data" data-testid="sensitive-data" />
+        <Switch
+          checked={!!p.sensitive_data}
+          onCheckedChange={(v) => void save({ sensitive_data: v })}
+          aria-label="Contains sensitive data"
+          data-testid="sensitive-data"
+        />
       </FormRow>
       {p.parent_project_id && (
         <FormRow label="Back this branch up nightly" description="Off by default: branches are disposable.">
@@ -228,7 +238,7 @@ function GuardrailsPanel({ p }: { p: Project }) {
         footer={
           <>
             {msg && (
-              <span className={msg.ok ? "mr-auto text-[12px] text-ok" : "mr-auto text-[12px] text-danger"} role="status">
+              <span className={msg.ok ? "mr-auto text-[12px] text-ok-text" : "mr-auto text-[12px] text-danger-text"} role="status">
                 {msg.text}
               </span>
             )}
@@ -240,7 +250,15 @@ function GuardrailsPanel({ p }: { p: Project }) {
         }
       >
         <FormRow label="Max backend connections" description="Connections Postgres accepts for this database." htmlFor="g-conn">
-          <Input id="g-conn" aria-label="Max backend connections" type="number" min={1} max={1000} value={form.connection_limit} onChange={set("connection_limit")} />
+          <Input
+            id="g-conn"
+            aria-label="Max backend connections"
+            type="number"
+            min={1}
+            max={1000}
+            value={form.connection_limit}
+            onChange={set("connection_limit")}
+          />
         </FormRow>
         <FormRow label="Pooler pool size" description="Server connections the pooler keeps for transaction mode." htmlFor="g-pool">
           <Input id="g-pool" aria-label="Pooler pool size" type="number" min={1} max={1000} value={form.pool_size} onChange={set("pool_size")} />
@@ -253,7 +271,7 @@ function GuardrailsPanel({ p }: { p: Project }) {
         </FormRow>
         <FormRow label="Disk warning" description="Alert when the database grows past this size." htmlFor="g-disk">
           <Input id="g-disk" aria-label="Disk warning" value={form.disk} onChange={set("disk")} />
-          {disk === null && <span className="text-[12px] text-danger">Use a size like 1 GiB or 500 MB.</span>}
+          {disk === null && <span className="text-[12px] text-danger-text">Use a size like 1 GiB or 500 MB.</span>}
         </FormRow>
         <FormRow label="SQL console is read-only" description="Queries run one statement at a time inside a read-only transaction.">
           <Switch checked={form.readOnly} onCheckedChange={(v) => setForm((f) => ({ ...f, readOnly: v }))} aria-label="SQL console is read-only" />

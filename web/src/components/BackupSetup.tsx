@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage, type BackupKeyInfo, type StorageRequest, type StorageTestResult } from "../api/client";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
-import { Alert, Badge, Button, CodeBlock, CopyField, Field, Input, Dialog, Spinner, StatusBadge, Table } from "./ui";
+import { Alert, Badge, Button, CodeBlock, CopyField, Field, Input, Dialog, StatusBadge, Table, PanelSkeleton } from "./ui";
 
 // ---- S3 storage ------------------------------------------------------------
 
@@ -15,7 +15,7 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
   const [busy, setBusy] = useState<"test" | "save" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  if (current.isPending) return <Spinner />;
+  if (current.isPending) return <PanelSkeleton />;
   const c = current.data;
   const v: StorageRequest = form ?? {
     endpoint: c?.endpoint ?? "",
@@ -163,7 +163,7 @@ export function BackupKeyPanel({ onConfirmed }: { onConfirmed?: () => void }) {
   const [reauth, setReauth] = useState(false);
   const [reconfirm, setReconfirm] = useState(false);
 
-  if (info.isPending) return <Spinner />;
+  if (info.isPending) return <PanelSkeleton rows={2} />;
   const k = info.data;
 
   const generate = async () => {
@@ -390,7 +390,7 @@ export function NodesPanel() {
   const q = useQuery({ queryKey: ["nodes"], queryFn: api.nodes, refetchInterval: 5000 });
   const [token, setToken] = useState<{ node: string; command: string; expires: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PanelSkeleton rows={2} />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   return (
     <div className="flex flex-col gap-3">

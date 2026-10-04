@@ -2,7 +2,19 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus, Table2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiRequestError, api, errorMessage, type DbSchema, type GridFilter, type Project, type RowChange, type SaveRowsResult, type SchemaChange, type TableInfo, type TablePage } from "../api/client";
+import {
+  ApiRequestError,
+  api,
+  errorMessage,
+  type DbSchema,
+  type GridFilter,
+  type Project,
+  type RowChange,
+  type SaveRowsResult,
+  type SchemaChange,
+  type TableInfo,
+  type TablePage,
+} from "../api/client";
 import { LazyCodeEditor as CodeEditor } from "../components/sqlEditor/LazyCodeEditor";
 import { ChangeDialog, DeleteRowsDialog, ForeignRowPanel, JsonPanel } from "../components/tableEditor/Extras";
 import { Footer, PAGE_SIZES, type Mode } from "../components/tableEditor/Footer";
@@ -14,7 +26,20 @@ import { Toolbar } from "../components/tableEditor/Toolbar";
 import { Alert, Button, Spinner, cx, toast } from "../components/ui";
 import type { Val } from "../lib/tableEditor/cells";
 import { toggleSort, type SortRule } from "../lib/tableEditor/filters";
-import { closeTab, loadLayout, loadTabs, moveColumn, openTab, orderColumns, refKey, renameTab, saveLayout, saveTabs, type ColumnLayout, type TableRef } from "../lib/tableEditor/prefs";
+import {
+  closeTab,
+  loadLayout,
+  loadTabs,
+  moveColumn,
+  openTab,
+  orderColumns,
+  refKey,
+  renameTab,
+  saveLayout,
+  saveTabs,
+  type ColumnLayout,
+  type TableRef,
+} from "../lib/tableEditor/prefs";
 import { useProject } from "./ProjectOverview";
 
 const PAGE_SIZE_KEY = "pgdock.editor.pageSize";
@@ -58,16 +83,19 @@ function TableEditor({ p }: { p: Project }) {
   };
   const current: TableRef | null = search.table ? { schema: search.schema ?? "public", table: search.table } : null;
   const [schema, setSchema] = useState(search.schema ?? current?.schema ?? "public");
-  const [panel, setPanel] = useState<null | { kind: "new-table" } | { kind: "edit-table"; ref: TableRef } | { kind: "dialog"; dialog: "schema" | "enum" | "duplicate"; ref?: TableRef }>(null);
+  const [panel, setPanel] = useState<
+    null | { kind: "new-table" } | { kind: "edit-table"; ref: TableRef } | { kind: "dialog"; dialog: "schema" | "enum" | "duplicate"; ref?: TableRef }
+  >(null);
   const [review, setReview] = useState<Review | null>(null);
 
   const open = useCallback(
     (t: TableRef | null) => {
-      if (t) setTabsState((x) => {
-        const next = openTab(x, t);
-        saveTabs(p.id, next);
-        return next;
-      });
+      if (t)
+        setTabsState((x) => {
+          const next = openTab(x, t);
+          saveTabs(p.id, next);
+          return next;
+        });
       void navigate({ to: "/projects/$id/tables", params: { id: p.id }, search: t ? { schema: t.schema, table: t.table } : {} });
     },
     [navigate, p.id],
@@ -131,7 +159,7 @@ function TableEditor({ p }: { p: Project }) {
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-10 shrink-0 items-end gap-px overflow-x-auto border-b border-line bg-surface px-1" role="tablist" aria-label="Open tables">
+        <nav className="flex h-10 shrink-0 items-end gap-px overflow-x-auto border-b border-line bg-surface px-1" aria-label="Open tables">
           {shownTabs.map((t) => {
             const active = current && refKey(current) === refKey(t);
             return (
@@ -142,14 +170,20 @@ function TableEditor({ p }: { p: Project }) {
                   active ? "border-line bg-bg text-fg" : "border-transparent text-muted hover:text-fg",
                 )}
               >
-                <button type="button" role="tab" aria-selected={!!active} className="flex min-w-0 items-center gap-1.5" onClick={() => open(t)} data-testid={`tab-${t.table}`}>
+                <button
+                  type="button"
+                  aria-current={active ? "page" : undefined}
+                  className="flex min-w-0 items-center gap-1.5"
+                  onClick={() => open(t)}
+                  data-testid={`tab-${t.table}`}
+                >
                   <Table2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} />
                   <span className="truncate">{t.schema === "public" ? t.table : `${t.schema}.${t.table}`}</span>
                 </button>
                 <button
                   type="button"
                   aria-label={`Close ${t.table}`}
-                  className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-surface-3"
+                  className="rounded p-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-surface-3"
                   onClick={() => {
                     const { tabs: rest, next } = closeTab(shownTabs, t, current);
                     setTabs(rest);
@@ -162,26 +196,25 @@ function TableEditor({ p }: { p: Project }) {
             );
           })}
           {canEdit && (
-            <button type="button" aria-label="New table" className="mb-1 ml-1 rounded p-1 text-muted hover:bg-surface-2 hover:text-fg" onClick={() => setPanel({ kind: "new-table" })}>
+            <button
+              type="button"
+              aria-label="New table"
+              className="mb-1 ml-1 rounded p-1 text-muted hover:bg-surface-2 hover:text-fg"
+              onClick={() => setPanel({ kind: "new-table" })}
+            >
               <Plus className="h-4 w-4" />
             </button>
           )}
-        </div>
+        </nav>
         {current && exists(current) ? (
-          <TableView
-            key={refKey(current)}
-            p={p}
-            tableRef={current}
-            tree={schemas}
-            canEdit={canEdit}
-            onReview={reviewThen}
-            onOpen={open}
-          />
+          <TableView key={refKey(current)} p={p} tableRef={current} tree={schemas} canEdit={canEdit} onReview={reviewThen} onOpen={open} />
         ) : (
           <div className="flex flex-1 items-center justify-center p-6">
             <div className="flex max-w-sm flex-col items-center gap-3 text-center">
               <Table2 className="h-8 w-8 text-muted" strokeWidth={1.4} />
-              <p className="text-[14px]">{current ? `There is no table ${current.table} in ${current.schema}.` : "Select a table from the navigation panel on the left to view its data"}</p>
+              <p className="text-[14px]">
+                {current ? `There is no table ${current.table} in ${current.schema}.` : "Select a table from the navigation panel on the left to view its data"}
+              </p>
               {canEdit && (
                 <>
                   <p className="text-[13px] text-muted">or create a new one.</p>
@@ -213,13 +246,22 @@ function TableEditor({ p }: { p: Project }) {
           }
         />
       )}
-      {panel?.kind === "edit-table" && <EditTablePanel p={p} tableRef={panel.ref} tree={schemas} onClose={() => setPanel(null)} onReview={reviewThen} onDone={(to) => {
-        setPanel(null);
-        if (to.table !== panel.ref.table) {
-          setTabs(renameTab(tabs, panel.ref, to));
-          open(to);
-        }
-      }} />}
+      {panel?.kind === "edit-table" && (
+        <EditTablePanel
+          p={p}
+          tableRef={panel.ref}
+          tree={schemas}
+          onClose={() => setPanel(null)}
+          onReview={reviewThen}
+          onDone={(to) => {
+            setPanel(null);
+            if (to.table !== panel.ref.table) {
+              setTabs(renameTab(tabs, panel.ref, to));
+              open(to);
+            }
+          }}
+        />
+      )}
       {panel?.kind === "dialog" && (
         <ChangeDialog
           kind={panel.dialog}
@@ -229,7 +271,12 @@ function TableEditor({ p }: { p: Project }) {
           onReview={(change, after) =>
             reviewThen({
               change,
-              success: panel.dialog === "duplicate" ? `Duplicated ${panel.ref?.table}` : panel.dialog === "schema" ? `Created schema ${change.name}` : `Created type ${change.name}`,
+              success:
+                panel.dialog === "duplicate"
+                  ? `Duplicated ${panel.ref?.table}`
+                  : panel.dialog === "schema"
+                    ? `Created schema ${change.name}`
+                    : `Created type ${change.name}`,
               after: () => {
                 setPanel(null);
                 if (panel.dialog === "schema") setSchema(after.schema);
@@ -259,8 +306,25 @@ function TableEditor({ p }: { p: Project }) {
 }
 
 /** Edit table needs the table's full info before the panel opens. */
-function EditTablePanel({ p, tableRef, tree, onClose, onReview, onDone }: { p: Project; tableRef: TableRef; tree: DbSchema; onClose: () => void; onReview: (r: Review) => void; onDone: (to: TableRef) => void }) {
-  const info = useQuery({ queryKey: ["table-info", p.id, tableRef.schema, tableRef.table], queryFn: () => api.tableInfo(p.id, tableRef.schema, tableRef.table) });
+function EditTablePanel({
+  p,
+  tableRef,
+  tree,
+  onClose,
+  onReview,
+  onDone,
+}: {
+  p: Project;
+  tableRef: TableRef;
+  tree: DbSchema;
+  onClose: () => void;
+  onReview: (r: Review) => void;
+  onDone: (to: TableRef) => void;
+}) {
+  const info = useQuery({
+    queryKey: ["table-info", p.id, tableRef.schema, tableRef.table],
+    queryFn: () => api.tableInfo(p.id, tableRef.schema, tableRef.table),
+  });
   if (!info.data) return null;
   return (
     <TablePanel
@@ -269,7 +333,12 @@ function EditTablePanel({ p, tableRef, tree, onClose, onReview, onDone }: { p: P
       info={info.data}
       onClose={onClose}
       onReview={(change, { table }) =>
-        onReview({ change, title: `Update table ${tableRef.table}`, success: `Updated table ${table}`, after: () => onDone({ schema: tableRef.schema, table }) })
+        onReview({
+          change,
+          title: `Update table ${tableRef.table}`,
+          success: `Updated table ${table}`,
+          after: () => onDone({ schema: tableRef.schema, table }),
+        })
       }
     />
   );
@@ -330,7 +399,11 @@ function TableView({
     refetchOnWindowFocus: false,
   });
   const count = useQuery({ queryKey: ["count", p.id, schema, table, filters], queryFn: () => api.tableCount(p.id, schema, table, filters) });
-  const definition = useQuery({ queryKey: ["definition", p.id, schema, table], queryFn: () => api.tableDefinition(p.id, schema, table), enabled: mode === "definition" });
+  const definition = useQuery({
+    queryKey: ["definition", p.id, schema, table],
+    queryFn: () => api.tableDefinition(p.id, schema, table),
+    enabled: mode === "definition",
+  });
 
   const setLayout = (l: ColumnLayout) => {
     setLayoutState(l);
@@ -389,8 +462,9 @@ function TableView({
     onCellChange: (row, column, value) => {
       if (!i) return;
       // Show the new value at once; the refetch after saving confirms it.
-      qc.setQueryData<TablePage>(rowsKey, (old) =>
-        old && { ...old, rows: old.rows.map((r, n) => (gridRows[n]?.key === row.key ? r.map((x, j) => (cols[j] === column ? value : x)) : r)) },
+      qc.setQueryData<TablePage>(
+        rowsKey,
+        (old) => old && { ...old, rows: old.rows.map((r, n) => (gridRows[n]?.key === row.key ? r.map((x, j) => (cols[j] === column ? value : x)) : r)) },
       );
       void save([{ op: "update", key: pkOf(i, row), xmin: row.xmin, values: { [column]: value } }]);
     },
@@ -439,7 +513,15 @@ function TableView({
           onInsertColumn={() => setPanel({ kind: "column" })}
           onDeleteSelected={() => setPanel({ kind: "delete-rows", rows: selectedRows })}
           onCopySelected={() => {
-            void navigator.clipboard?.writeText(JSON.stringify(selectedRows.map((r) => r.v), null, 2)).catch(() => {});
+            void navigator.clipboard
+              ?.writeText(
+                JSON.stringify(
+                  selectedRows.map((r) => r.v),
+                  null,
+                  2,
+                ),
+              )
+              .catch(() => {});
             toast.success(`Copied ${selectedRows.length} row${selectedRows.length === 1 ? "" : "s"}`);
           }}
           onClearSelection={() => setSelected(new Set())}
@@ -448,7 +530,13 @@ function TableView({
       )}
       {mode === "definition" ? (
         <div className="min-h-0 flex-1 overflow-hidden bg-code">
-          {definition.isPending ? <Spinner /> : definition.isError ? <Alert>{errorMessage(definition.error)}</Alert> : <CodeEditor value={definition.data.sql} readOnly label={`Definition of ${table}`} testId="table-definition" />}
+          {definition.isPending ? (
+            <Spinner />
+          ) : definition.isError ? (
+            <Alert>{errorMessage(definition.error)}</Alert>
+          ) : (
+            <CodeEditor value={definition.data.sql} readOnly label={`Definition of ${table}`} testId="table-definition" />
+          )}
         </div>
       ) : rows.isError ? (
         <div className="p-4">

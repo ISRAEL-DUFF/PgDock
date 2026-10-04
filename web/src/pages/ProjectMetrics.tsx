@@ -37,26 +37,20 @@ export function ProjectMetricsPage() {
   const { data: p } = useProject();
   if (!p) return null;
   return (
-    <Page title="Reports" description="Size, connections, throughput and cache use over time, and the queries that take the most time." testId="project-reports">
-      <MetricCharts
-        queryKey={["metrics", "project", p.id]}
-        fetch={(r) => api.projectMetrics(p.id, r)}
-        charts={charts}
-      >
+    <Page
+      title="Reports"
+      description="Size, connections, throughput and cache use over time, and the queries that take the most time."
+      testId="project-reports"
+    >
+      <MetricCharts queryKey={["metrics", "project", p.id]} fetch={(r) => api.projectMetrics(p.id, r)} charts={charts}>
         {(data) => (
           <Panel title="Top queries by total time">
             {!data.top_queries ? (
-              <p className="text-sm text-muted">
-                Not available while the project is {p.status}.
-              </p>
+              <p className="text-sm text-muted">Not available while the project is {p.status}.</p>
             ) : !data.top_queries.available ? (
               <p className="text-sm text-muted">
                 Enable <span className="font-mono">pg_stat_statements</span> in{" "}
-                <Link
-                  to="/projects/$id/extensions"
-                  params={{ id: p.id }}
-                  className="text-accent hover:underline"
-                >
+                <Link to="/projects/$id/extensions" params={{ id: p.id }} className="text-accent-text underline underline-offset-2 hover:no-underline">
                   Database → Extensions
                 </Link>{" "}
                 to see which queries take the most time.
@@ -67,24 +61,13 @@ export function ProjectMetricsPage() {
               <Table head={["Query", "Calls", "Total", "Mean", "Rows"]}>
                 {data.top_queries.items.map((q, i) => (
                   <tr key={i}>
-                    <td
-                      className="max-w-[36rem] truncate px-3 py-1.5 font-mono text-xs"
-                      title={q.query}
-                    >
+                    <td className="max-w-[36rem] truncate px-3 py-1.5 font-mono text-xs" title={q.query}>
                       {q.query}
                     </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
-                      {q.calls.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
-                      {q.total_ms.toFixed(1)} ms
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
-                      {q.mean_ms.toFixed(2)} ms
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
-                      {q.rows.toLocaleString()}
-                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{q.calls.toLocaleString()}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{q.total_ms.toFixed(1)} ms</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{q.mean_ms.toFixed(2)} ms</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{q.rows.toLocaleString()}</td>
                   </tr>
                 ))}
               </Table>

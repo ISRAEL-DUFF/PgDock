@@ -18,9 +18,10 @@ import {
   Section,
   Select,
   SidePanel,
-  Spinner,
   Switch,
   Table,
+  PageSkeleton,
+  TableSkeleton,
 } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { canManageOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
@@ -48,7 +49,7 @@ export function OrgMembersPage() {
   const [transferring, setTransferring] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  if (!org) return <Spinner />;
+  if (!org) return <PageSkeleton />;
   const owner = org.role === "owner";
   const refresh = () => qc.invalidateQueries({ queryKey: ["org", org.id] });
 
@@ -111,7 +112,7 @@ export function OrgMembersPage() {
         />
       </div>
       {err && <Alert>{err}</Alert>}
-      {members.isPending && <Spinner />}
+      {members.isPending && <TableSkeleton cols={5} />}
       {members.data && (
         <Table head={["Member", "Role", "Projects", "2FA", "Last active", ""]}>
           {shown.map((m) => (
@@ -375,7 +376,7 @@ export function OrgSettingsPage() {
   const [slug, setSlug] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  if (!org) return <Spinner />;
+  if (!org) return <PageSkeleton />;
   if (!canManageOrg(org)) return <EmptyState title="Only owners and admins change organisation settings" />;
   const save = async (patch: Parameters<typeof api.updateOrg>[1]) => {
     setBusy(true);

@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Project, type Webhook } from "../api/client";
-import { Plus } from "lucide-react";
-import { Alert, Badge, Button, CopyField, EmptyState, Field, Input, Page, SidePanel, Spinner, Table } from "../components/ui";
+import { Plus, Webhook as WebhookIcon } from "lucide-react";
+import { Alert, Badge, Button, CopyField, EmptyState, Field, Input, Page, SidePanel, Table, TableSkeleton } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { useProject } from "./ProjectOverview";
 
@@ -54,9 +54,13 @@ export function ProjectWebhooksPage() {
       }
       testId="project-webhooks"
     >
-      {q.isPending && <Spinner />}
+      {q.isPending && <TableSkeleton rows={3} cols={4} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <EmptyState title="No webhooks yet">Create one to send table changes to your app.</EmptyState>}
+      {q.data && q.data.items.length === 0 && (
+        <EmptyState title="No webhooks yet" icon={<WebhookIcon />}>
+          Create one to send table changes to your app.
+        </EmptyState>
+      )}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Webhook", "Status", "Tables", "Events", "Queued", "URL"]}>
           {q.data.items.map((w) => (
@@ -322,7 +326,7 @@ function WebhookDetail({
           </Button>
         </div>
         {msg && (
-          <p className={msg.ok ? "text-ok" : "text-danger"} data-testid="webhook-message">
+          <p className={msg.ok ? "text-ok-text" : "text-danger-text"} data-testid="webhook-message">
             {msg.text}
           </p>
         )}

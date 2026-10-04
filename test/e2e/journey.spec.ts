@@ -6,7 +6,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFile } from "node:child_process";
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
+import AxeBuilder from "@axe-core/playwright";
+import fs, { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import pg from "pg";
@@ -45,15 +46,30 @@ const stateFile = "test-results/.session.json";
 
 // Optional screenshots of key screens, in both themes, for review.
 const shotDir = process.env.PGDOCK_E2E_SCREENSHOTS;
+/** Checks a screen against WCAG 2.1 A and AA with axe: serious and
+ * critical issues fail the run (docs/ui-redesign.md, phase 6). With
+ * PGDOCK_E2E_AXE=report they are written to axe.jsonl instead. */
+async function a11y(page: Page, name: string, theme: string) {
+  const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  const bad = r.violations
+    .filter((v) => v.impact === "serious" || v.impact === "critical")
+    .map((v) => `${v.id} (${v.impact}): ${v.help} — ${v.nodes.map((n) => n.target.join(" ")).slice(0, 5).join(" | ")}`);
+  if (process.env.PGDOCK_E2E_AXE === "report") {
+    if (shotDir && bad.length) fs.appendFileSync(`${shotDir}/axe.jsonl`, JSON.stringify({ name, theme, bad }) + "\n");
+    return;
+  }
+  expect.soft(bad, `accessibility of ${name} (${theme})`).toEqual([]);
+}
+
 async function shot(page: Page, name: string) {
-  if (!shotDir) return;
   for (const theme of ["dark", "light"]) {
     await page.evaluate((t) => {
       localStorage.setItem("pgdock.theme", t);
       document.documentElement.dataset.theme = t;
     }, theme);
     await page.waitForTimeout(400); // let colour transitions finish
-    await page.screenshot({ path: `${shotDir}/${name}-${theme}.png`, fullPage: true });
+    await a11y(page, name, theme);
+    if (shotDir) await page.screenshot({ path: `${shotDir}/${name}-${theme}.png`, fullPage: true });
   }
   await page.evaluate(() => {
     localStorage.setItem("pgdock.theme", "dark");
@@ -1530,5 +1546,46 @@ test.describe("with the saved session", () => {
     expect(await count(url, "SELECT n FROM order_counts")).toBe(1);
     await shot(page, "48-job-run");
     await db.end();
+  });
+
+  test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects");
+    await page.getByTestId("project-card").first().getByRole("link").first().click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+    const unfocus = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    // "?" lists every shortcut.
+    await unfocus();
+    await page.keyboard.press("?");
+    await expect(page.getByTestId("shortcuts-sheet")).toContainText("Format the SQL");
+    await shot(page, "49-shortcuts");
+    await page.keyboard.press("Escape");
+
+    // "g" then a letter jumps to a section.
+    await unfocus();
+    await page.keyboard.press("g");
+    await page.keyboard.press("l");
+    await expect(page).toHaveURL(new RegExp(`/projects/${id}/logs$`));
+    await unfocus();
+    await page.keyboard.press("g");
+    await page.keyboard.press("o");
+    await expect(page).toHaveURL(new RegExp(`/projects/${id}$`));
+
+    // On a phone the rail and the section menu are one drawer.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/projects/${id}/backups`);
+    await expect(page.getByTestId("rail")).toBeHidden();
+    await page.getByTestId("mobile-menu").click();
+    const drawer = page.getByTestId("mobile-nav");
+    await expect(drawer.getByRole("link", { name: "Backups", exact: true })).toHaveAttribute("aria-current", "page");
+    await shot(page, "50-mobile-menu");
+    await drawer.getByRole("link", { name: "SQL Editor" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${id}/sql$`));
+    await expect(drawer).toBeHidden();
+    await page.goto("/projects");
+    await expect(page.getByTestId("project-card").first()).toBeVisible();
+    await shot(page, "51-mobile-projects");
   });
 });

@@ -23,7 +23,7 @@ export function ProvisionProgress({ creds, progressTitle = "Provisioning" }: { c
           ) : (
             <div className="flex flex-col gap-3 text-sm">
               <p>Credentials dismissed. You can rotate the password from the project settings at any time.</p>
-              <Link to="/projects/$id" params={{ id: creds.project.id }} className="text-accent hover:underline">
+              <Link to="/projects/$id" params={{ id: creds.project.id }} className="text-accent-text underline underline-offset-2 hover:no-underline">
                 Open the project
               </Link>
             </div>
@@ -37,7 +37,7 @@ export function ProvisionProgress({ creds, progressTitle = "Provisioning" }: { c
             </div>
           )}
           {ready && (
-            <p className="mt-3 text-sm text-ok" data-testid="provision-ready">
+            <p className="mt-3 text-sm text-ok-text" data-testid="provision-ready">
               Ready — the connection strings work now.
             </p>
           )}

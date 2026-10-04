@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type AdminUser, type InvitationCreated } from "../api/client";
-import { Alert, Badge, Button, Field, Input, Dialog, PageHeading, SidePanel, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Field, Input, Dialog, PageHeading, SidePanel, Table, TableSkeleton } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { sessionQuery } from "../lib/session";
 import { InvitationResult } from "./Org";
@@ -48,7 +48,7 @@ export function AdminUsersPage() {
           <Alert>{err}</Alert>
         </div>
       )}
-      {users.isPending && <Spinner />}
+      {users.isPending && <TableSkeleton cols={5} />}
       {users.data && (
         <Table head={["User", "State", "2FA", "Orgs", "Last active", ""]}>
           {users.data.items.map((u) => (

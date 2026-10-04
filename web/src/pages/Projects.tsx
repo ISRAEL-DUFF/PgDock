@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Database, GitBranch, LayoutGrid, List, Plus, Search, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, errorMessage, type Project } from "../api/client";
-import { Alert, Badge, Button, EmptyState, Page, Select, Spinner, StatusBadge, Table, cx } from "../components/ui";
+import { Alert, Badge, Button, EmptyState, Page, Select, StatusBadge, Table, cx, CardsSkeleton } from "../components/ui";
 import { formatDate, relativeTime, timeUntil } from "../lib/format";
 import { canManageOrg, useCurrentOrg } from "../lib/org";
 import { backupIsStale } from "./ProjectBackups";
@@ -23,12 +23,12 @@ function LastBackup({ p }: { p: Project }) {
   return (
     <span data-testid="last-backup-cell">
       {p.last_backup_at ? (
-        <span className={backupIsStale(p.last_backup_at) ? "text-warn" : "text-muted"} title={formatDate(p.last_backup_at)}>
+        <span className={backupIsStale(p.last_backup_at) ? "text-warn-text" : "text-muted"} title={formatDate(p.last_backup_at)}>
           {backupIsStale(p.last_backup_at) && "⚠ "}
           {relativeTime(p.last_backup_at)}
         </span>
       ) : (
-        <span className="text-warn">⚠ never</span>
+        <span className="text-warn-text">⚠ never</span>
       )}
     </span>
   );
@@ -119,7 +119,8 @@ export function ProjectsPage() {
     // stands on its own.
     const ids = new Set(shown.map((p) => p.id));
     const kids = new Map<string, Project[]>();
-    for (const p of shown) if (p.parent_project_id && ids.has(p.parent_project_id)) kids.set(p.parent_project_id, [...(kids.get(p.parent_project_id) ?? []), p]);
+    for (const p of shown)
+      if (p.parent_project_id && ids.has(p.parent_project_id)) kids.set(p.parent_project_id, [...(kids.get(p.parent_project_id) ?? []), p]);
     const top = shown.filter((p) => !p.parent_project_id || !ids.has(p.parent_project_id));
     return { parents: top, branchesOf: (id: string) => kids.get(id) ?? [], flat: top.flatMap((p) => [p, ...(kids.get(p.id) ?? [])]) };
   }, [q.data, search, status, tier]);
@@ -190,14 +191,23 @@ export function ProjectsPage() {
           ))}
         </div>
       </div>
-      {q.isPending && <Spinner />}
+      {q.isPending && <CardsSkeleton />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
       {q.data && q.data.items.length === 0 && (
-        <EmptyState title="No projects yet">
-          <Link to="/projects/new" className="text-accent hover:underline">
-            Create your first database
-          </Link>{" "}
-          — it takes a few seconds.
+        <EmptyState
+          title="No projects yet"
+          icon={<Database />}
+          action={
+            canCreate && (
+              <Link to="/projects/new">
+                <Button variant="primary" icon={<Plus className="h-3.5 w-3.5" />}>
+                  New project
+                </Button>
+              </Link>
+            )
+          }
+        >
+          Each project is a PostgreSQL database with its own connection strings. It takes a few seconds to create.
         </EmptyState>
       )}
       {q.data && q.data.items.length > 0 && parents.length === 0 && <p className="text-[13px] text-muted">No projects match.</p>}

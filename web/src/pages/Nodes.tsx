@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Node, type NodeCreated } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { useOperationToast } from "../components/Toasts";
-import { Alert, Badge, Button, Panel, CodeBlock, Field, Input, PageHeading, Select, Spinner, StateBadge, Table } from "../components/ui";
+import { Alert, Badge, Button, Panel, CodeBlock, Field, Input, PageHeading, Select, StateBadge, Table, TableSkeleton, PageSkeleton } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 import { MetricCharts } from "../components/Metrics";
 import { nodeCharts } from "./ProjectMetrics";
@@ -63,7 +63,7 @@ export function NodesPage() {
         }
       />
       {adding && <AddNode onClose={() => setAdding(false)} />}
-      {q.isPending && <Spinner />}
+      {q.isPending && <TableSkeleton cols={6} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
       {q.data && (
         <Table head={["Node", "Role", "Address", "Agent", "Disk", "Last seen"]}>
@@ -177,7 +177,7 @@ export function NodeDetailPage() {
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  if (q.isPending) return <Spinner />;
+  if (q.isPending) return <PageSkeleton />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const { node: n, instances } = q.data;
   const m = (n.agent.metrics ?? {}) as Metrics;
@@ -307,7 +307,7 @@ export function NodeDetailPage() {
               <td className="px-3 py-2">
                 <StateBadge state={i.status} />
                 {i.error && (
-                  <p className="mt-1 max-w-xs truncate text-xs text-danger" title={i.error}>
+                  <p className="mt-1 max-w-xs truncate text-xs text-danger-text" title={i.error}>
                     {i.error}
                   </p>
                 )}

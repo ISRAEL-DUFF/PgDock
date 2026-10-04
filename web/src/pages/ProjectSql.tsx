@@ -6,10 +6,11 @@ import { api, errorMessage, type Project, type SavedQuery, type SqlResult } from
 import { CodeEditor, type CodeEditorHandle } from "../components/sqlEditor/CodeEditor";
 import { QuerySidebar } from "../components/sqlEditor/QuerySidebar";
 import { ResultsPane } from "../components/sqlEditor/ResultsPane";
-import { Alert, Badge, Button, Dialog, Input, Select, Spinner, Tooltip, cx, toast } from "../components/ui";
+import { Alert, Badge, Button, Dialog, Input, Select, Tooltip, cx, toast, PageSkeleton } from "../components/ui";
 import { clearHistory, loadHistory, newQueryId, pushHistory } from "../lib/sqlHistory";
 import type { Template } from "../lib/sqlEditor/templates";
 import { useProject } from "./ProjectOverview";
+import { keyLabel } from "../lib/shortcuts";
 
 const SPLIT_KEY = "pgdock.sql.split";
 const tabsKey = (p: string) => `pgdock.sql.tabs.${p}`;
@@ -90,7 +91,14 @@ function SqlEditorPage({ p }: { p: Project }) {
   };
   const create = async (name: string, sql: string) => {
     try {
-      const q = await api.createSavedQuery(p.id, { name: freshName(name, queries.map((x) => x.name)), sql, visibility: "private" });
+      const q = await api.createSavedQuery(p.id, {
+        name: freshName(
+          name,
+          queries.map((x) => x.name),
+        ),
+        sql,
+        visibility: "private",
+      });
       qc.setQueryData<{ items: SavedQuery[] }>(["queries", p.id], (old) => ({ items: [q, ...(old?.items ?? [])] }));
       setTabs({ ids: [...tabs.ids, q.id], active: q.id });
       setTimeout(() => editor.current?.focus(), 50);
@@ -197,7 +205,7 @@ function SqlEditorPage({ p }: { p: Project }) {
     }
   };
 
-  if (list.isPending) return <Spinner />;
+  if (list.isPending) return <PageSkeleton />;
   if (list.isError) return <Alert>{errorMessage(list.error)}</Alert>;
 
   const status = active ? saving[active.id] : undefined;
@@ -214,7 +222,10 @@ function SqlEditorPage({ p }: { p: Project }) {
           onTemplate: (t: Template) => void create(t.title, t.sql),
           onHistory: (sql) => void create("Untitled query", sql),
           onRename: (q) => setDialog({ kind: "rename", q }),
-          onShare: (q, shared) => void update(q, { visibility: shared ? "shared" : "private" }).then(() => toast.success(shared ? `Shared ${q.name} with the project` : `${q.name} is private`)),
+          onShare: (q, shared) =>
+            void update(q, { visibility: shared ? "shared" : "private" }).then(() =>
+              toast.success(shared ? `Shared ${q.name} with the project` : `${q.name} is private`),
+            ),
           onFavorite: (q, fav) => void favorite(q, fav),
           onDuplicate: (q) => void create(`${q.name} (copy)`, drafts[q.id] ?? q.sql),
           onDelete: (q) => setDialog({ kind: "delete", q }),
@@ -225,26 +236,47 @@ function SqlEditorPage({ p }: { p: Project }) {
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-10 shrink-0 items-end gap-px overflow-x-auto border-b border-line bg-surface px-1" role="tablist" aria-label="Open queries">
+        <nav className="flex h-10 shrink-0 items-end gap-px overflow-x-auto border-b border-line bg-surface px-1" aria-label="Open queries">
           {openIds.map((id) => {
             const q = byId.get(id)!;
             const on = id === active?.id;
             return (
-              <div key={id} className={cx("group flex h-9 max-w-[14rem] items-center gap-1.5 rounded-t-md border border-b-0 px-3 text-[12px]", on ? "border-line bg-bg text-fg" : "border-transparent text-muted hover:text-fg")}>
-                <button type="button" role="tab" aria-selected={on} className="flex min-w-0 items-center gap-1.5" onClick={() => setTabs({ ...tabs, active: id })}>
+              <div
+                key={id}
+                className={cx(
+                  "group flex h-9 max-w-[14rem] items-center gap-1.5 rounded-t-md border border-b-0 px-3 text-[12px]",
+                  on ? "border-line bg-bg text-fg" : "border-transparent text-muted hover:text-fg",
+                )}
+              >
+                <button
+                  type="button"
+                  aria-current={on ? "page" : undefined}
+                  className="flex min-w-0 items-center gap-1.5"
+                  onClick={() => setTabs({ ...tabs, active: id })}
+                >
                   <FileCode2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} />
                   <span className="truncate">{q.name}</span>
                 </button>
-                <button type="button" aria-label={`Close ${q.name}`} className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-surface-3" onClick={() => close(id)}>
+                <button
+                  type="button"
+                  aria-label={`Close ${q.name}`}
+                  className="rounded p-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-surface-3"
+                  onClick={() => close(id)}
+                >
                   <X className="h-3 w-3" />
                 </button>
               </div>
             );
           })}
-          <button type="button" aria-label="New query" className="mb-1 ml-1 rounded p-1 text-muted hover:bg-surface-2 hover:text-fg" onClick={() => void create("Untitled query", "")}>
+          <button
+            type="button"
+            aria-label="New query"
+            className="mb-1 ml-1 rounded p-1 text-muted hover:bg-surface-2 hover:text-fg"
+            onClick={() => void create("Untitled query", "")}
+          >
             <Plus className="h-4 w-4" />
           </button>
-        </div>
+        </nav>
 
         {!active ? (
           <div className="flex flex-1 items-center justify-center p-6">
@@ -260,7 +292,13 @@ function SqlEditorPage({ p }: { p: Project }) {
         ) : (
           <>
             <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-bg px-3">
-              <button type="button" className="truncate text-[13px] text-fg hover:underline disabled:no-underline" onClick={() => active.mine && setDialog({ kind: "rename", q: active })} disabled={!active.mine} data-testid="query-name">
+              <button
+                type="button"
+                className="truncate text-[13px] text-fg hover:underline disabled:no-underline"
+                onClick={() => active.mine && setDialog({ kind: "rename", q: active })}
+                disabled={!active.mine}
+                data-testid="query-name"
+              >
                 {active.name}
               </button>
               {active.visibility === "shared" && <Badge tone="accent">shared</Badge>}
@@ -268,8 +306,14 @@ function SqlEditorPage({ p }: { p: Project }) {
                 {!active.mine ? "Read-only: someone else's query" : status === "saving" ? "Saving…" : status === "error" ? "Not saved" : "Saved"}
               </span>
               <Tooltip content={active.favorite ? "Remove from favorites" : "Add to favorites"}>
-                <button type="button" aria-label={active.favorite ? "Remove from favorites" : "Add to favorites"} onClick={() => void favorite(active, !active.favorite)} className="rounded p-1 text-muted hover:text-fg" data-testid="favorite-toggle">
-                  <Star className={cx("h-3.5 w-3.5", active.favorite && "fill-warn text-warn")} />
+                <button
+                  type="button"
+                  aria-label={active.favorite ? "Remove from favorites" : "Add to favorites"}
+                  onClick={() => void favorite(active, !active.favorite)}
+                  className="rounded p-1 text-muted hover:text-fg"
+                  data-testid="favorite-toggle"
+                >
+                  <Star className={cx("h-3.5 w-3.5", active.favorite && "fill-warn text-warn-text")} />
                 </button>
               </Tooltip>
               {!active.mine && (
@@ -278,17 +322,32 @@ function SqlEditorPage({ p }: { p: Project }) {
                 </Button>
               )}
               <span className="flex-1" />
-              <Button size="tiny" variant="ghost" icon={<Wand2 className="h-3.5 w-3.5" />} onClick={() => editor.current?.format()} disabled={!active.mine} shortcut="⌘⇧F">
+              <Button
+                size="tiny"
+                variant="ghost"
+                icon={<Wand2 className="h-3.5 w-3.5" />}
+                onClick={() => editor.current?.format()}
+                disabled={!active.mine}
+                shortcut={keyLabel("mod+shift+f")}
+              >
                 Format
               </Button>
               {projectReadOnly ? (
-                <Tooltip content={p.my_role === "read_only" ? "Your role on this project is read-only." : "This project's console is read-only (change in Settings)."}>
+                <Tooltip
+                  content={p.my_role === "read_only" ? "Your role on this project is read-only." : "This project's console is read-only (change in Settings)."}
+                >
                   <span>
                     <Badge tone="accent">read-only</Badge>
                   </span>
                 </Tooltip>
               ) : (
-                <Select aria-label="Role" value={readOnlyRun ? "ro" : "rw"} onChange={(e) => setReadOnlyRun(e.target.value === "ro")} className="h-7 text-[12px]" data-testid="run-role">
+                <Select
+                  aria-label="Role"
+                  value={readOnlyRun ? "ro" : "rw"}
+                  onChange={(e) => setReadOnlyRun(e.target.value === "ro")}
+                  className="h-7 text-[12px]"
+                  data-testid="run-role"
+                >
                   <option value="rw">{p.owner_role} (read/write)</option>
                   <option value="ro">read-only</option>
                 </Select>
@@ -298,7 +357,16 @@ function SqlEditorPage({ p }: { p: Project }) {
                 <option value="60">1 min</option>
                 <option value="300">5 min</option>
               </Select>
-              <Button variant="primary" size="tiny" icon={<Play className="h-3.5 w-3.5" />} shortcut="⌘↵" busy={running?.tab === active.id} disabled={inactive || !!running} onClick={() => void run()} data-testid="run-query">
+              <Button
+                variant="primary"
+                size="tiny"
+                icon={<Play className="h-3.5 w-3.5" />}
+                shortcut={keyLabel("mod+enter")}
+                busy={running?.tab === active.id}
+                disabled={inactive || !!running}
+                onClick={() => void run()}
+                data-testid="run-query"
+              >
                 Run
               </Button>
             </div>
@@ -330,7 +398,13 @@ function SqlEditorPage({ p }: { p: Project }) {
                   testId="sql-editor"
                 />
               </div>
-              <div role="separator" aria-orientation="horizontal" aria-label="Resize the results" onPointerDown={drag} className="h-1.5 shrink-0 cursor-row-resize border-y border-line bg-surface hover:bg-accent/40" />
+              <div
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Resize the results"
+                onPointerDown={drag}
+                className="h-1.5 shrink-0 cursor-row-resize border-y border-line bg-surface hover:bg-accent/40"
+              />
               <ResultsPane
                 key={active.id}
                 result={runs[active.id] ?? null}
@@ -344,7 +418,9 @@ function SqlEditorPage({ p }: { p: Project }) {
         )}
       </div>
 
-      {dialog?.kind === "rename" && <RenameDialog q={dialog.q} onClose={() => setDialog(null)} onSave={(name) => void update(dialog.q, { name }).then(() => setDialog(null))} />}
+      {dialog?.kind === "rename" && (
+        <RenameDialog q={dialog.q} onClose={() => setDialog(null)} onSave={(name) => void update(dialog.q, { name }).then(() => setDialog(null))} />
+      )}
       {dialog?.kind === "delete" && (
         <Dialog
           open

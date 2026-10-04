@@ -38,10 +38,7 @@ export type RailItem = {
   divider?: boolean;
 };
 
-export type ShellContext =
-  | { kind: "project"; projectId: string }
-  | { kind: "platform" }
-  | { kind: "org" };
+export type ShellContext = { kind: "project"; projectId: string } | { kind: "platform" } | { kind: "org" };
 
 const projectPath = /^\/projects\/([0-9a-f-]{36})(\/|$)/;
 const platformPaths = ["/nodes", "/alerts", "/admin", "/audit"];
@@ -51,18 +48,12 @@ const platformPaths = ["/nodes", "/alerts", "/admin", "/audit"];
 export function contextFor(pathname: string): ShellContext {
   const m = projectPath.exec(pathname);
   if (m) return { kind: "project", projectId: m[1] };
-  if (
-    pathname === "/settings" ||
-    platformPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))
-  )
-    return { kind: "platform" };
+  if (pathname === "/settings" || platformPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))) return { kind: "platform" };
   return { kind: "org" };
 }
 
 /** A project's sections (docs/ui-redesign.md, the navigation map). */
-export function projectRail(
-  p: Pick<Project, "id" | "my_role" | "parent_project_id">,
-): RailItem[] {
+export function projectRail(p: Pick<Project, "id" | "my_role" | "parent_project_id">): RailItem[] {
   const base = `/projects/${p.id}`;
   const admin = p.my_role === "admin";
   const dev = admin || p.my_role === "developer";
@@ -272,13 +263,7 @@ export function platformRail(): RailItem[] {
 }
 
 /** Whether a rail entry (or a sidebar link) is the current page. */
-export function isActive(
-  pathname: string,
-  match: string[],
-  exact?: boolean,
-): boolean {
+export function isActive(pathname: string, match: string[], exact?: boolean): boolean {
   const path = pathname.replace(/\/$/, "");
-  return match.some((m) =>
-    exact ? path === m : path === m || path.startsWith(m + "/"),
-  );
+  return match.some((m) => (exact ? path === m : path === m || path.startsWith(m + "/")));
 }

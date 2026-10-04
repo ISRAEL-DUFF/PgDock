@@ -110,7 +110,11 @@ export function BackupBanner() {
   }
   if (!msg) return null;
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn" role="status" data-testid="backup-banner">
+    <div
+      className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn-text"
+      role="status"
+      data-testid="backup-banner"
+    >
       <span>{msg}</span>
       <Link to={to} className="font-medium underline">
         Fix it
@@ -148,15 +152,16 @@ export function OrgBanners() {
         </div>
       )}
       {org.status === "suspended" && (
-        <div className={cx(banner, "border-danger/40 bg-danger/10 text-danger")} role="alert" data-testid="suspended-banner">
+        <div className={cx(banner, "border-danger/40 bg-danger/10 text-danger-text")} role="alert" data-testid="suspended-banner">
           <span>
             <strong>{org.name} is suspended</strong>
-            {org.suspended_reason ? `: ${org.suspended_reason}` : ""}. Its databases are offline and its data is kept; you can look around but not change anything.
+            {org.suspended_reason ? `: ${org.suspended_reason}` : ""}. Its databases are offline and its data is kept; you can look around but not change
+            anything.
           </span>
         </div>
       )}
       {org.status === "deleting" && (
-        <div className={cx(banner, "border-danger/40 bg-danger/10 text-danger")} role="alert" data-testid="deleting-banner">
+        <div className={cx(banner, "border-danger/40 bg-danger/10 text-danger-text")} role="alert" data-testid="deleting-banner">
           <span>
             <strong>{org.name} will be deleted</strong>
             {org.delete_after ? ` on ${new Date(org.delete_after).toLocaleString()}` : ""}. Its databases are offline.
@@ -169,10 +174,10 @@ export function OrgBanners() {
         </div>
       )}
       {(org.break_glass ?? []).map((b) => (
-        <div key={b.id} className={cx(banner, "border-warn/40 bg-warn/10 text-warn")} role="status" data-testid="break-glass-banner">
+        <div key={b.id} className={cx(banner, "border-warn/40 bg-warn/10 text-warn-text")} role="status" data-testid="break-glass-banner">
           <span>
-            <strong>Break-glass access:</strong> the platform admin ({b.admin_email}) can act as an admin here until {new Date(b.expires_at).toLocaleString()}. Reason:{" "}
-            {b.reason}
+            <strong>Break-glass access:</strong> the platform admin ({b.admin_email}) can act as an admin here until {new Date(b.expires_at).toLocaleString()}.
+            Reason: {b.reason}
           </span>
           {owner && (
             <Button className="text-xs" onClick={() => act(() => api.endBreakGlass(org.id, b.id))} data-testid="end-break-glass">

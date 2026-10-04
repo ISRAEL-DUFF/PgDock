@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage } from "../api/client";
-import { Alert, Badge, Button, Dialog, Field, FormRow, Input, Page, Panel, Section, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Dialog, Field, FormRow, Input, Page, Panel, Section, Table, PageSkeleton } from "../components/ui";
 import { TokensCard } from "../components/Tokens";
 import { formatDate, relativeTime } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
@@ -11,7 +11,7 @@ import { refreshSession, sessionQuery } from "../lib/session";
 /** Profile, password, two-factor, sessions, tokens, and invitations (V2 §13). */
 export function AccountPage() {
   const { data: session } = useQuery(sessionQuery);
-  if (!session?.user) return <Spinner />;
+  if (!session?.user) return <PageSkeleton />;
   return (
     <Page title="Account" description="Your profile, how you sign in, and the tokens that act for you.">
       <div className="flex max-w-4xl flex-col gap-8">
@@ -203,8 +203,8 @@ function RecoveryCard() {
     <Panel title="Two-factor recovery codes" description="Each signs you in once if you lose your authenticator.">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px]">
-          <span className={left <= 3 ? "text-warn" : undefined}>{left} of 10</span> unused codes left.{" "}
-          {left <= 3 && <span className="text-warn">Make new ones before you run out.</span>}
+          <span className={left <= 3 ? "text-warn-text" : undefined}>{left} of 10</span> unused codes left.{" "}
+          {left <= 3 && <span className="text-warn-text">Make new ones before you run out.</span>}
         </p>
         <Button onClick={() => setOpen(true)}>New codes</Button>
       </div>

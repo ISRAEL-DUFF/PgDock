@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage, type TokenScope } from "../api/client";
 import { ScopePicker } from "../components/Tokens";
-import { Alert, Button, Panel, Field, Input, PageHeading, Select, Spinner } from "../components/ui";
+import { Alert, Button, Panel, Field, Input, PageHeading, Select, PanelSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 
 /** Approve a CLI device login (V2 §7.1): pick the organisation and scopes. */
@@ -63,7 +63,7 @@ function Approve({ code }: { code: string }) {
       </>
     );
   }
-  if (req.isPending) return <Spinner />;
+  if (req.isPending) return <PanelSkeleton rows={2} />;
   if (req.isError) {
     const gone = req.error instanceof ApiRequestError && req.error.status === 404;
     return (

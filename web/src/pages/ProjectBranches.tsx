@@ -5,7 +5,7 @@ import { api, errorMessage, type Project, type ProjectCredentials } from "../api
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { ProvisionProgress } from "../components/ProvisionProgress";
 import { useOperationToast } from "../components/Toasts";
-import { GitBranchPlus } from "lucide-react";
+import { GitBranch, GitBranchPlus } from "lucide-react";
 import {
   Alert,
   Badge,
@@ -21,9 +21,9 @@ import {
   Section,
   Select,
   SidePanel,
-  Spinner,
   StatusBadge,
   Table,
+  TableSkeleton,
 } from "../components/ui";
 import { formatDate, timeUntil } from "../lib/format";
 import { useProject } from "./ProjectOverview";
@@ -50,7 +50,7 @@ function Expiry({ b }: { b: Project }) {
   if (!at) return <span className="text-muted">never</span>;
   const soon = new Date(at).getTime() - Date.now() < 24 * 3600 * 1000;
   return (
-    <span className={soon ? "text-warn" : "text-muted"} title={formatDate(at)} data-testid="branch-expiry">
+    <span className={soon ? "text-warn-text" : "text-muted"} title={formatDate(at)} data-testid="branch-expiry">
       {timeUntil(at)}
     </span>
   );
@@ -91,9 +91,13 @@ function BranchList({ p }: { p: Project }) {
       }
       testId="project-branches"
     >
-      {q.isPending && <Spinner />}
+      {q.isPending && <TableSkeleton rows={3} cols={5} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <EmptyState title="No branches">Create one to try a change without touching {p.name}.</EmptyState>}
+      {q.data && q.data.items.length === 0 && (
+        <EmptyState title="No branches" icon={<GitBranch />}>
+          Create one to try a change without touching {p.name}.
+        </EmptyState>
+      )}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Branch", "Status", "Contents", "Expires", "Created"]}>
           {q.data.items.map((b) => (
@@ -246,7 +250,7 @@ function BranchControls({ b }: { b: Project }) {
         parent.data ? (
           <>
             A branch of{" "}
-            <Link to="/projects/$id/branches" params={{ id: parent.data.id }} className="text-accent hover:underline">
+            <Link to="/projects/$id/branches" params={{ id: parent.data.id }} className="text-accent-text underline underline-offset-2 hover:no-underline">
               {parent.data.name}
             </Link>
             .

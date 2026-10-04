@@ -76,7 +76,7 @@ export function PromoteCard({ p }: { p: Project }) {
       <Panel title="Promotion" actions={stream.status && <StatusBadge status={stream.status} />}>
         <OperationLog log={stream.log} live={!stream.done} />
         {stream.status === "succeeded" && (
-          <p className="mt-3 text-sm text-ok" data-testid="promote-done">
+          <p className="mt-3 text-sm text-ok-text" data-testid="promote-done">
             Promoted. The connection strings are unchanged; the shared copy is kept read-only for 48 hours.
           </p>
         )}

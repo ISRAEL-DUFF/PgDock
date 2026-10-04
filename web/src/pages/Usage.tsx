@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { api, type OrgQuotas, type QuotaItem } from "../api/client";
 import { LineChart } from "../components/LineChart";
 import { Download } from "lucide-react";
-import { Alert, Badge, Panel, cx, EmptyState, Page, Section, Select, Spinner, Stat, Table } from "../components/ui";
+import { Alert, Badge, Panel, cx, EmptyState, Page, Section, Select, Stat, Table, PageSkeleton, PanelSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { canManageOrg, useCurrentOrg } from "../lib/org";
 import { formatQuantity, hourly, LIMIT_LABELS, monthStart, quotaRatio } from "../lib/usage";
@@ -111,7 +111,7 @@ export function UsagePage() {
       .map(([k]) => k);
   }, [points]);
 
-  if (!org) return <Spinner />;
+  if (!org) return <PageSkeleton />;
   if (!canManageOrg(org)) return <EmptyState title="Only owners and admins see the organisation's usage" />;
   const units = Object.fromEntries((usage.data?.metrics ?? []).map((m) => [m.name, m.unit]));
   const series = [
@@ -151,7 +151,7 @@ export function UsagePage() {
           </Section>
         )}
         {usage.isError && <Alert>Could not load usage.</Alert>}
-        {usage.isPending && <Spinner />}
+        {usage.isPending && <PanelSkeleton />}
         {usage.data && (
           <>
             <Section title="Totals" description="Over the range picked above.">
@@ -180,7 +180,7 @@ export function UsagePage() {
                 <summary className="cursor-pointer text-sm text-muted" data-testid="usage-hours-toggle">
                   {points.length} hour{points.length === 1 ? "" : "s"} recorded
                 </summary>
-                <div className="mt-2 max-h-96 overflow-y-auto">
+                <div className="mt-2 max-h-96 overflow-y-auto" tabIndex={0} role="region" aria-label="Storage by hour">
                   <Table head={["Hour (UTC)", "GB-hours", ...projects]}>
                     {points.map((p) => (
                       <tr key={p.ts} data-testid="usage-hour">

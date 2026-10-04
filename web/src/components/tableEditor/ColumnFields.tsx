@@ -40,10 +40,7 @@ export function TypePicker({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const f = q.trim().toLowerCase();
-  const groups = [
-    ...TYPE_GROUPS,
-    ...(enums.length ? [{ label: "Enumerated types", types: enums.map((e) => ({ name: e, hint: "enum" })) }] : []),
-  ]
+  const groups = [...TYPE_GROUPS, ...(enums.length ? [{ label: "Enumerated types", types: enums.map((e) => ({ name: e, hint: "enum" })) }] : [])]
     .map((g) => ({ ...g, types: g.types.filter((t) => !f || t.name.includes(f) || t.hint.toLowerCase().includes(f)) }))
     .filter((g) => g.types.length > 0);
   const known = groups.some((g) => g.types.some((t) => t.name === f));
@@ -99,7 +96,7 @@ export function TypePicker({
                 >
                   <code className="w-24 shrink-0 font-mono text-[12px]">{t.name}</code>
                   <span className="truncate text-[11px] text-muted">{t.hint}</span>
-                  {t.name === value && <Check className="ml-auto h-3.5 w-3.5 text-accent" />}
+                  {t.name === value && <Check className="ml-auto h-3.5 w-3.5 text-accent-text" />}
                 </button>
               ))}
             </div>
@@ -115,7 +112,10 @@ const isInteger = (t: string) => /^(int2|int4|int8|smallint|integer|bigint)$/i.t
 /** A default value: an SQL expression, with Studio's suggestions for the
  * type, and identity for integer keys. */
 export function DefaultInput({ col, onChange, disabled }: { col: ColumnDraft; onChange: (patch: Partial<ColumnDraft>) => void; disabled?: boolean }) {
-  const sugg = [...(isInteger(col.type) && !col.isArray ? [{ value: IDENTITY, label: "Automatically generate as identity" }] : []), ...defaultSuggestions(col.type)];
+  const sugg = [
+    ...(isInteger(col.type) && !col.isArray ? [{ value: IDENTITY, label: "Automatically generate as identity" }] : []),
+    ...defaultSuggestions(col.type),
+  ];
   return (
     <div className="flex">
       <Input
@@ -129,7 +129,11 @@ export function DefaultInput({ col, onChange, disabled }: { col: ColumnDraft; on
       {sugg.length > 0 && !disabled && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="Suggested defaults" className="rounded-r-md border border-l-0 border-line-strong bg-surface-2 px-1.5 text-muted hover:text-fg">
+            <button
+              type="button"
+              aria-label="Suggested defaults"
+              className="rounded-r-md border border-l-0 border-line-strong bg-surface-2 px-1.5 text-muted hover:text-fg"
+            >
               <ChevronsUpDown className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
@@ -166,7 +170,14 @@ export function ForeignKeyEditor({
 }) {
   if (!col.ref) {
     return (
-      <Button size="tiny" variant="ghost" className="self-start" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => onChange({ schema, table: "", column: "", onDelete: "NO ACTION", onUpdate: "NO ACTION" })} data-testid="add-foreign-key">
+      <Button
+        size="tiny"
+        variant="ghost"
+        className="self-start"
+        icon={<Link2 className="h-3.5 w-3.5" />}
+        onClick={() => onChange({ schema, table: "", column: "", onDelete: "NO ACTION", onUpdate: "NO ACTION" })}
+        data-testid="add-foreign-key"
+      >
         Add foreign key relation
       </Button>
     );
@@ -180,7 +191,7 @@ export function ForeignKeyEditor({
     <div className="flex flex-col gap-2 rounded-md border border-line bg-surface-2/50 p-3" data-testid="foreign-key-editor">
       <div className="flex items-center justify-between">
         <span className="text-[12px] text-fg-light">Foreign key relation</span>
-        <button type="button" aria-label="Remove foreign key" className="rounded p-0.5 text-muted hover:text-danger" onClick={() => onChange(null)}>
+        <button type="button" aria-label="Remove foreign key" className="rounded p-0.5 text-muted hover:text-danger-text" onClick={() => onChange(null)}>
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -228,7 +239,21 @@ export function ForeignKeyEditor({
 }
 
 /** A labelled switch with a hint: the column's constraints. */
-export function ToggleRow({ label, hint, checked, onChange, disabled, testId }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; testId?: string }) {
+export function ToggleRow({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled,
+  testId,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+  testId?: string;
+}) {
   return (
     <label className={cx("flex items-start justify-between gap-4", disabled && "opacity-50")}>
       <span className="flex flex-col">
@@ -246,7 +271,12 @@ export function ColumnSettings({ col, onChange, existing }: { col: ColumnDraft; 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" aria-label={`Settings for ${col.name || "the column"}`} className="rounded p-1 text-muted hover:bg-surface-3 hover:text-fg" data-testid="column-settings">
+        <button
+          type="button"
+          aria-label={`Settings for ${col.name || "the column"}`}
+          className="rounded p-1 text-muted hover:bg-surface-3 hover:text-fg"
+          data-testid="column-settings"
+        >
           <Settings2 className="h-4 w-4" strokeWidth={1.6} />
         </button>
       </PopoverTrigger>
@@ -255,9 +285,27 @@ export function ColumnSettings({ col, onChange, existing }: { col: ColumnDraft; 
           Description
           <Input value={col.comment} onChange={(e) => onChange({ comment: e.target.value })} placeholder="Optional" />
         </label>
-        <ToggleRow label="Is nullable" hint="Can hold NULL" checked={col.nullable && !col.primaryKey} disabled={col.primaryKey} onChange={(v) => onChange({ nullable: v })} />
-        <ToggleRow label="Is unique" hint="No two rows hold the same value" checked={col.unique || col.primaryKey} disabled={col.primaryKey} onChange={(v) => onChange({ unique: v })} />
-        <ToggleRow label="Define as array" hint="Holds a list of the type" checked={col.isArray} disabled={existing && col.identity} onChange={(v) => onChange({ isArray: v, identity: v ? false : col.identity })} />
+        <ToggleRow
+          label="Is nullable"
+          hint="Can hold NULL"
+          checked={col.nullable && !col.primaryKey}
+          disabled={col.primaryKey}
+          onChange={(v) => onChange({ nullable: v })}
+        />
+        <ToggleRow
+          label="Is unique"
+          hint="No two rows hold the same value"
+          checked={col.unique || col.primaryKey}
+          disabled={col.primaryKey}
+          onChange={(v) => onChange({ unique: v })}
+        />
+        <ToggleRow
+          label="Define as array"
+          hint="Holds a list of the type"
+          checked={col.isArray}
+          disabled={existing && col.identity}
+          onChange={(v) => onChange({ isArray: v, identity: v ? false : col.identity })}
+        />
         <label className="flex flex-col gap-1 text-[12px] text-fg-light">
           Check constraint
           <Input value={col.check} onChange={(e) => onChange({ check: e.target.value })} placeholder="length(name) < 50" className="font-mono text-[12px]" />

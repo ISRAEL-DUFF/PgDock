@@ -74,7 +74,9 @@ export function Grid({
         resizable: true,
         draggable: true,
         editable: !ro && kind !== "json",
-        renderHeaderCell: (p) => <HeaderCell p={p} col={c} info={info} sort={sorts.find((s) => s.column === name)} canEdit={canEdit && info.editable} actions={actions} />,
+        renderHeaderCell: (p) => (
+          <HeaderCell p={p} col={c} info={info} sort={sorts.find((s) => s.column === name)} canEdit={canEdit && info.editable} actions={actions} />
+        ),
         renderCell: ({ row }) => {
           const v = row.v[name];
           const fk = fkFor(name);
@@ -109,7 +111,13 @@ export function Grid({
         minWidth: 44,
         resizable: false,
         renderHeaderCell: () => (
-          <button type="button" aria-label="Add column" className="flex h-full w-full items-center justify-center text-muted hover:bg-surface-2 hover:text-fg" onClick={actions.onAddColumn} data-testid="grid-add-column">
+          <button
+            type="button"
+            aria-label="Add column"
+            className="flex h-full w-full items-center justify-center text-muted hover:bg-surface-2 hover:text-fg"
+            onClick={actions.onAddColumn}
+            data-testid="grid-add-column"
+          >
             <Plus className="h-4 w-4" />
           </button>
         ),
@@ -189,7 +197,7 @@ export function Grid({
                 <CM.Item className={menuItem} onSelect={() => actions.onEditRow(rowWithMenu.row)}>
                   <Edit3 className="h-3.5 w-3.5" /> Edit row
                 </CM.Item>
-                <CM.Item className={cx(menuItem, "text-danger")} onSelect={() => actions.onDeleteRows([rowWithMenu.row])}>
+                <CM.Item className={cx(menuItem, "text-danger-text")} onSelect={() => actions.onDeleteRows([rowWithMenu.row])}>
                   <Trash2 className="h-3.5 w-3.5" /> Delete row
                 </CM.Item>
               </>
@@ -221,11 +229,11 @@ function HeaderCell({
   const isTable = info.kind === "table";
   return (
     <div className="group flex h-full items-center gap-1.5 px-2" data-testid={`column-${col.name}`}>
-      {pk && <KeyRound className="h-3 w-3 shrink-0 text-warn" aria-label="Primary key" />}
+      {pk && <KeyRound className="h-3 w-3 shrink-0 text-warn-text" aria-label="Primary key" />}
       {fk && <Link2 className="h-3 w-3 shrink-0 text-muted" aria-label="Foreign key" />}
       <span className="truncate text-[12px] font-medium text-fg">{p.column.name}</span>
       <span className="truncate font-mono text-[11px] text-muted">{col.type}</span>
-      {sort && (sort.desc ? <ArrowDown className="h-3 w-3 shrink-0 text-accent" /> : <ArrowUp className="h-3 w-3 shrink-0 text-accent" />)}
+      {sort && (sort.desc ? <ArrowDown className="h-3 w-3 shrink-0 text-accent-text" /> : <ArrowUp className="h-3 w-3 shrink-0 text-accent-text" />)}
       <span className="flex-1" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

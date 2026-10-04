@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Job, type Project } from "../api/client";
-import { Plus } from "lucide-react";
-import { Alert, Badge, Button, CopyField, EmptyState, Field, Input, Page, Select, SidePanel, Spinner, Table } from "../components/ui";
+import { Clock, Plus } from "lucide-react";
+import { Alert, Badge, Button, CopyField, EmptyState, Field, Input, Page, Select, SidePanel, Table, TableSkeleton } from "../components/ui";
 import { formatDate, relativeTime, timeUntil } from "../lib/format";
 import { useProject } from "./ProjectOverview";
 
@@ -54,9 +54,13 @@ export function ProjectJobsPage() {
       }
       testId="project-jobs"
     >
-      {q.isPending && <Spinner />}
+      {q.isPending && <TableSkeleton cols={5} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <EmptyState title="No jobs yet">Create one to run SQL or call a URL on a schedule.</EmptyState>}
+      {q.data && q.data.items.length === 0 && (
+        <EmptyState title="No jobs yet" icon={<Clock />}>
+          Create one to run SQL or call a URL on a schedule.
+        </EmptyState>
+      )}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Job", "Kind", "Schedule", "Next run", "Last run"]}>
           {q.data.items.map((j) => (
@@ -182,7 +186,7 @@ function CreateJobDialog({ p, open, onClose, onCreated }: { p: Project; open: bo
             <button
               type="button"
               key={pr.cron}
-              className={"rounded border px-2 py-0.5 text-xs " + (cron === pr.cron ? "border-accent text-accent" : "border-line text-muted")}
+              className={"rounded border px-2 py-0.5 text-xs " + (cron === pr.cron ? "border-accent text-accent-text" : "border-line text-muted")}
               onClick={() => setCron(pr.cron)}
             >
               {pr.label}

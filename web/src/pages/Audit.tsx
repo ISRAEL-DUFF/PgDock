@@ -1,8 +1,9 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { ScrollText } from "lucide-react";
 import { useState } from "react";
 import { api, errorMessage, type AuditList, type AuditQuery } from "../api/client";
 import { useCurrentOrg } from "../lib/org";
-import { Alert, Button, EmptyState, Input, PageHeading, Select, Spinner, StatusBadge, Table } from "../components/ui";
+import { Alert, Button, EmptyState, Input, PageHeading, Select, StatusBadge, Table, PageSkeleton, TableSkeleton } from "../components/ui";
 import { formatDate } from "../lib/format";
 
 /** The platform audit log (platform admin). */
@@ -20,7 +21,7 @@ export function AuditPage() {
 /** The current organisation's audit log (owners and admins). */
 export function OrgAuditPage() {
   const { org } = useCurrentOrg();
-  if (!org) return <Spinner />;
+  if (!org) return <PageSkeleton />;
   return <AuditView title="Audit log" subtitle={`Everything done in ${org.name}. Append-only.`} scope={org.id} load={(p) => api.orgAudit(org.id, p)} />;
 }
 
@@ -64,9 +65,9 @@ export function AuditView({
           <option value="denied">denied</option>
         </Select>
       </div>
-      {q.isPending && <Spinner />}
+      {q.isPending && <TableSkeleton rows={8} cols={5} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && items.length === 0 && <EmptyState title="Nothing logged yet" />}
+      {q.data && items.length === 0 && <EmptyState title="Nothing logged yet" icon={<ScrollText />} />}
       {items.length > 0 && (
         <Table head={["When", "Action", "Outcome", "Who", "Target", "IP"]}>
           {items.map((a) => (
