@@ -102,5 +102,6 @@ people (V2 §14 M16):
 
 ## Releases
 
-Upgrade with [upgrades](upgrade.md): server first, then agents, one node
-at a time. Read the changelog's *Security* notes before the rest.
+Upgrade with [upgrades](upgrade.md): agents on other nodes first (an agent
+on an older minor version than the server is refused work), then the server
+and its bundled agent, one node at a time. Read the changelog's *Security* notes before the rest.

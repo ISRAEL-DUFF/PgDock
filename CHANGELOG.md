@@ -3,7 +3,12 @@
 PGDock follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
-## Unreleased
+## v2.1.0
+
+UI fixes found by testing the redesign, a SQL filter bar for the Table
+Editor, and a way to add and recover platform admins. No database
+migrations: upgrade from v2.0.0 with `git checkout v2.1.0` and
+`./install.sh` ([upgrades](docs/upgrade.md)).
 
 ### Platform admins
 - A platform admin can make another account a platform admin, or an
