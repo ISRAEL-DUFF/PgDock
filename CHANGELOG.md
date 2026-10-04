@@ -10,6 +10,13 @@ bundle share one version (spec §11.5).
   whole code, new codes have no padding, and the server ignores spaces,
   `=` padding and letter case when comparing. (The code still changes every
   time the server restarts, unless `PGDOCK_SETUP_CODE` is set in `.env`.)
+- `deploy/compose/preflight.sh <ui-host> <db-host>`: a read-only check to run
+  on the server before `install.sh` (OS, resources, Docker, DNS, ports,
+  outbound reach, optionally the backup bucket and mail server).
+  See docs/install.md.
+- docs/install.md: how to get Cloudflare R2 credentials for the backup
+  storage step, what to do when the wizard says the setup code is wrong, and
+  memory settings and swap for a 4 GB server.
 
 ## v2.1.0
 
