@@ -5,6 +5,24 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### SQL filter bar
+- Text fields show focus with a thin accent border and a soft glow, not the
+  heavy 2px outline buttons and links get.
+- The Table Editor has a filter bar above the grid: type a condition as
+  you would after `WHERE` (`email = 'a@b.com' or phone like '081%'`) and
+  press Enter. Suggestions (Ctrl+Space, or as you type) list the table's
+  columns with their type and nullability, then operators and functions.
+  Recent filters are remembered per table, errors show the database's own
+  message at the character that caused it, and the grid keeps its last
+  good view. It combines with the Filter popover, and the count and export
+  follow it.
+- Safety: the condition is checked (one expression; nothing that can end
+  a `WHERE` clause, such as `;`, `UNION`, `ORDER BY`, `LIMIT`) and runs as
+  the project's read-only role in a read-only transaction under the
+  statement timeout, so it can read what the console can read and write
+  nothing. The API takes it as the `where` parameter of the rows, count
+  and export endpoints.
+
 ### UI fixes from QA
 - Phones: the top bar's switchers no longer overlap (names and badges
   show from the `sm` breakpoint up), and the Table Editor and SQL Editor

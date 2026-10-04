@@ -4997,6 +4997,13 @@ type SetSavedQueryFavoriteJSONBody struct {
 type CountTableRowsParams struct {
 	// Filter Repeatable, as for the rows.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
 }
 
 // ExportTableRowsParams defines parameters for ExportTableRows.
@@ -5004,8 +5011,15 @@ type ExportTableRowsParams struct {
 	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
-	Sort   *string   `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc   *bool     `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
+	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
 
 	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
 	// several sort by each column in turn. Takes the place of sort and
@@ -5023,6 +5037,13 @@ type GetTableRowsParams struct {
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
 	// (V2 §4.1). Compiled to a parameterised WHERE clause.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
 
 	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
 	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
@@ -11818,6 +11839,19 @@ func (siw *ServerInterfaceWrapper) CountTableRows(w http.ResponseWriter, r *http
 		return
 	}
 
+	// ------------- Optional query parameter "where" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "where", r.URL.Query(), &params.Where, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "where"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "where", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CountTableRows(w, r, id, schema, table, params)
 	}))
@@ -11918,6 +11952,19 @@ func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "where" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "where", r.URL.Query(), &params.Where, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "where"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "where", Err: err})
 		}
 		return
 	}
@@ -12030,6 +12077,19 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "where" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "where", r.URL.Query(), &params.Where, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "where"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "where", Err: err})
 		}
 		return
 	}

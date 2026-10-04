@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus, Table2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiRequestError,
   api,
@@ -23,9 +23,11 @@ import { ColumnPanel, RowPanel, TablePanel } from "../components/tableEditor/Pan
 import { SchemaReview } from "../components/tableEditor/SchemaReview";
 import { Sidebar } from "../components/tableEditor/Sidebar";
 import { Toolbar } from "../components/tableEditor/Toolbar";
+import { WhereBar, type WhereError } from "../components/tableEditor/WhereBar";
 import { Alert, Button, Spinner, cx, toast } from "../components/ui";
 import type { Val } from "../lib/tableEditor/cells";
 import { toggleSort, type SortRule } from "../lib/tableEditor/filters";
+import { loadRecent, pushRecent, saveRecent } from "../lib/tableEditor/whereBar";
 import {
   closeTab,
   loadLayout,
@@ -389,6 +391,13 @@ function TableView({
   const qc = useQueryClient();
   const { schema, table } = tableRef;
   const [filters, setFilters] = useState<GridFilter[]>([]);
+  // The SQL filter bar: the condition the grid shows, the last one that
+  // worked (to fall back to), the server's complaint about a bad one, and
+  // recent ones.
+  const [where, setWhere] = useState("");
+  const lastGood = useRef("");
+  const [whereError, setWhereError] = useState<WhereError | null>(null);
+  const [recent, setRecent] = useState<string[]>(() => loadRecent(p.id, schema, table));
   const [sorts, setSorts] = useState<SortRule[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSizeState] = useState(storedPageSize);
@@ -405,7 +414,7 @@ function TableView({
   >(null);
 
   const info = useQuery({ queryKey: ["table-info", p.id, schema, table], queryFn: () => api.tableInfo(p.id, schema, table) });
-  const grid = { filters, order: sorts };
+  const grid = { filters, where, order: sorts };
   const rowsKey = ["rows", p.id, schema, table, grid, page, pageSize] as const;
   const rows = useQuery({
     queryKey: rowsKey,
@@ -415,7 +424,29 @@ function TableView({
     // asked (or after a save), not whenever the window regains focus.
     refetchOnWindowFocus: false,
   });
-  const count = useQuery({ queryKey: ["count", p.id, schema, table, filters], queryFn: () => api.tableCount(p.id, schema, table, filters) });
+  // A condition the server refuses stays in the bar with its message, and the
+  // grid goes back to the last one that worked.
+  useEffect(() => {
+    if (rows.isSuccess && !rows.isPlaceholderData) lastGood.current = where;
+    if (rows.isError && where !== "" && rows.error instanceof ApiRequestError && rows.error.status === 400) {
+      const e = rows.error.body?.sql_error;
+      setWhereError({ message: e?.message ?? rows.error.message, hint: e?.hint, position: e?.position });
+      setWhere(lastGood.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.isSuccess, rows.isError, rows.isPlaceholderData, rows.error]);
+  const filterRejected = rows.isError && where !== "" && rows.error instanceof ApiRequestError && rows.error.status === 400;
+  const applyWhere = (expr: string) => {
+    setWhereError(null);
+    setWhere(expr);
+    resetPage();
+    if (expr) {
+      const next = pushRecent(recent, expr);
+      setRecent(next);
+      saveRecent(p.id, schema, table, next);
+    }
+  };
+  const count = useQuery({ queryKey: ["count", p.id, schema, table, filters, where], queryFn: () => api.tableCount(p.id, schema, table, { filters, where }) });
   const definition = useQuery({
     queryKey: ["definition", p.id, schema, table],
     queryFn: () => api.tableDefinition(p.id, schema, table),
@@ -546,6 +577,7 @@ function TableView({
           onRefresh={refresh}
         />
       )}
+      {mode === "data" && <WhereBar info={t} applied={where} error={whereError} recent={recent} onApply={applyWhere} />}
       {mode === "definition" ? (
         <div className="min-h-0 flex-1 overflow-hidden bg-code">
           {definition.isPending ? (
@@ -556,7 +588,7 @@ function TableView({
             <CodeEditor value={definition.data.sql} readOnly label={`Definition of ${table}`} testId="table-definition" />
           )}
         </div>
-      ) : rows.isError ? (
+      ) : rows.isError && !filterRejected ? (
         <div className="p-4">
           <Alert>{errorMessage(rows.error)}</Alert>
         </div>

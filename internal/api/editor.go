@@ -18,9 +18,17 @@ import (
 
 // The table editor (V2 §4): the grid, row edits, and schema changes.
 
-func gridQuery(filters *[]string, sort *string, desc *bool, order *[]string) (console.GridQuery, error) {
+func gridQuery(filters *[]string, where *string, sort *string, desc *bool, order *[]string) (console.GridQuery, error) {
 	var q console.GridQuery
 	var err error
+	if where != nil {
+		q.Where = *where
+		if strings.TrimSpace(q.Where) != "" {
+			if err := console.ValidateWhere(q.Where); err != nil {
+				return q, err
+			}
+		}
+	}
 	if q.Filters, err = gridFilters(filters); err != nil {
 		return q, err
 	}
@@ -101,7 +109,7 @@ func (s *Server) GetTableRows(w http.ResponseWriter, r *http.Request, id gen.Pro
 	if !s.requireConsole(w) {
 		return
 	}
-	q, err := gridQuery(params.Filter, params.Sort, params.Desc, params.Order)
+	q, err := gridQuery(params.Filter, params.Where, params.Sort, params.Desc, params.Order)
 	if err != nil {
 		s.editorError(w, "table rows", err)
 		return
@@ -164,7 +172,7 @@ func (s *Server) CountTableRows(w http.ResponseWriter, r *http.Request, id gen.P
 		s.editorError(w, "count rows", err)
 		return
 	}
-	n, err := s.console.Count(r.Context(), id, schema, table, filters)
+	n, err := s.console.Count(r.Context(), id, schema, table, filters, derefStr(params.Where))
 	if err != nil {
 		s.editorError(w, "count rows", err)
 		return
@@ -190,7 +198,7 @@ func (s *Server) ExportTableRows(w http.ResponseWriter, r *http.Request, id gen.
 	if !s.requireConsole(w) {
 		return
 	}
-	q, err := gridQuery(params.Filter, params.Sort, params.Desc, params.Order)
+	q, err := gridQuery(params.Filter, params.Where, params.Sort, params.Desc, params.Order)
 	if err != nil {
 		s.editorError(w, "export", err)
 		return
@@ -390,4 +398,11 @@ func (s *Server) GetEditorPreferences(w http.ResponseWriter, r *http.Request, id
 		return
 	}
 	writeJSON(w, http.StatusOK, gen.EditorPreferences{MigrationFormat: gen.EditorPreferencesMigrationFormat(f)})
+}
+
+func derefStr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

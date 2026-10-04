@@ -3,6 +3,7 @@ import type { TableInfo } from "../../api/client";
 import { bareTextDefault, defaultSuggestions, editorKind, parseInput, readOnlyReason } from "./cells";
 import { asChange, blankColumn, checkExpression, createTableChange, draftFromTable, editColumnChanges, editTableChanges, newTableColumns, validateTable } from "./columnForm";
 import { describeFilter, opsFor, toGridFilters, toggleSort } from "./filters";
+import { applySuggestion, pushRecent, suggest } from "./whereBar";
 import { closeTab, loadTabs, moveColumn, openTab, orderColumns, saveTabs } from "./prefs";
 
 const col = (patch: Partial<TableInfo["columns"][number]> = {}): TableInfo["columns"][number] => ({
@@ -257,5 +258,43 @@ describe("bareTextDefault", () => {
     expect(bareTextDefault("text", "null")).toBeNull();
     expect(bareTextDefault("text", "")).toBeNull();
     expect(bareTextDefault("integer", "free")).toBeNull();
+  });
+});
+
+describe("filter bar suggestions", () => {
+  const columns = [
+    { name: "id", type: "integer", nullable: false },
+    { name: "phone_number", type: "character varying(255)", nullable: true },
+    { name: "Full Name", type: "text", nullable: true },
+  ] as TableInfo["columns"];
+
+  it("offers columns for a prefix, with their facts", () => {
+    const s = suggest("email = 'x' or phon", 19, columns);
+    expect(s[0]).toMatchObject({ label: "phone_number", insert: "phone_number", kind: "column" });
+    expect(s[0].column).toEqual({ name: "phone_number", type: "character varying(255)", nullable: true, position: 2 });
+  });
+  it("quotes names that are not plain lower case", () => {
+    expect(suggest("full", 4, columns)[0].insert).toBe('"Full Name"');
+  });
+  it("offers nothing inside a string, or with nothing typed unless asked", () => {
+    expect(suggest("name = 'ph", 10, columns)).toEqual([]);
+    expect(suggest("id = 1 ", 7, columns)).toEqual([]);
+    expect(suggest("id = 1 ", 7, columns, true).length).toBeGreaterThan(0);
+  });
+  it("puts operators after columns and skips an exact match", () => {
+    const s = suggest("id i", 4, columns);
+    expect(s.map((x) => x.label)).toContain("in");
+    expect(suggest("id", 2, columns).map((x) => x.label)).not.toContain("id");
+  });
+  it("applies a suggestion in place of the word", () => {
+    const s = suggest("id = 1 or phon", 14, columns)[0];
+    expect(applySuggestion("id = 1 or phon", 14, s)).toEqual({ text: "id = 1 or phone_number ", caret: 23 });
+    const f = { label: "lower(", insert: "lower(", kind: "function" as const };
+    expect(applySuggestion("low", 3, f)).toEqual({ text: "lower(", caret: 6 });
+  });
+  it("keeps the ten most recent filters, newest first", () => {
+    expect(pushRecent(["b", "a"], "a")).toEqual(["a", "b"]);
+    expect(pushRecent([], "  ")).toEqual([]);
+    expect(pushRecent(Array.from({ length: 10 }, (_, i) => String(i)), "x")).toHaveLength(10);
   });
 });

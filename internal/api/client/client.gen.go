@@ -5001,6 +5001,13 @@ type SetSavedQueryFavoriteJSONBody struct {
 type CountTableRowsParams struct {
 	// Filter Repeatable, as for the rows.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
 }
 
 // ExportTableRowsParams defines parameters for ExportTableRows.
@@ -5008,8 +5015,15 @@ type ExportTableRowsParams struct {
 	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
-	Sort   *string   `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc   *bool     `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
+	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
 
 	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
 	// several sort by each column in turn. Takes the place of sort and
@@ -5027,6 +5041,13 @@ type GetTableRowsParams struct {
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
 	// (V2 §4.1). Compiled to a parameterised WHERE clause.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
 
 	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
 	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
@@ -20217,6 +20238,18 @@ func NewCountTableRowsRequest(server string, id ProjectID, schema SchemaName, ta
 
 		}
 
+		if params.Where != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "where", *params.Where, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -20340,6 +20373,18 @@ func NewExportTableRowsRequest(server string, id ProjectID, schema SchemaName, t
 
 		}
 
+		if params.Where != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "where", *params.Where, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Sort != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
@@ -20454,6 +20499,18 @@ func NewGetTableRowsRequest(server string, id ProjectID, schema string, table st
 		if params.Filter != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Where != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "where", *params.Where, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

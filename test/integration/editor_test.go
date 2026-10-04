@@ -255,6 +255,55 @@ func TestGridFiltersSortAndExport(t *testing.T) {
 	}
 }
 
+// TestGridRawWhere covers the filter bar: a condition typed after WHERE
+// runs read-only, and anything that could escape it is refused.
+func TestGridRawWhere(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	c := e.CreateProject("Raw where")
+	id := c.Project.Id
+	if r := runSQL(t, e, id.String(), `CREATE TABLE books (id int PRIMARY KEY, title text, price numeric);
+		INSERT INTO books SELECT g, 'Book ' || g, g * 1.5 FROM generate_series(1, 120) g`); r.Error != nil {
+		t.Fatal(sqlErr(r))
+	}
+	where := func(expr string) url.Values { return url.Values{"where": {expr}} }
+	p := rowsWith(t, e, id, "books", where("price >= 150 and (title like 'Book 1%' or id in (select 5))"))
+	if len(p.Rows) != 21 { // ids 100 to 120: price >= 150, and "Book 1…"
+		t.Fatalf("where: %d rows", len(p.Rows))
+	}
+	// It combines with the structured filters.
+	q := where("id < 10")
+	q.Add("filter", `{"column":"price","op":"gt","value":"10"}`)
+	if p = rowsWith(t, e, id, "books", q); len(p.Rows) != 3 { // 7, 8, 9
+		t.Fatalf("where + filter: %d rows", len(p.Rows))
+	}
+	var n gen.RowCount
+	if code := e.Do("GET", tablePath(id, "books")+"/count?"+where("id <= 30").Encode(), nil, &n); code != http.StatusOK || n.Count == nil || *n.Count != 30 {
+		t.Fatalf("count: %d %+v", code, n)
+	}
+	// A mistake comes back as the database's own message, positioned inside
+	// the condition.
+	var bad gen.Error
+	if code := e.Do("GET", tablePath(id, "books")+"/rows?"+where("id > 1 and titel = 'x'").Encode(), nil, &bad); code != http.StatusBadRequest || bad.SqlError == nil || bad.SqlError.Position == nil || *bad.SqlError.Position != 12 {
+		t.Fatalf("typo: %d %+v", code, bad)
+	}
+	// Nothing that ends the condition, or writes, gets through.
+	for _, expr := range []string{
+		"id = 1; DROP TABLE books",
+		"id = 1) UNION SELECT 1, 'x', 1 --",
+		"id = 1 ORDER BY id",
+		"id = 1 LIMIT 1",
+		"query_to_xml('delete from books', true, false, '') IS NOT NULL",
+		"(select set_config('transaction_read_only', 'off', true)) IS NOT NULL",
+	} {
+		if code := e.Do("GET", tablePath(id, "books")+"/rows?"+where(expr).Encode(), nil, nil); code != http.StatusBadRequest {
+			t.Errorf("%q: %d, want 400", expr, code)
+		}
+	}
+	if r := runSQL(t, e, id.String(), `SELECT count(*) FROM books`); r.Error != nil || *r.Results[0].Rows[0][0] != "120" {
+		t.Fatalf("rows were deleted: %+v", r)
+	}
+}
+
 // TestTypeChangeShowsRewriteWarning is M11's second done-when (V2 §4.3): a
 // large type change shows the rewrite warning before anything runs.
 func TestTypeChangeShowsRewriteWarning(t *testing.T) {

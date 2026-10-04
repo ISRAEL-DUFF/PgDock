@@ -1318,6 +1318,17 @@ paths:
             type: array
             items:
               type: string
+        - name: where
+          in: query
+          description: |
+            A raw condition, as typed after WHERE (the filter bar), e.g.
+            `email = 'a@b.c' or phone like '081%'`. It is checked (one
+            expression, nothing that ends a WHERE clause) and runs as the
+            project's read-only role in a read-only transaction. Combined
+            with `filter` by AND.
+          schema:
+            type: string
+            maxLength: 4000
         - name: sort
           in: query
           schema:
@@ -1375,6 +1386,17 @@ paths:
             type: array
             items:
               type: string
+        - name: where
+          in: query
+          description: |
+            A raw condition, as typed after WHERE (the filter bar), e.g.
+            `email = 'a@b.c' or phone like '081%'`. It is checked (one
+            expression, nothing that ends a WHERE clause) and runs as the
+            project's read-only role in a read-only transaction. Combined
+            with `filter` by AND.
+          schema:
+            type: string
+            maxLength: 4000
       responses:
         "200":
           description: The count.
@@ -1680,6 +1702,17 @@ paths:
             type: array
             items:
               type: string
+        - name: where
+          in: query
+          description: |
+            A raw condition, as typed after WHERE (the filter bar), e.g.
+            `email = 'a@b.c' or phone like '081%'`. It is checked (one
+            expression, nothing that ends a WHERE clause) and runs as the
+            project's read-only role in a read-only transaction. Combined
+            with `filter` by AND.
+          schema:
+            type: string
+            maxLength: 4000
         - name: sort
           in: query
           description: A column. Sorting by the primary key pages by keyset; any other column by offset.

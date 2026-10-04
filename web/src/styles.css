@@ -128,6 +128,15 @@ body {
   outline-offset: 1px;
 }
 
+/* Text fields show focus on their own border (and a soft glow where they
+   have one), not with the heavy outline buttons and links get. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* Thin scrollbars, as in Studio. */
 * {
   scrollbar-width: thin;

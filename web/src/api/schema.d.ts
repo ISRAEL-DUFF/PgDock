@@ -6935,6 +6935,14 @@ export interface operations {
                  *     op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
                  */
                 filter?: string[];
+                /**
+                 * @description A raw condition, as typed after WHERE (the filter bar), e.g.
+                 *     `email = 'a@b.c' or phone like '081%'`. It is checked (one
+                 *     expression, nothing that ends a WHERE clause) and runs as the
+                 *     project's read-only role in a read-only transaction. Combined
+                 *     with `filter` by AND.
+                 */
+                where?: string;
                 sort?: string;
                 desc?: boolean;
                 /**
@@ -6973,6 +6981,14 @@ export interface operations {
             query?: {
                 /** @description Repeatable, as for the rows. */
                 filter?: string[];
+                /**
+                 * @description A raw condition, as typed after WHERE (the filter bar), e.g.
+                 *     `email = 'a@b.c' or phone like '081%'`. It is checked (one
+                 *     expression, nothing that ends a WHERE clause) and runs as the
+                 *     project's read-only role in a read-only transaction. Combined
+                 *     with `filter` by AND.
+                 */
+                where?: string;
             };
             header?: never;
             path: {
@@ -7335,6 +7351,14 @@ export interface operations {
                  *     (V2 §4.1). Compiled to a parameterised WHERE clause.
                  */
                 filter?: string[];
+                /**
+                 * @description A raw condition, as typed after WHERE (the filter bar), e.g.
+                 *     `email = 'a@b.c' or phone like '081%'`. It is checked (one
+                 *     expression, nothing that ends a WHERE clause) and runs as the
+                 *     project's read-only role in a read-only transaction. Combined
+                 *     with `filter` by AND.
+                 */
+                where?: string;
                 /** @description A column. Sorting by the primary key pages by keyset; any other column by offset. */
                 sort?: string;
                 desc?: boolean;
