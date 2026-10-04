@@ -17,6 +17,7 @@ const names: Record<string, [mac: string, other: string]> = {
   enter: ["↵", "Enter"],
   escape: ["Esc", "Esc"],
   arrows: ["↑↓←→", "↑↓←→"],
+  space: ["Space", "Space"],
 };
 
 /** "mod+shift+f" → ["⌘", "⇧", "F"]; "g t" → ["G", "then", "T"]. */
