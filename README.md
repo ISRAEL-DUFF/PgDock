@@ -6,7 +6,7 @@ Self-hosted managed PostgreSQL with a web UI. See
 ## Install (single host)
 
 ```sh
-git clone https://github.com/israel-duff/pgdock && cd pgdock && git checkout v2.0.0
+git clone https://github.com/israel-duff/pgdock && cd pgdock && git checkout v2.1.0
 cd deploy/compose && ./install.sh
 ```
 

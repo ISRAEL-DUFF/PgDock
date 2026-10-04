@@ -22,7 +22,7 @@ export type SchemaPlan = S["SchemaPlan"];
 export type MigrationFormat = S["EditorPreferences"]["migration_format"];
 export type GridFilter = { column: string; op: "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "contains" | "is_null" | "not_null" | "in"; value?: string; values?: string[] };
 export type GridSort = { column: string; desc: boolean };
-export type GridOptions = { filters?: GridFilter[]; sort?: string; desc?: boolean; order?: GridSort[] };
+export type GridOptions = { filters?: GridFilter[]; /** A raw condition typed in the filter bar. */ where?: string; sort?: string; desc?: boolean; order?: GridSort[] };
 
 function tableBase(id: string, schema: string, table: string) {
   return `/api/v1/projects/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}`;
@@ -32,6 +32,7 @@ function tableBase(id: string, schema: string, table: string) {
 function gridQs(g: GridOptions, extra: Record<string, string | undefined>): string {
   const p = new URLSearchParams();
   for (const f of g.filters ?? []) p.append("filter", JSON.stringify(f));
+  if (g.where?.trim()) p.set("where", g.where.trim());
   for (const o of g.order ?? []) p.append("order", JSON.stringify(o));
   if (g.sort) {
     p.set("sort", g.sort);
@@ -340,8 +341,8 @@ export const api = {
   /** A numbered page (offset paging) of up to 1,000 rows. */
   tablePage: (id: string, schema: string, table: string, grid: GridOptions, offset: number, limit: number) =>
     getJSON<TablePage>(`${tableBase(id, schema, table)}/rows${gridQs(grid, { offset: String(offset), limit: String(limit) })}`),
-  tableCount: (id: string, schema: string, table: string, filters: GridFilter[] = []) =>
-    getJSON<RowCount>(`${tableBase(id, schema, table)}/count${gridQs({ filters }, {})}`),
+  tableCount: (id: string, schema: string, table: string, grid: GridOptions = {}) =>
+    getJSON<RowCount>(`${tableBase(id, schema, table)}/count${gridQs({ filters: grid.filters, where: grid.where }, {})}`),
   tableDefinition: (id: string, schema: string, table: string) => getJSON<S["TableDefinition"]>(`${tableBase(id, schema, table)}/definition`),
   exportUrl: (id: string, schema: string, table: string, format: "csv" | "json", grid: GridOptions = {}) =>
     `${tableBase(id, schema, table)}/export${gridQs(grid, { format })}`,

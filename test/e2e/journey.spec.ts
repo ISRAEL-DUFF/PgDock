@@ -921,6 +921,8 @@ test.describe("with the saved session", () => {
     await page.getByRole("button", { name: "Next page" }).click();
     await expect(page.getByTestId("page-input")).toHaveValue("2");
     await expect(grid).toContainText("note 101");
+    // The grid draws only the rows in view: scroll to the last one.
+    await grid.getByRole("grid").evaluate((el) => (el.scrollTop = el.scrollHeight));
     await expect(grid).toContainText("note 120");
     await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
     await shot(page, "28-table-browser");

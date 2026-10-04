@@ -79,13 +79,19 @@ const userSchemas = `n.nspname NOT IN ('pg_catalog', 'information_schema') AND n
 
 // readOnly runs f in a read-only transaction of a console session.
 func (s *Service) readOnly(ctx context.Context, projectID uuid.UUID, f func(*pgx.Conn) error) error {
+	return s.readOnlyAs(ctx, projectID, modeOwner, f)
+}
+
+// readOnlyAs is readOnly as the owner (modeOwner) or as the project's
+// read-only role (modeReadOnly), both inside BEGIN READ ONLY.
+func (s *Service) readOnlyAs(ctx context.Context, projectID uuid.UUID, m mode, f func(*pgx.Conn) error) error {
 	p, err := s.active(ctx, projectID)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, DefaultTimeout+15*time.Second)
 	defer cancel()
-	sess, err := s.open(ctx, p, uuid.New(), DefaultTimeout, modeOwner)
+	sess, err := s.open(ctx, p, uuid.New(), DefaultTimeout, m)
 	if err != nil {
 		return err
 	}

@@ -201,10 +201,15 @@ export function CopyField({ label, value, secret, testId }: { label: string; val
   );
 }
 
-export function CodeBlock({ code }: { code: string }) {
+export function CodeBlock({ code, wrap }: { code: string; /** Wrap long lines instead of scrolling sideways (SQL to review). */ wrap?: boolean }) {
   return (
     <div className="relative">
-      <pre tabIndex={0} className="overflow-x-auto rounded-md border border-line bg-code p-3 pr-20 font-mono text-xs leading-relaxed">{code}</pre>
+      <pre
+        tabIndex={0}
+        className={cx("rounded-md border border-line bg-code p-3 pr-20 font-mono text-xs leading-relaxed", wrap ? "break-words whitespace-pre-wrap" : "overflow-x-auto")}
+      >
+        {code}
+      </pre>
       <div className="absolute top-2 right-2">
         <CopyButton value={code} />
       </div>

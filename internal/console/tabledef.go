@@ -34,9 +34,9 @@ type RowCount struct {
 // Count counts a table's rows, filtered as the grid is: the estimate for a
 // big unfiltered table, an exact count otherwise (falling back to the
 // estimate when that takes too long).
-func (s *Service) Count(ctx context.Context, projectID uuid.UUID, schema, table string, filters []Filter) (RowCount, error) {
+func (s *Service) Count(ctx context.Context, projectID uuid.UUID, schema, table string, filters []Filter, expr string) (RowCount, error) {
 	var out RowCount
-	err := s.readOnly(ctx, projectID, func(conn *pgx.Conn) error {
+	err := s.readOnlyAs(ctx, projectID, GridQuery{Where: expr}.mode(), func(conn *pgx.Conn) error {
 		r, err := lookupRelation(ctx, conn, schema, table)
 		if err != nil {
 			return err
@@ -46,12 +46,12 @@ func (s *Service) Count(ctx context.Context, projectID uuid.UUID, schema, table 
 		if err := conn.QueryRow(ctx, `SELECT CASE WHEN reltuples < 0 THEN NULL ELSE reltuples::int8 END FROM pg_class WHERE oid = to_regclass($1)`, rel).Scan(&est); err != nil {
 			return err
 		}
-		if len(filters) == 0 && est != nil && *est >= estimateAbove {
+		if len(filters) == 0 && strings.TrimSpace(expr) == "" && est != nil && *est >= estimateAbove {
 			out.Count, out.Estimated = est, true
 			return nil
 		}
 		var params [][]byte
-		cond, err := where(r, filters, &params)
+		cond, err := where(r, filters, expr, &params)
 		if err != nil {
 			return err
 		}
@@ -69,12 +69,12 @@ func (s *Service) Count(ctx context.Context, projectID uuid.UUID, schema, table 
 			var pe *pgconn.PgError
 			if errors.As(res.Err, &pe) && pe.Code == "57014" { // statement timeout
 				_, _ = conn.Exec(ctx, "ROLLBACK TO SAVEPOINT pgdock_count")
-				if len(filters) == 0 {
+				if len(filters) == 0 && strings.TrimSpace(expr) == "" {
 					out.Count, out.Estimated = est, true
 				}
 				return nil
 			}
-			return gridError(res.Err)
+			return gridErrorIn(res.Err, sql, strings.TrimSpace(expr))
 		}
 		n, err := parseInt64(string(res.Rows[0][0]))
 		if err != nil {

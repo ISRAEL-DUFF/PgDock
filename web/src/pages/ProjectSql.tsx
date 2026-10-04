@@ -7,7 +7,7 @@ import { CodeEditor, type CodeEditorHandle } from "../components/sqlEditor/CodeE
 import { QuerySidebar } from "../components/sqlEditor/QuerySidebar";
 import { ResultsPane } from "../components/sqlEditor/ResultsPane";
 import { Alert, Badge, Button, Dialog, Input, Select, Tooltip, cx, toast, PageSkeleton } from "../components/ui";
-import { clearHistory, loadHistory, newQueryId, pushHistory } from "../lib/sqlHistory";
+import { changesSchema, clearHistory, loadHistory, newQueryId, pushHistory } from "../lib/sqlHistory";
 import type { Template } from "../lib/sqlEditor/templates";
 import { useProject } from "./ProjectOverview";
 import { keyLabel } from "../lib/shortcuts";
@@ -50,6 +50,8 @@ type Run = { query: string; res: SqlResult };
 
 function SqlEditorPage({ p }: { p: Project }) {
   const qc = useQueryClient();
+  // On phones the query list and the editor take turns.
+  const [listOpen, setListOpen] = useState(false);
   const list = useQuery({ queryKey: ["queries", p.id], queryFn: () => api.savedQueries(p.id) });
   const tree = useQuery({ queryKey: ["schema", p.id], queryFn: () => api.schema(p.id), enabled: p.status === "active" });
   const editor = useRef<CodeEditorHandle>(null);
@@ -153,6 +155,8 @@ function SqlEditorPage({ p }: { p: Project }) {
     try {
       const res = await api.sql(p.id, { query, query_id: id, timeout_seconds: Number(timeout), read_only: readOnlyRun || projectReadOnly || undefined });
       setRuns((r) => ({ ...r, [tab]: { query, res } }));
+      // New tables and columns show up in completion without a reload.
+      if (changesSchema(query)) void qc.invalidateQueries({ queryKey: ["schema", p.id] });
       // Mark the error in the editor when the whole document ran.
       if (res.error?.position && query === editor.current?.runnable()) editor.current?.markError(res.error.position, res.error.message);
     } catch (e) {
@@ -212,15 +216,28 @@ function SqlEditorPage({ p }: { p: Project }) {
   return (
     <div className="flex min-h-0 flex-1" data-testid="sql-editor-page">
       <QuerySidebar
+        className={listOpen ? "max-md:w-full" : "max-md:hidden"}
         queries={queries}
         activeId={active?.id ?? null}
         canAdminShared={canAdminShared}
         history={history}
         actions={{
-          onOpen: open,
-          onNew: () => void create("Untitled query", ""),
-          onTemplate: (t: Template) => void create(t.title, t.sql),
-          onHistory: (sql) => void create("Untitled query", sql),
+          onOpen: (q) => {
+            setListOpen(false);
+            open(q);
+          },
+          onNew: () => {
+            setListOpen(false);
+            void create("Untitled query", "");
+          },
+          onTemplate: (t: Template) => {
+            setListOpen(false);
+            void create(t.title, t.sql);
+          },
+          onHistory: (sql) => {
+            setListOpen(false);
+            void create("Untitled query", sql);
+          },
           onRename: (q) => setDialog({ kind: "rename", q }),
           onShare: (q, shared) =>
             void update(q, { visibility: shared ? "shared" : "private" }).then(() =>
@@ -235,8 +252,16 @@ function SqlEditorPage({ p }: { p: Project }) {
           },
         }}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`flex min-w-0 flex-1 flex-col ${listOpen ? "max-md:hidden" : ""}`}>
         <nav className="flex h-10 shrink-0 items-end gap-px overflow-x-auto border-b border-line bg-surface px-1" aria-label="Open queries">
+          <button
+            type="button"
+            onClick={() => setListOpen(true)}
+            className="mb-1 mr-1 h-7 shrink-0 rounded-md border border-line-strong px-2 text-[12px] text-muted hover:text-fg md:hidden"
+            data-testid="show-query-list"
+          >
+            Queries
+          </button>
           {openIds.map((id) => {
             const q = byId.get(id)!;
             const on = id === active?.id;

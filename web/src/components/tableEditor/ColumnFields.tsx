@@ -1,7 +1,7 @@
 import { Check, ChevronsUpDown, Link2, Settings2, X } from "lucide-react";
 import { useState } from "react";
 import type { DbSchema } from "../../api/client";
-import { defaultSuggestions } from "../../lib/tableEditor/cells";
+import { bareTextDefault, defaultSuggestions } from "../../lib/tableEditor/cells";
 import { FK_ACTIONS, TYPE_GROUPS, type ColumnDraft, type FkAction } from "../../lib/tableEditor/columnForm";
 import {
   Button,
@@ -116,7 +116,9 @@ export function DefaultInput({ col, onChange, disabled }: { col: ColumnDraft; on
     ...(isInteger(col.type) && !col.isArray ? [{ value: IDENTITY, label: "Automatically generate as identity" }] : []),
     ...defaultSuggestions(col.type),
   ];
+  const bare = col.identity ? null : bareTextDefault(col.type, col.defaultValue);
   return (
+    <div>
     <div className="flex">
       <Input
         aria-label="Default value"
@@ -150,6 +152,16 @@ export function DefaultInput({ col, onChange, disabled }: { col: ColumnDraft; on
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+      )}
+    </div>
+      {bare && (
+        <p className="mt-1.5 text-[12px] text-warn-text" role="status">
+          This is an SQL expression, so text needs quotes: write{" "}
+          <button type="button" className="font-mono underline" onClick={() => onChange({ defaultValue: bare })}>
+            {bare}
+          </button>
+          .
+        </p>
       )}
     </div>
   );

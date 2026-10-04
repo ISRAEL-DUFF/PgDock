@@ -50,6 +50,12 @@ func (s *Server) UpdateUser(w http.ResponseWriter, r *http.Request, user gen.Use
 	a := auditFrom(r.Context())
 	a.target("user", user.String())
 	sess, _ := sessionFrom(r.Context())
+	// Changing who runs the platform asks for the password and a code again,
+	// before anything else in the request is applied.
+	if req.PlatformRole != nil && !s.auth.RecentlyReauthenticated(sess) {
+		writeError(w, http.StatusForbidden, "reauth_required", "confirm your password and code to continue")
+		return
+	}
 	q := store.New(s.db)
 	u, err := q.GetUser(r.Context(), user)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -76,6 +82,24 @@ func (s *Server) UpdateUser(w http.ResponseWriter, r *http.Request, user gen.Use
 		if u, err = s.auth.SetDisabled(r.Context(), user, *req.Disabled); err != nil {
 			s.internalError(w, "disable user", err)
 			return
+		}
+	}
+	if req.PlatformRole != nil {
+		role := string(*req.PlatformRole)
+		a.set("platform_role", role)
+		if u.PlatformRole != role {
+			var ineligible *auth.IneligibleError
+			switch u, err = s.auth.SetPlatformRole(r.Context(), user, role, auth.RoleChange{}); {
+			case errors.Is(err, auth.ErrLastAdmin):
+				writeError(w, http.StatusConflict, "last_admin", err.Error())
+				return
+			case errors.As(err, &ineligible):
+				writeError(w, http.StatusConflict, "ineligible", err.Error())
+				return
+			case err != nil:
+				s.internalError(w, "platform role", err)
+				return
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, genAdminUser(u, 0))

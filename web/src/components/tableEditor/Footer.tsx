@@ -35,7 +35,7 @@ export function Footer({
     else setInput(String(page + 1));
   };
   return (
-    <div className="flex h-10 shrink-0 items-center gap-3 border-t border-line bg-surface px-3 text-[12px] text-fg-light" data-testid="table-footer">
+    <div className="flex h-10 shrink-0 items-center gap-3 overflow-x-auto whitespace-nowrap border-t border-line bg-surface px-3 text-[12px] text-fg-light" data-testid="table-footer">
       {mode === "data" && (
         <>
           <div className="flex items-center gap-1">
@@ -53,14 +53,14 @@ export function Footer({
             <span data-testid="page-number">{pages != null ? `of ${pages.toLocaleString()}` : ""}</span>
             <Button size="tiny" variant="ghost" aria-label="Next page" disabled={!hasNext} onClick={() => onPage(page + 1)} icon={<ChevronRight className="h-3.5 w-3.5" />} />
           </div>
-          <Select aria-label="Rows per page" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))} className="h-6 text-[12px]">
+          <Select aria-label="Rows per page" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))} className="hidden h-6 text-[12px] sm:block">
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>
                 {n} rows
               </option>
             ))}
           </Select>
-          <span data-testid="record-count">
+          <span className="hidden sm:inline" data-testid="record-count">
             {count?.count == null ? "" : `${count.estimated ? "~" : ""}${count.count.toLocaleString()} ${count.count === 1 ? "record" : "records"}`}
           </span>
         </>

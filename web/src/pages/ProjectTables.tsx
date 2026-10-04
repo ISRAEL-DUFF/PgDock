@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus, Table2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiRequestError,
   api,
@@ -23,9 +23,11 @@ import { ColumnPanel, RowPanel, TablePanel } from "../components/tableEditor/Pan
 import { SchemaReview } from "../components/tableEditor/SchemaReview";
 import { Sidebar } from "../components/tableEditor/Sidebar";
 import { Toolbar } from "../components/tableEditor/Toolbar";
+import { WhereBar, type WhereError } from "../components/tableEditor/WhereBar";
 import { Alert, Button, Spinner, cx, toast } from "../components/ui";
 import type { Val } from "../lib/tableEditor/cells";
 import { toggleSort, type SortRule } from "../lib/tableEditor/filters";
+import { loadRecent, pushRecent, saveRecent } from "../lib/tableEditor/whereBar";
 import {
   closeTab,
   loadLayout,
@@ -86,6 +88,7 @@ function TableEditor({ p }: { p: Project }) {
   const [panel, setPanel] = useState<
     null | { kind: "new-table" } | { kind: "edit-table"; ref: TableRef } | { kind: "dialog"; dialog: "schema" | "enum" | "duplicate"; ref?: TableRef }
   >(null);
+  const [listOpen, setListOpen] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
 
   const open = useCallback(
@@ -116,6 +119,10 @@ function TableEditor({ p }: { p: Project }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.schema, search.table]);
 
+  // On phones the table list and the grid take turns: the list shows when no
+  // table is open, or when asked for.
+  const showList = listOpen || !current;
+
   if (tree.isPending) return <Spinner />;
   if (tree.isError) return <Alert>{errorMessage(tree.error)}</Alert>;
   const schemas = tree.data;
@@ -137,8 +144,12 @@ function TableEditor({ p }: { p: Project }) {
         onSchema={setSchema}
         current={current}
         canEdit={canEdit}
+        className={showList ? "max-md:w-full" : "max-md:hidden"}
         actions={{
-          onOpen: open,
+          onOpen: (t) => {
+            setListOpen(false);
+            open(t);
+          },
           onNewTable: () => setPanel({ kind: "new-table" }),
           onEditTable: (ref) => setPanel({ kind: "edit-table", ref }),
           onDuplicate: (ref) => setPanel({ kind: "dialog", dialog: "duplicate", ref }),
@@ -158,8 +169,16 @@ function TableEditor({ p }: { p: Project }) {
           onNewEnum: () => setPanel({ kind: "dialog", dialog: "enum" }),
         }}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`flex min-w-0 flex-1 flex-col ${showList ? "max-md:hidden" : ""}`}>
         <nav className="flex h-10 shrink-0 items-end gap-px overflow-x-auto border-b border-line bg-surface px-1" aria-label="Open tables">
+          <button
+            type="button"
+            onClick={() => setListOpen(true)}
+            className="mb-1 mr-1 h-7 shrink-0 rounded-md border border-line-strong px-2 text-[12px] text-muted hover:text-fg md:hidden"
+            data-testid="show-table-list"
+          >
+            Tables
+          </button>
           {shownTabs.map((t) => {
             const active = current && refKey(current) === refKey(t);
             return (
@@ -372,6 +391,13 @@ function TableView({
   const qc = useQueryClient();
   const { schema, table } = tableRef;
   const [filters, setFilters] = useState<GridFilter[]>([]);
+  // The SQL filter bar: the condition the grid shows, the last one that
+  // worked (to fall back to), the server's complaint about a bad one, and
+  // recent ones.
+  const [where, setWhere] = useState("");
+  const lastGood = useRef("");
+  const [whereError, setWhereError] = useState<WhereError | null>(null);
+  const [recent, setRecent] = useState<string[]>(() => loadRecent(p.id, schema, table));
   const [sorts, setSorts] = useState<SortRule[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSizeState] = useState(storedPageSize);
@@ -388,7 +414,7 @@ function TableView({
   >(null);
 
   const info = useQuery({ queryKey: ["table-info", p.id, schema, table], queryFn: () => api.tableInfo(p.id, schema, table) });
-  const grid = { filters, order: sorts };
+  const grid = { filters, where, order: sorts };
   const rowsKey = ["rows", p.id, schema, table, grid, page, pageSize] as const;
   const rows = useQuery({
     queryKey: rowsKey,
@@ -398,7 +424,29 @@ function TableView({
     // asked (or after a save), not whenever the window regains focus.
     refetchOnWindowFocus: false,
   });
-  const count = useQuery({ queryKey: ["count", p.id, schema, table, filters], queryFn: () => api.tableCount(p.id, schema, table, filters) });
+  // A condition the server refuses stays in the bar with its message, and the
+  // grid goes back to the last one that worked.
+  useEffect(() => {
+    if (rows.isSuccess && !rows.isPlaceholderData) lastGood.current = where;
+    if (rows.isError && where !== "" && rows.error instanceof ApiRequestError && rows.error.status === 400) {
+      const e = rows.error.body?.sql_error;
+      setWhereError({ message: e?.message ?? rows.error.message, hint: e?.hint, position: e?.position });
+      setWhere(lastGood.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.isSuccess, rows.isError, rows.isPlaceholderData, rows.error]);
+  const filterRejected = rows.isError && where !== "" && rows.error instanceof ApiRequestError && rows.error.status === 400;
+  const applyWhere = (expr: string) => {
+    setWhereError(null);
+    setWhere(expr);
+    resetPage();
+    if (expr) {
+      const next = pushRecent(recent, expr);
+      setRecent(next);
+      saveRecent(p.id, schema, table, next);
+    }
+  };
+  const count = useQuery({ queryKey: ["count", p.id, schema, table, filters, where], queryFn: () => api.tableCount(p.id, schema, table, { filters, where }) });
   const definition = useQuery({
     queryKey: ["definition", p.id, schema, table],
     queryFn: () => api.tableDefinition(p.id, schema, table),
@@ -432,8 +480,9 @@ function TableView({
   };
 
   /** Runs row changes in one transaction; conflicts and refusals become
-   * toasts, as in Studio. Returns an error message, or null. */
-  const save = async (changes: RowChange[]): Promise<string | null> => {
+   * toasts, as in Studio. Returns an error message, or null. With inline,
+   * the caller shows the message in its own panel, so no toast covers it. */
+  const save = async (changes: RowChange[], inline = false): Promise<string | null> => {
     try {
       await api.saveRows(p.id, schema, table, changes);
       refresh();
@@ -444,16 +493,16 @@ function TableView({
         const r = e.body as unknown as SaveRowsResult;
         if (r.conflict) {
           const msg = r.conflict.deleted ? "Someone deleted this row since you loaded it" : "Someone changed this row since you loaded it";
-          toast.error(msg, { description: "Nothing was saved. The grid now shows the row as it is.", action: { label: "Reload rows", onClick: refresh } });
+          if (!inline) toast.error(msg, { description: "Nothing was saved. The grid now shows the row as it is.", action: { label: "Reload rows", onClick: refresh } });
           return msg;
         }
         if (r.failed) {
           const msg = r.failed.error.message + (r.failed.error.detail ? ` — ${r.failed.error.detail}` : "");
-          toast.error("Postgres refused the change", { description: msg });
+          if (!inline) toast.error("Postgres refused the change", { description: msg });
           return msg;
         }
       }
-      toast.error(errorMessage(e));
+      if (!inline) toast.error(errorMessage(e));
       return errorMessage(e);
     }
   };
@@ -528,6 +577,7 @@ function TableView({
           onRefresh={refresh}
         />
       )}
+      {mode === "data" && <WhereBar info={t} applied={where} error={whereError} recent={recent} onApply={applyWhere} />}
       {mode === "definition" ? (
         <div className="min-h-0 flex-1 overflow-hidden bg-code">
           {definition.isPending ? (
@@ -538,7 +588,7 @@ function TableView({
             <CodeEditor value={definition.data.sql} readOnly label={`Definition of ${table}`} testId="table-definition" />
           )}
         </div>
-      ) : rows.isError ? (
+      ) : rows.isError && !filterRejected ? (
         <div className="p-4">
           <Alert>{errorMessage(rows.error)}</Alert>
         </div>
@@ -585,7 +635,7 @@ function TableView({
           row={panel.row?.v}
           onClose={() => setPanel(null)}
           onSave={async (values) => {
-            const err = await save(panel.row ? [{ op: "update", key: pkOf(t, panel.row), xmin: panel.row.xmin, values }] : [{ op: "insert", values }]);
+            const err = await save(panel.row ? [{ op: "update", key: pkOf(t, panel.row), xmin: panel.row.xmin, values }] : [{ op: "insert", values }], true);
             if (!err) {
               setPanel(null);
               toast.success(panel.row ? "Row updated" : "Row added");

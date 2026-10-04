@@ -1670,6 +1670,24 @@ func (e UpdateNodeRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for UpdateUserRequestPlatformRole.
+const (
+	UpdateUserRequestPlatformRolePlatformAdmin UpdateUserRequestPlatformRole = "platform_admin"
+	UpdateUserRequestPlatformRoleUser          UpdateUserRequestPlatformRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the UpdateUserRequestPlatformRole enum.
+func (e UpdateUserRequestPlatformRole) Valid() bool {
+	switch e {
+	case UpdateUserRequestPlatformRolePlatformAdmin:
+		return true
+	case UpdateUserRequestPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UsageMetricGranularity.
 const (
 	UsageMetricGranularityDay  UsageMetricGranularity = "day"
@@ -4550,7 +4568,21 @@ type UpdateUserRequest struct {
 	// Approved true approves an account waiting in approval mode.
 	Approved *bool `json:"approved,omitempty"`
 	Disabled *bool `json:"disabled,omitempty"`
+
+	// PlatformRole Makes the account a platform admin, or an ordinary user again.
+	// Needs a recent step-up authentication. The account must be
+	// active, approved, verified and have two-factor set up. The last
+	// active platform admin can't be demoted. The account's sessions
+	// end, and it is emailed.
+	PlatformRole *UpdateUserRequestPlatformRole `json:"platform_role,omitempty"`
 }
+
+// UpdateUserRequestPlatformRole Makes the account a platform admin, or an ordinary user again.
+// Needs a recent step-up authentication. The account must be
+// active, approved, verified and have two-factor set up. The last
+// active platform admin can't be demoted. The account's sessions
+// end, and it is emailed.
+type UpdateUserRequestPlatformRole string
 
 // UsageMetric defines model for UsageMetric.
 type UsageMetric struct {
@@ -4997,6 +5029,13 @@ type SetSavedQueryFavoriteJSONBody struct {
 type CountTableRowsParams struct {
 	// Filter Repeatable, as for the rows.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
 }
 
 // ExportTableRowsParams defines parameters for ExportTableRows.
@@ -5004,8 +5043,15 @@ type ExportTableRowsParams struct {
 	// Filter Repeatable. A JSON object `{"column", "op", "value"|"values"}`;
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
-	Sort   *string   `form:"sort,omitempty" json:"sort,omitempty"`
-	Desc   *bool     `form:"desc,omitempty" json:"desc,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
+	Sort  *string `form:"sort,omitempty" json:"sort,omitempty"`
+	Desc  *bool   `form:"desc,omitempty" json:"desc,omitempty"`
 
 	// Order Repeatable, in priority order. A JSON object `{"column", "desc"}`;
 	// several sort by each column in turn. Takes the place of sort and
@@ -5023,6 +5069,13 @@ type GetTableRowsParams struct {
 	// op is eq, neq, lt, lte, gt, gte, contains, is_null, not_null or in
 	// (V2 §4.1). Compiled to a parameterised WHERE clause.
 	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Where A raw condition, as typed after WHERE (the filter bar), e.g.
+	// `email = 'a@b.c' or phone like '081%'`. It is checked (one
+	// expression, nothing that ends a WHERE clause) and runs as the
+	// project's read-only role in a read-only transaction. Combined
+	// with `filter` by AND.
+	Where *string `form:"where,omitempty" json:"where,omitempty"`
 
 	// Sort A column. Sorting by the primary key pages by keyset; any other column by offset.
 	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
@@ -5431,7 +5484,7 @@ type ServerInterface interface {
 	// ListUsers Every account (platform admin)
 	// (GET /api/v1/admin/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, params ListUsersParams)
-	// UpdateUser Approve, disable, or re-enable an account (platform admin)
+	// UpdateUser Approve, disable or re-enable an account, or change its platform role (platform admin)
 	// (PATCH /api/v1/admin/users/{user})
 	UpdateUser(w http.ResponseWriter, r *http.Request, user UserID)
 	// ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
@@ -6160,7 +6213,7 @@ func (_ Unimplemented) ListUsers(w http.ResponseWriter, r *http.Request, params 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// UpdateUser Approve, disable, or re-enable an account (platform admin)
+// UpdateUser Approve, disable or re-enable an account, or change its platform role (platform admin)
 // (PATCH /api/v1/admin/users/{user})
 func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, user UserID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -11818,6 +11871,19 @@ func (siw *ServerInterfaceWrapper) CountTableRows(w http.ResponseWriter, r *http
 		return
 	}
 
+	// ------------- Optional query parameter "where" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "where", r.URL.Query(), &params.Where, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "where"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "where", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CountTableRows(w, r, id, schema, table, params)
 	}))
@@ -11918,6 +11984,19 @@ func (siw *ServerInterfaceWrapper) ExportTableRows(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "where" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "where", r.URL.Query(), &params.Where, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "where"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "where", Err: err})
 		}
 		return
 	}
@@ -12030,6 +12109,19 @@ func (siw *ServerInterfaceWrapper) GetTableRows(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "where" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "where", r.URL.Query(), &params.Where, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "where"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "where", Err: err})
 		}
 		return
 	}

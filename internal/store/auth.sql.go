@@ -499,6 +499,47 @@ func (q *Queries) LatestTerms(ctx context.Context) (TermsVersion, error) {
 	return i, err
 }
 
+const listPlatformAdmins = `-- name: ListPlatformAdmins :many
+SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at FROM users WHERE platform_role = 'platform_admin' ORDER BY created_at
+`
+
+// tenant: system - the platform's own administrators.
+func (q *Queries) ListPlatformAdmins(ctx context.Context) ([]User, error) {
+	rows, err := q.db.Query(ctx, listPlatformAdmins)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.PasswordHash,
+			&i.TotpSecret,
+			&i.PlatformRole,
+			&i.CreatedAt,
+			&i.DisabledAt,
+			&i.FailedLogins,
+			&i.LockedUntil,
+			&i.TotpLastStep,
+			&i.Name,
+			&i.EmailVerifiedAt,
+			&i.ApprovedAt,
+			&i.RecoveryCodes,
+			&i.LastActiveAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserSessions = `-- name: ListUserSessions :many
 SELECT id, created_at, last_seen_at, ip, user_agent FROM sessions WHERE user_id = $1 ORDER BY last_seen_at DESC
 `
@@ -607,6 +648,16 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockPlatformRoles = `-- name: LockPlatformRoles :exec
+SELECT pg_advisory_xact_lock(7003001)
+`
+
+// Serialises platform role changes, so two admins can't each demote the other.
+func (q *Queries) LockPlatformRoles(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, lockPlatformRoles)
+	return err
 }
 
 const markEmailVerified = `-- name: MarkEmailVerified :exec
@@ -737,6 +788,38 @@ type SetUserPasswordParams struct {
 func (q *Queries) SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error {
 	_, err := q.db.Exec(ctx, setUserPassword, arg.PasswordHash, arg.ID)
 	return err
+}
+
+const setUserPlatformRole = `-- name: SetUserPlatformRole :one
+UPDATE users SET platform_role = $1 WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+`
+
+type SetUserPlatformRoleParams struct {
+	Role string
+	ID   uuid.UUID
+}
+
+func (q *Queries) SetUserPlatformRole(ctx context.Context, arg SetUserPlatformRoleParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUserPlatformRole, arg.Role, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.PlatformRole,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.FailedLogins,
+		&i.LockedUntil,
+		&i.TotpLastStep,
+		&i.Name,
+		&i.EmailVerifiedAt,
+		&i.ApprovedAt,
+		&i.RecoveryCodes,
+		&i.LastActiveAt,
+	)
+	return i, err
 }
 
 const setUserTOTP = `-- name: SetUserTOTP :exec

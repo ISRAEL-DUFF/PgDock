@@ -94,3 +94,18 @@ export function defaultSuggestions(type: string): { value: string; label: string
   if (t === "jsonb" || t === "json") return [{ value: "'{}'::" + t, label: "empty object" }, { value: "'[]'::" + t, label: "empty array" }];
   return [];
 }
+
+const textTypes = /^(text|varchar|character varying|char|character|bpchar|citext|name)(\(\d+\))?$/i;
+const sqlWords = new Set(["null", "true", "false", "current_date", "current_time", "current_timestamp", "localtime", "localtimestamp", "current_user", "session_user"]);
+
+/**
+ * A text column's default typed as a bare word (free): the database reads
+ * it as a column name and refuses it. Returns a hint with the quoted form,
+ * or null when the value is fine.
+ */
+export function bareTextDefault(type: string, value: string): string | null {
+  const v = value.trim();
+  if (!textTypes.test(type.trim().replace(/\[\]$/, ""))) return null;
+  if (!/^[A-Za-z_][A-Za-z0-9_ -]*$/.test(v) || sqlWords.has(v.toLowerCase())) return null;
+  return `'${v}'`;
+}

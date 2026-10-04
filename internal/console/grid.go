@@ -51,6 +51,9 @@ type Sort struct {
 // GridQuery is what the grid asks for.
 type GridQuery struct {
 	Filters []Filter
+	// Where is a raw condition typed by the user (the filter bar). It is
+	// checked by ValidateWhere and the query then runs as the read-only role.
+	Where string
 	// Sorts orders by several columns, in turn.
 	Sorts []Sort
 	After string
@@ -132,8 +135,14 @@ func (r relation) editable() bool { return r.kind == "r" && len(r.pk) > 0 }
 
 // where compiles filters to a parameterised condition. Column names are
 // checked against the table and quoted; values are always parameters.
-func where(r relation, filters []Filter, params *[][]byte) (string, error) {
+func where(r relation, filters []Filter, expr string, params *[][]byte) (string, error) {
 	var conds []string
+	if strings.TrimSpace(expr) != "" {
+		if err := ValidateWhere(expr); err != nil {
+			return "", err
+		}
+		conds = append(conds, wrapWhere(strings.TrimSpace(expr)))
+	}
 	ph := func(v string) string {
 		*params = append(*params, []byte(v))
 		return "$" + strconv.Itoa(len(*params))
@@ -206,12 +215,23 @@ type gridSQL struct {
 	xmin   bool
 	keyed  bool // keyset on the primary key
 	cur    cursor
+	// expr is the user's raw condition, to put errors at its own positions.
+	expr string
+}
+
+// mode is the session the query needs: a raw condition runs as the
+// project's read-only role.
+func (q GridQuery) mode() mode {
+	if strings.TrimSpace(q.Where) != "" {
+		return modeReadOnly
+	}
+	return modeOwner
 }
 
 func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit int) (gridSQL, error) {
 	g := gridSQL{}
 	rel := provision.Ident(schema) + "." + provision.Ident(table)
-	cond, err := where(r, q.Filters, &g.params)
+	cond, err := where(r, q.Filters, q.Where, &g.params)
 	if err != nil {
 		return g, err
 	}
@@ -307,6 +327,7 @@ func buildGrid(r relation, schema, table string, q GridQuery, cur cursor, limit 
 		}
 	}
 	g.cur = cur
+	g.expr = strings.TrimSpace(q.Where)
 	g.sql = "SELECT " + sel + " FROM " + rel
 	if len(conds) > 0 {
 		g.sql += " WHERE " + strings.Join(conds, " AND ")
@@ -334,7 +355,7 @@ func (s *Service) Rows(ctx context.Context, projectID uuid.UUID, schema, table s
 		return Page{}, err
 	}
 	var page Page
-	err = s.readOnly(ctx, projectID, func(conn *pgx.Conn) error {
+	err = s.readOnlyAs(ctx, projectID, q.mode(), func(conn *pgx.Conn) error {
 		r, err := lookupRelation(ctx, conn, schema, table)
 		if err != nil {
 			return err
@@ -412,7 +433,7 @@ func (s *Service) Rows(ctx context.Context, projectID uuid.UUID, schema, table s
 			page.Rows = append(page.Rows, row)
 		}
 		if _, err := rr.Close(); err != nil {
-			return gridError(err)
+			return gridErrorIn(err, g.sql, g.expr)
 		}
 		page.Columns = []Column{}
 		for _, fd := range fds[g.extra:] {
@@ -430,6 +451,39 @@ func (s *Service) Rows(ctx context.Context, projectID uuid.UUID, schema, table s
 type QueryError struct{ Err *Error }
 
 func (e *QueryError) Error() string { return e.Err.Message }
+
+// gridErrorIn is gridError for a query that may hold the user's raw
+// condition: errors from it are the user's to fix, with the position moved
+// from the whole query to the condition they typed.
+func gridErrorIn(err error, sql, expr string) error {
+	var pe *pgconn.PgError
+	if expr == "" || !errors.As(err, &pe) {
+		return gridError(err)
+	}
+	if pe.Code == "57014" { // statement timeout, or a cancel
+		return &QueryError{Err: &Error{Code: pe.Code, Message: "the filter took too long and was stopped; narrow it, or filter on an indexed column"}}
+	}
+	switch pe.Code[:2] {
+	case "42", "22", "25", "0A":
+		if pe.Code == "42501" {
+			return gridError(err)
+		}
+		e := toError(pe, false)
+		if i := strings.Index(sql, wrapWhere(expr)); i >= 0 && pe.Position > 0 {
+			start := len([]rune(sql[:i])) + 2 // after "(\n"; positions are 1-based characters
+			if pos := int(pe.Position) - start; pos >= 1 && pos <= len([]rune(expr))+1 {
+				e.Position = pos
+			} else {
+				e.Position = 0
+			}
+		}
+		if pe.Code == "25006" {
+			e.Message = "a filter can only read data"
+		}
+		return &QueryError{Err: e}
+	}
+	return gridError(err)
+}
 
 func gridError(err error) error {
 	var pe *pgconn.PgError
@@ -455,7 +509,7 @@ func (s *Service) Export(ctx context.Context, projectID uuid.UUID, schema, table
 	}
 	var n int
 	var more bool
-	err := s.readOnly(ctx, projectID, func(conn *pgx.Conn) error {
+	err := s.readOnlyAs(ctx, projectID, q.mode(), func(conn *pgx.Conn) error {
 		r, err := lookupRelation(ctx, conn, schema, table)
 		if err != nil {
 			return err
@@ -511,7 +565,7 @@ func (s *Service) Export(ctx context.Context, projectID uuid.UUID, schema, table
 			n++
 		}
 		if _, err := rr.Close(); err != nil {
-			return gridError(err)
+			return gridErrorIn(err, g.sql, g.expr)
 		}
 		if cw != nil {
 			cw.Flush()

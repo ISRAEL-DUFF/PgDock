@@ -69,7 +69,7 @@ docker compose version
 ```sh
 git clone https://github.com/israel-duff/pgdock.git
 cd pgdock
-git checkout v2.0.0
+git checkout v2.1.0
 ```
 
 ## 5. Run the installer
@@ -128,6 +128,14 @@ first visit, which can take a few seconds. Then:
    Without it no backup can be restored, by you or anyone else.
 8. **Local node**: the bundled agent has already registered itself; the
    wizard shows it as healthy.
+
+**Add a second platform admin.** The wizard makes exactly one. Once a
+colleague has an account with two-factor set up (invite them under Admin →
+Users), choose **Make admin** next to their name; it asks for your password
+and a code. With two admins, one lost phone doesn't lock you out. If you ever
+are locked out, recover from the server:
+`docker compose exec pgdock-server pgdock-server admin promote <email>` (see
+[operations](operations.md#platform-admins-and-recovery)).
 
 ## 7. Your first database
 

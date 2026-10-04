@@ -7,6 +7,11 @@ this page is what to do, and when. Incidents have their own page:
 
 ## Before inviting anyone
 
+0. **Have two platform admins.** Setup makes one. Invite a second person you
+   trust, then Users → **Make admin** (your password and a code). Otherwise
+   losing one phone and its recovery codes leaves nobody able to manage the
+   platform (the server-side recovery below still works, but it needs a
+   shell on the server).
 1. **Install and harden** ([install](install.md)): TLS on the poolers,
    off-host backups, the backup key exported and stored apart from the
    server, SMTP working (sign-up, invitations and every alert need it).
@@ -70,6 +75,8 @@ people (V2 §14 M16):
 | Situation | Do |
 | --- | --- |
 | Someone lost their authenticator and recovery codes | Confirm who they are out of band (a call, not the email that asks), then Users → the user → **Reset two-factor**. It is audited and they are emailed. |
+| A colleague should help run the platform | They need an active account with two-factor set up. Users → **Make admin**. It asks for your password and a code, signs them out, emails them, and is audited. **Remove admin** reverses it; the last admin can't be removed. |
+| Nobody can sign in as a platform admin | On the server: `docker compose exec pgdock-server pgdock-server admin list`, then `promote <email>`, `reset-2fa <email>` or `reset-password <email>` (prints a one-hour link when email is down). Audited as done on the server. See [operations](operations.md#platform-admins-and-recovery). |
 | Someone leaves a team | The team's owners remove them; it's immediate. You don't need to do anything. |
 | An account is abused or compromised | Users → **Disable**: sessions, tokens and database logins end at once. |
 | A user wants their account deleted | They do it from Account; it is refused while they're the last owner of an organisation with projects. |
@@ -95,5 +102,6 @@ people (V2 §14 M16):
 
 ## Releases
 
-Upgrade with [upgrades](upgrade.md): server first, then agents, one node
-at a time. Read the changelog's *Security* notes before the rest.
+Upgrade with [upgrades](upgrade.md): agents on other nodes first (an agent
+on an older minor version than the server is refused work), then the server
+and its bundled agent, one node at a time. Read the changelog's *Security* notes before the rest.

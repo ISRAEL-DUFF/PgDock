@@ -443,7 +443,7 @@ export function AdminPlansPage() {
         }
       />
       {q.data && (
-        <Table head={["Plan", "Organisations", ...q.data.keys.slice(0, 5).map((k) => LIMIT_LABELS[k]?.label ?? k), ""]}>
+        <Table head={["Plan", "Organisations", ...q.data.keys.slice(0, 5).map((k) => (LIMIT_LABELS[k]?.label ?? k) + (LIMIT_LABELS[k]?.unit ? ` (${LIMIT_LABELS[k].unit})` : "")), ""]}>
           {q.data.items.map((p) => (
             <tr key={p.id} data-testid={`plan-${p.name}`}>
               <td className="px-3 py-2 font-medium">{p.name}</td>

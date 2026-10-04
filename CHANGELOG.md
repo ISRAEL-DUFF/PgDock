@@ -3,6 +3,64 @@
 PGDock follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
+## v2.1.0
+
+UI fixes found by testing the redesign, a SQL filter bar for the Table
+Editor, and a way to add and recover platform admins. No database
+migrations: upgrade from v2.0.0 with `git checkout v2.1.0` and
+`./install.sh` ([upgrades](docs/upgrade.md)).
+
+### Platform admins
+- A platform admin can make another account a platform admin, or an
+  ordinary user again (Admin → Users → Make admin / Remove admin), with a
+  fresh password and code. The account must be active, approved, verified
+  and have two-factor set up; its sessions end and it is emailed; the last
+  active admin can't be removed. Setup still makes exactly one admin, so
+  add a second (docs/install.md, docs/admin-runbook.md).
+- Recovery when no admin can sign in: `pgdock-server admin list | promote |
+  demote | reset-2fa | reset-password <email>`, run on the server. Changes
+  are audited as done on the server. See docs/operations.md.
+
+### SQL filter bar
+- The Table Editor has a filter bar above the grid: type a condition as
+  you would after `WHERE` (`email = 'a@b.com' or phone like '081%'`) and
+  press Enter. Suggestions (Ctrl+Space, or as you type) list the table's
+  columns with their type and nullability, then operators and functions.
+  Recent filters are remembered per table, errors show the database's own
+  message at the character that caused it, and the grid keeps its last
+  good view. It combines with the Filter popover, and the count and export
+  follow it.
+- Safety: the condition is checked (one expression; nothing that can end
+  a `WHERE` clause, such as `;`, `UNION`, `ORDER BY`, `LIMIT`) and runs as
+  the project's read-only role in a read-only transaction under the
+  statement timeout, so it can read what the console can read and write
+  nothing. The API takes it as the `where` parameter of the rows, count
+  and export endpoints.
+
+### UI fixes from QA
+- Text fields show focus with a thin accent border and a soft glow, not the
+  heavy 2px outline buttons and links get.
+- Phones: the top bar's switchers no longer overlap (names and badges
+  show from the `sm` breakpoint up), and the Table Editor and SQL Editor
+  show their table or query list and the editor in turns, with a
+  Tables/Queries button, instead of squeezing the grid. The grid's footer
+  fits.
+- Column default values: a bare word on a text column (`free`) now shows
+  how to quote it (`'free'`) before the database refuses it.
+- SQL Editor completion picks up tables and columns created by the script
+  you just ran, without a reload. The shortcuts sheet names Ctrl+Space
+  (⌘Space is Spotlight on macOS).
+- The grid's row checkboxes are 14px (they were the browser's 20px, nearly
+  as tall as the row) and follow the theme, with a tick and a dash for
+  partial selection.
+- A branch or project that fails no longer shows a "save the password"
+  card, and the message says when cleanup was incomplete.
+- Row save errors in a side panel show once, inline, rather than also as
+  a toast over the Save button.
+- The schema change preview wraps long statements; the Plans table
+  names its units; the new project hint describes opaque names; the 404
+  page for signed-in users no longer uses the sign-in layout.
+
 ## v2.0.0
 
 PGDock V2: users and organisations, quotas and usage, API tokens and the
