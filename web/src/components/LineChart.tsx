@@ -62,8 +62,7 @@ export function LineChart({
     <figure className="relative">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className={compact ? "h-28 w-full" : "h-44 w-full"}
-        preserveAspectRatio="none"
+        className={compact ? "h-36 w-full" : "h-44 w-full"}
         role="img"
         aria-label={label}
         onMouseMove={(e) => {
