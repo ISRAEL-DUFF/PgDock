@@ -340,7 +340,7 @@ func TestTableBrowser(t *testing.T) {
 		"/tables/public/nope/rows":                http.StatusNotFound,
 		"/tables/pg_catalog/pg_authid/rows":       http.StatusNotFound,
 		"/tables/public/notes/rows?after=garbage": http.StatusBadRequest,
-		"/tables/public/notes/rows?limit=51":      http.StatusBadRequest,
+		"/tables/public/notes/rows?limit=1001":    http.StatusBadRequest,
 	} {
 		if code := e.Do("GET", "/api/v1/projects/"+id+path, nil, nil); code != want {
 			t.Errorf("%s: %d, want %d", path, code, want)
