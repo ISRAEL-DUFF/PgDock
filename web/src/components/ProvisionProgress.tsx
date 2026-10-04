@@ -4,7 +4,7 @@ import type { ProjectCredentials } from "../api/client";
 import { useOperationStream } from "../lib/useOperationStream";
 import { CredentialPanel } from "./Credentials";
 import { OperationLog } from "./OperationLog";
-import { Alert, Card, PageHeader, StatusBadge } from "./ui";
+import { Alert, Page, Panel, StatusBadge } from "./ui";
 
 /**
  * A project being provisioned (create, restore into a new project, import):
@@ -15,10 +15,9 @@ export function ProvisionProgress({ creds, progressTitle = "Provisioning" }: { c
   const stream = useOperationStream(creds.operation.id);
   const ready = stream.status === "succeeded";
   return (
-    <>
-      <PageHeader title={creds.project.name} subtitle={<span className="font-mono">{creds.project.db_name}</span>} />
+    <Page title={creds.project.name} description={<span className="font-mono">{creds.project.db_name}</span>}>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="Credentials">
+        <Panel title="Credentials">
           {!dismissed ? (
             <CredentialPanel creds={creds} ready={ready} onDismiss={() => setDismissed(true)} />
           ) : (
@@ -29,8 +28,8 @@ export function ProvisionProgress({ creds, progressTitle = "Provisioning" }: { c
               </Link>
             </div>
           )}
-        </Card>
-        <Card title={progressTitle} actions={stream.status && <StatusBadge status={stream.status} />}>
+        </Panel>
+        <Panel title={progressTitle} actions={stream.status && <StatusBadge status={stream.status} />}>
           <OperationLog log={stream.log} live={!stream.done} />
           {stream.status === "failed" && (
             <div className="mt-3">
@@ -42,8 +41,8 @@ export function ProvisionProgress({ creds, progressTitle = "Provisioning" }: { c
               Ready — the connection strings work now.
             </p>
           )}
-        </Card>
+        </Panel>
       </div>
-    </>
+    </Page>
   );
 }

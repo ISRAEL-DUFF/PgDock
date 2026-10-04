@@ -41,7 +41,7 @@ export function AuditView({
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <>
-      {embedded ? <h2 className="mb-2 font-semibold">{title}</h2> : <PageHeader title={title} subtitle={subtitle} />}
+      {embedded ? <h2 className="mb-2 text-[15px]">{title}</h2> : <PageHeader title={title} subtitle={subtitle} />}
       <div className="mb-3 flex flex-wrap gap-2">
         <Input placeholder="Action prefix, e.g. project. or auth.login" value={action} onChange={(e) => setAction(e.target.value)} className="max-w-xs" aria-label="Filter by action" />
         <Select value={outcome} onChange={(e) => setOutcome(e.target.value)} aria-label="Filter by outcome">

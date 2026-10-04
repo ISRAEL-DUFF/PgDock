@@ -1510,6 +1510,7 @@ test.describe("with the saved session", () => {
     await page.getByTestId("webhook-test").click();
     await expect(page.getByTestId("webhook-message")).toContainText("Test event delivered");
     await shot(page, "47-webhook-log");
+    await page.keyboard.press("Escape");
 
     // A scheduled job, run now.
     await projectTab(page, "Jobs");

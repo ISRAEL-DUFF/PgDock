@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { ApiRequestError, api, errorMessage } from "../api/client";
-import { Alert, Button, Field, Input, Modal } from "./ui";
+import { Alert, Button, Field, Input, Dialog } from "./ui";
 
 /**
  * Typed-confirmation modal for destructive actions (spec §8.9). It always
@@ -57,7 +57,7 @@ export function ConfirmDestroy({
   };
 
   return (
-    <Modal title={title} open={open} onClose={onClose}>
+    <Dialog title={title} open={open} onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">{description}</p>
         {children}
@@ -78,6 +78,6 @@ export function ConfirmDestroy({
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }

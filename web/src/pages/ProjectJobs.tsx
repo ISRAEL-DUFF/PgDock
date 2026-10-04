@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Job, type Project } from "../api/client";
-import { Alert, Badge, Button, Card, CopyField, EmptyState, Field, Input, Modal, Select, Spinner, Table } from "../components/ui";
+import { Plus } from "lucide-react";
+import { Alert, Badge, Button, CopyField, EmptyState, Field, Input, Page, Select, SidePanel, Spinner, Table } from "../components/ui";
 import { formatDate, relativeTime, timeUntil } from "../lib/format";
 import { useProject } from "./ProjectOverview";
 
@@ -43,38 +44,23 @@ export function ProjectJobsPage() {
   if (!p) return null;
   const selected = q.data?.items.find((j) => j.id === open);
   return (
-    <div className="flex flex-col gap-4">
-      <Card
-        title="Scheduled jobs"
-        actions={
-          <Button variant="primary" className="text-xs" onClick={() => setCreating(true)}>
-            New job
-          </Button>
-        }
-      >
-        <p className="text-sm text-muted">
-          Run SQL as the project owner, or call a URL, on a schedule: nightly clean-ups, refreshing a materialised view, pinging your app to send
-          digests. Missed runs are not caught up, and jobs are skipped while the project moves between tiers or restores.
-        </p>
-      </Card>
-      {secret && (
-        <Alert tone="ok" title={`Signing secret for ${secret.name}`}>
-          <div className="flex flex-col gap-2">
-            <span>Shown once: requests carry PGDock-Signature and PGDock-Job headers.</span>
-            <CopyField label="Secret" value={secret.secret} secret />
-            <Button className="self-start text-xs" onClick={() => setSecret(null)}>
-              I&rsquo;ve stored it
-            </Button>
-          </div>
-        </Alert>
-      )}
+    <Page
+      title="Scheduled jobs"
+      description="Run SQL as the project owner, or call a URL, on a schedule: nightly clean-ups, refreshing a materialised view, pinging your app to send digests. Missed runs are not caught up, and jobs are skipped while the project moves between tiers or restores."
+      actions={
+        <Button variant="primary" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setCreating(true)}>
+          New job
+        </Button>
+      }
+      testId="project-jobs"
+    >
       {q.isPending && <Spinner />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <EmptyState title="No jobs yet" />}
+      {q.data && q.data.items.length === 0 && <EmptyState title="No jobs yet">Create one to run SQL or call a URL on a schedule.</EmptyState>}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Job", "Kind", "Schedule", "Next run", "Last run"]}>
           {q.data.items.map((j) => (
-            <tr key={j.id} data-testid="job-row" className="cursor-pointer hover:bg-surface-2" onClick={() => setOpen(j.id === open ? null : j.id)}>
+            <tr key={j.id} data-testid="job-row" className="cursor-pointer hover:bg-surface-2" onClick={() => setOpen(j.id)}>
               <td className="px-3 py-2 font-medium">{j.name}</td>
               <td className="px-3 py-2">
                 <Badge>{j.kind.toUpperCase()}</Badge>
@@ -86,13 +72,28 @@ export function ProjectJobsPage() {
                 {j.enabled ? timeUntil(j.next_run_at) : <Badge tone="muted">paused</Badge>}
               </td>
               <td className="px-3 py-2" data-testid="job-last-run">
-                {j.last_run ? <Badge tone={runTone[j.last_run.status]}>{j.last_run.status.replace("_", " ")}</Badge> : <span className="text-muted">never</span>}
+                {j.last_run ? (
+                  <Badge tone={runTone[j.last_run.status]}>{j.last_run.status.replace("_", " ")}</Badge>
+                ) : (
+                  <span className="text-muted">never</span>
+                )}
               </td>
             </tr>
           ))}
         </Table>
       )}
-      {selected && <JobDetail p={p} j={selected} onDeleted={() => setOpen(null)} />}
+      {selected && (
+        <JobDetail
+          p={p}
+          j={selected}
+          secret={secret?.name === selected.name ? secret.secret : null}
+          onSecretStored={() => setSecret(null)}
+          onClose={() => {
+            setOpen(null);
+            setSecret(null);
+          }}
+        />
+      )}
       <CreateJobDialog
         p={p}
         open={creating}
@@ -103,7 +104,7 @@ export function ProjectJobsPage() {
           setOpen(j.id);
         }}
       />
-    </div>
+    </Page>
   );
 }
 
@@ -152,8 +153,23 @@ function CreateJobDialog({ p, open, onClose, onCreated }: { p: Project; open: bo
     }
   };
   return (
-    <Modal title="New scheduled job" open={open} onClose={onClose}>
-      <form className="flex flex-col gap-3" onSubmit={submit}>
+    <SidePanel
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      size="large"
+      title="Create a new scheduled job"
+      footer={
+        <>
+          <Button type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-job" variant="primary" busy={busy}>
+            Create job
+          </Button>
+        </>
+      }
+    >
+      <form id="create-job" className="flex flex-col gap-4" onSubmit={submit}>
         <Field label="Name">{(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="nightly-cleanup" required />}</Field>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Schedule (cron)" hint="minute hour day month weekday">
@@ -187,7 +203,7 @@ function CreateJobDialog({ p, open, onClose, onCreated }: { p: Project; open: bo
             {(id) => (
               <textarea
                 id={id}
-                className="h-28 rounded-md border border-line bg-surface p-2 font-mono text-xs"
+                className="h-28 rounded-md border border-line-strong bg-surface-2 p-2 font-mono text-xs focus:border-accent focus:outline-none"
                 value={sql}
                 onChange={(e) => setSql(e.target.value)}
                 placeholder="DELETE FROM sessions WHERE expires_at < now()"
@@ -207,13 +223,29 @@ function CreateJobDialog({ p, open, onClose, onCreated }: { p: Project; open: bo
                   </Select>
                 )}
               </Field>
-              <Field label="URL">{(id) => <Input id={id} value={url} onChange={(e) => setURL(e.target.value)} placeholder="https://example.com/cron/digest" required />}</Field>
+              <Field label="URL">
+                {(id) => <Input id={id} value={url} onChange={(e) => setURL(e.target.value)} placeholder="https://example.com/cron/digest" required />}
+              </Field>
             </div>
             <Field label="Body" hint="Optional">
-              {(id) => <textarea id={id} className="h-16 rounded-md border border-line bg-surface p-2 font-mono text-xs" value={body} onChange={(e) => setBody(e.target.value)} />}
+              {(id) => (
+                <textarea
+                  id={id}
+                  className="h-16 rounded-md border border-line-strong bg-surface-2 p-2 font-mono text-xs focus:border-accent focus:outline-none"
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                />
+              )}
             </Field>
             <Field label="Headers" hint="Optional, one per line as Name: value">
-              {(id) => <textarea id={id} className="h-14 rounded-md border border-line bg-surface p-2 font-mono text-xs" value={headers} onChange={(e) => setHeaders(e.target.value)} />}
+              {(id) => (
+                <textarea
+                  id={id}
+                  className="h-14 rounded-md border border-line-strong bg-surface-2 p-2 font-mono text-xs focus:border-accent focus:outline-none"
+                  value={headers}
+                  onChange={(e) => setHeaders(e.target.value)}
+                />
+              )}
             </Field>
           </>
         )}
@@ -231,20 +263,12 @@ function CreateJobDialog({ p, open, onClose, onCreated }: { p: Project; open: bo
           </Field>
         </div>
         {err && <Alert>{err}</Alert>}
-        <div className="flex gap-2">
-          <Button type="submit" variant="primary" busy={busy}>
-            Create job
-          </Button>
-          <Button type="button" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
       </form>
-    </Modal>
+    </SidePanel>
   );
 }
 
-function JobDetail({ p, j, onDeleted }: { p: Project; j: Job; onDeleted: () => void }) {
+function JobDetail({ p, j, secret, onSecretStored, onClose }: { p: Project; j: Job; secret: string | null; onSecretStored: () => void; onClose: () => void }) {
   const qc = useQueryClient();
   const runs = useQuery({ queryKey: ["job-runs", j.id], queryFn: () => api.jobRuns(p.id, j.id), refetchInterval: 3000 });
   const [busy, setBusy] = useState<string | null>(null);
@@ -263,8 +287,34 @@ function JobDetail({ p, j, onDeleted }: { p: Project; j: Job; onDeleted: () => v
     }
   };
   return (
-    <Card title={j.name} actions={<Badge>{j.kind.toUpperCase()}</Badge>}>
-      <div className="flex flex-col gap-3 text-sm">
+    <SidePanel
+      open
+      onOpenChange={(o) => !o && onClose()}
+      size="large"
+      testId="job-detail"
+      title={
+        <span className="flex items-center gap-2">
+          {j.name} <Badge>{j.kind.toUpperCase()}</Badge>
+        </span>
+      }
+      description={
+        <span className="font-mono">
+          {j.cron} ({j.timezone})
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-4 text-sm">
+        {secret && (
+          <Alert tone="ok" title={`Signing secret for ${j.name}`}>
+            <div className="flex flex-col gap-2">
+              <span>Shown once: requests carry PGDock-Signature and PGDock-Job headers.</span>
+              <CopyField label="Secret" value={secret} secret />
+              <Button className="self-start text-xs" onClick={onSecretStored}>
+                I&rsquo;ve stored it
+              </Button>
+            </div>
+          </Alert>
+        )}
         {j.kind === "sql" ? (
           <pre className="max-h-32 overflow-auto rounded bg-surface-2 p-2 font-mono text-xs">{j.sql}</pre>
         ) : (
@@ -283,10 +333,19 @@ function JobDetail({ p, j, onDeleted }: { p: Project; j: Job; onDeleted: () => v
           </div>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button className="text-xs" busy={busy === "run"} data-testid="job-run-now" onClick={() => act("run", async () => void (await api.runJob(p.id, j.id)))}>
+          <Button
+            className="text-xs"
+            busy={busy === "run"}
+            data-testid="job-run-now"
+            onClick={() => act("run", async () => void (await api.runJob(p.id, j.id)))}
+          >
             Run now
           </Button>
-          <Button className="text-xs" busy={busy === "toggle"} onClick={() => act("toggle", async () => void (await api.updateJob(p.id, j.id, { enabled: !j.enabled })))}>
+          <Button
+            className="text-xs"
+            busy={busy === "toggle"}
+            onClick={() => act("toggle", async () => void (await api.updateJob(p.id, j.id, { enabled: !j.enabled })))}
+          >
             {j.enabled ? "Pause" : "Resume"}
           </Button>
           <Button
@@ -297,7 +356,7 @@ function JobDetail({ p, j, onDeleted }: { p: Project; j: Job; onDeleted: () => v
               confirm(`Delete the job ${j.name} and its history?`) &&
               act("delete", async () => {
                 await api.deleteJob(p.id, j.id);
-                onDeleted();
+                onClose();
               })
             }
           >
@@ -328,6 +387,6 @@ function JobDetail({ p, j, onDeleted }: { p: Project; j: Job; onDeleted: () => v
           </Table>
         )}
       </div>
-    </Card>
+    </SidePanel>
   );
 }

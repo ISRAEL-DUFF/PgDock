@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { api } from "../api/client";
 import { MetricCharts, fmt, type ChartDef } from "../components/Metrics";
-import { Card, Table } from "../components/ui";
+import { Page, Panel, Table } from "../components/ui";
 import { ReapedCard } from "../components/TenancyCards";
 import { useProject } from "./ProjectOverview";
 
@@ -37,14 +37,14 @@ export function ProjectMetricsPage() {
   const { data: p } = useProject();
   if (!p) return null;
   return (
-    <>
+    <Page title="Reports" description="Size, connections, throughput and cache use over time, and the queries that take the most time." testId="project-reports">
       <MetricCharts
         queryKey={["metrics", "project", p.id]}
         fetch={(r) => api.projectMetrics(p.id, r)}
         charts={charts}
       >
         {(data) => (
-          <Card title="Top queries by total time">
+          <Panel title="Top queries by total time">
             {!data.top_queries ? (
               <p className="text-sm text-muted">
                 Not available while the project is {p.status}.
@@ -53,11 +53,11 @@ export function ProjectMetricsPage() {
               <p className="text-sm text-muted">
                 Enable <span className="font-mono">pg_stat_statements</span> in{" "}
                 <Link
-                  to="/projects/$id/settings"
+                  to="/projects/$id/extensions"
                   params={{ id: p.id }}
                   className="text-accent hover:underline"
                 >
-                  Settings → Extensions
+                  Database → Extensions
                 </Link>{" "}
                 to see which queries take the most time.
               </p>
@@ -89,13 +89,11 @@ export function ProjectMetricsPage() {
                 ))}
               </Table>
             )}
-          </Card>
+          </Panel>
         )}
       </MetricCharts>
-      <div className="mt-4">
-        <ReapedCard p={p} />
-      </div>
-    </>
+      <ReapedCard p={p} />
+    </Page>
   );
 }
 

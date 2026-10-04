@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Project, type Webhook } from "../api/client";
-import { Alert, Badge, Button, Card, CopyField, EmptyState, Field, Input, Modal, Spinner, Table } from "../components/ui";
+import { Plus } from "lucide-react";
+import { Alert, Badge, Button, CopyField, EmptyState, Field, Input, Page, SidePanel, Spinner, Table } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { useProject } from "./ProjectOverview";
 
@@ -37,39 +38,29 @@ export function ProjectWebhooksPage() {
   if (!p) return null;
   const selected = q.data?.items.find((w) => w.id === open);
   return (
-    <div className="flex flex-col gap-4">
-      <Card
-        title="Webhooks"
-        actions={
-          <Button variant="primary" className="text-xs" onClick={() => setCreating(true)}>
-            New webhook
-          </Button>
-        }
-      >
-        <p className="text-sm text-muted">
-          When rows of the chosen tables change, PGDock POSTs the change to your URL, signed with the webhook&rsquo;s secret. Changes are recorded in
-          the same transaction, so a rolled-back change never sends anything, and events for each webhook arrive in commit order. Failed deliveries
-          are retried for 24 hours, then kept as dead letters you can replay.
-        </p>
-      </Card>
-      {secret && (
-        <Alert tone="ok" title={`Signing secret for ${secret.name}`}>
-          <div className="flex flex-col gap-2" data-testid="webhook-secret">
-            <span>Shown once: store it where your receiver checks the PGDock-Signature header.</span>
-            <CopyField label="Secret" value={secret.secret} secret testId="webhook-secret-value" />
-            <Button className="self-start text-xs" onClick={() => setSecret(null)}>
-              I&rsquo;ve stored it
-            </Button>
-          </div>
-        </Alert>
-      )}
+    <Page
+      title="Database Webhooks"
+      description={
+        <>
+          When rows of the chosen tables change, PGDock POSTs the change to your URL, signed with the webhook&rsquo;s secret. Changes are recorded in the same
+          transaction, so a rolled-back change never sends anything, and each webhook&rsquo;s events arrive in commit order. Failed deliveries are retried for
+          24 hours, then kept as dead letters you can replay.
+        </>
+      }
+      actions={
+        <Button variant="primary" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setCreating(true)}>
+          New webhook
+        </Button>
+      }
+      testId="project-webhooks"
+    >
       {q.isPending && <Spinner />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <EmptyState title="No webhooks yet" />}
+      {q.data && q.data.items.length === 0 && <EmptyState title="No webhooks yet">Create one to send table changes to your app.</EmptyState>}
       {q.data && q.data.items.length > 0 && (
         <Table head={["Webhook", "Status", "Tables", "Events", "Queued", "URL"]}>
           {q.data.items.map((w) => (
-            <tr key={w.id} data-testid="webhook-row" className="cursor-pointer hover:bg-surface-2" onClick={() => setOpen(w.id === open ? null : w.id)}>
+            <tr key={w.id} data-testid="webhook-row" className="cursor-pointer hover:bg-surface-2" onClick={() => setOpen(w.id)}>
               <td className="px-3 py-2 font-medium">{w.name}</td>
               <td className="px-3 py-2">
                 <Badge tone={statusTone[w.status]}>{w.status}</Badge>
@@ -86,7 +77,19 @@ export function ProjectWebhooksPage() {
           ))}
         </Table>
       )}
-      {selected && <WebhookDetail p={p} w={selected} onSecret={(s) => setSecret({ name: selected.name, secret: s })} onDeleted={() => setOpen(null)} />}
+      {selected && (
+        <WebhookDetail
+          p={p}
+          w={selected}
+          secret={secret?.name === selected.name ? secret.secret : null}
+          onSecret={(s) => setSecret({ name: selected.name, secret: s })}
+          onSecretStored={() => setSecret(null)}
+          onClose={() => {
+            setOpen(null);
+            setSecret(null);
+          }}
+        />
+      )}
       <CreateWebhookDialog
         p={p}
         open={creating}
@@ -97,11 +100,21 @@ export function ProjectWebhooksPage() {
           setOpen(id);
         }}
       />
-    </div>
+    </Page>
   );
 }
 
-function CreateWebhookDialog({ p, open, onClose, onCreated }: { p: Project; open: boolean; onClose: () => void; onCreated: (name: string, secret: string, id: string) => void }) {
+function CreateWebhookDialog({
+  p,
+  open,
+  onClose,
+  onCreated,
+}: {
+  p: Project;
+  open: boolean;
+  onClose: () => void;
+  onCreated: (name: string, secret: string, id: string) => void;
+}) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [tables, setTables] = useState("");
@@ -141,8 +154,22 @@ function CreateWebhookDialog({ p, open, onClose, onCreated }: { p: Project; open
     }
   };
   return (
-    <Modal title="New webhook" open={open} onClose={onClose}>
-      <form className="flex flex-col gap-3" onSubmit={submit}>
+    <SidePanel
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Create a new database webhook"
+      footer={
+        <>
+          <Button type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-webhook" variant="primary" busy={busy} disabled={events.length === 0}>
+            Create webhook
+          </Button>
+        </>
+      }
+    >
+      <form id="create-webhook" className="flex flex-col gap-4" onSubmit={submit}>
         <Field label="Name">{(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="orders-to-slack" required />}</Field>
         <Field label="Tables" hint="Comma-separated: orders, billing.invoices">
           {(id) => <Input id={id} value={tables} onChange={(e) => setTables(e.target.value)} required />}
@@ -170,7 +197,7 @@ function CreateWebhookDialog({ p, open, onClose, onCreated }: { p: Project; open
           {(id) => (
             <textarea
               id={id}
-              className="h-20 rounded-md border border-line bg-surface p-2 font-mono text-xs"
+              className="h-20 rounded-md border border-line-strong bg-surface-2 p-2 font-mono text-xs focus:border-accent focus:outline-none"
               value={headers}
               onChange={(e) => setHeaders(e.target.value)}
               placeholder="Authorization: Bearer …"
@@ -178,20 +205,26 @@ function CreateWebhookDialog({ p, open, onClose, onCreated }: { p: Project; open
           )}
         </Field>
         {err && <Alert>{err}</Alert>}
-        <div className="flex gap-2">
-          <Button type="submit" variant="primary" busy={busy} disabled={events.length === 0}>
-            Create webhook
-          </Button>
-          <Button type="button" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
       </form>
-    </Modal>
+    </SidePanel>
   );
 }
 
-function WebhookDetail({ p, w, onSecret, onDeleted }: { p: Project; w: Webhook; onSecret: (s: string) => void; onDeleted: () => void }) {
+function WebhookDetail({
+  p,
+  w,
+  secret,
+  onSecret,
+  onSecretStored,
+  onClose,
+}: {
+  p: Project;
+  w: Webhook;
+  secret: string | null;
+  onSecret: (s: string) => void;
+  onSecretStored: () => void;
+  onClose: () => void;
+}) {
   const qc = useQueryClient();
   const [dead, setDead] = useState(false);
   const log = useQuery({ queryKey: ["deliveries", w.id, dead], queryFn: () => api.webhookDeliveries(p.id, w.id, dead), refetchInterval: 5000 });
@@ -211,8 +244,30 @@ function WebhookDetail({ p, w, onSecret, onDeleted }: { p: Project; w: Webhook; 
     }
   };
   return (
-    <Card title={w.name} actions={<Badge tone={statusTone[w.status]}>{w.status}</Badge>}>
-      <div className="flex flex-col gap-3 text-sm">
+    <SidePanel
+      open
+      onOpenChange={(o) => !o && onClose()}
+      size="large"
+      testId="webhook-detail"
+      title={
+        <span className="flex items-center gap-2">
+          {w.name} <Badge tone={statusTone[w.status]}>{w.status}</Badge>
+        </span>
+      }
+      description={<span className="font-mono">{w.url}</span>}
+    >
+      <div className="flex flex-col gap-4 text-sm">
+        {secret && (
+          <Alert tone="ok" title={`Signing secret for ${w.name}`}>
+            <div className="flex flex-col gap-2" data-testid="webhook-secret">
+              <span>Shown once: store it where your receiver checks the PGDock-Signature header.</span>
+              <CopyField label="Secret" value={secret} secret testId="webhook-secret-value" />
+              <Button className="self-start text-xs" onClick={onSecretStored}>
+                I&rsquo;ve stored it
+              </Button>
+            </div>
+          </Alert>
+        )}
         {w.status_reason && <Alert tone={w.status === "broken" ? "danger" : "warn"}>{w.status_reason}</Alert>}
         <div className="flex flex-wrap gap-2">
           <Button
@@ -222,13 +277,21 @@ function WebhookDetail({ p, w, onSecret, onDeleted }: { p: Project; w: Webhook; 
             onClick={() =>
               act("test", async () => {
                 const r = await api.testWebhook(p.id, w.id);
-                setMsg(r.ok ? { ok: true, text: `Test event delivered (HTTP ${r.status_code}, ${r.latency_ms} ms).` } : { ok: false, text: `Test event failed: ${r.error ?? `HTTP ${r.status_code}`}` });
+                setMsg(
+                  r.ok
+                    ? { ok: true, text: `Test event delivered (HTTP ${r.status_code}, ${r.latency_ms} ms).` }
+                    : { ok: false, text: `Test event failed: ${r.error ?? `HTTP ${r.status_code}`}` },
+                );
               })
             }
           >
             Send test event
           </Button>
-          <Button className="text-xs" busy={busy === "toggle"} onClick={() => act("toggle", async () => void (await api.updateWebhook(p.id, w.id, { enabled: !w.enabled })))}>
+          <Button
+            className="text-xs"
+            busy={busy === "toggle"}
+            onClick={() => act("toggle", async () => void (await api.updateWebhook(p.id, w.id, { enabled: !w.enabled })))}
+          >
             {w.enabled ? "Pause" : w.status === "broken" ? "Reinstall triggers" : "Resume"}
           </Button>
           <Button
@@ -251,7 +314,7 @@ function WebhookDetail({ p, w, onSecret, onDeleted }: { p: Project; w: Webhook; 
               confirm(`Delete the webhook ${w.name} and its queued events?`) &&
               act("delete", async () => {
                 await api.deleteWebhook(p.id, w.id);
-                onDeleted();
+                onClose();
               })
             }
           >
@@ -269,7 +332,11 @@ function WebhookDetail({ p, w, onSecret, onDeleted }: { p: Project; w: Webhook; 
             Dead letters only
           </label>
           {dead && (log.data?.items.length ?? 0) > 0 && (
-            <Button className="text-xs" busy={busy === "replay"} onClick={() => act("replay", async () => void (await api.replayWebhook(p.id, w.id, { all: true })))}>
+            <Button
+              className="text-xs"
+              busy={busy === "replay"}
+              onClick={() => act("replay", async () => void (await api.replayWebhook(p.id, w.id, { all: true })))}
+            >
               Replay all
             </Button>
           )}
@@ -306,6 +373,6 @@ function WebhookDetail({ p, w, onSecret, onDeleted }: { p: Project; w: Webhook; 
           </Table>
         )}
       </div>
-    </Card>
+    </SidePanel>
   );
 }

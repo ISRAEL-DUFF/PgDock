@@ -12,7 +12,7 @@ import {
 import type { components } from "../api/schema";
 import { formatBytes, formatDate } from "../lib/format";
 import { useOperationToast } from "./Toasts";
-import { Alert, Badge, Button, Panel, EmptyState, Field, Input, Modal, Select, Spinner, Table } from "./ui";
+import { Alert, Badge, Button, Panel, EmptyState, Field, Input, Dialog, Select, Spinner, Table } from "./ui";
 
 type TargetRequest = components["schemas"]["StorageTargetRequest"];
 
@@ -161,7 +161,7 @@ function DeleteTarget({ org, target, onClose }: { org?: string; target: StorageT
     }
   };
   return (
-    <Modal title={`Delete ${target.name}`} open onClose={onClose}>
+    <Dialog title={`Delete ${target.name}`} open onOpenChange={(o) => !o && onClose()}>
       <div className="flex flex-col gap-3 text-sm">
         {target.usage.projects > 0 ? (
           <Alert tone="warn">
@@ -186,7 +186,7 @@ function DeleteTarget({ org, target, onClose }: { org?: string; target: StorageT
           </Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -287,7 +287,7 @@ function DownloadKeyModal({ p, onClose }: { p: Project; onClose: () => void }) {
     }
   };
   return (
-    <Modal title="Download the project's backup key" open onClose={onClose}>
+    <Dialog title="Download the project's backup key" open onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">
           The file holds the key and a README on decrypting and restoring with standard tools (gpg and pg_restore), without PGDock. Downloads are
@@ -307,7 +307,7 @@ function DownloadKeyModal({ p, onClose }: { p: Project; onClose: () => void }) {
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 
