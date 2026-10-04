@@ -46,12 +46,15 @@ export function QuerySidebar({
   canAdminShared,
   history,
   actions,
+  className,
 }: {
   queries: SavedQuery[];
   activeId: string | null;
   canAdminShared: boolean;
   history: string[];
   actions: QueryActions;
+  /** Extra classes, for narrow screens where the list replaces the editor. */
+  className?: string;
 }) {
   const [q, setQ] = useState("");
   const f = q.trim().toLowerCase();
@@ -108,7 +111,7 @@ export function QuerySidebar({
   const empty = (text: string) => <p className="px-5 py-1 text-[12px] text-muted">{text}</p>;
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-surface" data-testid="query-sidebar">
+    <aside className={`flex w-64 shrink-0 flex-col border-r border-line bg-surface ${className ?? ""}`} data-testid="query-sidebar">
       <div className="flex items-center gap-1 border-b border-line p-3">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />

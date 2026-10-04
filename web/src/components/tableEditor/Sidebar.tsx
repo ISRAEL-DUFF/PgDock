@@ -52,6 +52,7 @@ export function Sidebar({
   current,
   canEdit,
   actions,
+  className,
 }: {
   tree: DbSchema;
   schema: string;
@@ -59,6 +60,8 @@ export function Sidebar({
   current: TableRef | null;
   canEdit: boolean;
   actions: SidebarActions;
+  /** Extra classes, for narrow screens where the list replaces the grid. */
+  className?: string;
 }) {
   const [q, setQ] = useState("");
   const [shown, setShown] = useState<Record<"view" | "materialized_view" | "foreign_table", boolean>>({ view: true, materialized_view: true, foreign_table: true });
@@ -67,7 +70,7 @@ export function Sidebar({
     return !q.trim() || t.name.toLowerCase().includes(q.trim().toLowerCase());
   });
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-surface" data-testid="table-sidebar">
+    <aside className={`flex w-64 shrink-0 flex-col border-r border-line bg-surface ${className ?? ""}`} data-testid="table-sidebar">
       <div className="flex flex-col gap-2 border-b border-line p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

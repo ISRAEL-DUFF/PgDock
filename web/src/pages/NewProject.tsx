@@ -93,7 +93,7 @@ export function NewProjectPage() {
           <FormRow label="Organisation">
             <span className="text-[13px]">{org?.name ?? "—"}</span>
           </FormRow>
-          <FormRow label="Project name" description="The database name is derived from it, e.g. “My Blog” → my_blog_k2f9." htmlFor="np-name">
+          <FormRow label="Project name" description="A label for you. The database itself gets a random name (p_…) so other tenants can’t learn project names." htmlFor="np-name">
             <Input id="np-name" aria-label="Name" required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </FormRow>
           <FormRow label="Description" description="Optional." htmlFor="np-desc">

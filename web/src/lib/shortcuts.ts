@@ -12,6 +12,7 @@ export function isMac(platform = typeof navigator === "undefined" ? "" : navigat
 
 const names: Record<string, [mac: string, other: string]> = {
   mod: ["⌘", "Ctrl"],
+  ctrl: ["⌃", "Ctrl"],
   shift: ["⇧", "Shift"],
   alt: ["⌥", "Alt"],
   enter: ["↵", "Enter"],
@@ -106,7 +107,7 @@ export function shortcutGroups(go: { label: string; key: string }[]): ShortcutGr
       items: [
         { keys: "mod+enter", label: "Run the query (or the selection)" },
         { keys: "mod+shift+f", label: "Format the SQL" },
-        { keys: "mod+space", label: "Suggest tables, columns and keywords" },
+        { keys: "ctrl+space", label: "Suggest tables, columns and keywords" },
       ],
     },
     {

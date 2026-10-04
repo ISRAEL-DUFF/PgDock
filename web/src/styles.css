@@ -160,6 +160,35 @@ body {
 .rdg.pgdock-grid [role="gridcell"] {
   padding-inline: 8px;
 }
+/* The row and header checkboxes: small enough to sit inside a 34px row. */
 .rdg.pgdock-grid input[type="checkbox"] {
-  accent-color: var(--accent);
+  appearance: none;
+  inline-size: 14px;
+  block-size: 14px;
+  margin: 0;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 3px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.rdg.pgdock-grid input[type="checkbox"]:hover {
+  border-color: var(--accent);
+}
+.rdg.pgdock-grid input[type="checkbox"]:checked,
+.rdg.pgdock-grid input[type="checkbox"]:indeterminate {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px;
+}
+.rdg.pgdock-grid input[type="checkbox"]:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3L13 4.5'/%3E%3C/svg%3E");
+}
+.rdg.pgdock-grid input[type="checkbox"]:indeterminate {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M3.5 8h9'/%3E%3C/svg%3E");
+}
+.rdg.pgdock-grid input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }

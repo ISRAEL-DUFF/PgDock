@@ -3,6 +3,30 @@
 PGDock follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
+## Unreleased
+
+### UI fixes from QA
+- Phones: the top bar's switchers no longer overlap (names and badges
+  show from the `sm` breakpoint up), and the Table Editor and SQL Editor
+  show their table or query list and the editor in turns, with a
+  Tables/Queries button, instead of squeezing the grid. The grid's footer
+  fits.
+- Column default values: a bare word on a text column (`free`) now shows
+  how to quote it (`'free'`) before the database refuses it.
+- SQL Editor completion picks up tables and columns created by the script
+  you just ran, without a reload. The shortcuts sheet names Ctrl+Space
+  (⌘Space is Spotlight on macOS).
+- The grid's row checkboxes are 14px (they were the browser's 20px, nearly
+  as tall as the row) and follow the theme, with a tick and a dash for
+  partial selection.
+- A branch or project that fails no longer shows a "save the password"
+  card, and the message says when cleanup was incomplete.
+- Row save errors in a side panel show once, inline, rather than also as
+  a toast over the Save button.
+- The schema change preview wraps long statements; the Plans table
+  names its units; the new project hint describes opaque names; the 404
+  page for signed-in users no longer uses the sign-in layout.
+
 ## v2.0.0
 
 PGDock V2: users and organisations, quotas and usage, API tokens and the

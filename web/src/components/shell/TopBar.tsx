@@ -30,11 +30,11 @@ import { LogoMark } from "./Logo";
 import type { ShellContext } from "./nav";
 
 const crumb =
-  "flex h-8 max-w-[24rem] min-w-0 items-center gap-2 rounded-md px-2 text-[13px] text-fg hover:bg-surface-2 data-[state=open]:bg-surface-2 outline-none";
+  "flex h-8 max-w-[24rem] min-w-0 shrink items-center gap-2 rounded-md px-2 text-[13px] text-fg hover:bg-surface-2 data-[state=open]:bg-surface-2 outline-none";
 
 function Slash() {
   return (
-    <span className="text-line-strong select-none" aria-hidden>
+    <span className="hidden text-line-strong select-none sm:inline" aria-hidden>
       /
     </span>
   );
@@ -58,7 +58,7 @@ export function TopBar({
   const platformAdmin = session?.user?.platform_role === "platform_admin";
   const [connect, setConnect] = useState(false);
   return (
-    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-line bg-bg px-3" data-testid="top-bar">
+    <header className="flex h-12 shrink-0 items-center gap-1 overflow-hidden border-b border-line bg-bg px-3" data-testid="top-bar">
       <button
         type="button"
         onClick={onMenu}
@@ -87,8 +87,8 @@ export function TopBar({
           <ProjectSwitcher project={project} />
           <Slash />
           <BranchSwitcher project={project} />
-          <Button size="tiny" className="ml-2" icon={<Plug className="h-3.5 w-3.5" />} onClick={() => setConnect(true)} data-testid="connect-button">
-            Connect
+          <Button size="tiny" className="ml-2 shrink-0" icon={<Plug className="h-3.5 w-3.5" />} onClick={() => setConnect(true)} data-testid="connect-button" aria-label="Connect">
+            <span className="hidden sm:inline">Connect</span>
           </Button>
           <Dialog open={connect} onOpenChange={setConnect} title={`Connect to ${project.name}`} className="w-[min(52rem,calc(100vw-2rem))]">
             <div className="max-h-[70vh] overflow-y-auto">
@@ -97,7 +97,7 @@ export function TopBar({
           </Dialog>
         </>
       )}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <button
           type="button"
           onClick={onSearch}
@@ -132,10 +132,10 @@ function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
       <DropdownMenu>
         <DropdownMenuTrigger className={crumb} data-testid="org-switcher" aria-label={`Organisation: ${org.name}`}>
           <Building2 className="h-4 w-4 shrink-0 text-muted" strokeWidth={1.6} />
-          <span className="truncate" data-testid="org-switcher-name">
+          <span className="hidden truncate sm:inline" data-testid="org-switcher-name">
             {org.name}
           </span>
-          <span className="shrink-0">{planBadge(org)}</span>
+          <span className="hidden shrink-0 sm:inline">{planBadge(org)}</span>
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-72">
@@ -299,7 +299,7 @@ function BranchSwitcher({ project }: { project: Project }) {
     <DropdownMenu onOpenChange={(o) => !o && setQ("")}>
       <DropdownMenuTrigger className={crumb} data-testid="branch-switcher" aria-label={`Branch: ${isBranch ? project.name : "main"}`}>
         <span className="truncate">{isBranch ? project.name : "main"}</span>
-        {isBranch ? <Badge tone="accent">PREVIEW</Badge> : <Badge tone="warn">PRODUCTION</Badge>}
+        <span className="hidden shrink-0 sm:inline">{isBranch ? <Badge tone="accent">PREVIEW</Badge> : <Badge tone="warn">PRODUCTION</Badge>}</span>
         <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-72 p-0">

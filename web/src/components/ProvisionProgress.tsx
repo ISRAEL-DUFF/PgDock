@@ -14,11 +14,20 @@ export function ProvisionProgress({ creds, progressTitle = "Provisioning" }: { c
   const [dismissed, setDismissed] = useState(false);
   const stream = useOperationStream(creds.operation.id);
   const ready = stream.status === "succeeded";
+  const failed = stream.status === "failed";
+  const cleanedUp = !stream.log.some((l) => /rollback incomplete/i.test(l.msg));
   return (
     <Page title={creds.project.name} description={<span className="font-mono">{creds.project.db_name}</span>}>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel title="Credentials">
-          {!dismissed ? (
+          {failed ? (
+            <div className="flex flex-col gap-3 text-sm">
+              <p>Nothing was created, so there are no credentials to save.</p>
+              <Link to="/projects" className="text-accent-text underline underline-offset-2 hover:no-underline">
+                Back to projects
+              </Link>
+            </div>
+          ) : !dismissed ? (
             <CredentialPanel creds={creds} ready={ready} onDismiss={() => setDismissed(true)} />
           ) : (
             <div className="flex flex-col gap-3 text-sm">
@@ -33,7 +42,9 @@ export function ProvisionProgress({ creds, progressTitle = "Provisioning" }: { c
           <OperationLog log={stream.log} live={!stream.done} />
           {stream.status === "failed" && (
             <div className="mt-3">
-              <Alert title={`${progressTitle} failed`}>{stream.error}. Everything it created was rolled back.</Alert>
+              <Alert title={`${progressTitle} failed`}>{stream.error}.{" "}
+                {cleanedUp ? "Everything it created was rolled back." : "It could not remove everything it created; ask an administrator to check for leftovers."}
+              </Alert>
             </div>
           )}
           {ready && (

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { TableInfo } from "../../api/client";
-import { defaultSuggestions, editorKind, parseInput, readOnlyReason } from "./cells";
+import { bareTextDefault, defaultSuggestions, editorKind, parseInput, readOnlyReason } from "./cells";
 import { asChange, blankColumn, checkExpression, createTableChange, draftFromTable, editColumnChanges, editTableChanges, newTableColumns, validateTable } from "./columnForm";
 import { describeFilter, opsFor, toGridFilters, toggleSort } from "./filters";
 import { closeTab, loadTabs, moveColumn, openTab, orderColumns, saveTabs } from "./prefs";
@@ -243,5 +243,19 @@ describe("tabs and layout", () => {
     expect(orderColumns(["id", "a", "b", "new"], ["b", "gone", "id", "a"])).toEqual(["b", "id", "a", "new"]);
     expect(moveColumn(["a", "b", "c"], "c", "a")).toEqual(["c", "a", "b"]);
     expect(moveColumn(["a", "b", "c"], "a", "c")).toEqual(["b", "c", "a"]);
+  });
+});
+
+describe("bareTextDefault", () => {
+  it("flags unquoted words on text columns", () => {
+    expect(bareTextDefault("text", "free")).toBe("'free'");
+    expect(bareTextDefault("varchar(20)", "new user")).toBe("'new user'");
+  });
+  it("leaves expressions, literals and other types alone", () => {
+    expect(bareTextDefault("text", "'free'")).toBeNull();
+    expect(bareTextDefault("text", "now()")).toBeNull();
+    expect(bareTextDefault("text", "null")).toBeNull();
+    expect(bareTextDefault("text", "")).toBeNull();
+    expect(bareTextDefault("integer", "free")).toBeNull();
   });
 });
