@@ -322,7 +322,6 @@ export function EmptyState({
   );
 }
 
-
 export function Table({
   head,
   children,

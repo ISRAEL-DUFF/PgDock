@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type AdminOrg, type DedicatedRequest, type Plan } from "../api/client";
-import { Alert, Badge, Button, Panel, Field, Input, Dialog, PageHeading, Select, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Panel, Field, Input, Dialog, PageHeading, Select, SidePanel, Spinner, Table } from "../components/ui";
 import { formatBytes, formatDate } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
 import { formatQuantity, LIMIT_LABELS, monthStart } from "../lib/usage";
@@ -301,7 +301,7 @@ function SuspendCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<voi
     }
   };
   return (
-    <Panel title="Suspension">
+    <Panel title="Suspension" tone="danger">
       <p className="mb-3 text-sm text-muted">
         Suspending takes every project offline (pooler routes and logins off), pauses scheduled backups after one last backup, and emails the owners. Data is
         kept; reinstating reverses it all.
@@ -316,7 +316,7 @@ function SuspendCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<voi
           Suspend…
         </Button>
       )}
-      <Dialog title={`Suspend ${org.org.name}`} open={open} onOpenChange={(o) => !o && (() => setOpen(false))()}>
+      <Dialog title={`Suspend ${org.org.name}`} open={open} onOpenChange={setOpen}>
         <form className="flex flex-col gap-3" onSubmit={run}>
           <Field label="Reason (shown to its members)">
             {(id) => <Input id={id} required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} />}
@@ -364,7 +364,7 @@ function BreakGlassCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<
     }
   };
   return (
-    <Panel title="Break-glass access">
+    <Panel title="Break-glass access" tone="warn">
       <p className="mb-3 text-sm text-muted">
         For support or an incident: act as an admin of this organisation for up to 4 hours. Every owner is emailed at once, everyone in the organisation sees a
         banner, every action is flagged in its audit log and yours, and any owner can end it.
@@ -383,7 +383,7 @@ function BreakGlassCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<
           Start break-glass…
         </Button>
       )}
-      <Dialog title={`Break-glass access to ${org.org.name}`} open={open} onOpenChange={(o) => !o && (() => setOpen(false))()}>
+      <Dialog title={`Break-glass access to ${org.org.name}`} open={open} onOpenChange={setOpen}>
         <form className="flex flex-col gap-3" onSubmit={start}>
           <Field label="Reason (the owners see it)">
             {(id) => <Input id={id} required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} />}
@@ -483,11 +483,23 @@ function PlanModal({ plan, keys, onClose, onSaved }: { plan: Plan | null; keys: 
     }
   };
   return (
-    <Dialog title={plan ? `Edit ${plan.name}` : "New plan"} open onOpenChange={(o) => !o && onClose()}>
-      <form className="flex flex-col gap-3" onSubmit={submit}>
+    <SidePanel
+      title={plan ? `Edit ${plan.name}` : "New plan"}
+      description="Leave a limit blank for unlimited."
+      open
+      onOpenChange={(o) => !o && onClose()}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="plan-form" variant="primary" busy={busy}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <form id="plan-form" className="flex flex-col gap-4" onSubmit={submit}>
         <Field label="Name">{(id) => <Input id={id} required value={name} onChange={(e) => setName(e.target.value)} maxLength={64} />}</Field>
-        <p className="text-xs text-muted">Leave a limit blank for unlimited.</p>
-        <div className="grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {keys.map((k) => (
             <Field key={k} label={`${LIMIT_LABELS[k]?.label ?? k}${LIMIT_LABELS[k]?.unit ? ` (${LIMIT_LABELS[k].unit})` : ""}`}>
               {(id) => <Input id={id} type="number" min={0} value={limits[k] ?? ""} onChange={(e) => setLimits((l) => ({ ...l, [k]: e.target.value }))} />}
@@ -495,11 +507,8 @@ function PlanModal({ plan, keys, onClose, onSaved }: { plan: Plan | null; keys: 
           ))}
         </div>
         {err && <Alert>{err}</Alert>}
-        <Button type="submit" variant="primary" busy={busy}>
-          Save
-        </Button>
       </form>
-    </Dialog>
+    </SidePanel>
   );
 }
 

@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, type OrgQuotas, type QuotaItem } from "../api/client";
 import { LineChart } from "../components/LineChart";
-import { Alert, Badge, Panel, cx, EmptyState, PageHeading, Select, Spinner, Table } from "../components/ui";
+import { Download } from "lucide-react";
+import { Alert, Badge, Panel, cx, EmptyState, Page, Section, Select, Spinner, Stat, Table } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { canManageOrg, useCurrentOrg } from "../lib/org";
 import { formatQuantity, hourly, LIMIT_LABELS, monthStart, quotaRatio } from "../lib/usage";
@@ -115,50 +116,58 @@ export function UsagePage() {
   ];
 
   return (
-    <>
-      <PageHeading
-        title="Usage & quotas"
-        description="What your organisation uses, recorded hourly. Nothing is billed yet; this is so you can see where it goes."
-        actions={
-          <div className="flex items-center gap-2">
-            <Select aria-label="Range" value={range} onChange={(e) => setRange(e.target.value as Range)} data-testid="usage-range">
-              <option value="month">This month</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-            </Select>
-            <a
-              className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-2"
-              href={api.orgUsageCsvUrl(org.id, params)}
-              download
-              data-testid="usage-csv"
-            >
-              Export CSV
-            </a>
-          </div>
-        }
-      />
-      <div className="flex flex-col gap-4">
-        {quotas.data && <QuotasCard quotas={quotas.data} />}
+    <Page
+      title="Usage & quotas"
+      description="What your organisation uses, recorded hourly. Nothing is billed yet; this is so you can see where it goes."
+      actions={
+        <div className="flex items-center gap-2">
+          <Select aria-label="Range" value={range} onChange={(e) => setRange(e.target.value as Range)} data-testid="usage-range">
+            <option value="month">This month</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+          </Select>
+          <a
+            className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-line-strong bg-surface-2 px-2.5 text-[13px] hover:bg-surface-3"
+            href={api.orgUsageCsvUrl(org.id, params)}
+            download
+            data-testid="usage-csv"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </a>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-8">
+        {quotas.data && (
+          <Section title="Plan limits" description="What the shared tier allows, and how much of it you use.">
+            <QuotasCard quotas={quotas.data} />
+          </Section>
+        )}
         {usage.isError && <Alert>Could not load usage.</Alert>}
         {usage.isPending && <Spinner />}
         {usage.data && (
           <>
-            <Panel title="Totals">
+            <Section title="Totals" description="Over the range picked above.">
               {usage.data.totals.length === 0 ? (
-                <p className="text-sm text-muted">Nothing recorded in this range yet. Usage is recorded at the end of each hour.</p>
+                <p className="text-[13px] text-muted">Nothing recorded in this range yet. Usage is recorded at the end of each hour.</p>
               ) : (
-                <Table head={["Metric", "Total"]}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {usage.data.totals.map((t) => (
-                    <tr key={t.metric} data-testid={`usage-total-${t.metric}`}>
-                      <td className="px-3 py-2">{t.metric.replaceAll("_", " ")}</td>
-                      <td className="px-3 py-2 font-mono">
-                        {formatQuantity(t.quantity)} {units[t.metric] ?? ""}
-                      </td>
-                    </tr>
+                    <Stat
+                      key={t.metric}
+                      label={t.metric.replaceAll("_", " ")}
+                      value={
+                        <span className="font-mono">
+                          {formatQuantity(t.quantity)} <span className="text-[13px] text-muted">{units[t.metric] ?? ""}</span>
+                        </span>
+                      }
+                      testId={`usage-total-${t.metric}`}
+                    />
                   ))}
-                </Table>
+                </div>
               )}
-            </Panel>
+            </Section>
             <Panel title="Shared-tier storage by hour (GB)">
               <LineChart label="Storage by hour" series={series} from={from.getTime()} to={to.getTime()} format={(v) => `${formatQuantity(v)} GB`} />
               <details className="mt-3">
@@ -206,6 +215,6 @@ export function UsagePage() {
           </Panel>
         )}
       </div>
-    </>
+    </Page>
   );
 }

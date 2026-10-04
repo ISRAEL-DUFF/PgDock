@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type AdminUser, type InvitationCreated } from "../api/client";
-import { Alert, Badge, Button, Field, Input, Dialog, PageHeading, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Field, Input, Dialog, PageHeading, SidePanel, Spinner, Table } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { sessionQuery } from "../lib/session";
 import { InvitationResult } from "./Org";
@@ -156,28 +156,35 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
     }
   };
   return (
-    <Dialog title="Invite someone to PGDock" open={open} onOpenChange={(o) => !o && close()}>
-      {created ? (
-        <div className="flex flex-col gap-3">
-          <InvitationResult created={created} />
+    <SidePanel
+      title="Invite someone to PGDock"
+      description="They get an account and a personal organisation, and no access to anyone else's."
+      open={open}
+      onOpenChange={(o) => !o && close()}
+      footer={
+        created ? (
           <Button variant="primary" onClick={close}>
             Done
           </Button>
-        </div>
-      ) : (
-        <form className="flex flex-col gap-4" onSubmit={submit}>
-          <p className="text-sm text-muted">They get an account and a personal organisation, and no access to anyone else's.</p>
-          <Field label="Email">{(id) => <Input id={id} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />}</Field>
-          {err && <Alert>{err}</Alert>}
-          <div className="flex justify-end gap-2">
+        ) : (
+          <>
             <Button onClick={close}>Cancel</Button>
-            <Button type="submit" variant="primary" busy={busy}>
+            <Button type="submit" form="platform-invite" variant="primary" busy={busy}>
               Send invitation
             </Button>
-          </div>
+          </>
+        )
+      }
+    >
+      {created ? (
+        <InvitationResult created={created} />
+      ) : (
+        <form id="platform-invite" className="flex flex-col gap-4" onSubmit={submit}>
+          <Field label="Email">{(id) => <Input id={id} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />}</Field>
+          {err && <Alert>{err}</Alert>}
         </form>
       )}
-    </Dialog>
+    </SidePanel>
   );
 }
 

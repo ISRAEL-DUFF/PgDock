@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type APIToken, type CreatedToken, type TokenScope } from "../api/client";
 import { formatDate, relativeTime } from "../lib/format";
-import { Alert, Badge, Button, Panel, CodeBlock, CopyField, Field, Input, Dialog, Select, Table } from "./ui";
+import { Alert, Badge, Button, Panel, CodeBlock, CopyField, Field, Input, Select, SidePanel, Table } from "./ui";
 
 export const SCOPE_TEXT: Record<TokenScope, string> = {
   read: "View everything you can see in the organisation, and run read-only SQL",
@@ -132,16 +132,37 @@ function NewTokenModal({ open, onClose }: { open: boolean; onClose: () => void }
     }
   };
   return (
-    <Dialog title="New API token" open={open} onOpenChange={(o) => !o && close()}>
-      {created ? (
-        <div className="flex flex-col gap-4">
-          <TokenSecret created={created} />
-          <Button variant="primary" className="self-end" onClick={close}>
+    <SidePanel
+      title="New API token"
+      description="For the pgdock CLI, CI jobs and scripts."
+      open={open}
+      onOpenChange={(o) => !o && close()}
+      footer={
+        created ? (
+          <Button variant="primary" onClick={close}>
             Done
           </Button>
-        </div>
+        ) : (
+          <>
+            <Button onClick={close}>Cancel</Button>
+            <Button
+              type="submit"
+              form="new-token-form"
+              variant="primary"
+              busy={busy}
+              disabled={!name.trim() || !org || (projects !== null && projects.length === 0)}
+              data-testid="create-token"
+            >
+              Create token
+            </Button>
+          </>
+        )
+      }
+    >
+      {created ? (
+        <TokenSecret created={created} />
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form id="new-token-form" className="flex flex-col gap-5" onSubmit={submit}>
           <Field label="Name" hint="What it's for, e.g. “GitHub Actions — blog”.">
             {(id) => <Input id={id} required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} autoFocus />}
           </Field>
@@ -171,21 +192,9 @@ function NewTokenModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
           </Field>
           {err && <Alert>{err}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button onClick={close}>Cancel</Button>
-            <Button
-              type="submit"
-              variant="primary"
-              busy={busy}
-              disabled={!name.trim() || !org || (projects !== null && projects.length === 0)}
-              data-testid="create-token"
-            >
-              Create token
-            </Button>
-          </div>
         </form>
       )}
-    </Dialog>
+    </SidePanel>
   );
 }
 
@@ -236,7 +245,7 @@ export function TokensCard() {
   };
   return (
     <Panel
-      title="API tokens"
+      title="Your API tokens"
       actions={
         <Button onClick={() => setOpen(true)} data-testid="new-token">
           New token
