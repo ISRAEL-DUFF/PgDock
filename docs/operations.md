@@ -92,6 +92,35 @@ project or organisation drops their logins and ends their connections at
 once; the app's own `<db>_owner` password is never shared, so it never
 needs rotating when people leave.
 
+## Platform admins and recovery
+
+The first account, made in the setup wizard, is the platform admin. Any
+platform admin can make another account an admin (Admin → Users → **Make
+admin**) or take the role away (**Remove admin**). Both ask for your
+password and an authenticator code again. The account must be active,
+approved, verified and have two-factor set up; it is signed out and emailed
+when its role changes, and the last active admin can't be removed. Keep at
+least two admins, so losing one phone never locks you out.
+
+If nobody who is an admin can sign in, recover from the server, where you
+already hold the metadata database and `.env`:
+
+```sh
+docker compose exec pgdock-server pgdock-server admin list
+docker compose exec pgdock-server pgdock-server admin promote you@example.com
+docker compose exec pgdock-server pgdock-server admin reset-2fa you@example.com
+docker compose exec pgdock-server pgdock-server admin reset-password you@example.com
+```
+
+`promote` also approves, verifies and re-enables the account (it need not
+have an authenticator yet; its next sign-in sets one up). `reset-2fa` removes
+the authenticator and recovery codes, so the next sign-in sets up new ones.
+`reset-password` prints a one-hour, single-use link for when email doesn't
+work. `demote` makes an admin an ordinary user, and still refuses to remove
+the last one. Each change is written to the platform audit log as done on the
+server. Anyone who can run these commands already controls the database, so
+guard that access like the master key.
+
 As platform admin you manage accounts (Users: approve, disable, reset
 two-factor after checking who they are), email, sign-up, and the terms.
 You do not see into other people's organisations through the UI. The

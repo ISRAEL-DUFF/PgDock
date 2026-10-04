@@ -146,3 +146,14 @@ DELETE FROM sessions WHERE id = @id;
 
 -- name: DeleteIdleSessions :exec
 DELETE FROM sessions WHERE last_seen_at < @idle_before OR created_at < @created_before;
+
+-- name: LockPlatformRoles :exec
+-- Serialises platform role changes, so two admins can't each demote the other.
+SELECT pg_advisory_xact_lock(7003001);
+
+-- name: SetUserPlatformRole :one
+UPDATE users SET platform_role = @role WHERE id = @id RETURNING *;
+
+-- name: ListPlatformAdmins :many
+-- tenant: system - the platform's own administrators.
+SELECT * FROM users WHERE platform_role = 'platform_admin' ORDER BY created_at;

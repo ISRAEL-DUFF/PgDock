@@ -2372,7 +2372,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Approve, disable, or re-enable an account (platform admin) */
+        /** Approve, disable or re-enable an account, or change its platform role (platform admin) */
         patch: operations["updateUser"];
         trace?: never;
     };
@@ -5042,6 +5042,15 @@ export interface components {
             /** @description true approves an account waiting in approval mode. */
             approved?: boolean;
             disabled?: boolean;
+            /**
+             * @description Makes the account a platform admin, or an ordinary user again.
+             *     Needs a recent step-up authentication. The account must be
+             *     active, approved, verified and have two-factor set up. The last
+             *     active platform admin can't be demoted. The account's sessions
+             *     end, and it is emailed.
+             * @enum {string}
+             */
+            platform_role?: "platform_admin" | "user";
         };
         SignupSettings: {
             /** @enum {string} */

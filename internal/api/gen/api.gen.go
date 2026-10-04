@@ -1670,6 +1670,24 @@ func (e UpdateNodeRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for UpdateUserRequestPlatformRole.
+const (
+	UpdateUserRequestPlatformRolePlatformAdmin UpdateUserRequestPlatformRole = "platform_admin"
+	UpdateUserRequestPlatformRoleUser          UpdateUserRequestPlatformRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the UpdateUserRequestPlatformRole enum.
+func (e UpdateUserRequestPlatformRole) Valid() bool {
+	switch e {
+	case UpdateUserRequestPlatformRolePlatformAdmin:
+		return true
+	case UpdateUserRequestPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UsageMetricGranularity.
 const (
 	UsageMetricGranularityDay  UsageMetricGranularity = "day"
@@ -4550,7 +4568,21 @@ type UpdateUserRequest struct {
 	// Approved true approves an account waiting in approval mode.
 	Approved *bool `json:"approved,omitempty"`
 	Disabled *bool `json:"disabled,omitempty"`
+
+	// PlatformRole Makes the account a platform admin, or an ordinary user again.
+	// Needs a recent step-up authentication. The account must be
+	// active, approved, verified and have two-factor set up. The last
+	// active platform admin can't be demoted. The account's sessions
+	// end, and it is emailed.
+	PlatformRole *UpdateUserRequestPlatformRole `json:"platform_role,omitempty"`
 }
+
+// UpdateUserRequestPlatformRole Makes the account a platform admin, or an ordinary user again.
+// Needs a recent step-up authentication. The account must be
+// active, approved, verified and have two-factor set up. The last
+// active platform admin can't be demoted. The account's sessions
+// end, and it is emailed.
+type UpdateUserRequestPlatformRole string
 
 // UsageMetric defines model for UsageMetric.
 type UsageMetric struct {
@@ -5452,7 +5484,7 @@ type ServerInterface interface {
 	// ListUsers Every account (platform admin)
 	// (GET /api/v1/admin/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, params ListUsersParams)
-	// UpdateUser Approve, disable, or re-enable an account (platform admin)
+	// UpdateUser Approve, disable or re-enable an account, or change its platform role (platform admin)
 	// (PATCH /api/v1/admin/users/{user})
 	UpdateUser(w http.ResponseWriter, r *http.Request, user UserID)
 	// ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
@@ -6181,7 +6213,7 @@ func (_ Unimplemented) ListUsers(w http.ResponseWriter, r *http.Request, params 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// UpdateUser Approve, disable, or re-enable an account (platform admin)
+// UpdateUser Approve, disable or re-enable an account, or change its platform role (platform admin)
 // (PATCH /api/v1/admin/users/{user})
 func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, user UserID) {
 	w.WriteHeader(http.StatusNotImplemented)
