@@ -314,6 +314,31 @@ Radix `Dialog`/`SidePanel`.
 - Visual regression screenshots of the key screens in the e2e run.
 - The documentation's UI paths and screenshots updated.
 
+**Built:**
+
+- Shortcuts: `?` opens a sheet listing them all; `g` then a letter jumps
+  to a section (the rail shows the letter when expanded; `g o` overview,
+  `g t` Table Editor, `g s` SQL Editor, `g d` Database, `g r` Reports,
+  `g l` Logs, `g ,` settings; `g p` projects, `g m` members, `g u` usage
+  in the organisation); `[` hides or shows the section menu; `⌘K`
+  searches. They stay out of the way while you type, and hints show Ctrl
+  or ⌘ depending on the platform.
+- Loading skeletons (table, cards, settings panel, page) instead of
+  spinners; empty states with an icon, a line of explanation and the
+  action that fills the list.
+- Below the `md` breakpoint the rail and the section menu become one
+  drawer, opened from the top bar; side panels are already full width
+  there.
+- Colours: fills (buttons, switches) and text colours are separate
+  tokens (`--accent` / `--accent-text`, and the same for ok, warn and
+  danger), and every text/background pair meets WCAG AA (4.5:1) in both
+  themes. Editor tab strips are navigation landmarks; inline links are
+  underlined.
+- The e2e run checks every screenshot with axe (WCAG 2.1 A and AA):
+  serious and critical issues fail it. `PGDOCK_E2E_AXE=report` writes them
+  to `axe.jsonl` instead. A journey covers the shortcuts and the
+  narrow-screen menu.
+
 **Done when:** an accessibility pass (axe) shows no serious issues on the
 key screens and the screenshots are reviewed.
 

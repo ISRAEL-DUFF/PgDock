@@ -17,6 +17,17 @@ platform admin can reset your two-factor after confirming who you are.
 and name, and shows new recovery codes (after confirming your password and
 code). A password reset by email signs you out everywhere.
 
+### Getting around
+
+The bar at the top shows where you are (organisation, project, branch);
+the icons on the left are the current project's or organisation's
+sections. **⌘K** (Ctrl+K) searches projects and pages. Press **?** for
+every keyboard shortcut: **g** then a letter jumps to a section (**g t**
+Table Editor, **g s** SQL Editor, **g o** overview, **g p** projects…),
+and **[** hides the section menu. On a phone, the menu button at the top
+left opens the same navigation. The theme (dark, light or your system's)
+is in your account menu.
+
 ## Organisations
 
 Everything you create belongs to an **organisation**. You start with a
