@@ -69,7 +69,7 @@ docker compose version
 ```sh
 git clone https://github.com/israel-duff/pgdock.git
 cd pgdock
-git checkout v1.0.0
+git checkout v2.0.0
 ```
 
 ## 5. Run the installer

@@ -3,7 +3,34 @@
 PGDock follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
-## Unreleased
+## v2.0.0
+
+PGDock V2: users and organisations, quotas and usage, API tokens and the
+CLI, visual table editing, your own backup storage, database branching,
+demotion, webhooks and scheduled jobs, and a redesigned UI.
+
+**Upgrading from v1.0.0:** read [docs/upgrade.md](docs/upgrade.md) first,
+and upgrade agents before the server.
+
+### A redesigned UI
+- The whole UI follows Supabase Studio's layout: a top bar with
+  organisation, project and branch switchers, an icon rail with section
+  menus, and dark and light themes (dark by default).
+- **Table Editor:** a spreadsheet grid with filters, multi-column sort,
+  immediate cell edits (conflicts reported), rows and columns edited in
+  side panels, CSV/JSON/SQL export, and every schema change shown as SQL
+  before it runs. Columns can be created with UNIQUE, CHECK and foreign
+  keys; tables can be duplicated and commented.
+- **SQL Editor:** a code editor with schema-aware completion and
+  formatting, saved queries (private or shared with the project, with
+  favourites), history and templates.
+- Project pages: Database (branches, backups, webhooks, jobs, extensions,
+  migrations), Reports, Logs, and settings split into General, Database,
+  Compute and tier, and Backup storage.
+- Organisation, account and admin pages in the same style; projects shown
+  as cards with their branches.
+- Keyboard shortcuts (press `?`), loading skeletons, a navigation drawer
+  on phones, and colours that meet WCAG AA in both themes.
 
 ### Fixes from QA
 - Request bodies with unknown fields are refused (`400`) instead of
