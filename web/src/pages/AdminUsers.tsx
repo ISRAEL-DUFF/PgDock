@@ -16,6 +16,7 @@ export function AdminUsersPage() {
   const invitations = useQuery({ queryKey: ["admin", "invitations"], queryFn: api.platformInvitations });
   const [inviting, setInviting] = useState(false);
   const [resetting, setResetting] = useState<AdminUser | null>(null);
+  const [roleFor, setRoleFor] = useState<AdminUser | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const act = async (f: () => Promise<unknown>) => {
     setErr(null);
@@ -86,6 +87,11 @@ export function AdminUsersPage() {
                       Reset 2FA
                     </Button>
                   )}
+                  {u.id !== session?.user?.id && u.approved && u.email_verified && !u.disabled && (u.totp_enabled || u.platform_role === "platform_admin") && (
+                    <Button className="text-xs" onClick={() => setRoleFor(u)} data-testid={`role-${u.email}`}>
+                      {u.platform_role === "platform_admin" ? "Remove admin" : "Make admin"}
+                    </Button>
+                  )}
                   {u.id !== session?.user?.id && (
                     <Button
                       className="text-xs"
@@ -128,6 +134,7 @@ export function AdminUsersPage() {
         }}
       />
       <ResetTotpModal user={resetting} onClose={() => setResetting(null)} />
+      <PlatformRoleModal user={roleFor} onClose={() => setRoleFor(null)} />
     </>
   );
 }
@@ -230,6 +237,59 @@ function ResetTotpModal({ user, onClose }: { user: AdminUser | null; onClose: ()
           <Button onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="danger" busy={busy} disabled={!confirmed || !password || code.length < 6}>
             Reset 2FA
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+/** Makes an account a platform admin, or an ordinary user again. It asks for
+ * the signed-in admin's password and a code first. */
+function PlatformRoleModal({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const promoting = user?.platform_role !== "platform_admin";
+  const close = () => {
+    setPassword("");
+    setCode("");
+    setErr(null);
+    onClose();
+  };
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.reauth({ password, code });
+      await api.updateUser(user.id, { platform_role: promoting ? "platform_admin" : "user" });
+      await qc.invalidateQueries({ queryKey: ["admin"] });
+      close();
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog title={promoting ? "Make a platform admin" : "Remove platform admin"} open={!!user} onOpenChange={(o) => !o && close()}>
+      <form className="flex flex-col gap-4" onSubmit={submit}>
+        <p className="text-sm text-muted">
+          {promoting
+            ? `${user?.email} will be able to manage users, plans, nodes and the platform's settings, and will see the platform admin area. They are signed out and emailed.`
+            : `${user?.email} will lose access to the platform admin area; their own organisations and projects stay as they are. They are signed out and emailed. The last platform admin can't be removed.`}
+        </p>
+        <Field label="Your password">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+        <Field label="Your authenticator code">{(id) => <Input id={id} inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />}</Field>
+        {err && <Alert>{err}</Alert>}
+        <div className="flex justify-end gap-2">
+          <Button onClick={close}>Cancel</Button>
+          <Button type="submit" variant={promoting ? "primary" : "danger"} busy={busy} disabled={!password || code.length < 6} data-testid="role-confirm">
+            {promoting ? "Make admin" : "Remove admin"}
           </Button>
         </div>
       </form>

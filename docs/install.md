@@ -129,6 +129,14 @@ first visit, which can take a few seconds. Then:
 8. **Local node**: the bundled agent has already registered itself; the
    wizard shows it as healthy.
 
+**Add a second platform admin.** The wizard makes exactly one. Once a
+colleague has an account with two-factor set up (invite them under Admin →
+Users), choose **Make admin** next to their name; it asks for your password
+and a code. With two admins, one lost phone doesn't lock you out. If you ever
+are locked out, recover from the server:
+`docker compose exec pgdock-server pgdock-server admin promote <email>` (see
+[operations](operations.md#platform-admins-and-recovery)).
+
 ## 7. Your first database
 
 Projects → **New project**, give it a name, and create it. PGDock shows the

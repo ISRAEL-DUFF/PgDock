@@ -3126,7 +3126,7 @@ paths:
   /api/v1/admin/users/{user}:
     patch:
       operationId: updateUser
-      summary: Approve, disable, or re-enable an account (platform admin)
+      summary: Approve, disable or re-enable an account, or change its platform role (platform admin)
       tags: [admin]
       parameters:
         - $ref: "#/components/parameters/UserID"
@@ -8012,6 +8012,15 @@ components:
           description: true approves an account waiting in approval mode.
         disabled:
           type: boolean
+        platform_role:
+          type: string
+          enum: [platform_admin, user]
+          description: |
+            Makes the account a platform admin, or an ordinary user again.
+            Needs a recent step-up authentication. The account must be
+            active, approved, verified and have two-factor set up. The last
+            active platform admin can't be demoted. The account's sessions
+            end, and it is emailed.
     SignupSettings:
       type: object
       required: [mode]

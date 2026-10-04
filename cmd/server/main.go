@@ -65,6 +65,9 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		return runAdmin(os.Args[2:])
+	}
 	showVersion := flag.Bool("version", false, "print version and exit")
 	requireUI := flag.Bool("require-ui", false, "exit with an error if only the placeholder UI is embedded")
 	genKey := flag.Bool("gen-master-key", false, "print a new random master key for PGDOCK_MASTER_KEY and exit")
