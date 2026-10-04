@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, type OrgQuotas, type QuotaItem } from "../api/client";
 import { LineChart } from "../components/LineChart";
-import { Alert, Badge, Card, cx, EmptyState, PageHeader, Select, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Panel, cx, EmptyState, PageHeading, Select, Spinner, Table } from "../components/ui";
 import { formatDate } from "../lib/format";
 import { canManageOrg, useCurrentOrg } from "../lib/org";
 import { formatQuantity, hourly, LIMIT_LABELS, monthStart, quotaRatio } from "../lib/usage";
@@ -47,11 +47,15 @@ export function QuotaBar({ q }: { q: QuotaItem }) {
 export function QuotasCard({ quotas, compact }: { quotas: OrgQuotas; compact?: boolean }) {
   const shown = compact
     ? quotas.items.filter((q) => ["projects", "shared_storage_mb", "project_storage_mb"].includes(q.limit))
-    : quotas.items.filter((q) => LIMIT_LABELS[q.limit] && !["branches", "webhook_deliveries_per_min", "scheduled_jobs", "job_min_interval_s", "http_job_runs_per_hour"].includes(q.limit));
+    : quotas.items.filter(
+        (q) =>
+          LIMIT_LABELS[q.limit] &&
+          !["branches", "webhook_deliveries_per_min", "scheduled_jobs", "job_min_interval_s", "http_job_runs_per_hour"].includes(q.limit),
+      );
   const a = quotas.dedicated_allowance;
   const u = quotas.dedicated_use;
   return (
-    <Card title={compact ? undefined : `Plan: ${quotas.plan}`}>
+    <Panel title={compact ? undefined : `Plan: ${quotas.plan}`}>
       <div className={cx("grid gap-3", compact ? "sm:grid-cols-3" : "sm:grid-cols-2")} data-testid="quotas">
         {shown.map((q) => (
           <QuotaBar key={q.limit} q={q} />
@@ -69,7 +73,7 @@ export function QuotasCard({ quotas, compact }: { quotas: OrgQuotas; compact?: b
           </div>
         )}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -85,7 +89,11 @@ export function UsagePage() {
     queryFn: () => api.orgUsage(org!.id, params),
     enabled: !!org && canManageOrg(org),
   });
-  const requests = useQuery({ queryKey: ["org", org?.id, "dedicated-requests"], queryFn: () => api.orgDedicatedRequests(org!.id), enabled: !!org && canManageOrg(org) });
+  const requests = useQuery({
+    queryKey: ["org", org?.id, "dedicated-requests"],
+    queryFn: () => api.orgDedicatedRequests(org!.id),
+    enabled: !!org && canManageOrg(org),
+  });
   const points = useMemo(() => hourly(usage.data?.records ?? []), [usage.data]);
   const projects = useMemo(() => {
     const total: Record<string, number> = {};
@@ -108,9 +116,9 @@ export function UsagePage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeading
         title="Usage & quotas"
-        subtitle="What your organisation uses, recorded hourly. Nothing is billed yet; this is so you can see where it goes."
+        description="What your organisation uses, recorded hourly. Nothing is billed yet; this is so you can see where it goes."
         actions={
           <div className="flex items-center gap-2">
             <Select aria-label="Range" value={range} onChange={(e) => setRange(e.target.value as Range)} data-testid="usage-range">
@@ -118,7 +126,12 @@ export function UsagePage() {
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
             </Select>
-            <a className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-2" href={api.orgUsageCsvUrl(org.id, params)} download data-testid="usage-csv">
+            <a
+              className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-2"
+              href={api.orgUsageCsvUrl(org.id, params)}
+              download
+              data-testid="usage-csv"
+            >
               Export CSV
             </a>
           </div>
@@ -130,7 +143,7 @@ export function UsagePage() {
         {usage.isPending && <Spinner />}
         {usage.data && (
           <>
-            <Card title="Totals">
+            <Panel title="Totals">
               {usage.data.totals.length === 0 ? (
                 <p className="text-sm text-muted">Nothing recorded in this range yet. Usage is recorded at the end of each hour.</p>
               ) : (
@@ -145,8 +158,8 @@ export function UsagePage() {
                   ))}
                 </Table>
               )}
-            </Card>
-            <Card title="Shared-tier storage by hour (GB)">
+            </Panel>
+            <Panel title="Shared-tier storage by hour (GB)">
               <LineChart label="Storage by hour" series={series} from={from.getTime()} to={to.getTime()} format={(v) => `${formatQuantity(v)} GB`} />
               <details className="mt-3">
                 <summary className="cursor-pointer text-sm text-muted" data-testid="usage-hours-toggle">
@@ -170,11 +183,11 @@ export function UsagePage() {
                   </Table>
                 </div>
               </details>
-            </Card>
+            </Panel>
           </>
         )}
         {requests.data && requests.data.items.length > 0 && (
-          <Card title="Dedicated instance requests">
+          <Panel title="Dedicated instance requests">
             <Table head={["Project", "Size", "Status", "Asked"]}>
               {requests.data.items.map((r) => (
                 <tr key={r.id}>
@@ -190,7 +203,7 @@ export function UsagePage() {
                 </tr>
               ))}
             </Table>
-          </Card>
+          </Panel>
         )}
       </div>
     </>

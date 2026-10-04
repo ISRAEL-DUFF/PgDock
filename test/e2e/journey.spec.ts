@@ -542,7 +542,7 @@ test.describe("with the saved session", () => {
 
     // 6. The projects list shows the last backup.
     await page.goto("/projects");
-    const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: "Notes", exact: true }) });
+    const row = page.getByTestId("project-card").filter({ has: page.getByRole("link", { name: "Notes", exact: true }) });
     await expect(row.getByTestId("last-backup-cell")).not.toContainText("never");
     await shot(page, "15-projects-last-backup");
 

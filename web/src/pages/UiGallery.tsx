@@ -5,7 +5,7 @@ import {
   Alert,
   Badge,
   Button,
-  Card,
+  Panel,
   Checkbox,
   CodeBlock,
   CopyField,
@@ -178,9 +178,9 @@ export function UiGalleryPage() {
 
         <Section title="Cards, tables, code">
           <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
-            <Card title="Connection">
+            <Panel title="Connection">
               <CopyField label="Connection string" value="postgres://app:secret@db.example.com:6432/app" secret />
-            </Card>
+            </Panel>
             <CodeBlock code={"select id, email\n  from auth.users\n limit 10;"} />
           </div>
           <Table head={["Name", "Type", "Default"]}>

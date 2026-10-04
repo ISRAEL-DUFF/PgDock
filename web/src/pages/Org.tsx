@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type InvitationCreated, type Org, type OrgMember, type OrgRole, type ProjectRole } from "../api/client";
-import { Alert, Badge, Button, Card, CopyField, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Panel, CopyField, EmptyState, Field, Input, Dialog, PageHeading, Select, Spinner, Table } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { canManageOrg, setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { StorageTargetsPanel } from "../components/StorageTargets";
@@ -44,9 +44,9 @@ export function OrgMembersPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeading
         title="Members"
-        subtitle={`People in ${org.name}. Owners and admins manage everything; members see the projects they're added to.`}
+        description={`People in ${org.name}. Owners and admins manage everything; members see the projects they're added to.`}
         actions={
           <div className="flex gap-2">
             {owner && (
@@ -99,22 +99,33 @@ export function OrgMembersPage() {
                     value={m.role}
                     onChange={(e) => act(() => api.setOrgRole(org.id, m.user_id, e.target.value as OrgRole))}
                   >
-                    {orgRoles.filter((r) => owner || r !== "owner" || m.role === "owner").map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
+                    {orgRoles
+                      .filter((r) => owner || r !== "owner" || m.role === "owner")
+                      .map((r) => (
+                        <option key={r}>{r}</option>
+                      ))}
                   </Select>
                 ) : (
                   m.role
                 )}
               </td>
               <td className="px-3 py-2 text-xs">
-                {m.role === "member" ? (m.projects.length ? m.projects.map((p) => `${p.project_name} (${p.role.replace("_", "-")})`).join(", ") : "none") : "all (admin)"}
+                {m.role === "member"
+                  ? m.projects.length
+                    ? m.projects.map((p) => `${p.project_name} (${p.role.replace("_", "-")})`).join(", ")
+                    : "none"
+                  : "all (admin)"}
               </td>
               <td className="px-3 py-2">{m.totp_enabled ? <Badge tone="ok">on</Badge> : <Badge tone="warn">not set up</Badge>}</td>
               <td className="px-3 py-2 text-xs text-muted">{m.last_active_at ? relativeTime(m.last_active_at) : "—"}</td>
               <td className="px-3 py-2 text-right">
                 {manage && m.user_id !== session?.user?.id && (owner || m.role !== "owner") && (
-                  <Button className="text-xs" variant="danger" onClick={() => act(() => api.removeOrgMember(org.id, m.user_id))} data-testid={`remove-${m.email}`}>
+                  <Button
+                    className="text-xs"
+                    variant="danger"
+                    onClick={() => act(() => api.removeOrgMember(org.id, m.user_id))}
+                    data-testid={`remove-${m.email}`}
+                  >
                     Remove
                   </Button>
                 )}
@@ -143,12 +154,24 @@ export function OrgMembersPage() {
           </Table>
         </div>
       )}
-      <InviteModal orgId={org.id} canInviteOwners={owner} open={inviting} onClose={() => { setInviting(false); void refresh(); }} />
+      <InviteModal
+        orgId={org.id}
+        canInviteOwners={owner}
+        open={inviting}
+        onClose={() => {
+          setInviting(false);
+          void refresh();
+        }}
+      />
       <TransferOwnershipModal
         orgId={org.id}
         members={(members.data?.items ?? []).filter((m) => m.user_id !== session?.user?.id)}
         open={transferring}
-        onClose={() => { setTransferring(false); void refresh(); void qc.invalidateQueries({ queryKey: ["orgs"] }); }}
+        onClose={() => {
+          setTransferring(false);
+          void refresh();
+          void qc.invalidateQueries({ queryKey: ["orgs"] });
+        }}
       />
     </>
   );
@@ -190,7 +213,9 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
     setErr(null);
     try {
       const picks = Object.entries(access).filter(([, r]) => r) as [string, ProjectRole][];
-      setCreated(await api.inviteOrgMember(orgId, { email, role, projects: role === "member" ? picks.map(([project_id, r]) => ({ project_id, role: r })) : [] }));
+      setCreated(
+        await api.inviteOrgMember(orgId, { email, role, projects: role === "member" ? picks.map(([project_id, r]) => ({ project_id, role: r })) : [] }),
+      );
     } catch (e) {
       setErr(errorMessage(e));
     } finally {
@@ -198,11 +223,13 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
     }
   };
   return (
-    <Modal title="Invite to the organisation" open={open} onClose={close}>
+    <Dialog title="Invite to the organisation" open={open} onOpenChange={(o) => !o && close()}>
       {created ? (
         <div className="flex flex-col gap-3">
           <InvitationResult created={created} />
-          <Button variant="primary" onClick={close}>Done</Button>
+          <Button variant="primary" onClick={close}>
+            Done
+          </Button>
         </div>
       ) : (
         <form className="flex flex-col gap-4" onSubmit={submit}>
@@ -210,7 +237,11 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
           <Field label="Organisation role" hint="Owners and admins are admins of every project; members only of the projects you pick.">
             {(id) => (
               <Select id={id} value={role} onChange={(e) => setRole(e.target.value as OrgRole)}>
-                {orgRoles.filter((r) => canInviteOwners || r !== "owner").map((r) => <option key={r}>{r}</option>)}
+                {orgRoles
+                  .filter((r) => canInviteOwners || r !== "owner")
+                  .map((r) => (
+                    <option key={r}>{r}</option>
+                  ))}
               </Select>
             )}
           </Field>
@@ -220,9 +251,17 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
               {projects.data!.items.map((p) => (
                 <label key={p.id} className="flex items-center justify-between gap-2 text-sm">
                   <span>{p.name}</span>
-                  <Select aria-label={`Access to ${p.name}`} value={access[p.id] ?? ""} onChange={(e) => setAccess((a) => ({ ...a, [p.id]: e.target.value as ProjectRole | "" }))}>
+                  <Select
+                    aria-label={`Access to ${p.name}`}
+                    value={access[p.id] ?? ""}
+                    onChange={(e) => setAccess((a) => ({ ...a, [p.id]: e.target.value as ProjectRole | "" }))}
+                  >
                     <option value="">No access</option>
-                    {projectRoles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                    {projectRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label}
+                      </option>
+                    ))}
                   </Select>
                 </label>
               ))}
@@ -231,11 +270,13 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
           {err && <Alert>{err}</Alert>}
           <div className="flex justify-end gap-2">
             <Button onClick={close}>Cancel</Button>
-            <Button type="submit" variant="primary" busy={busy}>Send invitation</Button>
+            <Button type="submit" variant="primary" busy={busy}>
+              Send invitation
+            </Button>
           </div>
         </form>
       )}
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -260,14 +301,18 @@ function TransferOwnershipModal({ orgId, members, open, onClose }: { orgId: stri
     }
   };
   return (
-    <Modal title="Transfer ownership" open={open} onClose={onClose}>
+    <Dialog title="Transfer ownership" open={open} onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">They become an owner and you become an admin.</p>
         <Field label="New owner">
           {(id) => (
             <Select id={id} required value={to} onChange={(e) => setTo(e.target.value)}>
               <option value="">Choose a member…</option>
-              {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>)}
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.name || m.email}
+                </option>
+              ))}
             </Select>
           )}
         </Field>
@@ -276,10 +321,12 @@ function TransferOwnershipModal({ orgId, members, open, onClose }: { orgId: stri
         {err && <Alert>{err}</Alert>}
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={busy} disabled={!to || !password || code.length < 6}>Transfer</Button>
+          <Button type="submit" variant="primary" busy={busy} disabled={!to || !password || code.length < 6}>
+            Transfer
+          </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -309,9 +356,9 @@ export function OrgSettingsPage() {
   };
   return (
     <>
-      <PageHeader title="Organisation" subtitle={org.personal ? "Your personal organisation. Invite others into it like any other." : undefined} />
+      <PageHeading title="Organisation" description={org.personal ? "Your personal organisation. Invite others into it like any other." : undefined} />
       <div className="flex max-w-2xl flex-col gap-4">
-        <Card title="Name">
+        <Panel title="Name">
           <form
             className="flex flex-col gap-3"
             onSubmit={(e) => {
@@ -321,10 +368,12 @@ export function OrgSettingsPage() {
           >
             <Field label="Name">{(id) => <Input id={id} value={name ?? org.name} onChange={(e) => setName(e.target.value)} maxLength={64} />}</Field>
             <Field label="Slug">{(id) => <Input id={id} value={slug ?? org.slug} onChange={(e) => setSlug(e.target.value)} className="font-mono" />}</Field>
-            <Button type="submit" busy={busy} className="self-start" disabled={name === null && slug === null}>Save</Button>
+            <Button type="submit" busy={busy} className="self-start" disabled={name === null && slug === null}>
+              Save
+            </Button>
           </form>
-        </Card>
-        <Card title="Projects">
+        </Panel>
+        <Panel title="Projects">
           <label className="flex items-start gap-2 text-sm">
             <input
               type="checkbox"
@@ -351,16 +400,14 @@ export function OrgSettingsPage() {
               <span className="block text-muted">Their branches copy the schema only unless a project admin asks for the data.</span>
             </span>
           </label>
-        </Card>
-        <Card title="Plan">
-          <p className="text-sm">
-            {org.plan} plan. Ask the platform admin to change it.
-          </p>
-        </Card>
+        </Panel>
+        <Panel title="Plan">
+          <p className="text-sm">{org.plan} plan. Ask the platform admin to change it.</p>
+        </Panel>
         <OrgTokensCard orgId={org.id} />
-        <Card title="Backup storage">
+        <Panel title="Backup storage">
           <StorageTargetsPanel org={org.id} />
-        </Card>
+        </Panel>
         {err && <Alert>{err}</Alert>}
         {org.role === "owner" && !org.personal && org.status === "active" && <DeleteOrgCard org={org} />}
       </div>
@@ -394,7 +441,7 @@ function DeleteOrgCard({ org }: { org: Org }) {
     }
   };
   return (
-    <Card title="Delete organisation">
+    <Panel title="Delete organisation">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted">
           Its projects go offline at once, and are deleted (each with a final backup kept for 30 days) after 7 days. Until then any owner can cancel.
@@ -403,12 +450,13 @@ function DeleteOrgCard({ org }: { org: Org }) {
           Delete…
         </Button>
       </div>
-      <Modal title={`Delete ${org.name}`} open={open} onClose={() => setOpen(false)}>
+      <Dialog title={`Delete ${org.name}`} open={open} onOpenChange={(o) => !o && (() => setOpen(false))()}>
         <form className="flex flex-col gap-3" onSubmit={submit}>
           <Field label={`Type ${org.name} to confirm`}>{(id) => <Input id={id} value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>
           {org.project_count > 0 && (
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Delete its {org.project_count} project{org.project_count === 1 ? "" : "s"} too
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Delete its {org.project_count} project
+              {org.project_count === 1 ? "" : "s"} too
             </label>
           )}
           <Field label="Your password">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
@@ -418,7 +466,7 @@ function DeleteOrgCard({ org }: { org: Org }) {
             Delete in 7 days
           </Button>
         </form>
-      </Modal>
-    </Card>
+      </Dialog>
+    </Panel>
   );
 }

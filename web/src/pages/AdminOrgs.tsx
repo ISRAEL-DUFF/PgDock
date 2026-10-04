@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type AdminOrg, type DedicatedRequest, type Plan } from "../api/client";
-import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Panel, Field, Input, Dialog, PageHeading, Select, Spinner, Table } from "../components/ui";
 import { formatBytes, formatDate } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
 import { formatQuantity, LIMIT_LABELS, monthStart } from "../lib/usage";
@@ -20,7 +20,7 @@ export function AdminOrgsPage() {
   for (const r of usage.data?.items ?? []) if (r.metric === "shared_storage_gb_hours") storage[r.org_id] = r.quantity;
   return (
     <>
-      <PageHeader title="Organisations" subtitle="Every organisation on this PGDock: plan, size, and status. What is inside them is theirs." />
+      <PageHeading title="Organisations" description="Every organisation on this PGDock: plan, size, and status. What is inside them is theirs." />
       <div className="mb-3">
         <Input placeholder="Search name or slug" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" aria-label="Search organisations" />
       </div>
@@ -102,13 +102,13 @@ export function AdminOrgPage() {
   };
   return (
     <>
-      <PageHeader
+      <PageHeading
         title={
           <span className="flex items-center gap-2">
             {o.org.name} {statusBadge(o.org.status)}
           </span>
         }
-        subtitle={`${o.org.member_count} members · ${o.org.project_count} projects · ${formatBytes(o.org.size_bytes)} · since ${formatDate(o.org.created_at)}`}
+        description={`${o.org.member_count} members · ${o.org.project_count} projects · ${formatBytes(o.org.size_bytes)} · since ${formatDate(o.org.created_at)}`}
       />
       <div className="flex max-w-3xl flex-col gap-4">
         {o.org.status === "suspended" && <Alert title="Suspended">{o.org.suspended_reason}</Alert>}
@@ -116,14 +116,19 @@ export function AdminOrgPage() {
         {saved && <Alert tone="ok">Saved.</Alert>}
         <PlanCard org={o} plans={plans.data?.items ?? []} onSave={save} />
         <AllowanceCard org={o} onSave={save} />
-        <Card title="Outbound traffic">
+        <Panel title="Outbound traffic">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={o.org.outbound_disabled} onChange={(e) => save({ outbound_disabled: e.target.checked })} data-testid="outbound-disabled" />
+            <input
+              type="checkbox"
+              checked={o.org.outbound_disabled}
+              onChange={(e) => save({ outbound_disabled: e.target.checked })}
+              data-testid="outbound-disabled"
+            />
             Disable webhooks and HTTP jobs for this organisation, without suspending its databases (V2 §10.7)
           </label>
           <OutboundCard org={id} />
-        </Card>
-        <Card title="Shared cluster">
+        </Panel>
+        <Panel title="Shared cluster">
           <p className="mb-3 text-sm text-muted">
             An organisation can have its own shared cluster: its new projects are placed there, and no other organisation's ever are. Pick an empty cluster.
           </p>
@@ -146,7 +151,7 @@ export function AdminOrgPage() {
               onPick={(cid) => api.setOrgCluster(id, cid, true).then(refresh, (e) => setErr(errorMessage(e)))}
             />
           )}
-        </Card>
+        </Panel>
         <SuspendCard org={o} onDone={refresh} />
         <BreakGlassCard org={o} onDone={refresh} />
       </div>
@@ -173,7 +178,15 @@ function ClusterPicker({ options, onPick }: { options: { id: string; node_name: 
   );
 }
 
-function PlanCard({ org, plans, onSave }: { org: AdminOrg; plans: Plan[]; onSave: (b: { plan_id?: string; limit_overrides?: Record<string, number | null> }) => void }) {
+function PlanCard({
+  org,
+  plans,
+  onSave,
+}: {
+  org: AdminOrg;
+  plans: Plan[];
+  onSave: (b: { plan_id?: string; limit_overrides?: Record<string, number | null> }) => void;
+}) {
   const [overrides, setOverrides] = useState<Record<string, string>>(() =>
     Object.fromEntries(Object.entries(org.limit_overrides).map(([k, v]) => [k, v == null ? "unlimited" : String(v)])),
   );
@@ -187,7 +200,7 @@ function PlanCard({ org, plans, onSave }: { org: AdminOrg; plans: Plan[]; onSave
     onSave({ limit_overrides: out });
   };
   return (
-    <Card title="Plan and limits">
+    <Panel title="Plan and limits">
       <div className="flex flex-col gap-3">
         <Field label="Plan">
           {(id) => (
@@ -206,7 +219,12 @@ function PlanCard({ org, plans, onSave }: { org: AdminOrg; plans: Plan[]; onSave
             {Object.entries(LIMIT_LABELS).map(([k, meta]) => (
               <Field key={k} label={`${meta.label}${meta.unit ? ` (${meta.unit})` : ""}`} hint={`Plan: ${org.limits[k] ?? "unlimited"}`}>
                 {(id) => (
-                  <Input id={id} value={overrides[k] ?? ""} placeholder={String(org.limits[k] ?? "unlimited")} onChange={(e) => setOverrides((o) => ({ ...o, [k]: e.target.value }))} />
+                  <Input
+                    id={id}
+                    value={overrides[k] ?? ""}
+                    placeholder={String(org.limits[k] ?? "unlimited")}
+                    onChange={(e) => setOverrides((o) => ({ ...o, [k]: e.target.value }))}
+                  />
                 )}
               </Field>
             ))}
@@ -216,7 +234,7 @@ function PlanCard({ org, plans, onSave }: { org: AdminOrg; plans: Plan[]; onSave
           </Button>
         </form>
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -224,7 +242,7 @@ function AllowanceCard({ org, onSave }: { org: AdminOrg; onSave: (b: { dedicated
   const a = org.dedicated_allowance;
   const [v, setV] = useState({ instances: a.instances, cpus: a.cpus, memory_mb: a.memory_mb, disk_gb: a.disk_gb });
   return (
-    <Card title="Dedicated allowance">
+    <Panel title="Dedicated allowance">
       {a.unlimited ? (
         <p className="text-sm text-muted">The Unlimited plan needs no allowance.</p>
       ) : (
@@ -244,13 +262,15 @@ function AllowanceCard({ org, onSave }: { org: AdminOrg; onSave: (b: { dedicated
             ] as const
           ).map(([k, label]) => (
             <Field key={k} label={label}>
-              {(id) => <Input id={id} type="number" min={0} className="w-28" value={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: Number(e.target.value) }))} />}
+              {(id) => (
+                <Input id={id} type="number" min={0} className="w-28" value={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: Number(e.target.value) }))} />
+              )}
             </Field>
           ))}
           <Button type="submit">Save allowance</Button>
         </form>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -281,10 +301,10 @@ function SuspendCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<voi
     }
   };
   return (
-    <Card title="Suspension">
+    <Panel title="Suspension">
       <p className="mb-3 text-sm text-muted">
-        Suspending takes every project offline (pooler routes and logins off), pauses scheduled backups after one last backup, and emails the owners. Data is kept;
-        reinstating reverses it all.
+        Suspending takes every project offline (pooler routes and logins off), pauses scheduled backups after one last backup, and emails the owners. Data is
+        kept; reinstating reverses it all.
       </p>
       {err && <Alert>{err}</Alert>}
       {suspended ? (
@@ -296,17 +316,19 @@ function SuspendCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<voi
           Suspend…
         </Button>
       )}
-      <Modal title={`Suspend ${org.org.name}`} open={open} onClose={() => setOpen(false)}>
+      <Dialog title={`Suspend ${org.org.name}`} open={open} onOpenChange={(o) => !o && (() => setOpen(false))()}>
         <form className="flex flex-col gap-3" onSubmit={run}>
-          <Field label="Reason (shown to its members)">{(id) => <Input id={id} required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} />}</Field>
+          <Field label="Reason (shown to its members)">
+            {(id) => <Input id={id} required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} />}
+          </Field>
           {re.fields}
           {err && <Alert>{err}</Alert>}
           <Button type="submit" variant="danger" busy={busy} disabled={!reason.trim() || !re.ready}>
             Suspend
           </Button>
         </form>
-      </Modal>
-    </Card>
+      </Dialog>
+    </Panel>
   );
 }
 
@@ -342,10 +364,10 @@ function BreakGlassCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<
     }
   };
   return (
-    <Card title="Break-glass access">
+    <Panel title="Break-glass access">
       <p className="mb-3 text-sm text-muted">
-        For support or an incident: act as an admin of this organisation for up to 4 hours. Every owner is emailed at once, everyone in the organisation sees a banner,
-        every action is flagged in its audit log and yours, and any owner can end it.
+        For support or an incident: act as an admin of this organisation for up to 4 hours. Every owner is emailed at once, everyone in the organisation sees a
+        banner, every action is flagged in its audit log and yours, and any owner can end it.
       </p>
       {active ? (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm" data-testid="break-glass-active">
@@ -361,9 +383,11 @@ function BreakGlassCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<
           Start break-glass…
         </Button>
       )}
-      <Modal title={`Break-glass access to ${org.org.name}`} open={open} onClose={() => setOpen(false)}>
+      <Dialog title={`Break-glass access to ${org.org.name}`} open={open} onOpenChange={(o) => !o && (() => setOpen(false))()}>
         <form className="flex flex-col gap-3" onSubmit={start}>
-          <Field label="Reason (the owners see it)">{(id) => <Input id={id} required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} />}</Field>
+          <Field label="Reason (the owners see it)">
+            {(id) => <Input id={id} required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} />}
+          </Field>
           <Field label="Duration">
             {(id) => (
               <Select id={id} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
@@ -381,8 +405,8 @@ function BreakGlassCard({ org, onDone }: { org: AdminOrg; onDone: () => Promise<
             Start and email the owners
           </Button>
         </form>
-      </Modal>
-    </Card>
+      </Dialog>
+    </Panel>
   );
 }
 
@@ -393,9 +417,9 @@ export function AdminPlansPage() {
   const [editing, setEditing] = useState<Plan | "new" | null>(null);
   return (
     <>
-      <PageHeader
+      <PageHeading
         title="Plans"
-        subtitle="Quota templates. Assign one to an organisation, and override single limits there."
+        description="Quota templates. Assign one to an organisation, and override single limits there."
         actions={
           <Button variant="primary" onClick={() => setEditing("new")}>
             New plan
@@ -459,7 +483,7 @@ function PlanModal({ plan, keys, onClose, onSaved }: { plan: Plan | null; keys: 
     }
   };
   return (
-    <Modal title={plan ? `Edit ${plan.name}` : "New plan"} open onClose={onClose}>
+    <Dialog title={plan ? `Edit ${plan.name}` : "New plan"} open onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-3" onSubmit={submit}>
         <Field label="Name">{(id) => <Input id={id} required value={name} onChange={(e) => setName(e.target.value)} maxLength={64} />}</Field>
         <p className="text-xs text-muted">Leave a limit blank for unlimited.</p>
@@ -475,7 +499,7 @@ function PlanModal({ plan, keys, onClose, onSaved }: { plan: Plan | null; keys: 
           Save
         </Button>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -487,7 +511,7 @@ export function DedicatedRequestsPage() {
   const qc = useQueryClient();
   return (
     <>
-      <PageHeader title="Dedicated requests" subtitle="Promotions beyond an organisation's dedicated allowance wait here for you." />
+      <PageHeading title="Dedicated requests" description="Promotions beyond an organisation's dedicated allowance wait here for you." />
       <div className="mb-3">
         <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="pending">Pending</option>
@@ -561,9 +585,13 @@ function DecideModal({ r, approve, onClose, onDone }: { r: DedicatedRequest; app
     }
   };
   return (
-    <Modal title={`${approve ? "Approve" : "Reject"}: ${r.project_name}`} open onClose={onClose}>
+    <Dialog title={`${approve ? "Approve" : "Reject"}: ${r.project_name}`} open onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-3" onSubmit={submit}>
-        {approve && <p className="text-sm text-muted">The promotion starts now ({r.profile}, {r.volume_gb} GB). The requester is emailed.</p>}
+        {approve && (
+          <p className="text-sm text-muted">
+            The promotion starts now ({r.profile}, {r.volume_gb} GB). The requester is emailed.
+          </p>
+        )}
         <Field label="Note to the requester (optional)">{(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} />}</Field>
         {approve && (
           <label className="flex items-center gap-2 text-sm">
@@ -575,7 +603,7 @@ function DecideModal({ r, approve, onClose, onDone }: { r: DedicatedRequest; app
           {approve ? "Approve and promote" : "Reject"}
         </Button>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 

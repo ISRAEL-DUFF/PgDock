@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type AdminUser, type InvitationCreated } from "../api/client";
-import { Alert, Badge, Button, Field, Input, Modal, PageHeader, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Field, Input, Dialog, PageHeading, Spinner, Table } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { sessionQuery } from "../lib/session";
 import { InvitationResult } from "./Org";
@@ -28,9 +28,9 @@ export function AdminUsersPage() {
   };
   return (
     <>
-      <PageHeader
+      <PageHeading
         title="Users"
-        subtitle="Every account on this PGDock. You see who they are, not what is in their organisations."
+        description="Every account on this PGDock. You see who they are, not what is in their organisations."
         actions={
           <Button variant="primary" onClick={() => setInviting(true)} data-testid="invite-user">
             Invite someone
@@ -61,7 +61,15 @@ export function AdminUsersPage() {
                 </div>
               </td>
               <td className="px-3 py-2">
-                {u.disabled ? <Badge tone="danger">disabled</Badge> : !u.email_verified ? <Badge tone="warn">unverified</Badge> : !u.approved ? <Badge tone="warn">awaiting approval</Badge> : <Badge tone="ok">active</Badge>}
+                {u.disabled ? (
+                  <Badge tone="danger">disabled</Badge>
+                ) : !u.email_verified ? (
+                  <Badge tone="warn">unverified</Badge>
+                ) : !u.approved ? (
+                  <Badge tone="warn">awaiting approval</Badge>
+                ) : (
+                  <Badge tone="ok">active</Badge>
+                )}
               </td>
               <td className="px-3 py-2">{u.totp_enabled ? "on" : "—"}</td>
               <td className="px-3 py-2">{u.org_count}</td>
@@ -79,7 +87,11 @@ export function AdminUsersPage() {
                     </Button>
                   )}
                   {u.id !== session?.user?.id && (
-                    <Button className="text-xs" variant={u.disabled ? "primary" : "danger"} onClick={() => act(() => api.updateUser(u.id, { disabled: !u.disabled }))}>
+                    <Button
+                      className="text-xs"
+                      variant={u.disabled ? "primary" : "danger"}
+                      onClick={() => act(() => api.updateUser(u.id, { disabled: !u.disabled }))}
+                    >
                       {u.disabled ? "Enable" : "Disable"}
                     </Button>
                   )}
@@ -108,7 +120,13 @@ export function AdminUsersPage() {
           </Table>
         </div>
       )}
-      <PlatformInviteModal open={inviting} onClose={() => { setInviting(false); void qc.invalidateQueries({ queryKey: ["admin"] }); }} />
+      <PlatformInviteModal
+        open={inviting}
+        onClose={() => {
+          setInviting(false);
+          void qc.invalidateQueries({ queryKey: ["admin"] });
+        }}
+      />
       <ResetTotpModal user={resetting} onClose={() => setResetting(null)} />
     </>
   );
@@ -138,11 +156,13 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
     }
   };
   return (
-    <Modal title="Invite someone to PGDock" open={open} onClose={close}>
+    <Dialog title="Invite someone to PGDock" open={open} onOpenChange={(o) => !o && close()}>
       {created ? (
         <div className="flex flex-col gap-3">
           <InvitationResult created={created} />
-          <Button variant="primary" onClick={close}>Done</Button>
+          <Button variant="primary" onClick={close}>
+            Done
+          </Button>
         </div>
       ) : (
         <form className="flex flex-col gap-4" onSubmit={submit}>
@@ -151,11 +171,13 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
           {err && <Alert>{err}</Alert>}
           <div className="flex justify-end gap-2">
             <Button onClick={close}>Cancel</Button>
-            <Button type="submit" variant="primary" busy={busy}>Send invitation</Button>
+            <Button type="submit" variant="primary" busy={busy}>
+              Send invitation
+            </Button>
           </div>
         </form>
       )}
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -186,11 +208,10 @@ function ResetTotpModal({ user, onClose }: { user: AdminUser | null; onClose: ()
     }
   };
   return (
-    <Modal title="Reset two-factor authentication" open={!!user} onClose={onClose}>
+    <Dialog title="Reset two-factor authentication" open={!!user} onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">
-          {user?.email} will set up a new authenticator at their next sign-in and is emailed now. Only do this after confirming who they are some
-          other way.
+          {user?.email} will set up a new authenticator at their next sign-in and is emailed now. Only do this after confirming who they are some other way.
         </p>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> I've confirmed their identity out of band
@@ -200,9 +221,11 @@ function ResetTotpModal({ user, onClose }: { user: AdminUser | null; onClose: ()
         {err && <Alert>{err}</Alert>}
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="danger" busy={busy} disabled={!confirmed || !password || code.length < 6}>Reset 2FA</Button>
+          <Button type="submit" variant="danger" busy={busy} disabled={!confirmed || !password || code.length < 6}>
+            Reset 2FA
+          </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }

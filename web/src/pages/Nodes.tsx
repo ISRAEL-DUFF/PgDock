@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Node, type NodeCreated } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { useOperationToast } from "../components/Toasts";
-import { Alert, Badge, Button, Card, CodeBlock, Field, Input, PageHeader, Select, Spinner, StateBadge, Table } from "../components/ui";
+import { Alert, Badge, Button, Panel, CodeBlock, Field, Input, PageHeading, Select, Spinner, StateBadge, Table } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
 import { MetricCharts } from "../components/Metrics";
 import { nodeCharts } from "./ProjectMetrics";
@@ -51,9 +51,9 @@ export function NodesPage() {
   const [adding, setAdding] = useState(false);
   return (
     <>
-      <PageHeader
+      <PageHeading
         title="Nodes"
-        subtitle="Hosts running Postgres, and the agent on each that runs instances, backups, restores, and imports."
+        description="Hosts running Postgres, and the agent on each that runs instances, backups, restores, and imports."
         actions={
           !adding && (
             <Button variant="primary" onClick={() => setAdding(true)}>
@@ -116,12 +116,20 @@ function AddNode({ onClose }: { onClose: () => void }) {
     }
   };
   return (
-    <Card title="Add a node" className="mb-4 max-w-2xl" actions={<Button variant="ghost" className="text-xs" onClick={onClose}>Close</Button>}>
+    <Panel
+      title="Add a node"
+      className="mb-4 max-w-2xl"
+      actions={
+        <Button variant="ghost" className="text-xs" onClick={onClose}>
+          Close
+        </Button>
+      }
+    >
       {created ? (
         <div className="flex flex-col gap-3 text-sm">
           <p>
-            On <strong>{created.node.name}</strong>, with Docker installed and the <code className="font-mono">pgdock-agent</code> binary, run this
-            within 24 hours (until {formatDate(created.expires_at)}). The token works once.
+            On <strong>{created.node.name}</strong>, with Docker installed and the <code className="font-mono">pgdock-agent</code> binary, run this within 24
+            hours (until {formatDate(created.expires_at)}). The token works once.
           </p>
           <CodeBlock code={created.command} />
           <p className="text-xs text-muted">The node shows as healthy here once its agent registers.</p>
@@ -153,7 +161,7 @@ function AddNode({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -199,14 +207,21 @@ export function NodeDetailPage() {
 
   return (
     <>
-      <PageHeader title={<span className="flex items-center gap-2">{n.name} {agentBadge(n)}</span>} subtitle={<span className="font-mono">{n.private_addr}</span>} />
+      <PageHeading
+        title={
+          <span className="flex items-center gap-2">
+            {n.name} {agentBadge(n)}
+          </span>
+        }
+        description={<span className="font-mono">{n.private_addr}</span>}
+      />
       {err && (
         <div className="mb-4">
           <Alert>{err}</Alert>
         </div>
       )}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="Health">
+        <Panel title="Health">
           <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt className="text-muted">Agent</dt>
             <dd>
@@ -230,8 +245,8 @@ export function NodeDetailPage() {
               <Alert tone="warn">{n.agent.error}</Alert>
             </div>
           )}
-        </Card>
-        <Card title="Placement">
+        </Panel>
+        <Panel title="Placement">
           <div className="flex flex-col gap-3 text-sm">
             <Field label="Role" hint="Which tiers new projects may be placed here with. Existing instances stay.">
               {(fid) => (
@@ -250,7 +265,9 @@ export function NodeDetailPage() {
                 <Button onClick={addShared} busy={busy} disabled={n.status !== "healthy"}>
                   Create shared cluster
                 </Button>
-                {n.status !== "healthy" && <p className="w-full text-xs text-muted">This node is {n.status}; a cluster can be created once its agent answers again.</p>}
+                {n.status !== "healthy" && (
+                  <p className="w-full text-xs text-muted">This node is {n.status}; a cluster can be created once its agent answers again.</p>
+                )}
               </div>
             )}
             <div className="flex gap-2">
@@ -273,7 +290,7 @@ export function NodeDetailPage() {
             </div>
             {token && <CodeBlock code={token} />}
           </div>
-        </Card>
+        </Panel>
       </div>
       <h2 className="mt-6 mb-2 text-sm font-semibold">Metrics</h2>
       <MetricCharts queryKey={["metrics", "node", n.id]} fetch={(r) => api.nodeMetrics(n.id, r)} charts={nodeCharts} />
@@ -289,7 +306,11 @@ export function NodeDetailPage() {
               </td>
               <td className="px-3 py-2">
                 <StateBadge state={i.status} />
-                {i.error && <p className="mt-1 max-w-xs truncate text-xs text-danger" title={i.error}>{i.error}</p>}
+                {i.error && (
+                  <p className="mt-1 max-w-xs truncate text-xs text-danger" title={i.error}>
+                    {i.error}
+                  </p>
+                )}
               </td>
               <td className="px-3 py-2 text-xs text-muted">
                 {i.profile ?? "—"}

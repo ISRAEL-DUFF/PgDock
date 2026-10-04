@@ -3,7 +3,7 @@ import { useCurrentOrg } from "../lib/org";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type ImportPreflight, type ProjectCredentials } from "../api/client";
 import { ProvisionProgress } from "../components/ProvisionProgress";
-import { Alert, Badge, Button, Card, Field, Input, PageHeader, Table } from "../components/ui";
+import { Alert, Badge, Button, Panel, Field, Input, PageHeading, Table } from "../components/ui";
 import { formatBytes } from "../lib/format";
 
 /** Import from an existing database (spec §6.8). */
@@ -55,9 +55,12 @@ export function ImportProjectPage() {
 
   return (
     <>
-      <PageHeader title="Import a database" subtitle="Copy an existing Postgres database (Supabase included) into a new project. The source is only read." />
+      <PageHeading
+        title="Import a database"
+        description="Copy an existing Postgres database (Supabase included) into a new project. The source is only read."
+      />
       <div className="flex max-w-3xl flex-col gap-4">
-        <Card title="1. Source">
+        <Panel title="1. Source">
           <form className="flex flex-col gap-3" onSubmit={preflight}>
             <Field
               label="Source connection string"
@@ -85,11 +88,11 @@ export function ImportProjectPage() {
               </Button>
             </div>
           </form>
-        </Card>
+        </Panel>
         {err && <Alert>{err}</Alert>}
         {pf && (
           <>
-            <Card title="2. Preflight" actions={pf.supabase && <Badge tone="accent">Supabase project</Badge>}>
+            <Panel title="2. Preflight" actions={pf.supabase && <Badge tone="accent">Supabase project</Badge>}>
               <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
                 <dt className="text-muted">Postgres</dt>
                 <dd data-testid="preflight-version">{pf.server_version} → 18</dd>
@@ -137,8 +140,8 @@ export function ImportProjectPage() {
                 <>
                   <h3 className="mb-1 text-sm font-semibold">References to Supabase roles</h3>
                   <p className="mb-2 text-xs text-muted">
-                    Kept as written, but PGDock has no <code>anon</code>, <code>authenticated</code> or <code>service_role</code> logins: your app
-                    connects as the project role, which owns the tables. Review these after the import.
+                    Kept as written, but PGDock has no <code>anon</code>, <code>authenticated</code> or <code>service_role</code> logins: your app connects as
+                    the project role, which owns the tables. Review these after the import.
                   </p>
                   <Table head={["Kind", "Table", "Name", "Roles"]}>
                     {refs.map((r, i) => (
@@ -154,22 +157,18 @@ export function ImportProjectPage() {
                   </Table>
                 </>
               )}
-            </Card>
-            <Card title="3. New project">
+            </Panel>
+            <Panel title="3. New project">
               <form className="flex flex-col gap-3" onSubmit={start}>
-                <Field label="Project name">
-                  {(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} />}
-                </Field>
-                <p className="text-xs text-muted">
-                  Stop writes to the source first (or accept that later writes are not copied): this is a one-time copy.
-                </p>
+                <Field label="Project name">{(id) => <Input id={id} required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
+                <p className="text-xs text-muted">Stop writes to the source first (or accept that later writes are not copied): this is a one-time copy.</p>
                 <div>
                   <Button type="submit" variant="primary" busy={busy === "import"} disabled={!name.trim() || schemas.length === 0}>
                     Import {schemas.length} schema{schemas.length === 1 ? "" : "s"}
                   </Button>
                 </div>
               </form>
-            </Card>
+            </Panel>
           </>
         )}
       </div>

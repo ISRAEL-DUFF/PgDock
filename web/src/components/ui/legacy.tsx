@@ -2,7 +2,6 @@ import { twMerge } from "tailwind-merge";
 import {
   useEffect,
   useId,
-  useRef,
   useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -134,31 +133,6 @@ export function Input({
   );
 }
 
-export function Card({
-  title,
-  actions,
-  children,
-  className,
-}: {
-  title?: ReactNode;
-  actions?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={cx("rounded-md border border-line bg-surface", className)}
-    >
-      {(title || actions) && (
-        <header className="flex min-h-11 items-center justify-between gap-3 border-b border-line px-4 py-2">
-          <h2 className="text-[13px] font-medium">{title}</h2>
-          {actions}
-        </header>
-      )}
-      <div className="p-4">{children}</div>
-    </section>
-  );
-}
 
 const tones = {
   ok: "border-ok/30 text-ok bg-ok/10",
@@ -332,25 +306,6 @@ export function CodeBlock({ code }: { code: string }) {
   );
 }
 
-export function PageHeader({
-  title,
-  subtitle,
-  actions,
-}: {
-  title: ReactNode;
-  subtitle?: ReactNode;
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="truncate text-2xl">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
-      </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
-    </div>
-  );
-}
 
 export function EmptyState({
   title,
@@ -367,38 +322,6 @@ export function EmptyState({
   );
 }
 
-export function Modal({
-  title,
-  open,
-  onClose,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
-  return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      onCancel={onClose}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-lg border border-line-strong bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60"
-    >
-      <div className="border-b border-line px-5 py-3">
-        <h2 className="text-[15px] font-medium">{title}</h2>
-      </div>
-      <div className="p-4">{open && children}</div>
-    </dialog>
-  );
-}
 
 export function Table({
   head,

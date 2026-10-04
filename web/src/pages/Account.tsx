@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ApiRequestError, api, errorMessage } from "../api/client";
-import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Spinner, Table } from "../components/ui";
+import { Alert, Badge, Button, Panel, Field, Input, Dialog, PageHeading, Spinner, Table } from "../components/ui";
 import { TokensCard } from "../components/Tokens";
 import { formatDate, relativeTime } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
@@ -14,7 +14,7 @@ export function AccountPage() {
   if (!session?.user) return <Spinner />;
   return (
     <>
-      <PageHeader title="Your account" subtitle={session.user.email} />
+      <PageHeading title="Your account" description={session.user.email} />
       <div className="flex max-w-3xl flex-col gap-4">
         <InvitationsCard />
         <ProfileCard />
@@ -34,7 +34,7 @@ function InvitationsCard() {
   const [err, setErr] = useState<string | null>(null);
   if (!q.data?.items.length) return null;
   return (
-    <Card title="Invitations">
+    <Panel title="Invitations">
       <div id="invitations" className="flex flex-col gap-2">
         {q.data.items.map((i) => (
           <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -65,7 +65,7 @@ function InvitationsCard() {
         ))}
         {err && <Alert>{err}</Alert>}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -91,7 +91,7 @@ function ProfileCard() {
     }
   };
   return (
-    <Card title="Profile">
+    <Panel title="Profile">
       <form className="flex flex-col gap-3" onSubmit={save}>
         <Field label="Name">{(id) => <Input id={id} value={value} onChange={(e) => setName(e.target.value)} maxLength={100} />}</Field>
         <p className="text-xs text-muted">Platform role: {session?.user?.platform_role === "platform_admin" ? "platform admin" : "user"}</p>
@@ -100,7 +100,7 @@ function ProfileCard() {
           Save
         </Button>
       </form>
-    </Card>
+    </Panel>
   );
 }
 
@@ -125,7 +125,7 @@ function PasswordCard() {
     }
   };
   return (
-    <Card title="Password">
+    <Panel title="Password">
       <form className="flex flex-col gap-3" onSubmit={save}>
         <Field label="Current password">
           {(id) => <Input id={id} type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />}
@@ -138,7 +138,7 @@ function PasswordCard() {
           Change password
         </Button>
       </form>
-    </Card>
+    </Panel>
   );
 }
 
@@ -169,19 +169,45 @@ function RecoveryCard() {
   };
   const left = q.data?.remaining ?? 0;
   return (
-    <Card title="Two-factor recovery codes" actions={<Button className="text-xs" onClick={() => setOpen(true)}>New codes</Button>}>
+    <Panel
+      title="Two-factor recovery codes"
+      actions={
+        <Button className="text-xs" onClick={() => setOpen(true)}>
+          New codes
+        </Button>
+      }
+    >
       <p className="text-sm">
-        {left} of 10 unused codes left.{" "}
-        {left <= 3 && <span className="text-warn">Make new ones before you run out.</span>}
+        {left} of 10 unused codes left. {left <= 3 && <span className="text-warn">Make new ones before you run out.</span>}
       </p>
-      <Modal title="New recovery codes" open={open} onClose={() => { setOpen(false); setCodes(null); }}>
+      <Dialog
+        title="New recovery codes"
+        open={open}
+        onOpenChange={(o) =>
+          !o &&
+          (() => {
+            setOpen(false);
+            setCodes(null);
+          })()
+        }
+      >
         {codes ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted">Your old codes no longer work. Save these; they are shown only once.</p>
             <ul className="grid grid-cols-2 gap-1 rounded-md border border-line bg-surface-2 p-3 font-mono text-sm" data-testid="new-recovery-codes">
-              {codes.map((c) => <li key={c}>{c}</li>)}
+              {codes.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
             </ul>
-            <Button variant="primary" onClick={() => { setOpen(false); setCodes(null); }}>Done</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setOpen(false);
+                setCodes(null);
+              }}
+            >
+              Done
+            </Button>
           </div>
         ) : (
           <form className="flex flex-col gap-3" onSubmit={regenerate}>
@@ -189,11 +215,13 @@ function RecoveryCard() {
             <Field label="Password">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
             <Field label="Authenticator code">{(id) => <Input id={id} inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />}</Field>
             {err && <Alert>{err}</Alert>}
-            <Button type="submit" variant="primary" busy={busy} disabled={!password || code.length < 6}>Make new codes</Button>
+            <Button type="submit" variant="primary" busy={busy} disabled={!password || code.length < 6}>
+              Make new codes
+            </Button>
           </form>
         )}
-      </Modal>
-    </Card>
+      </Dialog>
+    </Panel>
   );
 }
 
@@ -202,7 +230,7 @@ function SessionsCard() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   return (
-    <Card title="Sessions">
+    <Panel title="Sessions">
       {q.data && (
         <Table head={["Device", "IP", "Signed in", "Last seen", ""]}>
           {q.data.items.map((s) => (
@@ -231,6 +259,6 @@ function SessionsCard() {
           ))}
         </Table>
       )}
-    </Card>
+    </Panel>
   );
 }
