@@ -153,7 +153,7 @@ export function ResultsPane({
       </div>
 
       {tab === "notices" ? (
-        <div className="min-h-0 flex-1 overflow-auto p-3 font-mono text-[12px]">
+        <div tabIndex={0} className="min-h-0 flex-1 overflow-auto p-3 font-mono text-[12px]">
           {res && res.notices.length > 0 ? res.notices.map((n, i) => <p key={i}>{n}</p>) : <p className="text-muted">No notices.</p>}
         </div>
       ) : error ? (
@@ -165,7 +165,7 @@ export function ResultsPane({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           {res.error ? (
-            <div className="overflow-auto p-4" data-testid="sql-error">
+            <div tabIndex={0} className="overflow-auto p-4" data-testid="sql-error">
               <ErrorBlock
                 message={`ERROR: ${res.error.code ? `${res.error.code}: ` : ""}${res.error.message}`}
                 detail={res.error.detail}

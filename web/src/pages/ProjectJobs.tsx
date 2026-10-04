@@ -320,7 +320,7 @@ function JobDetail({ p, j, secret, onSecretStored, onClose }: { p: Project; j: J
           </Alert>
         )}
         {j.kind === "sql" ? (
-          <pre className="max-h-32 overflow-auto rounded bg-surface-2 p-2 font-mono text-xs">{j.sql}</pre>
+          <pre tabIndex={0} className="max-h-32 overflow-auto rounded bg-surface-2 p-2 font-mono text-xs">{j.sql}</pre>
         ) : (
           <p className="font-mono text-xs">
             {j.http?.method} {j.http?.url}

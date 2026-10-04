@@ -204,7 +204,7 @@ export function CopyField({ label, value, secret, testId }: { label: string; val
 export function CodeBlock({ code }: { code: string }) {
   return (
     <div className="relative">
-      <pre className="overflow-x-auto rounded-md border border-line bg-code p-3 pr-20 font-mono text-xs leading-relaxed">{code}</pre>
+      <pre tabIndex={0} className="overflow-x-auto rounded-md border border-line bg-code p-3 pr-20 font-mono text-xs leading-relaxed">{code}</pre>
       <div className="absolute top-2 right-2">
         <CopyButton value={code} />
       </div>
@@ -242,7 +242,7 @@ export function EmptyState({
 
 export function Table({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-line bg-surface">
+    <div tabIndex={0} className="overflow-x-auto rounded-md border border-line bg-surface">
       <table className="w-full text-left text-[13px]">
         <thead className="border-b border-line bg-surface-2 text-xs text-fg-light">
           <tr>

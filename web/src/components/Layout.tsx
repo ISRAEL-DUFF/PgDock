@@ -45,7 +45,7 @@ export function TermsGate({ version }: { version: number }) {
 /** The terms of use and privacy notice, as published. */
 export function TermsText({ terms }: { terms: Terms }) {
   return (
-    <div className="max-h-80 overflow-y-auto rounded-md border border-line bg-surface-2 p-3 text-xs whitespace-pre-wrap" data-testid="terms-text">
+    <div tabIndex={0} className="max-h-80 overflow-y-auto rounded-md border border-line bg-surface-2 p-3 text-xs whitespace-pre-wrap" data-testid="terms-text">
       {terms.terms_md}
       {"\n\n"}
       {terms.privacy_md}

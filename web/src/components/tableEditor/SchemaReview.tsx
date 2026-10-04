@@ -120,7 +120,7 @@ export function SchemaReview({
       ) : plan.isError ? (
         <Alert>{errorMessage(plan.error)}</Alert>
       ) : (
-        <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
+        <div tabIndex={0} className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
           <CodeBlock code={planSQL(plan.data)} />
           {plan.data.risks.length > 0 && (
             <ul className="flex flex-col gap-1.5" data-testid="schema-risks">
