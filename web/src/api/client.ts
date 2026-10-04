@@ -15,6 +15,7 @@ export type SchemaChange = Omit<S["SchemaChange"], "schema" | "concurrently" | "
   changes?: SchemaChange[];
 };
 export type ColumnRef = S["ColumnRef"];
+export type SavedQuery = S["SavedQuery"];
 export type RowCount = S["RowCount"];
 export type SchemaColumnDef = Omit<S["SchemaColumnDef"], "nullable"> & { nullable?: boolean };
 export type SchemaPlan = S["SchemaPlan"];
@@ -351,6 +352,11 @@ export const api = {
     request<S["SchemaApplied"]>("POST", `/api/v1/projects/${id}/schema/apply`, { change, hash, confirm }),
   schemaMigration: (id: string, change: SchemaChange, format: MigrationFormat) =>
     request<S["SchemaMigration"]>("POST", `/api/v1/projects/${id}/schema/migration`, { change, format }),
+  savedQueries: (id: string) => getJSON<S["SavedQueryList"]>(`/api/v1/projects/${id}/queries`),
+  createSavedQuery: (id: string, b: S["SavedQueryRequest"]) => request<SavedQuery>("POST", `/api/v1/projects/${id}/queries`, b),
+  updateSavedQuery: (id: string, queryId: string, b: S["SavedQueryPatch"]) => request<SavedQuery>("PATCH", `/api/v1/projects/${id}/queries/${queryId}`, b),
+  deleteSavedQuery: (id: string, queryId: string) => request<void>("DELETE", `/api/v1/projects/${id}/queries/${queryId}`),
+  favoriteSavedQuery: (id: string, queryId: string, favorite: boolean) => request<SavedQuery>("PUT", `/api/v1/projects/${id}/queries/${queryId}/favorite`, { favorite }),
   editorPreferences: (id: string) => getJSON<S["EditorPreferences"]>(`/api/v1/projects/${id}/editor-preferences`),
   extensions: (id: string) => getJSON<S["ExtensionList"]>(`/api/v1/projects/${id}/extensions`),
   enableExtension: (id: string, name: string) => request<S["ExtensionList"]>("POST", `/api/v1/projects/${id}/extensions`, { name }),

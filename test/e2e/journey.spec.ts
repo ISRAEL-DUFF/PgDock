@@ -815,8 +815,8 @@ test.describe("with the saved session", () => {
     const app = await connect(pooledURL);
     await page.getByRole("link", { name: "Open the project" }).click();
 
-    // SQL console: run statements as the project role (Ctrl+Enter).
-    const editor = page.getByTestId("sql-editor");
+    // SQL Editor: a new saved query, run as the project role (Ctrl+Enter).
+    const editor = page.getByTestId("sql-editor-host");
     const runSQL = async (sql: string) => {
       await editor.click();
       await page.keyboard.press("ControlOrMeta+a");
@@ -825,6 +825,8 @@ test.describe("with the saved session", () => {
     };
     await projectTab(page, "SQL");
     await expect(page.getByText("Queries run against the live database")).toBeVisible();
+    await page.getByTestId("create-query").click();
+    await expect(page.getByTestId("query-name")).toHaveText("Untitled query");
     await runSQL(
       "CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL);\n" +
         "INSERT INTO notes (body) SELECT 'note ' || g FROM generate_series(1, 120) g;\n" +
@@ -840,18 +842,33 @@ test.describe("with the saved session", () => {
     // CSV export of the displayed rows.
     await runSQL("SELECT id, body FROM notes ORDER BY id LIMIT 3");
     await expect(page.getByTestId("sql-grid")).toContainText("note 3");
-    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export CSV" }).click()]);
+    await page.getByRole("button", { name: "Export" }).click();
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download CSV" }).click()]);
     expect(readFileSync((await dl.path())!, "utf8")).toBe("id,body\r\n1,note 1\r\n2,note 2\r\n3,note 3\r\n");
 
     // Errors point at the problem; Cancel stops a running query.
     await runSQL("SELECT * FROM missing_table");
     await expect(page.getByTestId("sql-error")).toContainText('relation "missing_table" does not exist');
-    await expect(page.getByTestId("sql-error")).toContainText("line 1, column 15");
+    await expect(page.getByTestId("sql-error")).toContainText("LINE 1, COLUMN 15");
     await runSQL("SELECT pg_sleep(60)");
     await page.getByTestId("sql-cancel").click();
     await expect(page.getByTestId("sql-error")).toContainText("canceling statement due to user request", { timeout: 15_000 });
     // The history is this browser's own.
+    await page.getByRole("button", { name: "History" }).click();
     await expect(page.getByRole("button", { name: "SELECT pg_sleep(60)" })).toBeVisible();
+
+    // The query is saved as you type: rename it, share it, and it is there
+    // after a reload.
+    await expect(page.getByTestId("save-status")).toHaveText("Saved");
+    await page.getByTestId("query-name").click();
+    await page.getByTestId("rename-input").fill("Sleepy report");
+    await page.getByTestId("rename-save").click();
+    await page.getByRole("button", { name: "Sleepy report actions" }).click();
+    await page.getByTestId("share-query").click();
+    await expect(page.getByTestId("shared-queries")).toContainText("Sleepy report");
+    await page.reload();
+    await expect(page.getByTestId("query-name")).toHaveText("Sleepy report");
+    await expect(editor).toContainText("pg_sleep(60)");
 
     // The read-only toggle (project settings) refuses writes in the console.
     await projectTab(page, "Settings");
@@ -888,7 +905,7 @@ test.describe("with the saved session", () => {
     await page.getByRole("button", { name: "Previous page" }).click();
     await expect(page.getByTestId("page-input")).toHaveValue("1");
     await page.getByRole("radio", { name: "Definition" }).click();
-    await expect(page.getByTestId("table-definition")).toContainText('CREATE TABLE "public"."notes"');
+    await expect(page.getByTestId("table-definition-host")).toContainText('CREATE TABLE "public"."notes"');
     await page.getByRole("radio", { name: "Data" }).click();
 
     // Traffic, then the metrics charts: size and connection trends.

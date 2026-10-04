@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus, Table2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiRequestError, api, errorMessage, type DbSchema, type GridFilter, type Project, type RowChange, type SaveRowsResult, type SchemaChange, type TableInfo, type TablePage } from "../api/client";
-import { SqlViewer } from "../components/SqlEditor";
+import { LazyCodeEditor as CodeEditor } from "../components/sqlEditor/LazyCodeEditor";
 import { ChangeDialog, DeleteRowsDialog, ForeignRowPanel, JsonPanel } from "../components/tableEditor/Extras";
 import { Footer, PAGE_SIZES, type Mode } from "../components/tableEditor/Footer";
 import { Grid, type GridActions, type GridRow } from "../components/tableEditor/Grid";
@@ -448,7 +448,7 @@ function TableView({
       )}
       {mode === "definition" ? (
         <div className="min-h-0 flex-1 overflow-hidden bg-code">
-          {definition.isPending ? <Spinner /> : definition.isError ? <Alert>{errorMessage(definition.error)}</Alert> : <SqlViewer value={definition.data.sql} label={`Definition of ${table}`} />}
+          {definition.isPending ? <Spinner /> : definition.isError ? <Alert>{errorMessage(definition.error)}</Alert> : <CodeEditor value={definition.data.sql} readOnly label={`Definition of ${table}`} testId="table-definition" />}
         </div>
       ) : rows.isError ? (
         <div className="p-4">

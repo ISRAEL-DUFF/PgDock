@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage, type EditColumn, type SchemaChange } from "../../api/client";
 import { parseInput, prettyJSON, type Val } from "../../lib/tableEditor/cells";
+import { LazyCodeEditor as CodeEditor } from "../sqlEditor/LazyCodeEditor";
 import { Alert, Button, Checkbox, Dialog, Input, SidePanel, Spinner } from "../ui";
 
 /** The row a foreign key points at, in a side panel. */
@@ -100,18 +101,20 @@ export function JsonPanel({ col, value, readOnly, onClose, onSave }: { col: Edit
       }
     >
       <div className="flex h-full flex-col gap-2">
-        <textarea
-          aria-label={col.name}
-          value={text}
-          readOnly={readOnly}
-          onChange={(e) => {
-            setText(e.target.value);
-            setErr(null);
-          }}
-          spellCheck={false}
-          className="min-h-[24rem] flex-1 rounded-md border border-line-strong bg-code p-3 font-mono text-[12px] text-fg focus:border-accent focus:outline-none"
-          data-testid="json-editor"
-        />
+        <div className="min-h-[24rem] flex-1 overflow-hidden rounded-md border border-line-strong">
+          <CodeEditor
+            value={text}
+            language="json"
+            readOnly={readOnly}
+            lineNumbers={false}
+            onChange={(v) => {
+              setText(v);
+              setErr(null);
+            }}
+            label={col.name}
+            testId="json-editor"
+          />
+        </div>
         {err && <Alert>{err}</Alert>}
       </div>
     </SidePanel>

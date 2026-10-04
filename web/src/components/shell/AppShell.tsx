@@ -56,8 +56,6 @@ export function AppShell() {
   const sidebar = active?.sidebar && !collapsed ? active : undefined;
   // The editors use the whole width; other pages read best narrower.
   const wide = ctx.kind === "project" && /\/(tables|sql)\/?$/.test(pathname);
-  // The table editor fills the page edge to edge, as Studio's does.
-  const bleed = ctx.kind === "project" && /\/tables\/?$/.test(pathname);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -95,11 +93,11 @@ export function AppShell() {
             )}
             <div
               className={cx(
-                bleed
+                // The table and SQL editors fill the page edge to edge,
+                // as Studio's do.
+                wide
                   ? "flex h-full flex-col"
-                  : wide
-                    ? "px-4 py-4"
-                    : "mx-auto w-full max-w-6xl px-6 py-8 lg:px-10",
+                  : "mx-auto w-full max-w-6xl px-6 py-8 lg:px-10",
               )}
             >
               {platformAdmin && <BackupBanner />}
