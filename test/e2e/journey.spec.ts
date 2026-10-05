@@ -1142,7 +1142,9 @@ test.describe("with the saved session", () => {
 
   test("billing: upgrade with a prorated preview, spend controls, an invoice issued and downloaded", async ({ page }) => {
     await signedIn(page);
-    // The organisation from the usage journey, which the switcher still holds.
+    // The organisation from the usage journey.
+    await page.getByTestId("org-switcher").click();
+    await page.getByRole("menuitem", { name: /Metered team/ }).click();
     await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
     await page.goto("/org/billing");
     await expect(page.getByRole("heading", { name: "Billing" })).toBeVisible();
