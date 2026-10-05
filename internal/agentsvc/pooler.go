@@ -38,6 +38,9 @@ type PoolerConfig struct {
 	ServerID string
 	// FloatIP assigns the floating IP to ServerID on becoming MASTER.
 	FloatIP floatip.Provider
+	// PidFiles hold the local PgBouncers' PIDs: they get SIGHUP after each
+	// new configuration.
+	PidFiles []string
 }
 
 const poolerStateFile = ".pgdock-pooler.json"
@@ -260,6 +263,11 @@ func (s *Service) poolerConfig(w http.ResponseWriter, r *http.Request) {
 		s.log.Warn("pooler bundle refused", "generation", b.Generation, "err", err)
 		fail(w, http.StatusUnprocessableEntity, err)
 		return
+	}
+	if len(s.pool.cfg.PidFiles) > 0 {
+		if err := signalPgBouncers(s.pool.cfg.PidFiles); err != nil {
+			s.log.Warn("could not signal the PgBouncers to reload", "err", err)
+		}
 	}
 	s.log.Info("pooler configuration written", "generation", b.Generation, "hash", b.Hash[:12])
 	writeJSON(w, http.StatusOK, s.pool.status())

@@ -61,6 +61,7 @@ type opts struct {
 	// Pooler hosts (V3 §2.1).
 	poolerDir, poolerSession, poolerPooled, poolerLocal string
 	serverID, hetznerToken, hetznerAPI, floatingIP      string
+	poolerPidFiles                                      string
 }
 
 func flags(name string, args []string) (*opts, error) {
@@ -90,13 +91,14 @@ func flags(name string, args []string) (*opts, error) {
 	fs.StringVar(&o.serverID, "server-id", env("PGDOCK_AGENT_SERVER_ID", ""), "pooler host: the provider's ID for this machine, or \"hetzner-metadata\" to ask Hetzner's metadata service")
 	fs.StringVar(&o.hetznerToken, "hetzner-token", env("PGDOCK_AGENT_HETZNER_TOKEN", ""), "pooler host: Hetzner Cloud API token for assigning the floating IP")
 	fs.StringVar(&o.hetznerAPI, "hetzner-api", env("PGDOCK_AGENT_HETZNER_API", floatip.DefaultHetznerAPI), "pooler host: Hetzner Cloud API base URL")
+	fs.StringVar(&o.poolerPidFiles, "pooler-pidfiles", env("PGDOCK_AGENT_POOLER_PIDFILES", ""), "pooler host: comma-separated PgBouncer PID files, signalled to reload after each new configuration")
 	fs.StringVar(&o.floatingIP, "floating-ip-id", env("PGDOCK_AGENT_FLOATING_IP_ID", ""), "pooler host: the floating IP's ID; empty when keepalived alone moves the address")
 	return o, fs.Parse(args)
 }
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: pgdock-agent register|run|decrypt|version [flags]")
+		return errors.New("usage: pgdock-agent register|run|decrypt|pooler-seed|keepalived-config|version [flags]")
 	}
 	switch args[0] {
 	case "version", "-version", "--version":
@@ -105,6 +107,10 @@ func run(args []string) error {
 		return nil
 	case "decrypt":
 		return decrypt(args[1:])
+	case "pooler-seed":
+		return poolerSeed(args[1:])
+	case "keepalived-config":
+		return keepalivedConfig(args[1:])
 	case "register":
 		o, err := flags("register", args[1:])
 		if err != nil {
@@ -242,8 +248,14 @@ func enablePooler(ctx context.Context, svc *agentsvc.Service, o *opts, log *slog
 		}
 		fip = &floatip.Hetzner{API: o.hetznerAPI, Token: o.hetznerToken, IPID: o.floatingIP}
 	}
+	var pidfiles []string
+	for _, f := range strings.Split(o.poolerPidFiles, ",") {
+		if f = strings.TrimSpace(f); f != "" {
+			pidfiles = append(pidfiles, f)
+		}
+	}
 	if err := svc.EnablePooler(agentsvc.PoolerConfig{
-		Dir: o.poolerDir, SessionAddr: o.poolerSession, PooledAddr: o.poolerPooled, ServerID: serverID, FloatIP: fip,
+		Dir: o.poolerDir, SessionAddr: o.poolerSession, PooledAddr: o.poolerPooled, ServerID: serverID, FloatIP: fip, PidFiles: pidfiles,
 	}); err != nil {
 		return err
 	}
@@ -254,6 +266,53 @@ func enablePooler(ctx context.Context, svc *agentsvc.Service, o *opts, log *slog
 	}()
 	log.Info("pooler host mode", "dir", o.poolerDir, "local", o.poolerLocal, "server_id", serverID, "floating_ip", o.floatingIP)
 	return nil
+}
+
+// poolerSeed writes placeholder PgBouncer files on a pooler host so the
+// PgBouncers start before pgdock-server's first push.
+func poolerSeed(args []string) error {
+	fs := flag.NewFlagSet("pooler-seed", flag.ContinueOnError)
+	dir := fs.String("dir", env("PGDOCK_AGENT_POOLER_DIR", ""), "the PgBouncers' pgdock directory")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *dir == "" {
+		return errors.New("pooler-seed: --dir is required")
+	}
+	return agentsvc.SeedPoolerDir(*dir, 0o640)
+}
+
+// keepalivedConfig prints keepalived.conf for this pooler host.
+func keepalivedConfig(args []string) error {
+	fs := flag.NewFlagSet("keepalived-config", flag.ContinueOnError)
+	c := agentsvc.KeepalivedConfig{}
+	fs.StringVar(&c.Interface, "interface", env("PGDOCK_EDGE_INTERFACE", "eth0"), "interface for VRRP adverts (and the VIP)")
+	fs.StringVar(&c.SelfIP, "self", env("PGDOCK_EDGE_SELF_IP", ""), "this host's private IP")
+	fs.StringVar(&c.PeerIP, "peer", env("PGDOCK_EDGE_PEER_IP", ""), "the other pooler host's private IP")
+	fs.StringVar(&c.VIP, "vip", env("PGDOCK_EDGE_VIP", ""), "address keepalived adds on becoming MASTER (the floating IP)")
+	routerID, priority := env("PGDOCK_EDGE_ROUTER_ID", "51"), env("PGDOCK_EDGE_PRIORITY", "100")
+	fs.StringVar(&routerID, "router-id", routerID, "VRRP router ID (1-255, the same on both hosts)")
+	fs.StringVar(&priority, "priority", priority, "VRRP priority (1-254)")
+	fs.StringVar(&c.Password, "password", env("PGDOCK_EDGE_VRRP_PASSWORD", ""), "VRRP password, at most 8 characters (the same on both hosts)")
+	local := env("PGDOCK_AGENT_POOLER_LOCAL", "127.0.0.1:7071")
+	fs.StringVar(&local, "local", local, "the agent's loopback pooler API")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	var err error
+	if c.RouterID, err = strconv.Atoi(routerID); err != nil {
+		return fmt.Errorf("--router-id: %w", err)
+	}
+	if c.Priority, err = strconv.Atoi(priority); err != nil {
+		return fmt.Errorf("--priority: %w", err)
+	}
+	c.CheckURL, c.NotifyURL = "http://"+local+"/ready", "http://"+local
+	out, err := agentsvc.RenderKeepalived(c)
+	if err != nil {
+		return fmt.Errorf("keepalived-config: %w", err)
+	}
+	_, err = os.Stdout.Write(out)
+	return err
 }
 
 // decrypt turns a backup object back into a pg_dump archive with the
