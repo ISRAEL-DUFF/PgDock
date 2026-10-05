@@ -2837,6 +2837,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/billing/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The current month so far and its forecast (V3 §3.10) */
+        get: operations["getOrgForecast"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What a dedicated instance, HA or synchronous replication would cost (shown before billable actions) */
+        post: operations["estimateOrgCost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/usage": {
         parameters: {
             query?: never;
@@ -6320,6 +6354,28 @@ export interface components {
                 /** Format: int64 */
                 balance_minor: number;
             }[];
+        };
+        BillingForecast: {
+            /** @description YYYY-MM. */
+            month: string;
+            /**
+             * Format: int64
+             * @description The month's projected cost before VAT.
+             */
+            spend_minor: number;
+            /**
+             * Format: int64
+             * @description Projected usage charges (overage, dedicated, add-ons); the spend cap applies to these.
+             */
+            usage_minor: number;
+            elapsed: components["schemas"]["Decimal"];
+            /** Format: int64 */
+            budget_minor?: number | null;
+            /** Format: int64 */
+            spend_cap_minor?: number | null;
+            capped: boolean;
+            /** @description The month's lines so far (the next invoice, still changing). */
+            so_far: components["schemas"]["InvoiceLine"][];
         };
         OrgQuotas: {
             plan: string;
@@ -11350,6 +11406,75 @@ export interface operations {
                 };
                 content: {
                     "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgForecast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The forecast. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingForecast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    estimateOrgCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cpus?: number;
+                    /** Format: int64 */
+                    memory_mb?: number;
+                    /** Format: int64 */
+                    disk_gb?: number;
+                    ha?: boolean;
+                    synchronous?: boolean;
+                    /** @description Price only what enabling HA adds to a running instance. */
+                    standby_only?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The estimate (before VAT). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        hourly_minor: number;
+                        /**
+                         * Format: int64
+                         * @description For 730 hours.
+                         */
+                        monthly_minor: number;
+                        lines: components["schemas"]["InvoiceLine"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

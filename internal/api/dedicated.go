@@ -318,6 +318,9 @@ func (s *Server) PromoteProject(w http.ResponseWriter, r *http.Request, id gen.P
 	}
 	if s.tenancy != nil {
 		org := accessFrom(r.Context()).OrgID
+		if !s.checkQuota(w, s.tenancy.CheckSpendCap(r.Context(), org)) {
+			return
+		}
 		ok, err := s.tenancy.WithinAllowance(r.Context(), org, profileSize(pp.Profile, pp.VolumeGB))
 		if err != nil {
 			s.internalError(w, "promote", err)

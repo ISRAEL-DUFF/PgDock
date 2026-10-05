@@ -3827,6 +3827,73 @@ paths:
                 format: binary
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/forecast:
+    get:
+      operationId: getOrgForecast
+      summary: The current month so far and its forecast (V3 §3.10)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The forecast.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingForecast"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/estimate:
+    post:
+      operationId: estimateOrgCost
+      summary: What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cpus:
+                  type: number
+                memory_mb:
+                  type: integer
+                  format: int64
+                disk_gb:
+                  type: integer
+                  format: int64
+                ha:
+                  type: boolean
+                synchronous:
+                  type: boolean
+                standby_only:
+                  type: boolean
+                  description: Price only what enabling HA adds to a running instance.
+      responses:
+        "200":
+          description: The estimate (before VAT).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hourly_minor, monthly_minor, lines]
+                properties:
+                  hourly_minor:
+                    type: integer
+                    format: int64
+                  monthly_minor:
+                    type: integer
+                    format: int64
+                    description: For 730 hours.
+                  lines:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvoiceLine"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/usage:
     get:
       operationId: getOrgUsage
@@ -10202,6 +10269,38 @@ components:
               balance_minor:
                 type: integer
                 format: int64
+    BillingForecast:
+      type: object
+      required: [month, spend_minor, usage_minor, elapsed, capped, so_far]
+      properties:
+        month:
+          type: string
+          description: YYYY-MM.
+        spend_minor:
+          type: integer
+          format: int64
+          description: The month's projected cost before VAT.
+        usage_minor:
+          type: integer
+          format: int64
+          description: Projected usage charges (overage, dedicated, add-ons); the spend cap applies to these.
+        elapsed:
+          $ref: "#/components/schemas/Decimal"
+        budget_minor:
+          type: integer
+          format: int64
+          nullable: true
+        spend_cap_minor:
+          type: integer
+          format: int64
+          nullable: true
+        capped:
+          type: boolean
+        so_far:
+          type: array
+          description: The month's lines so far (the next invoice, still changing).
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
     OrgQuotas:
       type: object
       required: [plan, items, dedicated_allowance, dedicated_use]

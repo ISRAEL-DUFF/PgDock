@@ -59,6 +59,20 @@ func (s *Service) CheckCreateProject(ctx context.Context, orgID uuid.UUID) error
 	return nil
 }
 
+// CheckSpendCap refuses a new billable resource (a branch, a dedicated
+// instance, HA) while the organisation is at its spend cap (V3 §3.10).
+// Nothing running is stopped.
+func (s *Service) CheckSpendCap(ctx context.Context, orgID uuid.UUID) error {
+	capped, err := store.New(s.db).OrgSpendCapped(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if capped {
+		return fmt.Errorf("%w: the organisation has reached its spend cap; new billable resources are paused until the cap is raised on the Billing page or next month starts", ErrConflict)
+	}
+	return nil
+}
+
 // CheckCreateBranch refuses a branch of a parent of parentBytes (-1: not
 // measured) beyond the branches quota, or one that would not fit the
 // per-project or total shared storage limits (V2 §8.2 step 1).
@@ -68,6 +82,9 @@ func (s *Service) CheckCreateBranch(ctx context.Context, orgID uuid.UUID, parent
 		return err
 	}
 	if err := s.orgActive(o); err != nil {
+		return err
+	}
+	if err := s.CheckSpendCap(ctx, orgID); err != nil {
 		return err
 	}
 	q := store.New(s.db)

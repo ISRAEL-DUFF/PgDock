@@ -323,3 +323,15 @@ SELECT * FROM credit_notes WHERE invoice_id = @invoice_id ORDER BY issued_at;
 -- name: GetCreditNote :one
 -- tenant: system - a credit note by id.
 SELECT * FROM credit_notes WHERE id = @id;
+
+-- ---- Spend controls -------------------------------------------------------
+
+-- name: UpdateForecast :exec
+-- tenant: system - the hourly forecast of an org the caller resolved.
+UPDATE billing_accounts SET forecast_minor = @forecast_minor, forecast_at = @forecast_at, capped = @capped,
+  budget_alerted = @budget_alerted, budget_month = @budget_month
+WHERE org_id = @org_id;
+
+-- name: OrgSpendCapped :one
+-- tenant: system - whether an org has reached its spend cap (V3 §3.10).
+SELECT coalesce((SELECT capped FROM billing_accounts WHERE org_id = @org_id), false)::bool;

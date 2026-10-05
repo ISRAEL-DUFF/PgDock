@@ -2961,6 +2961,30 @@ type BillingDetailsUpdate struct {
 	VatRegistered bool    `json:"vat_registered"`
 }
 
+// BillingForecast defines model for BillingForecast.
+type BillingForecast struct {
+	BudgetMinor *int64 `json:"budget_minor,omitempty"`
+	Capped      bool   `json:"capped"`
+
+	// Elapsed An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	Elapsed Decimal `json:"elapsed"`
+
+	// Month YYYY-MM.
+	Month string `json:"month"`
+
+	// SoFar The month's lines so far (the next invoice, still changing).
+	SoFar         []InvoiceLine `json:"so_far"`
+	SpendCapMinor *int64        `json:"spend_cap_minor,omitempty"`
+
+	// SpendMinor The month's projected cost before VAT.
+	SpendMinor int64 `json:"spend_minor"`
+
+	// UsageMinor Projected usage charges (overage, dedicated, add-ons); the spend cap applies to these.
+	UsageMinor int64 `json:"usage_minor"`
+}
+
 // BillingSettings defines model for BillingSettings.
 type BillingSettings struct {
 	// AutoIssue Issue each month's draft invoices automatically on the 1st.
@@ -6184,6 +6208,18 @@ type ListOrgAuditParams struct {
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
 
+// EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
+type EstimateOrgCostJSONBody struct {
+	Cpus     *float32 `json:"cpus,omitempty"`
+	DiskGb   *int64   `json:"disk_gb,omitempty"`
+	Ha       *bool    `json:"ha,omitempty"`
+	MemoryMb *int64   `json:"memory_mb,omitempty"`
+
+	// StandbyOnly Price only what enabling HA adds to a running instance.
+	StandbyOnly *bool `json:"standby_only,omitempty"`
+	Synchronous *bool `json:"synchronous,omitempty"`
+}
+
 // DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
 type DeleteOrgStorageTargetParams struct {
 	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
@@ -6518,6 +6554,9 @@ type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
+
+// EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
+type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
 
 // ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
 type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
@@ -8030,6 +8069,25 @@ type ClientInterface interface {
 	//
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContact(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EstimateOrgCostWithBody What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+	EstimateOrgCostWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+	EstimateOrgCost(ctx context.Context, org OrgID, body EstimateOrgCostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgForecast The current month so far and its forecast (V3 §3.10)
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/forecast (the `GetOrgForecast` operationId).
+	GetOrgForecast(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrgInvoices The organisation's issued invoices
 	//
@@ -12587,6 +12645,55 @@ func (c *Client) AddBillingContact(ctx context.Context, org OrgID, body AddBilli
 // Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 func (c *Client) RemoveBillingContact(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRemoveBillingContactRequest(c.Server, org, email)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EstimateOrgCostWithBody What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+func (c *Client) EstimateOrgCostWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEstimateOrgCostRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+func (c *Client) EstimateOrgCost(ctx context.Context, org OrgID, body EstimateOrgCostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEstimateOrgCostRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgForecast The current month so far and its forecast (V3 §3.10)
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/forecast (the `GetOrgForecast` operationId).
+func (c *Client) GetOrgForecast(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgForecastRequest(c.Server, org)
 	if err != nil {
 		return nil, err
 	}
@@ -20962,6 +21069,87 @@ func NewRemoveBillingContactRequest(server string, org OrgID, email string) (*ht
 	return req, nil
 }
 
+// NewEstimateOrgCostRequest calls the generic EstimateOrgCost builder with application/json body
+func NewEstimateOrgCostRequest(server string, org OrgID, body EstimateOrgCostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEstimateOrgCostRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewEstimateOrgCostRequestWithBody constructs an http.Request for the EstimateOrgCost method, with any body, and a specified content type
+func NewEstimateOrgCostRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/estimate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetOrgForecastRequest constructs an http.Request for the GetOrgForecast method
+func NewGetOrgForecastRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/forecast", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOrgInvoicesRequest constructs an http.Request for the ListOrgInvoices method
 func NewListOrgInvoicesRequest(server string, org OrgID) (*http.Request, error) {
 	var err error
@@ -28318,6 +28506,27 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContactWithResponse(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*RemoveBillingContactResponse, error)
 
+	// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+	EstimateOrgCostWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EstimateOrgCostResponse, error)
+
+	// EstimateOrgCostWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+	EstimateOrgCostWithResponse(ctx context.Context, org OrgID, body EstimateOrgCostJSONRequestBody, reqEditors ...RequestEditorFn) (*EstimateOrgCostResponse, error)
+
+	// GetOrgForecastWithResponse The current month so far and its forecast (V3 §3.10)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/forecast (the `GetOrgForecast` operationId).
+	GetOrgForecastWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgForecastResponse, error)
+
 	// ListOrgInvoicesWithResponse The organisation's issued invoices
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -35660,6 +35869,114 @@ func (r RemoveBillingContactResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RemoveBillingContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EstimateOrgCostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		HourlyMinor int64         `json:"hourly_minor"`
+		Lines       []InvoiceLine `json:"lines"`
+
+		// MonthlyMinor For 730 hours.
+		MonthlyMinor int64 `json:"monthly_minor"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EstimateOrgCostResponse) GetJSON200() *struct {
+	HourlyMinor int64         `json:"hourly_minor"`
+	Lines       []InvoiceLine `json:"lines"`
+
+	// MonthlyMinor For 730 hours.
+	MonthlyMinor int64 `json:"monthly_minor"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EstimateOrgCostResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EstimateOrgCostResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EstimateOrgCostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EstimateOrgCostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EstimateOrgCostResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgForecastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BillingForecast
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgForecastResponse) GetJSON200() *BillingForecast {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgForecastResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgForecastResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgForecastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgForecastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgForecastResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -44421,6 +44738,45 @@ func (c *ClientWithResponses) RemoveBillingContactWithResponse(ctx context.Conte
 	return ParseRemoveBillingContactResponse(rsp)
 }
 
+// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+func (c *ClientWithResponses) EstimateOrgCostWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EstimateOrgCostResponse, error) {
+	rsp, err := c.EstimateOrgCostWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEstimateOrgCostResponse(rsp)
+}
+
+// EstimateOrgCostWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
+func (c *ClientWithResponses) EstimateOrgCostWithResponse(ctx context.Context, org OrgID, body EstimateOrgCostJSONRequestBody, reqEditors ...RequestEditorFn) (*EstimateOrgCostResponse, error) {
+	rsp, err := c.EstimateOrgCost(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEstimateOrgCostResponse(rsp)
+}
+
+// GetOrgForecastWithResponse The current month so far and its forecast (V3 §3.10)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/forecast (the `GetOrgForecast` operationId).
+func (c *ClientWithResponses) GetOrgForecastWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgForecastResponse, error) {
+	rsp, err := c.GetOrgForecast(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgForecastResponse(rsp)
+}
+
 // ListOrgInvoicesWithResponse The organisation's issued invoices
 //
 // Returns a wrapper object for the known response body format(s).
@@ -51085,6 +51441,78 @@ func ParseRemoveBillingContactResponse(rsp *http.Response) (*RemoveBillingContac
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEstimateOrgCostResponse parses an HTTP response from a EstimateOrgCostWithResponse call
+func ParseEstimateOrgCostResponse(rsp *http.Response) (*EstimateOrgCostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EstimateOrgCostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			HourlyMinor int64         `json:"hourly_minor"`
+			Lines       []InvoiceLine `json:"lines"`
+
+			// MonthlyMinor For 730 hours.
+			MonthlyMinor int64 `json:"monthly_minor"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgForecastResponse parses an HTTP response from a GetOrgForecastWithResponse call
+func ParseGetOrgForecastResponse(rsp *http.Response) (*GetOrgForecastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgForecastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BillingForecast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

@@ -1408,6 +1408,18 @@ func (q *Queries) OrgQuotaPlanName(ctx context.Context, orgID uuid.UUID) (string
 	return name, err
 }
 
+const orgSpendCapped = `-- name: OrgSpendCapped :one
+SELECT coalesce((SELECT capped FROM billing_accounts WHERE org_id = $1), false)::bool
+`
+
+// tenant: system - whether an org has reached its spend cap (V3 §3.10).
+func (q *Queries) OrgSpendCapped(ctx context.Context, orgID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, orgSpendCapped, orgID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const orgUsageByDay = `-- name: OrgUsageByDay :many
 
 SELECT project_id, metric, date_trunc('day', period_start AT TIME ZONE 'UTC')::timestamp AS day,
@@ -2024,6 +2036,36 @@ func (q *Queries) UpdateDraftInvoice(ctx context.Context, arg UpdateDraftInvoice
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const updateForecast = `-- name: UpdateForecast :exec
+
+UPDATE billing_accounts SET forecast_minor = $1, forecast_at = $2, capped = $3,
+  budget_alerted = $4, budget_month = $5
+WHERE org_id = $6
+`
+
+type UpdateForecastParams struct {
+	ForecastMinor *int64
+	ForecastAt    *time.Time
+	Capped        bool
+	BudgetAlerted int32
+	BudgetMonth   pgtype.Date
+	OrgID         uuid.UUID
+}
+
+// ---- Spend controls -------------------------------------------------------
+// tenant: system - the hourly forecast of an org the caller resolved.
+func (q *Queries) UpdateForecast(ctx context.Context, arg UpdateForecastParams) error {
+	_, err := q.db.Exec(ctx, updateForecast,
+		arg.ForecastMinor,
+		arg.ForecastAt,
+		arg.Capped,
+		arg.BudgetAlerted,
+		arg.BudgetMonth,
+		arg.OrgID,
+	)
+	return err
 }
 
 const updatePriceBookDraft = `-- name: UpdatePriceBookDraft :one

@@ -414,12 +414,21 @@ func Naira(kobo int64) string {
 	return s
 }
 
-// Run applies scheduled plan changes, renews annual terms and moves orgs to
-// new price books every interval until ctx ends.
+// Run applies scheduled plan changes, renews annual terms, moves orgs to
+// new price books and runs the monthly invoicing every interval, and
+// refreshes forecasts hourly, until ctx ends.
 func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
+	var forecastAt time.Time
 	for {
+		// Forecasts, budget alerts and the spend cap: hourly (V3 §3.10).
+		if now := s.Now(); now.Sub(forecastAt) >= time.Hour {
+			if err := s.RefreshForecasts(ctx); err != nil && ctx.Err() == nil {
+				s.log.Warn("billing: forecasts", "err", err)
+			}
+			forecastAt = now
+		}
 		if _, err := s.ApplyDueChanges(ctx); err != nil && ctx.Err() == nil {
 			s.log.Warn("billing: plan changes", "err", err)
 		}

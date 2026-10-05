@@ -139,6 +139,9 @@ func (s *Server) EnableProjectHA(w http.ResponseWriter, r *http.Request, id gen.
 	a.target("project", id.String())
 	sync := req.Synchronous != nil && *req.Synchronous
 	a.set("synchronous", sync)
+	if s.tenancy != nil && !s.checkQuota(w, s.tenancy.CheckSpendCap(r.Context(), accessFrom(r.Context()).OrgID)) {
+		return
+	}
 	op, err := ds.EnableHA(r.Context(), dedicated.HAParams{ProjectID: id, NodeID: req.NodeId, Synchronous: sync, CreatedBy: userID(r.Context())})
 	if err != nil {
 		s.provisionError(w, "enable HA", err)

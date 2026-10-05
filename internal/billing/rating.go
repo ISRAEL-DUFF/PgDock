@@ -52,6 +52,10 @@ type Rated struct {
 	Total            int64
 	WHTExpected      int64
 	VATRate          Dec
+	// NextFee is the next month's plan fee among the lines (in advance);
+	// MonthFee is this month's, billed on the previous invoice.
+	NextFee  int64
+	MonthFee int64
 }
 
 type planTerm struct{ plan, term string }
@@ -67,12 +71,13 @@ func renewal(c store.BillingPlanChange) bool {
 
 // Rate rates orgID's month (the UTC calendar month containing month).
 func (s *Service) Rate(ctx context.Context, orgID uuid.UUID, month time.Time) (Rated, error) {
-	return s.rate(ctx, orgID, month, nil)
+	return s.rate(ctx, orgID, month, nil, Dec{})
 }
 
 // rate rates with prices in place of the org's price book when given (a
-// draft book's preview).
-func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, prices *Prices) (Rated, error) {
+// draft book's preview), and usage multiplied by scale when it isn't zero
+// (the forecast).
+func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, prices *Prices, scale Dec) (Rated, error) {
 	a, err := s.Account(ctx, orgID)
 	if err != nil {
 		return Rated{}, err
@@ -136,6 +141,9 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 	projUse := map[uuid.UUID]map[string]Dec{}
 	for _, r := range rows {
 		qty := DecFromNumeric(r.Quantity)
+		if !scale.IsZero() {
+			qty = qty.Mul(scale)
+		}
 		day := r.Day.Time.UTC()
 		if _, ok := metricLabels[r.Metric]; !ok {
 			continue
@@ -267,7 +275,11 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return Rated{}, err
 	}
+	if pl, ok := p.Plans[start.plan]; ok && start.term == TermMonthly {
+		out.MonthFee = pl.MonthlyMinor
+	}
 	if pl, ok := p.Plans[next.plan]; ok && next.term == TermMonthly && pl.MonthlyMinor > 0 {
+		out.NextFee = pl.MonthlyMinor
 		out.Lines = append(out.Lines, Line{
 			Kind: KindPlan, Quantity: DecInt(1), UnitPrice: DecInt(pl.MonthlyMinor), Amount: pl.MonthlyMinor, Revenue: AccRevenuePrefix + next.plan,
 			Description: fmt.Sprintf("%s plan, %s", pl.Name, mEnd.Format("January 2006")),
@@ -318,7 +330,7 @@ func (s *Service) PreviewPrices(ctx context.Context, prices Prices, month time.T
 		if err != nil {
 			return nil, err
 		}
-		proj, err := s.rate(ctx, a.OrgID, month, &prices)
+		proj, err := s.rate(ctx, a.OrgID, month, &prices, Dec{})
 		if err != nil {
 			return nil, err
 		}

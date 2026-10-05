@@ -492,6 +492,8 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
 		// §13 "projects list ... with quota usage bars": every member sees the limits
 		"GET /api/v1/orgs/{org}/quotas",
+		// V3 §3.10 "Cost estimate before every billable action"
+		"POST /api/v1/orgs/{org}/billing/estimate",
 	},
 	// "Create projects, import"
 	authz.OrgCreateProject: {"POST /api/v1/projects", "POST /api/v1/imports"},
@@ -520,6 +522,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/orgs/{org}/billing/contacts", "POST /api/v1/orgs/{org}/billing/contacts",
 		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
 		"GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}", "GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf",
+		"GET /api/v1/orgs/{org}/billing/forecast",
 	},
 	// §10.10 "Org owners can export any project as a pg_dump file"
 	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},

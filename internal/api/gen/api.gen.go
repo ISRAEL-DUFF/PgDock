@@ -2957,6 +2957,30 @@ type BillingDetailsUpdate struct {
 	VatRegistered bool    `json:"vat_registered"`
 }
 
+// BillingForecast defines model for BillingForecast.
+type BillingForecast struct {
+	BudgetMinor *int64 `json:"budget_minor,omitempty"`
+	Capped      bool   `json:"capped"`
+
+	// Elapsed An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	Elapsed Decimal `json:"elapsed"`
+
+	// Month YYYY-MM.
+	Month string `json:"month"`
+
+	// SoFar The month's lines so far (the next invoice, still changing).
+	SoFar         []InvoiceLine `json:"so_far"`
+	SpendCapMinor *int64        `json:"spend_cap_minor,omitempty"`
+
+	// SpendMinor The month's projected cost before VAT.
+	SpendMinor int64 `json:"spend_minor"`
+
+	// UsageMinor Projected usage charges (overage, dedicated, add-ons); the spend cap applies to these.
+	UsageMinor int64 `json:"usage_minor"`
+}
+
 // BillingSettings defines model for BillingSettings.
 type BillingSettings struct {
 	// AutoIssue Issue each month's draft invoices automatically on the 1st.
@@ -6180,6 +6204,18 @@ type ListOrgAuditParams struct {
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
 
+// EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
+type EstimateOrgCostJSONBody struct {
+	Cpus     *float32 `json:"cpus,omitempty"`
+	DiskGb   *int64   `json:"disk_gb,omitempty"`
+	Ha       *bool    `json:"ha,omitempty"`
+	MemoryMb *int64   `json:"memory_mb,omitempty"`
+
+	// StandbyOnly Price only what enabling HA adds to a running instance.
+	StandbyOnly *bool `json:"standby_only,omitempty"`
+	Synchronous *bool `json:"synchronous,omitempty"`
+}
+
 // DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
 type DeleteOrgStorageTargetParams struct {
 	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
@@ -6514,6 +6550,9 @@ type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
+
+// EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
+type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
 
 // ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
 type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
@@ -7036,6 +7075,12 @@ type ServerInterface interface {
 	// RemoveBillingContact Remove a billing contact
 	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// (POST /api/v1/orgs/{org}/billing/estimate)
+	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgForecast The current month so far and its forecast (V3 §3.10)
+	// (GET /api/v1/orgs/{org}/billing/forecast)
+	GetOrgForecast(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListOrgInvoices The organisation's issued invoices
 	// (GET /api/v1/orgs/{org}/billing/invoices)
 	ListOrgInvoices(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -8164,6 +8209,18 @@ func (_ Unimplemented) AddBillingContact(w http.ResponseWriter, r *http.Request,
 // RemoveBillingContact Remove a billing contact
 // (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// (POST /api/v1/orgs/{org}/billing/estimate)
+func (_ Unimplemented) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgForecast The current month so far and its forecast (V3 §3.10)
+// (GET /api/v1/orgs/{org}/billing/forecast)
+func (_ Unimplemented) GetOrgForecast(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11839,6 +11896,58 @@ func (siw *ServerInterfaceWrapper) RemoveBillingContact(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveBillingContact(w, r, org, email)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EstimateOrgCost operation middleware
+func (siw *ServerInterfaceWrapper) EstimateOrgCost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EstimateOrgCost(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgForecast operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgForecast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgForecast(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -16518,6 +16627,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf", wrapper.GetOrgInvoicePdf)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/forecast", wrapper.GetOrgForecast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/estimate", wrapper.EstimateOrgCost)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/usage", wrapper.GetOrgUsage)

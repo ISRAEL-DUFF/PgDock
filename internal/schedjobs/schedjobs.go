@@ -489,6 +489,11 @@ func (s *Service) dispatch(ctx context.Context, j store.ScheduledJob, scheduledF
 	case j.Kind == KindHTTP && o.OutboundDisabled:
 		return skip("outbound traffic is disabled for the organisation")
 	}
+	if capped, err := q.OrgSpendCapped(ctx, p.OrgID); err != nil {
+		return store.JobRun{}, err
+	} else if capped {
+		return skip("the organisation has reached its spend cap")
+	}
 	if j.Kind == KindHTTP && s.limits != nil {
 		if l, _, err := s.limits.Limits(ctx, p.OrgID); err == nil {
 			limit, _ := l.Get(store.LimitHTTPJobRunsPerHour)

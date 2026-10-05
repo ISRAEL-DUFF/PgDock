@@ -949,6 +949,9 @@ func instanceSize(i store.Instance) tenancy.Dedicated {
 // withinAllowance refuses a new dedicated instance beyond the
 // organisation's allowance (V2 §10.6); true means go on.
 func (s *Server) withinAllowance(w http.ResponseWriter, r *http.Request, org uuid.UUID, d tenancy.Dedicated) bool {
+	if !s.checkQuota(w, s.tenancy.CheckSpendCap(r.Context(), org)) {
+		return false
+	}
 	ok, err := s.tenancy.WithinAllowance(r.Context(), org, d)
 	if err != nil {
 		s.internalError(w, "dedicated allowance", err)

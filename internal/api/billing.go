@@ -120,6 +120,13 @@ func (s *Server) UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org ge
 		s.billingError(w, "billing details", err)
 		return
 	}
+	// A new budget or cap applies now, not at the next hourly forecast.
+	if _, err := bs.RefreshForecast(r.Context(), org); err != nil {
+		s.log.Warn("forecast after a billing change", "org", org, "err", err)
+	} else if a, err = bs.Account(r.Context(), org); err != nil {
+		s.billingError(w, "billing details", err)
+		return
+	}
 	au := auditFrom(r.Context())
 	au.set("vat_registered", req.VatRegistered)
 	au.set("deducts_wht", req.DeductsWht)
@@ -466,4 +473,85 @@ func (s *Server) AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 	s.writeBillingAccount(w, r, a)
+}
+
+// GetOrgForecast implements GET /api/v1/orgs/{org}/billing/forecast.
+func (s *Server) GetOrgForecast(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
+	bs := s.billingSvc(w)
+	if bs == nil {
+		return
+	}
+	ctx := r.Context()
+	a, err := bs.Account(ctx, org)
+	if err != nil {
+		s.billingError(w, "forecast", err)
+		return
+	}
+	f, err := bs.Forecast(ctx, org)
+	if err != nil {
+		s.billingError(w, "forecast", err)
+		return
+	}
+	sofar, err := bs.Rate(ctx, org, f.Month)
+	if err != nil {
+		s.billingError(w, "forecast", err)
+		return
+	}
+	lines, err := convert[[]gen.InvoiceLine](sofar.Lines)
+	if err != nil {
+		s.internalError(w, "forecast", err)
+		return
+	}
+	if lines == nil {
+		lines = []gen.InvoiceLine{}
+	}
+	writeJSON(w, http.StatusOK, gen.BillingForecast{
+		Month: f.Month.Format("2006-01"), SpendMinor: f.Spend, UsageMinor: f.Usage, Elapsed: f.Elapsed.String(),
+		BudgetMinor: a.BudgetMinor, SpendCapMinor: a.SpendCapMinor, Capped: a.Capped, SoFar: lines,
+	})
+}
+
+// EstimateOrgCost implements POST /api/v1/orgs/{org}/billing/estimate.
+func (s *Server) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
+	bs := s.billingSvc(w)
+	if bs == nil {
+		return
+	}
+	var req gen.EstimateOrgCostJSONBody
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	auditFrom(r.Context()).skip = true
+	er := billing.EstimateRequest{}
+	if req.Cpus != nil {
+		d, err := billing.ParseDec(strconv.FormatFloat(float64(*req.Cpus), 'f', -1, 32))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "bad_request", "cpus: "+err.Error())
+			return
+		}
+		er.CPUs = d
+	}
+	if req.MemoryMb != nil {
+		er.MemoryMB = *req.MemoryMb
+	}
+	if req.DiskGb != nil {
+		er.DiskGB = *req.DiskGb
+	}
+	er.HA = req.Ha != nil && *req.Ha
+	er.Sync = req.Synchronous != nil && *req.Synchronous
+	er.StandbyOnly = req.StandbyOnly != nil && *req.StandbyOnly
+	e, err := bs.EstimateDedicated(r.Context(), org, er)
+	if err != nil {
+		s.billingError(w, "estimate", err)
+		return
+	}
+	lines, err := convert[[]gen.InvoiceLine](e.Lines)
+	if err != nil {
+		s.internalError(w, "estimate", err)
+		return
+	}
+	if lines == nil {
+		lines = []gen.InvoiceLine{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"hourly_minor": e.HourlyMinor, "monthly_minor": e.MonthlyMinor, "lines": lines})
 }
