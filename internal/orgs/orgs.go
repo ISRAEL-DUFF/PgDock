@@ -256,14 +256,14 @@ func (s *Service) withMembersLocked(ctx context.Context, orgID uuid.UUID, f func
 }
 
 func validOrgRole(r string) bool {
-	return r == authz.OrgOwner || r == authz.OrgAdmin || r == authz.OrgMember
+	return r == authz.OrgOwner || r == authz.OrgAdmin || r == authz.OrgMember || r == authz.OrgBilling
 }
 
 // SetMemberRole changes target's role in orgID, on behalf of an actor with
 // actorRole. Only owners hand out or take away the owner role.
 func (s *Service) SetMemberRole(ctx context.Context, orgID uuid.UUID, actorRole string, target uuid.UUID, role string) error {
 	if !validOrgRole(role) {
-		return fmt.Errorf("%w: role must be owner, admin, or member", ErrInvalid)
+		return fmt.Errorf("%w: role must be owner, admin, member, or billing", ErrInvalid)
 	}
 	err := s.withMembersLocked(ctx, orgID, func(q *store.Queries) error {
 		cur, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: orgID, UserID: target})
@@ -281,6 +281,12 @@ func (s *Service) SetMemberRole(ctx context.Context, orgID uuid.UUID, actorRole 
 				return err
 			} else if n <= 1 {
 				return ErrLastOwner
+			}
+		}
+		if role == authz.OrgBilling {
+			// The billing role has no project access (V3 §3.2).
+			if _, err := q.DeleteOrgProjectMemberships(ctx, store.DeleteOrgProjectMembershipsParams{OrgID: orgID, UserID: target}); err != nil {
+				return err
 			}
 		}
 		_, err = q.SetOrgMemberRole(ctx, store.SetOrgMemberRoleParams{OrgID: orgID, UserID: target, Role: role})
@@ -448,6 +454,9 @@ func EffectiveProjectRole(ctx context.Context, q *store.Queries, orgID, projectI
 	if m.Role == authz.OrgOwner || m.Role == authz.OrgAdmin {
 		return authz.ProjectAdmin, nil
 	}
+	if m.Role == authz.OrgBilling {
+		return "", nil
+	}
 	pm, err := q.GetProjectMember(ctx, store.GetProjectMemberParams{ProjectID: projectID, UserID: userID, OrgID: orgID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
@@ -503,10 +512,12 @@ func (s *Service) AddProjectMember(ctx context.Context, p store.Project, userID 
 		return fmt.Errorf("%w: role must be admin, developer, or read_only", ErrInvalid)
 	}
 	q := store.New(s.db)
-	if _, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: p.OrgID, UserID: userID}); errors.Is(err, pgx.ErrNoRows) {
+	if m, err := q.GetOrgMember(ctx, store.GetOrgMemberParams{OrgID: p.OrgID, UserID: userID}); errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	} else if err != nil {
 		return err
+	} else if m.Role == authz.OrgBilling {
+		return fmt.Errorf("%w: billing members have no project access", ErrInvalid)
 	}
 	if err := q.UpsertProjectMember(ctx, store.UpsertProjectMemberParams{ProjectID: p.ID, UserID: userID, OrgID: p.OrgID, Role: role, AddedBy: &by}); err != nil {
 		return err
@@ -646,7 +657,7 @@ func (s *Service) Invite(ctx context.Context, p InviteParams) (Invited, error) {
 	if p.OrgID != nil {
 		kind = "org"
 		if !validOrgRole(p.OrgRole) {
-			return Invited{}, fmt.Errorf("%w: role must be owner, admin, or member", ErrInvalid)
+			return Invited{}, fmt.Errorf("%w: role must be owner, admin, member, or billing", ErrInvalid)
 		}
 		orgRole = &p.OrgRole
 		o, err := q.GetOrg(ctx, *p.OrgID)
@@ -654,6 +665,9 @@ func (s *Service) Invite(ctx context.Context, p InviteParams) (Invited, error) {
 			return Invited{}, err
 		}
 		orgName = o.Name
+		if p.OrgRole == authz.OrgBilling && len(p.Projects) > 0 {
+			return Invited{}, fmt.Errorf("%w: billing members have no project access", ErrInvalid)
+		}
 		seen := map[uuid.UUID]bool{}
 		for _, pr := range p.Projects {
 			if !validProjectRole(pr.Role) {

@@ -5424,7 +5424,7 @@ export interface components {
             codes: string[];
         };
         /** @enum {string} */
-        OrgRole: "owner" | "admin" | "member";
+        OrgRole: "owner" | "admin" | "member" | "billing";
         /** @enum {string} */
         ProjectRole: "admin" | "developer" | "read_only";
         Org: {

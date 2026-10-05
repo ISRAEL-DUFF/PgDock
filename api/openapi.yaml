@@ -8635,7 +8635,7 @@ components:
             type: string
     OrgRole:
       type: string
-      enum: [owner, admin, member]
+      enum: [owner, admin, member, billing]
     ProjectRole:
       type: string
       enum: [admin, developer, read_only]

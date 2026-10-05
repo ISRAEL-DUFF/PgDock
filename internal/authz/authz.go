@@ -62,6 +62,7 @@ var actionScope = map[Action]string{
 	OrgCreateProject:   ScopeWrite,
 	OrgManage:          ScopeAdmin,
 	OrgOwnerOnly:       ScopeAdmin,
+	OrgBillingManage:   ScopeAdmin,
 	RestoreInPlace:     ScopeAdmin,
 	BackupStorage:      ScopeAdmin,
 	BranchManage:       ScopeWrite,
@@ -116,6 +117,8 @@ const (
 	OrgOwner  = "owner"
 	OrgAdmin  = "admin"
 	OrgMember = "member"
+	// OrgBilling sees and manages billing, without project access (V3 §3.2).
+	OrgBilling = "billing"
 )
 
 // Project roles.
@@ -141,6 +144,8 @@ const (
 	OrgManage        Action = "org.manage"         // admin: settings, members, invitations
 	OrgAudit         Action = "org.audit"          // admin: org audit log, usage
 	OrgOwnerOnly     Action = "org.owner"          // owner: owners, delete, transfer projects out
+	// OrgBillingManage is billing: owners and billing members only (V3 §3.2).
+	OrgBillingManage Action = "org.billing"
 
 	ProjectView        Action = "project.view"         // read_only: project, metrics, operations
 	ProjectCredentials Action = "project.credentials"  // read_only (read-only credentials)
@@ -314,6 +319,9 @@ func can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		if res.ProjectID == uuid.Nil {
 			return Decision{}, errors.New("authz: project action without a project")
 		}
+		if d.OrgRole == OrgBilling {
+			return Decision{OrgRole: d.OrgRole}, nil // no project access
+		}
 		if d.OrgRole == OrgOwner || d.OrgRole == OrgAdmin {
 			d.ProjectRole = ProjectAdmin
 		} else {
@@ -342,7 +350,12 @@ func can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		d.Allowed = orgRank[d.OrgRole] >= orgRank[OrgAdmin]
 	case OrgOwnerOnly:
 		d.Allowed = d.OrgRole == OrgOwner
+	case OrgBillingManage:
+		d.Allowed = (d.OrgRole == OrgOwner || d.OrgRole == OrgBilling) && !d.BreakGlass
 	case OrgCreateProject:
+		if d.OrgRole == OrgBilling {
+			break
+		}
 		if orgRank[d.OrgRole] >= orgRank[OrgAdmin] {
 			d.Allowed = true
 			break

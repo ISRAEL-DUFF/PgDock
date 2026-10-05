@@ -84,12 +84,13 @@ const (
 	rDev       = "developer"
 	rReadOnly  = "read_only"
 	rMember    = "member_without_project"
+	rBilling   = "billing_member"
 	rOutsider  = "other_org_owner"
 	rPlatform  = "platform_admin"
 	rAnonymous = "anonymous"
 )
 
-var matrixActors = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rOutsider, rPlatform, rAnonymous}
+var matrixActors = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling, rOutsider, rPlatform, rAnonymous}
 
 // expected is the spec's matrix (V2 §2.3, §2.4), written out
 // independently of authz: who may perform each action on org A and its
@@ -110,11 +111,12 @@ var expected = map[authz.Action][]string{
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectDelete:      {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectAudit:       {rOwner, rAdmin, rProjAdmin},
-	authz.OrgView:            {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember},
+	authz.OrgView:            {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling},
 	authz.OrgCreateProject:   {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember},
 	authz.OrgManage:          {rOwner, rAdmin},
 	authz.OrgAudit:           {rOwner, rAdmin},
 	authz.OrgOwnerOnly:       {rOwner},
+	authz.OrgBillingManage:   {rOwner, rBilling}, // V3 §3.2: not admins
 	authz.ProjectExport:      {rOwner},
 	authz.PlatformManage:     {rPlatform},
 }
@@ -123,7 +125,7 @@ var expected = map[authz.Action][]string{
 var seesProject = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly}
 
 // seesOrg is who may know org A exists.
-var seesOrg = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember}
+var seesOrg = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling}
 
 func has(list []string, s string) bool {
 	for _, x := range list {
@@ -182,7 +184,7 @@ func newMatrixWorld(t *testing.T) *matrixWorld {
 	clk.step()
 
 	// Everyone else: accounts with a verified address, signed in once.
-	for _, r := range []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rOutsider} {
+	for _, r := range []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling, rOutsider} {
 		addr := strings.ReplaceAll(r, "_", "-") + "@example.com"
 		var u store.User
 		if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
@@ -214,7 +216,7 @@ func newMatrixWorld(t *testing.T) *matrixWorld {
 		t.Fatal(err)
 	}
 	w.orgA, w.orgB = oa.ID, ob.ID
-	for r, role := range map[string]string{rAdmin: "admin", rProjAdmin: "member", rDev: "member", rReadOnly: "member", rMember: "member"} {
+	for r, role := range map[string]string{rAdmin: "admin", rProjAdmin: "member", rDev: "member", rReadOnly: "member", rMember: "member", rBilling: "billing"} {
 		if err := q.InsertOrgMember(ctx, store.InsertOrgMemberParams{OrgID: w.orgA, UserID: w.users[r], Role: role}); err != nil {
 			t.Fatal(err)
 		}

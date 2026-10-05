@@ -1171,15 +1171,18 @@ func (e OrgStatus) Valid() bool {
 
 // Defines values for OrgRole.
 const (
-	OrgRoleAdmin  OrgRole = "admin"
-	OrgRoleMember OrgRole = "member"
-	OrgRoleOwner  OrgRole = "owner"
+	OrgRoleAdmin   OrgRole = "admin"
+	OrgRoleBilling OrgRole = "billing"
+	OrgRoleMember  OrgRole = "member"
+	OrgRoleOwner   OrgRole = "owner"
 )
 
 // Valid indicates whether the value is a known member of the OrgRole enum.
 func (e OrgRole) Valid() bool {
 	switch e {
 	case OrgRoleAdmin:
+		return true
+	case OrgRoleBilling:
 		return true
 	case OrgRoleMember:
 		return true

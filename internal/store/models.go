@@ -121,6 +121,61 @@ type BackupKey struct {
 	RetiredAt   *time.Time
 }
 
+type BillingAccount struct {
+	OrgID             uuid.UUID
+	Plan              string
+	Term              string
+	TermEndsAt        *time.Time
+	Mode              string
+	PriceBookVersion  int32
+	Grandfathered     bool
+	LegalName         *string
+	Address           *string
+	Tin               *string
+	VatRegistered     bool
+	DeductsWht        bool
+	ProviderCustomers json.RawMessage
+	PaymentTermsDays  int32
+	BudgetMinor       *int64
+	SpendCapMinor     *int64
+	AutoTopup         []byte
+	DunningState      string
+	GraceUntil        *time.Time
+	ForecastMinor     *int64
+	ForecastAt        *time.Time
+	Capped            bool
+	BudgetAlerted     int32
+	BudgetMonth       pgtype.Date
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+type BillingContact struct {
+	OrgID     uuid.UUID
+	Email     string
+	Name      *string
+	CreatedAt time.Time
+}
+
+type BillingPlanChange struct {
+	ID          uuid.UUID
+	OrgID       uuid.UUID
+	FromPlan    string
+	ToPlan      string
+	FromTerm    string
+	ToTerm      string
+	EffectiveAt time.Time
+	RequestedAt time.Time
+	RequestedBy *uuid.UUID
+	Applied     bool
+}
+
+type BillingSequence struct {
+	Kind string
+	Year int32
+	Last int32
+}
+
 type BreakGlassSession struct {
 	ID        uuid.UUID
 	OrgID     uuid.UUID
@@ -130,6 +185,18 @@ type BreakGlassSession struct {
 	ExpiresAt time.Time
 	EndedAt   *time.Time
 	EndedBy   *uuid.UUID
+}
+
+type CreditNote struct {
+	ID          uuid.UUID
+	InvoiceID   uuid.UUID
+	OrgID       uuid.UUID
+	Number      string
+	AmountMinor int64
+	VatMinor    int64
+	Reason      string
+	IssuedBy    *uuid.UUID
+	IssuedAt    time.Time
 }
 
 type DedicatedRequest struct {
@@ -294,6 +361,43 @@ type Invitation struct {
 	CreatedAt    time.Time
 }
 
+type Invoice struct {
+	ID               uuid.UUID
+	OrgID            uuid.UUID
+	Number           *string
+	PeriodStart      pgtype.Date
+	PeriodEnd        pgtype.Date
+	Status           string
+	Held             bool
+	HoldReason       *string
+	SubtotalMinor    int64
+	VatMinor         int64
+	TotalMinor       int64
+	WhtExpectedMinor int64
+	VatRate          pgtype.Numeric
+	BillTo           json.RawMessage
+	Seller           json.RawMessage
+	DueAt            *time.Time
+	IssuedAt         *time.Time
+	PaidAt           *time.Time
+	PdfObjectKey     *string
+	PriceBookVersion int32
+	CreatedAt        time.Time
+}
+
+type InvoiceLine struct {
+	ID             int64
+	InvoiceID      uuid.UUID
+	Kind           string
+	Description    string
+	ProjectID      *uuid.UUID
+	Metric         *string
+	Quantity       pgtype.Numeric
+	UnitPriceMinor pgtype.Numeric
+	AmountMinor    int64
+	RevenueAccount string
+}
+
 type JobRun struct {
 	ID           int64
 	JobID        uuid.UUID
@@ -305,6 +409,21 @@ type JobRun struct {
 	StatusCode   *int32
 	Error        *string
 	Trigger      string
+}
+
+type LedgerEntry struct {
+	ID             int64
+	TxnID          uuid.UUID
+	OrgID          *uuid.UUID
+	Account        string
+	Direction      string
+	AmountMinor    int64
+	SourceType     string
+	SourceID       string
+	IdempotencyKey string
+	Memo           *string
+	CreatedBy      *uuid.UUID
+	CreatedAt      time.Time
 }
 
 type MetricPoint struct {
@@ -439,6 +558,16 @@ type PoolerEvent struct {
 	Kind       string
 	Detail     json.RawMessage
 	OccurredAt time.Time
+}
+
+type PriceBook struct {
+	Version     int32
+	EffectiveAt time.Time
+	Prices      json.RawMessage
+	Notes       *string
+	CreatedAt   time.Time
+	PublishedAt *time.Time
+	PublishedBy *uuid.UUID
 }
 
 type Project struct {
