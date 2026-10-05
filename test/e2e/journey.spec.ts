@@ -1147,7 +1147,7 @@ test.describe("with the saved session", () => {
     await page.getByRole("menuitem", { name: /Metered team/ }).click();
     await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
     await page.goto("/org/billing");
-    await expect(page.getByRole("heading", { name: "Billing" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Billing", exact: true })).toBeVisible();
     await expect(page.getByTestId("plan-name")).toHaveText("Free");
 
     // Free → Pro: priced first (the rest of the month), then applied.
@@ -1169,7 +1169,7 @@ test.describe("with the saved session", () => {
     await page.getByTestId("business-details").getByRole("button", { name: "Save" }).click();
     await expect(page.getByTestId("business-details")).toContainText("Saved.");
     await page.getByLabel("Contact email").fill("accounts@metered.example");
-    await page.getByRole("button", { name: "Add" }).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByTestId("billing-contact")).toHaveText(/accounts@metered.example/);
 
     // The platform admin drafts this month's invoices and issues the team's.
