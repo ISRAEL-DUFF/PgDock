@@ -169,6 +169,28 @@ type EmailToken struct {
 	CreatedAt time.Time
 }
 
+type Incident struct {
+	ID         uuid.UUID
+	Title      string
+	Components []string
+	RegionID   *string
+	Severity   string
+	Status     string
+	StartedAt  time.Time
+	ResolvedAt *time.Time
+	CreatedBy  *uuid.UUID
+	PushedAt   *time.Time
+}
+
+type IncidentUpdate struct {
+	ID         int64
+	IncidentID uuid.UUID
+	Status     string
+	Body       string
+	PostedBy   *uuid.UUID
+	PostedAt   time.Time
+}
+
 type Instance struct {
 	ID           uuid.UUID
 	NodeID       uuid.UUID
@@ -249,6 +271,12 @@ type Node struct {
 	RegistrationToken     *string
 	RegistrationExpiresAt *time.Time
 	LastReachableAt       *time.Time
+	ProviderServerID      *string
+	PoolerGeneration      *int64
+	PoolerHash            *string
+	PoolerVrrpState       *string
+	PoolerReady           *bool
+	PoolerCheckedAt       *time.Time
 }
 
 type Operation struct {
@@ -306,6 +334,21 @@ type OutboundCounter struct {
 	Day      pgtype.Date
 	Requests int64
 	Failures int64
+}
+
+type PoolerConfig struct {
+	ID         int32
+	Generation int64
+	Hash       string
+	UpdatedAt  time.Time
+}
+
+type PoolerEvent struct {
+	ID         int64
+	NodeID     *uuid.UUID
+	Kind       string
+	Detail     json.RawMessage
+	OccurredAt time.Time
 }
 
 type Project struct {

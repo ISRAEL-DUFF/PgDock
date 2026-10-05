@@ -399,6 +399,7 @@ func (e ColumnRefOnUpdate) Valid() bool {
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
 	CreateNodeRequestRoleDedicated CreateNodeRequestRole = "dedicated"
+	CreateNodeRequestRolePooler    CreateNodeRequestRole = "pooler"
 	CreateNodeRequestRoleShared    CreateNodeRequestRole = "shared"
 )
 
@@ -408,6 +409,8 @@ func (e CreateNodeRequestRole) Valid() bool {
 	case CreateNodeRequestRoleBoth:
 		return true
 	case CreateNodeRequestRoleDedicated:
+		return true
+	case CreateNodeRequestRolePooler:
 		return true
 	case CreateNodeRequestRoleShared:
 		return true
@@ -2491,11 +2494,13 @@ type CreateNodeRequest struct {
 	// PrivateAddr The node's address on the private network (poolers and the control plane reach it here).
 	//
 	// Example: 10.0.0.12
-	PrivateAddr string                `json:"private_addr"`
-	Role        CreateNodeRequestRole `json:"role"`
+	PrivateAddr string `json:"private_addr"`
+
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole defines model for CreateNodeRequest.Role.
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.

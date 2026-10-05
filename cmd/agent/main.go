@@ -30,6 +30,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentsvc"
 	"github.com/israel-duff/pgdock/internal/backupfmt"
+	"github.com/israel-duff/pgdock/internal/floatip"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/version"
 )
@@ -56,6 +57,10 @@ type opts struct {
 	state, listen, server, token, bootstrap, node, advertise, caFile, pgBin, diskPath string
 	dockerHost, image, network, publish, dbAllow                                      string
 	insecure                                                                          bool
+
+	// Pooler hosts (V3 §2.1).
+	poolerDir, poolerSession, poolerPooled, poolerLocal string
+	serverID, hetznerToken, hetznerAPI, floatingIP      string
 }
 
 func flags(name string, args []string) (*opts, error) {
@@ -78,6 +83,14 @@ func flags(name string, args []string) (*opts, error) {
 	fs.StringVar(&o.publish, "publish", env("PGDOCK_AGENT_PUBLISH", ""), "node address to publish instance ports on (e.g. its private IP)")
 	fs.StringVar(&o.dbAllow, "db-allow", env("PGDOCK_AGENT_DB_ALLOW", defaultDBAllow),
 		"comma-separated CIDRs new instances accept logins from: the control plane and poolers (spec §7.1)")
+	fs.StringVar(&o.poolerDir, "pooler-dir", env("PGDOCK_AGENT_POOLER_DIR", ""), "pooler host: directory the PgBouncers read their pgdock files from (enables pooler mode)")
+	fs.StringVar(&o.poolerSession, "pooler-session-addr", env("PGDOCK_AGENT_POOLER_SESSION_ADDR", "127.0.0.1:5432"), "pooler host: the session PgBouncer, checked for readiness")
+	fs.StringVar(&o.poolerPooled, "pooler-pooled-addr", env("PGDOCK_AGENT_POOLER_POOLED_ADDR", "127.0.0.1:6543"), "pooler host: the transaction PgBouncer, checked for readiness")
+	fs.StringVar(&o.poolerLocal, "pooler-local", env("PGDOCK_AGENT_POOLER_LOCAL", "127.0.0.1:7071"), "pooler host: loopback address for keepalived's check and notify calls")
+	fs.StringVar(&o.serverID, "server-id", env("PGDOCK_AGENT_SERVER_ID", ""), "pooler host: the provider's ID for this machine, or \"hetzner-metadata\" to ask Hetzner's metadata service")
+	fs.StringVar(&o.hetznerToken, "hetzner-token", env("PGDOCK_AGENT_HETZNER_TOKEN", ""), "pooler host: Hetzner Cloud API token for assigning the floating IP")
+	fs.StringVar(&o.hetznerAPI, "hetzner-api", env("PGDOCK_AGENT_HETZNER_API", floatip.DefaultHetznerAPI), "pooler host: Hetzner Cloud API base URL")
+	fs.StringVar(&o.floatingIP, "floating-ip-id", env("PGDOCK_AGENT_FLOATING_IP_ID", ""), "pooler host: the floating IP's ID; empty when keepalived alone moves the address")
 	return o, fs.Parse(args)
 }
 
@@ -200,8 +213,47 @@ func serve(o *opts) error {
 		Version: version.Get().Version, NodeID: st.NodeID, PGBinDir: o.pgBin, DiskPath: o.diskPath,
 		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish, HBAAllow: cidrs},
 	}, log)
+	if o.poolerDir != "" {
+		if err := enablePooler(ctx, svc, o, log); err != nil {
+			return err
+		}
+	}
 	log.Info("pgdock-agent listening", "addr", ln.Addr().String(), "node_id", st.NodeID, "version", version.Get().Version)
 	return svc.Serve(ctx, ln, agentsvc.TLSConfig(st.Cert, st.CA))
+}
+
+// enablePooler turns on pooler-host mode and the loopback API keepalived
+// calls (V3 §2.1).
+func enablePooler(ctx context.Context, svc *agentsvc.Service, o *opts, log *slog.Logger) error {
+	serverID := o.serverID
+	if serverID == "hetzner-metadata" {
+		mctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		id, err := floatip.HetznerServerID(mctx)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("--server-id hetzner-metadata: %w", err)
+		}
+		serverID = id
+	}
+	var fip floatip.Provider = floatip.None{}
+	if o.floatingIP != "" {
+		if o.hetznerToken == "" || serverID == "" {
+			return errors.New("--floating-ip-id needs --hetzner-token and --server-id")
+		}
+		fip = &floatip.Hetzner{API: o.hetznerAPI, Token: o.hetznerToken, IPID: o.floatingIP}
+	}
+	if err := svc.EnablePooler(agentsvc.PoolerConfig{
+		Dir: o.poolerDir, SessionAddr: o.poolerSession, PooledAddr: o.poolerPooled, ServerID: serverID, FloatIP: fip,
+	}); err != nil {
+		return err
+	}
+	go func() {
+		if err := svc.ServeLocal(ctx, o.poolerLocal); err != nil {
+			log.Error("pooler local API stopped", "err", err)
+		}
+	}()
+	log.Info("pooler host mode", "dir", o.poolerDir, "local", o.poolerLocal, "server_id", serverID, "floating_ip", o.floatingIP)
+	return nil
 }
 
 // decrypt turns a backup object back into a pg_dump archive with the

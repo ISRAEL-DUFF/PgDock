@@ -5668,7 +5668,8 @@ components:
           example: 10.0.0.12
         role:
           type: string
-          enum: [shared, dedicated, both]
+          enum: [shared, dedicated, both, pooler]
+          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database."
     NodeCreated:
       type: object
       required: [node, token, expires_at, command]

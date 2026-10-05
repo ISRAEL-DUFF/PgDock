@@ -3837,8 +3837,11 @@ export interface components {
              * @example 10.0.0.12
              */
             private_addr: string;
-            /** @enum {string} */
-            role: "shared" | "dedicated" | "both";
+            /**
+             * @description pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+             * @enum {string}
+             */
+            role: "shared" | "dedicated" | "both" | "pooler";
         };
         NodeCreated: {
             node: components["schemas"]["Node"];

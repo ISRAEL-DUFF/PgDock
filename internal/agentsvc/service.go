@@ -46,6 +46,17 @@ type Service struct {
 	log  *slog.Logger
 	jobs chan struct{}
 	inst *instances
+	pool *poolerHost // nil unless this is a pooler host (V3 §2.1)
+}
+
+// EnablePooler makes this agent a pooler host's agent.
+func (s *Service) EnablePooler(cfg PoolerConfig) error {
+	p, err := newPoolerHost(cfg, s.log)
+	if err != nil {
+		return err
+	}
+	s.pool = p
+	return nil
 }
 
 // New returns a Service.
@@ -74,6 +85,9 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+agentapi.PathInstanceStop, s.instanceAction("stop"))
 	mux.HandleFunc("POST "+agentapi.PathWALGBackup, s.walgBackup)
 	mux.HandleFunc("GET "+agentapi.PathWALGBackupList, s.walgBackups)
+	mux.HandleFunc("PUT "+agentapi.PathPoolerConfig, s.poolerConfig)
+	mux.HandleFunc("PUT "+agentapi.PathPoolerExpected, s.poolerExpected)
+	mux.HandleFunc("GET "+agentapi.PathPoolerStatus, s.poolerStatus)
 	return mux
 }
 

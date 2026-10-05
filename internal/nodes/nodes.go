@@ -258,8 +258,12 @@ func (s *Service) List(ctx context.Context) ([]store.Node, error) {
 	return store.New(s.db).ListNodes(ctx)
 }
 
-// Node roles (spec §9).
+// Node roles (spec §9). Database nodes can switch between the first three;
+// a pooler host (V3 §2.1) stays one.
 var roles = map[string]bool{"shared": true, "dedicated": true, "both": true}
+
+// RolePooler is an edge pooler host.
+const RolePooler = "pooler"
 
 var nodeName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
@@ -269,8 +273,8 @@ func (s *Service) CreateNode(ctx context.Context, name, privateAddr, role string
 	if !nodeName.MatchString(name) {
 		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: node names are lowercase letters, digits, and dashes", ErrInvalid)
 	}
-	if !roles[role] {
-		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: role must be shared, dedicated, or both", ErrInvalid)
+	if !roles[role] && role != RolePooler {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: role must be shared, dedicated, both, or pooler", ErrInvalid)
 	}
 	privateAddr = strings.TrimSpace(privateAddr)
 	if privateAddr == "" || strings.ContainsAny(privateAddr, " /:") {
@@ -317,6 +321,9 @@ func (s *Service) RemoveNode(ctx context.Context, id uuid.UUID) error {
 func (s *Service) SetRole(ctx context.Context, id uuid.UUID, role string) (store.Node, error) {
 	if !roles[role] {
 		return store.Node{}, fmt.Errorf("%w: role must be shared, dedicated, or both", ErrInvalid)
+	}
+	if cur, err := store.New(s.db).GetNode(ctx, id); err == nil && cur.Role == RolePooler {
+		return store.Node{}, fmt.Errorf("%w: a pooler host can't become a database node; remove it and add the machine again", ErrInvalid)
 	}
 	n, err := store.New(s.db).SetNodeRole(ctx, store.SetNodeRoleParams{ID: id, Role: role})
 	if errors.Is(err, pgx.ErrNoRows) {

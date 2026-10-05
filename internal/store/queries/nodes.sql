@@ -41,7 +41,8 @@ UPDATE nodes SET status = @status WHERE id = @id;
 SELECT n.* FROM nodes n JOIN instances i ON i.node_id = n.id WHERE i.id = @instance_id;
 
 -- name: FirstAgentNode :one
-SELECT * FROM nodes WHERE agent_cert_fp IS NOT NULL ORDER BY created_at LIMIT 1;
+-- Pooler hosts are left out: they run no Postgres work (V3 §2.1).
+SELECT * FROM nodes WHERE agent_cert_fp IS NOT NULL AND role <> 'pooler' ORDER BY created_at LIMIT 1;
 
 -- name: RemoveNode :exec
 UPDATE nodes SET status = 'removed', agent_cert_fp = NULL, registration_token = NULL WHERE id = @id;
