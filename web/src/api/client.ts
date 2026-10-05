@@ -81,6 +81,11 @@ export type NodeDetail = S["NodeDetail"];
 export type NodeCreated = S["NodeCreated"];
 export type ProfileList = S["ProfileList"];
 export type InstanceSummary = S["InstanceSummary"];
+export type UpgradePreflight = S["UpgradePreflight"];
+export type Move = S["Move"];
+export type MaintenanceStatus = S["MaintenanceStatus"];
+export type MaintenanceWindow = S["MaintenanceWindow"];
+export type MinorUpgrade = S["MinorUpgrade"];
 export type CreateProjectRequest = S["CreateProjectRequest"];
 export type SqlResult = S["SqlResult"];
 export type SqlStatementResult = S["SqlStatementResult"];
@@ -336,6 +341,14 @@ export const api = {
   promote: (id: string, b: S["PromoteRequest"]) => request<Operation | DedicatedRequest>("POST", `/api/v1/projects/${id}/promote`, b),
   demotePreflight: (id: string, b: DemoteRequest) => request<DemotePreflight>("POST", `/api/v1/projects/${id}/demote/preflight`, b),
   demote: (id: string, b: DemoteRequest) => request<Operation>("POST", `/api/v1/projects/${id}/demote`, b),
+  upgradePreflight: (id: string, pg_version: number) => request<UpgradePreflight>("POST", `/api/v1/projects/${id}/upgrade/preflight`, { pg_version }),
+  upgrade: (id: string, pg_version: number) => request<Operation>("POST", `/api/v1/projects/${id}/upgrade`, { pg_version }),
+  projectMoves: (id: string) => getJSON<S["MoveList"]>(`/api/v1/projects/${id}/moves`),
+  /** Platform admin: move a project to another node (V3 §2.3). */
+  moveProject: (id: string, b: S["MoveProjectRequest"]) => request<Operation>("POST", `/api/v1/admin/projects/${id}/move`, b),
+  maintenance: () => getJSON<MaintenanceStatus>("/api/v1/admin/maintenance"),
+  putMaintenanceWindow: (b: MaintenanceWindow) => request<MaintenanceWindow>("PUT", "/api/v1/admin/maintenance/window", b),
+  minorUpgrade: (instanceId: string) => request<MinorUpgrade>("POST", `/api/v1/admin/instances/${instanceId}/minor-upgrade`),
   sql: (id: string, b: S["SqlRequest"]) => request<SqlResult>("POST", `/api/v1/projects/${id}/sql`, b),
   cancelSql: (id: string, query_id: string) => request<S["SqlCancelResult"]>("POST", `/api/v1/projects/${id}/sql/cancel`, { query_id }),
   schema: (id: string) => getJSON<DbSchema>(`/api/v1/projects/${id}/schema`),
@@ -452,7 +465,8 @@ export const api = {
   createNode: (b: S["CreateNodeRequest"]) => request<NodeCreated>("POST", "/api/v1/nodes", b),
   removeNode: (id: string) => request<void>("DELETE", `/api/v1/nodes/${id}`),
   updateNode: (id: string, role: "shared" | "dedicated" | "both") => request<Node>("PATCH", `/api/v1/nodes/${id}`, { role }),
-  createSharedCluster: (id: string, memory_mb: number) => request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, { memory_mb }),
+  createSharedCluster: (id: string, memory_mb: number, pg_version?: number) =>
+    request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, { memory_mb, pg_version }),
 
   operations: (p: { org?: string; platform?: string; project_id?: string; status?: string; kind?: string; limit?: number } = {}) =>
     getJSON<S["OperationList"]>(`/api/v1/operations${qs(p)}`),

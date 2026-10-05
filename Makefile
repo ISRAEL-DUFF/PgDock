@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image pooler-host-images status-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
 
 all: build
 
@@ -202,7 +202,16 @@ e2e-images:
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
 test-integration: pooler-seed test-agent-bin pg-image pooler-host-images status-image
 	$(COMPOSE) --profile test up -d --wait
-	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
+	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 -timeout 60m ./test/...
+
+## test-move: M18's done-when at full size: a 20 GB dedicated project moves
+## nodes under continuous writes (PGDOCK_TEST_MOVE_GB=n for another size;
+## needs about three times that in free disk).
+PGDOCK_TEST_MOVE_GB ?= 20
+test-move: test-agent-bin pg-image
+	$(COMPOSE) --profile test up -d --wait
+	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_MOVE_GB=$(PGDOCK_TEST_MOVE_GB) \
+		go test -count=1 -p 1 -timeout 4h -run TestMoveUnderLoad -v ./test/integration/
 
 ## test-load: 150 shared projects, pgbench on 10 (spec §13); writes
 ## tmp/load-report.md. Needs pgbench.

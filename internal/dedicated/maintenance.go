@@ -299,18 +299,19 @@ func (s *Service) MinorUpgradeNow(ctx context.Context, id uuid.UUID) (store.GetM
 	return q.GetMinorUpgrade(ctx, runID)
 }
 
-// RunMaintenance runs MaintenanceSweep every interval until ctx ends.
+// RunMaintenance runs MaintenanceSweep now and then every interval until
+// ctx ends.
 func (s *Service) RunMaintenance(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
+		if _, err := s.MaintenanceSweep(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			s.log.Warn("maintenance sweep failed", "err", err)
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-		}
-		if _, err := s.MaintenanceSweep(ctx, time.Now()); err != nil && ctx.Err() == nil {
-			s.log.Warn("maintenance sweep failed", "err", err)
 		}
 	}
 }

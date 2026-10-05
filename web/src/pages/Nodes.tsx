@@ -6,6 +6,7 @@ import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Badge, Button, Panel, CodeBlock, Field, Input, PageHeading, Select, StateBadge, Table, TableSkeleton, PageSkeleton } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
+import { MaintenancePanel } from "../components/MaintenancePanel";
 import { MetricCharts } from "../components/Metrics";
 import { nodeCharts } from "./ProjectMetrics";
 
@@ -64,6 +65,7 @@ export function NodesPage() {
       />
       {adding && <AddNode onClose={() => setAdding(false)} />}
       <PoolerHostsPanel />
+      <MaintenancePanel />
       {q.isPending && <TableSkeleton cols={6} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
       {q.data && (
@@ -276,6 +278,8 @@ export function NodeDetailPage() {
   const q = useQuery({ queryKey: ["node", id], queryFn: () => api.node(id), refetchInterval: 5000 });
   const [err, setErr] = useState<string | null>(null);
   const [mem, setMem] = useState("2048");
+  const [version, setVersion] = useState("");
+  const profiles = useQuery({ queryKey: ["profiles"], queryFn: api.profiles });
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -298,7 +302,7 @@ export function NodeDetailPage() {
     setBusy(true);
     setErr(null);
     try {
-      const op = await api.createSharedCluster(n.id, Number(mem));
+      const op = await api.createSharedCluster(n.id, Number(mem), version ? Number(version) : undefined);
       toast(op.id, `Shared cluster · ${n.name}`);
     } catch (e) {
       setErr(errorMessage(e));
@@ -371,6 +375,19 @@ export function NodeDetailPage() {
                 <Field label="Run a shared cluster here (memory, MB)">
                   {(fid) => <Input id={fid} type="number" min={512} value={mem} onChange={(e) => setMem(e.target.value)} className="w-32" />}
                 </Field>
+                {(profiles.data?.pg_versions.length ?? 0) > 1 && (
+                  <Field label="Postgres">
+                    {(fid) => (
+                      <Select id={fid} value={version} onChange={(e) => setVersion(e.target.value)}>
+                        {[...(profiles.data?.pg_versions ?? [])].reverse().map((v) => (
+                          <option key={v} value={v === profiles.data?.default_pg_version ? "" : String(v)}>
+                            {v}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </Field>
+                )}
                 <Button onClick={addShared} busy={busy} disabled={n.status !== "healthy"}>
                   Create shared cluster
                 </Button>
@@ -407,7 +424,7 @@ export function NodeDetailPage() {
       {instances.length === 0 ? (
         <p className="text-sm text-muted">Nothing runs here yet.</p>
       ) : (
-        <Table head={["Kind", "Status", "Size", "Address", "Projects", "Created"]}>
+        <Table head={["Kind", "Status", "Postgres", "Size", "Address", "Projects", "Created"]}>
           {instances.map((i) => (
             <tr key={i.id} data-testid="instance-row">
               <td className="px-3 py-2">
@@ -419,6 +436,14 @@ export function NodeDetailPage() {
                   <p className="mt-1 max-w-xs truncate text-xs text-danger-text" title={i.error}>
                     {i.error}
                   </p>
+                )}
+              </td>
+              <td className="px-3 py-2 text-xs" data-testid="instance-version">
+                {i.pg_release ?? i.pg_version ?? "—"}
+                {i.pg_release && i.pg_release_available && i.pg_release !== i.pg_release_available && (
+                  <span className="ml-1" title={`The image has ${i.pg_release_available}; it is applied in the maintenance window`}>
+                    <Badge tone="warn">{i.pg_release_available} available</Badge>
+                  </span>
                 )}
               </td>
               <td className="px-3 py-2 text-xs text-muted">

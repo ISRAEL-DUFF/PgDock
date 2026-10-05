@@ -540,13 +540,18 @@ func next(last, step, margin, lo, hi int64) int64 {
 	return last + add
 }
 
-// SampleCounts compares exact row counts of the n smallest tables (by the
-// planner's estimate) of the tenant's schemas, the ones cheap to count
-// while writes are frozen.
+// sampleMaxBytes bounds the tables SampleCounts counts, so the check costs
+// milliseconds while writes are frozen whatever the database's size.
+const sampleMaxBytes = 16 << 20
+
+// SampleCounts compares exact row counts of up to n of the tenant's
+// smallest tables on disk (at most sampleMaxBytes each), the ones cheap to
+// count while writes are frozen. The marker already shows the target has
+// every change; this is a second, independent check.
 func SampleCounts(ctx context.Context, src, dst *pgx.Conn, n int) ([]TableCount, error) {
 	tables, err := names(ctx, src, `SELECT format('%I.%I', n.nspname, c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-		WHERE c.relkind = 'r' AND c.relpersistence = 'p' AND `+userSchema+`
-		ORDER BY greatest(c.reltuples, 0), 1 LIMIT $1`, n)
+		WHERE c.relkind = 'r' AND c.relpersistence = 'p' AND `+userSchema+` AND pg_total_relation_size(c.oid) <= $2
+		ORDER BY pg_total_relation_size(c.oid), 1 LIMIT $1`, n, sampleMaxBytes)
 	if err != nil {
 		return nil, err
 	}

@@ -123,6 +123,9 @@ services:
       # Instances accept logins from pgdock-server, the poolers, and this
       # agent only (spec §7.1). Add a remote control node's address here.
       PGDOCK_AGENT_DB_ALLOW: ${PGDOCK_AGENT_DB_ALLOW:-172.31.250.11/32,172.31.250.12/32,172.31.250.13/32,172.31.250.14/32}
+      # Moves (V3 §2.3): instances on this network replicate from each other
+      # and from the shared cluster, as each move's own login only.
+      PGDOCK_AGENT_MOVE_ALLOW: ${PGDOCK_AGENT_MOVE_ALLOW:-172.31.250.0/24}
     volumes:
       - agent-state:/var/lib/pgdock-agent
       - /var/run/docker.sock:/var/run/docker.sock

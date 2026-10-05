@@ -70,6 +70,10 @@ func New(cfg Config, log *slog.Logger) *Service {
 	return &Service{cfg: cfg, log: log, jobs: make(chan struct{}, cfg.MaxJobs), inst: newInstances(cfg.Instances)}
 }
 
+// EnsureMoveRules gives running instances the pg_hba.conf rules moves need
+// (V3 §2.3); the agent calls it once at start.
+func (s *Service) EnsureMoveRules(ctx context.Context) { s.inst.ensureMoveRules(ctx, s.log) }
+
 // Handler returns the API's HTTP handler.
 func (s *Service) Handler() http.Handler {
 	mux := http.NewServeMux()

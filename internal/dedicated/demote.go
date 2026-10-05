@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/logical"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
@@ -241,8 +242,9 @@ func (s *Service) preflight(ctx context.Context, p store.Project, o DemoteOption
 		known = append(known, *p.LegacyOwnerRole)
 	}
 	rows, err = db.Query(ctx, `SELECT rolname FROM pg_roles
-		WHERE NOT rolsuper AND rolname !~ '^pg_' AND rolname <> ALL($1) AND NOT starts_with(rolname, $2) ORDER BY rolname`,
-		known, p.DbName+"_u_")
+		WHERE NOT rolsuper AND rolname !~ '^pg_' AND rolname <> ALL($1) AND NOT starts_with(rolname, $2)
+		  AND NOT starts_with(rolname, $3) ORDER BY rolname`,
+		known, p.DbName+"_u_", logical.Prefix) // a failed attempt's move login: the retry drops it
 	if err != nil {
 		return plan, err
 	}

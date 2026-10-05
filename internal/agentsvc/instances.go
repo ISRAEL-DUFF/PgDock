@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,6 +36,11 @@ type InstanceConfig struct {
 	// HBAAllow are the CIDRs new instances accept network logins from
 	// (written to pg_hba.conf at initdb; spec §7.1).
 	HBAAllow []string
+	// MoveAllow are the CIDRs other instances connect from to replicate a
+	// project during a move (V3 §2.3). Only the moves' own logins
+	// (pgdock_move_<id>) may use them; added to pg_hba.conf on every start,
+	// so instances created before V3 get them too.
+	MoveAllow []string
 }
 
 // instances manages Postgres containers.
@@ -122,7 +130,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		if err := in.dc.StartContainer(ctx, name); err != nil {
 			return agentapi.Instance{}, err
 		}
-		if err := in.waitReady(ctx, name); err != nil {
+		if err := in.ready(ctx, name); err != nil {
 			return agentapi.Instance{}, err
 		}
 		return in.info(ctx, spec.ID)
@@ -220,7 +228,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	if err := in.dc.StartContainer(ctx, name); err != nil {
 		return agentapi.Instance{}, err
 	}
-	if err := in.waitReady(ctx, name); err != nil {
+	if err := in.ready(ctx, name); err != nil {
 		return agentapi.Instance{}, err
 	}
 	if err := in.checkMajor(ctx, name, image, spec.PGVersion); err != nil {
@@ -266,6 +274,71 @@ func pgdataFor(major int) string {
 		major = agentapi.DefaultPGVersion
 	}
 	return dataRoot + "/" + strconv.Itoa(major) + "/docker"
+}
+
+// ready waits for the instance to accept connections and makes sure its
+// pg_hba.conf lets move logins in.
+func (in *instances) ready(ctx context.Context, name string) error {
+	if err := in.waitReady(ctx, name); err != nil {
+		return err
+	}
+	return in.ensureMoveHBA(ctx, name)
+}
+
+// ensureMoveRules adds the move rules to every running instance, for those
+// started before this agent knew them (instances created before V3).
+func (in *instances) ensureMoveRules(ctx context.Context, log *slog.Logger) {
+	if in.err != nil || len(in.cfg.MoveAllow) == 0 {
+		return
+	}
+	cs, err := in.dc.ListContainers(ctx, "pgdock.instance")
+	if err != nil {
+		log.Warn("listing instances for the move rules", "err", err)
+		return
+	}
+	for _, c := range cs {
+		id := c.Labels["pgdock.instance"]
+		name, _, _ := names(id)
+		if c.State != "running" || !instanceID.MatchString(id) || !slices.Contains(c.Names, "/"+name) {
+			continue // stopped, or a restore's one-off container
+		}
+		unlock := in.lock(id)
+		if err := in.ensureMoveHBA(ctx, name); err != nil {
+			log.Warn("adding the move rules to pg_hba.conf", "instance", id, "err", err)
+		}
+		unlock()
+	}
+}
+
+// moveHBAMark heads the rules ensureMoveHBA adds.
+const moveHBAMark = "# pgdock: logical-replication moves (V3 §2.3)"
+
+// ensureMoveHBA appends, once, rules letting only the moves' logins in
+// from MoveAllow, and reloads the configuration.
+func (in *instances) ensureMoveHBA(ctx context.Context, name string) error {
+	if len(in.cfg.MoveAllow) == 0 {
+		return nil
+	}
+	var rules strings.Builder
+	rules.WriteString(moveHBAMark + "\n")
+	for _, c := range in.cfg.MoveAllow {
+		if _, _, err := net.ParseCIDR(c); err != nil {
+			return fmt.Errorf("move CIDR %q: %w", c, err)
+		}
+		fmt.Fprintf(&rules, "host all /^pgdock_move_[0-9a-f]+$ %s scram-sha-256\n", c)
+	}
+	r, err := in.dc.Exec(ctx, name, "postgres", []string{"PGDOCK_MOVE_RULES=" + rules.String(), "PGDOCK_MOVE_MARK=" + moveHBAMark}, []string{"sh", "-c",
+		`f="$(psql -XAtq -U "$POSTGRES_USER" -h /var/run/postgresql -d postgres -c 'SHOW hba_file')" || exit 1
+grep -qxF "$PGDOCK_MOVE_MARK" "$f" && exit 0
+printf '%s' "$PGDOCK_MOVE_RULES" >> "$f" || exit 1
+psql -XAtq -U "$POSTGRES_USER" -h /var/run/postgresql -d postgres -c 'SELECT pg_reload_conf()' >/dev/null`})
+	if err != nil {
+		return err
+	}
+	if r.ExitCode != 0 {
+		return fmt.Errorf("instance %s: add the move rules to pg_hba.conf: %s", name, strings.TrimSpace(r.Stderr+r.Stdout))
+	}
+	return nil
 }
 
 // restore fills vol from a WAL-G base backup and sets up recovery, in a
@@ -537,7 +610,7 @@ func (s *Service) instanceAction(action string) http.HandlerFunc {
 		switch action {
 		case "start":
 			if err = s.inst.dc.StartContainer(r.Context(), name); err == nil {
-				err = s.inst.waitReady(r.Context(), name)
+				err = s.inst.ready(r.Context(), name)
 			}
 		case "stop":
 			err = s.inst.dc.StopContainer(r.Context(), name, time.Minute)

@@ -690,7 +690,12 @@ test.describe("with the saved session", () => {
     await page.getByRole("link", { name: "local" }).click();
     await expect(page.getByTestId("node-docker")).toHaveText("ok");
     await expect(page.getByTestId("instance-row").filter({ hasText: "dedicated" })).toHaveCount(2);
+    // M18: each instance shows its Postgres release (V3 §2.4).
+    await expect(page.getByTestId("instance-version").first()).toContainText("18");
     await shot(page, "22-node");
+    // The maintenance window for minor releases, on the Nodes page.
+    await platformNav(page, "Nodes");
+    await expect(page.getByTestId("maintenance")).toBeVisible();
   });
   // The M5 "done when" (spec §14): a hobby project is promoted with its URL
   // unchanged and no lost commits, while an app keeps writing; then (M14,
@@ -737,6 +742,7 @@ test.describe("with the saved session", () => {
     // The wizard: target, size, the estimate, then live progress.
     await page.getByRole("link", { name: "Open the project" }).click();
     await projectTab(page, "Compute");
+    await expect(page.getByTestId("pg-version")).toHaveText("Postgres 18"); // M18: the newest supported, nothing to upgrade
     await page.getByRole("button", { name: "Promote…" }).click();
     await expect(page.getByText(/Estimated write freeze: about \d+ s/)).toBeVisible();
     await expect(page.getByTestId("promote-estimate")).toContainText("The database is");

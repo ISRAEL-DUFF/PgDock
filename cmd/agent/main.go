@@ -57,7 +57,7 @@ func env(name, def string) string {
 
 type opts struct {
 	state, listen, server, token, bootstrap, node, advertise, caFile, pgBin, diskPath string
-	dockerHost, image, network, publish, dbAllow                                      string
+	dockerHost, image, network, publish, dbAllow, moveAllow                           string
 	insecure                                                                          bool
 
 	// Pooler hosts (V3 §2.1).
@@ -86,6 +86,8 @@ func flags(name string, args []string) (*opts, error) {
 	fs.StringVar(&o.publish, "publish", env("PGDOCK_AGENT_PUBLISH", ""), "node address to publish instance ports on (e.g. its private IP)")
 	fs.StringVar(&o.dbAllow, "db-allow", env("PGDOCK_AGENT_DB_ALLOW", defaultDBAllow),
 		"comma-separated CIDRs new instances accept logins from: the control plane and poolers (spec §7.1)")
+	fs.StringVar(&o.moveAllow, "move-allow", env("PGDOCK_AGENT_MOVE_ALLOW", defaultMoveAllow),
+		"comma-separated CIDRs other instances replicate from during a move; only the moves' own logins may use them (V3 §2.3)")
 	fs.StringVar(&o.poolerDir, "pooler-dir", env("PGDOCK_AGENT_POOLER_DIR", ""), "pooler host: directory the PgBouncers read their pgdock files from (enables pooler mode)")
 	fs.StringVar(&o.poolerSession, "pooler-session-addr", env("PGDOCK_AGENT_POOLER_SESSION_ADDR", "127.0.0.1:5432"), "pooler host: the session PgBouncer, checked for readiness")
 	fs.StringVar(&o.poolerPooled, "pooler-pooled-addr", env("PGDOCK_AGENT_POOLER_POOLED_ADDR", "127.0.0.1:6543"), "pooler host: the transaction PgBouncer, checked for readiness")
@@ -213,19 +215,24 @@ func serve(o *opts) error {
 	if err != nil {
 		return err
 	}
+	moveCIDRs, err := parseCIDRs(o.moveAllow)
+	if err != nil {
+		return err
+	}
 	cidrs, err := parseCIDRs(o.dbAllow)
 	if err != nil {
 		return err
 	}
 	svc := agentsvc.New(agentsvc.Config{
 		Version: version.Get().Version, NodeID: st.NodeID, PGBinDir: o.pgBin, DiskPath: o.diskPath,
-		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish, HBAAllow: cidrs},
+		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish, HBAAllow: cidrs, MoveAllow: moveCIDRs},
 	}, log)
 	if o.poolerDir != "" {
 		if err := enablePooler(ctx, svc, o, log); err != nil {
 			return err
 		}
 	}
+	go svc.EnsureMoveRules(ctx)
 	log.Info("pgdock-agent listening", "addr", ln.Addr().String(), "node_id", st.NodeID, "version", version.Get().Version)
 	return svc.Serve(ctx, ln, agentsvc.TLSConfig(st.Cert, st.CA))
 }
@@ -376,6 +383,9 @@ func decrypt(args []string) error {
 // defaultDBAllow is every private range: the control plane and poolers
 // reach instances over a private network.
 const defaultDBAllow = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32"
+
+// defaultMoveAllow: other nodes and the Docker networks, on private ranges.
+const defaultMoveAllow = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 
 func parseCIDRs(s string) ([]string, error) {
 	var out []string

@@ -383,6 +383,25 @@ type Container struct {
 	} `json:"NetworkSettings"`
 }
 
+// ContainerSummary is one entry of ListContainers.
+type ContainerSummary struct {
+	ID     string            `json:"Id"`
+	Names  []string          `json:"Names"`
+	State  string            `json:"State"`
+	Labels map[string]string `json:"Labels"`
+}
+
+// ListContainers lists the containers, running or not, that carry label.
+func (c *Client) ListContainers(ctx context.Context, label string) ([]ContainerSummary, error) {
+	filters, err := json.Marshal(map[string][]string{"label": {label}})
+	if err != nil {
+		return nil, err
+	}
+	var out []ContainerSummary
+	err = c.do(ctx, http.MethodGet, "/containers/json", url.Values{"all": {"true"}, "filters": {string(filters)}}, nil, &out)
+	return out, err
+}
+
 // InspectContainer returns a container by name or ID (ErrNotFound if absent).
 func (c *Client) InspectContainer(ctx context.Context, id string) (Container, error) {
 	var out Container

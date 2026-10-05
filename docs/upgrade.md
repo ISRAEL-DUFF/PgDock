@@ -54,24 +54,50 @@ state directory keeps its identity, so it needs no new registration.
 
 ## PostgreSQL minor versions
 
-- **Dedicated instances**: `install.sh` rebuilds `pgdock-postgres:18-walg3.0.9`
-  from the latest `postgres:18`. Then, per project, Overview → Instance →
-  **Restart**: the instance is recreated from the new image on the same
-  volume (about the time of a normal restart). Do it one project at a time
-  in a quiet moment.
-- **The shared cluster**: pull the new image and recreate it in a
-  maintenance window; every shared project is unavailable for the restart
-  (usually under a minute):
+Rebuild the images (`./install.sh` does it; on remote nodes `make
+pg-image`, or pull them). Each instance then shows "18.x available" on its
+node's page, and PGDock restarts the instances that are behind, one at a
+time, in the weekly maintenance window (Admin → Nodes; default Sunday
+02:00–06:00 UTC). The poolers hold clients for each restart. **Upgrade now**
+on the same panel does one immediately. See [moves and Postgres
+versions](moves.md#minor-upgrades-and-the-maintenance-window).
 
-  ```sh
-  docker compose pull shared-pg
-  docker compose up -d shared-pg
-  ```
+The shared cluster from `compose.yaml` has no agent, so it is not part of
+the sweep. Recreate it yourself in a quiet moment; shared projects on it
+are unavailable for the restart (usually under a minute):
+
+```sh
+docker compose pull shared-pg
+docker compose up -d shared-pg
+```
 
 ## PostgreSQL major versions
 
-V1 runs PostgreSQL 18 everywhere. Major upgrades arrive in V1.1, using the
-promotion machinery to move a project into an instance on a newer version.
+PGDock offers the majors in `PGDOCK_PG_VERSIONS` (default 17 and 18).
+Projects move to a newer one with a major upgrade (Project Settings →
+Compute → Postgres version), a logical-replication move that pauses writes
+for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
+
+## Upgrading to V3
+
+- **Shared clusters restart once.** Every Postgres instance now runs
+  `wal_level=logical`, so moves can copy from it. Agent-run instances pick
+  it up the next time they are recreated (a restart from the UI, or the
+  maintenance window). Recreate the compose shared cluster after upgrading
+  (`docker compose up -d shared-pg`) so that shared projects can move by
+  logical replication. Until then they move by dump and restore.
+- **pg_hba for moves.** The bundle's `shared-pg-hba.conf` gains one rule
+  for move logins from its Docker network, and agents add a similar rule
+  to every running instance when they start, and to each instance they
+  start later (`PGDOCK_AGENT_MOVE_ALLOW`, default the private ranges).
+  Upgrade and restart the agents on remote nodes before moving projects
+  there. A move whose target can't log in fails at its first step and rolls
+  back, changing nothing.
+- **Moves pause webhooks and skip jobs.** While a project is moving or
+  upgrading, webhook deliveries wait and scheduled job runs are skipped, as
+  during a promotion in V2.
+- New migrations 00022 (moves, the `moving` and `upgrading` statuses) and
+  00023 (Postgres releases, minor-upgrade history).
 
 ## Rolling back
 

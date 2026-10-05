@@ -16,6 +16,23 @@ bundle share one version (spec §11.5).
   emails subscribers. Admin → Incidents posts incidents to it. See
   docs/status-page.md.
 - New migrations 00020 and 00021 (pooler hosts, incidents).
+- Moves by logical replication: promotion, demotion, node moves (platform
+  admins: Project Settings → Compute → Moves, `pgdock move`) and major
+  upgrades copy the data while the project serves, and pause writes only
+  for the switch (about 0.1 s in the tests, at 1 and 3 GB). They fall back
+  to dump and restore when they must, and say why. Schema changes are
+  refused during a move. See docs/moves.md.
+- Postgres versions: `PGDOCK_PG_VERSIONS` (default 17 and 18), a version
+  picker when creating a project or shared cluster, and major upgrades
+  with a preflight that test-restores the schema on the new version
+  (Project Settings → Compute → Postgres version, `pgdock upgrade`).
+- Minor releases are applied automatically in a weekly maintenance window
+  (Admin → Nodes; default Sunday 02:00–06:00 UTC), one instance at a time
+  with the poolers holding clients.
+- Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
+  18), and recreating an agent-run shared cluster failed.
+- New migrations 00022 and 00023 (moves, Postgres releases). Upgrade notes:
+  docs/upgrade.md#upgrading-to-v3.
 
 - Fixed: the first-run setup code printed by `install.sh` was missing its
   trailing `=`, so the wizard called it wrong. The installer now prints the

@@ -27,10 +27,13 @@ export function NewProjectPage() {
   const [nodeId, setNodeId] = useState("");
   const [profile, setProfile] = useState("");
   const [volume, setVolume] = useState("");
+  const [version, setVersion] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [creds, setCreds] = useState<ProjectCredentials | null>(null);
-  const profiles = useQuery({ queryKey: ["profiles"], queryFn: api.profiles, enabled: tier === "dedicated" });
+  const profiles = useQuery({ queryKey: ["profiles"], queryFn: api.profiles });
+  const versions = profiles.data?.pg_versions ?? [];
+  const defaultVersion = profiles.data?.default_pg_version ?? 18;
   const nodes = useQuery({ queryKey: ["nodes"], queryFn: api.nodes, enabled: tier === "dedicated" && platformAdmin });
   const dedicatedNodes = (nodes.data?.items ?? []).filter((n) => (n.role === "dedicated" || n.role === "both") && n.agent.registered);
 
@@ -45,6 +48,7 @@ export function NewProjectPage() {
           name,
           description: description || undefined,
           tier,
+          pg_version: version ? Number(version) : undefined,
           ...(tier === "dedicated"
             ? { node_id: nodeId || undefined, profile: profile || undefined, volume_gb: volume ? Number(volume) : undefined }
             : {}),
@@ -76,7 +80,7 @@ export function NewProjectPage() {
   );
 
   return (
-    <Page title="Create a new project" description="A PostgreSQL 18 database with its own role and connection strings." className="mx-auto w-full max-w-3xl">
+    <Page title="Create a new project" description={`A PostgreSQL ${version || defaultVersion} database with its own role and connection strings.`} className="mx-auto w-full max-w-3xl">
       <form onSubmit={submit}>
         <Panel
           footer={
@@ -106,6 +110,18 @@ export function NewProjectPage() {
                 tierOption("dedicated", "Dedicated", "Its own Postgres container with CPU and memory limits; continuous backups and point-in-time restore.")}
             </div>
           </FormRow>
+          {versions.length > 1 && (
+            <FormRow label="Postgres version" description="Newer majors can be upgraded to later, with a pause of a few seconds." htmlFor="np-version">
+              <Select id="np-version" aria-label="Postgres version" value={version} onChange={(e) => setVersion(e.target.value)}>
+                {[...versions].reverse().map((v) => (
+                  <option key={v} value={v === defaultVersion ? "" : String(v)}>
+                    Postgres {v}
+                    {v === defaultVersion ? " (default)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </FormRow>
+          )}
           {tier === "dedicated" && (
             <FormRow label="Compute" description="Where it runs and how big it is.">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -125,11 +125,12 @@ func (a *App) projectsCreate(args []string) error {
 	tier := fs.String("tier", "shared", "shared or dedicated")
 	profile := fs.String("profile", "", "dedicated size (small, medium, large)")
 	desc := fs.String("description", "", "a description")
+	version := fs.Int("pg-version", 0, "the Postgres major (default: the newest supported)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := need(pos, 1, "projects create <name> [--tier shared|dedicated] [--profile …]"); err != nil {
+	if err := need(pos, 1, "projects create <name> [--tier shared|dedicated] [--profile …] [--pg-version 17]"); err != nil {
 		return err
 	}
 	org, err := a.orgID()
@@ -143,6 +144,9 @@ func (a *App) projectsCreate(args []string) error {
 	}
 	if *desc != "" {
 		req.Description = desc
+	}
+	if *version != 0 {
+		req.PgVersion = version
 	}
 	c, cancel := ctx()
 	defer cancel()

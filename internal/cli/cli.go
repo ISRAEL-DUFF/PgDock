@@ -202,6 +202,9 @@ func (a *App) commands() []command {
 		}},
 		{name: "promote", summary: "Move a project to a dedicated instance: promote <p> [--node <id>] [--profile]", run: (*App).promote},
 		{name: "demote", summary: "Move a dedicated project back to the shared tier: demote <p> [--node <id>] [--check] [--accept-warnings]", run: (*App).demote},
+		{name: "upgrade", summary: "Upgrade to a newer Postgres major: upgrade <p> --to 18 [--check]", run: (*App).upgrade},
+		{name: "move", summary: "Move a project to another node (platform admin): move <p> --node <id>", run: (*App).move},
+		{name: "moves", summary: "A project's recent moves between instances: moves <p>", run: (*App).moves},
 		{name: "members", summary: "Project members", sub: []command{
 			{name: "list", summary: "List: list <p>", run: (*App).membersList},
 			{name: "invite", summary: "Add: invite <p> <email> --role admin|developer|read_only", run: (*App).membersInvite},
