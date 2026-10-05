@@ -604,3 +604,37 @@ func (s *Service) Requery(ctx context.Context, from, to time.Time) (int, error) 
 	}
 	return n, errors.Join(errs...)
 }
+
+// AttributeEvent settles an unmatched event's money for orgID (the admin,
+// after identifying the sender). The transaction is verified again first.
+func (s *Service) AttributeEvent(ctx context.Context, eventID int64, orgID uuid.UUID, by *uuid.UUID) (Settlement, error) {
+	q := store.New(s.db)
+	ev, err := q.GetPaymentEvent(ctx, eventID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Settlement{}, ErrNotFound
+	}
+	if err != nil {
+		return Settlement{}, err
+	}
+	if ev.Outcome == nil || *ev.Outcome != OutcomeUnmatched || ev.ProviderRef == nil {
+		return Settlement{}, fmt.Errorf("%w: only unmatched events can be attributed", ErrConflict)
+	}
+	p, ok := s.providers[ev.Provider]
+	if !ok {
+		return Settlement{}, fmt.Errorf("provider %s isn't configured", ev.Provider)
+	}
+	tx, err := p.Verify(ctx, *ev.ProviderRef)
+	if err != nil {
+		return Settlement{}, err
+	}
+	if tx.Status != TxSucceeded || !strings.EqualFold(tx.Currency, "NGN") {
+		return Settlement{}, fmt.Errorf("%w: the provider says %s %s", ErrConflict, tx.Status, tx.Currency)
+	}
+	st, err := s.RecordPayment(ctx, PaymentIn{OrgID: orgID, Provider: ev.Provider, Channel: ChannelTransfer, ProviderRef: tx.ProviderRef,
+		AmountMinor: tx.AmountMinor, FeeMinor: tx.FeeMinor, ReceivedAt: tx.At, RecordedBy: by, Note: "attributed by the platform admin"})
+	if err != nil {
+		return st, err
+	}
+	outcome := OutcomePosted
+	return st, q.FinishPaymentEvent(ctx, store.FinishPaymentEventParams{ID: ev.ID, Outcome: &outcome, OrgID: &orgID})
+}

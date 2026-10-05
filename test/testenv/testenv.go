@@ -48,6 +48,8 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
+	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
@@ -103,6 +105,9 @@ type Env struct {
 	SMTP *SMTPServer
 	// Billing is the billing core (V3 §3); tests move its clock (Now).
 	Billing *billing.Service
+	// Flutterwave and ISpend are the payment providers' fake sandboxes.
+	Flutterwave *flutterwave.Fake
+	ISpend      *ispend.Fake
 	// Tenancy is the M9 controller; tests tick it (EnforceStorage, Reap,
 	// RecordUsage, Sweep) rather than running its loops. Its clock is real
 	// time plus TenancyAdvance.
@@ -349,6 +354,20 @@ func Start(t testing.TB, opts Options) *Env {
 	if err := billingSvc.Init(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// Payment providers: fakes of the Flutterwave and iSpend sandboxes,
+	// whose webhooks reach the API like the real ones (wired below, once
+	// the server's URL is known).
+	flw := flutterwave.NewFake("flw-test-secret", "flw-test-webhook-hash")
+	isp := ispend.NewFake("isp-test-key", "isp-test-webhook-secret")
+	flwSrv, ispSrv := httptest.NewServer(flw), httptest.NewServer(isp)
+	t.Cleanup(flwSrv.Close)
+	t.Cleanup(ispSrv.Close)
+	billingSvc.SetPayments([]billing.PaymentProvider{
+		flutterwave.New(flutterwave.Config{BaseURL: flwSrv.URL, SecretKey: flw.SecretKey, WebhookHash: flw.WebhookHash, BVN: "22222222222"}),
+		ispend.New(ispend.Config{BaseURL: ispSrv.URL, APIKey: isp.APIKey, WebhookSecret: isp.WebhookSecret}),
+	}, billing.Routing{Cards: billing.ProviderFlutterwave, VAPrimary: billing.ProviderISpend, VAFallback: billing.ProviderFlutterwave, Wallet: billing.ProviderISpend}, keyring)
+	billingSvc.SetDunning(tenancySvc, nil)
+	billingSvc.SetDocStore(&memDocs{m: map[string][]byte{}})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
 		Incidents: incidentSvc, Billing: billingSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
@@ -368,11 +387,13 @@ func Start(t testing.TB, opts Options) *Env {
 		ts.Listener = ln
 	}
 	ts.Start()
+	flw.WebhookURL = ts.URL + "/api/v1/payments/webhooks/flutterwave"
+	isp.WebhookURL = ts.URL + "/api/v1/payments/webhooks/ispend"
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
@@ -576,6 +597,33 @@ func (e *Env) Do(method, path string, body, out any) int {
 	return res.StatusCode
 }
 
+// DoBytes sends body (raw, as contentType) as the owner and returns the
+// status and the raw response.
+func (e *Env) DoBytes(method, path, contentType string, body []byte) (int, []byte) {
+	e.t.Helper()
+	var r io.Reader
+	if body != nil {
+		r = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, e.URL+path, r)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if e.csrf != "" {
+		req.Header.Set("X-CSRF-Token", e.csrf)
+	}
+	res, err := e.client.Do(req)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	return res.StatusCode, b
+}
+
 // CreateProject creates a project through the API and waits for it to be
 // active. It returns the credentials response.
 func (e *Env) CreateProject(name string) gen.ProjectCredentials {
@@ -761,4 +809,29 @@ func (e *Env) StopAutomation() {
 		cancel()
 		a.wg.Wait()
 	}
+}
+
+// memDocs keeps billing documents in memory (tests have no bucket unless
+// they configure backups).
+type memDocs struct {
+	mu sync.Mutex
+	m  map[string][]byte
+}
+
+func (d *memDocs) Put(_ context.Context, key string, r io.Reader) error {
+	b, err := io.ReadAll(r)
+	d.mu.Lock()
+	d.m[key] = b
+	d.mu.Unlock()
+	return err
+}
+
+func (d *memDocs) Get(_ context.Context, key string) (io.ReadCloser, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	b, ok := d.m[key]
+	if !ok {
+		return nil, fmt.Errorf("no document %s", key)
+	}
+	return io.NopCloser(bytes.NewReader(b)), nil
 }

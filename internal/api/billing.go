@@ -67,6 +67,25 @@ func (s *Server) toAPIBillingAccount(r *http.Request, a store.BillingAccount) (g
 			out.Plans = append(out.Plans, gen.PlanOption{Id: id, Name: p.Name, MonthlyMinor: p.MonthlyMinor, AnnualMinor: p.AnnualMinor})
 		}
 	}
+	st, err := s.billing.Standing(ctx, a.OrgID)
+	if err != nil {
+		return out, err
+	}
+	out.CreditMinor, out.OwedMinor, out.OverdueSince = &st.CreditMinor, &st.OwedMinor, st.OverdueSince
+	out.CardFailingSince, out.ZeroBalanceAt, out.GraceUntil, out.DeletionScheduledAt = a.CardFailingSince, a.ZeroBalanceAt, a.GraceUntil, a.DeletionScheduledAt
+	if len(a.AutoTopup) > 0 {
+		var at gen.AutoTopup
+		if json.Unmarshal(a.AutoTopup, &at) == nil {
+			out.AutoTopup = &at
+		}
+	}
+	ch := s.billing.Channels(ctx)
+	out.Channels = &struct {
+		Card       bool `json:"card"`
+		Stablecoin bool `json:"stablecoin"`
+		Transfer   bool `json:"transfer"`
+		Wallet     bool `json:"wallet"`
+	}{Card: ch.Card, Stablecoin: ch.Stablecoin, Transfer: ch.Transfer, Wallet: ch.Wallet}
 	pc, err := store.New(s.db).PendingPlanChange(ctx, a.OrgID)
 	if err == nil {
 		out.PendingChange = &struct {
@@ -244,7 +263,8 @@ func (s *Server) RemoveBillingContact(w http.ResponseWriter, r *http.Request, or
 // ---- Admin --------------------------------------------------------------------
 
 func toAPIBillingSettings(set billing.Settings) gen.BillingSettings {
-	out := gen.BillingSettings{VatRate: set.VATRate.String(), WhtRate: set.WHTRate.String(), AutoIssue: set.AutoIssue}
+	out := gen.BillingSettings{VatRate: set.VATRate.String(), WhtRate: set.WHTRate.String(), AutoIssue: set.AutoIssue,
+		Stablecoin: &set.Stablecoin, DeleteForNonPayment: &set.DeleteForNonPayment}
 	out.Seller.LegalName, out.Seller.Address, out.Seller.Tin = set.Seller.LegalName, set.Seller.Address, set.Seller.TIN
 	out.Seller.VatNumber, out.Seller.Email = set.Seller.VATNumber, set.Seller.Email
 	return out
@@ -280,9 +300,10 @@ func (s *Server) PutBillingSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
-	set := billing.Settings{VATRate: vat, WHTRate: wht, AutoIssue: req.AutoIssue, Seller: billing.Seller{
-		LegalName: req.Seller.LegalName, Address: req.Seller.Address, TIN: req.Seller.Tin, VATNumber: req.Seller.VatNumber, Email: req.Seller.Email,
-	}}
+	set := billing.Settings{VATRate: vat, WHTRate: wht, AutoIssue: req.AutoIssue,
+		Stablecoin: req.Stablecoin != nil && *req.Stablecoin, DeleteForNonPayment: req.DeleteForNonPayment != nil && *req.DeleteForNonPayment, Seller: billing.Seller{
+			LegalName: req.Seller.LegalName, Address: req.Seller.Address, TIN: req.Seller.Tin, VATNumber: req.Seller.VatNumber, Email: req.Seller.Email,
+		}}
 	if err := bs.SetSettings(r.Context(), set); err != nil {
 		s.billingError(w, "billing settings", err)
 		return

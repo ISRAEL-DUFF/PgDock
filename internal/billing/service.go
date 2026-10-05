@@ -526,3 +526,18 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 		}
 	}
 }
+
+// Channels are the payment channels offered now.
+type Channels struct{ Card, Wallet, Transfer, Stablecoin bool }
+
+// Channels reports which payment channels are configured.
+func (s *Service) Channels(ctx context.Context) Channels {
+	has := func(name string) bool { _, ok := s.providers[name]; return name != "" && ok }
+	c := Channels{Card: has(s.routing.Cards), Wallet: has(s.routing.Wallet), Transfer: has(s.routing.VAPrimary) || has(s.routing.VAFallback)}
+	if c.Wallet {
+		if set, err := s.Settings(ctx); err == nil {
+			c.Stablecoin = set.Stablecoin
+		}
+	}
+	return c
+}

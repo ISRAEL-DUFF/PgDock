@@ -173,6 +173,16 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 	if _, err := e.DB.Exec(context.Background(), `UPDATE billing_accounts SET capped = false WHERE org_id = $1`, org.Id); err != nil {
 		t.Fatal(err)
 	}
+	// Restricted for an overdue balance (dunning day 3): no new projects.
+	if _, err := e.DB.Exec(context.Background(), `UPDATE billing_accounts SET dunning_state = 'restricted' WHERE org_id = $1`, org.Id); err != nil {
+		t.Fatal(err)
+	}
+	if code := admin.Do("POST", "/api/v1/projects", map[string]any{"name": "Blocked", "org_id": org.Id}, &refused); code != http.StatusConflict || !strings.Contains(refused.Message, "overdue") {
+		t.Errorf("a project while restricted: %d %+v", code, refused)
+	}
+	if _, err := e.DB.Exec(context.Background(), `UPDATE billing_accounts SET dunning_state = 'ok' WHERE org_id = $1`, org.Id); err != nil {
+		t.Fatal(err)
+	}
 
 	// Price books: a draft can't be published inside the notice period.
 	var books struct {

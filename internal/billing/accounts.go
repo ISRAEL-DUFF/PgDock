@@ -488,3 +488,39 @@ func (s *Service) AdminUpdate(ctx context.Context, orgID uuid.UUID, a AdminSetti
 		OrgID: orgID, Grandfathered: a.Grandfathered, Mode: a.Mode, PaymentTermsDays: a.PaymentTermsDays, PriceBookVersion: a.PriceBookVersion,
 	})
 }
+
+// Standing is an org's money position, for the Billing page.
+type Standing struct {
+	CreditMinor  int64 // on the credit balance (prepaid funds, overpayments)
+	OwedMinor    int64 // outstanding on issued invoices
+	OverdueSince *time.Time
+}
+
+// Standing reports what orgID holds and owes.
+func (s *Service) Standing(ctx context.Context, orgID uuid.UUID) (Standing, error) {
+	var out Standing
+	var err error
+	if out.CreditMinor, err = s.CreditAvailable(ctx, s.db, orgID); err != nil {
+		return out, err
+	}
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		invs, err := q.OpenInvoices(ctx, orgID)
+		if err != nil {
+			return err
+		}
+		for _, inv := range invs {
+			o, err := outstanding(ctx, q, inv)
+			if err != nil {
+				return err
+			}
+			out.OwedMinor += o
+			if inv.DueAt != nil && inv.DueAt.Before(s.Now()) && (out.OverdueSince == nil || inv.DueAt.Before(*out.OverdueSince)) {
+				d := *inv.DueAt
+				out.OverdueSince = &d
+			}
+		}
+		return nil
+	})
+	return out, err
+}

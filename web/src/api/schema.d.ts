@@ -2871,6 +2871,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card) */
+        post: operations["startCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/virtual-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The organisation's bank account for transfers, issued on first use */
+        post: operations["orgVirtualAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/payment-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saved cards and wallet mandates */
+        get: operations["listPaymentMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/payment-methods/{method_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a saved card or revoke a mandate */
+        delete: operations["removePaymentMethod"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/payment-methods/{method_id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Charge this method for invoices and top-ups */
+        post: operations["setDefaultPaymentMethod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/auto-topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Top up a prepaid balance from the default method when it falls below a threshold */
+        put: operations["setAutoTopup"];
+        post?: never;
+        /** Stop automatic top-ups */
+        delete: operations["clearAutoTopup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments received, with receipts */
+        get: operations["listOrgPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/payments/{payment_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A payment's receipt as PDF */
+        get: operations["getPaymentReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB) */
+        post: operations["uploadWhtCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/usage": {
         parameters: {
             query?: never;
@@ -3690,6 +3844,161 @@ export interface paths {
         put?: never;
         /** A payment provider's webhook (authenticated by its signature, re-verified before anything is posted) */
         post: operations["paymentWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments received, by provider and period */
+        get: operations["adminListPayments"];
+        put?: never;
+        /** Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank */
+        post: operations["adminRecordPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/billing/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment */
+        post: operations["adminUploadBillingDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{payment_id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refund part of a payment from the organisation's credit balance */
+        post: operations["adminRefundPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payment-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider events as received, newest first */
+        get: operations["adminListPaymentEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payment-events/{event_id}/attribute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Settle an unmatched transfer for an organisation (it is verified again first) */
+        post: operations["adminAttributePaymentEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/wht": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing) */
+        get: operations["adminOutstandingWht"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/wht-certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach a WHT credit note to an invoice */
+        post: operations["adminUploadWhtCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The latest reconciliation against each provider */
+        get: operations["adminLastReconciliation"];
+        put?: never;
+        /** Reconcile a period now (default the previous day) */
+        post: operations["adminRunReconciliation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/billing/grace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Hold dunning for an organisation until a date (null ends the extension) */
+        put: operations["adminSetGrace"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6180,6 +6489,10 @@ export interface components {
             wht_rate: components["schemas"]["Decimal"];
             /** @description Issue each month's draft invoices automatically on the 1st. */
             auto_issue: boolean;
+            /** @description Allow USDT top-ups through iSpend (off until the regulatory position is confirmed). */
+            stablecoin?: boolean;
+            /** @description Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin. */
+            delete_for_non_payment?: boolean;
             seller: {
                 legal_name: string;
                 address: string;
@@ -6238,6 +6551,34 @@ export interface components {
             /** Format: int64 */
             forecast_minor?: number | null;
             capped?: boolean;
+            /**
+             * Format: int64
+             * @description On the credit balance (prepaid funds, overpayments).
+             */
+            credit_minor?: number;
+            /**
+             * Format: int64
+             * @description Outstanding on issued invoices.
+             */
+            owed_minor?: number;
+            /** Format: date-time */
+            overdue_since?: string | null;
+            /** Format: date-time */
+            card_failing_since?: string | null;
+            /** Format: date-time */
+            zero_balance_at?: string | null;
+            /** Format: date-time */
+            grace_until?: string | null;
+            /** Format: date-time */
+            deletion_scheduled_at?: string | null;
+            auto_topup?: components["schemas"]["AutoTopup"] | null;
+            /** @description The payment channels offered. */
+            channels?: {
+                card: boolean;
+                wallet: boolean;
+                transfer: boolean;
+                stablecoin: boolean;
+            };
             pending_change?: {
                 to_plan: string;
                 to_term: string;
@@ -6393,6 +6734,109 @@ export interface components {
             capped: boolean;
             /** @description The month's lines so far (the next invoice, still changing). */
             so_far: components["schemas"]["InvoiceLine"][];
+        };
+        VirtualAccount: {
+            provider: string;
+            account_number: string;
+            bank_name: string;
+            account_name: string;
+        };
+        PaymentMethod: {
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            /** @enum {string} */
+            kind: "card" | "mandate";
+            brand?: string | null;
+            last4?: string | null;
+            exp_month?: number | null;
+            exp_year?: number | null;
+            /** Format: int64 */
+            limit_minor?: number | null;
+            is_default: boolean;
+        };
+        AutoTopup: {
+            /** Format: int64 */
+            below_minor: number;
+            /** Format: int64 */
+            amount_minor: number;
+        };
+        Payment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string | null;
+            provider: string;
+            channel: string;
+            provider_ref: string;
+            /** Format: int64 */
+            amount_minor: number;
+            /** Format: int64 */
+            fee_minor: number;
+            /** Format: int64 */
+            refunded_minor: number;
+            note?: string | null;
+            /** Format: date-time */
+            received_at: string;
+        };
+        PaymentList: {
+            items: components["schemas"]["Payment"][];
+        };
+        PaymentEvent: {
+            /** Format: int64 */
+            id: number;
+            provider: string;
+            provider_event_id: string;
+            kind: string;
+            /** Format: uuid */
+            org_id?: string | null;
+            provider_ref?: string | null;
+            /** Format: int64 */
+            amount_minor?: number | null;
+            outcome?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            received_at: string;
+        };
+        OutstandingWht: {
+            /** Format: uuid */
+            invoice_id: string;
+            number?: string | null;
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            tin?: string | null;
+            /** Format: int64 */
+            wht_minor: number;
+            /** Format: date-time */
+            paid_at?: string | null;
+            age_days: number;
+        };
+        Reconciliation: {
+            provider: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            matched: number;
+            /** Format: int64 */
+            gross_minor: number;
+            /** Format: int64 */
+            fees_minor: number;
+            error?: string;
+            /** Format: date-time */
+            ran_at: string;
+            differences: {
+                /** @enum {string} */
+                kind: "missing_in_pgdock" | "missing_at_provider" | "amount" | "fee";
+                provider_ref: string;
+                /** Format: int64 */
+                provider_minor: number;
+                /** Format: int64 */
+                pgdock_minor: number;
+                note?: string;
+            }[];
         };
         OrgQuotas: {
             plan: string;
@@ -6667,6 +7111,8 @@ export interface components {
         TokenID: string;
         RequestID: string;
         OrgID: string;
+        MethodID: string;
+        PaymentID: string;
         InvoiceID: string;
         PriceBookVersion: number;
         UserID: string;
@@ -11497,6 +11943,268 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    startCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    channel: "card" | "wallet" | "stablecoin";
+                    /** @enum {string} */
+                    purpose: "invoice" | "topup" | "card_setup";
+                    /** Format: uuid */
+                    invoice_id?: string;
+                    /**
+                     * Format: int64
+                     * @description For a top-up.
+                     */
+                    amount_minor?: number;
+                    /**
+                     * Format: int64
+                     * @description With a wallet payment, also set up a recurring mandate with this monthly limit.
+                     */
+                    mandate_limit_minor?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The hosted page to send the customer to. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reference: string;
+                        checkout_url: string;
+                        /** Format: int64 */
+                        amount_minor: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    orgVirtualAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VirtualAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPaymentMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Methods. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PaymentMethod"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removePaymentMethod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                method_id: components["parameters"]["MethodID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setDefaultPaymentMethod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                method_id: components["parameters"]["MethodID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setAutoTopup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoTopup"];
+            };
+        };
+        responses: {
+            /** @description Set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    clearAutoTopup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgPayments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPaymentReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                payment_id: components["parameters"]["PaymentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadWhtCertificate: {
+        parameters: {
+            query: {
+                filename: string;
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored; the WHT is evidenced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getOrgUsage: {
         parameters: {
             query?: {
@@ -12990,6 +13698,328 @@ export interface operations {
             };
             /** @description The signature didn't verify. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListPayments: {
+        parameters: {
+            query?: {
+                provider?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRecordPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    org_id: string;
+                    /** Format: int64 */
+                    amount_minor: number;
+                    reference: string;
+                    note?: string;
+                    /** Format: uuid */
+                    invoice_id?: string;
+                    topup?: boolean;
+                    /** Format: date-time */
+                    received_at?: string;
+                    /** @description From POST /api/v1/admin/billing/documents. */
+                    proof_key?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The payment. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUploadBillingDocument: {
+        parameters: {
+            query: {
+                org_id: string;
+                filename: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        key: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRefundPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: components["parameters"]["PaymentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    amount_minor: number;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The refund (pending until the provider confirms). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        status: string;
+                        /** Format: int64 */
+                        amount_minor: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListPaymentEvents: {
+        parameters: {
+            query?: {
+                outcome?: "posted" | "duplicate" | "unmatched" | "rejected" | "failed" | "ignored";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PaymentEvent"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminAttributePaymentEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    org_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The payment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminOutstandingWht: {
+        parameters: {
+            query?: {
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Outstanding WHT. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["OutstandingWht"][];
+                    };
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUploadWhtCertificate: {
+        parameters: {
+            query: {
+                filename: string;
+            };
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored; the WHT is evidenced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminLastReconciliation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per provider. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Reconciliation"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRunReconciliation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    from?: string;
+                    /** Format: date-time */
+                    to?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Per provider. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Reconciliation"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSetGrace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    until?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Set. */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

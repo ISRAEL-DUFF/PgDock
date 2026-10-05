@@ -152,3 +152,57 @@ func ptr(s *string) string {
 	}
 	return *s
 }
+
+// ReceiptPDF renders a payment receipt (V3 §3.6 "Receipts for each
+// payment").
+func ReceiptPDF(p store.Payment, allocations []store.PaymentAllocationsRow, orgName string, seller Seller) ([]byte, error) {
+	pdf := fpdf.New("P", "mm", "A4", "")
+	tr := pdf.UnicodeTranslatorFromDescriptor("")
+	pdf.SetTitle("Receipt "+p.ID.String(), false)
+	pdf.AddPage()
+	pdf.SetMargins(15, 15, 15)
+	pdf.SetFont("Helvetica", "B", 18)
+	pdf.CellFormat(100, 10, "RECEIPT", "", 0, "L", false, 0, "")
+	pdf.SetFont("Helvetica", "", 9)
+	pdf.CellFormat(80, 10, tr(seller.LegalName), "", 1, "R", false, 0, "")
+	pdf.Ln(4)
+	rows := [][2]string{
+		{"Received from", orgName},
+		{"Amount", Naira(p.AmountMinor)},
+		{"Date", p.ReceivedAt.UTC().Format("2 January 2006 15:04 UTC")},
+		{"Method", strings.ReplaceAll(p.Channel, "_", " ") + " (" + p.Provider + ")"},
+		{"Reference", p.ProviderRef},
+	}
+	for _, r := range rows {
+		pdf.SetFont("Helvetica", "B", 10)
+		pdf.CellFormat(40, 7, r[0], "", 0, "L", false, 0, "")
+		pdf.SetFont("Helvetica", "", 10)
+		pdf.CellFormat(140, 7, tr(r[1]), "", 1, "L", false, 0, "")
+	}
+	pdf.Ln(4)
+	var applied int64
+	if len(allocations) > 0 {
+		pdf.SetFont("Helvetica", "B", 9)
+		pdf.CellFormat(180, 6, "Applied to", "B", 1, "L", false, 0, "")
+		pdf.SetFont("Helvetica", "", 9)
+		for _, a := range allocations {
+			line := deref(a.Number)
+			if a.WhtMinor > 0 {
+				line += fmt.Sprintf(" (and %s of WHT deducted)", Naira(a.WhtMinor))
+			}
+			pdf.CellFormat(150, 6, tr(line), "", 0, "L", false, 0, "")
+			pdf.CellFormat(30, 6, Naira(a.AmountMinor), "", 1, "R", false, 0, "")
+			applied += a.AmountMinor
+		}
+	}
+	if credit := p.AmountMinor - applied; credit > 0 {
+		pdf.SetFont("Helvetica", "", 9)
+		pdf.CellFormat(150, 6, "Added to the credit balance", "", 0, "L", false, 0, "")
+		pdf.CellFormat(30, 6, Naira(credit), "", 1, "R", false, 0, "")
+	}
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}

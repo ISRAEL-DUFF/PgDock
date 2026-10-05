@@ -1311,6 +1311,24 @@ func (e OrgRole) Valid() bool {
 	}
 }
 
+// Defines values for PaymentMethodKind.
+const (
+	PaymentMethodKindCard    PaymentMethodKind = "card"
+	PaymentMethodKindMandate PaymentMethodKind = "mandate"
+)
+
+// Valid indicates whether the value is a known member of the PaymentMethodKind enum.
+func (e PaymentMethodKind) Valid() bool {
+	switch e {
+	case PaymentMethodKindCard:
+		return true
+	case PaymentMethodKindMandate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PersonalCredentialsAccess.
 const (
 	PersonalCredentialsAccessReadOnly  PersonalCredentialsAccess = "read_only"
@@ -1518,6 +1536,30 @@ func (e ReapedSessionKind) Valid() bool {
 	case IdleInTransaction:
 		return true
 	case Statement:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReconciliationDifferencesKind.
+const (
+	Amount            ReconciliationDifferencesKind = "amount"
+	Fee               ReconciliationDifferencesKind = "fee"
+	MissingAtProvider ReconciliationDifferencesKind = "missing_at_provider"
+	MissingInPgdock   ReconciliationDifferencesKind = "missing_in_pgdock"
+)
+
+// Valid indicates whether the value is a known member of the ReconciliationDifferencesKind enum.
+func (e ReconciliationDifferencesKind) Valid() bool {
+	switch e {
+	case Amount:
+		return true
+	case Fee:
+		return true
+	case MissingAtProvider:
+		return true
+	case MissingInPgdock:
 		return true
 	default:
 		return false
@@ -2403,6 +2445,54 @@ func (e AdminListInvoicesParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminListPaymentEventsParamsOutcome.
+const (
+	AdminListPaymentEventsParamsOutcomeDuplicate AdminListPaymentEventsParamsOutcome = "duplicate"
+	AdminListPaymentEventsParamsOutcomeFailed    AdminListPaymentEventsParamsOutcome = "failed"
+	AdminListPaymentEventsParamsOutcomeIgnored   AdminListPaymentEventsParamsOutcome = "ignored"
+	AdminListPaymentEventsParamsOutcomePosted    AdminListPaymentEventsParamsOutcome = "posted"
+	AdminListPaymentEventsParamsOutcomeRejected  AdminListPaymentEventsParamsOutcome = "rejected"
+	AdminListPaymentEventsParamsOutcomeUnmatched AdminListPaymentEventsParamsOutcome = "unmatched"
+)
+
+// Valid indicates whether the value is a known member of the AdminListPaymentEventsParamsOutcome enum.
+func (e AdminListPaymentEventsParamsOutcome) Valid() bool {
+	switch e {
+	case AdminListPaymentEventsParamsOutcomeDuplicate:
+		return true
+	case AdminListPaymentEventsParamsOutcomeFailed:
+		return true
+	case AdminListPaymentEventsParamsOutcomeIgnored:
+		return true
+	case AdminListPaymentEventsParamsOutcomePosted:
+		return true
+	case AdminListPaymentEventsParamsOutcomeRejected:
+		return true
+	case AdminListPaymentEventsParamsOutcomeUnmatched:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminOutstandingWhtParamsFormat.
+const (
+	AdminOutstandingWhtParamsFormatCsv  AdminOutstandingWhtParamsFormat = "csv"
+	AdminOutstandingWhtParamsFormatJson AdminOutstandingWhtParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminOutstandingWhtParamsFormat enum.
+func (e AdminOutstandingWhtParamsFormat) Valid() bool {
+	switch e {
+	case AdminOutstandingWhtParamsFormatCsv:
+		return true
+	case AdminOutstandingWhtParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAlertsParamsStatus.
 const (
 	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
@@ -2457,6 +2547,48 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	case ListOrgAuditParamsOutcomeFailure:
 		return true
 	case ListOrgAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartCheckoutJSONBodyChannel.
+const (
+	StartCheckoutJSONBodyChannelCard       StartCheckoutJSONBodyChannel = "card"
+	StartCheckoutJSONBodyChannelStablecoin StartCheckoutJSONBodyChannel = "stablecoin"
+	StartCheckoutJSONBodyChannelWallet     StartCheckoutJSONBodyChannel = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyChannel enum.
+func (e StartCheckoutJSONBodyChannel) Valid() bool {
+	switch e {
+	case StartCheckoutJSONBodyChannelCard:
+		return true
+	case StartCheckoutJSONBodyChannelStablecoin:
+		return true
+	case StartCheckoutJSONBodyChannelWallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartCheckoutJSONBodyPurpose.
+const (
+	StartCheckoutJSONBodyPurposeCardSetup StartCheckoutJSONBodyPurpose = "card_setup"
+	StartCheckoutJSONBodyPurposeInvoice   StartCheckoutJSONBodyPurpose = "invoice"
+	StartCheckoutJSONBodyPurposeTopup     StartCheckoutJSONBodyPurpose = "topup"
+)
+
+// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyPurpose enum.
+func (e StartCheckoutJSONBodyPurpose) Valid() bool {
+	switch e {
+	case StartCheckoutJSONBodyPurposeCardSetup:
+		return true
+	case StartCheckoutJSONBodyPurposeInvoice:
+		return true
+	case StartCheckoutJSONBodyPurposeTopup:
 		return true
 	default:
 		return false
@@ -2838,6 +2970,12 @@ type AuditList struct {
 	NextBefore *int64       `json:"next_before,omitempty"`
 }
 
+// AutoTopup defines model for AutoTopup.
+type AutoTopup struct {
+	AmountMinor int64 `json:"amount_minor"`
+	BelowMinor  int64 `json:"below_minor"`
+}
+
 // Availability defines model for Availability.
 type Availability struct {
 	MeasuredMinutes int `json:"measured_minutes"`
@@ -2927,17 +3065,36 @@ type BackupOverview struct {
 
 // BillingAccount defines model for BillingAccount.
 type BillingAccount struct {
-	Address          *string            `json:"address,omitempty"`
-	BudgetMinor      *int64             `json:"budget_minor,omitempty"`
-	Capped           *bool              `json:"capped,omitempty"`
-	DeductsWht       bool               `json:"deducts_wht"`
-	DunningState     string             `json:"dunning_state"`
-	ForecastMinor    *int64             `json:"forecast_minor,omitempty"`
-	Grandfathered    bool               `json:"grandfathered"`
-	LegalName        *string            `json:"legal_name,omitempty"`
-	Mode             BillingAccountMode `json:"mode"`
-	OrgId            openapi_types.UUID `json:"org_id"`
-	PaymentTermsDays int                `json:"payment_terms_days"`
+	Address          *string    `json:"address,omitempty"`
+	AutoTopup        *AutoTopup `json:"auto_topup,omitempty"`
+	BudgetMinor      *int64     `json:"budget_minor,omitempty"`
+	Capped           *bool      `json:"capped,omitempty"`
+	CardFailingSince *time.Time `json:"card_failing_since,omitempty"`
+
+	// Channels The payment channels offered.
+	Channels *struct {
+		Card       bool `json:"card"`
+		Stablecoin bool `json:"stablecoin"`
+		Transfer   bool `json:"transfer"`
+		Wallet     bool `json:"wallet"`
+	} `json:"channels,omitempty"`
+
+	// CreditMinor On the credit balance (prepaid funds, overpayments).
+	CreditMinor         *int64             `json:"credit_minor,omitempty"`
+	DeductsWht          bool               `json:"deducts_wht"`
+	DeletionScheduledAt *time.Time         `json:"deletion_scheduled_at,omitempty"`
+	DunningState        string             `json:"dunning_state"`
+	ForecastMinor       *int64             `json:"forecast_minor,omitempty"`
+	GraceUntil          *time.Time         `json:"grace_until,omitempty"`
+	Grandfathered       bool               `json:"grandfathered"`
+	LegalName           *string            `json:"legal_name,omitempty"`
+	Mode                BillingAccountMode `json:"mode"`
+	OrgId               openapi_types.UUID `json:"org_id"`
+	OverdueSince        *time.Time         `json:"overdue_since,omitempty"`
+
+	// OwedMinor Outstanding on issued invoices.
+	OwedMinor        *int64 `json:"owed_minor,omitempty"`
+	PaymentTermsDays int    `json:"payment_terms_days"`
 	PendingChange    *struct {
 		EffectiveAt time.Time `json:"effective_at"`
 		ToPlan      string    `json:"to_plan"`
@@ -2954,6 +3111,7 @@ type BillingAccount struct {
 	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
 	Tin              *string            `json:"tin,omitempty"`
 	VatRegistered    bool               `json:"vat_registered"`
+	ZeroBalanceAt    *time.Time         `json:"zero_balance_at,omitempty"`
 }
 
 // BillingAccountMode defines model for BillingAccount.Mode.
@@ -3007,13 +3165,19 @@ type BillingForecast struct {
 type BillingSettings struct {
 	// AutoIssue Issue each month's draft invoices automatically on the 1st.
 	AutoIssue bool `json:"auto_issue"`
-	Seller    struct {
+
+	// DeleteForNonPayment Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin.
+	DeleteForNonPayment *bool `json:"delete_for_non_payment,omitempty"`
+	Seller              struct {
 		Address   string `json:"address"`
 		Email     string `json:"email"`
 		LegalName string `json:"legal_name"`
 		Tin       string `json:"tin"`
 		VatNumber string `json:"vat_number"`
 	} `json:"seller"`
+
+	// Stablecoin Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
+	Stablecoin *bool `json:"stablecoin,omitempty"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -4431,11 +4595,73 @@ type OutboundHost struct {
 	Requests int64              `json:"requests"`
 }
 
+// OutstandingWht defines model for OutstandingWht.
+type OutstandingWht struct {
+	AgeDays   int                `json:"age_days"`
+	InvoiceId openapi_types.UUID `json:"invoice_id"`
+	Number    *string            `json:"number,omitempty"`
+	OrgId     openapi_types.UUID `json:"org_id"`
+	OrgName   string             `json:"org_name"`
+	PaidAt    *time.Time         `json:"paid_at,omitempty"`
+	Tin       *string            `json:"tin,omitempty"`
+	WhtMinor  int64              `json:"wht_minor"`
+}
+
 // PasswordResetConfirm defines model for PasswordResetConfirm.
 type PasswordResetConfirm struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
+
+// Payment defines model for Payment.
+type Payment struct {
+	AmountMinor   int64              `json:"amount_minor"`
+	Channel       string             `json:"channel"`
+	FeeMinor      int64              `json:"fee_minor"`
+	Id            openapi_types.UUID `json:"id"`
+	Note          *string            `json:"note,omitempty"`
+	OrgId         openapi_types.UUID `json:"org_id"`
+	OrgName       *string            `json:"org_name,omitempty"`
+	Provider      string             `json:"provider"`
+	ProviderRef   string             `json:"provider_ref"`
+	ReceivedAt    time.Time          `json:"received_at"`
+	RefundedMinor int64              `json:"refunded_minor"`
+}
+
+// PaymentEvent defines model for PaymentEvent.
+type PaymentEvent struct {
+	AmountMinor     *int64              `json:"amount_minor,omitempty"`
+	Error           *string             `json:"error,omitempty"`
+	Id              int64               `json:"id"`
+	Kind            string              `json:"kind"`
+	OrgId           *openapi_types.UUID `json:"org_id,omitempty"`
+	Outcome         *string             `json:"outcome,omitempty"`
+	Provider        string              `json:"provider"`
+	ProviderEventId string              `json:"provider_event_id"`
+	ProviderRef     *string             `json:"provider_ref,omitempty"`
+	ReceivedAt      time.Time           `json:"received_at"`
+}
+
+// PaymentList defines model for PaymentList.
+type PaymentList struct {
+	Items []Payment `json:"items"`
+}
+
+// PaymentMethod defines model for PaymentMethod.
+type PaymentMethod struct {
+	Brand      *string            `json:"brand,omitempty"`
+	ExpMonth   *int               `json:"exp_month,omitempty"`
+	ExpYear    *int               `json:"exp_year,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+	IsDefault  bool               `json:"is_default"`
+	Kind       PaymentMethodKind  `json:"kind"`
+	Last4      *string            `json:"last4,omitempty"`
+	LimitMinor *int64             `json:"limit_minor,omitempty"`
+	Provider   string             `json:"provider"`
+}
+
+// PaymentMethodKind defines model for PaymentMethod.Kind.
+type PaymentMethodKind string
 
 // PersonalCredentials defines model for PersonalCredentials.
 type PersonalCredentials struct {
@@ -4963,6 +5189,28 @@ type ReclaimSpaceRequest struct {
 	Schema string `json:"schema"`
 	Table  string `json:"table"`
 }
+
+// Reconciliation defines model for Reconciliation.
+type Reconciliation struct {
+	Differences []struct {
+		Kind          ReconciliationDifferencesKind `json:"kind"`
+		Note          *string                       `json:"note,omitempty"`
+		PgdockMinor   int64                         `json:"pgdock_minor"`
+		ProviderMinor int64                         `json:"provider_minor"`
+		ProviderRef   string                        `json:"provider_ref"`
+	} `json:"differences"`
+	Error      *string   `json:"error,omitempty"`
+	FeesMinor  int64     `json:"fees_minor"`
+	From       time.Time `json:"from"`
+	GrossMinor int64     `json:"gross_minor"`
+	Matched    int       `json:"matched"`
+	Provider   string    `json:"provider"`
+	RanAt      time.Time `json:"ran_at"`
+	To         time.Time `json:"to"`
+}
+
+// ReconciliationDifferencesKind defines model for Reconciliation.Differences.Kind.
+type ReconciliationDifferencesKind string
 
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
@@ -5892,6 +6140,14 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// VirtualAccount defines model for VirtualAccount.
+type VirtualAccount struct {
+	AccountName   string `json:"account_name"`
+	AccountNumber string `json:"account_number"`
+	BankName      string `json:"bank_name"`
+	Provider      string `json:"provider"`
+}
+
 // Webhook defines model for Webhook.
 type Webhook struct {
 	// Backlog Events waiting in the outbox.
@@ -6031,6 +6287,9 @@ type InvoiceID = openapi_types.UUID
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
 
+// MethodID defines model for MethodID.
+type MethodID = openapi_types.UUID
+
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
 
@@ -6048,6 +6307,9 @@ type OrgID = openapi_types.UUID
 
 // OrgQuery defines model for OrgQuery.
 type OrgQuery = openapi_types.UUID
+
+// PaymentID defines model for PaymentID.
+type PaymentID = openapi_types.UUID
 
 // PriceBookVersion defines model for PriceBookVersion.
 type PriceBookVersion = int
@@ -6094,6 +6356,12 @@ type ListPlatformAuditParams struct {
 // ListPlatformAuditParamsOutcome defines parameters for ListPlatformAudit.
 type ListPlatformAuditParamsOutcome string
 
+// AdminUploadBillingDocumentParams defines parameters for AdminUploadBillingDocument.
+type AdminUploadBillingDocumentParams struct {
+	OrgId    openapi_types.UUID `form:"org_id" json:"org_id"`
+	Filename string             `form:"filename" json:"filename"`
+}
+
 // ListDedicatedRequestsParams defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParams struct {
 	Status *ListDedicatedRequestsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -6131,15 +6399,71 @@ type AdminHoldInvoiceJSONBody struct {
 	Reason *string `json:"reason,omitempty"`
 }
 
+// AdminUploadWhtCertificateParams defines parameters for AdminUploadWhtCertificate.
+type AdminUploadWhtCertificateParams struct {
+	Filename string `form:"filename" json:"filename"`
+}
+
 // AdminListOrgsParams defines parameters for AdminListOrgs.
 type AdminListOrgsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// AdminSetGraceJSONBody defines parameters for AdminSetGrace.
+type AdminSetGraceJSONBody struct {
+	Until *time.Time `json:"until,omitempty"`
+}
+
+// AdminListPaymentEventsParams defines parameters for AdminListPaymentEvents.
+type AdminListPaymentEventsParams struct {
+	Outcome *AdminListPaymentEventsParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+}
+
+// AdminListPaymentEventsParamsOutcome defines parameters for AdminListPaymentEvents.
+type AdminListPaymentEventsParamsOutcome string
+
+// AdminAttributePaymentEventJSONBody defines parameters for AdminAttributePaymentEvent.
+type AdminAttributePaymentEventJSONBody struct {
+	OrgId openapi_types.UUID `json:"org_id"`
+}
+
+// AdminListPaymentsParams defines parameters for AdminListPayments.
+type AdminListPaymentsParams struct {
+	Provider *string    `form:"provider,omitempty" json:"provider,omitempty"`
+	From     *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To       *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// AdminRecordPaymentJSONBody defines parameters for AdminRecordPayment.
+type AdminRecordPaymentJSONBody struct {
+	AmountMinor int64               `json:"amount_minor"`
+	InvoiceId   *openapi_types.UUID `json:"invoice_id,omitempty"`
+	Note        *string             `json:"note,omitempty"`
+	OrgId       openapi_types.UUID  `json:"org_id"`
+
+	// ProofKey From POST /api/v1/admin/billing/documents.
+	ProofKey   *string    `json:"proof_key,omitempty"`
+	ReceivedAt *time.Time `json:"received_at,omitempty"`
+	Reference  string     `json:"reference"`
+	Topup      *bool      `json:"topup,omitempty"`
+}
+
+// AdminRefundPaymentJSONBody defines parameters for AdminRefundPayment.
+type AdminRefundPaymentJSONBody struct {
+	AmountMinor int64  `json:"amount_minor"`
+	Reason      string `json:"reason"`
 }
 
 // PreviewPriceBookJSONBody defines parameters for PreviewPriceBook.
 type PreviewPriceBookJSONBody struct {
 	// Period The usage month (default the last complete one).
 	Period *string `json:"period,omitempty"`
+}
+
+// AdminRunReconciliationJSONBody defines parameters for AdminRunReconciliation.
+type AdminRunReconciliationJSONBody struct {
+	From *time.Time `json:"from,omitempty"`
+	To   *time.Time `json:"to,omitempty"`
 }
 
 // DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
@@ -6162,6 +6486,14 @@ type ListUsersParams struct {
 	// Pending Only accounts waiting for approval.
 	Pending *bool `form:"pending,omitempty" json:"pending,omitempty"`
 }
+
+// AdminOutstandingWhtParams defines parameters for AdminOutstandingWht.
+type AdminOutstandingWhtParams struct {
+	Format *AdminOutstandingWhtParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminOutstandingWhtParamsFormat defines parameters for AdminOutstandingWht.
+type AdminOutstandingWhtParamsFormat string
 
 // ListAlertsParams defines parameters for ListAlerts.
 type ListAlertsParams struct {
@@ -6226,6 +6558,24 @@ type ListOrgAuditParams struct {
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
 
+// StartCheckoutJSONBody defines parameters for StartCheckout.
+type StartCheckoutJSONBody struct {
+	// AmountMinor For a top-up.
+	AmountMinor *int64                       `json:"amount_minor,omitempty"`
+	Channel     StartCheckoutJSONBodyChannel `json:"channel"`
+	InvoiceId   *openapi_types.UUID          `json:"invoice_id,omitempty"`
+
+	// MandateLimitMinor With a wallet payment, also set up a recurring mandate with this monthly limit.
+	MandateLimitMinor *int64                       `json:"mandate_limit_minor,omitempty"`
+	Purpose           StartCheckoutJSONBodyPurpose `json:"purpose"`
+}
+
+// StartCheckoutJSONBodyChannel defines parameters for StartCheckout.
+type StartCheckoutJSONBodyChannel string
+
+// StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
+type StartCheckoutJSONBodyPurpose string
+
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
 	Cpus     *float32 `json:"cpus,omitempty"`
@@ -6236,6 +6586,11 @@ type EstimateOrgCostJSONBody struct {
 	// StandbyOnly Price only what enabling HA adds to a running instance.
 	StandbyOnly *bool `json:"standby_only,omitempty"`
 	Synchronous *bool `json:"synchronous,omitempty"`
+}
+
+// UploadWhtCertificateParams defines parameters for UploadWhtCertificate.
+type UploadWhtCertificateParams struct {
+	Filename string `form:"filename" json:"filename"`
 }
 
 // DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
@@ -6432,6 +6787,9 @@ type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
 // AdminUpdateOrgBillingJSONRequestBody defines body for AdminUpdateOrgBilling for application/json ContentType.
 type AdminUpdateOrgBillingJSONRequestBody = AdminBillingUpdate
 
+// AdminSetGraceJSONRequestBody defines body for AdminSetGrace for application/json ContentType.
+type AdminSetGraceJSONRequestBody AdminSetGraceJSONBody
+
 // AdminStartBreakGlassJSONRequestBody defines body for AdminStartBreakGlass for application/json ContentType.
 type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 
@@ -6443,6 +6801,15 @@ type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
 
 // AdminSuspendOrgJSONRequestBody defines body for AdminSuspendOrg for application/json ContentType.
 type AdminSuspendOrgJSONRequestBody = ReasonRequest
+
+// AdminAttributePaymentEventJSONRequestBody defines body for AdminAttributePaymentEvent for application/json ContentType.
+type AdminAttributePaymentEventJSONRequestBody AdminAttributePaymentEventJSONBody
+
+// AdminRecordPaymentJSONRequestBody defines body for AdminRecordPayment for application/json ContentType.
+type AdminRecordPaymentJSONRequestBody AdminRecordPaymentJSONBody
+
+// AdminRefundPaymentJSONRequestBody defines body for AdminRefundPayment for application/json ContentType.
+type AdminRefundPaymentJSONRequestBody AdminRefundPaymentJSONBody
 
 // CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
 type CreatePlanJSONRequestBody = PlanRequest
@@ -6461,6 +6828,9 @@ type PreviewPriceBookJSONRequestBody PreviewPriceBookJSONBody
 
 // MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
 type MoveProjectJSONRequestBody = MoveProjectRequest
+
+// AdminRunReconciliationJSONRequestBody defines body for AdminRunReconciliation for application/json ContentType.
+type AdminRunReconciliationJSONRequestBody AdminRunReconciliationJSONBody
 
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
@@ -6575,6 +6945,12 @@ type UpdateOrgJSONRequestBody = UpdateOrgRequest
 
 // UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
 type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
+
+// SetAutoTopupJSONRequestBody defines body for SetAutoTopup for application/json ContentType.
+type SetAutoTopupJSONRequestBody = AutoTopup
+
+// StartCheckoutJSONRequestBody defines body for StartCheckout for application/json ContentType.
+type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
@@ -6820,6 +7196,13 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/admin/audit (the `ListPlatformAudit` operationId).
 	ListPlatformAudit(ctx context.Context, params *ListPlatformAuditParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AdminUploadBillingDocumentWithBody Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/billing/documents (the `AdminUploadBillingDocument` operationId).
+	AdminUploadBillingDocumentWithBody(ctx context.Context, params *AdminUploadBillingDocumentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetBillingSettings Tax rates and the seller's details on invoices
 	//
 	// Corresponds with GET /api/v1/admin/billing/settings (the `GetBillingSettings` operationId).
@@ -6982,6 +7365,13 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/admin/invoices/{invoice_id}/pdf (the `AdminGetInvoicePdf` operationId).
 	AdminGetInvoicePdf(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AdminUploadWhtCertificateWithBody Attach a WHT credit note to an invoice
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/wht-certificate (the `AdminUploadWhtCertificate` operationId).
+	AdminUploadWhtCertificateWithBody(ctx context.Context, invoiceId InvoiceID, params *AdminUploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
 	//
 	// Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
@@ -7043,6 +7433,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/admin/orgs/{org}/billing (the `AdminUpdateOrgBilling` operationId).
 	AdminUpdateOrgBilling(ctx context.Context, org OrgID, body AdminUpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminSetGraceWithBody Hold dunning for an organisation until a date (null ends the extension)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+	AdminSetGraceWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminSetGrace Hold dunning for an organisation until a date (null ends the extension)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+	AdminSetGrace(ctx context.Context, org OrgID, body AdminSetGraceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminStartBreakGlassWithBody Start break-glass access to an organisation (platform admin, step-up auth)
 	//
@@ -7117,6 +7521,58 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/orgs/{org}/suspend (the `AdminSuspendOrg` operationId).
 	AdminSuspendOrg(ctx context.Context, org OrgID, body AdminSuspendOrgJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminListPaymentEvents Provider events as received, newest first
+	//
+	// Corresponds with GET /api/v1/admin/payment-events (the `AdminListPaymentEvents` operationId).
+	AdminListPaymentEvents(ctx context.Context, params *AdminListPaymentEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminAttributePaymentEventWithBody Settle an unmatched transfer for an organisation (it is verified again first)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+	AdminAttributePaymentEventWithBody(ctx context.Context, eventId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminAttributePaymentEvent Settle an unmatched transfer for an organisation (it is verified again first)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+	AdminAttributePaymentEvent(ctx context.Context, eventId int64, body AdminAttributePaymentEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminListPayments Payments received, by provider and period
+	//
+	// Corresponds with GET /api/v1/admin/payments (the `AdminListPayments` operationId).
+	AdminListPayments(ctx context.Context, params *AdminListPaymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminRecordPaymentWithBody Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+	AdminRecordPaymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminRecordPayment Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+	AdminRecordPayment(ctx context.Context, body AdminRecordPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminRefundPaymentWithBody Refund part of a payment from the organisation's credit balance
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+	AdminRefundPaymentWithBody(ctx context.Context, paymentId PaymentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminRefundPayment Refund part of a payment from the organisation's credit balance
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+	AdminRefundPayment(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPlans Quota plan templates (platform admin)
 	//
@@ -7244,6 +7700,25 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
 	MoveProject(ctx context.Context, projectId openapi_types.UUID, body MoveProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminLastReconciliation The latest reconciliation against each provider
+	//
+	// Corresponds with GET /api/v1/admin/reconciliation (the `AdminLastReconciliation` operationId).
+	AdminLastReconciliation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminRunReconciliationWithBody Reconcile a period now (default the previous day)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+	AdminRunReconciliationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminRunReconciliation Reconcile a period now (default the previous day)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+	AdminRunReconciliation(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	//
@@ -7412,6 +7887,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/users/{user}/reset-2fa (the `ResetUserTotp` operationId).
 	ResetUserTotp(ctx context.Context, user UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+	//
+	// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
+	AdminOutstandingWht(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RegisterAgentWithBody Agent registration (called by pgdock-agent, not the UI)
 	//
@@ -8073,6 +8553,39 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing (the `UpdateOrgBilling` operationId).
 	UpdateOrgBilling(ctx context.Context, org OrgID, body UpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ClearAutoTopup Stop automatic top-ups
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
+	ClearAutoTopup(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetAutoTopupWithBody Top up a prepaid balance from the default method when it falls below a threshold
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+	SetAutoTopupWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+	SetAutoTopup(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartCheckoutWithBody Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+	StartCheckoutWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+	StartCheckout(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListBillingContacts Billing contacts, who receive invoices and payment email
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/billing/contacts (the `ListBillingContacts` operationId).
@@ -8131,6 +8644,38 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
 	GetOrgInvoicePdf(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UploadWhtCertificateWithBody Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
+	UploadWhtCertificateWithBody(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPaymentMethods Saved cards and wallet mandates
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
+	ListPaymentMethods(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemovePaymentMethod Remove a saved card or revoke a mandate
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
+	RemovePaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetDefaultPaymentMethod Charge this method for invoices and top-ups
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
+	SetDefaultPaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOrgPayments Payments received, with receipts
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/payments (the `ListOrgPayments` operationId).
+	ListOrgPayments(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPaymentReceipt A payment's receipt as PDF
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt (the `GetPaymentReceipt` operationId).
+	GetPaymentReceipt(ctx context.Context, org OrgID, paymentId PaymentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ChangeOrgPlanWithBody Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 	//
 	// Takes any type of body and a specified content type.
@@ -8144,6 +8689,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/plan (the `ChangeOrgPlan` operationId).
 	ChangeOrgPlan(ctx context.Context, org OrgID, body ChangeOrgPlanJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
+	OrgVirtualAccount(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EndBreakGlass End a break-glass session early (owner)
 	//
@@ -9619,6 +10169,23 @@ func (c *Client) ListPlatformAudit(ctx context.Context, params *ListPlatformAudi
 	return c.Client.Do(req)
 }
 
+// AdminUploadBillingDocumentWithBody Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/billing/documents (the `AdminUploadBillingDocument` operationId).
+func (c *Client) AdminUploadBillingDocumentWithBody(ctx context.Context, params *AdminUploadBillingDocumentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminUploadBillingDocumentRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetBillingSettings Tax rates and the seller's details on invoices
 //
 // Corresponds with GET /api/v1/admin/billing/settings (the `GetBillingSettings` operationId).
@@ -10041,6 +10608,23 @@ func (c *Client) AdminGetInvoicePdf(ctx context.Context, invoiceId InvoiceID, re
 	return c.Client.Do(req)
 }
 
+// AdminUploadWhtCertificateWithBody Attach a WHT credit note to an invoice
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/wht-certificate (the `AdminUploadWhtCertificate` operationId).
+func (c *Client) AdminUploadWhtCertificateWithBody(ctx context.Context, invoiceId InvoiceID, params *AdminUploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminUploadWhtCertificateRequestWithBody(c.Server, invoiceId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
 //
 // Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
@@ -10193,6 +10777,40 @@ func (c *Client) AdminUpdateOrgBillingWithBody(ctx context.Context, org OrgID, c
 // Corresponds with PATCH /api/v1/admin/orgs/{org}/billing (the `AdminUpdateOrgBilling` operationId).
 func (c *Client) AdminUpdateOrgBilling(ctx context.Context, org OrgID, body AdminUpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminUpdateOrgBillingRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminSetGraceWithBody Hold dunning for an organisation until a date (null ends the extension)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+func (c *Client) AdminSetGraceWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminSetGraceRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminSetGrace Hold dunning for an organisation until a date (null ends the extension)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+func (c *Client) AdminSetGrace(ctx context.Context, org OrgID, body AdminSetGraceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminSetGraceRequest(c.Server, org, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10367,6 +10985,138 @@ func (c *Client) AdminSuspendOrgWithBody(ctx context.Context, org OrgID, content
 // Corresponds with POST /api/v1/admin/orgs/{org}/suspend (the `AdminSuspendOrg` operationId).
 func (c *Client) AdminSuspendOrg(ctx context.Context, org OrgID, body AdminSuspendOrgJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminSuspendOrgRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminListPaymentEvents Provider events as received, newest first
+//
+// Corresponds with GET /api/v1/admin/payment-events (the `AdminListPaymentEvents` operationId).
+func (c *Client) AdminListPaymentEvents(ctx context.Context, params *AdminListPaymentEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminListPaymentEventsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminAttributePaymentEventWithBody Settle an unmatched transfer for an organisation (it is verified again first)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+func (c *Client) AdminAttributePaymentEventWithBody(ctx context.Context, eventId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminAttributePaymentEventRequestWithBody(c.Server, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminAttributePaymentEvent Settle an unmatched transfer for an organisation (it is verified again first)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+func (c *Client) AdminAttributePaymentEvent(ctx context.Context, eventId int64, body AdminAttributePaymentEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminAttributePaymentEventRequest(c.Server, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminListPayments Payments received, by provider and period
+//
+// Corresponds with GET /api/v1/admin/payments (the `AdminListPayments` operationId).
+func (c *Client) AdminListPayments(ctx context.Context, params *AdminListPaymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminListPaymentsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminRecordPaymentWithBody Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+func (c *Client) AdminRecordPaymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRecordPaymentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminRecordPayment Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+func (c *Client) AdminRecordPayment(ctx context.Context, body AdminRecordPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRecordPaymentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminRefundPaymentWithBody Refund part of a payment from the organisation's credit balance
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+func (c *Client) AdminRefundPaymentWithBody(ctx context.Context, paymentId PaymentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRefundPaymentRequestWithBody(c.Server, paymentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminRefundPayment Refund part of a payment from the organisation's credit balance
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+func (c *Client) AdminRefundPayment(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRefundPaymentRequest(c.Server, paymentId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10664,6 +11414,55 @@ func (c *Client) MoveProjectWithBody(ctx context.Context, projectId openapi_type
 // Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
 func (c *Client) MoveProject(ctx context.Context, projectId openapi_types.UUID, body MoveProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMoveProjectRequest(c.Server, projectId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminLastReconciliation The latest reconciliation against each provider
+//
+// Corresponds with GET /api/v1/admin/reconciliation (the `AdminLastReconciliation` operationId).
+func (c *Client) AdminLastReconciliation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminLastReconciliationRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminRunReconciliationWithBody Reconcile a period now (default the previous day)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+func (c *Client) AdminRunReconciliationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRunReconciliationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminRunReconciliation Reconcile a period now (default the previous day)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+func (c *Client) AdminRunReconciliation(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRunReconciliationRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11072,6 +11871,21 @@ func (c *Client) UpdateUser(ctx context.Context, user UserID, body UpdateUserJSO
 // Corresponds with POST /api/v1/admin/users/{user}/reset-2fa (the `ResetUserTotp` operationId).
 func (c *Client) ResetUserTotp(ctx context.Context, user UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewResetUserTotpRequest(c.Server, user)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+//
+// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
+func (c *Client) AdminOutstandingWht(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminOutstandingWhtRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12632,6 +13446,89 @@ func (c *Client) UpdateOrgBilling(ctx context.Context, org OrgID, body UpdateOrg
 	return c.Client.Do(req)
 }
 
+// ClearAutoTopup Stop automatic top-ups
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
+func (c *Client) ClearAutoTopup(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearAutoTopupRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetAutoTopupWithBody Top up a prepaid balance from the default method when it falls below a threshold
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+func (c *Client) SetAutoTopupWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAutoTopupRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+func (c *Client) SetAutoTopup(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAutoTopupRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartCheckoutWithBody Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+func (c *Client) StartCheckoutWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartCheckoutRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+func (c *Client) StartCheckout(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartCheckoutRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListBillingContacts Billing contacts, who receive invoices and payment email
 //
 // Corresponds with GET /api/v1/orgs/{org}/billing/contacts (the `ListBillingContacts` operationId).
@@ -12790,6 +13687,98 @@ func (c *Client) GetOrgInvoicePdf(ctx context.Context, org OrgID, invoiceId Invo
 	return c.Client.Do(req)
 }
 
+// UploadWhtCertificateWithBody Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
+func (c *Client) UploadWhtCertificateWithBody(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadWhtCertificateRequestWithBody(c.Server, org, invoiceId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPaymentMethods Saved cards and wallet mandates
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
+func (c *Client) ListPaymentMethods(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPaymentMethodsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemovePaymentMethod Remove a saved card or revoke a mandate
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
+func (c *Client) RemovePaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemovePaymentMethodRequest(c.Server, org, methodId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetDefaultPaymentMethod Charge this method for invoices and top-ups
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
+func (c *Client) SetDefaultPaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetDefaultPaymentMethodRequest(c.Server, org, methodId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListOrgPayments Payments received, with receipts
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/payments (the `ListOrgPayments` operationId).
+func (c *Client) ListOrgPayments(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgPaymentsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPaymentReceipt A payment's receipt as PDF
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt (the `GetPaymentReceipt` operationId).
+func (c *Client) GetPaymentReceipt(ctx context.Context, org OrgID, paymentId PaymentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPaymentReceiptRequest(c.Server, org, paymentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ChangeOrgPlanWithBody Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 //
 // Takes any type of body and a specified content type.
@@ -12814,6 +13803,21 @@ func (c *Client) ChangeOrgPlanWithBody(ctx context.Context, org OrgID, contentTy
 // Corresponds with POST /api/v1/orgs/{org}/billing/plan (the `ChangeOrgPlan` operationId).
 func (c *Client) ChangeOrgPlan(ctx context.Context, org OrgID, body ChangeOrgPlanJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewChangeOrgPlanRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
+func (c *Client) OrgVirtualAccount(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOrgVirtualAccountRequest(c.Server, org)
 	if err != nil {
 		return nil, err
 	}
@@ -16204,6 +17208,66 @@ func NewListPlatformAuditRequest(server string, params *ListPlatformAuditParams)
 	return req, nil
 }
 
+// NewAdminUploadBillingDocumentRequestWithBody constructs an http.Request for the AdminUploadBillingDocument method, with any body, and a specified content type
+func NewAdminUploadBillingDocumentRequestWithBody(server string, params *AdminUploadBillingDocumentParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/billing/documents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "org_id", params.OrgId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filename", params.Filename, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetBillingSettingsRequest constructs an http.Request for the GetBillingSettings method
 func NewGetBillingSettingsRequest(server string) (*http.Request, error) {
 	var err error
@@ -16923,6 +17987,65 @@ func NewAdminGetInvoicePdfRequest(server string, invoiceId InvoiceID) (*http.Req
 	return req, nil
 }
 
+// NewAdminUploadWhtCertificateRequestWithBody constructs an http.Request for the AdminUploadWhtCertificate method, with any body, and a specified content type
+func NewAdminUploadWhtCertificateRequestWithBody(server string, invoiceId InvoiceID, params *AdminUploadWhtCertificateParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices/%s/wht-certificate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filename", params.Filename, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewAdminLedgerCheckRequest constructs an http.Request for the AdminLedgerCheck method
 func NewAdminLedgerCheckRequest(server string) (*http.Request, error) {
 	var err error
@@ -17199,6 +18322,53 @@ func NewAdminUpdateOrgBillingRequestWithBody(server string, org OrgID, contentTy
 	return req, nil
 }
 
+// NewAdminSetGraceRequest calls the generic AdminSetGrace builder with application/json body
+func NewAdminSetGraceRequest(server string, org OrgID, body AdminSetGraceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminSetGraceRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewAdminSetGraceRequestWithBody constructs an http.Request for the AdminSetGrace method, with any body, and a specified content type
+func NewAdminSetGraceRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/orgs/%s/billing/grace", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewAdminStartBreakGlassRequest calls the generic AdminStartBreakGlass builder with application/json body
 func NewAdminStartBreakGlassRequest(server string, org OrgID, body AdminStartBreakGlassJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -17436,6 +18606,272 @@ func NewAdminSuspendOrgRequestWithBody(server string, org OrgID, contentType str
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/admin/orgs/%s/suspend", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminListPaymentEventsRequest constructs an http.Request for the AdminListPaymentEvents method
+func NewAdminListPaymentEventsRequest(server string, params *AdminListPaymentEventsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/payment-events")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Outcome != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "outcome", *params.Outcome, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminAttributePaymentEventRequest calls the generic AdminAttributePaymentEvent builder with application/json body
+func NewAdminAttributePaymentEventRequest(server string, eventId int64, body AdminAttributePaymentEventJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminAttributePaymentEventRequestWithBody(server, eventId, "application/json", bodyReader)
+}
+
+// NewAdminAttributePaymentEventRequestWithBody constructs an http.Request for the AdminAttributePaymentEvent method, with any body, and a specified content type
+func NewAdminAttributePaymentEventRequestWithBody(server string, eventId int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "event_id", eventId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/payment-events/%s/attribute", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminListPaymentsRequest constructs an http.Request for the AdminListPayments method
+func NewAdminListPaymentsRequest(server string, params *AdminListPaymentsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/payments")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Provider != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.From != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.To != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminRecordPaymentRequest calls the generic AdminRecordPayment builder with application/json body
+func NewAdminRecordPaymentRequest(server string, body AdminRecordPaymentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminRecordPaymentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAdminRecordPaymentRequestWithBody constructs an http.Request for the AdminRecordPayment method, with any body, and a specified content type
+func NewAdminRecordPaymentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/payments")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminRefundPaymentRequest calls the generic AdminRefundPayment builder with application/json body
+func NewAdminRefundPaymentRequest(server string, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminRefundPaymentRequestWithBody(server, paymentId, "application/json", bodyReader)
+}
+
+// NewAdminRefundPaymentRequestWithBody constructs an http.Request for the AdminRefundPayment method, with any body, and a specified content type
+func NewAdminRefundPaymentRequestWithBody(server string, paymentId PaymentID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "payment_id", paymentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/payments/%s/refund", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -17860,6 +19296,73 @@ func NewMoveProjectRequestWithBody(server string, projectId openapi_types.UUID, 
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/admin/projects/%s/move", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminLastReconciliationRequest constructs an http.Request for the AdminLastReconciliation method
+func NewAdminLastReconciliationRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/reconciliation")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminRunReconciliationRequest calls the generic AdminRunReconciliation builder with application/json body
+func NewAdminRunReconciliationRequest(server string, body AdminRunReconciliationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminRunReconciliationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAdminRunReconciliationRequestWithBody constructs an http.Request for the AdminRunReconciliation method, with any body, and a specified content type
+func NewAdminRunReconciliationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/reconciliation")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -18562,6 +20065,60 @@ func NewResetUserTotpRequest(server string, user UserID) (*http.Request, error) 
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminOutstandingWhtRequest constructs an http.Request for the AdminOutstandingWht method
+func NewAdminOutstandingWhtRequest(server string, params *AdminOutstandingWhtParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/wht")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "format", *params.Format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -21022,6 +22579,134 @@ func NewUpdateOrgBillingRequestWithBody(server string, org OrgID, contentType st
 	return req, nil
 }
 
+// NewClearAutoTopupRequest constructs an http.Request for the ClearAutoTopup method
+func NewClearAutoTopupRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/auto-topup", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetAutoTopupRequest calls the generic SetAutoTopup builder with application/json body
+func NewSetAutoTopupRequest(server string, org OrgID, body SetAutoTopupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetAutoTopupRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewSetAutoTopupRequestWithBody constructs an http.Request for the SetAutoTopup method, with any body, and a specified content type
+func NewSetAutoTopupRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/auto-topup", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStartCheckoutRequest calls the generic StartCheckout builder with application/json body
+func NewStartCheckoutRequest(server string, org OrgID, body StartCheckoutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartCheckoutRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewStartCheckoutRequestWithBody constructs an http.Request for the StartCheckout method, with any body, and a specified content type
+func NewStartCheckoutRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/checkout", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListBillingContactsRequest constructs an http.Request for the ListBillingContacts method
 func NewListBillingContactsRequest(server string, org OrgID) (*http.Request, error) {
 	var err error
@@ -21341,6 +23026,263 @@ func NewGetOrgInvoicePdfRequest(server string, org OrgID, invoiceId InvoiceID) (
 	return req, nil
 }
 
+// NewUploadWhtCertificateRequestWithBody constructs an http.Request for the UploadWhtCertificate method, with any body, and a specified content type
+func NewUploadWhtCertificateRequestWithBody(server string, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/invoices/%s/wht-certificate", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filename", params.Filename, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListPaymentMethodsRequest constructs an http.Request for the ListPaymentMethods method
+func NewListPaymentMethodsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRemovePaymentMethodRequest constructs an http.Request for the RemovePaymentMethod method
+func NewRemovePaymentMethodRequest(server string, org OrgID, methodId MethodID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "method_id", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetDefaultPaymentMethodRequest constructs an http.Request for the SetDefaultPaymentMethod method
+func NewSetDefaultPaymentMethodRequest(server string, org OrgID, methodId MethodID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "method_id", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods/%s/default", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListOrgPaymentsRequest constructs an http.Request for the ListOrgPayments method
+func NewListOrgPaymentsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPaymentReceiptRequest constructs an http.Request for the GetPaymentReceipt method
+func NewGetPaymentReceiptRequest(server string, org OrgID, paymentId PaymentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "payment_id", paymentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payments/%s/receipt", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewChangeOrgPlanRequest calls the generic ChangeOrgPlan builder with application/json body
 func NewChangeOrgPlanRequest(server string, org OrgID, body ChangeOrgPlanJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -21384,6 +23326,40 @@ func NewChangeOrgPlanRequestWithBody(server string, org OrgID, contentType strin
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewOrgVirtualAccountRequest constructs an http.Request for the OrgVirtualAccount method
+func NewOrgVirtualAccountRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/virtual-account", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -27231,6 +29207,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/admin/audit (the `ListPlatformAudit` operationId).
 	ListPlatformAuditWithResponse(ctx context.Context, params *ListPlatformAuditParams, reqEditors ...RequestEditorFn) (*ListPlatformAuditResponse, error)
 
+	// AdminUploadBillingDocumentWithBodyWithResponse Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/billing/documents (the `AdminUploadBillingDocument` operationId).
+	AdminUploadBillingDocumentWithBodyWithResponse(ctx context.Context, params *AdminUploadBillingDocumentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminUploadBillingDocumentResponse, error)
+
 	// GetBillingSettingsWithResponse Tax rates and the seller's details on invoices
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -27413,6 +29396,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/admin/invoices/{invoice_id}/pdf (the `AdminGetInvoicePdf` operationId).
 	AdminGetInvoicePdfWithResponse(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*AdminGetInvoicePdfResponse, error)
 
+	// AdminUploadWhtCertificateWithBodyWithResponse Attach a WHT credit note to an invoice
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/wht-certificate (the `AdminUploadWhtCertificate` operationId).
+	AdminUploadWhtCertificateWithBodyWithResponse(ctx context.Context, invoiceId InvoiceID, params *AdminUploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminUploadWhtCertificateResponse, error)
+
 	// AdminLedgerCheckWithResponse Check the ledger's invariants and show each account's balance (V3 §3.3)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -27482,6 +29472,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/admin/orgs/{org}/billing (the `AdminUpdateOrgBilling` operationId).
 	AdminUpdateOrgBillingWithResponse(ctx context.Context, org OrgID, body AdminUpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminUpdateOrgBillingResponse, error)
+
+	// AdminSetGraceWithBodyWithResponse Hold dunning for an organisation until a date (null ends the extension)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+	AdminSetGraceWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminSetGraceResponse, error)
+
+	// AdminSetGraceWithResponse Hold dunning for an organisation until a date (null ends the extension)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+	AdminSetGraceWithResponse(ctx context.Context, org OrgID, body AdminSetGraceJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminSetGraceResponse, error)
 
 	// AdminStartBreakGlassWithBodyWithResponse Start break-glass access to an organisation (platform admin, step-up auth)
 	//
@@ -27560,6 +29564,62 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/orgs/{org}/suspend (the `AdminSuspendOrg` operationId).
 	AdminSuspendOrgWithResponse(ctx context.Context, org OrgID, body AdminSuspendOrgJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminSuspendOrgResponse, error)
+
+	// AdminListPaymentEventsWithResponse Provider events as received, newest first
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/payment-events (the `AdminListPaymentEvents` operationId).
+	AdminListPaymentEventsWithResponse(ctx context.Context, params *AdminListPaymentEventsParams, reqEditors ...RequestEditorFn) (*AdminListPaymentEventsResponse, error)
+
+	// AdminAttributePaymentEventWithBodyWithResponse Settle an unmatched transfer for an organisation (it is verified again first)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+	AdminAttributePaymentEventWithBodyWithResponse(ctx context.Context, eventId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminAttributePaymentEventResponse, error)
+
+	// AdminAttributePaymentEventWithResponse Settle an unmatched transfer for an organisation (it is verified again first)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+	AdminAttributePaymentEventWithResponse(ctx context.Context, eventId int64, body AdminAttributePaymentEventJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminAttributePaymentEventResponse, error)
+
+	// AdminListPaymentsWithResponse Payments received, by provider and period
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/payments (the `AdminListPayments` operationId).
+	AdminListPaymentsWithResponse(ctx context.Context, params *AdminListPaymentsParams, reqEditors ...RequestEditorFn) (*AdminListPaymentsResponse, error)
+
+	// AdminRecordPaymentWithBodyWithResponse Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+	AdminRecordPaymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRecordPaymentResponse, error)
+
+	// AdminRecordPaymentWithResponse Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+	AdminRecordPaymentWithResponse(ctx context.Context, body AdminRecordPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRecordPaymentResponse, error)
+
+	// AdminRefundPaymentWithBodyWithResponse Refund part of a payment from the organisation's credit balance
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+	AdminRefundPaymentWithBodyWithResponse(ctx context.Context, paymentId PaymentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRefundPaymentResponse, error)
+
+	// AdminRefundPaymentWithResponse Refund part of a payment from the organisation's credit balance
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+	AdminRefundPaymentWithResponse(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRefundPaymentResponse, error)
 
 	// ListPlansWithResponse Quota plan templates (platform admin)
 	//
@@ -27697,6 +29757,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
 	MoveProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, body MoveProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*MoveProjectResponse, error)
+
+	// AdminLastReconciliationWithResponse The latest reconciliation against each provider
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/reconciliation (the `AdminLastReconciliation` operationId).
+	AdminLastReconciliationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminLastReconciliationResponse, error)
+
+	// AdminRunReconciliationWithBodyWithResponse Reconcile a period now (default the previous day)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+	AdminRunReconciliationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRunReconciliationResponse, error)
+
+	// AdminRunReconciliationWithResponse Reconcile a period now (default the previous day)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+	AdminRunReconciliationWithResponse(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRunReconciliationResponse, error)
 
 	// GetMailSettingsWithResponse Platform SMTP settings (platform admin; no password)
 	//
@@ -27885,6 +29966,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/users/{user}/reset-2fa (the `ResetUserTotp` operationId).
 	ResetUserTotpWithResponse(ctx context.Context, user UserID, reqEditors ...RequestEditorFn) (*ResetUserTotpResponse, error)
+
+	// AdminOutstandingWhtWithResponse Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
+	AdminOutstandingWhtWithResponse(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*AdminOutstandingWhtResponse, error)
 
 	// RegisterAgentWithBodyWithResponse Agent registration (called by pgdock-agent, not the UI)
 	//
@@ -28600,6 +30688,41 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing (the `UpdateOrgBilling` operationId).
 	UpdateOrgBillingWithResponse(ctx context.Context, org OrgID, body UpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrgBillingResponse, error)
 
+	// ClearAutoTopupWithResponse Stop automatic top-ups
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
+	ClearAutoTopupWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ClearAutoTopupResponse, error)
+
+	// SetAutoTopupWithBodyWithResponse Top up a prepaid balance from the default method when it falls below a threshold
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+	SetAutoTopupWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error)
+
+	// SetAutoTopupWithResponse Top up a prepaid balance from the default method when it falls below a threshold
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+	SetAutoTopupWithResponse(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error)
+
+	// StartCheckoutWithBodyWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+	StartCheckoutWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error)
+
+	// StartCheckoutWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+	StartCheckoutWithResponse(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error)
+
 	// ListBillingContactsWithResponse Billing contacts, who receive invoices and payment email
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -28670,6 +30793,48 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
 	GetOrgInvoicePdfWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*GetOrgInvoicePdfResponse, error)
 
+	// UploadWhtCertificateWithBodyWithResponse Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
+	UploadWhtCertificateWithBodyWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWhtCertificateResponse, error)
+
+	// ListPaymentMethodsWithResponse Saved cards and wallet mandates
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
+	ListPaymentMethodsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListPaymentMethodsResponse, error)
+
+	// RemovePaymentMethodWithResponse Remove a saved card or revoke a mandate
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
+	RemovePaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*RemovePaymentMethodResponse, error)
+
+	// SetDefaultPaymentMethodWithResponse Charge this method for invoices and top-ups
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
+	SetDefaultPaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*SetDefaultPaymentMethodResponse, error)
+
+	// ListOrgPaymentsWithResponse Payments received, with receipts
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/payments (the `ListOrgPayments` operationId).
+	ListOrgPaymentsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgPaymentsResponse, error)
+
+	// GetPaymentReceiptWithResponse A payment's receipt as PDF
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt (the `GetPaymentReceipt` operationId).
+	GetPaymentReceiptWithResponse(ctx context.Context, org OrgID, paymentId PaymentID, reqEditors ...RequestEditorFn) (*GetPaymentReceiptResponse, error)
+
 	// ChangeOrgPlanWithBodyWithResponse Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -28683,6 +30848,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/plan (the `ChangeOrgPlan` operationId).
 	ChangeOrgPlanWithResponse(ctx context.Context, org OrgID, body ChangeOrgPlanJSONRequestBody, reqEditors ...RequestEditorFn) (*ChangeOrgPlanResponse, error)
+
+	// OrgVirtualAccountWithResponse The organisation's bank account for transfers, issued on first use
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
+	OrgVirtualAccountWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*OrgVirtualAccountResponse, error)
 
 	// EndBreakGlassWithResponse End a break-glass session early (owner)
 	//
@@ -30347,6 +32519,58 @@ func (r ListPlatformAuditResponse) ContentType() string {
 	return ""
 }
 
+type AdminUploadBillingDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Key string `json:"key"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AdminUploadBillingDocumentResponse) GetJSON201() *struct {
+	Key string `json:"key"`
+} {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminUploadBillingDocumentResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminUploadBillingDocumentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminUploadBillingDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminUploadBillingDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminUploadBillingDocumentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetBillingSettingsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -31194,6 +33418,47 @@ func (r AdminGetInvoicePdfResponse) ContentType() string {
 	return ""
 }
 
+type AdminUploadWhtCertificateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminUploadWhtCertificateResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminUploadWhtCertificateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminUploadWhtCertificateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminUploadWhtCertificateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminUploadWhtCertificateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type AdminLedgerCheckResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -31530,6 +33795,47 @@ func (r AdminUpdateOrgBillingResponse) ContentType() string {
 	return ""
 }
 
+type AdminSetGraceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminSetGraceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminSetGraceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminSetGraceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminSetGraceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminSetGraceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type AdminStartBreakGlassResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -31798,6 +34104,258 @@ func (r AdminSuspendOrgResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AdminSuspendOrgResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminListPaymentEventsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []PaymentEvent `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminListPaymentEventsResponse) GetJSON200() *struct {
+	Items []PaymentEvent `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminListPaymentEventsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminListPaymentEventsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminListPaymentEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminListPaymentEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminListPaymentEventsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminAttributePaymentEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Payment
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminAttributePaymentEventResponse) GetJSON200() *Payment {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminAttributePaymentEventResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminAttributePaymentEventResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminAttributePaymentEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminAttributePaymentEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminAttributePaymentEventResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminListPaymentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PaymentList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminListPaymentsResponse) GetJSON200() *PaymentList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminListPaymentsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminListPaymentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminListPaymentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminListPaymentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminListPaymentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminRecordPaymentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Payment
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AdminRecordPaymentResponse) GetJSON201() *Payment {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminRecordPaymentResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminRecordPaymentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminRecordPaymentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminRecordPaymentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminRecordPaymentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminRefundPaymentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		AmountMinor int64              `json:"amount_minor"`
+		Id          openapi_types.UUID `json:"id"`
+		Status      string             `json:"status"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminRefundPaymentResponse) GetJSON200() *struct {
+	AmountMinor int64              `json:"amount_minor"`
+	Id          openapi_types.UUID `json:"id"`
+	Status      string             `json:"status"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminRefundPaymentResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminRefundPaymentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminRefundPaymentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminRefundPaymentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminRefundPaymentResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -32355,6 +34913,110 @@ func (r MoveProjectResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r MoveProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminLastReconciliationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []Reconciliation `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminLastReconciliationResponse) GetJSON200() *struct {
+	Items []Reconciliation `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminLastReconciliationResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminLastReconciliationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminLastReconciliationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminLastReconciliationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminLastReconciliationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminRunReconciliationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []Reconciliation `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminRunReconciliationResponse) GetJSON200() *struct {
+	Items []Reconciliation `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminRunReconciliationResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminRunReconciliationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminRunReconciliationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminRunReconciliationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminRunReconciliationResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -33164,6 +35826,58 @@ func (r ResetUserTotpResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ResetUserTotpResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminOutstandingWhtResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []OutstandingWht `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminOutstandingWhtResponse) GetJSON200() *struct {
+	Items []OutstandingWht `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminOutstandingWhtResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminOutstandingWhtResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminOutstandingWhtResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminOutstandingWhtResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminOutstandingWhtResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -35870,6 +38584,144 @@ func (r UpdateOrgBillingResponse) ContentType() string {
 	return ""
 }
 
+type ClearAutoTopupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ClearAutoTopupResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ClearAutoTopupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearAutoTopupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearAutoTopupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearAutoTopupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetAutoTopupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetAutoTopupResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetAutoTopupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetAutoTopupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetAutoTopupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetAutoTopupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartCheckoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		AmountMinor int64  `json:"amount_minor"`
+		CheckoutUrl string `json:"checkout_url"`
+		Reference   string `json:"reference"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartCheckoutResponse) GetJSON201() *struct {
+	AmountMinor int64  `json:"amount_minor"`
+	CheckoutUrl string `json:"checkout_url"`
+	Reference   string `json:"reference"`
+} {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r StartCheckoutResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r StartCheckoutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartCheckoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartCheckoutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartCheckoutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListBillingContactsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36256,6 +39108,270 @@ func (r GetOrgInvoicePdfResponse) ContentType() string {
 	return ""
 }
 
+type UploadWhtCertificateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UploadWhtCertificateResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UploadWhtCertificateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadWhtCertificateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadWhtCertificateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UploadWhtCertificateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPaymentMethodsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []PaymentMethod `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPaymentMethodsResponse) GetJSON200() *struct {
+	Items []PaymentMethod `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListPaymentMethodsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPaymentMethodsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPaymentMethodsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPaymentMethodsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPaymentMethodsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemovePaymentMethodResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RemovePaymentMethodResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RemovePaymentMethodResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemovePaymentMethodResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemovePaymentMethodResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemovePaymentMethodResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetDefaultPaymentMethodResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetDefaultPaymentMethodResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetDefaultPaymentMethodResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetDefaultPaymentMethodResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetDefaultPaymentMethodResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetDefaultPaymentMethodResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListOrgPaymentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PaymentList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgPaymentsResponse) GetJSON200() *PaymentList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListOrgPaymentsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgPaymentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgPaymentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgPaymentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgPaymentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPaymentReceiptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetPaymentReceiptResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPaymentReceiptResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPaymentReceiptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPaymentReceiptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPaymentReceiptResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ChangeOrgPlanResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36298,6 +39414,54 @@ func (r ChangeOrgPlanResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ChangeOrgPlanResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OrgVirtualAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VirtualAccount
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r OrgVirtualAccountResponse) GetJSON200() *VirtualAccount {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r OrgVirtualAccountResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r OrgVirtualAccountResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r OrgVirtualAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OrgVirtualAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OrgVirtualAccountResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -42438,6 +45602,19 @@ func (c *ClientWithResponses) ListPlatformAuditWithResponse(ctx context.Context,
 	return ParseListPlatformAuditResponse(rsp)
 }
 
+// AdminUploadBillingDocumentWithBodyWithResponse Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/billing/documents (the `AdminUploadBillingDocument` operationId).
+func (c *ClientWithResponses) AdminUploadBillingDocumentWithBodyWithResponse(ctx context.Context, params *AdminUploadBillingDocumentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminUploadBillingDocumentResponse, error) {
+	rsp, err := c.AdminUploadBillingDocumentWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminUploadBillingDocumentResponse(rsp)
+}
+
 // GetBillingSettingsWithResponse Tax rates and the seller's details on invoices
 //
 // Returns a wrapper object for the known response body format(s).
@@ -42776,6 +45953,19 @@ func (c *ClientWithResponses) AdminGetInvoicePdfWithResponse(ctx context.Context
 	return ParseAdminGetInvoicePdfResponse(rsp)
 }
 
+// AdminUploadWhtCertificateWithBodyWithResponse Attach a WHT credit note to an invoice
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/wht-certificate (the `AdminUploadWhtCertificate` operationId).
+func (c *ClientWithResponses) AdminUploadWhtCertificateWithBodyWithResponse(ctx context.Context, invoiceId InvoiceID, params *AdminUploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminUploadWhtCertificateResponse, error) {
+	rsp, err := c.AdminUploadWhtCertificateWithBody(ctx, invoiceId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminUploadWhtCertificateResponse(rsp)
+}
+
 // AdminLedgerCheckWithResponse Check the ledger's invariants and show each account's balance (V3 §3.3)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -42904,6 +46094,32 @@ func (c *ClientWithResponses) AdminUpdateOrgBillingWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseAdminUpdateOrgBillingResponse(rsp)
+}
+
+// AdminSetGraceWithBodyWithResponse Hold dunning for an organisation until a date (null ends the extension)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+func (c *ClientWithResponses) AdminSetGraceWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminSetGraceResponse, error) {
+	rsp, err := c.AdminSetGraceWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminSetGraceResponse(rsp)
+}
+
+// AdminSetGraceWithResponse Hold dunning for an organisation until a date (null ends the extension)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/orgs/{org}/billing/grace (the `AdminSetGrace` operationId).
+func (c *ClientWithResponses) AdminSetGraceWithResponse(ctx context.Context, org OrgID, body AdminSetGraceJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminSetGraceResponse, error) {
+	rsp, err := c.AdminSetGrace(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminSetGraceResponse(rsp)
 }
 
 // AdminStartBreakGlassWithBodyWithResponse Start break-glass access to an organisation (platform admin, step-up auth)
@@ -43042,6 +46258,110 @@ func (c *ClientWithResponses) AdminSuspendOrgWithResponse(ctx context.Context, o
 		return nil, err
 	}
 	return ParseAdminSuspendOrgResponse(rsp)
+}
+
+// AdminListPaymentEventsWithResponse Provider events as received, newest first
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/payment-events (the `AdminListPaymentEvents` operationId).
+func (c *ClientWithResponses) AdminListPaymentEventsWithResponse(ctx context.Context, params *AdminListPaymentEventsParams, reqEditors ...RequestEditorFn) (*AdminListPaymentEventsResponse, error) {
+	rsp, err := c.AdminListPaymentEvents(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminListPaymentEventsResponse(rsp)
+}
+
+// AdminAttributePaymentEventWithBodyWithResponse Settle an unmatched transfer for an organisation (it is verified again first)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+func (c *ClientWithResponses) AdminAttributePaymentEventWithBodyWithResponse(ctx context.Context, eventId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminAttributePaymentEventResponse, error) {
+	rsp, err := c.AdminAttributePaymentEventWithBody(ctx, eventId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminAttributePaymentEventResponse(rsp)
+}
+
+// AdminAttributePaymentEventWithResponse Settle an unmatched transfer for an organisation (it is verified again first)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/payment-events/{event_id}/attribute (the `AdminAttributePaymentEvent` operationId).
+func (c *ClientWithResponses) AdminAttributePaymentEventWithResponse(ctx context.Context, eventId int64, body AdminAttributePaymentEventJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminAttributePaymentEventResponse, error) {
+	rsp, err := c.AdminAttributePaymentEvent(ctx, eventId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminAttributePaymentEventResponse(rsp)
+}
+
+// AdminListPaymentsWithResponse Payments received, by provider and period
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/payments (the `AdminListPayments` operationId).
+func (c *ClientWithResponses) AdminListPaymentsWithResponse(ctx context.Context, params *AdminListPaymentsParams, reqEditors ...RequestEditorFn) (*AdminListPaymentsResponse, error) {
+	rsp, err := c.AdminListPayments(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminListPaymentsResponse(rsp)
+}
+
+// AdminRecordPaymentWithBodyWithResponse Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+func (c *ClientWithResponses) AdminRecordPaymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRecordPaymentResponse, error) {
+	rsp, err := c.AdminRecordPaymentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRecordPaymentResponse(rsp)
+}
+
+// AdminRecordPaymentWithResponse Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/payments (the `AdminRecordPayment` operationId).
+func (c *ClientWithResponses) AdminRecordPaymentWithResponse(ctx context.Context, body AdminRecordPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRecordPaymentResponse, error) {
+	rsp, err := c.AdminRecordPayment(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRecordPaymentResponse(rsp)
+}
+
+// AdminRefundPaymentWithBodyWithResponse Refund part of a payment from the organisation's credit balance
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+func (c *ClientWithResponses) AdminRefundPaymentWithBodyWithResponse(ctx context.Context, paymentId PaymentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRefundPaymentResponse, error) {
+	rsp, err := c.AdminRefundPaymentWithBody(ctx, paymentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRefundPaymentResponse(rsp)
+}
+
+// AdminRefundPaymentWithResponse Refund part of a payment from the organisation's credit balance
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
+func (c *ClientWithResponses) AdminRefundPaymentWithResponse(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRefundPaymentResponse, error) {
+	rsp, err := c.AdminRefundPayment(ctx, paymentId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRefundPaymentResponse(rsp)
 }
 
 // ListPlansWithResponse Quota plan templates (platform admin)
@@ -43281,6 +46601,45 @@ func (c *ClientWithResponses) MoveProjectWithResponse(ctx context.Context, proje
 		return nil, err
 	}
 	return ParseMoveProjectResponse(rsp)
+}
+
+// AdminLastReconciliationWithResponse The latest reconciliation against each provider
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/reconciliation (the `AdminLastReconciliation` operationId).
+func (c *ClientWithResponses) AdminLastReconciliationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminLastReconciliationResponse, error) {
+	rsp, err := c.AdminLastReconciliation(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminLastReconciliationResponse(rsp)
+}
+
+// AdminRunReconciliationWithBodyWithResponse Reconcile a period now (default the previous day)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+func (c *ClientWithResponses) AdminRunReconciliationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRunReconciliationResponse, error) {
+	rsp, err := c.AdminRunReconciliationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRunReconciliationResponse(rsp)
+}
+
+// AdminRunReconciliationWithResponse Reconcile a period now (default the previous day)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
+func (c *ClientWithResponses) AdminRunReconciliationWithResponse(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRunReconciliationResponse, error) {
+	rsp, err := c.AdminRunReconciliation(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRunReconciliationResponse(rsp)
 }
 
 // GetMailSettingsWithResponse Platform SMTP settings (platform admin; no password)
@@ -43613,6 +46972,19 @@ func (c *ClientWithResponses) ResetUserTotpWithResponse(ctx context.Context, use
 		return nil, err
 	}
 	return ParseResetUserTotpResponse(rsp)
+}
+
+// AdminOutstandingWhtWithResponse Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
+func (c *ClientWithResponses) AdminOutstandingWhtWithResponse(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*AdminOutstandingWhtResponse, error) {
+	rsp, err := c.AdminOutstandingWht(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminOutstandingWhtResponse(rsp)
 }
 
 // RegisterAgentWithBodyWithResponse Agent registration (called by pgdock-agent, not the UI)
@@ -44863,6 +48235,71 @@ func (c *ClientWithResponses) UpdateOrgBillingWithResponse(ctx context.Context, 
 	return ParseUpdateOrgBillingResponse(rsp)
 }
 
+// ClearAutoTopupWithResponse Stop automatic top-ups
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
+func (c *ClientWithResponses) ClearAutoTopupWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ClearAutoTopupResponse, error) {
+	rsp, err := c.ClearAutoTopup(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearAutoTopupResponse(rsp)
+}
+
+// SetAutoTopupWithBodyWithResponse Top up a prepaid balance from the default method when it falls below a threshold
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+func (c *ClientWithResponses) SetAutoTopupWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error) {
+	rsp, err := c.SetAutoTopupWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAutoTopupResponse(rsp)
+}
+
+// SetAutoTopupWithResponse Top up a prepaid balance from the default method when it falls below a threshold
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
+func (c *ClientWithResponses) SetAutoTopupWithResponse(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error) {
+	rsp, err := c.SetAutoTopup(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAutoTopupResponse(rsp)
+}
+
+// StartCheckoutWithBodyWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+func (c *ClientWithResponses) StartCheckoutWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error) {
+	rsp, err := c.StartCheckoutWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartCheckoutResponse(rsp)
+}
+
+// StartCheckoutWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
+func (c *ClientWithResponses) StartCheckoutWithResponse(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error) {
+	rsp, err := c.StartCheckout(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartCheckoutResponse(rsp)
+}
+
 // ListBillingContactsWithResponse Billing contacts, who receive invoices and payment email
 //
 // Returns a wrapper object for the known response body format(s).
@@ -44993,6 +48430,84 @@ func (c *ClientWithResponses) GetOrgInvoicePdfWithResponse(ctx context.Context, 
 	return ParseGetOrgInvoicePdfResponse(rsp)
 }
 
+// UploadWhtCertificateWithBodyWithResponse Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
+func (c *ClientWithResponses) UploadWhtCertificateWithBodyWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWhtCertificateResponse, error) {
+	rsp, err := c.UploadWhtCertificateWithBody(ctx, org, invoiceId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadWhtCertificateResponse(rsp)
+}
+
+// ListPaymentMethodsWithResponse Saved cards and wallet mandates
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
+func (c *ClientWithResponses) ListPaymentMethodsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListPaymentMethodsResponse, error) {
+	rsp, err := c.ListPaymentMethods(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPaymentMethodsResponse(rsp)
+}
+
+// RemovePaymentMethodWithResponse Remove a saved card or revoke a mandate
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
+func (c *ClientWithResponses) RemovePaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*RemovePaymentMethodResponse, error) {
+	rsp, err := c.RemovePaymentMethod(ctx, org, methodId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemovePaymentMethodResponse(rsp)
+}
+
+// SetDefaultPaymentMethodWithResponse Charge this method for invoices and top-ups
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
+func (c *ClientWithResponses) SetDefaultPaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*SetDefaultPaymentMethodResponse, error) {
+	rsp, err := c.SetDefaultPaymentMethod(ctx, org, methodId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetDefaultPaymentMethodResponse(rsp)
+}
+
+// ListOrgPaymentsWithResponse Payments received, with receipts
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/payments (the `ListOrgPayments` operationId).
+func (c *ClientWithResponses) ListOrgPaymentsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgPaymentsResponse, error) {
+	rsp, err := c.ListOrgPayments(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgPaymentsResponse(rsp)
+}
+
+// GetPaymentReceiptWithResponse A payment's receipt as PDF
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt (the `GetPaymentReceipt` operationId).
+func (c *ClientWithResponses) GetPaymentReceiptWithResponse(ctx context.Context, org OrgID, paymentId PaymentID, reqEditors ...RequestEditorFn) (*GetPaymentReceiptResponse, error) {
+	rsp, err := c.GetPaymentReceipt(ctx, org, paymentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPaymentReceiptResponse(rsp)
+}
+
 // ChangeOrgPlanWithBodyWithResponse Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -45017,6 +48532,19 @@ func (c *ClientWithResponses) ChangeOrgPlanWithResponse(ctx context.Context, org
 		return nil, err
 	}
 	return ParseChangeOrgPlanResponse(rsp)
+}
+
+// OrgVirtualAccountWithResponse The organisation's bank account for transfers, issued on first use
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
+func (c *ClientWithResponses) OrgVirtualAccountWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*OrgVirtualAccountResponse, error) {
+	rsp, err := c.OrgVirtualAccount(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOrgVirtualAccountResponse(rsp)
 }
 
 // EndBreakGlassWithResponse End a break-glass session early (owner)
@@ -47758,6 +51286,41 @@ func ParseListPlatformAuditResponse(rsp *http.Response) (*ListPlatformAuditRespo
 	return response, nil
 }
 
+// ParseAdminUploadBillingDocumentResponse parses an HTTP response from a AdminUploadBillingDocumentWithResponse call
+func ParseAdminUploadBillingDocumentResponse(rsp *http.Response) (*AdminUploadBillingDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminUploadBillingDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Key string `json:"key"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetBillingSettingsResponse parses an HTTP response from a GetBillingSettingsWithResponse call
 func ParseGetBillingSettingsResponse(rsp *http.Response) (*GetBillingSettingsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -48339,6 +51902,35 @@ func ParseAdminGetInvoicePdfResponse(rsp *http.Response) (*AdminGetInvoicePdfRes
 	return response, nil
 }
 
+// ParseAdminUploadWhtCertificateResponse parses an HTTP response from a AdminUploadWhtCertificateWithResponse call
+func ParseAdminUploadWhtCertificateResponse(rsp *http.Response) (*AdminUploadWhtCertificateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminUploadWhtCertificateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseAdminLedgerCheckResponse parses an HTTP response from a AdminLedgerCheckWithResponse call
 func ParseAdminLedgerCheckResponse(rsp *http.Response) (*AdminLedgerCheckResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -48570,6 +52162,35 @@ func ParseAdminUpdateOrgBillingResponse(rsp *http.Response) (*AdminUpdateOrgBill
 	return response, nil
 }
 
+// ParseAdminSetGraceResponse parses an HTTP response from a AdminSetGraceWithResponse call
+func ParseAdminSetGraceResponse(rsp *http.Response) (*AdminSetGraceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminSetGraceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseAdminStartBreakGlassResponse parses an HTTP response from a AdminStartBreakGlassWithResponse call
 func ParseAdminStartBreakGlassResponse(rsp *http.Response) (*AdminStartBreakGlassResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -48747,6 +52368,177 @@ func ParseAdminSuspendOrgResponse(rsp *http.Response) (*AdminSuspendOrgResponse,
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminListPaymentEventsResponse parses an HTTP response from a AdminListPaymentEventsWithResponse call
+func ParseAdminListPaymentEventsResponse(rsp *http.Response) (*AdminListPaymentEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminListPaymentEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []PaymentEvent `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminAttributePaymentEventResponse parses an HTTP response from a AdminAttributePaymentEventWithResponse call
+func ParseAdminAttributePaymentEventResponse(rsp *http.Response) (*AdminAttributePaymentEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminAttributePaymentEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Payment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminListPaymentsResponse parses an HTTP response from a AdminListPaymentsWithResponse call
+func ParseAdminListPaymentsResponse(rsp *http.Response) (*AdminListPaymentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminListPaymentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaymentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminRecordPaymentResponse parses an HTTP response from a AdminRecordPaymentWithResponse call
+func ParseAdminRecordPaymentResponse(rsp *http.Response) (*AdminRecordPaymentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminRecordPaymentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Payment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminRefundPaymentResponse parses an HTTP response from a AdminRefundPaymentWithResponse call
+func ParseAdminRefundPaymentResponse(rsp *http.Response) (*AdminRefundPaymentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminRefundPaymentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			AmountMinor int64              `json:"amount_minor"`
+			Id          openapi_types.UUID `json:"id"`
+			Status      string             `json:"status"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -49124,6 +52916,76 @@ func ParseMoveProjectResponse(rsp *http.Response) (*MoveProjectResponse, error) 
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminLastReconciliationResponse parses an HTTP response from a AdminLastReconciliationWithResponse call
+func ParseAdminLastReconciliationResponse(rsp *http.Response) (*AdminLastReconciliationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminLastReconciliationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []Reconciliation `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminRunReconciliationResponse parses an HTTP response from a AdminRunReconciliationWithResponse call
+func ParseAdminRunReconciliationResponse(rsp *http.Response) (*AdminRunReconciliationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminRunReconciliationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []Reconciliation `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -49691,6 +53553,44 @@ func ParseResetUserTotpResponse(rsp *http.Response) (*ResetUserTotpResponse, err
 			return nil, err
 		}
 		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminOutstandingWhtResponse parses an HTTP response from a AdminOutstandingWhtWithResponse call
+func ParseAdminOutstandingWhtResponse(rsp *http.Response) (*AdminOutstandingWhtResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminOutstandingWhtResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []OutstandingWht `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/csv) unsupported
 
 	}
 
@@ -51560,6 +55460,101 @@ func ParseUpdateOrgBillingResponse(rsp *http.Response) (*UpdateOrgBillingRespons
 	return response, nil
 }
 
+// ParseClearAutoTopupResponse parses an HTTP response from a ClearAutoTopupWithResponse call
+func ParseClearAutoTopupResponse(rsp *http.Response) (*ClearAutoTopupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearAutoTopupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetAutoTopupResponse parses an HTTP response from a SetAutoTopupWithResponse call
+func ParseSetAutoTopupResponse(rsp *http.Response) (*SetAutoTopupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetAutoTopupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartCheckoutResponse parses an HTTP response from a StartCheckoutWithResponse call
+func ParseStartCheckoutResponse(rsp *http.Response) (*StartCheckoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartCheckoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			AmountMinor int64  `json:"amount_minor"`
+			CheckoutUrl string `json:"checkout_url"`
+			Reference   string `json:"reference"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListBillingContactsResponse parses an HTTP response from a ListBillingContactsWithResponse call
 func ParseListBillingContactsResponse(rsp *http.Response) (*ListBillingContactsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -51821,6 +55816,187 @@ func ParseGetOrgInvoicePdfResponse(rsp *http.Response) (*GetOrgInvoicePdfRespons
 	return response, nil
 }
 
+// ParseUploadWhtCertificateResponse parses an HTTP response from a UploadWhtCertificateWithResponse call
+func ParseUploadWhtCertificateResponse(rsp *http.Response) (*UploadWhtCertificateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadWhtCertificateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPaymentMethodsResponse parses an HTTP response from a ListPaymentMethodsWithResponse call
+func ParseListPaymentMethodsResponse(rsp *http.Response) (*ListPaymentMethodsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPaymentMethodsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []PaymentMethod `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemovePaymentMethodResponse parses an HTTP response from a RemovePaymentMethodWithResponse call
+func ParseRemovePaymentMethodResponse(rsp *http.Response) (*RemovePaymentMethodResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemovePaymentMethodResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetDefaultPaymentMethodResponse parses an HTTP response from a SetDefaultPaymentMethodWithResponse call
+func ParseSetDefaultPaymentMethodResponse(rsp *http.Response) (*SetDefaultPaymentMethodResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetDefaultPaymentMethodResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOrgPaymentsResponse parses an HTTP response from a ListOrgPaymentsWithResponse call
+func ParseListOrgPaymentsResponse(rsp *http.Response) (*ListOrgPaymentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgPaymentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaymentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPaymentReceiptResponse parses an HTTP response from a GetPaymentReceiptWithResponse call
+func ParseGetPaymentReceiptResponse(rsp *http.Response) (*GetPaymentReceiptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPaymentReceiptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseChangeOrgPlanResponse parses an HTTP response from a ChangeOrgPlanWithResponse call
 func ParseChangeOrgPlanResponse(rsp *http.Response) (*ChangeOrgPlanResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -51837,6 +56013,39 @@ func ParseChangeOrgPlanResponse(rsp *http.Response) (*ChangeOrgPlanResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PlanChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOrgVirtualAccountResponse parses an HTTP response from a OrgVirtualAccountWithResponse call
+func ParseOrgVirtualAccountResponse(rsp *http.Response) (*OrgVirtualAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OrgVirtualAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VirtualAccount
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

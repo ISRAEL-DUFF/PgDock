@@ -282,7 +282,7 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
 		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(), "{target_id}", uuid.NewString(),
 		"{webhook_id}", uuid.NewString(), "{job_id}", uuid.NewString(),
-		"{user_code}", "BCDF-GHJK", "{email}", "ap@example.com", "{version}", "1", "{invoice_id}", uuid.NewString(),
+		"{user_code}", "BCDF-GHJK", "{email}", "ap@example.com", "{version}", "1", "{invoice_id}", uuid.NewString(), "{method_id}", uuid.NewString(), "{payment_id}", uuid.NewString(), "{event_id}", "1",
 	).Replace(pattern)
 	for _, m := range []string{"GET", "POST"} {
 		if rl := routeRules[m+" "+pattern]; rl.scope == scopeOrgQuery {
@@ -523,6 +523,8 @@ var specMatrix = map[authz.Action][]string{
 		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
 		"GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}", "GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf",
 		"GET /api/v1/orgs/{org}/billing/forecast",
+		// V3 §3.4: paying, methods, receipts, WHT credit notes
+		"POST /api/v1/orgs/{org}/billing/checkout", "POST /api/v1/orgs/{org}/billing/virtual-account", "GET /api/v1/orgs/{org}/billing/payment-methods", "DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id}", "POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default", "PUT /api/v1/orgs/{org}/billing/auto-topup", "DELETE /api/v1/orgs/{org}/billing/auto-topup", "GET /api/v1/orgs/{org}/billing/payments", "GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt", "POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate",
 	},
 	// §10.10 "Org owners can export any project as a pg_dump file"
 	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},
@@ -572,6 +574,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/invoices/{invoice_id}", "GET /api/v1/admin/invoices/{invoice_id}/pdf",
 		"POST /api/v1/admin/invoices/{invoice_id}/hold", "POST /api/v1/admin/invoices/{invoice_id}/issue",
 		"POST /api/v1/admin/invoices/{invoice_id}/credit-notes", "GET /api/v1/admin/ledger/check",
+		"GET /api/v1/admin/payments", "POST /api/v1/admin/payments", "POST /api/v1/admin/billing/documents", "POST /api/v1/admin/payments/{payment_id}/refund", "GET /api/v1/admin/payment-events", "POST /api/v1/admin/payment-events/{event_id}/attribute", "GET /api/v1/admin/wht", "POST /api/v1/admin/invoices/{invoice_id}/wht-certificate", "GET /api/v1/admin/reconciliation", "POST /api/v1/admin/reconciliation", "PUT /api/v1/admin/orgs/{org}/billing/grace",
 		"POST /api/v1/admin/instances/{instance_id}/minor-upgrade",
 		// §7.2 "The platform admin can set a platform-wide maximum"
 		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",

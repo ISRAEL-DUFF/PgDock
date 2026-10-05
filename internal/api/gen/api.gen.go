@@ -1307,6 +1307,24 @@ func (e OrgRole) Valid() bool {
 	}
 }
 
+// Defines values for PaymentMethodKind.
+const (
+	PaymentMethodKindCard    PaymentMethodKind = "card"
+	PaymentMethodKindMandate PaymentMethodKind = "mandate"
+)
+
+// Valid indicates whether the value is a known member of the PaymentMethodKind enum.
+func (e PaymentMethodKind) Valid() bool {
+	switch e {
+	case PaymentMethodKindCard:
+		return true
+	case PaymentMethodKindMandate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PersonalCredentialsAccess.
 const (
 	PersonalCredentialsAccessReadOnly  PersonalCredentialsAccess = "read_only"
@@ -1514,6 +1532,30 @@ func (e ReapedSessionKind) Valid() bool {
 	case IdleInTransaction:
 		return true
 	case Statement:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReconciliationDifferencesKind.
+const (
+	Amount            ReconciliationDifferencesKind = "amount"
+	Fee               ReconciliationDifferencesKind = "fee"
+	MissingAtProvider ReconciliationDifferencesKind = "missing_at_provider"
+	MissingInPgdock   ReconciliationDifferencesKind = "missing_in_pgdock"
+)
+
+// Valid indicates whether the value is a known member of the ReconciliationDifferencesKind enum.
+func (e ReconciliationDifferencesKind) Valid() bool {
+	switch e {
+	case Amount:
+		return true
+	case Fee:
+		return true
+	case MissingAtProvider:
+		return true
+	case MissingInPgdock:
 		return true
 	default:
 		return false
@@ -2399,6 +2441,54 @@ func (e AdminListInvoicesParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminListPaymentEventsParamsOutcome.
+const (
+	AdminListPaymentEventsParamsOutcomeDuplicate AdminListPaymentEventsParamsOutcome = "duplicate"
+	AdminListPaymentEventsParamsOutcomeFailed    AdminListPaymentEventsParamsOutcome = "failed"
+	AdminListPaymentEventsParamsOutcomeIgnored   AdminListPaymentEventsParamsOutcome = "ignored"
+	AdminListPaymentEventsParamsOutcomePosted    AdminListPaymentEventsParamsOutcome = "posted"
+	AdminListPaymentEventsParamsOutcomeRejected  AdminListPaymentEventsParamsOutcome = "rejected"
+	AdminListPaymentEventsParamsOutcomeUnmatched AdminListPaymentEventsParamsOutcome = "unmatched"
+)
+
+// Valid indicates whether the value is a known member of the AdminListPaymentEventsParamsOutcome enum.
+func (e AdminListPaymentEventsParamsOutcome) Valid() bool {
+	switch e {
+	case AdminListPaymentEventsParamsOutcomeDuplicate:
+		return true
+	case AdminListPaymentEventsParamsOutcomeFailed:
+		return true
+	case AdminListPaymentEventsParamsOutcomeIgnored:
+		return true
+	case AdminListPaymentEventsParamsOutcomePosted:
+		return true
+	case AdminListPaymentEventsParamsOutcomeRejected:
+		return true
+	case AdminListPaymentEventsParamsOutcomeUnmatched:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminOutstandingWhtParamsFormat.
+const (
+	AdminOutstandingWhtParamsFormatCsv  AdminOutstandingWhtParamsFormat = "csv"
+	AdminOutstandingWhtParamsFormatJson AdminOutstandingWhtParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminOutstandingWhtParamsFormat enum.
+func (e AdminOutstandingWhtParamsFormat) Valid() bool {
+	switch e {
+	case AdminOutstandingWhtParamsFormatCsv:
+		return true
+	case AdminOutstandingWhtParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAlertsParamsStatus.
 const (
 	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
@@ -2453,6 +2543,48 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	case ListOrgAuditParamsOutcomeFailure:
 		return true
 	case ListOrgAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartCheckoutJSONBodyChannel.
+const (
+	StartCheckoutJSONBodyChannelCard       StartCheckoutJSONBodyChannel = "card"
+	StartCheckoutJSONBodyChannelStablecoin StartCheckoutJSONBodyChannel = "stablecoin"
+	StartCheckoutJSONBodyChannelWallet     StartCheckoutJSONBodyChannel = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyChannel enum.
+func (e StartCheckoutJSONBodyChannel) Valid() bool {
+	switch e {
+	case StartCheckoutJSONBodyChannelCard:
+		return true
+	case StartCheckoutJSONBodyChannelStablecoin:
+		return true
+	case StartCheckoutJSONBodyChannelWallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartCheckoutJSONBodyPurpose.
+const (
+	StartCheckoutJSONBodyPurposeCardSetup StartCheckoutJSONBodyPurpose = "card_setup"
+	StartCheckoutJSONBodyPurposeInvoice   StartCheckoutJSONBodyPurpose = "invoice"
+	StartCheckoutJSONBodyPurposeTopup     StartCheckoutJSONBodyPurpose = "topup"
+)
+
+// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyPurpose enum.
+func (e StartCheckoutJSONBodyPurpose) Valid() bool {
+	switch e {
+	case StartCheckoutJSONBodyPurposeCardSetup:
+		return true
+	case StartCheckoutJSONBodyPurposeInvoice:
+		return true
+	case StartCheckoutJSONBodyPurposeTopup:
 		return true
 	default:
 		return false
@@ -2834,6 +2966,12 @@ type AuditList struct {
 	NextBefore *int64       `json:"next_before,omitempty"`
 }
 
+// AutoTopup defines model for AutoTopup.
+type AutoTopup struct {
+	AmountMinor int64 `json:"amount_minor"`
+	BelowMinor  int64 `json:"below_minor"`
+}
+
 // Availability defines model for Availability.
 type Availability struct {
 	MeasuredMinutes int `json:"measured_minutes"`
@@ -2923,17 +3061,36 @@ type BackupOverview struct {
 
 // BillingAccount defines model for BillingAccount.
 type BillingAccount struct {
-	Address          *string            `json:"address,omitempty"`
-	BudgetMinor      *int64             `json:"budget_minor,omitempty"`
-	Capped           *bool              `json:"capped,omitempty"`
-	DeductsWht       bool               `json:"deducts_wht"`
-	DunningState     string             `json:"dunning_state"`
-	ForecastMinor    *int64             `json:"forecast_minor,omitempty"`
-	Grandfathered    bool               `json:"grandfathered"`
-	LegalName        *string            `json:"legal_name,omitempty"`
-	Mode             BillingAccountMode `json:"mode"`
-	OrgId            openapi_types.UUID `json:"org_id"`
-	PaymentTermsDays int                `json:"payment_terms_days"`
+	Address          *string    `json:"address,omitempty"`
+	AutoTopup        *AutoTopup `json:"auto_topup,omitempty"`
+	BudgetMinor      *int64     `json:"budget_minor,omitempty"`
+	Capped           *bool      `json:"capped,omitempty"`
+	CardFailingSince *time.Time `json:"card_failing_since,omitempty"`
+
+	// Channels The payment channels offered.
+	Channels *struct {
+		Card       bool `json:"card"`
+		Stablecoin bool `json:"stablecoin"`
+		Transfer   bool `json:"transfer"`
+		Wallet     bool `json:"wallet"`
+	} `json:"channels,omitempty"`
+
+	// CreditMinor On the credit balance (prepaid funds, overpayments).
+	CreditMinor         *int64             `json:"credit_minor,omitempty"`
+	DeductsWht          bool               `json:"deducts_wht"`
+	DeletionScheduledAt *time.Time         `json:"deletion_scheduled_at,omitempty"`
+	DunningState        string             `json:"dunning_state"`
+	ForecastMinor       *int64             `json:"forecast_minor,omitempty"`
+	GraceUntil          *time.Time         `json:"grace_until,omitempty"`
+	Grandfathered       bool               `json:"grandfathered"`
+	LegalName           *string            `json:"legal_name,omitempty"`
+	Mode                BillingAccountMode `json:"mode"`
+	OrgId               openapi_types.UUID `json:"org_id"`
+	OverdueSince        *time.Time         `json:"overdue_since,omitempty"`
+
+	// OwedMinor Outstanding on issued invoices.
+	OwedMinor        *int64 `json:"owed_minor,omitempty"`
+	PaymentTermsDays int    `json:"payment_terms_days"`
 	PendingChange    *struct {
 		EffectiveAt time.Time `json:"effective_at"`
 		ToPlan      string    `json:"to_plan"`
@@ -2950,6 +3107,7 @@ type BillingAccount struct {
 	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
 	Tin              *string            `json:"tin,omitempty"`
 	VatRegistered    bool               `json:"vat_registered"`
+	ZeroBalanceAt    *time.Time         `json:"zero_balance_at,omitempty"`
 }
 
 // BillingAccountMode defines model for BillingAccount.Mode.
@@ -3003,13 +3161,19 @@ type BillingForecast struct {
 type BillingSettings struct {
 	// AutoIssue Issue each month's draft invoices automatically on the 1st.
 	AutoIssue bool `json:"auto_issue"`
-	Seller    struct {
+
+	// DeleteForNonPayment Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin.
+	DeleteForNonPayment *bool `json:"delete_for_non_payment,omitempty"`
+	Seller              struct {
 		Address   string `json:"address"`
 		Email     string `json:"email"`
 		LegalName string `json:"legal_name"`
 		Tin       string `json:"tin"`
 		VatNumber string `json:"vat_number"`
 	} `json:"seller"`
+
+	// Stablecoin Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
+	Stablecoin *bool `json:"stablecoin,omitempty"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -4427,11 +4591,73 @@ type OutboundHost struct {
 	Requests int64              `json:"requests"`
 }
 
+// OutstandingWht defines model for OutstandingWht.
+type OutstandingWht struct {
+	AgeDays   int                `json:"age_days"`
+	InvoiceId openapi_types.UUID `json:"invoice_id"`
+	Number    *string            `json:"number,omitempty"`
+	OrgId     openapi_types.UUID `json:"org_id"`
+	OrgName   string             `json:"org_name"`
+	PaidAt    *time.Time         `json:"paid_at,omitempty"`
+	Tin       *string            `json:"tin,omitempty"`
+	WhtMinor  int64              `json:"wht_minor"`
+}
+
 // PasswordResetConfirm defines model for PasswordResetConfirm.
 type PasswordResetConfirm struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
+
+// Payment defines model for Payment.
+type Payment struct {
+	AmountMinor   int64              `json:"amount_minor"`
+	Channel       string             `json:"channel"`
+	FeeMinor      int64              `json:"fee_minor"`
+	Id            openapi_types.UUID `json:"id"`
+	Note          *string            `json:"note,omitempty"`
+	OrgId         openapi_types.UUID `json:"org_id"`
+	OrgName       *string            `json:"org_name,omitempty"`
+	Provider      string             `json:"provider"`
+	ProviderRef   string             `json:"provider_ref"`
+	ReceivedAt    time.Time          `json:"received_at"`
+	RefundedMinor int64              `json:"refunded_minor"`
+}
+
+// PaymentEvent defines model for PaymentEvent.
+type PaymentEvent struct {
+	AmountMinor     *int64              `json:"amount_minor,omitempty"`
+	Error           *string             `json:"error,omitempty"`
+	Id              int64               `json:"id"`
+	Kind            string              `json:"kind"`
+	OrgId           *openapi_types.UUID `json:"org_id,omitempty"`
+	Outcome         *string             `json:"outcome,omitempty"`
+	Provider        string              `json:"provider"`
+	ProviderEventId string              `json:"provider_event_id"`
+	ProviderRef     *string             `json:"provider_ref,omitempty"`
+	ReceivedAt      time.Time           `json:"received_at"`
+}
+
+// PaymentList defines model for PaymentList.
+type PaymentList struct {
+	Items []Payment `json:"items"`
+}
+
+// PaymentMethod defines model for PaymentMethod.
+type PaymentMethod struct {
+	Brand      *string            `json:"brand,omitempty"`
+	ExpMonth   *int               `json:"exp_month,omitempty"`
+	ExpYear    *int               `json:"exp_year,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+	IsDefault  bool               `json:"is_default"`
+	Kind       PaymentMethodKind  `json:"kind"`
+	Last4      *string            `json:"last4,omitempty"`
+	LimitMinor *int64             `json:"limit_minor,omitempty"`
+	Provider   string             `json:"provider"`
+}
+
+// PaymentMethodKind defines model for PaymentMethod.Kind.
+type PaymentMethodKind string
 
 // PersonalCredentials defines model for PersonalCredentials.
 type PersonalCredentials struct {
@@ -4959,6 +5185,28 @@ type ReclaimSpaceRequest struct {
 	Schema string `json:"schema"`
 	Table  string `json:"table"`
 }
+
+// Reconciliation defines model for Reconciliation.
+type Reconciliation struct {
+	Differences []struct {
+		Kind          ReconciliationDifferencesKind `json:"kind"`
+		Note          *string                       `json:"note,omitempty"`
+		PgdockMinor   int64                         `json:"pgdock_minor"`
+		ProviderMinor int64                         `json:"provider_minor"`
+		ProviderRef   string                        `json:"provider_ref"`
+	} `json:"differences"`
+	Error      *string   `json:"error,omitempty"`
+	FeesMinor  int64     `json:"fees_minor"`
+	From       time.Time `json:"from"`
+	GrossMinor int64     `json:"gross_minor"`
+	Matched    int       `json:"matched"`
+	Provider   string    `json:"provider"`
+	RanAt      time.Time `json:"ran_at"`
+	To         time.Time `json:"to"`
+}
+
+// ReconciliationDifferencesKind defines model for Reconciliation.Differences.Kind.
+type ReconciliationDifferencesKind string
 
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
@@ -5888,6 +6136,14 @@ type Version struct {
 	Version string `json:"version"`
 }
 
+// VirtualAccount defines model for VirtualAccount.
+type VirtualAccount struct {
+	AccountName   string `json:"account_name"`
+	AccountNumber string `json:"account_number"`
+	BankName      string `json:"bank_name"`
+	Provider      string `json:"provider"`
+}
+
 // Webhook defines model for Webhook.
 type Webhook struct {
 	// Backlog Events waiting in the outbox.
@@ -6027,6 +6283,9 @@ type InvoiceID = openapi_types.UUID
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
 
+// MethodID defines model for MethodID.
+type MethodID = openapi_types.UUID
+
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
 
@@ -6044,6 +6303,9 @@ type OrgID = openapi_types.UUID
 
 // OrgQuery defines model for OrgQuery.
 type OrgQuery = openapi_types.UUID
+
+// PaymentID defines model for PaymentID.
+type PaymentID = openapi_types.UUID
 
 // PriceBookVersion defines model for PriceBookVersion.
 type PriceBookVersion = int
@@ -6090,6 +6352,12 @@ type ListPlatformAuditParams struct {
 // ListPlatformAuditParamsOutcome defines parameters for ListPlatformAudit.
 type ListPlatformAuditParamsOutcome string
 
+// AdminUploadBillingDocumentParams defines parameters for AdminUploadBillingDocument.
+type AdminUploadBillingDocumentParams struct {
+	OrgId    openapi_types.UUID `form:"org_id" json:"org_id"`
+	Filename string             `form:"filename" json:"filename"`
+}
+
 // ListDedicatedRequestsParams defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParams struct {
 	Status *ListDedicatedRequestsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -6127,15 +6395,71 @@ type AdminHoldInvoiceJSONBody struct {
 	Reason *string `json:"reason,omitempty"`
 }
 
+// AdminUploadWhtCertificateParams defines parameters for AdminUploadWhtCertificate.
+type AdminUploadWhtCertificateParams struct {
+	Filename string `form:"filename" json:"filename"`
+}
+
 // AdminListOrgsParams defines parameters for AdminListOrgs.
 type AdminListOrgsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// AdminSetGraceJSONBody defines parameters for AdminSetGrace.
+type AdminSetGraceJSONBody struct {
+	Until *time.Time `json:"until,omitempty"`
+}
+
+// AdminListPaymentEventsParams defines parameters for AdminListPaymentEvents.
+type AdminListPaymentEventsParams struct {
+	Outcome *AdminListPaymentEventsParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+}
+
+// AdminListPaymentEventsParamsOutcome defines parameters for AdminListPaymentEvents.
+type AdminListPaymentEventsParamsOutcome string
+
+// AdminAttributePaymentEventJSONBody defines parameters for AdminAttributePaymentEvent.
+type AdminAttributePaymentEventJSONBody struct {
+	OrgId openapi_types.UUID `json:"org_id"`
+}
+
+// AdminListPaymentsParams defines parameters for AdminListPayments.
+type AdminListPaymentsParams struct {
+	Provider *string    `form:"provider,omitempty" json:"provider,omitempty"`
+	From     *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To       *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// AdminRecordPaymentJSONBody defines parameters for AdminRecordPayment.
+type AdminRecordPaymentJSONBody struct {
+	AmountMinor int64               `json:"amount_minor"`
+	InvoiceId   *openapi_types.UUID `json:"invoice_id,omitempty"`
+	Note        *string             `json:"note,omitempty"`
+	OrgId       openapi_types.UUID  `json:"org_id"`
+
+	// ProofKey From POST /api/v1/admin/billing/documents.
+	ProofKey   *string    `json:"proof_key,omitempty"`
+	ReceivedAt *time.Time `json:"received_at,omitempty"`
+	Reference  string     `json:"reference"`
+	Topup      *bool      `json:"topup,omitempty"`
+}
+
+// AdminRefundPaymentJSONBody defines parameters for AdminRefundPayment.
+type AdminRefundPaymentJSONBody struct {
+	AmountMinor int64  `json:"amount_minor"`
+	Reason      string `json:"reason"`
 }
 
 // PreviewPriceBookJSONBody defines parameters for PreviewPriceBook.
 type PreviewPriceBookJSONBody struct {
 	// Period The usage month (default the last complete one).
 	Period *string `json:"period,omitempty"`
+}
+
+// AdminRunReconciliationJSONBody defines parameters for AdminRunReconciliation.
+type AdminRunReconciliationJSONBody struct {
+	From *time.Time `json:"from,omitempty"`
+	To   *time.Time `json:"to,omitempty"`
 }
 
 // DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
@@ -6158,6 +6482,14 @@ type ListUsersParams struct {
 	// Pending Only accounts waiting for approval.
 	Pending *bool `form:"pending,omitempty" json:"pending,omitempty"`
 }
+
+// AdminOutstandingWhtParams defines parameters for AdminOutstandingWht.
+type AdminOutstandingWhtParams struct {
+	Format *AdminOutstandingWhtParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminOutstandingWhtParamsFormat defines parameters for AdminOutstandingWht.
+type AdminOutstandingWhtParamsFormat string
 
 // ListAlertsParams defines parameters for ListAlerts.
 type ListAlertsParams struct {
@@ -6222,6 +6554,24 @@ type ListOrgAuditParams struct {
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
 
+// StartCheckoutJSONBody defines parameters for StartCheckout.
+type StartCheckoutJSONBody struct {
+	// AmountMinor For a top-up.
+	AmountMinor *int64                       `json:"amount_minor,omitempty"`
+	Channel     StartCheckoutJSONBodyChannel `json:"channel"`
+	InvoiceId   *openapi_types.UUID          `json:"invoice_id,omitempty"`
+
+	// MandateLimitMinor With a wallet payment, also set up a recurring mandate with this monthly limit.
+	MandateLimitMinor *int64                       `json:"mandate_limit_minor,omitempty"`
+	Purpose           StartCheckoutJSONBodyPurpose `json:"purpose"`
+}
+
+// StartCheckoutJSONBodyChannel defines parameters for StartCheckout.
+type StartCheckoutJSONBodyChannel string
+
+// StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
+type StartCheckoutJSONBodyPurpose string
+
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
 	Cpus     *float32 `json:"cpus,omitempty"`
@@ -6232,6 +6582,11 @@ type EstimateOrgCostJSONBody struct {
 	// StandbyOnly Price only what enabling HA adds to a running instance.
 	StandbyOnly *bool `json:"standby_only,omitempty"`
 	Synchronous *bool `json:"synchronous,omitempty"`
+}
+
+// UploadWhtCertificateParams defines parameters for UploadWhtCertificate.
+type UploadWhtCertificateParams struct {
+	Filename string `form:"filename" json:"filename"`
 }
 
 // DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
@@ -6428,6 +6783,9 @@ type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
 // AdminUpdateOrgBillingJSONRequestBody defines body for AdminUpdateOrgBilling for application/json ContentType.
 type AdminUpdateOrgBillingJSONRequestBody = AdminBillingUpdate
 
+// AdminSetGraceJSONRequestBody defines body for AdminSetGrace for application/json ContentType.
+type AdminSetGraceJSONRequestBody AdminSetGraceJSONBody
+
 // AdminStartBreakGlassJSONRequestBody defines body for AdminStartBreakGlass for application/json ContentType.
 type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 
@@ -6439,6 +6797,15 @@ type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
 
 // AdminSuspendOrgJSONRequestBody defines body for AdminSuspendOrg for application/json ContentType.
 type AdminSuspendOrgJSONRequestBody = ReasonRequest
+
+// AdminAttributePaymentEventJSONRequestBody defines body for AdminAttributePaymentEvent for application/json ContentType.
+type AdminAttributePaymentEventJSONRequestBody AdminAttributePaymentEventJSONBody
+
+// AdminRecordPaymentJSONRequestBody defines body for AdminRecordPayment for application/json ContentType.
+type AdminRecordPaymentJSONRequestBody AdminRecordPaymentJSONBody
+
+// AdminRefundPaymentJSONRequestBody defines body for AdminRefundPayment for application/json ContentType.
+type AdminRefundPaymentJSONRequestBody AdminRefundPaymentJSONBody
 
 // CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
 type CreatePlanJSONRequestBody = PlanRequest
@@ -6457,6 +6824,9 @@ type PreviewPriceBookJSONRequestBody PreviewPriceBookJSONBody
 
 // MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
 type MoveProjectJSONRequestBody = MoveProjectRequest
+
+// AdminRunReconciliationJSONRequestBody defines body for AdminRunReconciliation for application/json ContentType.
+type AdminRunReconciliationJSONRequestBody AdminRunReconciliationJSONBody
 
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
@@ -6571,6 +6941,12 @@ type UpdateOrgJSONRequestBody = UpdateOrgRequest
 
 // UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
 type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
+
+// SetAutoTopupJSONRequestBody defines body for SetAutoTopup for application/json ContentType.
+type SetAutoTopupJSONRequestBody = AutoTopup
+
+// StartCheckoutJSONRequestBody defines body for StartCheckout for application/json ContentType.
+type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
@@ -6742,6 +7118,9 @@ type ServerInterface interface {
 	// ListPlatformAudit The platform audit log, newest first (platform admin)
 	// (GET /api/v1/admin/audit)
 	ListPlatformAudit(w http.ResponseWriter, r *http.Request, params ListPlatformAuditParams)
+	// AdminUploadBillingDocument Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+	// (POST /api/v1/admin/billing/documents)
+	AdminUploadBillingDocument(w http.ResponseWriter, r *http.Request, params AdminUploadBillingDocumentParams)
 	// GetBillingSettings Tax rates and the seller's details on invoices
 	// (GET /api/v1/admin/billing/settings)
 	GetBillingSettings(w http.ResponseWriter, r *http.Request)
@@ -6796,6 +7175,9 @@ type ServerInterface interface {
 	// AdminGetInvoicePdf An invoice (or draft) as PDF
 	// (GET /api/v1/admin/invoices/{invoice_id}/pdf)
 	AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminUploadWhtCertificate Attach a WHT credit note to an invoice
+	// (POST /api/v1/admin/invoices/{invoice_id}/wht-certificate)
+	AdminUploadWhtCertificate(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID, params AdminUploadWhtCertificateParams)
 	// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
 	// (GET /api/v1/admin/ledger/check)
 	AdminLedgerCheck(w http.ResponseWriter, r *http.Request)
@@ -6817,6 +7199,9 @@ type ServerInterface interface {
 	// AdminUpdateOrgBilling The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
 	// (PATCH /api/v1/admin/orgs/{org}/billing)
 	AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSetGrace Hold dunning for an organisation until a date (null ends the extension)
+	// (PUT /api/v1/admin/orgs/{org}/billing/grace)
+	AdminSetGrace(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
 	// (POST /api/v1/admin/orgs/{org}/break-glass)
 	AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -6835,6 +7220,21 @@ type ServerInterface interface {
 	// AdminSuspendOrg Suspend an organisation (platform admin)
 	// (POST /api/v1/admin/orgs/{org}/suspend)
 	AdminSuspendOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminListPaymentEvents Provider events as received, newest first
+	// (GET /api/v1/admin/payment-events)
+	AdminListPaymentEvents(w http.ResponseWriter, r *http.Request, params AdminListPaymentEventsParams)
+	// AdminAttributePaymentEvent Settle an unmatched transfer for an organisation (it is verified again first)
+	// (POST /api/v1/admin/payment-events/{event_id}/attribute)
+	AdminAttributePaymentEvent(w http.ResponseWriter, r *http.Request, eventId int64)
+	// AdminListPayments Payments received, by provider and period
+	// (GET /api/v1/admin/payments)
+	AdminListPayments(w http.ResponseWriter, r *http.Request, params AdminListPaymentsParams)
+	// AdminRecordPayment Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+	// (POST /api/v1/admin/payments)
+	AdminRecordPayment(w http.ResponseWriter, r *http.Request)
+	// AdminRefundPayment Refund part of a payment from the organisation's credit balance
+	// (POST /api/v1/admin/payments/{payment_id}/refund)
+	AdminRefundPayment(w http.ResponseWriter, r *http.Request, paymentId PaymentID)
 	// ListPlans Quota plan templates (platform admin)
 	// (GET /api/v1/admin/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request)
@@ -6868,6 +7268,12 @@ type ServerInterface interface {
 	// MoveProject Move a project to another node (platform admin, V3 §2.3)
 	// (POST /api/v1/admin/projects/{project_id}/move)
 	MoveProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// AdminLastReconciliation The latest reconciliation against each provider
+	// (GET /api/v1/admin/reconciliation)
+	AdminLastReconciliation(w http.ResponseWriter, r *http.Request)
+	// AdminRunReconciliation Reconcile a period now (default the previous day)
+	// (POST /api/v1/admin/reconciliation)
+	AdminRunReconciliation(w http.ResponseWriter, r *http.Request)
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	// (GET /api/v1/admin/settings/mail)
 	GetMailSettings(w http.ResponseWriter, r *http.Request)
@@ -6919,6 +7325,9 @@ type ServerInterface interface {
 	// ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
 	// (POST /api/v1/admin/users/{user}/reset-2fa)
 	ResetUserTotp(w http.ResponseWriter, r *http.Request, user UserID)
+	// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+	// (GET /api/v1/admin/wht)
+	AdminOutstandingWht(w http.ResponseWriter, r *http.Request, params AdminOutstandingWhtParams)
 	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
 	// (POST /api/v1/agent/register)
 	RegisterAgent(w http.ResponseWriter, r *http.Request)
@@ -7093,6 +7502,15 @@ type ServerInterface interface {
 	// UpdateOrgBilling Change business details and spend controls
 	// (PATCH /api/v1/orgs/{org}/billing)
 	UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ClearAutoTopup Stop automatic top-ups
+	// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
+	ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
+	// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
+	// (PUT /api/v1/orgs/{org}/billing/auto-topup)
+	SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
+	// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+	// (POST /api/v1/orgs/{org}/billing/checkout)
+	StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListBillingContacts Billing contacts, who receive invoices and payment email
 	// (GET /api/v1/orgs/{org}/billing/contacts)
 	ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -7117,9 +7535,30 @@ type ServerInterface interface {
 	// GetOrgInvoicePdf An invoice as PDF
 	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
 	GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
+	// UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+	// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
+	UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams)
+	// ListPaymentMethods Saved cards and wallet mandates
+	// (GET /api/v1/orgs/{org}/billing/payment-methods)
+	ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RemovePaymentMethod Remove a saved card or revoke a mandate
+	// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
+	RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
+	// SetDefaultPaymentMethod Charge this method for invoices and top-ups
+	// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
+	SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
+	// ListOrgPayments Payments received, with receipts
+	// (GET /api/v1/orgs/{org}/billing/payments)
+	ListOrgPayments(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetPaymentReceipt A payment's receipt as PDF
+	// (GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt)
+	GetPaymentReceipt(w http.ResponseWriter, r *http.Request, org OrgID, paymentId PaymentID)
 	// ChangeOrgPlan Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 	// (POST /api/v1/orgs/{org}/billing/plan)
 	ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org OrgID)
+	// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
+	// (POST /api/v1/orgs/{org}/billing/virtual-account)
+	OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EndBreakGlass End a break-glass session early (owner)
 	// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
 	EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID)
@@ -7522,6 +7961,12 @@ func (_ Unimplemented) ListPlatformAudit(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminUploadBillingDocument Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+// (POST /api/v1/admin/billing/documents)
+func (_ Unimplemented) AdminUploadBillingDocument(w http.ResponseWriter, r *http.Request, params AdminUploadBillingDocumentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetBillingSettings Tax rates and the seller's details on invoices
 // (GET /api/v1/admin/billing/settings)
 func (_ Unimplemented) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
@@ -7630,6 +8075,12 @@ func (_ Unimplemented) AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminUploadWhtCertificate Attach a WHT credit note to an invoice
+// (POST /api/v1/admin/invoices/{invoice_id}/wht-certificate)
+func (_ Unimplemented) AdminUploadWhtCertificate(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID, params AdminUploadWhtCertificateParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
 // (GET /api/v1/admin/ledger/check)
 func (_ Unimplemented) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
@@ -7672,6 +8123,12 @@ func (_ Unimplemented) AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminSetGrace Hold dunning for an organisation until a date (null ends the extension)
+// (PUT /api/v1/admin/orgs/{org}/billing/grace)
+func (_ Unimplemented) AdminSetGrace(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
 // (POST /api/v1/admin/orgs/{org}/break-glass)
 func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -7705,6 +8162,36 @@ func (_ Unimplemented) AdminReinstateOrg(w http.ResponseWriter, r *http.Request,
 // AdminSuspendOrg Suspend an organisation (platform admin)
 // (POST /api/v1/admin/orgs/{org}/suspend)
 func (_ Unimplemented) AdminSuspendOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListPaymentEvents Provider events as received, newest first
+// (GET /api/v1/admin/payment-events)
+func (_ Unimplemented) AdminListPaymentEvents(w http.ResponseWriter, r *http.Request, params AdminListPaymentEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminAttributePaymentEvent Settle an unmatched transfer for an organisation (it is verified again first)
+// (POST /api/v1/admin/payment-events/{event_id}/attribute)
+func (_ Unimplemented) AdminAttributePaymentEvent(w http.ResponseWriter, r *http.Request, eventId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListPayments Payments received, by provider and period
+// (GET /api/v1/admin/payments)
+func (_ Unimplemented) AdminListPayments(w http.ResponseWriter, r *http.Request, params AdminListPaymentsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRecordPayment Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+// (POST /api/v1/admin/payments)
+func (_ Unimplemented) AdminRecordPayment(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRefundPayment Refund part of a payment from the organisation's credit balance
+// (POST /api/v1/admin/payments/{payment_id}/refund)
+func (_ Unimplemented) AdminRefundPayment(w http.ResponseWriter, r *http.Request, paymentId PaymentID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7771,6 +8258,18 @@ func (_ Unimplemented) PublishPriceBook(w http.ResponseWriter, r *http.Request, 
 // MoveProject Move a project to another node (platform admin, V3 §2.3)
 // (POST /api/v1/admin/projects/{project_id}/move)
 func (_ Unimplemented) MoveProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminLastReconciliation The latest reconciliation against each provider
+// (GET /api/v1/admin/reconciliation)
+func (_ Unimplemented) AdminLastReconciliation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRunReconciliation Reconcile a period now (default the previous day)
+// (POST /api/v1/admin/reconciliation)
+func (_ Unimplemented) AdminRunReconciliation(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7873,6 +8372,12 @@ func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, user U
 // ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
 // (POST /api/v1/admin/users/{user}/reset-2fa)
 func (_ Unimplemented) ResetUserTotp(w http.ResponseWriter, r *http.Request, user UserID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+// (GET /api/v1/admin/wht)
+func (_ Unimplemented) AdminOutstandingWht(w http.ResponseWriter, r *http.Request, params AdminOutstandingWhtParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8224,6 +8729,24 @@ func (_ Unimplemented) UpdateOrgBilling(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ClearAutoTopup Stop automatic top-ups
+// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
+func (_ Unimplemented) ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
+// (PUT /api/v1/orgs/{org}/billing/auto-topup)
+func (_ Unimplemented) SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+// (POST /api/v1/orgs/{org}/billing/checkout)
+func (_ Unimplemented) StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListBillingContacts Billing contacts, who receive invoices and payment email
 // (GET /api/v1/orgs/{org}/billing/contacts)
 func (_ Unimplemented) ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -8272,9 +8795,51 @@ func (_ Unimplemented) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
+func (_ Unimplemented) UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPaymentMethods Saved cards and wallet mandates
+// (GET /api/v1/orgs/{org}/billing/payment-methods)
+func (_ Unimplemented) ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemovePaymentMethod Remove a saved card or revoke a mandate
+// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
+func (_ Unimplemented) RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetDefaultPaymentMethod Charge this method for invoices and top-ups
+// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
+func (_ Unimplemented) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgPayments Payments received, with receipts
+// (GET /api/v1/orgs/{org}/billing/payments)
+func (_ Unimplemented) ListOrgPayments(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPaymentReceipt A payment's receipt as PDF
+// (GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt)
+func (_ Unimplemented) GetPaymentReceipt(w http.ResponseWriter, r *http.Request, org OrgID, paymentId PaymentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ChangeOrgPlan Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 // (POST /api/v1/orgs/{org}/billing/plan)
 func (_ Unimplemented) ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
+// (POST /api/v1/orgs/{org}/billing/virtual-account)
+func (_ Unimplemented) OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -9152,6 +9717,52 @@ func (siw *ServerInterfaceWrapper) ListPlatformAudit(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// AdminUploadBillingDocument operation middleware
+func (siw *ServerInterfaceWrapper) AdminUploadBillingDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminUploadBillingDocumentParams
+
+	// ------------- Required query parameter "org_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "org_id", r.URL.Query(), &params.OrgId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "filename" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "filename", r.URL.Query(), &params.Filename, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filename"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUploadBillingDocument(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetBillingSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -9563,6 +10174,48 @@ func (siw *ServerInterfaceWrapper) AdminGetInvoicePdf(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// AdminUploadWhtCertificate operation middleware
+func (siw *ServerInterfaceWrapper) AdminUploadWhtCertificate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminUploadWhtCertificateParams
+
+	// ------------- Required query parameter "filename" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "filename", r.URL.Query(), &params.Filename, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filename"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUploadWhtCertificate(w, r, invoiceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AdminLedgerCheck operation middleware
 func (siw *ServerInterfaceWrapper) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
 
@@ -9707,6 +10360,32 @@ func (siw *ServerInterfaceWrapper) AdminUpdateOrgBilling(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminUpdateOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSetGrace operation middleware
+func (siw *ServerInterfaceWrapper) AdminSetGrace(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSetGrace(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9863,6 +10542,164 @@ func (siw *ServerInterfaceWrapper) AdminSuspendOrg(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminSuspendOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListPaymentEvents operation middleware
+func (siw *ServerInterfaceWrapper) AdminListPaymentEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListPaymentEventsParams
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListPaymentEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminAttributePaymentEvent operation middleware
+func (siw *ServerInterfaceWrapper) AdminAttributePaymentEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "event_id" -------------
+	var eventId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "event_id", chi.URLParam(r, "event_id"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "event_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminAttributePaymentEvent(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListPayments operation middleware
+func (siw *ServerInterfaceWrapper) AdminListPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListPaymentsParams
+
+	// ------------- Optional query parameter "provider" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "provider", r.URL.Query(), &params.Provider, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "provider"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListPayments(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRecordPayment operation middleware
+func (siw *ServerInterfaceWrapper) AdminRecordPayment(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRecordPayment(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRefundPayment operation middleware
+func (siw *ServerInterfaceWrapper) AdminRefundPayment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "payment_id" -------------
+	var paymentId PaymentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "payment_id", chi.URLParam(r, "payment_id"), &paymentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "payment_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRefundPayment(w, r, paymentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10101,6 +10938,34 @@ func (siw *ServerInterfaceWrapper) MoveProject(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.MoveProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminLastReconciliation operation middleware
+func (siw *ServerInterfaceWrapper) AdminLastReconciliation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminLastReconciliation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRunReconciliation operation middleware
+func (siw *ServerInterfaceWrapper) AdminRunReconciliation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRunReconciliation(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10479,6 +11344,39 @@ func (siw *ServerInterfaceWrapper) ResetUserTotp(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ResetUserTotp(w, r, user)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminOutstandingWht operation middleware
+func (siw *ServerInterfaceWrapper) AdminOutstandingWht(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminOutstandingWhtParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminOutstandingWht(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -11854,6 +12752,84 @@ func (siw *ServerInterfaceWrapper) UpdateOrgBilling(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ClearAutoTopup operation middleware
+func (siw *ServerInterfaceWrapper) ClearAutoTopup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearAutoTopup(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAutoTopup operation middleware
+func (siw *ServerInterfaceWrapper) SetAutoTopup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAutoTopup(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartCheckout operation middleware
+func (siw *ServerInterfaceWrapper) StartCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartCheckout(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListBillingContacts operation middleware
 func (siw *ServerInterfaceWrapper) ListBillingContacts(w http.ResponseWriter, r *http.Request) {
 
@@ -12089,6 +13065,214 @@ func (siw *ServerInterfaceWrapper) GetOrgInvoicePdf(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// UploadWhtCertificate operation middleware
+func (siw *ServerInterfaceWrapper) UploadWhtCertificate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UploadWhtCertificateParams
+
+	// ------------- Required query parameter "filename" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "filename", r.URL.Query(), &params.Filename, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filename"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadWhtCertificate(w, r, org, invoiceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPaymentMethods operation middleware
+func (siw *ServerInterfaceWrapper) ListPaymentMethods(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPaymentMethods(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemovePaymentMethod operation middleware
+func (siw *ServerInterfaceWrapper) RemovePaymentMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "method_id" -------------
+	var methodId MethodID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemovePaymentMethod(w, r, org, methodId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetDefaultPaymentMethod operation middleware
+func (siw *ServerInterfaceWrapper) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "method_id" -------------
+	var methodId MethodID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetDefaultPaymentMethod(w, r, org, methodId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgPayments operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgPayments(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPaymentReceipt operation middleware
+func (siw *ServerInterfaceWrapper) GetPaymentReceipt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "payment_id" -------------
+	var paymentId PaymentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "payment_id", chi.URLParam(r, "payment_id"), &paymentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "payment_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPaymentReceipt(w, r, org, paymentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ChangeOrgPlan operation middleware
 func (siw *ServerInterfaceWrapper) ChangeOrgPlan(w http.ResponseWriter, r *http.Request) {
 
@@ -12106,6 +13290,32 @@ func (siw *ServerInterfaceWrapper) ChangeOrgPlan(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangeOrgPlan(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OrgVirtualAccount operation middleware
+func (siw *ServerInterfaceWrapper) OrgVirtualAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OrgVirtualAccount(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -16697,6 +17907,36 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/estimate", wrapper.EstimateOrgCost)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/checkout", wrapper.StartCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/virtual-account", wrapper.OrgVirtualAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods", wrapper.ListPaymentMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}", wrapper.RemovePaymentMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}/default", wrapper.SetDefaultPaymentMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.ClearAutoTopup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.SetAutoTopup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payments", wrapper.ListOrgPayments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payments/{payment_id}/receipt", wrapper.GetPaymentReceipt)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate", wrapper.UploadWhtCertificate)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/usage", wrapper.GetOrgUsage)
 	})
 	r.Group(func(r chi.Router) {
@@ -16872,6 +18112,39 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/payments/webhooks/{provider}", wrapper.PaymentWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/payments", wrapper.AdminListPayments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/payments", wrapper.AdminRecordPayment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/billing/documents", wrapper.AdminUploadBillingDocument)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/payments/{payment_id}/refund", wrapper.AdminRefundPayment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/payment-events", wrapper.AdminListPaymentEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/payment-events/{event_id}/attribute", wrapper.AdminAttributePaymentEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/wht", wrapper.AdminOutstandingWht)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/wht-certificate", wrapper.AdminUploadWhtCertificate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/reconciliation", wrapper.AdminLastReconciliation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/reconciliation", wrapper.AdminRunReconciliation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/orgs/{org}/billing/grace", wrapper.AdminSetGrace)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)
