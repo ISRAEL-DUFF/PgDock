@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/mail"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,13 +24,16 @@ import (
 
 // Alert kinds (spec §8.8), plus a failed weekly isolation check (§7.1).
 const (
-	KindBackupFailed       = "backup_failed"
-	KindBackupOverdue      = "backup_overdue"
-	KindRestoreTestFailed  = "restore_test_failed"
-	KindNodeDisk           = "node_disk"
-	KindNodeUnreachable    = "node_unreachable"
-	KindProjectDisk        = "project_disk"
-	KindPoolerDown         = "pooler_down"
+	KindBackupFailed      = "backup_failed"
+	KindBackupOverdue     = "backup_overdue"
+	KindRestoreTestFailed = "restore_test_failed"
+	KindNodeDisk          = "node_disk"
+	KindNodeUnreachable   = "node_unreachable"
+	KindProjectDisk       = "project_disk"
+	KindPoolerDown        = "pooler_down"
+	// Standby edge pooler (V3 §2.1).
+	KindPoolerHostNotReady = "pooler_host_not_ready"
+	KindPoolerSplitBrain   = "pooler_split_brain"
 	KindIsolationCheck     = "isolation_check_failed"
 	SeverityWarning        = "warning"
 	SeverityCritical       = "critical"
@@ -273,6 +277,11 @@ func (s *Service) conditions(ctx context.Context) ([]condition, error) {
 	}
 
 	out = append(out, s.poolerConditions(ctx)...)
+	hostConds, err := s.poolerHostConditions(ctx)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, hostConds...)
 	// A partial evaluation must not resolve alerts it could not check.
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
@@ -304,6 +313,57 @@ func (s *Service) poolerConditions(ctx context.Context) []condition {
 		}
 	}
 	return out
+}
+
+// poolerHostConditions reports pooler hosts (V3 §2.1) that answer but
+// can't serve (a PgBouncer down, or a stale configuration) for the grace
+// period, and split brain: more than one host keepalived MASTER. An
+// unreachable host is already "node unreachable".
+func (s *Service) poolerHostConditions(ctx context.Context) ([]condition, error) {
+	hosts, err := store.New(s.db).PoolerHosts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fresh := time.Now().Add(-2 * time.Minute)
+	var out []condition
+	var masters []string
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, h := range hosts {
+		checked := h.PoolerCheckedAt != nil && h.PoolerCheckedAt.After(fresh)
+		key := "host:" + h.ID.String()
+		notReady := checked && h.Status == "healthy" && h.PoolerReady != nil && !*h.PoolerReady
+		since, failing := s.poolerFailing[key]
+		switch {
+		case !notReady:
+			delete(s.poolerFailing, key)
+		case !failing:
+			since = time.Now()
+			s.poolerFailing[key] = since
+		}
+		if notReady && time.Since(since) >= s.cfg.PoolerGrace {
+			out = append(out, condition{KindPoolerHostNotReady, SeverityCritical, "node", h.ID.String(), h.Name,
+				fmt.Sprintf("Pooler host %s can't serve: a PgBouncer is down or its configuration is stale, so it can't take the floating IP", h.Name),
+				map[string]any{"generation": h.PoolerGeneration, "vrrp_state": h.PoolerVrrpState}})
+		}
+		if checked && h.Status == "healthy" && h.PoolerVrrpState != nil && *h.PoolerVrrpState == "MASTER" {
+			masters = append(masters, h.Name)
+		}
+	}
+	since, failing := s.poolerFailing["split"]
+	switch {
+	case len(masters) < 2:
+		delete(s.poolerFailing, "split")
+	case !failing:
+		since = time.Now()
+		s.poolerFailing["split"] = since
+	}
+	if len(masters) >= 2 && time.Since(since) >= s.cfg.PoolerGrace {
+		out = append(out, condition{KindPoolerSplitBrain, SeverityCritical, "pooler", "edge", "edge pooler",
+			fmt.Sprintf("More than one pooler host is keepalived MASTER (%s): check the network between them. pgdock-server keeps the floating IP on one healthy host.", strings.Join(masters, ", ")),
+			map[string]any{"masters": masters}})
+	}
+	return out, nil
 }
 
 // DeliverPending sends notifications not yet delivered (new firings and

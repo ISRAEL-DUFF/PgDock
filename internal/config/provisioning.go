@@ -45,6 +45,31 @@ type Pooler struct {
 	// SSLMode for admin and smoke-test connections (PGDOCK_POOLER_SSLMODE,
 	// default "prefer").
 	SSLMode string
+
+	// Local (PGDOCK_POOLER_LOCAL, default true): SessionAddr and PooledAddr
+	// are poolers pgdock-server administers itself, next to it, reading
+	// ConfigDir. With a standby pooler pair (V3 §2.1) set it to false and
+	// point SessionAddr/PooledAddr at the floating IP for smoke tests; the
+	// pooler hosts are then administered through their nodes.
+	Local bool
+	// HostSessionPort and HostPooledPort (PGDOCK_POOLER_HOST_SESSION_PORT,
+	// _POOLED_PORT, default 5432 and 6543) are the admin consoles on each
+	// pooler host's private address.
+	HostSessionPort int
+	HostPooledPort  int
+	// FloatingIP is the edge pooler's floating IP, when there is one.
+	FloatingIP FloatingIP
+}
+
+// FloatingIP configures the Hetzner floating IP in front of the pooler
+// hosts (V3 §2.1), which pgdock-server checks and corrects.
+type FloatingIP struct {
+	// ID (PGDOCK_FLOATING_IP_ID); empty means no floating IP to manage.
+	ID string
+	// Token (PGDOCK_HETZNER_TOKEN or _FILE) and API (PGDOCK_HETZNER_API,
+	// default the Hetzner Cloud API).
+	Token string
+	API   string
 }
 
 // Public is the connection info clients receive (spec §5.1).
@@ -145,6 +170,27 @@ func loadProvisioning(getenv func(string) string, readFile func(string) ([]byte,
 		p.AdminPassword = strings.TrimRight(string(b), "\r\n")
 	default:
 		errs = append(errs, errors.New("PGDOCK_POOLER_ADMIN_PASSWORD or _FILE is required with PGDOCK_POOLER_CONFIG_DIR"))
+	}
+	p.Local = getenv("PGDOCK_POOLER_LOCAL") != "false"
+	p.HostSessionPort = port("PGDOCK_POOLER_HOST_SESSION_PORT", 5432)
+	p.HostPooledPort = port("PGDOCK_POOLER_HOST_POOLED_PORT", 6543)
+	p.FloatingIP = FloatingIP{ID: getenv("PGDOCK_FLOATING_IP_ID"), API: getenv("PGDOCK_HETZNER_API")}
+	if p.FloatingIP.ID != "" {
+		tok, tokFile := getenv("PGDOCK_HETZNER_TOKEN"), getenv("PGDOCK_HETZNER_TOKEN_FILE")
+		switch {
+		case tok != "" && tokFile != "":
+			errs = append(errs, errors.New("set only one of PGDOCK_HETZNER_TOKEN and PGDOCK_HETZNER_TOKEN_FILE"))
+		case tok != "":
+			p.FloatingIP.Token = tok
+		case tokFile != "":
+			b, err := readFile(tokFile)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("PGDOCK_HETZNER_TOKEN_FILE: %w", err))
+			}
+			p.FloatingIP.Token = strings.TrimSpace(string(b))
+		default:
+			errs = append(errs, errors.New("PGDOCK_HETZNER_TOKEN or _FILE is required with PGDOCK_FLOATING_IP_ID"))
+		}
 	}
 	cfg.Pooler = p
 	return errs

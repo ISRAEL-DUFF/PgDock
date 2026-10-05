@@ -35,6 +35,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/floatip"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
@@ -174,6 +175,7 @@ func run() error {
 
 	var backups *backup.Service
 	var nodeSvc *nodes.Service
+	var poolerArbiter *pooler.Arbiter
 	if projects != nil {
 		if backups, nodeSvc, err = setupBackups(ctx, cfg, pool, keyring, projects, log); err != nil {
 			return err
@@ -183,6 +185,13 @@ func run() error {
 		}
 		for name, k := range backups.Dedicated.Kinds() {
 			kinds[name] = k
+		}
+		// The standby edge pooler (V3 §2.1): push the configuration to the
+		// pooler hosts and keep the floating IP on a healthy one.
+		poolerArbiter = setupPoolerHosts(cfg, pm, nodeSvc, log)
+		if poolerArbiter != nil {
+			bg.Add(1)
+			go func() { defer bg.Done(); poolerArbiter.Run(bgCtx, 3*time.Second) }()
 		}
 		bg.Add(3)
 		go func() { defer bg.Done(); nodeSvc.Run(bgCtx, 30*time.Second) }()
@@ -501,13 +510,17 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 	if err != nil {
 		return nil, nil, fmt.Errorf("pooler admin password: %w", err)
 	}
+	// The poolers next to pgdock-server (V1/V2), unless the edge runs on
+	// pooler hosts (V3 §2.1), which are administered through their nodes.
 	var admins []*pooler.Admin
-	for _, a := range []struct{ name, addr string }{{"session", pc.SessionAddr}, {"transaction", pc.PooledAddr}} {
-		adm, err := pooler.NewAdmin(a.name, a.addr, pc.AdminUser, pc.AdminPassword, pc.SSLMode)
-		if err != nil {
-			return nil, nil, err
+	if pc.Local {
+		for _, a := range []struct{ name, addr string }{{"session", pc.SessionAddr}, {"transaction", pc.PooledAddr}} {
+			adm, err := pooler.NewAdmin(a.name, a.addr, pc.AdminUser, pc.AdminPassword, pc.SSLMode)
+			if err != nil {
+				return nil, nil, err
+			}
+			admins = append(admins, adm)
 		}
-		admins = append(admins, adm)
 	}
 	pm, err := pooler.NewManager(pc.ConfigDir, pc.FileMode, pool, admins,
 		[]pooler.User{{Name: pc.AdminUser, Secret: adminVerifier}}, log)
@@ -535,6 +548,25 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 		SmokePooledAddr:  pc.PooledAddr,
 		SmokeSSLMode:     pc.SSLMode,
 	}, log), pm, nil
+}
+
+// setupPoolerHosts connects the pooler manager to the pooler hosts and
+// returns the arbiter that watches them and the floating IP.
+func setupPoolerHosts(cfg config.Config, pm *pooler.Manager, ns *nodes.Service, log *slog.Logger) *pooler.Arbiter {
+	if pm == nil || ns == nil {
+		return nil
+	}
+	pc := cfg.Pooler
+	pm.SetHostDriver(nodes.PoolerDriver{S: ns}, pooler.HostAdminConfig{
+		User: pc.AdminUser, Password: pc.AdminPassword, SSLMode: pc.SSLMode,
+		SessionPort: pc.HostSessionPort, PooledPort: pc.HostPooledPort,
+	})
+	var fip floatip.Provider
+	if pc.FloatingIP.ID != "" {
+		fip = &floatip.Hetzner{API: pc.FloatingIP.API, Token: pc.FloatingIP.Token, IPID: pc.FloatingIP.ID}
+		log.Info("managing the edge pooler's floating IP", "floating_ip", pc.FloatingIP.ID)
+	}
+	return pooler.NewArbiter(pm, fip, log)
 }
 
 // setupBackups builds the agent CA, the nodes service, and the backup

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,9 @@ type Manager struct {
 	log    *slog.Logger
 
 	mu sync.Mutex
+
+	hostsMu sync.Mutex
+	hosts   *hostSet // pooler hosts (V3 §2.1), when set
 }
 
 // NewManager returns a Manager writing files with mode into dir and
@@ -44,8 +48,15 @@ func NewManager(dir string, mode os.FileMode, db *pgxpool.Pool, admins []*Admin,
 	return &Manager{dir: dir, mode: mode, db: db, admins: admins, static: staticUsers, log: log}, nil
 }
 
-// Admins returns the pooler admin consoles.
-func (m *Manager) Admins() []*Admin { return m.admins }
+// Admins returns the pooler admin consoles: the local poolers, and both
+// PgBouncers of every pooler host last seen reachable.
+func (m *Manager) Admins() []*Admin {
+	out := append([]*Admin(nil), m.admins...)
+	if hs := m.hostSet(); hs != nil {
+		out = append(out, hs.reachableAdmins()...)
+	}
+	return out
+}
 
 // Sync renders routes and the auth file from the metadata DB, writes them
 // atomically, and RELOADs every pooler. It always reloads, so a pooler that
@@ -119,7 +130,22 @@ func (m *Manager) Sync(ctx context.Context) error {
 		return fmt.Errorf("pooler sync: %w", err)
 	}
 	m.log.Debug("pooler config rendered", "routes", len(cfg.Routes), "users_changed", usersChanged, "routes_changed", routesChanged)
+	return m.distribute(ctx)
+}
 
+// distribute pushes the files to the pooler hosts and RELOADs every
+// PgBouncer. A pooler host that misses the push is only logged: it is now
+// stale, fails keepalived's check, and the arbiter catches it up. Only when
+// no host took the configuration does the change fail.
+func (m *Manager) distribute(ctx context.Context) error {
+	if err := m.pushHosts(ctx); err != nil {
+		var pe *HostPushError
+		if errors.As(err, &pe) && !pe.All {
+			m.log.Warn("pooler host missed a configuration push; it stays stale until it catches up", "err", err)
+		} else {
+			return err
+		}
+	}
 	if err := m.each(ctx, func(a *Admin) error { return a.Reload(ctx) }); err != nil {
 		return &ReloadError{Err: err}
 	}
@@ -140,9 +166,12 @@ func (m *Manager) Dir() string { return m.dir }
 func (m *Manager) FileMode() os.FileMode { return m.mode }
 
 // Reload makes every pooler re-read its configuration, auth file, and TLS
-// certificate without re-rendering anything.
+// certificate without re-rendering anything (pooler hosts get the files
+// pushed first, e.g. a renewed certificate).
 func (m *Manager) Reload(ctx context.Context) error {
-	return m.each(ctx, func(a *Admin) error { return a.Reload(ctx) })
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.distribute(ctx)
 }
 
 // Kill drops all connections to dbs on every pooler. dbs are a project's
@@ -200,8 +229,8 @@ func (m *Manager) Freeze(ctx context.Context, wait time.Duration, dbs ...string)
 func (m *Manager) freeze(ctx context.Context, db string, wait time.Duration) ([]string, error) {
 	var killed []string
 	var errs []error
-	for _, a := range m.admins {
-		if a.Name == SessionPooler {
+	for _, a := range m.Admins() {
+		if a.Name == SessionPooler || strings.HasPrefix(a.Name, SessionPooler+"@") {
 			if err := a.Kill(ctx, db); err != nil {
 				errs = append(errs, err)
 				continue
@@ -234,7 +263,7 @@ func (m *Manager) Resume(ctx context.Context, dbs ...string) error {
 
 func (m *Manager) each(ctx context.Context, f func(*Admin) error) error {
 	var errs []error
-	for _, a := range m.admins {
+	for _, a := range m.Admins() {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
