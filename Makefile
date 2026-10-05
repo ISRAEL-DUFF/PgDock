@@ -93,12 +93,13 @@ build-go:
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-server ./cmd/server
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-agent ./cmd/agent
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock ./cmd/cli
+	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-status ./cmd/status
 
 ## release-check: fail if the server binary embeds only the placeholder UI.
 release-check:
 	$(BIN)/pgdock-server -require-ui
 
-## release: linux/amd64 and linux/arm64 server and agent binaries (UI
+## release: linux/amd64 and linux/arm64 server, agent and status binaries (UI
 ## embedded), the pgdock CLI for linux, darwin and windows on amd64 and
 ## arm64, the install bundle (source at this commit), and SHA256SUMS, in
 ## dist/.
@@ -106,7 +107,7 @@ DIST := dist
 release: build-ui
 	rm -rf $(DIST) && mkdir -p $(DIST)
 	for arch in amd64 arm64; do \
-		for cmd in server agent; do \
+		for cmd in server agent status; do \
 			CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
 				-o $(DIST)/pgdock-$$cmd-$(VERSION)-linux-$$arch ./cmd/$$cmd; \
 		done; \

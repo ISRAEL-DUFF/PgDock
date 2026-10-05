@@ -1,0 +1,14 @@
+{{define "pagetitle"}}{{.Heading}} · {{.Title}}{{end}}
+{{define "content"}}
+<section class="message">
+  <h1>{{.Heading}}</h1>
+  {{if .Text}}<p>{{.Text}}</p>{{end}}
+  {{if .Action}}
+  <form method="post" action="{{.Action}}">
+    <input type="hidden" name="token" value="{{.Token}}">
+    <button type="submit">{{.Button}}</button>
+  </form>
+  {{end}}
+  <p><a href="/">Back to the status page</a></p>
+</section>
+{{end}}

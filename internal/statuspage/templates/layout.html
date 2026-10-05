@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{block "pagetitle" .}}{{.Title}}{{end}}</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="alternate" type="application/rss+xml" title="{{.Title}} incidents" href="/feed.rss">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">{{.Title}}</a>
+</header>
+<main>
+{{block "content" .}}{{end}}
+</main>
+<footer>
+  <a href="/feed.rss">RSS</a> · <a href="/api/v1/status">JSON</a> · Checked from outside PGDock · {{when .UpdatedAt}}
+</footer>
+</body>
+</html>

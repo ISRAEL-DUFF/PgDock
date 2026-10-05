@@ -1,0 +1,92 @@
+# pgdock-status configuration (V3 §2.6). Copy to status.toml and edit.
+# Check it with: pgdock-status check-config --config status.toml
+
+# Where the page is reached (links in emails and the RSS feed).
+public_url = "https://status.example.com"
+title = "PGDock status"
+listen = ":8080"
+data = "/var/lib/pgdock-status/status.db"
+
+# One check a minute: the SLA counts minutes (V3 §2.7).
+interval = "1m"
+# Failing checks in a row before an incident opens by itself, and good
+# ones before it resolves by itself.
+fail_after = 3
+recover_after = 2
+
+# pgdock-server signs heartbeats and incidents with this secret
+# (PGDOCK_STATUS_PUSH_SECRET on the PGDock side). At least 32 characters:
+#   openssl rand -hex 32
+push_secret_file = "/run/secrets/pgdock-status-push"
+# Heartbeat components show "unknown" after this long without one.
+heartbeat_ttl = "5m"
+
+# Behind a reverse proxy that sets X-Forwarded-For (Caddy, nginx).
+trust_proxy = true
+
+# Email subscriptions (double opt-in). Leave out to disable them.
+[smtp]
+host = "smtp.example.net"
+port = 587
+tls = "starttls"
+username = "status@example.com"
+password_file = "/run/secrets/pgdock-status-smtp"
+from = "PGDock status <status@example.com>"
+
+# ---- Components, probed from here ----------------------------------------
+
+[[component]]
+id = "dashboard"
+name = "Control plane & dashboard"
+region = "eu-central"
+  [[component.probe]]
+  name = "dashboard"
+  kind = "http"
+  url = "https://pgdock.example.com/healthz"
+
+# The floating IP on both ports, as a low-privilege probe role into a
+# small probe database (docs/status-page.md).
+[[component]]
+id = "edge-pooler"
+name = "Edge pooler"
+region = "eu-central"
+  [[component.probe]]
+  name = "session port"
+  kind = "postgres"
+  dsn_file = "/run/secrets/pgdock-status-probe-session"
+  [[component.probe]]
+  name = "transaction port"
+  kind = "postgres"
+  dsn_file = "/run/secrets/pgdock-status-probe-transaction"
+
+# The shared tier: a write through the pooler (txid_current needs a
+# writable primary).
+[[component]]
+id = "shared-tier"
+name = "Shared tier"
+region = "eu-central"
+  [[component.probe]]
+  name = "probe database"
+  kind = "postgres"
+  dsn_file = "/run/secrets/pgdock-status-probe-transaction"
+  query = "SELECT txid_current()"
+
+# ---- Components reported by pgdock-server's heartbeats ---------------------
+
+[[component]]
+id = "dedicated"
+name = "Dedicated instances"
+region = "eu-central"
+heartbeat = true
+
+[[component]]
+id = "backups"
+name = "Backups"
+region = "eu-central"
+heartbeat = true
+
+[[component]]
+id = "webhooks-jobs"
+name = "Webhooks & jobs"
+region = "eu-central"
+heartbeat = true
