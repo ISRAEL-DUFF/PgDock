@@ -31,6 +31,7 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindUpgrade:       {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
 		KindHAEnable:      {Handler: s.runHAEnable, OnFail: s.failHAEnable, MaxAttempts: 2, Timeout: 24 * time.Hour},
 		KindHADisable:     {Handler: s.runHADisable, MaxAttempts: 3},
+		KindHASwitchover:  {Handler: s.runSwitchover, MaxAttempts: 1, Timeout: 5 * time.Minute},
 	}
 }
 

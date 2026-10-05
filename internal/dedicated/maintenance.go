@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -217,6 +218,19 @@ func (s *Service) MinorUpgrade(ctx context.Context, inst store.Instance) (uuid.U
 	if err != nil {
 		return finish(nil, err)
 	}
+	if inst.HaEnabled && len(projects) == 1 {
+		// HA: switched over instead of restarted (V3 §2.4).
+		res, pause, err := s.minorUpgradeHA(ctx, inst, projects[0])
+		if err != nil {
+			return finish(pause, err)
+		}
+		if err := q.SetInstanceRelease(ctx, store.SetInstanceReleaseParams{
+			ID: inst.ID, PgRelease: nonEmpty(res.Version), PgReleaseAvailable: nonEmpty(res.ImageVersion),
+		}); err != nil {
+			return finish(pause, err)
+		}
+		return finish(pause, nil)
+	}
 	var dbs []string
 	for _, p := range projects {
 		dbs = append(dbs, store.PoolerNames(p)...)
@@ -314,4 +328,64 @@ func (s *Service) RunMaintenance(ctx context.Context, interval time.Duration) {
 		case <-t.C:
 		}
 	}
+}
+
+// minorUpgradeHA restarts each standby onto the new release, switches over
+// to one, then restarts the old primary as a standby: writes pause only for
+// the switchover.
+func (s *Service) minorUpgradeHA(ctx context.Context, inst store.Instance, p store.Project) (agentapi.Instance, *int32, error) {
+	q := store.New(s.db)
+	recreate := func(m Member) (agentapi.Instance, error) {
+		agent, err := s.nodes.ForNode(ctx, m.NodeID)
+		if err != nil {
+			return agentapi.Instance{}, err
+		}
+		spec, err := s.memberSpec(ctx, inst, m.ID)
+		if err != nil {
+			return agentapi.Instance{}, err
+		}
+		spec.Recreate = true
+		res, err := agent.CreateInstance(ctx, spec)
+		if err != nil {
+			return res, err
+		}
+		if err := s.recordMember(ctx, m.ID, agent, res); err != nil {
+			return res, err
+		}
+		_, err = s.waitMember(ctx, inst.ID, m.ID, false, s.standbyTimeout(), nil)
+		return res, err
+	}
+	members, err := q.ListInstanceMembers(ctx, inst.ID)
+	if err != nil {
+		return agentapi.Instance{}, nil, err
+	}
+	old := leaderKey(inst)
+	var res agentapi.Instance
+	var standby *uuid.UUID
+	for _, m := range members {
+		if m.ID == old {
+			continue
+		}
+		if res, err = recreate(m); err != nil {
+			return res, nil, fmt.Errorf("standby on %s: %w", m.NodeName, err)
+		}
+		id := m.ID
+		standby = &id
+	}
+	if standby == nil {
+		return res, nil, errors.New("no standby to switch over to")
+	}
+	took, _, err := s.switchOver(ctx, inst, p, standby, nil)
+	if err != nil {
+		return res, nil, err
+	}
+	pause := int32(took.Milliseconds())
+	for _, m := range members {
+		if m.ID == old {
+			if res, err = recreate(m); err != nil {
+				return res, &pause, fmt.Errorf("old primary on %s: %w", m.NodeName, err)
+			}
+		}
+	}
+	return res, &pause, nil
 }

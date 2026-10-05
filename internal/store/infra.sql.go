@@ -169,7 +169,7 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 
 const listInstanceSummaries = `-- name: ListInstanceSummaries :many
 SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error, i.pg_version,
-       i.pg_release, i.pg_release_available,
+       i.pg_release, i.pg_release_available, i.ha_enabled,
        n.id AS node_id, n.name AS node_name
 FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.deleted_at IS NULL
@@ -187,6 +187,7 @@ type ListInstanceSummariesRow struct {
 	PgVersion          int32
 	PgRelease          *string
 	PgReleaseAvailable *string
+	HaEnabled          bool
 	NodeID             uuid.UUID
 	NodeName           string
 }
@@ -212,6 +213,7 @@ func (q *Queries) ListInstanceSummaries(ctx context.Context) ([]ListInstanceSumm
 			&i.PgVersion,
 			&i.PgRelease,
 			&i.PgReleaseAvailable,
+			&i.HaEnabled,
 			&i.NodeID,
 			&i.NodeName,
 		); err != nil {

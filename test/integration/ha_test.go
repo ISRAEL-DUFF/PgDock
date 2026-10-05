@@ -146,3 +146,146 @@ func TestEnableAndDisableHA(t *testing.T) {
 		t.Fatalf("ledger after disabling HA: %d rows (%d acknowledged) %v", count, w.acked.Load(), err)
 	}
 }
+
+// haStatus reads GET /projects/{id}/ha.
+func haStatus(t *testing.T, e *testenv.Env, project uuid.UUID) gen.HAStatus {
+	t.Helper()
+	var st gen.HAStatus
+	if code := e.Do("GET", "/api/v1/projects/"+project.String()+"/ha", nil, &st); code != http.StatusOK {
+		t.Fatalf("GET ha: %d", code)
+	}
+	return st
+}
+
+func leaderOf(st gen.HAStatus) (gen.HAMember, bool) {
+	for _, m := range st.Members {
+		if m.Role == gen.HAMemberRoleLeader {
+			return m, true
+		}
+	}
+	return gen.HAMember{}, false
+}
+
+// TestHASwitchoverAndFailover: with synchronous replication, a planned
+// switchover moves the primary with no lost commit; then the new primary's
+// node dies (its agent, the member and its etcd member) under load, and
+// writes come back on the other node through the same URL.
+func TestHASwitchoverAndFailover(t *testing.T) {
+	needDedicated(t)
+	e := testenv.Start(t, testenv.Options{})
+	c, ns := haProject(t, e)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go e.Dedicated.RunHAWatcher(ctx, time.Second)
+
+	sync := true
+	var op gen.Operation
+	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/ha", gen.HAEnableRequest{NodeId: &ns[1].Id, Synchronous: &sync}, &op); code != http.StatusAccepted {
+		t.Fatalf("enable HA: %d", code)
+	}
+	if op = e.WaitOperation(op.Id); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("enable HA: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
+	}
+	st := haStatus(t, e, c.Project.Id)
+	if !st.Enabled || !st.Synchronous || len(st.Members) != 2 {
+		t.Fatalf("HA status: %+v", st)
+	}
+	// A second enable is refused.
+	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/ha", gen.HAEnableRequest{}, nil); code != http.StatusConflict {
+		t.Fatalf("enable twice: %d", code)
+	}
+
+	// Planned switchover: test -> node-b.
+	w := startWriter(t, e, c.Connection.PooledUrl)
+	time.Sleep(2 * time.Second)
+	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/switchover", gen.SwitchoverRequest{}, &op); code != http.StatusAccepted {
+		t.Fatalf("switchover: %d", code)
+	}
+	if op = e.WaitOperation(op.Id); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("switchover: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
+	}
+	t.Logf("switchover:\n%s", testenv.FormatLog(op))
+	time.Sleep(2 * time.Second)
+	switchGap := w.paused.Load()
+	st = haStatus(t, e, c.Project.Id)
+	l, ok := leaderOf(st)
+	if !ok || l.NodeId != ns[1].Id {
+		t.Fatalf("leader after the switchover: %+v", st.Members)
+	}
+	if len(st.Failovers) != 1 || st.Failovers[0].Kind != gen.Switchover {
+		t.Fatalf("history after the switchover: %+v", st.Failovers)
+	}
+	t.Logf("switchover: longest gap between commits %d ms", switchGap)
+
+	// Both members back in place: the old primary streams again (as the
+	// synchronous standby) before the new primary's node dies.
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		ok := 0
+		for _, m := range haStatus(t, e, c.Project.Id).Members {
+			if m.Role == gen.HAMemberRoleLeader || (m.Role == gen.HAMemberRoleSyncStandby && m.State != nil && *m.State == "streaming") {
+				ok++
+			}
+		}
+		if ok == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("members after the switchover: %+v", haStatus(t, e, c.Project.Id).Members)
+		}
+		time.Sleep(time.Second)
+	}
+
+	// The new primary's node dies.
+	w.paused.Store(0)
+	e.KillAgent("node-b")
+	killed := time.Now()
+	for _, name := range []string{"pgdock-" + l.Id.String(), "pgdock-etcd-" + ns[1].Id.String()} {
+		if out, err := exec.Command("docker", "kill", name).CombinedOutput(); err != nil {
+			t.Fatalf("kill %s: %v %s", name, err, out)
+		}
+	}
+	// Writes come back through the same URL.
+	before := w.acked.Load()
+	deadline = time.Now().Add(90 * time.Second)
+	for w.acked.Load() < before+20 {
+		if time.Now().After(deadline) {
+			out, _ := exec.Command("docker", "logs", "--tail", "30", "pgdock-"+c.Project.Id.String()).CombinedOutput()
+			for _, m := range haStatus(t, e, c.Project.Id).Members {
+				if m.NodeId == ns[0].Id {
+					out, _ = exec.Command("docker", "logs", "--tail", "40", "pgdock-"+m.Id.String()).CombinedOutput()
+				}
+			}
+			t.Fatalf("no writes after the node died: %d acked before, %d now, %d errors\nsurviving member:\n%s", before, w.acked.Load(), w.errs.Load(), out)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	restored := time.Since(killed)
+	time.Sleep(2 * time.Second)
+	w.Stop()
+	t.Logf("failover: writes back after %s (longest gap between commits %d ms); %d commits, %d client errors",
+		restored.Round(100*time.Millisecond), w.paused.Load(), w.acked.Load(), w.errs.Load())
+	if restored > 60*time.Second {
+		t.Errorf("writes came back after %s, want under 60 s", restored)
+	}
+
+	st = haStatus(t, e, c.Project.Id)
+	l, ok = leaderOf(st)
+	if !ok || l.NodeId != ns[0].Id {
+		t.Fatalf("leader after the failover: %+v", st.Members)
+	}
+	if len(st.Failovers) != 2 || st.Failovers[0].Kind != gen.Failover || st.Failovers[0].DurationMs == nil {
+		t.Fatalf("history after the failover: %+v", st.Failovers)
+	}
+	t.Logf("failover event: %d ms, %s -> %s", *st.Failovers[0].DurationMs, deref(st.Failovers[0].FromNode), deref(st.Failovers[0].ToNode))
+	// Synchronous replication: every acknowledged commit survived.
+	conn := e.MustConnect(c.Connection.PooledUrl)
+	defer conn.Close(ctx)
+	var count, maxN int64
+	if err := conn.QueryRow(ctx, `SELECT count(*), coalesce(max(n), 0) FROM ledger`).Scan(&count, &maxN); err != nil {
+		t.Fatal(err)
+	}
+	if maxN < w.acked.Load() || count != maxN {
+		t.Fatalf("ledger after the failover: %d rows, max %d, %d acknowledged", count, maxN, w.acked.Load())
+	}
+}

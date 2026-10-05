@@ -889,6 +889,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/ha": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * HA state of a dedicated project (V3 §2.2)
+         * @description Each member's node, role, state and lag; the failover history; the month's availability.
+         */
+        get: operations["getProjectHA"];
+        put?: never;
+        /**
+         * Turn HA on
+         * @description Queues an `ha_enable` operation: the instance restarts under Patroni
+         *     (writes pause for a few seconds), then a standby on another node is
+         *     built from the newest base backup and streams.
+         */
+        post: operations["enableProjectHA"];
+        /** Turn HA off (the standby is removed) */
+        delete: operations["disableProjectHA"];
+        options?: never;
+        head?: never;
+        /** Change HA settings (synchronous replication) */
+        patch: operations["updateProjectHA"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/switchover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Planned switchover to a standby
+         * @description Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+         */
+        post: operations["switchoverProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/upgrade": {
         parameters: {
             query?: never;
@@ -4070,9 +4118,75 @@ export interface components {
             /** @description Why it isn't ready. */
             reason?: string;
         };
+        HAEnableRequest: {
+            /**
+             * Format: uuid
+             * @description Where the standby goes (default the least loaded other node that takes dedicated instances).
+             */
+            node_id?: string;
+            synchronous?: boolean;
+        };
+        HAUpdateRequest: {
+            synchronous: boolean;
+        };
+        SwitchoverRequest: {
+            /**
+             * Format: uuid
+             * @description The member to switch to (default the most current standby).
+             */
+            candidate?: string;
+        };
+        HAMember: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            /** @enum {string} */
+            role: "leader" | "replica" | "sync_standby" | "starting" | "stopped" | "unknown";
+            state?: string | null;
+            /** Format: int64 */
+            lag_bytes?: number | null;
+            timeline?: number | null;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        FailoverEvent: {
+            /** @enum {string} */
+            kind: "failover" | "switchover";
+            from_node?: string | null;
+            to_node?: string | null;
+            duration_ms?: number | null;
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        Availability: {
+            /** @description The calendar month (UTC), YYYY-MM. */
+            month: string;
+            measured_minutes: number;
+            unavailable_minutes: number;
+            /** @description Available share of measured minutes, or null before the first probe. */
+            percent?: number | null;
+            recent_outages?: components["schemas"]["OutageMinute"][];
+        };
+        OutageMinute: {
+            /** Format: date-time */
+            minute: string;
+            internal_ok?: boolean | null;
+            external_ok?: boolean | null;
+        };
+        HAStatus: {
+            enabled: boolean;
+            synchronous: boolean;
+            members: components["schemas"]["HAMember"][];
+            failovers: components["schemas"]["FailoverEvent"][];
+            availability?: components["schemas"]["Availability"];
+        };
         InstanceSummary: {
             /** @description Postgres major version. */
             pg_version: number;
+            /** @description A primary and a streaming standby on another node (V3 §2.2). */
+            ha_enabled?: boolean;
             /** @description The release the instance runs ("18.1"), as its agent last reported. */
             pg_release?: string | null;
             /** @description The release its image now holds; a newer minor is applied in the maintenance window. */
@@ -7143,6 +7257,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpgradePreflight"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description HA state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HAStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HAEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disableProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HAUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HAStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    switchoverProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SwitchoverRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

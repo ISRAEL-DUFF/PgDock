@@ -80,3 +80,19 @@ RETURNING *;
 SELECT f.*, fn.name AS from_node_name, tn.name AS to_node_name
 FROM failover_events f LEFT JOIN nodes fn ON fn.id = f.from_node LEFT JOIN nodes tn ON tn.id = f.to_node
 WHERE f.instance_id = @instance_id ORDER BY f.occurred_at DESC LIMIT @lim;
+
+-- name: ProjectOnInstance :one
+-- tenant: system - the HA leader watcher (one project per dedicated instance).
+SELECT * FROM projects WHERE instance_id = @instance_id AND deleted_at IS NULL ORDER BY created_at LIMIT 1;
+
+-- name: AvailabilitySummary :one
+-- tenant: system - a project the request already authorized.
+SELECT count(*) FILTER (WHERE NOT excluded)::int AS measured,
+       count(*) FILTER (WHERE NOT available AND NOT excluded)::int AS unavailable
+FROM availability_minutes WHERE project_id = @project_id AND minute >= @from_ts AND minute < @to_ts;
+
+-- name: RecentOutageMinutes :many
+-- tenant: system - a project the request already authorized.
+SELECT * FROM availability_minutes
+WHERE project_id = @project_id AND NOT available AND NOT excluded AND minute >= @since
+ORDER BY minute DESC LIMIT @lim;

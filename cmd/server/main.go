@@ -196,6 +196,9 @@ func run() error {
 		}
 		bg.Add(1)
 		go func() { defer bg.Done(); etcdSvc.Run(bgCtx, 30*time.Second) }()
+		// Follow each HA instance's leader (V3 §2.2 "Routing").
+		bg.Add(1)
+		go func() { defer bg.Done(); backups.Dedicated.RunHAWatcher(bgCtx, time.Second) }()
 		// The standby edge pooler (V3 §2.1): push the configuration to the
 		// pooler hosts and keep the floating IP on a healthy one.
 		poolerArbiter = setupPoolerHosts(cfg, pm, nodeSvc, log)

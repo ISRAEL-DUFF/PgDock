@@ -1083,6 +1083,107 @@ paths:
                 $ref: "#/components/schemas/UpgradePreflight"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/ha:
+    get:
+      operationId: getProjectHA
+      summary: HA state of a dedicated project (V3 §2.2)
+      description: Each member's node, role, state and lag; the failover history; the month's availability.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: HA state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAStatus"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: enableProjectHA
+      summary: Turn HA on
+      description: |
+        Queues an `ha_enable` operation: the instance restarts under Patroni
+        (writes pause for a few seconds), then a standby on another node is
+        built from the newest base backup and streams.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HAEnableRequest"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateProjectHA
+      summary: Change HA settings (synchronous replication)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HAUpdateRequest"
+      responses:
+        "200":
+          description: Changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAStatus"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: disableProjectHA
+      summary: Turn HA off (the standby is removed)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/switchover:
+    post:
+      operationId: switchoverProject
+      summary: Planned switchover to a standby
+      description: Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchoverRequest"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/upgrade:
     post:
       operationId: upgradeProject
@@ -5994,6 +6095,125 @@ components:
         reason:
           type: string
           description: Why it isn't ready.
+    HAEnableRequest:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+          description: Where the standby goes (default the least loaded other node that takes dedicated instances).
+        synchronous:
+          type: boolean
+    HAUpdateRequest:
+      type: object
+      required: [synchronous]
+      properties:
+        synchronous:
+          type: boolean
+    SwitchoverRequest:
+      type: object
+      properties:
+        candidate:
+          type: string
+          format: uuid
+          description: The member to switch to (default the most current standby).
+    HAMember:
+      type: object
+      required: [id, node_id, node_name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        role:
+          type: string
+          enum: [leader, replica, sync_standby, starting, stopped, unknown]
+        state:
+          type: string
+          nullable: true
+        lag_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        timeline:
+          type: integer
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+    FailoverEvent:
+      type: object
+      required: [kind, occurred_at]
+      properties:
+        kind:
+          type: string
+          enum: [failover, switchover]
+        from_node:
+          type: string
+          nullable: true
+        to_node:
+          type: string
+          nullable: true
+        duration_ms:
+          type: integer
+          nullable: true
+        occurred_at:
+          type: string
+          format: date-time
+    Availability:
+      type: object
+      required: [month, measured_minutes, unavailable_minutes]
+      properties:
+        month:
+          type: string
+          description: The calendar month (UTC), YYYY-MM.
+        measured_minutes:
+          type: integer
+        unavailable_minutes:
+          type: integer
+        percent:
+          type: number
+          nullable: true
+          description: Available share of measured minutes, or null before the first probe.
+        recent_outages:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutageMinute"
+    OutageMinute:
+      type: object
+      required: [minute]
+      properties:
+        minute:
+          type: string
+          format: date-time
+        internal_ok:
+          type: boolean
+          nullable: true
+        external_ok:
+          type: boolean
+          nullable: true
+    HAStatus:
+      type: object
+      required: [enabled, synchronous, members, failovers]
+      properties:
+        enabled:
+          type: boolean
+        synchronous:
+          type: boolean
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/HAMember"
+        failovers:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailoverEvent"
+        availability:
+          $ref: "#/components/schemas/Availability"
     InstanceSummary:
       type: object
       required: [id, kind, status, node_id, node_name, pg_version]
@@ -6001,6 +6221,9 @@ components:
         pg_version:
           type: integer
           description: Postgres major version.
+        ha_enabled:
+          type: boolean
+          description: A primary and a streaming standby on another node (V3 §2.2).
         pg_release:
           type: string
           nullable: true

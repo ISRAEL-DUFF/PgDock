@@ -620,6 +620,54 @@ func (e ExtensionTier) Valid() bool {
 	}
 }
 
+// Defines values for FailoverEventKind.
+const (
+	Failover   FailoverEventKind = "failover"
+	Switchover FailoverEventKind = "switchover"
+)
+
+// Valid indicates whether the value is a known member of the FailoverEventKind enum.
+func (e FailoverEventKind) Valid() bool {
+	switch e {
+	case Failover:
+		return true
+	case Switchover:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HAMemberRole.
+const (
+	HAMemberRoleLeader      HAMemberRole = "leader"
+	HAMemberRoleReplica     HAMemberRole = "replica"
+	HAMemberRoleStarting    HAMemberRole = "starting"
+	HAMemberRoleStopped     HAMemberRole = "stopped"
+	HAMemberRoleSyncStandby HAMemberRole = "sync_standby"
+	HAMemberRoleUnknown     HAMemberRole = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HAMemberRole enum.
+func (e HAMemberRole) Valid() bool {
+	switch e {
+	case HAMemberRoleLeader:
+		return true
+	case HAMemberRoleReplica:
+		return true
+	case HAMemberRoleStarting:
+		return true
+	case HAMemberRoleStopped:
+		return true
+	case HAMemberRoleSyncStandby:
+		return true
+	case HAMemberRoleUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HttpJobSpecMethod.
 const (
 	HttpJobSpecMethodDELETE HttpJobSpecMethod = "DELETE"
@@ -2577,6 +2625,19 @@ type AuditList struct {
 	NextBefore *int64       `json:"next_before,omitempty"`
 }
 
+// Availability defines model for Availability.
+type Availability struct {
+	MeasuredMinutes int `json:"measured_minutes"`
+
+	// Month The calendar month (UTC), YYYY-MM.
+	Month string `json:"month"`
+
+	// Percent Available share of measured minutes, or null before the first probe.
+	Percent            *float32        `json:"percent,omitempty"`
+	RecentOutages      *[]OutageMinute `json:"recent_outages,omitempty"`
+	UnavailableMinutes int             `json:"unavailable_minutes"`
+}
+
 // Backup defines model for Backup.
 type Backup struct {
 	Checksum *string `json:"checksum,omitempty"`
@@ -3182,6 +3243,18 @@ type FailedChange struct {
 	Index int `json:"index"`
 }
 
+// FailoverEvent defines model for FailoverEvent.
+type FailoverEvent struct {
+	DurationMs *int              `json:"duration_ms,omitempty"`
+	FromNode   *string           `json:"from_node,omitempty"`
+	Kind       FailoverEventKind `json:"kind"`
+	OccurredAt time.Time         `json:"occurred_at"`
+	ToNode     *string           `json:"to_node,omitempty"`
+}
+
+// FailoverEventKind defines model for FailoverEvent.Kind.
+type FailoverEventKind string
+
 // ForeignKey defines model for ForeignKey.
 type ForeignKey struct {
 	Columns    []string `json:"columns"`
@@ -3200,6 +3273,42 @@ type GeneralSettings struct {
 	SessionPort int       `json:"session_port"`
 	Sslmode     string    `json:"sslmode"`
 	Tls         TlsStatus `json:"tls"`
+}
+
+// HAEnableRequest defines model for HAEnableRequest.
+type HAEnableRequest struct {
+	// NodeId Where the standby goes (default the least loaded other node that takes dedicated instances).
+	NodeId      *openapi_types.UUID `json:"node_id,omitempty"`
+	Synchronous *bool               `json:"synchronous,omitempty"`
+}
+
+// HAMember defines model for HAMember.
+type HAMember struct {
+	Id        openapi_types.UUID `json:"id"`
+	LagBytes  *int64             `json:"lag_bytes,omitempty"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+	Role      HAMemberRole       `json:"role"`
+	State     *string            `json:"state,omitempty"`
+	Timeline  *int               `json:"timeline,omitempty"`
+	UpdatedAt *time.Time         `json:"updated_at,omitempty"`
+}
+
+// HAMemberRole defines model for HAMember.Role.
+type HAMemberRole string
+
+// HAStatus defines model for HAStatus.
+type HAStatus struct {
+	Availability *Availability   `json:"availability,omitempty"`
+	Enabled      bool            `json:"enabled"`
+	Failovers    []FailoverEvent `json:"failovers"`
+	Members      []HAMember      `json:"members"`
+	Synchronous  bool            `json:"synchronous"`
+}
+
+// HAUpdateRequest defines model for HAUpdateRequest.
+type HAUpdateRequest struct {
+	Synchronous bool `json:"synchronous"`
 }
 
 // Health defines model for Health.
@@ -3333,13 +3442,16 @@ type InstanceState struct {
 
 // InstanceSummary defines model for InstanceSummary.
 type InstanceSummary struct {
-	Cpus     *float32            `json:"cpus,omitempty"`
-	Error    *string             `json:"error,omitempty"`
-	Id       openapi_types.UUID  `json:"id"`
-	Kind     InstanceSummaryKind `json:"kind"`
-	MemoryMb *int                `json:"memory_mb,omitempty"`
-	NodeId   openapi_types.UUID  `json:"node_id"`
-	NodeName string              `json:"node_name"`
+	Cpus  *float32 `json:"cpus,omitempty"`
+	Error *string  `json:"error,omitempty"`
+
+	// HaEnabled A primary and a streaming standby on another node (V3 §2.2).
+	HaEnabled *bool               `json:"ha_enabled,omitempty"`
+	Id        openapi_types.UUID  `json:"id"`
+	Kind      InstanceSummaryKind `json:"kind"`
+	MemoryMb  *int                `json:"memory_mb,omitempty"`
+	NodeId    openapi_types.UUID  `json:"node_id"`
+	NodeName  string              `json:"node_name"`
 
 	// PgRelease The release the instance runs ("18.1"), as its agent last reported.
 	PgRelease *string `json:"pg_release,omitempty"`
@@ -3884,6 +3996,13 @@ type OrgRole string
 // OrgRoleRequest defines model for OrgRoleRequest.
 type OrgRoleRequest struct {
 	Role OrgRole `json:"role"`
+}
+
+// OutageMinute defines model for OutageMinute.
+type OutageMinute struct {
+	ExternalOk *bool     `json:"external_ok,omitempty"`
+	InternalOk *bool     `json:"internal_ok,omitempty"`
+	Minute     time.Time `json:"minute"`
 }
 
 // OutboundAllowlist defines model for OutboundAllowlist.
@@ -4915,6 +5034,12 @@ type SwitchedCredentials struct {
 	Project     Project        `json:"project"`
 }
 
+// SwitchoverRequest defines model for SwitchoverRequest.
+type SwitchoverRequest struct {
+	// Candidate The member to switch to (default the most current standby).
+	Candidate *openapi_types.UUID `json:"candidate,omitempty"`
+}
+
 // TableConstraint defines model for TableConstraint.
 type TableConstraint struct {
 	Columns    *[]string           `json:"columns,omitempty"`
@@ -5874,6 +5999,12 @@ type DemotePreflightJSONRequestBody = DemoteRequest
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
+// UpdateProjectHAJSONRequestBody defines body for UpdateProjectHA for application/json ContentType.
+type UpdateProjectHAJSONRequestBody = HAUpdateRequest
+
+// EnableProjectHAJSONRequestBody defines body for EnableProjectHA for application/json ContentType.
+type EnableProjectHAJSONRequestBody = HAEnableRequest
+
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
 
@@ -5933,6 +6064,9 @@ type SetProjectStorageTargetJSONRequestBody = ProjectStorageTargetRequest
 
 // SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
 type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
+
+// SwitchoverProjectJSONRequestBody defines body for SwitchoverProject for application/json ContentType.
+type SwitchoverProjectJSONRequestBody = SwitchoverRequest
 
 // SaveTableChangesJSONRequestBody defines body for SaveTableChanges for application/json ContentType.
 type SaveTableChangesJSONRequestBody = SaveRowsRequest
@@ -6401,6 +6535,18 @@ type ServerInterface interface {
 	// EnableProjectExtension Enable an allow-listed extension
 	// (POST /api/v1/projects/{id}/extensions)
 	EnableProjectExtension(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DisableProjectHA Turn HA off (the standby is removed)
+	// (DELETE /api/v1/projects/{id}/ha)
+	DisableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectHA HA state of a dedicated project (V3 §2.2)
+	// (GET /api/v1/projects/{id}/ha)
+	GetProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpdateProjectHA Change HA settings (synchronous replication)
+	// (PATCH /api/v1/projects/{id}/ha)
+	UpdateProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// EnableProjectHA Turn HA on
+	// (POST /api/v1/projects/{id}/ha)
+	EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -6515,6 +6661,9 @@ type ServerInterface interface {
 	// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
 	// (POST /api/v1/projects/{id}/switch-credentials)
 	SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SwitchoverProject Planned switchover to a standby
+	// (POST /api/v1/projects/{id}/switchover)
+	SwitchoverProject(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table})
 	GetTableInfo(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
@@ -7487,6 +7636,30 @@ func (_ Unimplemented) EnableProjectExtension(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// DisableProjectHA Turn HA off (the standby is removed)
+// (DELETE /api/v1/projects/{id}/ha)
+func (_ Unimplemented) DisableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProjectHA HA state of a dedicated project (V3 §2.2)
+// (GET /api/v1/projects/{id}/ha)
+func (_ Unimplemented) GetProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateProjectHA Change HA settings (synchronous replication)
+// (PATCH /api/v1/projects/{id}/ha)
+func (_ Unimplemented) UpdateProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableProjectHA Turn HA on
+// (POST /api/v1/projects/{id}/ha)
+func (_ Unimplemented) EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 // (POST /api/v1/projects/{id}/instance)
 func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -7712,6 +7885,12 @@ func (_ Unimplemented) SetProjectStorageTarget(w http.ResponseWriter, r *http.Re
 // SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
 // (POST /api/v1/projects/{id}/switch-credentials)
 func (_ Unimplemented) SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SwitchoverProject Planned switchover to a standby
+// (POST /api/v1/projects/{id}/switchover)
+func (_ Unimplemented) SwitchoverProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11596,6 +11775,110 @@ func (siw *ServerInterfaceWrapper) EnableProjectExtension(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// DisableProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) DisableProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) EnableProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProjectInstanceAction operation middleware
 func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, r *http.Request) {
 
@@ -12719,6 +13002,32 @@ func (siw *ServerInterfaceWrapper) SwitchProjectCredentials(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SwitchProjectCredentials(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SwitchoverProject operation middleware
+func (siw *ServerInterfaceWrapper) SwitchoverProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SwitchoverProject(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -14323,6 +14632,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/upgrade/preflight", wrapper.UpgradePreflight)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.DisableProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.GetProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.UpdateProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.EnableProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/switchover", wrapper.SwitchoverProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/upgrade", wrapper.UpgradeProject)

@@ -12,6 +12,31 @@ import (
 	"github.com/google/uuid"
 )
 
+const availabilitySummary = `-- name: AvailabilitySummary :one
+SELECT count(*) FILTER (WHERE NOT excluded)::int AS measured,
+       count(*) FILTER (WHERE NOT available AND NOT excluded)::int AS unavailable
+FROM availability_minutes WHERE project_id = $1 AND minute >= $2 AND minute < $3
+`
+
+type AvailabilitySummaryParams struct {
+	ProjectID uuid.UUID
+	FromTs    time.Time
+	ToTs      time.Time
+}
+
+type AvailabilitySummaryRow struct {
+	Measured    int32
+	Unavailable int32
+}
+
+// tenant: system - a project the request already authorized.
+func (q *Queries) AvailabilitySummary(ctx context.Context, arg AvailabilitySummaryParams) (AvailabilitySummaryRow, error) {
+	row := q.db.QueryRow(ctx, availabilitySummary, arg.ProjectID, arg.FromTs, arg.ToTs)
+	var i AvailabilitySummaryRow
+	err := row.Scan(&i.Measured, &i.Unavailable)
+	return i, err
+}
+
 const deleteEtcdMembers = `-- name: DeleteEtcdMembers :exec
 DELETE FROM etcd_members
 `
@@ -360,6 +385,90 @@ func (q *Queries) ListPatroniInstances(ctx context.Context) ([]Instance, error) 
 			&i.Patroni,
 			&i.LeaderMember,
 			&i.PatroniSecret,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const projectOnInstance = `-- name: ProjectOnInstance :one
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data FROM projects WHERE instance_id = $1 AND deleted_at IS NULL ORDER BY created_at LIMIT 1
+`
+
+// tenant: system - the HA leader watcher (one project per dedicated instance).
+func (q *Queries) ProjectOnInstance(ctx context.Context, instanceID uuid.UUID) (Project, error) {
+	row := q.db.QueryRow(ctx, projectOnInstance, instanceID)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.DbName,
+		&i.OwnerRole,
+		&i.ScramVerifier,
+		&i.Tier,
+		&i.InstanceID,
+		&i.Status,
+		&i.Settings,
+		&i.StorageTargetID,
+		&i.Extensions,
+		&i.Description,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.DeletedAt,
+		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
+		&i.BackupKeyID,
+		&i.ParentProjectID,
+		&i.BranchSource,
+		&i.BranchSchemaOnly,
+		&i.ExpiresAt,
+		&i.ExpiryNotifiedAt,
+		&i.BranchBackups,
+		&i.SensitiveData,
+	)
+	return i, err
+}
+
+const recentOutageMinutes = `-- name: RecentOutageMinutes :many
+SELECT project_id, minute, internal_ok, external_ok, available, excluded FROM availability_minutes
+WHERE project_id = $1 AND NOT available AND NOT excluded AND minute >= $2
+ORDER BY minute DESC LIMIT $3
+`
+
+type RecentOutageMinutesParams struct {
+	ProjectID uuid.UUID
+	Since     time.Time
+	Lim       int32
+}
+
+// tenant: system - a project the request already authorized.
+func (q *Queries) RecentOutageMinutes(ctx context.Context, arg RecentOutageMinutesParams) ([]AvailabilityMinute, error) {
+	rows, err := q.db.Query(ctx, recentOutageMinutes, arg.ProjectID, arg.Since, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AvailabilityMinute
+	for rows.Next() {
+		var i AvailabilityMinute
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.Minute,
+			&i.InternalOk,
+			&i.ExternalOk,
+			&i.Available,
+			&i.Excluded,
 		); err != nil {
 			return nil, err
 		}

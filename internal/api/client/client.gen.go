@@ -624,6 +624,54 @@ func (e ExtensionTier) Valid() bool {
 	}
 }
 
+// Defines values for FailoverEventKind.
+const (
+	Failover   FailoverEventKind = "failover"
+	Switchover FailoverEventKind = "switchover"
+)
+
+// Valid indicates whether the value is a known member of the FailoverEventKind enum.
+func (e FailoverEventKind) Valid() bool {
+	switch e {
+	case Failover:
+		return true
+	case Switchover:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HAMemberRole.
+const (
+	HAMemberRoleLeader      HAMemberRole = "leader"
+	HAMemberRoleReplica     HAMemberRole = "replica"
+	HAMemberRoleStarting    HAMemberRole = "starting"
+	HAMemberRoleStopped     HAMemberRole = "stopped"
+	HAMemberRoleSyncStandby HAMemberRole = "sync_standby"
+	HAMemberRoleUnknown     HAMemberRole = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HAMemberRole enum.
+func (e HAMemberRole) Valid() bool {
+	switch e {
+	case HAMemberRoleLeader:
+		return true
+	case HAMemberRoleReplica:
+		return true
+	case HAMemberRoleStarting:
+		return true
+	case HAMemberRoleStopped:
+		return true
+	case HAMemberRoleSyncStandby:
+		return true
+	case HAMemberRoleUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HttpJobSpecMethod.
 const (
 	HttpJobSpecMethodDELETE HttpJobSpecMethod = "DELETE"
@@ -2581,6 +2629,19 @@ type AuditList struct {
 	NextBefore *int64       `json:"next_before,omitempty"`
 }
 
+// Availability defines model for Availability.
+type Availability struct {
+	MeasuredMinutes int `json:"measured_minutes"`
+
+	// Month The calendar month (UTC), YYYY-MM.
+	Month string `json:"month"`
+
+	// Percent Available share of measured minutes, or null before the first probe.
+	Percent            *float32        `json:"percent,omitempty"`
+	RecentOutages      *[]OutageMinute `json:"recent_outages,omitempty"`
+	UnavailableMinutes int             `json:"unavailable_minutes"`
+}
+
 // Backup defines model for Backup.
 type Backup struct {
 	Checksum *string `json:"checksum,omitempty"`
@@ -3186,6 +3247,18 @@ type FailedChange struct {
 	Index int `json:"index"`
 }
 
+// FailoverEvent defines model for FailoverEvent.
+type FailoverEvent struct {
+	DurationMs *int              `json:"duration_ms,omitempty"`
+	FromNode   *string           `json:"from_node,omitempty"`
+	Kind       FailoverEventKind `json:"kind"`
+	OccurredAt time.Time         `json:"occurred_at"`
+	ToNode     *string           `json:"to_node,omitempty"`
+}
+
+// FailoverEventKind defines model for FailoverEvent.Kind.
+type FailoverEventKind string
+
 // ForeignKey defines model for ForeignKey.
 type ForeignKey struct {
 	Columns    []string `json:"columns"`
@@ -3204,6 +3277,42 @@ type GeneralSettings struct {
 	SessionPort int       `json:"session_port"`
 	Sslmode     string    `json:"sslmode"`
 	Tls         TlsStatus `json:"tls"`
+}
+
+// HAEnableRequest defines model for HAEnableRequest.
+type HAEnableRequest struct {
+	// NodeId Where the standby goes (default the least loaded other node that takes dedicated instances).
+	NodeId      *openapi_types.UUID `json:"node_id,omitempty"`
+	Synchronous *bool               `json:"synchronous,omitempty"`
+}
+
+// HAMember defines model for HAMember.
+type HAMember struct {
+	Id        openapi_types.UUID `json:"id"`
+	LagBytes  *int64             `json:"lag_bytes,omitempty"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+	Role      HAMemberRole       `json:"role"`
+	State     *string            `json:"state,omitempty"`
+	Timeline  *int               `json:"timeline,omitempty"`
+	UpdatedAt *time.Time         `json:"updated_at,omitempty"`
+}
+
+// HAMemberRole defines model for HAMember.Role.
+type HAMemberRole string
+
+// HAStatus defines model for HAStatus.
+type HAStatus struct {
+	Availability *Availability   `json:"availability,omitempty"`
+	Enabled      bool            `json:"enabled"`
+	Failovers    []FailoverEvent `json:"failovers"`
+	Members      []HAMember      `json:"members"`
+	Synchronous  bool            `json:"synchronous"`
+}
+
+// HAUpdateRequest defines model for HAUpdateRequest.
+type HAUpdateRequest struct {
+	Synchronous bool `json:"synchronous"`
 }
 
 // Health defines model for Health.
@@ -3337,13 +3446,16 @@ type InstanceState struct {
 
 // InstanceSummary defines model for InstanceSummary.
 type InstanceSummary struct {
-	Cpus     *float32            `json:"cpus,omitempty"`
-	Error    *string             `json:"error,omitempty"`
-	Id       openapi_types.UUID  `json:"id"`
-	Kind     InstanceSummaryKind `json:"kind"`
-	MemoryMb *int                `json:"memory_mb,omitempty"`
-	NodeId   openapi_types.UUID  `json:"node_id"`
-	NodeName string              `json:"node_name"`
+	Cpus  *float32 `json:"cpus,omitempty"`
+	Error *string  `json:"error,omitempty"`
+
+	// HaEnabled A primary and a streaming standby on another node (V3 §2.2).
+	HaEnabled *bool               `json:"ha_enabled,omitempty"`
+	Id        openapi_types.UUID  `json:"id"`
+	Kind      InstanceSummaryKind `json:"kind"`
+	MemoryMb  *int                `json:"memory_mb,omitempty"`
+	NodeId    openapi_types.UUID  `json:"node_id"`
+	NodeName  string              `json:"node_name"`
 
 	// PgRelease The release the instance runs ("18.1"), as its agent last reported.
 	PgRelease *string `json:"pg_release,omitempty"`
@@ -3888,6 +4000,13 @@ type OrgRole string
 // OrgRoleRequest defines model for OrgRoleRequest.
 type OrgRoleRequest struct {
 	Role OrgRole `json:"role"`
+}
+
+// OutageMinute defines model for OutageMinute.
+type OutageMinute struct {
+	ExternalOk *bool     `json:"external_ok,omitempty"`
+	InternalOk *bool     `json:"internal_ok,omitempty"`
+	Minute     time.Time `json:"minute"`
 }
 
 // OutboundAllowlist defines model for OutboundAllowlist.
@@ -4919,6 +5038,12 @@ type SwitchedCredentials struct {
 	Project     Project        `json:"project"`
 }
 
+// SwitchoverRequest defines model for SwitchoverRequest.
+type SwitchoverRequest struct {
+	// Candidate The member to switch to (default the most current standby).
+	Candidate *openapi_types.UUID `json:"candidate,omitempty"`
+}
+
 // TableConstraint defines model for TableConstraint.
 type TableConstraint struct {
 	Columns    *[]string           `json:"columns,omitempty"`
@@ -5878,6 +6003,12 @@ type DemotePreflightJSONRequestBody = DemoteRequest
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
 
+// UpdateProjectHAJSONRequestBody defines body for UpdateProjectHA for application/json ContentType.
+type UpdateProjectHAJSONRequestBody = HAUpdateRequest
+
+// EnableProjectHAJSONRequestBody defines body for EnableProjectHA for application/json ContentType.
+type EnableProjectHAJSONRequestBody = HAEnableRequest
+
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
 
@@ -5937,6 +6068,9 @@ type SetProjectStorageTargetJSONRequestBody = ProjectStorageTargetRequest
 
 // SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
 type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
+
+// SwitchoverProjectJSONRequestBody defines body for SwitchoverProject for application/json ContentType.
+type SwitchoverProjectJSONRequestBody = SwitchoverRequest
 
 // SaveTableChangesJSONRequestBody defines body for SaveTableChanges for application/json ContentType.
 type SaveTableChangesJSONRequestBody = SaveRowsRequest
@@ -7545,6 +7679,54 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/extensions (the `EnableProjectExtension` operationId).
 	EnableProjectExtension(ctx context.Context, id ProjectID, body EnableProjectExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DisableProjectHA Turn HA off (the standby is removed)
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/ha (the `DisableProjectHA` operationId).
+	DisableProjectHA(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectHA HA state of a dedicated project (V3 §2.2)
+	//
+	// Each member's node, role, state and lag; the failover history; the month's availability.
+	//
+	// Corresponds with GET /api/v1/projects/{id}/ha (the `GetProjectHA` operationId).
+	GetProjectHA(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectHAWithBody Change HA settings (synchronous replication)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+	UpdateProjectHAWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectHA Change HA settings (synchronous replication)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+	UpdateProjectHA(ctx context.Context, id ProjectID, body UpdateProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableProjectHAWithBody Turn HA on
+	//
+	// Queues an `ha_enable` operation: the instance restarts under Patroni
+	// (writes pause for a few seconds), then a standby on another node is
+	// built from the newest base backup and streams.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+	EnableProjectHAWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableProjectHA Turn HA on
+	//
+	// Queues an `ha_enable` operation: the instance restarts under Patroni
+	// (writes pause for a few seconds), then a standby on another node is
+	// built from the newest base backup and streams.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+	EnableProjectHA(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ProjectInstanceActionWithBody Start, stop, or restart a dedicated project's instance
 	//
 	// Takes any type of body and a specified content type.
@@ -8017,6 +8199,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/switch-credentials (the `SwitchProjectCredentials` operationId).
 	SwitchProjectCredentials(ctx context.Context, id ProjectID, body SwitchProjectCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SwitchoverProjectWithBody Planned switchover to a standby
+	//
+	// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+	SwitchoverProjectWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SwitchoverProject Planned switchover to a standby
+	//
+	// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+	SwitchoverProject(ctx context.Context, id ProjectID, body SwitchoverProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
 	//
@@ -11991,6 +12191,114 @@ func (c *Client) EnableProjectExtension(ctx context.Context, id ProjectID, body 
 	return c.Client.Do(req)
 }
 
+// DisableProjectHA Turn HA off (the standby is removed)
+//
+// Corresponds with DELETE /api/v1/projects/{id}/ha (the `DisableProjectHA` operationId).
+func (c *Client) DisableProjectHA(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDisableProjectHARequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectHA HA state of a dedicated project (V3 §2.2)
+//
+// Each member's node, role, state and lag; the failover history; the month's availability.
+//
+// Corresponds with GET /api/v1/projects/{id}/ha (the `GetProjectHA` operationId).
+func (c *Client) GetProjectHA(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectHARequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectHAWithBody Change HA settings (synchronous replication)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+func (c *Client) UpdateProjectHAWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectHARequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectHA Change HA settings (synchronous replication)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+func (c *Client) UpdateProjectHA(ctx context.Context, id ProjectID, body UpdateProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectHARequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnableProjectHAWithBody Turn HA on
+//
+// Queues an `ha_enable` operation: the instance restarts under Patroni
+// (writes pause for a few seconds), then a standby on another node is
+// built from the newest base backup and streams.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+func (c *Client) EnableProjectHAWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableProjectHARequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnableProjectHA Turn HA on
+//
+// Queues an `ha_enable` operation: the instance restarts under Patroni
+// (writes pause for a few seconds), then a standby on another node is
+// built from the newest base backup and streams.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+func (c *Client) EnableProjectHA(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableProjectHARequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ProjectInstanceActionWithBody Start, stop, or restart a dedicated project's instance
 //
 // Takes any type of body and a specified content type.
@@ -13034,6 +13342,44 @@ func (c *Client) SwitchProjectCredentialsWithBody(ctx context.Context, id Projec
 // Corresponds with POST /api/v1/projects/{id}/switch-credentials (the `SwitchProjectCredentials` operationId).
 func (c *Client) SwitchProjectCredentials(ctx context.Context, id ProjectID, body SwitchProjectCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSwitchProjectCredentialsRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SwitchoverProjectWithBody Planned switchover to a standby
+//
+// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+func (c *Client) SwitchoverProjectWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSwitchoverProjectRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SwitchoverProject Planned switchover to a standby
+//
+// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+func (c *Client) SwitchoverProject(ctx context.Context, id ProjectID, body SwitchoverProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSwitchoverProjectRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20089,6 +20435,168 @@ func NewEnableProjectExtensionRequestWithBody(server string, id ProjectID, conte
 	return req, nil
 }
 
+// NewDisableProjectHARequest constructs an http.Request for the DisableProjectHA method
+func NewDisableProjectHARequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/ha", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectHARequest constructs an http.Request for the GetProjectHA method
+func NewGetProjectHARequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/ha", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProjectHARequest calls the generic UpdateProjectHA builder with application/json body
+func NewUpdateProjectHARequest(server string, id ProjectID, body UpdateProjectHAJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProjectHARequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateProjectHARequestWithBody constructs an http.Request for the UpdateProjectHA method, with any body, and a specified content type
+func NewUpdateProjectHARequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/ha", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEnableProjectHARequest calls the generic EnableProjectHA builder with application/json body
+func NewEnableProjectHARequest(server string, id ProjectID, body EnableProjectHAJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEnableProjectHARequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewEnableProjectHARequestWithBody constructs an http.Request for the EnableProjectHA method, with any body, and a specified content type
+func NewEnableProjectHARequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/ha", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewProjectInstanceActionRequest calls the generic ProjectInstanceAction builder with application/json body
 func NewProjectInstanceActionRequest(server string, id ProjectID, body ProjectInstanceActionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -21765,6 +22273,53 @@ func NewSwitchProjectCredentialsRequestWithBody(server string, id ProjectID, con
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/projects/%s/switch-credentials", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSwitchoverProjectRequest calls the generic SwitchoverProject builder with application/json body
+func NewSwitchoverProjectRequest(server string, id ProjectID, body SwitchoverProjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSwitchoverProjectRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSwitchoverProjectRequestWithBody constructs an http.Request for the SwitchoverProject method, with any body, and a specified content type
+func NewSwitchoverProjectRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/switchover", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -25523,6 +26078,58 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/extensions (the `EnableProjectExtension` operationId).
 	EnableProjectExtensionWithResponse(ctx context.Context, id ProjectID, body EnableProjectExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectExtensionResponse, error)
 
+	// DisableProjectHAWithResponse Turn HA off (the standby is removed)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/ha (the `DisableProjectHA` operationId).
+	DisableProjectHAWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DisableProjectHAResponse, error)
+
+	// GetProjectHAWithResponse HA state of a dedicated project (V3 §2.2)
+	//
+	// Each member's node, role, state and lag; the failover history; the month's availability.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/ha (the `GetProjectHA` operationId).
+	GetProjectHAWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectHAResponse, error)
+
+	// UpdateProjectHAWithBodyWithResponse Change HA settings (synchronous replication)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+	UpdateProjectHAWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectHAResponse, error)
+
+	// UpdateProjectHAWithResponse Change HA settings (synchronous replication)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+	UpdateProjectHAWithResponse(ctx context.Context, id ProjectID, body UpdateProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectHAResponse, error)
+
+	// EnableProjectHAWithBodyWithResponse Turn HA on
+	//
+	// Queues an `ha_enable` operation: the instance restarts under Patroni
+	// (writes pause for a few seconds), then a standby on another node is
+	// built from the newest base backup and streams.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+	EnableProjectHAWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnableProjectHAResponse, error)
+
+	// EnableProjectHAWithResponse Turn HA on
+	//
+	// Queues an `ha_enable` operation: the instance restarts under Patroni
+	// (writes pause for a few seconds), then a standby on another node is
+	// built from the newest base backup and streams.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+	EnableProjectHAWithResponse(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectHAResponse, error)
+
 	// ProjectInstanceActionWithBodyWithResponse Start, stop, or restart a dedicated project's instance
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -26031,6 +26638,24 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/switch-credentials (the `SwitchProjectCredentials` operationId).
 	SwitchProjectCredentialsWithResponse(ctx context.Context, id ProjectID, body SwitchProjectCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*SwitchProjectCredentialsResponse, error)
+
+	// SwitchoverProjectWithBodyWithResponse Planned switchover to a standby
+	//
+	// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+	SwitchoverProjectWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SwitchoverProjectResponse, error)
+
+	// SwitchoverProjectWithResponse Planned switchover to a standby
+	//
+	// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+	SwitchoverProjectWithResponse(ctx context.Context, id ProjectID, body SwitchoverProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*SwitchoverProjectResponse, error)
 
 	// GetTableInfoWithResponse A table's columns, keys, constraints and indexes, and whether its rows can be edited
 	//
@@ -33033,6 +33658,198 @@ func (r EnableProjectExtensionResponse) ContentType() string {
 	return ""
 }
 
+type DisableProjectHAResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r DisableProjectHAResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DisableProjectHAResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DisableProjectHAResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DisableProjectHAResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DisableProjectHAResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DisableProjectHAResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectHAResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *HAStatus
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectHAResponse) GetJSON200() *HAStatus {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetProjectHAResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectHAResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectHAResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectHAResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectHAResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateProjectHAResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *HAStatus
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateProjectHAResponse) GetJSON200() *HAStatus {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateProjectHAResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateProjectHAResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProjectHAResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProjectHAResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateProjectHAResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnableProjectHAResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r EnableProjectHAResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EnableProjectHAResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnableProjectHAResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnableProjectHAResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnableProjectHAResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnableProjectHAResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ProjectInstanceActionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -34830,6 +35647,54 @@ func (r SwitchProjectCredentialsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SwitchProjectCredentialsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SwitchoverProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r SwitchoverProjectResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SwitchoverProjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SwitchoverProjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SwitchoverProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SwitchoverProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SwitchoverProjectResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -39846,6 +40711,94 @@ func (c *ClientWithResponses) EnableProjectExtensionWithResponse(ctx context.Con
 	return ParseEnableProjectExtensionResponse(rsp)
 }
 
+// DisableProjectHAWithResponse Turn HA off (the standby is removed)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/ha (the `DisableProjectHA` operationId).
+func (c *ClientWithResponses) DisableProjectHAWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DisableProjectHAResponse, error) {
+	rsp, err := c.DisableProjectHA(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDisableProjectHAResponse(rsp)
+}
+
+// GetProjectHAWithResponse HA state of a dedicated project (V3 §2.2)
+//
+// Each member's node, role, state and lag; the failover history; the month's availability.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/ha (the `GetProjectHA` operationId).
+func (c *ClientWithResponses) GetProjectHAWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectHAResponse, error) {
+	rsp, err := c.GetProjectHA(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectHAResponse(rsp)
+}
+
+// UpdateProjectHAWithBodyWithResponse Change HA settings (synchronous replication)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+func (c *ClientWithResponses) UpdateProjectHAWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectHAResponse, error) {
+	rsp, err := c.UpdateProjectHAWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectHAResponse(rsp)
+}
+
+// UpdateProjectHAWithResponse Change HA settings (synchronous replication)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/ha (the `UpdateProjectHA` operationId).
+func (c *ClientWithResponses) UpdateProjectHAWithResponse(ctx context.Context, id ProjectID, body UpdateProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectHAResponse, error) {
+	rsp, err := c.UpdateProjectHA(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectHAResponse(rsp)
+}
+
+// EnableProjectHAWithBodyWithResponse Turn HA on
+//
+// Queues an `ha_enable` operation: the instance restarts under Patroni
+// (writes pause for a few seconds), then a standby on another node is
+// built from the newest base backup and streams.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+func (c *ClientWithResponses) EnableProjectHAWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnableProjectHAResponse, error) {
+	rsp, err := c.EnableProjectHAWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableProjectHAResponse(rsp)
+}
+
+// EnableProjectHAWithResponse Turn HA on
+//
+// Queues an `ha_enable` operation: the instance restarts under Patroni
+// (writes pause for a few seconds), then a standby on another node is
+// built from the newest base backup and streams.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
+func (c *ClientWithResponses) EnableProjectHAWithResponse(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectHAResponse, error) {
+	rsp, err := c.EnableProjectHA(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableProjectHAResponse(rsp)
+}
+
 // ProjectInstanceActionWithBodyWithResponse Start, stop, or restart a dedicated project's instance
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -40701,6 +41654,36 @@ func (c *ClientWithResponses) SwitchProjectCredentialsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseSwitchProjectCredentialsResponse(rsp)
+}
+
+// SwitchoverProjectWithBodyWithResponse Planned switchover to a standby
+//
+// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+func (c *ClientWithResponses) SwitchoverProjectWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SwitchoverProjectResponse, error) {
+	rsp, err := c.SwitchoverProjectWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSwitchoverProjectResponse(rsp)
+}
+
+// SwitchoverProjectWithResponse Planned switchover to a standby
+//
+// Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/switchover (the `SwitchoverProject` operationId).
+func (c *ClientWithResponses) SwitchoverProjectWithResponse(ctx context.Context, id ProjectID, body SwitchoverProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*SwitchoverProjectResponse, error) {
+	rsp, err := c.SwitchoverProject(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSwitchoverProjectResponse(rsp)
 }
 
 // GetTableInfoWithResponse A table's columns, keys, constraints and indexes, and whether its rows can be edited
@@ -46092,6 +47075,138 @@ func ParseEnableProjectExtensionResponse(rsp *http.Response) (*EnableProjectExte
 	return response, nil
 }
 
+// ParseDisableProjectHAResponse parses an HTTP response from a DisableProjectHAWithResponse call
+func ParseDisableProjectHAResponse(rsp *http.Response) (*DisableProjectHAResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DisableProjectHAResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectHAResponse parses an HTTP response from a GetProjectHAWithResponse call
+func ParseGetProjectHAResponse(rsp *http.Response) (*GetProjectHAResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectHAResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HAStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProjectHAResponse parses an HTTP response from a UpdateProjectHAWithResponse call
+func ParseUpdateProjectHAResponse(rsp *http.Response) (*UpdateProjectHAResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProjectHAResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HAStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnableProjectHAResponse parses an HTTP response from a EnableProjectHAWithResponse call
+func ParseEnableProjectHAResponse(rsp *http.Response) (*EnableProjectHAResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnableProjectHAResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseProjectInstanceActionResponse parses an HTTP response from a ProjectInstanceActionWithResponse call
 func ParseProjectInstanceActionResponse(rsp *http.Response) (*ProjectInstanceActionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -47320,6 +48435,39 @@ func ParseSwitchProjectCredentialsResponse(rsp *http.Response) (*SwitchProjectCr
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest SwitchedCredentials
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSwitchoverProjectResponse parses an HTTP response from a SwitchoverProjectWithResponse call
+func ParseSwitchoverProjectResponse(rsp *http.Response) (*SwitchoverProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SwitchoverProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
