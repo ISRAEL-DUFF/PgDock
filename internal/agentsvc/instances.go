@@ -88,7 +88,6 @@ func names(id string) (container, volume, restore string) {
 
 const (
 	pgPort   = "5432/tcp"
-	pgdata   = "/var/lib/postgresql/18/docker"
 	dataRoot = "/var/lib/postgresql"
 	// recoveryEnv holds a point-in-time recovery's source archive settings
 	// until recovery ends.
@@ -184,6 +183,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		"POSTGRES_PASSWORD=" + spec.AdminPassword,
 		"POSTGRES_DB=postgres",
 		"POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 --auth-local=trust",
+		"PGDATA=" + pgdataFor(spec.PGVersion),
 	}
 	if len(in.cfg.HBAAllow) > 0 {
 		env = append(env, "PGDOCK_HBA_ALLOW="+strings.Join(in.cfg.HBAAllow, ","))
@@ -251,6 +251,23 @@ func (in *instances) checkMajor(ctx context.Context, name, image string, want in
 	return nil
 }
 
+var releaseRe = regexp.MustCompile(`^(\d+)\.(\d+)`)
+
+// pgRelease trims a PG_VERSION value to major.minor.
+func pgRelease(v string) string { return releaseRe.FindString(v) }
+
+// pgdataFor is the data directory for a major, inside the instance's
+// volume (mounted at dataRoot). Postgres 18's image uses this layout; older
+// images default to dataRoot/data, which they also declare as an anonymous
+// volume: data there would be lost when the container is recreated, so
+// PGDATA is always set.
+func pgdataFor(major int) string {
+	if major == 0 {
+		major = agentapi.DefaultPGVersion
+	}
+	return dataRoot + "/" + strconv.Itoa(major) + "/docker"
+}
+
 // restore fills vol from a WAL-G base backup and sets up recovery, in a
 // one-off container that exits when done.
 func (in *instances) restore(ctx context.Context, spec agentapi.InstanceSpec, vol, name string) error {
@@ -286,7 +303,7 @@ touch "$PGDATA/recovery.signal"
 printf '\n# PGDock point-in-time recovery\n%s\n' "$RECOVERY_CONF" >> "$PGDATA/postgresql.auto.conf"
 (umask 077; printf '%s\n' "$RECOVERY_ENV" > "$RECOVERY_ENV_FILE")
 echo restored`
-	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdata,
+	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdataFor(spec.PGVersion),
 		"RECOVERY_ENV="+shellExports(walg.Env(r.Source)), "RECOVERY_ENV_FILE="+recoveryEnv)
 	id, err := in.dc.CreateContainer(ctx, name, docker.ContainerConfig{
 		Image: agentapi.ImageFor(in.cfg.Image, spec.PGVersion), Entrypoint: []string{"sh", "-c"}, Cmd: []string{script}, Env: env, User: "postgres",
@@ -359,6 +376,14 @@ func (in *instances) info(ctx context.Context, id string) (agentapi.Instance, er
 	out := agentapi.Instance{
 		ID: id, ContainerID: c.ID, Container: name, Volume: vol, State: c.State.Status, Running: c.State.Running,
 		Image: c.Config.Image,
+	}
+	// The official image records its release in PG_VERSION
+	// ("18.1-1.pgdg13+1"); a lookup that fails leaves the field empty.
+	if img, err := in.dc.InspectImage(ctx, c.ImageID); err == nil {
+		out.Version = pgRelease(img.Env("PG_VERSION"))
+	}
+	if img, err := in.dc.InspectImage(ctx, c.Config.Image); err == nil {
+		out.ImageVersion = pgRelease(img.Env("PG_VERSION"))
 	}
 	if b := c.NetworkSettings.Ports[pgPort]; len(b) > 0 {
 		out.PublishedHost = b[0].HostIP

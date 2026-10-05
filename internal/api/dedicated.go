@@ -49,7 +49,7 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 		sum := gen.InstanceSummary{
 			Id: r.ID, Kind: gen.InstanceSummaryKind(r.Kind), Status: r.Status, Error: r.Error,
 			NodeId: r.NodeID, NodeName: r.NodeName, Profile: r.Profile, MemoryMb: i32(r.MemLimitMb), VolumeGb: i32(r.VolumeGb),
-			PgVersion: int(r.PgVersion),
+			PgVersion: int(r.PgVersion), PgRelease: r.PgRelease, PgReleaseAvailable: r.PgReleaseAvailable,
 		}
 		if f, err := r.CpuLimit.Float64Value(); err == nil && f.Valid {
 			v := float32(f.Float64)
@@ -189,6 +189,7 @@ func (s *Server) GetNode(w http.ResponseWriter, r *http.Request, id gen.NodeID) 
 		ni := gen.NodeInstance{
 			Id: i.ID, Kind: i.Kind, Status: i.Status, Error: i.Error, Profile: i.Profile,
 			MemoryMb: i32(i.MemLimitMb), VolumeGb: i32(i.VolumeGb), Projects: int(i.Projects), CreatedAt: &i.CreatedAt,
+			PgVersion: ptrTo(int(i.PgVersion)), PgRelease: i.PgRelease, PgReleaseAvailable: i.PgReleaseAvailable,
 		}
 		if f, err := i.CpuLimit.Float64Value(); err == nil && f.Valid {
 			v := float32(f.Float64)

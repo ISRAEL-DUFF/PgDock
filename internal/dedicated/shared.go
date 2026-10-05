@@ -52,6 +52,19 @@ func sharedSettings(memMB int) map[string]string {
 	}
 }
 
+// sharedSpec is the agent's spec for an agent-run shared cluster.
+func sharedSpec(inst store.Instance, secret provision.AdminSecret) agentapi.InstanceSpec {
+	mem := 1024
+	if inst.MemLimitMb != nil {
+		mem = int(*inst.MemLimitMb)
+	}
+	return agentapi.InstanceSpec{
+		ID: inst.ID.String(), Kind: agentapi.InstanceShared, MemoryMB: mem,
+		AdminUser: secret.User, AdminPassword: secret.Password, Settings: sharedSettings(mem),
+		PGVersion: int(inst.PgVersion),
+	}
+}
+
 // AddSharedCluster records a shared cluster on node and queues its
 // creation. memoryMB sizes it (its CPU is not limited: it is the node's
 // shared tenant pool).
@@ -130,22 +143,15 @@ func (s *Service) runSharedCluster(ctx context.Context, op store.Operation, log 
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	mem := 1024
-	if inst.MemLimitMb != nil {
-		mem = int(*inst.MemLimitMb)
-	}
+	spec := sharedSpec(inst, secret)
 	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
 	if err != nil {
 		return err
 	}
-	if err := log.Info(ctx, "instance", "starting a shared cluster (%d MB) on node %s", mem, agent.Node.Name); err != nil {
+	if err := log.Info(ctx, "instance", "starting a shared cluster (%d MB) on node %s", spec.MemoryMB, agent.Node.Name); err != nil {
 		return err
 	}
-	res, err := agent.CreateInstance(ctx, agentapi.InstanceSpec{
-		ID: inst.ID.String(), Kind: agentapi.InstanceShared, MemoryMB: mem,
-		AdminUser: secret.User, AdminPassword: secret.Password, Settings: sharedSettings(mem),
-		PGVersion: int(inst.PgVersion),
-	})
+	res, err := agent.CreateInstance(ctx, spec)
 	if err != nil {
 		return err
 	}

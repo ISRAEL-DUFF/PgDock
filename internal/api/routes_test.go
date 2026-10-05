@@ -544,6 +544,9 @@ var specMatrix = map[authz.Action][]string{
 		"PATCH /api/v1/admin/plans/{plan_id}", "GET /api/v1/admin/dedicated-requests",
 		"POST /api/v1/admin/dedicated-requests/{request_id}/approve", "POST /api/v1/admin/dedicated-requests/{request_id}/reject",
 		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
+		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"
+		"GET /api/v1/admin/maintenance", "PUT /api/v1/admin/maintenance/window",
+		"POST /api/v1/admin/instances/{instance_id}/minor-upgrade",
 		// §7.2 "The platform admin can set a platform-wide maximum"
 		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",
 		// V2 §6 "Platform targets (managed by the platform admin)"

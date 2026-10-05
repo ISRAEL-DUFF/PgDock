@@ -4355,6 +4355,61 @@ paths:
                 $ref: "#/components/schemas/PlatformUsage"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance:
+    get:
+      operationId: getMaintenance
+      summary: The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+      tags: [admin]
+      responses:
+        "200":
+          description: Maintenance state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceStatus"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/window:
+    put:
+      operationId: putMaintenanceWindow
+      summary: Change the weekly maintenance window (UTC)
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenanceWindow"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceWindow"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/instances/{instance_id}/minor-upgrade:
+    post:
+      operationId: minorUpgradeInstance
+      summary: Restart an instance onto its image's newer Postgres minor release now, outside the window
+      tags: [admin]
+      parameters:
+        - name: instance_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The upgrade ran; error is set if it failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinorUpgrade"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/shared-clusters:
     get:
       operationId: listSharedClusters
@@ -5785,6 +5840,79 @@ components:
           type: string
         ca_pem:
           type: string
+    MaintenanceWindow:
+      type: object
+      description: A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+      required: [enabled, weekday, start_hour, hours]
+      properties:
+        enabled:
+          type: boolean
+        weekday:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: 0 is Sunday.
+        start_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        hours:
+          type: integer
+          minimum: 1
+          maximum: 24
+    MinorUpgrade:
+      type: object
+      required: [id, instance_id, kind, node_name, from_release, to_release, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        instance_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [shared, dedicated]
+        node_name:
+          type: string
+        from_release:
+          type: string
+        to_release:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        pause_ms:
+          type: integer
+          nullable: true
+          description: How long the poolers held clients.
+        error:
+          type: string
+          nullable: true
+    MaintenanceStatus:
+      type: object
+      required: [window, in_window, next_window, behind, history]
+      properties:
+        window:
+          $ref: "#/components/schemas/MaintenanceWindow"
+        in_window:
+          type: boolean
+        next_window:
+          type: string
+          format: date-time
+        behind:
+          type: array
+          description: Running instances whose image has a newer minor release.
+          items:
+            $ref: "#/components/schemas/InstanceSummary"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinorUpgrade"
     InstanceSummary:
       type: object
       required: [id, kind, status, node_id, node_name, pg_version]
@@ -5792,6 +5920,14 @@ components:
         pg_version:
           type: integer
           description: Postgres major version.
+        pg_release:
+          type: string
+          nullable: true
+          description: The release the instance runs ("18.1"), as its agent last reported.
+        pg_release_available:
+          type: string
+          nullable: true
+          description: The release its image now holds; a newer minor is applied in the maintenance window.
         id:
           type: string
           format: uuid
@@ -5931,6 +6067,16 @@ components:
       type: object
       required: [id, kind, status, projects]
       properties:
+        pg_version:
+          type: integer
+        pg_release:
+          type: string
+          nullable: true
+          description: The release the instance runs, as its agent last reported.
+        pg_release_available:
+          type: string
+          nullable: true
+          description: The release its image now holds.
         id:
           type: string
           format: uuid

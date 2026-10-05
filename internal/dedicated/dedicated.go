@@ -414,6 +414,9 @@ func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agenta
 	if err != nil {
 		return agentapi.InstanceSpec{}, jobs.Permanent(err)
 	}
+	if inst.Kind == provision.TierShared {
+		return sharedSpec(inst, secret), nil
+	}
 	w, err := s.walgFor(ctx, inst)
 	if err != nil {
 		return agentapi.InstanceSpec{}, err

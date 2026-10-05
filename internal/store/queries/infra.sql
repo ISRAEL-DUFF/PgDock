@@ -98,6 +98,7 @@ ORDER BY i.created_at;
 
 -- name: ListInstanceSummaries :many
 SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error, i.pg_version,
+       i.pg_release, i.pg_release_available,
        n.id AS node_id, n.name AS node_name
 FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.deleted_at IS NULL;

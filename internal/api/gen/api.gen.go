@@ -965,6 +965,24 @@ func (e MetricsResponseResolution) Valid() bool {
 	}
 }
 
+// Defines values for MinorUpgradeKind.
+const (
+	MinorUpgradeKindDedicated MinorUpgradeKind = "dedicated"
+	MinorUpgradeKindShared    MinorUpgradeKind = "shared"
+)
+
+// Valid indicates whether the value is a known member of the MinorUpgradeKind enum.
+func (e MinorUpgradeKind) Valid() bool {
+	switch e {
+	case MinorUpgradeKindDedicated:
+		return true
+	case MinorUpgradeKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MoveMode.
 const (
 	MoveModeDump    MoveMode = "dump"
@@ -3272,6 +3290,12 @@ type InstanceSummary struct {
 	NodeId   openapi_types.UUID  `json:"node_id"`
 	NodeName string              `json:"node_name"`
 
+	// PgRelease The release the instance runs ("18.1"), as its agent last reported.
+	PgRelease *string `json:"pg_release,omitempty"`
+
+	// PgReleaseAvailable The release its image now holds; a newer minor is applied in the maintenance window.
+	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
+
 	// PgVersion Postgres major version.
 	PgVersion int     `json:"pg_version"`
 	Profile   *string `json:"profile,omitempty"`
@@ -3525,6 +3549,28 @@ type MailSettingsRequest struct {
 // MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
 type MailSettingsRequestTls string
 
+// MaintenanceStatus defines model for MaintenanceStatus.
+type MaintenanceStatus struct {
+	// Behind Running instances whose image has a newer minor release.
+	Behind     []InstanceSummary `json:"behind"`
+	History    []MinorUpgrade    `json:"history"`
+	InWindow   bool              `json:"in_window"`
+	NextWindow time.Time         `json:"next_window"`
+
+	// Window A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+	Window MaintenanceWindow `json:"window"`
+}
+
+// MaintenanceWindow A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+type MaintenanceWindow struct {
+	Enabled   bool `json:"enabled"`
+	Hours     int  `json:"hours"`
+	StartHour int  `json:"start_hour"`
+
+	// Weekday 0 is Sunday.
+	Weekday int `json:"weekday"`
+}
+
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
 	Ts    time.Time `json:"ts"`
@@ -3547,6 +3593,25 @@ type MetricsResponse struct {
 
 // MetricsResponseResolution defines model for MetricsResponse.Resolution.
 type MetricsResponseResolution string
+
+// MinorUpgrade defines model for MinorUpgrade.
+type MinorUpgrade struct {
+	Error       *string            `json:"error,omitempty"`
+	FinishedAt  *time.Time         `json:"finished_at,omitempty"`
+	FromRelease string             `json:"from_release"`
+	Id          openapi_types.UUID `json:"id"`
+	InstanceId  openapi_types.UUID `json:"instance_id"`
+	Kind        MinorUpgradeKind   `json:"kind"`
+	NodeName    string             `json:"node_name"`
+
+	// PauseMs How long the poolers held clients.
+	PauseMs   *int      `json:"pause_ms,omitempty"`
+	StartedAt time.Time `json:"started_at"`
+	ToRelease string    `json:"to_release"`
+}
+
+// MinorUpgradeKind defines model for MinorUpgrade.Kind.
+type MinorUpgradeKind string
 
 // Move defines model for Move.
 type Move struct {
@@ -3624,10 +3689,17 @@ type NodeInstance struct {
 	Id        openapi_types.UUID `json:"id"`
 	Kind      string             `json:"kind"`
 	MemoryMb  *int               `json:"memory_mb,omitempty"`
-	Profile   *string            `json:"profile,omitempty"`
-	Projects  int                `json:"projects"`
-	Status    string             `json:"status"`
-	VolumeGb  *int               `json:"volume_gb,omitempty"`
+
+	// PgRelease The release the instance runs, as its agent last reported.
+	PgRelease *string `json:"pg_release,omitempty"`
+
+	// PgReleaseAvailable The release its image now holds.
+	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
+	PgVersion          *int    `json:"pg_version,omitempty"`
+	Profile            *string `json:"profile,omitempty"`
+	Projects           int     `json:"projects"`
+	Status             string  `json:"status"`
+	VolumeGb           *int    `json:"volume_gb,omitempty"`
 }
 
 // NodeList defines model for NodeList.
@@ -5577,6 +5649,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
 
+// PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
+type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
+
 // AdminUpdateOrgJSONRequestBody defines body for AdminUpdateOrg for application/json ContentType.
 type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
 
@@ -5870,6 +5945,9 @@ type ServerInterface interface {
 	// RejectDedicatedRequest Reject a dedicated request (platform admin)
 	// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
 	RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
+	// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
+	// (POST /api/v1/admin/instances/{instance_id}/minor-upgrade)
+	MinorUpgradeInstance(w http.ResponseWriter, r *http.Request, instanceId openapi_types.UUID)
 	// ListPlatformInvitations Pending platform invitations (platform admin)
 	// (GET /api/v1/admin/invitations)
 	ListPlatformInvitations(w http.ResponseWriter, r *http.Request)
@@ -5879,6 +5957,12 @@ type ServerInterface interface {
 	// RevokePlatformInvitation Revoke a platform invitation (platform admin)
 	// (DELETE /api/v1/admin/invitations/{invitation_id})
 	RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID)
+	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+	// (GET /api/v1/admin/maintenance)
+	GetMaintenance(w http.ResponseWriter, r *http.Request)
+	// PutMaintenanceWindow Change the weekly maintenance window (UTC)
+	// (PUT /api/v1/admin/maintenance/window)
+	PutMaintenanceWindow(w http.ResponseWriter, r *http.Request)
 	// AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
 	// (GET /api/v1/admin/orgs)
 	AdminListOrgs(w http.ResponseWriter, r *http.Request, params AdminListOrgsParams)
@@ -6539,6 +6623,12 @@ func (_ Unimplemented) RejectDedicatedRequest(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
+// (POST /api/v1/admin/instances/{instance_id}/minor-upgrade)
+func (_ Unimplemented) MinorUpgradeInstance(w http.ResponseWriter, r *http.Request, instanceId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListPlatformInvitations Pending platform invitations (platform admin)
 // (GET /api/v1/admin/invitations)
 func (_ Unimplemented) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
@@ -6554,6 +6644,18 @@ func (_ Unimplemented) CreatePlatformInvitation(w http.ResponseWriter, r *http.R
 // RevokePlatformInvitation Revoke a platform invitation (platform admin)
 // (DELETE /api/v1/admin/invitations/{invitation_id})
 func (_ Unimplemented) RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+// (GET /api/v1/admin/maintenance)
+func (_ Unimplemented) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutMaintenanceWindow Change the weekly maintenance window (UTC)
+// (PUT /api/v1/admin/maintenance/window)
+func (_ Unimplemented) PutMaintenanceWindow(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7996,6 +8098,32 @@ func (siw *ServerInterfaceWrapper) RejectDedicatedRequest(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// MinorUpgradeInstance operation middleware
+func (siw *ServerInterfaceWrapper) MinorUpgradeInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "instance_id" -------------
+	var instanceId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "instance_id", chi.URLParam(r, "instance_id"), &instanceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "instance_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MinorUpgradeInstance(w, r, instanceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlatformInvitations operation middleware
 func (siw *ServerInterfaceWrapper) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
 
@@ -8041,6 +8169,34 @@ func (siw *ServerInterfaceWrapper) RevokePlatformInvitation(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokePlatformInvitation(w, r, invitationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutMaintenanceWindow operation middleware
+func (siw *ServerInterfaceWrapper) PutMaintenanceWindow(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMaintenanceWindow(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -14559,6 +14715,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/usage", wrapper.PlatformUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/maintenance/window", wrapper.PutMaintenanceWindow)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/instances/{instance_id}/minor-upgrade", wrapper.MinorUpgradeInstance)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/shared-clusters", wrapper.ListSharedClusters)

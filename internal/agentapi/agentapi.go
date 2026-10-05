@@ -294,6 +294,11 @@ type Instance struct {
 	PublishedHost string `json:"published_host,omitempty"`
 	PublishedPort int    `json:"published_port,omitempty"`
 	Image         string `json:"image"`
+	// Version is the Postgres release the container runs ("18.1"), and
+	// ImageVersion the one its image tag now holds: when the tag has a
+	// newer minor, recreating the container upgrades it (V3 §2.4).
+	Version      string `json:"version,omitempty"`
+	ImageVersion string `json:"image_version,omitempty"`
 }
 
 // WALGBackupRequest is POST /v1/instances/{id}/walg/backup.

@@ -218,6 +218,32 @@ func (c *Client) ImageExists(ctx context.Context, ref string) (bool, error) {
 	return err == nil, err
 }
 
+// Image is what InspectImage returns.
+type Image struct {
+	ID     string `json:"Id"`
+	Config struct {
+		Env    []string          `json:"Env"`
+		Labels map[string]string `json:"Labels"`
+	} `json:"Config"`
+}
+
+// Env returns the value of an environment variable the image sets.
+func (i Image) Env(name string) string {
+	for _, e := range i.Config.Env {
+		if k, v, ok := strings.Cut(e, "="); ok && k == name {
+			return v
+		}
+	}
+	return ""
+}
+
+// InspectImage describes a local image by tag or ID.
+func (c *Client) InspectImage(ctx context.Context, ref string) (Image, error) {
+	var out Image
+	err := c.do(ctx, http.MethodGet, "/images/"+url.PathEscape(ref)+"/json", nil, nil, &out)
+	return out, err
+}
+
 // Pull fetches ref from its registry.
 func (c *Client) Pull(ctx context.Context, ref string) error {
 	name, tag := ref, "latest"
@@ -330,7 +356,10 @@ func (c *Client) CreateContainer(ctx context.Context, name string, cfg Container
 
 // Container is what InspectContainer returns.
 type Container struct {
-	ID           string `json:"Id"`
+	ID string `json:"Id"`
+	// ImageID is the image the container was created from, which a tag
+	// may no longer point to.
+	ImageID      string `json:"Image"`
 	Name         string `json:"Name"`
 	RestartCount int    `json:"RestartCount"`
 	State        struct {
@@ -375,7 +404,8 @@ func (c *Client) StopContainer(ctx context.Context, id string, timeout time.Dura
 // RemoveContainer force-removes a container (not its named volumes); a
 // missing one is not an error.
 func (c *Client) RemoveContainer(ctx context.Context, id string) error {
-	err := c.do(ctx, http.MethodDelete, "/containers/"+url.PathEscape(id), url.Values{"force": {"true"}}, nil, nil)
+	// v: also the anonymous volumes an image declares (named ones stay).
+	err := c.do(ctx, http.MethodDelete, "/containers/"+url.PathEscape(id), url.Values{"force": {"true"}, "v": {"true"}}, nil, nil)
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}

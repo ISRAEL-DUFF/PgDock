@@ -969,6 +969,24 @@ func (e MetricsResponseResolution) Valid() bool {
 	}
 }
 
+// Defines values for MinorUpgradeKind.
+const (
+	MinorUpgradeKindDedicated MinorUpgradeKind = "dedicated"
+	MinorUpgradeKindShared    MinorUpgradeKind = "shared"
+)
+
+// Valid indicates whether the value is a known member of the MinorUpgradeKind enum.
+func (e MinorUpgradeKind) Valid() bool {
+	switch e {
+	case MinorUpgradeKindDedicated:
+		return true
+	case MinorUpgradeKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MoveMode.
 const (
 	MoveModeDump    MoveMode = "dump"
@@ -3276,6 +3294,12 @@ type InstanceSummary struct {
 	NodeId   openapi_types.UUID  `json:"node_id"`
 	NodeName string              `json:"node_name"`
 
+	// PgRelease The release the instance runs ("18.1"), as its agent last reported.
+	PgRelease *string `json:"pg_release,omitempty"`
+
+	// PgReleaseAvailable The release its image now holds; a newer minor is applied in the maintenance window.
+	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
+
 	// PgVersion Postgres major version.
 	PgVersion int     `json:"pg_version"`
 	Profile   *string `json:"profile,omitempty"`
@@ -3529,6 +3553,28 @@ type MailSettingsRequest struct {
 // MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
 type MailSettingsRequestTls string
 
+// MaintenanceStatus defines model for MaintenanceStatus.
+type MaintenanceStatus struct {
+	// Behind Running instances whose image has a newer minor release.
+	Behind     []InstanceSummary `json:"behind"`
+	History    []MinorUpgrade    `json:"history"`
+	InWindow   bool              `json:"in_window"`
+	NextWindow time.Time         `json:"next_window"`
+
+	// Window A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+	Window MaintenanceWindow `json:"window"`
+}
+
+// MaintenanceWindow A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+type MaintenanceWindow struct {
+	Enabled   bool `json:"enabled"`
+	Hours     int  `json:"hours"`
+	StartHour int  `json:"start_hour"`
+
+	// Weekday 0 is Sunday.
+	Weekday int `json:"weekday"`
+}
+
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
 	Ts    time.Time `json:"ts"`
@@ -3551,6 +3597,25 @@ type MetricsResponse struct {
 
 // MetricsResponseResolution defines model for MetricsResponse.Resolution.
 type MetricsResponseResolution string
+
+// MinorUpgrade defines model for MinorUpgrade.
+type MinorUpgrade struct {
+	Error       *string            `json:"error,omitempty"`
+	FinishedAt  *time.Time         `json:"finished_at,omitempty"`
+	FromRelease string             `json:"from_release"`
+	Id          openapi_types.UUID `json:"id"`
+	InstanceId  openapi_types.UUID `json:"instance_id"`
+	Kind        MinorUpgradeKind   `json:"kind"`
+	NodeName    string             `json:"node_name"`
+
+	// PauseMs How long the poolers held clients.
+	PauseMs   *int      `json:"pause_ms,omitempty"`
+	StartedAt time.Time `json:"started_at"`
+	ToRelease string    `json:"to_release"`
+}
+
+// MinorUpgradeKind defines model for MinorUpgrade.Kind.
+type MinorUpgradeKind string
 
 // Move defines model for Move.
 type Move struct {
@@ -3628,10 +3693,17 @@ type NodeInstance struct {
 	Id        openapi_types.UUID `json:"id"`
 	Kind      string             `json:"kind"`
 	MemoryMb  *int               `json:"memory_mb,omitempty"`
-	Profile   *string            `json:"profile,omitempty"`
-	Projects  int                `json:"projects"`
-	Status    string             `json:"status"`
-	VolumeGb  *int               `json:"volume_gb,omitempty"`
+
+	// PgRelease The release the instance runs, as its agent last reported.
+	PgRelease *string `json:"pg_release,omitempty"`
+
+	// PgReleaseAvailable The release its image now holds.
+	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
+	PgVersion          *int    `json:"pg_version,omitempty"`
+	Profile            *string `json:"profile,omitempty"`
+	Projects           int     `json:"projects"`
+	Status             string  `json:"status"`
+	VolumeGb           *int    `json:"volume_gb,omitempty"`
 }
 
 // NodeList defines model for NodeList.
@@ -5581,6 +5653,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
 
+// PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
+type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
+
 // AdminUpdateOrgJSONRequestBody defines body for AdminUpdateOrg for application/json ContentType.
 type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
 
@@ -5972,6 +6047,11 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequest(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
+	//
+	// Corresponds with POST /api/v1/admin/instances/{instance_id}/minor-upgrade (the `MinorUpgradeInstance` operationId).
+	MinorUpgradeInstance(ctx context.Context, instanceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListPlatformInvitations Pending platform invitations (platform admin)
 	//
 	// Corresponds with GET /api/v1/admin/invitations (the `ListPlatformInvitations` operationId).
@@ -5995,6 +6075,25 @@ type ClientInterface interface {
 	//
 	// Corresponds with DELETE /api/v1/admin/invitations/{invitation_id} (the `RevokePlatformInvitation` operationId).
 	RevokePlatformInvitation(ctx context.Context, invitationId InvitationID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+	//
+	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
+	GetMaintenance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutMaintenanceWindowWithBody Change the weekly maintenance window (UTC)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+	PutMaintenanceWindowWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutMaintenanceWindow Change the weekly maintenance window (UTC)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+	PutMaintenanceWindow(ctx context.Context, body PutMaintenanceWindowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
 	//
@@ -8445,6 +8544,21 @@ func (c *Client) RejectDedicatedRequest(ctx context.Context, requestId RequestID
 	return c.Client.Do(req)
 }
 
+// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
+//
+// Corresponds with POST /api/v1/admin/instances/{instance_id}/minor-upgrade (the `MinorUpgradeInstance` operationId).
+func (c *Client) MinorUpgradeInstance(ctx context.Context, instanceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMinorUpgradeInstanceRequest(c.Server, instanceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListPlatformInvitations Pending platform invitations (platform admin)
 //
 // Corresponds with GET /api/v1/admin/invitations (the `ListPlatformInvitations` operationId).
@@ -8499,6 +8613,55 @@ func (c *Client) CreatePlatformInvitation(ctx context.Context, body CreatePlatfo
 // Corresponds with DELETE /api/v1/admin/invitations/{invitation_id} (the `RevokePlatformInvitation` operationId).
 func (c *Client) RevokePlatformInvitation(ctx context.Context, invitationId InvitationID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRevokePlatformInvitationRequest(c.Server, invitationId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+//
+// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
+func (c *Client) GetMaintenance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMaintenanceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutMaintenanceWindowWithBody Change the weekly maintenance window (UTC)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+func (c *Client) PutMaintenanceWindowWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMaintenanceWindowRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutMaintenanceWindow Change the weekly maintenance window (UTC)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+func (c *Client) PutMaintenanceWindow(ctx context.Context, body PutMaintenanceWindowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMaintenanceWindowRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14139,6 +14302,40 @@ func NewRejectDedicatedRequestRequestWithBody(server string, requestId RequestID
 	return req, nil
 }
 
+// NewMinorUpgradeInstanceRequest constructs an http.Request for the MinorUpgradeInstance method
+func NewMinorUpgradeInstanceRequest(server string, instanceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance_id", instanceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/instances/%s/minor-upgrade", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPlatformInvitationsRequest constructs an http.Request for the ListPlatformInvitations method
 func NewListPlatformInvitationsRequest(server string) (*http.Request, error) {
 	var err error
@@ -14236,6 +14433,73 @@ func NewRevokePlatformInvitationRequest(server string, invitationId InvitationID
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetMaintenanceRequest constructs an http.Request for the GetMaintenance method
+func NewGetMaintenanceRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutMaintenanceWindowRequest calls the generic PutMaintenanceWindow builder with application/json body
+func NewPutMaintenanceWindowRequest(server string, body PutMaintenanceWindowJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutMaintenanceWindowRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPutMaintenanceWindowRequestWithBody constructs an http.Request for the PutMaintenanceWindow method, with any body, and a specified content type
+func NewPutMaintenanceWindowRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/window")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -23476,6 +23740,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequestWithResponse(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectDedicatedRequestResponse, error)
 
+	// MinorUpgradeInstanceWithResponse Restart an instance onto its image's newer Postgres minor release now, outside the window
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/instances/{instance_id}/minor-upgrade (the `MinorUpgradeInstance` operationId).
+	MinorUpgradeInstanceWithResponse(ctx context.Context, instanceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*MinorUpgradeInstanceResponse, error)
+
 	// ListPlatformInvitationsWithResponse Pending platform invitations (platform admin)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -23503,6 +23774,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with DELETE /api/v1/admin/invitations/{invitation_id} (the `RevokePlatformInvitation` operationId).
 	RevokePlatformInvitationWithResponse(ctx context.Context, invitationId InvitationID, reqEditors ...RequestEditorFn) (*RevokePlatformInvitationResponse, error)
+
+	// GetMaintenanceWithResponse The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
+	GetMaintenanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMaintenanceResponse, error)
+
+	// PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+	PutMaintenanceWindowWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMaintenanceWindowResponse, error)
+
+	// PutMaintenanceWindowWithResponse Change the weekly maintenance window (UTC)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+	PutMaintenanceWindowWithResponse(ctx context.Context, body PutMaintenanceWindowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMaintenanceWindowResponse, error)
 
 	// AdminListOrgsWithResponse Every organisation with plan, counts, size, and status (platform admin)
 	//
@@ -26274,6 +26566,54 @@ func (r RejectDedicatedRequestResponse) ContentType() string {
 	return ""
 }
 
+type MinorUpgradeInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MinorUpgrade
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r MinorUpgradeInstanceResponse) GetJSON200() *MinorUpgrade {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r MinorUpgradeInstanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r MinorUpgradeInstanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MinorUpgradeInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MinorUpgradeInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MinorUpgradeInstanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListPlatformInvitationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -26405,6 +26745,102 @@ func (r RevokePlatformInvitationResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RevokePlatformInvitationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMaintenanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceStatus
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMaintenanceResponse) GetJSON200() *MaintenanceStatus {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetMaintenanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMaintenanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMaintenanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMaintenanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMaintenanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutMaintenanceWindowResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceWindow
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutMaintenanceWindowResponse) GetJSON200() *MaintenanceWindow {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PutMaintenanceWindowResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PutMaintenanceWindowResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutMaintenanceWindowResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutMaintenanceWindowResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutMaintenanceWindowResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -36352,6 +36788,19 @@ func (c *ClientWithResponses) RejectDedicatedRequestWithResponse(ctx context.Con
 	return ParseRejectDedicatedRequestResponse(rsp)
 }
 
+// MinorUpgradeInstanceWithResponse Restart an instance onto its image's newer Postgres minor release now, outside the window
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/instances/{instance_id}/minor-upgrade (the `MinorUpgradeInstance` operationId).
+func (c *ClientWithResponses) MinorUpgradeInstanceWithResponse(ctx context.Context, instanceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*MinorUpgradeInstanceResponse, error) {
+	rsp, err := c.MinorUpgradeInstance(ctx, instanceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMinorUpgradeInstanceResponse(rsp)
+}
+
 // ListPlatformInvitationsWithResponse Pending platform invitations (platform admin)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -36402,6 +36851,45 @@ func (c *ClientWithResponses) RevokePlatformInvitationWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseRevokePlatformInvitationResponse(rsp)
+}
+
+// GetMaintenanceWithResponse The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
+func (c *ClientWithResponses) GetMaintenanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMaintenanceResponse, error) {
+	rsp, err := c.GetMaintenance(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMaintenanceResponse(rsp)
+}
+
+// PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+func (c *ClientWithResponses) PutMaintenanceWindowWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMaintenanceWindowResponse, error) {
+	rsp, err := c.PutMaintenanceWindowWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutMaintenanceWindowResponse(rsp)
+}
+
+// PutMaintenanceWindowWithResponse Change the weekly maintenance window (UTC)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/maintenance/window (the `PutMaintenanceWindow` operationId).
+func (c *ClientWithResponses) PutMaintenanceWindowWithResponse(ctx context.Context, body PutMaintenanceWindowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMaintenanceWindowResponse, error) {
+	rsp, err := c.PutMaintenanceWindow(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutMaintenanceWindowResponse(rsp)
 }
 
 // AdminListOrgsWithResponse Every organisation with plan, counts, size, and status (platform admin)
@@ -40934,6 +41422,39 @@ func ParseRejectDedicatedRequestResponse(rsp *http.Response) (*RejectDedicatedRe
 	return response, nil
 }
 
+// ParseMinorUpgradeInstanceResponse parses an HTTP response from a MinorUpgradeInstanceWithResponse call
+func ParseMinorUpgradeInstanceResponse(rsp *http.Response) (*MinorUpgradeInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MinorUpgradeInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MinorUpgrade
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListPlatformInvitationsResponse parses an HTTP response from a ListPlatformInvitationsWithResponse call
 func ParseListPlatformInvitationsResponse(rsp *http.Response) (*ListPlatformInvitationsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -41016,6 +41537,72 @@ func ParseRevokePlatformInvitationResponse(rsp *http.Response) (*RevokePlatformI
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMaintenanceResponse parses an HTTP response from a GetMaintenanceWithResponse call
+func ParseGetMaintenanceResponse(rsp *http.Response) (*GetMaintenanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMaintenanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutMaintenanceWindowResponse parses an HTTP response from a PutMaintenanceWindowWithResponse call
+func ParsePutMaintenanceWindowResponse(rsp *http.Response) (*PutMaintenanceWindowResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutMaintenanceWindowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceWindow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

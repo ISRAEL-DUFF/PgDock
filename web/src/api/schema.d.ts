@@ -3234,6 +3234,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The maintenance window, instances behind their image's Postgres release, and recent minor upgrades */
+        get: operations["getMaintenance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change the weekly maintenance window (UTC) */
+        put: operations["putMaintenanceWindow"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/instances/{instance_id}/minor-upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart an instance onto its image's newer Postgres minor release now, outside the window */
+        post: operations["minorUpgradeInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/shared-clusters": {
         parameters: {
             query?: never;
@@ -3944,9 +3995,48 @@ export interface components {
             cert_pem: string;
             ca_pem: string;
         };
+        /** @description A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time. */
+        MaintenanceWindow: {
+            enabled: boolean;
+            /** @description 0 is Sunday. */
+            weekday: number;
+            start_hour: number;
+            hours: number;
+        };
+        MinorUpgrade: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            instance_id: string;
+            /** @enum {string} */
+            kind: "shared" | "dedicated";
+            node_name: string;
+            from_release: string;
+            to_release: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description How long the poolers held clients. */
+            pause_ms?: number | null;
+            error?: string | null;
+        };
+        MaintenanceStatus: {
+            window: components["schemas"]["MaintenanceWindow"];
+            in_window: boolean;
+            /** Format: date-time */
+            next_window: string;
+            /** @description Running instances whose image has a newer minor release. */
+            behind: components["schemas"]["InstanceSummary"][];
+            history: components["schemas"]["MinorUpgrade"][];
+        };
         InstanceSummary: {
             /** @description Postgres major version. */
             pg_version: number;
+            /** @description The release the instance runs ("18.1"), as its agent last reported. */
+            pg_release?: string | null;
+            /** @description The release its image now holds; a newer minor is applied in the maintenance window. */
+            pg_release_available?: string | null;
             /** Format: uuid */
             id: string;
             /** @enum {string} */
@@ -4024,6 +4114,11 @@ export interface components {
             instances: components["schemas"]["NodeInstance"][];
         };
         NodeInstance: {
+            pg_version?: number;
+            /** @description The release the instance runs, as its agent last reported. */
+            pg_release?: string | null;
+            /** @description The release its image now holds. */
+            pg_release_available?: string | null;
             /** Format: uuid */
             id: string;
             kind: string;
@@ -11122,6 +11217,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maintenance state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putMaintenanceWindow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceWindow"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceWindow"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    minorUpgradeInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The upgrade ran; error is set if it failed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinorUpgrade"];
                 };
             };
             default: components["responses"]["Error"];

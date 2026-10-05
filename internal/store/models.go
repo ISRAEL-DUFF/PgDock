@@ -194,28 +194,31 @@ type IncidentUpdate struct {
 }
 
 type Instance struct {
-	ID           uuid.UUID
-	NodeID       uuid.UUID
-	Kind         string
-	PgVersion    int32
-	Port         int32
-	ContainerID  *string
-	CpuLimit     pgtype.Numeric
-	MemLimitMb   *int32
-	VolumeGb     *int32
-	Status       string
-	CreatedAt    time.Time
-	AdminHost    *string
-	AdminPort    *int32
-	Host         *string
-	AdminSecret  []byte
-	Profile      *string
-	WalgPrefix   *string
-	Error        *string
-	DeletedAt    *time.Time
-	OrgID        *uuid.UUID
-	WalgTargetID *uuid.UUID
-	WalgKeyID    *uuid.UUID
+	ID                 uuid.UUID
+	NodeID             uuid.UUID
+	Kind               string
+	PgVersion          int32
+	Port               int32
+	ContainerID        *string
+	CpuLimit           pgtype.Numeric
+	MemLimitMb         *int32
+	VolumeGb           *int32
+	Status             string
+	CreatedAt          time.Time
+	AdminHost          *string
+	AdminPort          *int32
+	Host               *string
+	AdminSecret        []byte
+	Profile            *string
+	WalgPrefix         *string
+	Error              *string
+	DeletedAt          *time.Time
+	OrgID              *uuid.UUID
+	WalgTargetID       *uuid.UUID
+	WalgKeyID          *uuid.UUID
+	PgRelease          *string
+	PgReleaseAvailable *string
+	ReleaseCheckedAt   *time.Time
 }
 
 type Invitation struct {
@@ -254,6 +257,17 @@ type MetricPoint struct {
 	Ts         time.Time
 	Resolution string
 	Value      float64
+}
+
+type MinorUpgrade struct {
+	ID          uuid.UUID
+	InstanceID  uuid.UUID
+	FromRelease string
+	ToRelease   string
+	StartedAt   time.Time
+	FinishedAt  *time.Time
+	PauseMs     *int32
+	Error       *string
 }
 
 type Move struct {

@@ -194,10 +194,13 @@ func run() error {
 			bg.Add(1)
 			go func() { defer bg.Done(); poolerArbiter.Run(bgCtx, 3*time.Second) }()
 		}
-		bg.Add(3)
+		bg.Add(4)
 		go func() { defer bg.Done(); nodeSvc.Run(bgCtx, 30*time.Second) }()
 		go func() { defer bg.Done(); backups.Run(bgCtx) }()
 		go func() { defer bg.Done(); backups.Dedicated.RunReaper(bgCtx, time.Minute) }()
+		// Postgres minor releases, one instance at a time in the weekly
+		// maintenance window (V3 §2.4).
+		go func() { defer bg.Done(); backups.Dedicated.RunMaintenance(bgCtx, 5*time.Minute) }()
 	}
 
 	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
