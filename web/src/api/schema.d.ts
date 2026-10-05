@@ -866,6 +866,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/upgrade/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a major Postgres upgrade of this project (V3 §2.4)
+         * @description Runs the upgrade's checks without changing anything: the target
+         *     version, where the project would go, whether logical replication
+         *     can be used, and, for a shared project, a trial restore of the
+         *     schema on the new version that lists anything incompatible.
+         */
+        post: operations["upgradePreflight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade the project to a newer Postgres major
+         * @description Queues a `major_upgrade` operation: the data moves to an instance of
+         *     the new version (a shared cluster of that version, or a new
+         *     dedicated instance) by logical replication, then writes pause for a
+         *     few seconds while the route switches. Connection strings don't
+         *     change. Refused with the failing checks when the preflight blocks
+         *     it. The old copy is kept for 48 hours.
+         */
+        post: operations["upgradeProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/demote/preflight": {
         parameters: {
             query?: never;
@@ -3416,6 +3464,8 @@ export interface components {
             profile?: string;
             /** @description Dedicated only; default 20. */
             volume_gb?: number;
+            /** @description Postgres major version (see /profiles); default the newest. */
+            pg_version?: number;
         };
         /** @description Shown once. PGDock keeps only the SCRAM verifier. */
         ProjectCredentials: {
@@ -3895,6 +3945,8 @@ export interface components {
             ca_pem: string;
         };
         InstanceSummary: {
+            /** @description Postgres major version. */
+            pg_version: number;
             /** Format: uuid */
             id: string;
             /** @enum {string} */
@@ -3942,6 +3994,9 @@ export interface components {
             items: components["schemas"]["Profile"][];
             default_profile: string;
             default_volume_gb: number;
+            /** @description Supported Postgres major versions, oldest first (V3 §2.4). */
+            pg_versions: number[];
+            default_pg_version: number;
         };
         CreateNodeRequest: {
             /** @example node-b */
@@ -3985,6 +4040,8 @@ export interface components {
         };
         SharedClusterRequest: {
             memory_mb: number;
+            /** @description Postgres major version; default the newest supported. */
+            pg_version?: number;
         };
         UpdateNodeRequest: {
             /** @enum {string} */
@@ -4013,6 +4070,29 @@ export interface components {
             console_writable?: boolean;
             /** @description Acknowledge the preflight's warnings (peak connections, settings that reset). */
             accept_warnings?: boolean;
+        };
+        UpgradeRequest: {
+            pg_version: number;
+        };
+        UpgradeCheck: {
+            /** @enum {string} */
+            name: "version" | "target" | "replication" | "schema" | "extensions";
+            /** @enum {string} */
+            status: "ok" | "warning" | "blocked";
+            message: string;
+        };
+        UpgradePreflight: {
+            eligible: boolean;
+            from: number;
+            to: number;
+            checks: components["schemas"]["UpgradeCheck"][];
+            target_node?: string;
+            /** Format: int64 */
+            size_bytes: number;
+            estimated_downtime_seconds: number;
+            /** @enum {string} */
+            copy_mode: "logical" | "dump";
+            fallback_reason?: string;
         };
         DemoteCheck: {
             /** @enum {string} */
@@ -6901,6 +6981,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upgradePreflight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeRequest"];
+            };
+        };
+        responses: {
+            /** @description The checks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradePreflight"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upgradeProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeRequest"];
+            };
+        };
+        responses: {
+            /** @description Upgrade queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

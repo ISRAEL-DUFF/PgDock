@@ -119,7 +119,7 @@ services:
       PGDOCK_AGENT_ADVERTISE: pgdock-agent:7070
       PGDOCK_AGENT_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
       PGDOCK_AGENT_NETWORK: ${PGDOCK_NETWORK:-pgdock}
-      PGDOCK_AGENT_PG_IMAGE: ${PGDOCK_PG_IMAGE:-pgdock-postgres:18-walg3.0.9}
+      PGDOCK_AGENT_PG_IMAGE: ${PGDOCK_PG_IMAGE:-pgdock-postgres:{major}-walg3.0.9}
       # Instances accept logins from pgdock-server, the poolers, and this
       # agent only (spec §7.1). Add a remote control node's address here.
       PGDOCK_AGENT_DB_ALLOW: ${PGDOCK_AGENT_DB_ALLOW:-172.31.250.11/32,172.31.250.12/32,172.31.250.13/32,172.31.250.14/32}

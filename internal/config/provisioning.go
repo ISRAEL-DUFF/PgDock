@@ -126,6 +126,18 @@ func loadProvisioning(getenv func(string) string, readFile func(string) ([]byte,
 		PooledPort:  port("PGDOCK_DB_POOLED_PORT", 6543),
 		SSLMode:     sslmode("PGDOCK_DB_SSLMODE", "require"),
 	}
+	cfg.PGVersions = []int{17, 18}
+	if v := getenv("PGDOCK_PG_VERSIONS"); v != "" {
+		cfg.PGVersions = nil
+		for _, f := range strings.Split(v, ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(f))
+			if err != nil || n < 13 || n > 99 {
+				errs = append(errs, fmt.Errorf("PGDOCK_PG_VERSIONS: %q is not a Postgres major version", f))
+				continue
+			}
+			cfg.PGVersions = append(cfg.PGVersions, n)
+		}
+	}
 
 	cfg.Shared = SharedCluster{
 		AdminURL:   getenv("PGDOCK_SHARED_ADMIN_URL"),

@@ -243,6 +243,21 @@ type InstanceSpec struct {
 	// one from the agent's current image and this spec: a restart that
 	// picks up a new Postgres minor version (spec §11.3).
 	Recreate bool `json:"recreate,omitempty"`
+	// PGVersion is the Postgres major (0: the agent's default, 18). The
+	// agent's image may be a template with {major} in it (V3 §2.4).
+	PGVersion int `json:"pg_version,omitempty"`
+}
+
+// DefaultPGVersion is the major an instance spec without one runs.
+const DefaultPGVersion = 18
+
+// ImageFor is the image for a Postgres major: tmpl with {major} replaced
+// (a tmpl without it serves every version).
+func ImageFor(tmpl string, major int) string {
+	if major == 0 {
+		major = DefaultPGVersion
+	}
+	return strings.ReplaceAll(tmpl, "{major}", strconv.Itoa(major))
 }
 
 // WALG is where an instance's base backups and WAL live, and the key that

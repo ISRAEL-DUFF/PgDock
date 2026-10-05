@@ -194,7 +194,9 @@ e2e-images:
 	docker build $(DOCKER_BUILD_FLAGS) --target agent -t pgdock-agent:local .
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-pebble:local -f test/e2e/bundle/Dockerfile.pebble test/e2e/bundle
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-fakes3:local -f test/e2e/bundle/Dockerfile.fakes3 .
-	docker build $(DOCKER_BUILD_FLAGS) -t $(PG_IMAGE) deploy/images/postgres
+	for v in $(PG_VERSIONS); do \
+		docker build $(DOCKER_BUILD_FLAGS) --build-arg PG_MAJOR=$$v -t pgdock-postgres:$$v-walg3.0.9 deploy/images/postgres; \
+	done
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
@@ -208,10 +210,14 @@ test-load: pooler-seed test-agent-bin
 	$(COMPOSE) --profile test --profile load up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 90m -v -run TestLoad ./test/load/
 
-## pg-image: the Postgres 18 + WAL-G image dedicated instances run.
+## pg-image: the Postgres + WAL-G images instances run, one per supported
+## major (V3 §2.4).
+PG_VERSIONS := 17 18
 PG_IMAGE := pgdock-postgres:18-walg3.0.9
 pg-image:
-	docker build $(DOCKER_BUILD_FLAGS) -t $(PG_IMAGE) deploy/images/postgres
+	for v in $(PG_VERSIONS); do \
+		docker build $(DOCKER_BUILD_FLAGS) --build-arg PG_MAJOR=$$v -t pgdock-postgres:$$v-walg3.0.9 deploy/images/postgres; \
+	done
 
 ## pooler-host-images: the edge pooler host and its keepalived (V3 §2.1).
 pooler-host-images:

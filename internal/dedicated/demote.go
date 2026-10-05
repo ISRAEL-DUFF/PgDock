@@ -324,7 +324,12 @@ func (s *Service) preflight(ctx context.Context, p store.Project, o DemoteOption
 
 	// Capacity: a shared cluster with room for the database plus 20%,
 	// the organisation's own when it has one.
-	clusters, err := q.SharedClustersForOrg(ctx, &p.OrgID)
+	src, err := q.GetInstance(ctx, p.InstanceID)
+	if err != nil {
+		return plan, err
+	}
+	// The same Postgres version: a demotion isn't an upgrade.
+	clusters, err := q.SharedClustersForOrg(ctx, store.SharedClustersForOrgParams{OrgID: &p.OrgID, PgVersion: src.PgVersion})
 	if err != nil {
 		return plan, err
 	}

@@ -95,7 +95,7 @@ func (q *Queries) GetInstanceTarget(ctx context.Context, id uuid.UUID) (GetInsta
 
 const insertInstance = `-- name: InsertInstance :one
 INSERT INTO instances (id, node_id, kind, pg_version, port, cpu_limit, mem_limit_mb, volume_gb, profile, walg_prefix, status)
-VALUES ($1, $2, $3, 18, 5432, $4, $5, $6, $7, $8, 'provisioning')
+VALUES ($1, $2, $3, $4, 5432, $5, $6, $7, $8, $9, 'provisioning')
 RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id
 `
 
@@ -103,6 +103,7 @@ type InsertInstanceParams struct {
 	ID         uuid.UUID
 	NodeID     uuid.UUID
 	Kind       string
+	PgVersion  int32
 	CpuLimit   pgtype.Numeric
 	MemLimitMb *int32
 	VolumeGb   *int32
@@ -115,6 +116,7 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 		arg.ID,
 		arg.NodeID,
 		arg.Kind,
+		arg.PgVersion,
 		arg.CpuLimit,
 		arg.MemLimitMb,
 		arg.VolumeGb,
@@ -150,7 +152,7 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 }
 
 const listInstanceSummaries = `-- name: ListInstanceSummaries :many
-SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error,
+SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error, i.pg_version,
        n.id AS node_id, n.name AS node_name
 FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.deleted_at IS NULL
@@ -165,6 +167,7 @@ type ListInstanceSummariesRow struct {
 	VolumeGb   *int32
 	Status     string
 	Error      *string
+	PgVersion  int32
 	NodeID     uuid.UUID
 	NodeName   string
 }
@@ -187,6 +190,7 @@ func (q *Queries) ListInstanceSummaries(ctx context.Context) ([]ListInstanceSumm
 			&i.VolumeGb,
 			&i.Status,
 			&i.Error,
+			&i.PgVersion,
 			&i.NodeID,
 			&i.NodeName,
 		); err != nil {
@@ -467,20 +471,25 @@ const pickSharedInstance = `-- name: PickSharedInstance :one
 SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id FROM instances i
 JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
-  AND i.deleted_at IS NULL
-  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $1)
-           THEN i.org_id = $1 ELSE i.org_id IS NULL END
+  AND i.deleted_at IS NULL AND i.pg_version = $1
+  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $2)
+           THEN i.org_id = $2 ELSE i.org_id IS NULL END
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
 LIMIT 1
 `
+
+type PickSharedInstanceParams struct {
+	PgVersion int32
+	OrgID     *uuid.UUID
+}
 
 // PickSharedInstance chooses the running shared instance hosting the fewest
 // live projects.
 // tenant: system - platform infrastructure (nodes, instances, placement).
 // An organisation with its own shared clusters uses only those; every
 // other organisation uses only the untagged ones (V2 s10.5).
-func (q *Queries) PickSharedInstance(ctx context.Context, orgID *uuid.UUID) (Instance, error) {
-	row := q.db.QueryRow(ctx, pickSharedInstance, orgID)
+func (q *Queries) PickSharedInstance(ctx context.Context, arg PickSharedInstanceParams) (Instance, error) {
+	row := q.db.QueryRow(ctx, pickSharedInstance, arg.PgVersion, arg.OrgID)
 	var i Instance
 	err := row.Scan(
 		&i.ID,

@@ -36,7 +36,7 @@ func TestPrometheusLabelsDoNotExposeTenantNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inst, err := q.InsertInstance(ctx, store.InsertInstanceParams{ID: uuid.New(), NodeID: node.ID, Kind: "shared"})
+	inst, err := q.InsertInstance(ctx, store.InsertInstanceParams{ID: uuid.New(), NodeID: node.ID, Kind: "shared", PgVersion: 18})
 	if err != nil {
 		t.Fatal(err)
 	}

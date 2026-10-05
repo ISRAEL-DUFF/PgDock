@@ -148,7 +148,7 @@ func TestDemotionLiveWriter(t *testing.T) {
 	if !pf.Eligible || len(pf.Checks) != 7 || pf.Target == nil || !pf.Target.OrgCluster || pf.RetainHours != 48 || pf.SizeBytes == 0 {
 		t.Fatalf("preflight: %+v", pf)
 	}
-	if c := check(pf, gen.Allowance); !strings.Contains(c.Message, "releases a small instance") {
+	if c := check(pf, gen.DemoteCheckNameAllowance); !strings.Contains(c.Message, "releases a small instance") {
 		t.Fatalf("allowance check: %+v", c)
 	}
 	if !strings.Contains(strings.Join(pf.Resets, "; "), "connection limit 90 → 20") || pf.SettingsAfter.ConnectionLimit != 20 ||
@@ -168,8 +168,8 @@ func TestDemotionLiveWriter(t *testing.T) {
 		}
 	}
 	pf = preflight(t, e, pid)
-	if pf.Eligible || check(pf, gen.Extensions).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.Extensions).Message, "postgres_fdw") ||
-		check(pf, gen.Roles).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.Roles).Message, "reporting") {
+	if pf.Eligible || check(pf, gen.DemoteCheckNameExtensions).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.DemoteCheckNameExtensions).Message, "postgres_fdw") ||
+		check(pf, gen.DemoteCheckNameRoles).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.DemoteCheckNameRoles).Message, "reporting") {
 		t.Fatalf("preflight with postgres_fdw and a custom role: %+v", pf.Checks)
 	}
 	var apiErr gen.Error
@@ -188,7 +188,7 @@ func TestDemotionLiveWriter(t *testing.T) {
 	}
 	_ = app.Close(ctx)
 	pf = preflight(t, e, pid)
-	if !pf.Eligible || check(pf, gen.Settings).Status != gen.DemoteCheckStatusWarning || !strings.Contains(check(pf, gen.Settings).Message, "work_mem=64MB") {
+	if !pf.Eligible || check(pf, gen.DemoteCheckNameSettings).Status != gen.DemoteCheckStatusWarning || !strings.Contains(check(pf, gen.DemoteCheckNameSettings).Message, "work_mem=64MB") {
 		t.Fatalf("preflight with a database setting: %+v", pf.Checks)
 	}
 	if code := e.Do("POST", "/api/v1/projects/"+pid+"/demote", gen.DemoteRequest{}, &apiErr); code != http.StatusConflict || !strings.Contains(apiErr.Message, "acknowledge") {

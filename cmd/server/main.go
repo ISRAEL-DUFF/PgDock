@@ -558,6 +558,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 		SessionPort:      cfg.Public.SessionPort,
 		PooledPort:       cfg.Public.PooledPort,
 		SSLMode:          cfg.Public.SSLMode,
+		PGVersions:       cfg.PGVersions,
 		SmokeSessionAddr: pc.SessionAddr,
 		SmokePooledAddr:  pc.PooledAddr,
 		SmokeSSLMode:     pc.SSLMode,

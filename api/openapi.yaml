@@ -1056,6 +1056,62 @@ paths:
                 $ref: "#/components/schemas/MoveList"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/upgrade/preflight:
+    post:
+      operationId: upgradePreflight
+      summary: Check a major Postgres upgrade of this project (V3 §2.4)
+      description: |
+        Runs the upgrade's checks without changing anything: the target
+        version, where the project would go, whether logical replication
+        can be used, and, for a shared project, a trial restore of the
+        schema on the new version that lists anything incompatible.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeRequest"
+      responses:
+        "200":
+          description: The checks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradePreflight"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/upgrade:
+    post:
+      operationId: upgradeProject
+      summary: Upgrade the project to a newer Postgres major
+      description: |
+        Queues a `major_upgrade` operation: the data moves to an instance of
+        the new version (a shared cluster of that version, or a new
+        dedicated instance) by logical replication, then writes pause for a
+        few seconds while the route switches. Connection strings don't
+        change. Refused with the failing checks when the preflight blocks
+        it. The old copy is kept for 48 hours.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeRequest"
+      responses:
+        "202":
+          description: Upgrade queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/demote/preflight:
     post:
       operationId: demotePreflight
@@ -4840,6 +4896,9 @@ components:
           minimum: 1
           maximum: 16384
           description: Dedicated only; default 20.
+        pg_version:
+          type: integer
+          description: Postgres major version (see /profiles); default the newest.
     ProjectCredentials:
       type: object
       description: Shown once. PGDock keeps only the SCRAM verifier.
@@ -5728,8 +5787,11 @@ components:
           type: string
     InstanceSummary:
       type: object
-      required: [id, kind, status, node_id, node_name]
+      required: [id, kind, status, node_id, node_name, pg_version]
       properties:
+        pg_version:
+          type: integer
+          description: Postgres major version.
         id:
           type: string
           format: uuid
@@ -5810,7 +5872,7 @@ components:
           type: integer
     ProfileList:
       type: object
-      required: [items, default_profile, default_volume_gb]
+      required: [items, default_profile, default_volume_gb, pg_versions, default_pg_version]
       properties:
         items:
           type: array
@@ -5819,6 +5881,13 @@ components:
         default_profile:
           type: string
         default_volume_gb:
+          type: integer
+        pg_versions:
+          type: array
+          description: Supported Postgres major versions, oldest first (V3 §2.4).
+          items:
+            type: integer
+        default_pg_version:
           type: integer
     CreateNodeRequest:
       type: object
@@ -5898,6 +5967,9 @@ components:
         memory_mb:
           type: integer
           minimum: 512
+        pg_version:
+          type: integer
+          description: Postgres major version; default the newest supported.
     UpdateNodeRequest:
       type: object
       required: [role]
@@ -5935,6 +6007,50 @@ components:
         accept_warnings:
           type: boolean
           description: Acknowledge the preflight's warnings (peak connections, settings that reset).
+    UpgradeRequest:
+      type: object
+      required: [pg_version]
+      properties:
+        pg_version:
+          type: integer
+    UpgradeCheck:
+      type: object
+      required: [name, status, message]
+      properties:
+        name:
+          type: string
+          enum: [version, target, replication, schema, extensions]
+        status:
+          type: string
+          enum: [ok, warning, blocked]
+        message:
+          type: string
+    UpgradePreflight:
+      type: object
+      required: [eligible, from, to, checks, size_bytes, estimated_downtime_seconds, copy_mode]
+      properties:
+        eligible:
+          type: boolean
+        from:
+          type: integer
+        to:
+          type: integer
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/UpgradeCheck"
+        target_node:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        estimated_downtime_seconds:
+          type: integer
+        copy_mode:
+          type: string
+          enum: [logical, dump]
+        fallback_reason:
+          type: string
     DemoteCheck:
       type: object
       required: [name, status, message]

@@ -49,6 +49,7 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 		sum := gen.InstanceSummary{
 			Id: r.ID, Kind: gen.InstanceSummaryKind(r.Kind), Status: r.Status, Error: r.Error,
 			NodeId: r.NodeID, NodeName: r.NodeName, Profile: r.Profile, MemoryMb: i32(r.MemLimitMb), VolumeGb: i32(r.VolumeGb),
+			PgVersion: int(r.PgVersion),
 		}
 		if f, err := r.CpuLimit.Float64Value(); err == nil && f.Valid {
 			v := float32(f.Float64)
@@ -61,7 +62,11 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 
 // ListProfiles implements GET /api/v1/profiles.
 func (s *Server) ListProfiles(w http.ResponseWriter, _ *http.Request) {
-	out := gen.ProfileList{DefaultProfile: dedicated.DefaultProfile, DefaultVolumeGb: dedicated.DefaultVolumeGB}
+	out := gen.ProfileList{DefaultProfile: dedicated.DefaultProfile, DefaultVolumeGb: dedicated.DefaultVolumeGB,
+		PgVersions: provision.DefaultPGVersions, DefaultPgVersion: provision.DefaultPGVersions[len(provision.DefaultPGVersions)-1]}
+	if s.projects != nil {
+		out.PgVersions, out.DefaultPgVersion = s.projects.PGVersions(), s.projects.DefaultPGVersion()
+	}
 	for _, p := range dedicated.Profiles {
 		out.Items = append(out.Items, gen.Profile{Name: p.Name, Cpus: float32(p.CPUs), MemoryMb: p.MemoryMB})
 	}
@@ -226,7 +231,12 @@ func (s *Server) CreateSharedCluster(w http.ResponseWriter, r *http.Request, id 
 	a := auditFrom(r.Context())
 	a.target("node", id.String())
 	a.set("memory_mb", req.MemoryMb)
-	op, err := ds.AddSharedCluster(r.Context(), id, req.MemoryMb, userID(r.Context()))
+	version := 0
+	if req.PgVersion != nil {
+		version = *req.PgVersion
+		a.set("pg_version", version)
+	}
+	op, err := ds.AddSharedCluster(r.Context(), id, req.MemoryMb, version, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "create shared cluster", err)
 		return
@@ -471,4 +481,69 @@ func (s *Server) ListProjectMoves(w http.ResponseWriter, r *http.Request, id gen
 		out.Items = append(out.Items, mv)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func toAPIUpgradePlan(pl dedicated.UpgradePlan) gen.UpgradePreflight {
+	out := gen.UpgradePreflight{
+		Eligible: len(pl.Blocked()) == 0, From: pl.From, To: pl.To, Checks: make([]gen.UpgradeCheck, len(pl.Checks)),
+		SizeBytes: pl.SizeBytes, EstimatedDowntimeSeconds: int(pl.Downtime.Seconds()),
+		CopyMode: gen.UpgradePreflightCopyMode(pl.CopyMode),
+	}
+	if out.CopyMode == "" {
+		out.CopyMode = gen.UpgradePreflightCopyModeLogical
+	}
+	for i, c := range pl.Checks {
+		out.Checks[i] = gen.UpgradeCheck{Name: gen.UpgradeCheckName(c.Name), Status: gen.UpgradeCheckStatus(c.Status), Message: c.Message}
+	}
+	if pl.TargetNode != "" {
+		out.TargetNode = &pl.TargetNode
+	}
+	if pl.CopyReason != "" {
+		out.FallbackReason = &pl.CopyReason
+	}
+	return out
+}
+
+// UpgradePreflight implements POST /api/v1/projects/{id}/upgrade/preflight.
+func (s *Server) UpgradePreflight(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	var req gen.UpgradeRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	p, err := store.New(s.db).GetProject(r.Context(), id)
+	if err != nil {
+		s.provisionError(w, "upgrade preflight", err)
+		return
+	}
+	pl, err := ds.UpgradePreflight(r.Context(), p, req.PgVersion)
+	if err != nil {
+		s.provisionError(w, "upgrade preflight", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toAPIUpgradePlan(pl))
+}
+
+// UpgradeProject implements POST /api/v1/projects/{id}/upgrade.
+func (s *Server) UpgradeProject(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	var req gen.UpgradeRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	a.set("pg_version", req.PgVersion)
+	op, _, err := ds.Upgrade(r.Context(), dedicated.UpgradeParams{ProjectID: id, PgVersion: req.PgVersion, CreatedBy: userID(r.Context())})
+	if err != nil {
+		s.provisionError(w, "upgrade", err)
+		return
+	}
+	s.writeOperation(w, "upgrade", op)
 }

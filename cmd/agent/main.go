@@ -37,7 +37,9 @@ import (
 
 // DefaultPGImage is the instance image this release was built and tested
 // with (deploy/images/postgres).
-const DefaultPGImage = "pgdock-postgres:18-walg3.0.9"
+// DefaultPGImage is the instance image, {major} replaced by each
+// instance's Postgres major (V3 §2.4).
+const DefaultPGImage = "pgdock-postgres:{major}-walg3.0.9"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {

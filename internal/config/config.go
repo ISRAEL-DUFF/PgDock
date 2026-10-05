@@ -52,6 +52,9 @@ type Config struct {
 	Insight Insight
 	// Status connects to the status page (V3 §2.6).
 	Status Status
+	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
+	// majors projects may run (V3 §2.4); the newest is the default.
+	PGVersions []int
 }
 
 // Backups configures node agents and backups (M3).

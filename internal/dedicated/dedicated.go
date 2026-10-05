@@ -422,6 +422,7 @@ func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agenta
 	return agentapi.InstanceSpec{
 		ID: inst.ID.String(), Kind: agentapi.InstanceDedicated, CPUs: prof.CPUs, MemoryMB: prof.MemoryMB,
 		AdminUser: secret.User, AdminPassword: secret.Password, Settings: settings(prof), WALG: &w,
+		PGVersion: int(inst.PgVersion),
 	}, nil
 }
 

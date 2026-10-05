@@ -474,6 +474,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.ProjectPromote: {
 		"GET /api/v1/projects/{id}/promote", "POST /api/v1/projects/{id}/promote",
 		"POST /api/v1/projects/{id}/demote/preflight", "POST /api/v1/projects/{id}/demote",
+		// V3 §2.4: a major upgrade moves the project like a promotion does
+		"POST /api/v1/projects/{id}/upgrade/preflight", "POST /api/v1/projects/{id}/upgrade",
 	},
 	// "Delete project" (transfer also needs owner of both orgs, checked in the handler)
 	authz.ProjectDelete: {"DELETE /api/v1/projects/{id}", "POST /api/v1/projects/{id}/transfer"},

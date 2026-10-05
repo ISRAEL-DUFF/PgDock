@@ -111,7 +111,7 @@ func (s *Service) Move(ctx context.Context, mp MoveParams) (store.Operation, err
 			prefix := "instances/" + target.String() + "/wal-g"
 			mem, vol := int32(prof.MemoryMB), int32(cp.VolumeGB)
 			if _, err := q.InsertInstance(ctx, store.InsertInstanceParams{
-				ID: target, NodeID: mp.NodeID, Kind: provision.TierDedicated, CpuLimit: numeric(prof.CPUs),
+				ID: target, NodeID: mp.NodeID, Kind: provision.TierDedicated, PgVersion: src.PgVersion, CpuLimit: numeric(prof.CPUs),
 				MemLimitMb: &mem, VolumeGb: &vol, Profile: &prof.Name, WalgPrefix: &prefix,
 			}); err != nil {
 				return nil, err
@@ -135,8 +135,8 @@ func (s *Service) runMove(ctx context.Context, op store.Operation, log *jobs.Ste
 		// A retry after the cutover committed: only finishing steps remain.
 		return s.finishMove(ctx, op, p, params.SourceInstance, log, time.Time{})
 	}
-	if p.Status != provision.StatusMoving {
-		return jobs.Permanent(fmt.Errorf("project is %s, not moving", p.Status))
+	if want := movingStatus(op); p.Status != want {
+		return jobs.Permanent(fmt.Errorf("project is %s, not %s", p.Status, want))
 	}
 	if p.InstanceID != params.SourceInstance {
 		return jobs.Permanent(errors.New("the project is no longer on the instance being moved from"))
@@ -453,7 +453,21 @@ func (s *Service) finishMove(ctx context.Context, op store.Operation, p store.Pr
 			_ = log.Warn(ctx, "backup", "first backup on the new node failed: %v (the nightly schedule will take one)", err)
 		}
 	}
+	if op.Kind == KindUpgrade {
+		var v int32
+		if err := s.db.QueryRow(ctx, `SELECT pg_version FROM instances WHERE id = $1`, p.InstanceID).Scan(&v); err == nil {
+			return log.Info(ctx, "done", "project upgraded to Postgres %d", v)
+		}
+	}
 	return log.Info(ctx, "done", "project moved")
+}
+
+// movingStatus is the project status a move operation runs under.
+func movingStatus(op store.Operation) string {
+	if op.Kind == KindUpgrade {
+		return provision.StatusUpgrading
+	}
+	return provision.StatusMoving
 }
 
 // retireSource leaves what a move kept: a shared copy read-only, a

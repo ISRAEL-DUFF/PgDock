@@ -106,12 +106,16 @@ func (s *Service) Promote(ctx context.Context, p PromoteParams) (store.Operation
 			if pr.ParentProjectID != nil {
 				return nil, fmt.Errorf("%w: branches can't be promoted; detach the branch first (V2 §8.4)", provision.ErrInvalid)
 			}
+			src, err := store.New(tx).GetInstance(ctx, pr.InstanceID)
+			if err != nil {
+				return nil, err
+			}
 			target := uuid.New()
 			prefix := "instances/" + target.String() + "/wal-g"
 			mem := int32(prof.MemoryMB)
 			vol := int32(cp.VolumeGB)
 			if _, err := store.New(tx).InsertInstance(ctx, store.InsertInstanceParams{
-				ID: target, NodeID: *cp.NodeID, Kind: provision.TierDedicated, CpuLimit: numeric(prof.CPUs),
+				ID: target, NodeID: *cp.NodeID, Kind: provision.TierDedicated, PgVersion: src.PgVersion, CpuLimit: numeric(prof.CPUs),
 				MemLimitMb: &mem, VolumeGb: &vol, Profile: &prof.Name, WalgPrefix: &prefix,
 			}); err != nil {
 				return nil, err

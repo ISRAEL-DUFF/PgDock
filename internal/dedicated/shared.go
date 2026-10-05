@@ -28,6 +28,7 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindPromote:       {Handler: s.runPromote, OnFail: s.failPromote, MaxAttempts: 2, Timeout: 12 * time.Hour},
 		KindDemote:        {Handler: s.runDemote, OnFail: s.failDemote, MaxAttempts: 2, Timeout: 12 * time.Hour},
 		KindMove:          {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
+		KindUpgrade:       {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
 	}
 }
 
@@ -54,12 +55,16 @@ func sharedSettings(memMB int) map[string]string {
 // AddSharedCluster records a shared cluster on node and queues its
 // creation. memoryMB sizes it (its CPU is not limited: it is the node's
 // shared tenant pool).
-func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memoryMB int, by *uuid.UUID) (store.Operation, error) {
+func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memoryMB, pgVersion int, by *uuid.UUID) (store.Operation, error) {
 	if memoryMB < 512 || memoryMB > 1<<20 {
 		return store.Operation{}, fmt.Errorf("%w: memory must be 512 MB to 1 TB", provision.ErrInvalid)
 	}
+	pgVersion, err := s.projects.CheckPGVersion(pgVersion)
+	if err != nil {
+		return store.Operation{}, err
+	}
 	var op store.Operation
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		n, err := q.GetNode(ctx, nodeID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -85,7 +90,7 @@ func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memory
 		mem := int32(memoryMB)
 		name := "shared"
 		inst, err := q.InsertInstance(ctx, store.InsertInstanceParams{
-			ID: uuid.New(), NodeID: nodeID, Kind: provision.TierShared, MemLimitMb: &mem, Profile: &name,
+			ID: uuid.New(), NodeID: nodeID, Kind: provision.TierShared, PgVersion: int32(pgVersion), MemLimitMb: &mem, Profile: &name,
 		})
 		if err != nil {
 			return err
@@ -139,6 +144,7 @@ func (s *Service) runSharedCluster(ctx context.Context, op store.Operation, log 
 	res, err := agent.CreateInstance(ctx, agentapi.InstanceSpec{
 		ID: inst.ID.String(), Kind: agentapi.InstanceShared, MemoryMB: mem,
 		AdminUser: secret.User, AdminPassword: secret.Password, Settings: sharedSettings(mem),
+		PGVersion: int(inst.PgVersion),
 	})
 	if err != nil {
 		return err

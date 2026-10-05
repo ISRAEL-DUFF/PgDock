@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,7 +75,13 @@ type Config struct {
 	// AdminSSLMode is the sslmode for admin connections to clusters
 	// (default "prefer").
 	AdminSSLMode string
+	// PGVersions are the supported Postgres majors (V3 §2.4), newest last;
+	// the newest is the default (default [17, 18]).
+	PGVersions []int
 }
+
+// DefaultPGVersions are the Postgres majors PGDock supports by default.
+var DefaultPGVersions = []int{17, 18}
 
 func (c *Config) setDefaults() {
 	if c.SSLMode == "" {
@@ -91,6 +99,35 @@ func (c *Config) setDefaults() {
 	if c.AdminSSLMode == "" {
 		c.AdminSSLMode = "prefer"
 	}
+	if len(c.PGVersions) == 0 {
+		c.PGVersions = DefaultPGVersions
+	}
+	slices.Sort(c.PGVersions)
+}
+
+// PGVersions are the supported Postgres majors, oldest first.
+func (s *Service) PGVersions() []int { return slices.Clone(s.cfg.PGVersions) }
+
+// DefaultPGVersion is the newest supported major, for new projects.
+func (s *Service) DefaultPGVersion() int { return s.cfg.PGVersions[len(s.cfg.PGVersions)-1] }
+
+// CheckPGVersion resolves v (0: the default) against the supported majors.
+func (s *Service) CheckPGVersion(v int) (int, error) {
+	if v == 0 {
+		return s.DefaultPGVersion(), nil
+	}
+	if !slices.Contains(s.cfg.PGVersions, v) {
+		return 0, fmt.Errorf("%w: Postgres %d isn't supported (supported: %s)", ErrInvalid, v, joinInts(s.cfg.PGVersions))
+	}
+	return v, nil
+}
+
+func joinInts(xs []int) string {
+	out := make([]string, len(xs))
+	for i, x := range xs {
+		out[i] = strconv.Itoa(x)
+	}
+	return strings.Join(out, ", ")
 }
 
 // Service runs project provisioning.
@@ -206,6 +243,8 @@ type CreateParams struct {
 	NodeID   *uuid.UUID
 	Profile  string
 	VolumeGB int
+	// PgVersion is the Postgres major (0: the default, the newest).
+	PgVersion int
 	// Branch makes the project a branch of another (V2 §8); it is always on
 	// the shared tier.
 	Branch *BranchSpec
@@ -328,14 +367,17 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	if tier == "" {
 		tier = TierShared
 	}
+	if p.PgVersion, err = s.CheckPGVersion(p.PgVersion); err != nil {
+		return Created{}, err
+	}
 	var profile Profile
 	var inst store.Instance
 	defaults := store.DefaultSharedSettings()
 	switch tier {
 	case TierShared:
-		inst, err = store.New(s.db).PickSharedInstance(ctx, &p.OrgID)
+		inst, err = store.New(s.db).PickSharedInstance(ctx, store.PickSharedInstanceParams{OrgID: &p.OrgID, PgVersion: int32(p.PgVersion)})
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Created{}, ErrNoCapacity
+			return Created{}, fmt.Errorf("%w (no shared cluster runs Postgres %d)", ErrNoCapacity, p.PgVersion)
 		}
 		if err != nil {
 			return Created{}, err
@@ -387,7 +429,7 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 				mem := int32(profile.MemoryMB)
 				vol := int32(p.VolumeGB)
 				ni, err := q.InsertInstance(ctx, store.InsertInstanceParams{
-					ID: iid, NodeID: *p.NodeID, Kind: TierDedicated, CpuLimit: numeric(profile.CPUs),
+					ID: iid, NodeID: *p.NodeID, Kind: TierDedicated, PgVersion: int32(p.PgVersion), CpuLimit: numeric(profile.CPUs),
 					MemLimitMb: &mem, VolumeGb: &vol, Profile: &profile.Name, WalgPrefix: &prefix,
 				})
 				if err != nil {

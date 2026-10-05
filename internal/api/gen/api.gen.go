@@ -472,31 +472,31 @@ func (e DedicatedRequestStatus) Valid() bool {
 
 // Defines values for DemoteCheckName.
 const (
-	Allowance   DemoteCheckName = "allowance"
-	Capacity    DemoteCheckName = "capacity"
-	Connections DemoteCheckName = "connections"
-	Extensions  DemoteCheckName = "extensions"
-	Roles       DemoteCheckName = "roles"
-	Settings    DemoteCheckName = "settings"
-	Size        DemoteCheckName = "size"
+	DemoteCheckNameAllowance   DemoteCheckName = "allowance"
+	DemoteCheckNameCapacity    DemoteCheckName = "capacity"
+	DemoteCheckNameConnections DemoteCheckName = "connections"
+	DemoteCheckNameExtensions  DemoteCheckName = "extensions"
+	DemoteCheckNameRoles       DemoteCheckName = "roles"
+	DemoteCheckNameSettings    DemoteCheckName = "settings"
+	DemoteCheckNameSize        DemoteCheckName = "size"
 )
 
 // Valid indicates whether the value is a known member of the DemoteCheckName enum.
 func (e DemoteCheckName) Valid() bool {
 	switch e {
-	case Allowance:
+	case DemoteCheckNameAllowance:
 		return true
-	case Capacity:
+	case DemoteCheckNameCapacity:
 		return true
-	case Connections:
+	case DemoteCheckNameConnections:
 		return true
-	case Extensions:
+	case DemoteCheckNameExtensions:
 		return true
-	case Roles:
+	case DemoteCheckNameRoles:
 		return true
-	case Settings:
+	case DemoteCheckNameSettings:
 		return true
-	case Size:
+	case DemoteCheckNameSize:
 		return true
 	default:
 		return false
@@ -1859,6 +1859,72 @@ func (e UpdateUserRequestPlatformRole) Valid() bool {
 	}
 }
 
+// Defines values for UpgradeCheckName.
+const (
+	UpgradeCheckNameExtensions  UpgradeCheckName = "extensions"
+	UpgradeCheckNameReplication UpgradeCheckName = "replication"
+	UpgradeCheckNameSchema      UpgradeCheckName = "schema"
+	UpgradeCheckNameTarget      UpgradeCheckName = "target"
+	UpgradeCheckNameVersion     UpgradeCheckName = "version"
+)
+
+// Valid indicates whether the value is a known member of the UpgradeCheckName enum.
+func (e UpgradeCheckName) Valid() bool {
+	switch e {
+	case UpgradeCheckNameExtensions:
+		return true
+	case UpgradeCheckNameReplication:
+		return true
+	case UpgradeCheckNameSchema:
+		return true
+	case UpgradeCheckNameTarget:
+		return true
+	case UpgradeCheckNameVersion:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradeCheckStatus.
+const (
+	UpgradeCheckStatusBlocked UpgradeCheckStatus = "blocked"
+	UpgradeCheckStatusOk      UpgradeCheckStatus = "ok"
+	UpgradeCheckStatusWarning UpgradeCheckStatus = "warning"
+)
+
+// Valid indicates whether the value is a known member of the UpgradeCheckStatus enum.
+func (e UpgradeCheckStatus) Valid() bool {
+	switch e {
+	case UpgradeCheckStatusBlocked:
+		return true
+	case UpgradeCheckStatusOk:
+		return true
+	case UpgradeCheckStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradePreflightCopyMode.
+const (
+	UpgradePreflightCopyModeDump    UpgradePreflightCopyMode = "dump"
+	UpgradePreflightCopyModeLogical UpgradePreflightCopyMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the UpgradePreflightCopyMode enum.
+func (e UpgradePreflightCopyMode) Valid() bool {
+	switch e {
+	case UpgradePreflightCopyModeDump:
+		return true
+	case UpgradePreflightCopyModeLogical:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UsageMetricGranularity.
 const (
 	UsageMetricGranularityDay  UsageMetricGranularity = "day"
@@ -2699,6 +2765,9 @@ type CreateProjectRequest struct {
 	// OrgId The organisation; your personal organisation when omitted.
 	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
 
+	// PgVersion Postgres major version (see /profiles); default the newest.
+	PgVersion *int `json:"pg_version,omitempty"`
+
 	// Profile Dedicated only (see /profiles); default small.
 	Profile *string      `json:"profile,omitempty"`
 	Tier    *ProjectTier `json:"tier,omitempty"`
@@ -3202,9 +3271,12 @@ type InstanceSummary struct {
 	MemoryMb *int                `json:"memory_mb,omitempty"`
 	NodeId   openapi_types.UUID  `json:"node_id"`
 	NodeName string              `json:"node_name"`
-	Profile  *string             `json:"profile,omitempty"`
-	Status   string              `json:"status"`
-	VolumeGb *int                `json:"volume_gb,omitempty"`
+
+	// PgVersion Postgres major version.
+	PgVersion int     `json:"pg_version"`
+	Profile   *string `json:"profile,omitempty"`
+	Status    string  `json:"status"`
+	VolumeGb  *int    `json:"volume_gb,omitempty"`
 }
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
@@ -3842,9 +3914,13 @@ type Profile struct {
 
 // ProfileList defines model for ProfileList.
 type ProfileList struct {
-	DefaultProfile  string    `json:"default_profile"`
-	DefaultVolumeGb int       `json:"default_volume_gb"`
-	Items           []Profile `json:"items"`
+	DefaultPgVersion int       `json:"default_pg_version"`
+	DefaultProfile   string    `json:"default_profile"`
+	DefaultVolumeGb  int       `json:"default_volume_gb"`
+	Items            []Profile `json:"items"`
+
+	// PgVersions Supported Postgres major versions, oldest first (V3 §2.4).
+	PgVersions []int `json:"pg_versions"`
 }
 
 // Project defines model for Project.
@@ -4500,6 +4576,9 @@ type SharedClusterList struct {
 // SharedClusterRequest defines model for SharedClusterRequest.
 type SharedClusterRequest struct {
 	MemoryMb int `json:"memory_mb"`
+
+	// PgVersion Postgres major version; default the newest supported.
+	PgVersion *int `json:"pg_version,omitempty"`
 }
 
 // SignupRequest defines model for SignupRequest.
@@ -4925,6 +5004,40 @@ type UpdateUserRequest struct {
 // active platform admin can't be demoted. The account's sessions
 // end, and it is emailed.
 type UpdateUserRequestPlatformRole string
+
+// UpgradeCheck defines model for UpgradeCheck.
+type UpgradeCheck struct {
+	Message string             `json:"message"`
+	Name    UpgradeCheckName   `json:"name"`
+	Status  UpgradeCheckStatus `json:"status"`
+}
+
+// UpgradeCheckName defines model for UpgradeCheck.Name.
+type UpgradeCheckName string
+
+// UpgradeCheckStatus defines model for UpgradeCheck.Status.
+type UpgradeCheckStatus string
+
+// UpgradePreflight defines model for UpgradePreflight.
+type UpgradePreflight struct {
+	Checks                   []UpgradeCheck           `json:"checks"`
+	CopyMode                 UpgradePreflightCopyMode `json:"copy_mode"`
+	Eligible                 bool                     `json:"eligible"`
+	EstimatedDowntimeSeconds int                      `json:"estimated_downtime_seconds"`
+	FallbackReason           *string                  `json:"fallback_reason,omitempty"`
+	From                     int                      `json:"from"`
+	SizeBytes                int64                    `json:"size_bytes"`
+	TargetNode               *string                  `json:"target_node,omitempty"`
+	To                       int                      `json:"to"`
+}
+
+// UpgradePreflightCopyMode defines model for UpgradePreflight.CopyMode.
+type UpgradePreflightCopyMode string
+
+// UpgradeRequest defines model for UpgradeRequest.
+type UpgradeRequest struct {
+	PgVersion int `json:"pg_version"`
+}
 
 // UsageMetric defines model for UsageMetric.
 type UsageMetric struct {
@@ -5698,6 +5811,12 @@ type SaveTableChangesJSONRequestBody = SaveRowsRequest
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
 
+// UpgradeProjectJSONRequestBody defines body for UpgradeProject for application/json ContentType.
+type UpgradeProjectJSONRequestBody = UpgradeRequest
+
+// UpgradePreflightJSONRequestBody defines body for UpgradePreflight for application/json ContentType.
+type UpgradePreflightJSONRequestBody = UpgradeRequest
+
 // CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
 type CreateWebhookJSONRequestBody = WebhookRequest
 
@@ -6273,6 +6392,12 @@ type ServerInterface interface {
 	// TransferProject Move the project to another organisation (owner of both)
 	// (POST /api/v1/projects/{id}/transfer)
 	TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpgradeProject Upgrade the project to a newer Postgres major
+	// (POST /api/v1/projects/{id}/upgrade)
+	UpgradeProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpgradePreflight Check a major Postgres upgrade of this project (V3 §2.4)
+	// (POST /api/v1/projects/{id}/upgrade/preflight)
+	UpgradePreflight(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ListWebhooks A project's webhooks, with their health and backlog
 	// (GET /api/v1/projects/{id}/webhooks)
 	ListWebhooks(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -7455,6 +7580,18 @@ func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id P
 // TransferProject Move the project to another organisation (owner of both)
 // (POST /api/v1/projects/{id}/transfer)
 func (_ Unimplemented) TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpgradeProject Upgrade the project to a newer Postgres major
+// (POST /api/v1/projects/{id}/upgrade)
+func (_ Unimplemented) UpgradeProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpgradePreflight Check a major Postgres upgrade of this project (V3 §2.4)
+// (POST /api/v1/projects/{id}/upgrade/preflight)
+func (_ Unimplemented) UpgradePreflight(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12842,6 +12979,58 @@ func (siw *ServerInterfaceWrapper) TransferProject(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// UpgradeProject operation middleware
+func (siw *ServerInterfaceWrapper) UpgradeProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpgradeProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpgradePreflight operation middleware
+func (siw *ServerInterfaceWrapper) UpgradePreflight(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpgradePreflight(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListWebhooks operation middleware
 func (siw *ServerInterfaceWrapper) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 
@@ -13875,6 +14064,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/moves", wrapper.ListProjectMoves)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/upgrade/preflight", wrapper.UpgradePreflight)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/upgrade", wrapper.UpgradeProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote/preflight", wrapper.DemotePreflight)

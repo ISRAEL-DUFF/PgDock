@@ -476,31 +476,31 @@ func (e DedicatedRequestStatus) Valid() bool {
 
 // Defines values for DemoteCheckName.
 const (
-	Allowance   DemoteCheckName = "allowance"
-	Capacity    DemoteCheckName = "capacity"
-	Connections DemoteCheckName = "connections"
-	Extensions  DemoteCheckName = "extensions"
-	Roles       DemoteCheckName = "roles"
-	Settings    DemoteCheckName = "settings"
-	Size        DemoteCheckName = "size"
+	DemoteCheckNameAllowance   DemoteCheckName = "allowance"
+	DemoteCheckNameCapacity    DemoteCheckName = "capacity"
+	DemoteCheckNameConnections DemoteCheckName = "connections"
+	DemoteCheckNameExtensions  DemoteCheckName = "extensions"
+	DemoteCheckNameRoles       DemoteCheckName = "roles"
+	DemoteCheckNameSettings    DemoteCheckName = "settings"
+	DemoteCheckNameSize        DemoteCheckName = "size"
 )
 
 // Valid indicates whether the value is a known member of the DemoteCheckName enum.
 func (e DemoteCheckName) Valid() bool {
 	switch e {
-	case Allowance:
+	case DemoteCheckNameAllowance:
 		return true
-	case Capacity:
+	case DemoteCheckNameCapacity:
 		return true
-	case Connections:
+	case DemoteCheckNameConnections:
 		return true
-	case Extensions:
+	case DemoteCheckNameExtensions:
 		return true
-	case Roles:
+	case DemoteCheckNameRoles:
 		return true
-	case Settings:
+	case DemoteCheckNameSettings:
 		return true
-	case Size:
+	case DemoteCheckNameSize:
 		return true
 	default:
 		return false
@@ -1863,6 +1863,72 @@ func (e UpdateUserRequestPlatformRole) Valid() bool {
 	}
 }
 
+// Defines values for UpgradeCheckName.
+const (
+	UpgradeCheckNameExtensions  UpgradeCheckName = "extensions"
+	UpgradeCheckNameReplication UpgradeCheckName = "replication"
+	UpgradeCheckNameSchema      UpgradeCheckName = "schema"
+	UpgradeCheckNameTarget      UpgradeCheckName = "target"
+	UpgradeCheckNameVersion     UpgradeCheckName = "version"
+)
+
+// Valid indicates whether the value is a known member of the UpgradeCheckName enum.
+func (e UpgradeCheckName) Valid() bool {
+	switch e {
+	case UpgradeCheckNameExtensions:
+		return true
+	case UpgradeCheckNameReplication:
+		return true
+	case UpgradeCheckNameSchema:
+		return true
+	case UpgradeCheckNameTarget:
+		return true
+	case UpgradeCheckNameVersion:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradeCheckStatus.
+const (
+	UpgradeCheckStatusBlocked UpgradeCheckStatus = "blocked"
+	UpgradeCheckStatusOk      UpgradeCheckStatus = "ok"
+	UpgradeCheckStatusWarning UpgradeCheckStatus = "warning"
+)
+
+// Valid indicates whether the value is a known member of the UpgradeCheckStatus enum.
+func (e UpgradeCheckStatus) Valid() bool {
+	switch e {
+	case UpgradeCheckStatusBlocked:
+		return true
+	case UpgradeCheckStatusOk:
+		return true
+	case UpgradeCheckStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradePreflightCopyMode.
+const (
+	UpgradePreflightCopyModeDump    UpgradePreflightCopyMode = "dump"
+	UpgradePreflightCopyModeLogical UpgradePreflightCopyMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the UpgradePreflightCopyMode enum.
+func (e UpgradePreflightCopyMode) Valid() bool {
+	switch e {
+	case UpgradePreflightCopyModeDump:
+		return true
+	case UpgradePreflightCopyModeLogical:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UsageMetricGranularity.
 const (
 	UsageMetricGranularityDay  UsageMetricGranularity = "day"
@@ -2703,6 +2769,9 @@ type CreateProjectRequest struct {
 	// OrgId The organisation; your personal organisation when omitted.
 	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
 
+	// PgVersion Postgres major version (see /profiles); default the newest.
+	PgVersion *int `json:"pg_version,omitempty"`
+
 	// Profile Dedicated only (see /profiles); default small.
 	Profile *string      `json:"profile,omitempty"`
 	Tier    *ProjectTier `json:"tier,omitempty"`
@@ -3206,9 +3275,12 @@ type InstanceSummary struct {
 	MemoryMb *int                `json:"memory_mb,omitempty"`
 	NodeId   openapi_types.UUID  `json:"node_id"`
 	NodeName string              `json:"node_name"`
-	Profile  *string             `json:"profile,omitempty"`
-	Status   string              `json:"status"`
-	VolumeGb *int                `json:"volume_gb,omitempty"`
+
+	// PgVersion Postgres major version.
+	PgVersion int     `json:"pg_version"`
+	Profile   *string `json:"profile,omitempty"`
+	Status    string  `json:"status"`
+	VolumeGb  *int    `json:"volume_gb,omitempty"`
 }
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
@@ -3846,9 +3918,13 @@ type Profile struct {
 
 // ProfileList defines model for ProfileList.
 type ProfileList struct {
-	DefaultProfile  string    `json:"default_profile"`
-	DefaultVolumeGb int       `json:"default_volume_gb"`
-	Items           []Profile `json:"items"`
+	DefaultPgVersion int       `json:"default_pg_version"`
+	DefaultProfile   string    `json:"default_profile"`
+	DefaultVolumeGb  int       `json:"default_volume_gb"`
+	Items            []Profile `json:"items"`
+
+	// PgVersions Supported Postgres major versions, oldest first (V3 §2.4).
+	PgVersions []int `json:"pg_versions"`
 }
 
 // Project defines model for Project.
@@ -4504,6 +4580,9 @@ type SharedClusterList struct {
 // SharedClusterRequest defines model for SharedClusterRequest.
 type SharedClusterRequest struct {
 	MemoryMb int `json:"memory_mb"`
+
+	// PgVersion Postgres major version; default the newest supported.
+	PgVersion *int `json:"pg_version,omitempty"`
 }
 
 // SignupRequest defines model for SignupRequest.
@@ -4929,6 +5008,40 @@ type UpdateUserRequest struct {
 // active platform admin can't be demoted. The account's sessions
 // end, and it is emailed.
 type UpdateUserRequestPlatformRole string
+
+// UpgradeCheck defines model for UpgradeCheck.
+type UpgradeCheck struct {
+	Message string             `json:"message"`
+	Name    UpgradeCheckName   `json:"name"`
+	Status  UpgradeCheckStatus `json:"status"`
+}
+
+// UpgradeCheckName defines model for UpgradeCheck.Name.
+type UpgradeCheckName string
+
+// UpgradeCheckStatus defines model for UpgradeCheck.Status.
+type UpgradeCheckStatus string
+
+// UpgradePreflight defines model for UpgradePreflight.
+type UpgradePreflight struct {
+	Checks                   []UpgradeCheck           `json:"checks"`
+	CopyMode                 UpgradePreflightCopyMode `json:"copy_mode"`
+	Eligible                 bool                     `json:"eligible"`
+	EstimatedDowntimeSeconds int                      `json:"estimated_downtime_seconds"`
+	FallbackReason           *string                  `json:"fallback_reason,omitempty"`
+	From                     int                      `json:"from"`
+	SizeBytes                int64                    `json:"size_bytes"`
+	TargetNode               *string                  `json:"target_node,omitempty"`
+	To                       int                      `json:"to"`
+}
+
+// UpgradePreflightCopyMode defines model for UpgradePreflight.CopyMode.
+type UpgradePreflightCopyMode string
+
+// UpgradeRequest defines model for UpgradeRequest.
+type UpgradeRequest struct {
+	PgVersion int `json:"pg_version"`
+}
 
 // UsageMetric defines model for UsageMetric.
 type UsageMetric struct {
@@ -5701,6 +5814,12 @@ type SaveTableChangesJSONRequestBody = SaveRowsRequest
 
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
+
+// UpgradeProjectJSONRequestBody defines body for UpgradeProject for application/json ContentType.
+type UpgradeProjectJSONRequestBody = UpgradeRequest
+
+// UpgradePreflightJSONRequestBody defines body for UpgradePreflight for application/json ContentType.
+type UpgradePreflightJSONRequestBody = UpgradeRequest
 
 // CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
 type CreateWebhookJSONRequestBody = WebhookRequest
@@ -7801,6 +7920,58 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/transfer (the `TransferProject` operationId).
 	TransferProject(ctx context.Context, id ProjectID, body TransferProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpgradeProjectWithBody Upgrade the project to a newer Postgres major
+	//
+	// Queues a `major_upgrade` operation: the data moves to an instance of
+	// the new version (a shared cluster of that version, or a new
+	// dedicated instance) by logical replication, then writes pause for a
+	// few seconds while the route switches. Connection strings don't
+	// change. Refused with the failing checks when the preflight blocks
+	// it. The old copy is kept for 48 hours.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+	UpgradeProjectWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpgradeProject Upgrade the project to a newer Postgres major
+	//
+	// Queues a `major_upgrade` operation: the data moves to an instance of
+	// the new version (a shared cluster of that version, or a new
+	// dedicated instance) by logical replication, then writes pause for a
+	// few seconds while the route switches. Connection strings don't
+	// change. Refused with the failing checks when the preflight blocks
+	// it. The old copy is kept for 48 hours.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+	UpgradeProject(ctx context.Context, id ProjectID, body UpgradeProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpgradePreflightWithBody Check a major Postgres upgrade of this project (V3 §2.4)
+	//
+	// Runs the upgrade's checks without changing anything: the target
+	// version, where the project would go, whether logical replication
+	// can be used, and, for a shared project, a trial restore of the
+	// schema on the new version that lists anything incompatible.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+	UpgradePreflightWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpgradePreflight Check a major Postgres upgrade of this project (V3 §2.4)
+	//
+	// Runs the upgrade's checks without changing anything: the target
+	// version, where the project would go, whether logical replication
+	// can be used, and, for a shared project, a trial restore of the
+	// schema on the new version that lists anything incompatible.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+	UpgradePreflight(ctx context.Context, id ProjectID, body UpgradePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWebhooks A project's webhooks, with their health and backlog
 	//
@@ -12743,6 +12914,98 @@ func (c *Client) TransferProjectWithBody(ctx context.Context, id ProjectID, cont
 // Corresponds with POST /api/v1/projects/{id}/transfer (the `TransferProject` operationId).
 func (c *Client) TransferProject(ctx context.Context, id ProjectID, body TransferProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTransferProjectRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpgradeProjectWithBody Upgrade the project to a newer Postgres major
+//
+// Queues a `major_upgrade` operation: the data moves to an instance of
+// the new version (a shared cluster of that version, or a new
+// dedicated instance) by logical replication, then writes pause for a
+// few seconds while the route switches. Connection strings don't
+// change. Refused with the failing checks when the preflight blocks
+// it. The old copy is kept for 48 hours.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+func (c *Client) UpgradeProjectWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpgradeProjectRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpgradeProject Upgrade the project to a newer Postgres major
+//
+// Queues a `major_upgrade` operation: the data moves to an instance of
+// the new version (a shared cluster of that version, or a new
+// dedicated instance) by logical replication, then writes pause for a
+// few seconds while the route switches. Connection strings don't
+// change. Refused with the failing checks when the preflight blocks
+// it. The old copy is kept for 48 hours.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+func (c *Client) UpgradeProject(ctx context.Context, id ProjectID, body UpgradeProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpgradeProjectRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpgradePreflightWithBody Check a major Postgres upgrade of this project (V3 §2.4)
+//
+// Runs the upgrade's checks without changing anything: the target
+// version, where the project would go, whether logical replication
+// can be used, and, for a shared project, a trial restore of the
+// schema on the new version that lists anything incompatible.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+func (c *Client) UpgradePreflightWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpgradePreflightRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpgradePreflight Check a major Postgres upgrade of this project (V3 §2.4)
+//
+// Runs the upgrade's checks without changing anything: the target
+// version, where the project would go, whether logical replication
+// can be used, and, for a shared project, a trial restore of the
+// schema on the new version that lists anything incompatible.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+func (c *Client) UpgradePreflight(ctx context.Context, id ProjectID, body UpgradePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpgradePreflightRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -21653,6 +21916,100 @@ func NewTransferProjectRequestWithBody(server string, id ProjectID, contentType 
 	return req, nil
 }
 
+// NewUpgradeProjectRequest calls the generic UpgradeProject builder with application/json body
+func NewUpgradeProjectRequest(server string, id ProjectID, body UpgradeProjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpgradeProjectRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpgradeProjectRequestWithBody constructs an http.Request for the UpgradeProject method, with any body, and a specified content type
+func NewUpgradeProjectRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/upgrade", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpgradePreflightRequest calls the generic UpgradePreflight builder with application/json body
+func NewUpgradePreflightRequest(server string, id ProjectID, body UpgradePreflightJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpgradePreflightRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpgradePreflightRequestWithBody constructs an http.Request for the UpgradePreflight method, with any body, and a specified content type
+func NewUpgradePreflightRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/upgrade/preflight", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListWebhooksRequest constructs an http.Request for the ListWebhooks method
 func NewListWebhooksRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -25257,6 +25614,58 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/transfer (the `TransferProject` operationId).
 	TransferProjectWithResponse(ctx context.Context, id ProjectID, body TransferProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*TransferProjectResponse, error)
+
+	// UpgradeProjectWithBodyWithResponse Upgrade the project to a newer Postgres major
+	//
+	// Queues a `major_upgrade` operation: the data moves to an instance of
+	// the new version (a shared cluster of that version, or a new
+	// dedicated instance) by logical replication, then writes pause for a
+	// few seconds while the route switches. Connection strings don't
+	// change. Refused with the failing checks when the preflight blocks
+	// it. The old copy is kept for 48 hours.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+	UpgradeProjectWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpgradeProjectResponse, error)
+
+	// UpgradeProjectWithResponse Upgrade the project to a newer Postgres major
+	//
+	// Queues a `major_upgrade` operation: the data moves to an instance of
+	// the new version (a shared cluster of that version, or a new
+	// dedicated instance) by logical replication, then writes pause for a
+	// few seconds while the route switches. Connection strings don't
+	// change. Refused with the failing checks when the preflight blocks
+	// it. The old copy is kept for 48 hours.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+	UpgradeProjectWithResponse(ctx context.Context, id ProjectID, body UpgradeProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpgradeProjectResponse, error)
+
+	// UpgradePreflightWithBodyWithResponse Check a major Postgres upgrade of this project (V3 §2.4)
+	//
+	// Runs the upgrade's checks without changing anything: the target
+	// version, where the project would go, whether logical replication
+	// can be used, and, for a shared project, a trial restore of the
+	// schema on the new version that lists anything incompatible.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+	UpgradePreflightWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpgradePreflightResponse, error)
+
+	// UpgradePreflightWithResponse Check a major Postgres upgrade of this project (V3 §2.4)
+	//
+	// Runs the upgrade's checks without changing anything: the target
+	// version, where the project would go, whether logical replication
+	// can be used, and, for a shared project, a trial restore of the
+	// schema on the new version that lists anything incompatible.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+	UpgradePreflightWithResponse(ctx context.Context, id ProjectID, body UpgradePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*UpgradePreflightResponse, error)
 
 	// ListWebhooksWithResponse A project's webhooks, with their health and backlog
 	//
@@ -34035,6 +34444,102 @@ func (r TransferProjectResponse) ContentType() string {
 	return ""
 }
 
+type UpgradeProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r UpgradeProjectResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpgradeProjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpgradeProjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpgradeProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpgradeProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpgradeProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpgradePreflightResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UpgradePreflight
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpgradePreflightResponse) GetJSON200() *UpgradePreflight {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpgradePreflightResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpgradePreflightResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpgradePreflightResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpgradePreflightResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpgradePreflightResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListWebhooksResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -39502,6 +40007,82 @@ func (c *ClientWithResponses) TransferProjectWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseTransferProjectResponse(rsp)
+}
+
+// UpgradeProjectWithBodyWithResponse Upgrade the project to a newer Postgres major
+//
+// Queues a `major_upgrade` operation: the data moves to an instance of
+// the new version (a shared cluster of that version, or a new
+// dedicated instance) by logical replication, then writes pause for a
+// few seconds while the route switches. Connection strings don't
+// change. Refused with the failing checks when the preflight blocks
+// it. The old copy is kept for 48 hours.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+func (c *ClientWithResponses) UpgradeProjectWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpgradeProjectResponse, error) {
+	rsp, err := c.UpgradeProjectWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpgradeProjectResponse(rsp)
+}
+
+// UpgradeProjectWithResponse Upgrade the project to a newer Postgres major
+//
+// Queues a `major_upgrade` operation: the data moves to an instance of
+// the new version (a shared cluster of that version, or a new
+// dedicated instance) by logical replication, then writes pause for a
+// few seconds while the route switches. Connection strings don't
+// change. Refused with the failing checks when the preflight blocks
+// it. The old copy is kept for 48 hours.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade (the `UpgradeProject` operationId).
+func (c *ClientWithResponses) UpgradeProjectWithResponse(ctx context.Context, id ProjectID, body UpgradeProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpgradeProjectResponse, error) {
+	rsp, err := c.UpgradeProject(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpgradeProjectResponse(rsp)
+}
+
+// UpgradePreflightWithBodyWithResponse Check a major Postgres upgrade of this project (V3 §2.4)
+//
+// Runs the upgrade's checks without changing anything: the target
+// version, where the project would go, whether logical replication
+// can be used, and, for a shared project, a trial restore of the
+// schema on the new version that lists anything incompatible.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+func (c *ClientWithResponses) UpgradePreflightWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpgradePreflightResponse, error) {
+	rsp, err := c.UpgradePreflightWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpgradePreflightResponse(rsp)
+}
+
+// UpgradePreflightWithResponse Check a major Postgres upgrade of this project (V3 §2.4)
+//
+// Runs the upgrade's checks without changing anything: the target
+// version, where the project would go, whether logical replication
+// can be used, and, for a shared project, a trial restore of the
+// schema on the new version that lists anything incompatible.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/upgrade/preflight (the `UpgradePreflight` operationId).
+func (c *ClientWithResponses) UpgradePreflightWithResponse(ctx context.Context, id ProjectID, body UpgradePreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*UpgradePreflightResponse, error) {
+	rsp, err := c.UpgradePreflight(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpgradePreflightResponse(rsp)
 }
 
 // ListWebhooksWithResponse A project's webhooks, with their health and backlog
@@ -45989,6 +46570,72 @@ func ParseTransferProjectResponse(rsp *http.Response) (*TransferProjectResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Project
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpgradeProjectResponse parses an HTTP response from a UpgradeProjectWithResponse call
+func ParseUpgradeProjectResponse(rsp *http.Response) (*UpgradeProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpgradeProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpgradePreflightResponse parses an HTTP response from a UpgradePreflightWithResponse call
+func ParseUpgradePreflightResponse(rsp *http.Response) (*UpgradePreflightResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpgradePreflightResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UpgradePreflight
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

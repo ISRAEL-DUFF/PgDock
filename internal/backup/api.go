@@ -88,7 +88,7 @@ func (s *Service) PITR(ctx context.Context, p PITRParams) (provision.Created, er
 	cp := provision.CreateParams{
 		OrgID: src.OrgID, CreatorRole: p.CreatorRole,
 		Name: strings.TrimSpace(p.Name), CreatedBy: p.CreatedBy, Kind: KindRestore,
-		Tier: provision.TierDedicated, NodeID: &inst.NodeID,
+		Tier: provision.TierDedicated, NodeID: &inst.NodeID, PgVersion: int(inst.PgVersion),
 		Params: map[string]any{"mode": ModePITR, "pitr": plan},
 	}
 	if inst.Profile != nil {

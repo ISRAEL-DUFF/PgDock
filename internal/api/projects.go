@@ -113,6 +113,9 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	if req.Profile != nil {
 		cp.Profile = *req.Profile
 	}
+	if req.PgVersion != nil {
+		cp.PgVersion = *req.PgVersion
+	}
 	if req.VolumeGb != nil {
 		cp.VolumeGB = *req.VolumeGb
 	}

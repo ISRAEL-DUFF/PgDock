@@ -48,7 +48,7 @@ SELECT i.id, i.node_id, n.name AS node_name, (i.org_id IS NOT NULL)::bool AS org
         ORDER BY t.ts DESC LIMIT 1), -1)::float8 AS free_bytes
 FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
-  AND i.deleted_at IS NULL
+  AND i.deleted_at IS NULL AND i.pg_version = @pg_version
   AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = @org_id)
            THEN i.org_id = @org_id ELSE i.org_id IS NULL END
 ORDER BY i.created_at;

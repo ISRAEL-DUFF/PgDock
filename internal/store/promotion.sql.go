@@ -238,11 +238,16 @@ SELECT i.id, i.node_id, n.name AS node_name, (i.org_id IS NOT NULL)::bool AS org
         ORDER BY t.ts DESC LIMIT 1), -1)::float8 AS free_bytes
 FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
-  AND i.deleted_at IS NULL
-  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $1)
-           THEN i.org_id = $1 ELSE i.org_id IS NULL END
+  AND i.deleted_at IS NULL AND i.pg_version = $1
+  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $2)
+           THEN i.org_id = $2 ELSE i.org_id IS NULL END
 ORDER BY i.created_at
 `
+
+type SharedClustersForOrgParams struct {
+	PgVersion int32
+	OrgID     *uuid.UUID
+}
 
 type SharedClustersForOrgRow struct {
 	ID         uuid.UUID
@@ -257,8 +262,8 @@ type SharedClustersForOrgRow struct {
 // The shared clusters a project of the organisation may be placed on (its
 // own when it has any, V2 s10.5), with live projects and the node's latest
 // measured free disk (-1: not measured yet).
-func (q *Queries) SharedClustersForOrg(ctx context.Context, orgID *uuid.UUID) ([]SharedClustersForOrgRow, error) {
-	rows, err := q.db.Query(ctx, sharedClustersForOrg, orgID)
+func (q *Queries) SharedClustersForOrg(ctx context.Context, arg SharedClustersForOrgParams) ([]SharedClustersForOrgRow, error) {
+	rows, err := q.db.Query(ctx, sharedClustersForOrg, arg.PgVersion, arg.OrgID)
 	if err != nil {
 		return nil, err
 	}

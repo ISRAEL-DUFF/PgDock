@@ -131,10 +131,11 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		return agentapi.Instance{}, err
 	}
 
-	if ok, err := in.dc.ImageExists(ctx, in.cfg.Image); err != nil {
+	image := agentapi.ImageFor(in.cfg.Image, spec.PGVersion)
+	if ok, err := in.dc.ImageExists(ctx, image); err != nil {
 		return agentapi.Instance{}, err
 	} else if !ok {
-		if err := in.dc.Pull(ctx, in.cfg.Image); err != nil {
+		if err := in.dc.Pull(ctx, image); err != nil {
 			return agentapi.Instance{}, err
 		}
 	}
@@ -194,7 +195,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	shm := min(max(mem/4, 64<<20), 1<<30)
 	stop := 60
 	cc := docker.ContainerConfig{
-		Image: in.cfg.Image, Cmd: cmd, Env: env, Labels: labels,
+		Image: image, Cmd: cmd, Env: env, Labels: labels,
 		ExposedPorts: map[string]struct{}{pgPort: {}},
 		StopSignal:   "SIGINT", // Postgres fast shutdown
 		StopTimeout:  &stop,
@@ -222,7 +223,32 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	if err := in.waitReady(ctx, name); err != nil {
 		return agentapi.Instance{}, err
 	}
+	if err := in.checkMajor(ctx, name, image, spec.PGVersion); err != nil {
+		return agentapi.Instance{}, err
+	}
 	return in.info(ctx, spec.ID)
+}
+
+var serverVersion = regexp.MustCompile(`PostgreSQL\) (\d+)`)
+
+// checkMajor refuses an instance whose image runs another Postgres major
+// than asked: an agent image without {major} serves one version only.
+func (in *instances) checkMajor(ctx context.Context, name, image string, want int) error {
+	if want == 0 {
+		return nil
+	}
+	r, err := in.dc.Exec(ctx, name, "postgres", nil, []string{"postgres", "-V"})
+	if err != nil {
+		return err
+	}
+	m := serverVersion.FindStringSubmatch(r.Stdout)
+	if m == nil {
+		return fmt.Errorf("instance %s: unexpected postgres -V output %q", name, strings.TrimSpace(r.Stdout))
+	}
+	if got, _ := strconv.Atoi(m[1]); got != want {
+		return fmt.Errorf("image %s runs Postgres %d, not %d: set the agent's image to a template with {major} (PGDOCK_AGENT_PG_IMAGE)", image, got, want)
+	}
+	return nil
 }
 
 // restore fills vol from a WAL-G base backup and sets up recovery, in a
@@ -263,7 +289,7 @@ echo restored`
 	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdata,
 		"RECOVERY_ENV="+shellExports(walg.Env(r.Source)), "RECOVERY_ENV_FILE="+recoveryEnv)
 	id, err := in.dc.CreateContainer(ctx, name, docker.ContainerConfig{
-		Image: in.cfg.Image, Entrypoint: []string{"sh", "-c"}, Cmd: []string{script}, Env: env, User: "postgres",
+		Image: agentapi.ImageFor(in.cfg.Image, spec.PGVersion), Entrypoint: []string{"sh", "-c"}, Cmd: []string{script}, Env: env, User: "postgres",
 		Labels: map[string]string{"pgdock.instance": spec.ID, "pgdock.role": "restore"},
 		HostConfig: docker.HostConfig{
 			Mounts:      []docker.Mount{{Type: "volume", Source: vol, Target: dataRoot}},
