@@ -212,6 +212,8 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("GET /feed.rss", s.feed)
 	mux.HandleFunc("PUT "+statusapi.PathIncidents+"{id}", s.signed(s.pushIncident))
 	mux.HandleFunc("POST "+statusapi.PathHeartbeat, s.signed(s.pushHeartbeat))
+	mux.HandleFunc("PUT "+statusapi.PathSLATargets, s.signed(s.pushSLATargets))
+	mux.HandleFunc("POST "+statusapi.PathSLAResults, s.signed(s.slaResultsHandler))
 	mux.HandleFunc("POST /subscribe", s.subscribe)
 	mux.HandleFunc("GET /subscribe/confirm", s.tokenForm("Confirm your subscription", "Confirm", "/subscribe/confirm"))
 	mux.HandleFunc("POST /subscribe/confirm", s.tokenAction(s.Confirm, "You're subscribed. We'll email you when incidents are opened, updated and resolved."))

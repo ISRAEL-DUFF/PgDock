@@ -26,7 +26,58 @@ const (
 	PathHeartbeat = "/api/v1/heartbeat"
 	// PathIncidents + id: PUT replaces one incident (and its updates).
 	PathIncidents = "/api/v1/incidents/"
+	// PathSLATargets: PUT replaces the endpoints the status service probes
+	// for the SLA (V3 §2.7); PathSLAResults: POST returns its per-minute
+	// results since a time (a POST so the request is signed like pushes).
+	PathSLATargets = "/api/v1/sla/targets"
+	PathSLAResults = "/api/v1/sla/results"
 )
+
+// SLATarget is a project's pooler endpoint to probe: a connection string
+// with a login that may only connect and run SELECT 1.
+type SLATarget struct {
+	ID  string `json:"id"`
+	DSN string `json:"dsn"`
+}
+
+// SLATargets is the full list (PUT replaces it).
+type SLATargets struct {
+	Targets []SLATarget `json:"targets"`
+}
+
+// SLAResultsRequest asks for results of minutes at or after Since.
+type SLAResultsRequest struct {
+	Since time.Time `json:"since"`
+}
+
+// SLAResult is one target's result for one minute: OK when every probe
+// in the minute connected and ran its query.
+type SLAResult struct {
+	ID     string    `json:"id"`
+	Minute time.Time `json:"minute"`
+	OK     bool      `json:"ok"`
+}
+
+// SLAResults answers an SLAResultsRequest.
+type SLAResults struct {
+	Results []SLAResult `json:"results"`
+}
+
+// Validate checks targets.
+func (t *SLATargets) Validate() error {
+	if len(t.Targets) > 10000 {
+		return errors.New("too many targets")
+	}
+	for _, x := range t.Targets {
+		if !ValidID(x.ID) {
+			return fmt.Errorf("target ID %q is not valid", x.ID)
+		}
+		if !strings.HasPrefix(x.DSN, "postgres://") && !strings.HasPrefix(x.DSN, "postgresql://") {
+			return fmt.Errorf("target %s: not a postgres URL", x.ID)
+		}
+	}
+	return nil
+}
 
 // Component states, best to worst.
 const (
@@ -186,12 +237,27 @@ func (c *Client) Heartbeat(ctx context.Context, h Heartbeat) error {
 	return c.send(ctx, http.MethodPost, PathHeartbeat, h)
 }
 
+// PutSLATargets replaces the SLA probe targets.
+func (c *Client) PutSLATargets(ctx context.Context, t SLATargets) error {
+	return c.send(ctx, http.MethodPut, PathSLATargets, t)
+}
+
+// SLAResults fetches results since a time.
+func (c *Client) SLAResults(ctx context.Context, since time.Time) (SLAResults, error) {
+	var out SLAResults
+	return out, c.call(ctx, http.MethodPost, PathSLAResults, SLAResultsRequest{Since: since}, &out)
+}
+
 // PutIncident creates or replaces in.
 func (c *Client) PutIncident(ctx context.Context, in Incident) error {
 	return c.send(ctx, http.MethodPut, PathIncidents+in.ID, in)
 }
 
 func (c *Client) send(ctx context.Context, method, path string, v any) error {
+	return c.call(ctx, method, path, v, nil)
+}
+
+func (c *Client) call(ctx context.Context, method, path string, v, out any) error {
 	body, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -214,6 +280,9 @@ func (c *Client) send(ctx context.Context, method, path string, v any) error {
 	if resp.StatusCode/100 != 2 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("status service: %s: %s", resp.Status, strings.TrimSpace(string(msg)))
+	}
+	if out != nil {
+		return json.NewDecoder(io.LimitReader(resp.Body, 32<<20)).Decode(out)
 	}
 	return nil
 }

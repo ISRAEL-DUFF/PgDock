@@ -21,7 +21,7 @@ func (q *Queries) ClearDefaultStorageTarget(ctx context.Context) error {
 }
 
 const dedicatedArchiveDrift = `-- name: DedicatedArchiveDrift :many
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data FROM projects p JOIN instances i ON i.id = p.instance_id
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier FROM projects p JOIN instances i ON i.id = p.instance_id
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.tier = 'dedicated'
   AND i.status = 'running' AND i.walg_prefix IS NOT NULL AND i.walg_target_id IS NOT NULL
   AND (COALESCE(p.storage_target_id, (SELECT t.id FROM storage_targets t WHERE t.is_default AND t.org_id IS NULL AND t.deleted_at IS NULL)) IS DISTINCT FROM i.walg_target_id
@@ -73,6 +73,7 @@ func (q *Queries) DedicatedArchiveDrift(ctx context.Context) ([]Project, error) 
 			&i.ExpiryNotifiedAt,
 			&i.BranchBackups,
 			&i.SensitiveData,
+			&i.ProbeVerifier,
 		); err != nil {
 			return nil, err
 		}
@@ -206,7 +207,7 @@ func (q *Queries) GetPlatformStorageTarget(ctx context.Context, id uuid.UUID) (S
 }
 
 const getProjectForUpdate = `-- name: GetProjectForUpdate :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data FROM projects WHERE id = $1 FOR UPDATE
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier FROM projects WHERE id = $1 FOR UPDATE
 `
 
 // tenant: system - a project the request already authorized, locked while its backup settings change.
@@ -245,6 +246,7 @@ func (q *Queries) GetProjectForUpdate(ctx context.Context, id uuid.UUID) (Projec
 		&i.ExpiryNotifiedAt,
 		&i.BranchBackups,
 		&i.SensitiveData,
+		&i.ProbeVerifier,
 	)
 	return i, err
 }

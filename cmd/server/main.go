@@ -51,6 +51,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/rotate"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
+	"github.com/israel-duff/pgdock/internal/statusapi"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tlscert"
@@ -305,6 +306,16 @@ func run() error {
 		log.Info("pushing heartbeats and incidents to the status page", "url", cfg.Status.URL)
 		bg.Add(1)
 		go func() { defer bg.Done(); incidentSvc.Run(bgCtx, time.Minute) }()
+	}
+	// SLA probes of HA projects, from here and, through the status page,
+	// from outside (V3 §2.7).
+	if backups != nil && backups.Dedicated != nil {
+		var status *statusapi.Client
+		if cfg.Status.URL != "" {
+			status = &statusapi.Client{URL: cfg.Status.URL, Secret: cfg.Status.PushSecret}
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); backups.Dedicated.RunSLA(bgCtx, time.Minute, status) }()
 	}
 
 	notifier := jobs.NewNotifier(pool, log)

@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -396,8 +397,41 @@ func (q *Queries) ListPatroniInstances(ctx context.Context) ([]Instance, error) 
 	return items, nil
 }
 
+const poolerProbeUsers = `-- name: PoolerProbeUsers :many
+SELECT db_name, probe_verifier::text AS probe_verifier FROM projects
+WHERE deleted_at IS NULL AND probe_verifier IS NOT NULL
+  AND status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
+ORDER BY db_name
+`
+
+type PoolerProbeUsersRow struct {
+	DbName        string
+	ProbeVerifier string
+}
+
+// tenant: system - the SLA probe logins the poolers must accept.
+func (q *Queries) PoolerProbeUsers(ctx context.Context) ([]PoolerProbeUsersRow, error) {
+	rows, err := q.db.Query(ctx, poolerProbeUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PoolerProbeUsersRow
+	for rows.Next() {
+		var i PoolerProbeUsersRow
+		if err := rows.Scan(&i.DbName, &i.ProbeVerifier); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const projectOnInstance = `-- name: ProjectOnInstance :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data FROM projects WHERE instance_id = $1 AND deleted_at IS NULL ORDER BY created_at LIMIT 1
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier FROM projects WHERE instance_id = $1 AND deleted_at IS NULL ORDER BY created_at LIMIT 1
 `
 
 // tenant: system - the HA leader watcher (one project per dedicated instance).
@@ -436,12 +470,13 @@ func (q *Queries) ProjectOnInstance(ctx context.Context, instanceID uuid.UUID) (
 		&i.ExpiryNotifiedAt,
 		&i.BranchBackups,
 		&i.SensitiveData,
+		&i.ProbeVerifier,
 	)
 	return i, err
 }
 
 const recentOutageMinutes = `-- name: RecentOutageMinutes :many
-SELECT project_id, minute, internal_ok, external_ok, available, excluded FROM availability_minutes
+SELECT project_id, minute, internal_ok, external_ok, excluded, available FROM availability_minutes
 WHERE project_id = $1 AND NOT available AND NOT excluded AND minute >= $2
 ORDER BY minute DESC LIMIT $3
 `
@@ -467,8 +502,139 @@ func (q *Queries) RecentOutageMinutes(ctx context.Context, arg RecentOutageMinut
 			&i.Minute,
 			&i.InternalOk,
 			&i.ExternalOk,
-			&i.Available,
 			&i.Excluded,
+			&i.Available,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recordAvailability = `-- name: RecordAvailability :exec
+INSERT INTO availability_minutes (project_id, minute, internal_ok, external_ok, excluded)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (project_id, minute) DO UPDATE SET
+  internal_ok = CASE WHEN EXCLUDED.internal_ok IS NULL THEN availability_minutes.internal_ok
+                     ELSE coalesce(availability_minutes.internal_ok, true) AND EXCLUDED.internal_ok END,
+  external_ok = CASE WHEN EXCLUDED.external_ok IS NULL THEN availability_minutes.external_ok
+                     ELSE coalesce(availability_minutes.external_ok, true) AND EXCLUDED.external_ok END,
+  excluded = availability_minutes.excluded OR EXCLUDED.excluded
+`
+
+type RecordAvailabilityParams struct {
+	ProjectID  uuid.UUID
+	Minute     time.Time
+	InternalOk *bool
+	ExternalOk *bool
+	Excluded   bool
+}
+
+// tenant: system - the SLA prober.
+func (q *Queries) RecordAvailability(ctx context.Context, arg RecordAvailabilityParams) error {
+	_, err := q.db.Exec(ctx, recordAvailability,
+		arg.ProjectID,
+		arg.Minute,
+		arg.InternalOk,
+		arg.ExternalOk,
+		arg.Excluded,
+	)
+	return err
+}
+
+const sLAProbeTargets = `-- name: SLAProbeTargets :many
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, i.patroni_secret, o.status AS org_status
+FROM projects p JOIN instances i ON i.id = p.instance_id JOIN organizations o ON o.id = p.org_id
+WHERE p.deleted_at IS NULL AND i.ha_enabled AND p.probe_verifier IS NOT NULL
+ORDER BY p.id
+`
+
+type SLAProbeTargetsRow struct {
+	ID                  uuid.UUID
+	Name                string
+	Slug                string
+	DbName              string
+	OwnerRole           string
+	ScramVerifier       string
+	Tier                string
+	InstanceID          uuid.UUID
+	Status              string
+	Settings            json.RawMessage
+	StorageTargetID     *uuid.UUID
+	Extensions          []string
+	Description         *string
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	DeletedAt           *time.Time
+	OrgID               uuid.UUID
+	AliasDbName         *string
+	LegacyOwnerRole     *string
+	LegacyScramVerifier *string
+	LegacyUntil         *time.Time
+	StorageState        string
+	StorageStateAt      *time.Time
+	BackupKeyID         *uuid.UUID
+	ParentProjectID     *uuid.UUID
+	BranchSource        *string
+	BranchSchemaOnly    *bool
+	ExpiresAt           *time.Time
+	ExpiryNotifiedAt    *time.Time
+	BranchBackups       bool
+	SensitiveData       bool
+	ProbeVerifier       *string
+	PatroniSecret       []byte
+	OrgStatus           string
+}
+
+// tenant: system - the SLA prober: every HA project.
+func (q *Queries) SLAProbeTargets(ctx context.Context) ([]SLAProbeTargetsRow, error) {
+	rows, err := q.db.Query(ctx, sLAProbeTargets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SLAProbeTargetsRow
+	for rows.Next() {
+		var i SLAProbeTargetsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.DbName,
+			&i.OwnerRole,
+			&i.ScramVerifier,
+			&i.Tier,
+			&i.InstanceID,
+			&i.Status,
+			&i.Settings,
+			&i.StorageTargetID,
+			&i.Extensions,
+			&i.Description,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.DeletedAt,
+			&i.OrgID,
+			&i.AliasDbName,
+			&i.LegacyOwnerRole,
+			&i.LegacyScramVerifier,
+			&i.LegacyUntil,
+			&i.StorageState,
+			&i.StorageStateAt,
+			&i.BackupKeyID,
+			&i.ParentProjectID,
+			&i.BranchSource,
+			&i.BranchSchemaOnly,
+			&i.ExpiresAt,
+			&i.ExpiryNotifiedAt,
+			&i.BranchBackups,
+			&i.SensitiveData,
+			&i.ProbeVerifier,
+			&i.PatroniSecret,
+			&i.OrgStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -641,5 +807,20 @@ func (q *Queries) SetMemberState(ctx context.Context, arg SetMemberStateParams) 
 		arg.Error,
 		arg.ID,
 	)
+	return err
+}
+
+const setProbeVerifier = `-- name: SetProbeVerifier :exec
+UPDATE projects SET probe_verifier = $1 WHERE id = $2
+`
+
+type SetProbeVerifierParams struct {
+	ProbeVerifier *string
+	ID            uuid.UUID
+}
+
+// tenant: system - the SLA probe login of a project the caller resolved.
+func (q *Queries) SetProbeVerifier(ctx context.Context, arg SetProbeVerifierParams) error {
+	_, err := q.db.Exec(ctx, setProbeVerifier, arg.ProbeVerifier, arg.ID)
 	return err
 }

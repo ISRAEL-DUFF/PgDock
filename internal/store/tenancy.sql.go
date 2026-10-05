@@ -1031,7 +1031,7 @@ func (q *Queries) OrgLargestProject(ctx context.Context, orgID uuid.UUID) (float
 }
 
 const orgLiveProjects = `-- name: OrgLiveProjects :many
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data FROM projects WHERE org_id = $1 AND deleted_at IS NULL ORDER BY created_at
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier FROM projects WHERE org_id = $1 AND deleted_at IS NULL ORDER BY created_at
 `
 
 func (q *Queries) OrgLiveProjects(ctx context.Context, orgID uuid.UUID) ([]Project, error) {
@@ -1075,6 +1075,7 @@ func (q *Queries) OrgLiveProjects(ctx context.Context, orgID uuid.UUID) ([]Proje
 			&i.ExpiryNotifiedAt,
 			&i.BranchBackups,
 			&i.SensitiveData,
+			&i.ProbeVerifier,
 		); err != nil {
 			return nil, err
 		}

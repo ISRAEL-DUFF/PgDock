@@ -86,8 +86,8 @@ type AvailabilityMinute struct {
 	Minute     time.Time
 	InternalOk *bool
 	ExternalOk *bool
-	Available  bool
 	Excluded   bool
+	Available  *bool
 }
 
 type Backup struct {
@@ -473,6 +473,7 @@ type Project struct {
 	ExpiryNotifiedAt    *time.Time
 	BranchBackups       bool
 	SensitiveData       bool
+	ProbeVerifier       *string
 }
 
 type ProjectDbUser struct {

@@ -64,7 +64,7 @@ func openStore(path string) (*store, error) {
 	// One writer at a time is all SQLite does; one connection avoids
 	// "database is locked" between goroutines.
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.Exec(schema + slaSchema); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("status database %s: %w", path, err)
 	}

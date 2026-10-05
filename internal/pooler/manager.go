@@ -115,6 +115,14 @@ func (m *Manager) Sync(ctx context.Context) error {
 	for _, u := range members {
 		cfg.Users = append(cfg.Users, User{Name: u.RoleName, Secret: u.ScramVerifier})
 	}
+	// HA projects' SLA probe logins (V3 §2.7).
+	probes, err := store.New(conn).PoolerProbeUsers(ctx)
+	if err != nil {
+		return fmt.Errorf("pooler sync: load probe logins: %w", err)
+	}
+	for _, u := range probes {
+		cfg.Users = append(cfg.Users, User{Name: store.ProbeRole(u.DbName), Secret: u.ProbeVerifier})
+	}
 
 	databases, userlist, err := Render(cfg)
 	if err != nil {

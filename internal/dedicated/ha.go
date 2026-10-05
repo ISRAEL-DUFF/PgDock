@@ -43,6 +43,8 @@ type haSecret struct {
 	RestPassword        string `json:"rest_password"`
 	EtcdCert            string `json:"etcd_cert"`
 	EtcdKey             string `json:"etcd_key"`
+	// ProbePassword is the SLA probe login's (V3 §2.7).
+	ProbePassword string `json:"probe_password,omitempty"`
 }
 
 func secretAAD(id uuid.UUID) []byte { return []byte("instances.patroni_secret:" + id.String()) }
@@ -357,6 +359,12 @@ func (s *Service) runHAEnable(ctx context.Context, op store.Operation, log *jobs
 		return err
 	}
 	if err := q.SetInstanceHAEnabled(ctx, store.SetInstanceHAEnabledParams{ID: inst.ID, HaEnabled: true}); err != nil {
+		return err
+	}
+	if inst, err = q.GetInstance(ctx, inst.ID); err != nil {
+		return err
+	}
+	if err := s.ensureProbe(ctx, inst, p, log); err != nil {
 		return err
 	}
 	return log.Info(ctx, "done", "HA is on: standby on %s is %s (%s behind) after %s; the primary is on its original node",

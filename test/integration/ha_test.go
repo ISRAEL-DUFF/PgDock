@@ -2,8 +2,13 @@ package integration
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,6 +18,8 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/pgdock/internal/statuspage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
@@ -288,4 +295,129 @@ func TestHASwitchoverAndFailover(t *testing.T) {
 	if maxN < w.acked.Load() || count != maxN {
 		t.Fatalf("ledger after the failover: %d rows, max %d, %d acknowledged", count, maxN, w.acked.Load())
 	}
+}
+
+// startSLAStatus runs pgdock-status in-process as the SLA's outside
+// vantage point, probing for real, every interval.
+func startSLAStatus(ctx context.Context, t *testing.T, every time.Duration) *statusapi.Client {
+	t.Helper()
+	dir := t.TempDir()
+	cfg := `public_url = "https://status.pgdock.test"
+push_secret = "` + statusSecret + `"
+data = "` + filepath.Join(dir, "status.db") + `"
+[[component]]
+id = "dedicated"
+heartbeat = true
+`
+	path := filepath.Join(dir, "status.toml")
+	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := statuspage.LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := statuspage.New(c, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svc.Close() })
+	ts := httptest.NewServer(svc.Handler())
+	t.Cleanup(ts.Close)
+	go func() {
+		tk := time.NewTicker(every)
+		defer tk.Stop()
+		for {
+			_ = svc.SLATick(ctx)
+			select {
+			case <-ctx.Done():
+				return
+			case <-tk.C:
+			}
+		}
+	}()
+	return &statusapi.Client{URL: ts.URL, Secret: statusSecret}
+}
+
+// TestHAPrimaryNodeLoss is M19's done-when: killing an HA primary's node
+// under load restores writes in under 60 seconds with the URL unchanged,
+// and the availability record shows the outage.
+func TestHAPrimaryNodeLoss(t *testing.T) {
+	needDedicated(t)
+	e := testenv.Start(t, testenv.Options{})
+	c, ns := haProject(t, e)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go e.Dedicated.RunHAWatcher(ctx, time.Second)
+
+	var op gen.Operation
+	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/ha", gen.HAEnableRequest{}, &op); code != http.StatusAccepted {
+		t.Fatalf("enable HA: %d", code)
+	}
+	if op = e.WaitOperation(op.Id); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("enable HA: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
+	}
+	st := haStatus(t, e, c.Project.Id)
+	primary, ok := leaderOf(st)
+	if !ok || primary.NodeId != ns[0].Id {
+		t.Fatalf("members: %+v", st.Members)
+	}
+
+	// Both vantage points probe every 5 seconds (production: every minute).
+	status := startSLAStatus(ctx, t, 5*time.Second)
+	go e.Dedicated.RunSLA(ctx, 5*time.Second, status)
+	w := startWriter(t, e, c.Connection.PooledUrl)
+	// A healthy minute or so first.
+	time.Sleep(70 * time.Second)
+
+	e.KillAgent("test")
+	killed := time.Now()
+	for _, name := range []string{"pgdock-" + primary.Id.String(), "pgdock-etcd-" + ns[0].Id.String()} {
+		if out, err := exec.Command("docker", "kill", name).CombinedOutput(); err != nil {
+			t.Fatalf("kill %s: %v %s", name, err, out)
+		}
+	}
+	before := w.acked.Load()
+	deadline := time.Now().Add(90 * time.Second)
+	for w.acked.Load() < before+20 {
+		if time.Now().After(deadline) {
+			t.Fatalf("no writes after the primary's node died (%d errors)", w.errs.Load())
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	restored := time.Now()
+	t.Logf("writes back through the same URL after %s; %d client errors", restored.Sub(killed).Round(100*time.Millisecond), w.errs.Load())
+	if restored.Sub(killed) > 60*time.Second {
+		t.Errorf("writes came back after %s, want under 60 s", restored.Sub(killed))
+	}
+
+	// Let the next minutes be measured, then read the record.
+	time.Sleep(time.Until(restored.Truncate(time.Minute).Add(70 * time.Second)))
+	w.Stop()
+	st = haStatus(t, e, c.Project.Id)
+	if l, ok := leaderOf(st); !ok || l.NodeId != ns[1].Id {
+		t.Fatalf("leader after the failover: %+v", st.Members)
+	}
+	if len(st.Failovers) == 0 || st.Failovers[0].Kind != gen.Failover {
+		t.Fatalf("failover history: %+v", st.Failovers)
+	}
+	a := st.Availability
+	if a == nil || a.Percent == nil || a.RecentOutages == nil {
+		t.Fatalf("availability: %+v", a)
+	}
+	first, last := killed.UTC().Truncate(time.Minute), restored.UTC().Truncate(time.Minute)
+	outages := *a.RecentOutages
+	if len(outages) == 0 || a.UnavailableMinutes != len(outages) {
+		t.Fatalf("no unavailable minute recorded: %+v", a)
+	}
+	for _, m := range outages {
+		if m.Minute.Before(first) || m.Minute.After(last) {
+			t.Errorf("minute %s marked unavailable, outside the outage (%s to %s)", m.Minute.Format(time.TimeOnly), first.Format(time.TimeOnly), last.Format(time.TimeOnly))
+		}
+		if m.InternalOk == nil || *m.InternalOk || m.ExternalOk == nil || *m.ExternalOk {
+			t.Errorf("minute %s: internal %v, external %v; both vantage points should have failed", m.Minute.Format(time.TimeOnly), m.InternalOk, m.ExternalOk)
+		}
+	}
+	t.Logf("availability %s: %d of %d minutes unavailable (%.2f%%), failover recorded at %d ms",
+		a.Month, a.UnavailableMinutes, a.MeasuredMinutes, *a.Percent, *st.Failovers[0].DurationMs)
 }

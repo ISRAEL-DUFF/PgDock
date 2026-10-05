@@ -57,6 +57,9 @@ func (s *Service) Run(ctx context.Context) {
 		if err := s.Tick(ctx); err != nil && ctx.Err() == nil {
 			s.log.Error("status check failed", "err", err)
 		}
+		if err := s.SLATick(ctx); err != nil && ctx.Err() == nil {
+			s.log.Error("SLA probes failed", "err", err)
+		}
 		select {
 		case <-ctx.Done():
 			return

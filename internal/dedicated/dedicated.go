@@ -80,6 +80,7 @@ type Service struct {
 	// server runs without one.
 	Etcd  *ha.Service
 	watch watcher
+	sla   slaState
 	// Quotas, when set, checks organisation limits for demotions (the
 	// tenancy service).
 	Quotas Quotas

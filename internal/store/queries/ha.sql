@@ -96,3 +96,32 @@ FROM availability_minutes WHERE project_id = @project_id AND minute >= @from_ts 
 SELECT * FROM availability_minutes
 WHERE project_id = @project_id AND NOT available AND NOT excluded AND minute >= @since
 ORDER BY minute DESC LIMIT @lim;
+
+-- name: SetProbeVerifier :exec
+-- tenant: system - the SLA probe login of a project the caller resolved.
+UPDATE projects SET probe_verifier = sqlc.narg(probe_verifier) WHERE id = @id;
+
+-- name: PoolerProbeUsers :many
+-- tenant: system - the SLA probe logins the poolers must accept.
+SELECT db_name, probe_verifier::text AS probe_verifier FROM projects
+WHERE deleted_at IS NULL AND probe_verifier IS NOT NULL
+  AND status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
+ORDER BY db_name;
+
+-- name: SLAProbeTargets :many
+-- tenant: system - the SLA prober: every HA project.
+SELECT p.*, i.patroni_secret, o.status AS org_status
+FROM projects p JOIN instances i ON i.id = p.instance_id JOIN organizations o ON o.id = p.org_id
+WHERE p.deleted_at IS NULL AND i.ha_enabled AND p.probe_verifier IS NOT NULL
+ORDER BY p.id;
+
+-- name: RecordAvailability :exec
+-- tenant: system - the SLA prober.
+INSERT INTO availability_minutes (project_id, minute, internal_ok, external_ok, excluded)
+VALUES (@project_id, @minute, sqlc.narg(internal_ok), sqlc.narg(external_ok), @excluded)
+ON CONFLICT (project_id, minute) DO UPDATE SET
+  internal_ok = CASE WHEN EXCLUDED.internal_ok IS NULL THEN availability_minutes.internal_ok
+                     ELSE coalesce(availability_minutes.internal_ok, true) AND EXCLUDED.internal_ok END,
+  external_ok = CASE WHEN EXCLUDED.external_ok IS NULL THEN availability_minutes.external_ok
+                     ELSE coalesce(availability_minutes.external_ok, true) AND EXCLUDED.external_ok END,
+  excluded = availability_minutes.excluded OR EXCLUDED.excluded;
