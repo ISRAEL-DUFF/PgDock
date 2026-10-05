@@ -1190,10 +1190,9 @@ test.describe("with the saved session", () => {
     await inv.getByRole("button").click();
     await expect(page.getByTestId("invoice-panel")).toContainText("Pro (monthly)");
     await expect(page.getByTestId("invoice-total")).toContainText("₦");
-    const pdf = await page.request.get(await page.getByRole("link", { name: /Download PDF/ }).getAttribute("href") ?? "");
-    expect(pdf.status()).toBe(200);
-    expect(pdf.headers()["content-type"]).toBe("application/pdf");
-    expect((await pdf.body()).subarray(0, 4).toString()).toBe("%PDF");
+    const [pdf] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: /Download PDF/ }).click()]);
+    expect(pdf.suggestedFilename()).toMatch(/^PGD-\d{4}-\d{6}\.pdf$/);
+    expect(readFileSync((await pdf.path())!).subarray(0, 4).toString()).toBe("%PDF");
     await shot(page, "52-invoice");
   });
 
