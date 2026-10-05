@@ -1140,6 +1140,61 @@ test.describe("with the saved session", () => {
     await expect(page.getByRole("heading", { name: "Metered team" })).toBeVisible();
   });
 
+  test("billing: upgrade with a prorated preview, spend controls, an invoice issued and downloaded", async ({ page }) => {
+    await signedIn(page);
+    // The organisation from the usage journey, which the switcher still holds.
+    await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
+    await page.goto("/org/billing");
+    await expect(page.getByRole("heading", { name: "Billing" })).toBeVisible();
+    await expect(page.getByTestId("plan-name")).toHaveText("Free");
+
+    // Free → Pro: priced first (the rest of the month), then applied.
+    await page.getByRole("button", { name: "Change plan…" }).click();
+    await page.getByRole("radio", { name: /Pro/ }).check();
+    const preview = page.getByTestId("plan-preview");
+    await expect(preview).toContainText("Pro (monthly)");
+    await expect(preview).toContainText("On the next invoice");
+    await shot(page, "50-billing-plan");
+    await page.getByRole("button", { name: "Change plan now" }).click();
+    await expect(page.getByTestId("plan-name")).toHaveText("Pro");
+
+    // A budget, business details and a billing contact.
+    await page.getByLabel("Monthly budget (₦)").fill("50,000");
+    await page.getByTestId("spend-controls").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByTestId("spend-controls")).toContainText("Saved.");
+    await expect(page.getByTestId("forecast")).toContainText("Budget ₦50,000.00");
+    await page.getByLabel("Legal name").fill("Metered Team Ltd");
+    await page.getByTestId("business-details").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByTestId("business-details")).toContainText("Saved.");
+    await page.getByLabel("Contact email").fill("accounts@metered.example");
+    await page.getByRole("button", { name: "Add" }).click();
+    await expect(page.getByTestId("billing-contact")).toHaveText(/accounts@metered.example/);
+
+    // The platform admin drafts this month's invoices and issues the team's.
+    await page.goto("/admin/billing");
+    await page.getByRole("button", { name: /^Draft / }).click();
+    const row = page.getByTestId("admin-invoice-row").filter({ hasText: "Metered team" });
+    await expect(row).toContainText("Draft");
+    await row.getByRole("button", { name: "Issue" }).click();
+    await expect(row).toContainText(/PGD-\d{4}-\d{6}/);
+    await page.getByRole("radio", { name: "Ledger" }).click();
+    await expect(page.getByTestId("ledger")).toContainText("Balanced");
+    await shot(page, "51-admin-billing");
+
+    // The team sees it, with the details frozen on it, and downloads it.
+    await page.goto("/org/billing");
+    const inv = page.getByTestId("invoice-row").first();
+    await expect(inv).toContainText(/PGD-/);
+    await inv.getByRole("button").click();
+    await expect(page.getByTestId("invoice-panel")).toContainText("Pro (monthly)");
+    await expect(page.getByTestId("invoice-total")).toContainText("₦");
+    const pdf = await page.request.get(await page.getByRole("link", { name: /Download PDF/ }).getAttribute("href") ?? "");
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toBe("application/pdf");
+    expect((await pdf.body()).subarray(0, 4).toString()).toBe("%PDF");
+    await shot(page, "52-invoice");
+  });
+
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
     await signedIn(page);
     // Calls the API as a CI job would: a bearer token, no cookies.

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, errorMessage, type DedicatedRequest, type Project } from "../api/client";
 import { formatBytes } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
+import { CostEstimate } from "./CostEstimate";
 import { OperationLog } from "./OperationLog";
 import { Alert, Button, Panel, SidePanel, Field, Input, Select, StatusBadge } from "./ui";
 
@@ -149,6 +150,17 @@ export function PromoteCard({ p }: { p: Project }) {
               )}
             </Field>
           </div>
+          {(() => {
+            const pr = (profiles.data?.items ?? []).find((x) => (profile ? x.name === profile : x.name === profiles.data?.default_profile));
+            const disk = Number(volume) || profiles.data?.default_volume_gb || 20;
+            return (
+              <CostEstimate
+                org={p.org_id}
+                what="A dedicated instance of this size"
+                req={pr ? { cpus: pr.cpus, memory_mb: pr.memory_mb, disk_gb: disk } : null}
+              />
+            );
+          })()}
           <Field label="Why (if it needs approval)" hint="Beyond your organisation's dedicated allowance, this becomes a request to the platform admin.">
             {(id) => <Input id={id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}
           </Field>

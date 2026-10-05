@@ -1,12 +1,21 @@
 package integration
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
 
@@ -220,5 +229,218 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 		"vat_rate": "7.5", "wht_rate": "0.05", "auto_issue": true, "seller": map[string]string{"legal_name": "PGDock Ltd"},
 	}, nil); code != http.StatusBadRequest {
 		t.Errorf("a VAT rate of 7.5 (750%%): %d", code)
+	}
+}
+
+// TestCLIBilling drives billing from the pgdock binary with an admin token.
+func TestCLIBilling(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	bin := buildCLI(t)
+	token := e.CreateToken(map[string]any{"name": "finance", "org_id": e.OrgID, "scopes": []string{"read", "write", "admin"}})
+	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+
+	if r := runCLI(t, bin, env, "billing", "show"); r.code != 0 || !strings.Contains(r.stdout, "Plan: Free (monthly)") {
+		t.Fatalf("billing show: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "billing", "plan", "pro", "--dry-run"); r.code != 0 || !strings.Contains(r.stdout, "would take effect") || !strings.Contains(r.stdout, "+ VAT") {
+		t.Fatalf("dry run: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "billing", "plan", "pro"); r.code != 0 || !strings.Contains(r.stdout, "Now on pro (monthly)") {
+		t.Fatalf("plan: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	var drafted struct{ Drafts int }
+	e.Do("POST", "/api/v1/admin/invoices/draft", map[string]any{"period": time.Now().UTC().Format("2006-01"), "org_id": e.OrgID}, &drafted)
+	var invs gen.InvoiceList
+	e.Do("GET", "/api/v1/admin/invoices?status=draft", nil, &invs)
+	if len(invs.Items) != 1 {
+		t.Fatalf("drafts: %+v", invs)
+	}
+	var issued gen.Invoice
+	if code := e.Do("POST", "/api/v1/admin/invoices/"+invs.Items[0].Id.String()+"/issue", nil, &issued); code != http.StatusOK {
+		t.Fatalf("issue: %d", code)
+	}
+	if r := runCLI(t, bin, env, "billing", "invoices"); r.code != 0 || !strings.Contains(r.stdout, *issued.Number) {
+		t.Fatalf("invoices: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	pdf := filepath.Join(t.TempDir(), "invoice.pdf")
+	if r := runCLI(t, bin, env, "billing", "invoice", *issued.Number, "--pdf", pdf); r.code != 0 {
+		t.Fatalf("download: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if b, err := os.ReadFile(pdf); err != nil || !strings.HasPrefix(string(b), "%PDF") {
+		t.Fatalf("the PDF: %v %.10q", err, b)
+	}
+	if r := runCLI(t, bin, env, "billing", "invoice", *issued.Number); r.code != 0 || !strings.Contains(r.stdout, "Pro (monthly)") {
+		t.Fatalf("invoice: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+}
+
+// TestMonthOfRealUsageInvoices is M20's done-when: a month of V2 usage,
+// recorded by the V2 recorder from projects' measured sizes and a running
+// dedicated instance, produces correct, balanced invoices for two
+// organisations, one of which upgrades mid-month; and the ledger invariant
+// holds.
+func TestMonthOfRealUsageInvoices(t *testing.T) {
+	needDedicated(t)
+	e := testenv.Start(t, testenv.Options{})
+	e.StartAgent()
+	e.ConfigureBackups()
+	e.SetNodeRole("test", "both")
+	ctx := context.Background()
+
+	// Org A: a shared project and a small dedicated instance (1 vCPU,
+	// 1,024 MB, 5 GB). Org B: a shared project of 15 GB.
+	shop := e.CreateProject("Shop")
+	tier, profile, vol := gen.ProjectTierDedicated, "small", 5
+	var ded gen.ProjectCredentials
+	if code := e.Do("POST", "/api/v1/projects", gen.CreateProjectRequest{Name: "Shop Pro", Tier: &tier, Profile: &profile, VolumeGb: &vol}, &ded); code != http.StatusAccepted {
+		t.Fatalf("create dedicated: %d", code)
+	}
+	if op := e.WaitOperation(ded.Operation.Id); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("create dedicated: %s %s", op.Status, deref(op.Error))
+	}
+	orgB := e.CreateOrg("Bakery")
+	bakes := e.CreateProjectIn("Bakes", orgB)
+	orgA := e.OrgID
+
+	// Last month, as the V2 recorder sees it: the projects existed all
+	// month, and the shared ones measured 2 GB and 15 GB every hour.
+	now := time.Now().UTC()
+	month := billing.MonthStart(now).AddDate(0, -1, 0)
+	next := month.AddDate(0, 1, 0)
+	n := int64(next.Sub(month).Hours() / 24) // days in the month
+	for _, id := range []uuid.UUID{shop.Project.Id, ded.Project.Id, bakes.Project.Id} {
+		if _, err := e.DB.Exec(ctx, `UPDATE projects SET created_at = $2 WHERE id = $1`, id, month.Add(-24*time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for id, bytes := range map[uuid.UUID]float64{shop.Project.Id: 2e9, bakes.Project.Id: 15e9} {
+		if _, err := e.DB.Exec(ctx, `
+			INSERT INTO metric_points (scope, scope_id, metric, ts, resolution, value)
+			SELECT 'project', $1, 'size_bytes', h, '1h', $4
+			FROM generate_series($2::timestamptz, $3::timestamptz - interval '1 hour', interval '1 hour') AS h
+			ON CONFLICT DO NOTHING`, id, month, next, bytes); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wm, _ := json.Marshal(map[string]time.Time{"hour": month, "day": month})
+	if _, err := e.DB.Exec(ctx, `INSERT INTO settings (key, value) VALUES ('usage.watermark', $1)
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, wm); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Tenancy.RecordUsage(ctx); err != nil {
+		t.Fatal(err)
+	}
+	usageSum := func(org uuid.UUID, metric string, from, to time.Time) billing.Dec {
+		var s string
+		if err := e.DB.QueryRow(ctx, `SELECT coalesce(sum(quantity), 0)::text FROM usage_records
+			WHERE org_id = $1 AND metric = $2 AND period_start >= $3 AND period_start < $4`, org, metric, from, to).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return billing.D(s)
+	}
+	hours := billing.DecInt(24 * n)
+	if got := usageSum(orgA, tenancy.MetricDedicatedCPU, month, next); got.Cmp(hours) != 0 {
+		t.Fatalf("recorded %s vCPU-hours, want %s (1 vCPU all month)", got, hours)
+	}
+	if got := usageSum(orgB, tenancy.MetricSharedStorage, month, next); got.Cmp(hours.Mul(billing.D("15"))) != 0 {
+		t.Fatalf("recorded %s GB-hours for Bakes, want %s", got, hours.Mul(billing.D("15")))
+	}
+
+	// Plans: both on Pro from the 1st; A upgrades to Team on the 13th.
+	at := func(t time.Time) { e.Billing.Now = func() time.Time { return t } }
+	at(month)
+	for _, org := range []uuid.UUID{orgA, orgB} {
+		if _, err := e.Billing.ChangePlan(ctx, org, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	at(month.AddDate(0, 0, 12).Add(15 * time.Hour))
+	if _, err := e.Billing.ChangePlan(ctx, orgA, billing.PlanRequest{Plan: billing.PlanTeam}); err != nil {
+		t.Fatal(err)
+	}
+	at(now)
+	defer func() { e.Billing.Now = time.Now }()
+
+	if _, err := e.Billing.DraftAll(ctx, month); err != nil {
+		t.Fatal(err)
+	}
+	var drafts gen.InvoiceList
+	e.Do("GET", "/api/v1/admin/invoices?status=draft&period="+month.Format("2006-01"), nil, &drafts)
+	if len(drafts.Items) != 2 {
+		t.Fatalf("%d drafts for %s, want 2", len(drafts.Items), month.Format("2006-01"))
+	}
+	for _, d := range drafts.Items {
+		if code := e.Do("POST", "/api/v1/admin/invoices/"+d.Id.String()+"/issue", nil, nil); code != http.StatusOK {
+			t.Fatalf("issue: %d", code)
+		}
+	}
+
+	// What each invoice should say, from the usage records and the
+	// default price book, worked out here independently of the rater.
+	rd := func(d billing.Dec) int64 { return d.Round() }
+	frac := func(fee, num int64) int64 { return billing.DecInt(fee).Frac(num, n).Round() }
+	left := n - 12
+	wantA := map[string]int64{
+		"Pro (monthly), " + fmt.Sprintf("%d of %d days", n, n):      1_500_000,
+		fmt.Sprintf("Unused Pro (monthly), %d of %d days", left, n): -frac(1_500_000, left),
+		fmt.Sprintf("Team (monthly), %d of %d days", left, n):       frac(6_000_000, left),
+		"Dedicated Shop Pro: vCPU-hours":                            rd(hours.Mul(billing.D("2740"))),
+		"Dedicated Shop Pro: RAM GB-hours":                          rd(hours.Mul(billing.D("1.024")).Mul(billing.D("685"))),
+		"Dedicated Shop Pro: Disk GB-hours":                         rd(hours.Mul(billing.D("5")).Mul(billing.D("34.25"))),
+		"Team plan, " + next.Format("January 2006"):                 6_000_000,
+	}
+	// Bakes: 15 GB all month, 10 GB-months (7,300 GB-hours) included.
+	over := hours.Mul(billing.D("15")).Sub(billing.D("7300"))
+	wantB := map[string]int64{
+		fmt.Sprintf("Pro (monthly), %d of %d days", n, n):           1_500_000,
+		"Shared storage (GB-hours) above the Pro allowance of 7300": rd(over.Mul(billing.D("34.25"))),
+		"Pro plan, " + next.Format("January 2006"):                  1_500_000,
+	}
+	for org, want := range map[uuid.UUID]map[string]int64{orgA: wantA, orgB: wantB} {
+		var list gen.InvoiceList
+		e.Do("GET", "/api/v1/orgs/"+org.String()+"/billing/invoices", nil, &list)
+		if len(list.Items) != 1 {
+			t.Fatalf("org %s: %d invoices", org, len(list.Items))
+		}
+		var d gen.InvoiceDetail
+		e.Do("GET", "/api/v1/orgs/"+org.String()+"/billing/invoices/"+list.Items[0].Id.String(), nil, &d)
+		var subtotal int64
+		for _, l := range d.Lines {
+			subtotal += l.Amount
+		}
+		if len(d.Lines) != len(want) {
+			for _, l := range d.Lines {
+				t.Logf("  %-70s %d", l.Description, l.Amount)
+			}
+			t.Fatalf("org %s: %d lines, want %d", org, len(d.Lines), len(want))
+		}
+		var wantSub int64
+		for desc, amount := range want {
+			wantSub += amount
+			found := false
+			for _, l := range d.Lines {
+				if l.Description == desc {
+					found = true
+					if l.Amount != amount {
+						t.Errorf("org %s: %q is %d, want %d", org, desc, l.Amount, amount)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("org %s: no line %q", org, desc)
+			}
+		}
+		inv := d.Invoice
+		vat := billing.DecInt(wantSub).Mul(billing.D("0.075")).Round()
+		if subtotal != wantSub || inv.SubtotalMinor != wantSub || inv.VatMinor != vat || inv.TotalMinor != wantSub+vat {
+			t.Errorf("org %s: subtotal %d (lines %d, want %d), VAT %d (want %d), total %d", org, inv.SubtotalMinor, subtotal, wantSub, inv.VatMinor, vat, inv.TotalMinor)
+		}
+		if b, err := billing.Balance(ctx, e.DB, &org, billing.AccReceivable); err != nil || b != inv.TotalMinor {
+			t.Errorf("org %s: receivable %d, want the total %d (%v)", org, b, inv.TotalMinor, err)
+		}
+	}
+	var check gen.LedgerCheck
+	if e.Do("GET", "/api/v1/admin/ledger/check", nil, &check); !check.Balanced || check.Transactions != 2 {
+		t.Fatalf("ledger: %+v", check)
 	}
 }

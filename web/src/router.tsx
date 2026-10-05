@@ -18,6 +18,8 @@ const AdminOrgsPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "Adm
 const AdminPlansPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "AdminPlansPage");
 const DedicatedRequestsPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "DedicatedRequestsPage");
 const UsagePage = lazyRouteComponent(() => import("./pages/Usage"), "UsagePage");
+const BillingPage = lazyRouteComponent(() => import("./pages/Billing"), "BillingPage");
+const AdminBillingPage = lazyRouteComponent(() => import("./pages/AdminBilling"), "AdminBillingPage");
 const AuditPage = lazyRouteComponent(() => import("./pages/Audit"), "AuditPage");
 const OrgAuditPage = lazyRouteComponent(() => import("./pages/Audit"), "OrgAuditPage");
 const OrgMembersPage = lazyRouteComponent(() => import("./pages/Org"), "OrgMembersPage");
@@ -163,6 +165,17 @@ const incidentsRoute = createRoute({ getParentRoute: () => app, path: "/admin/in
 const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: AuditPage });
 const settings = createRoute({ getParentRoute: () => app, path: "/settings", component: SettingsPage });
 const orgUsage = createRoute({ getParentRoute: () => app, path: "/org/usage", component: UsagePage });
+// ?org= and ?invoice= come from billing emails.
+const orgBilling = createRoute({
+  getParentRoute: () => app,
+  path: "/org/billing",
+  validateSearch: (s: Record<string, unknown>): { org?: string; invoice?: string } => ({
+    org: typeof s.org === "string" ? s.org : undefined,
+    invoice: typeof s.invoice === "string" ? s.invoice : undefined,
+  }),
+  component: BillingPage,
+});
+const adminBilling = createRoute({ getParentRoute: () => app, path: "/admin/billing", component: AdminBillingPage });
 const adminOrgs = createRoute({ getParentRoute: () => app, path: "/admin/orgs", component: AdminOrgsPage });
 const adminOrg = createRoute({ getParentRoute: () => app, path: "/admin/orgs/$id", component: AdminOrgPage });
 const adminPlans = createRoute({ getParentRoute: () => app, path: "/admin/plans", component: AdminPlansPage });
@@ -206,6 +219,8 @@ const routeTree = root.addChildren([
     audit,
     settings,
     orgUsage,
+    orgBilling,
+    adminBilling,
     adminOrgs,
     adminOrg,
     adminPlans,

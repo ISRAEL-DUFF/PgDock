@@ -16,6 +16,7 @@ import {
   Table2,
   Users,
   type LucideIcon,
+  Receipt,
 } from "lucide-react";
 import type { Org, Project } from "../../api/client";
 
@@ -170,6 +171,16 @@ export function orgRail(org: Org | undefined): RailItem[] {
       match: ["/operations"],
     },
   ];
+  // Owners and billing members see billing (V3 §3.2).
+  if (org?.role === "owner" || org?.role === "billing") {
+    items.push({
+      key: "billing",
+      label: "Billing",
+      icon: Receipt,
+      to: "/org/billing",
+      match: ["/org/billing"],
+    });
+  }
   if (manager) {
     items.push(
       {
@@ -229,6 +240,13 @@ export function platformRail(): RailItem[] {
       icon: Gauge,
       to: "/admin/plans",
       match: ["/admin/plans"],
+    },
+    {
+      key: "billing",
+      label: "Billing",
+      icon: Receipt,
+      to: "/admin/billing",
+      match: ["/admin/billing"],
     },
     {
       key: "requests",

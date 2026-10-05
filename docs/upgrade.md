@@ -106,6 +106,15 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   `gcr.io/etcd-development/etcd:v3.6.5` when asked to run a member; open
   ports 2379–2380 between the three etcd nodes. See [HA](ha.md).
 
+- **Billing** (migration 00026) publishes a first price book with
+  placeholder prices and gives every organisation a billing account on the
+  Free plan. Nothing is invoiced for months before the upgrade, and
+  invoices aren't issued until you turn on automatic issue (Admin →
+  Billing → Settings), so you can set real prices and your company's
+  details first. A **Pro** quota plan is added between Personal and Team
+  (an existing quota plan named Pro is kept as it is). See
+  [Billing](billing.md).
+
 ## Rolling back
 
 Check out the previous tag and run `./install.sh` again. If the new

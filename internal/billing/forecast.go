@@ -100,7 +100,7 @@ func (s *Service) RefreshForecast(ctx context.Context, orgID uuid.UUID) (Forecas
 	if crossed > 0 {
 		s.notifyOrg(ctx, orgID, "billing.budget",
 			fmt.Sprintf("PGDock: %s's spend is forecast at %d%% of its budget", s.orgName(ctx, orgID), crossed),
-			fmt.Sprintf("The forecast for %s is %s before VAT, %d%% of the monthly budget of %s.\n\nSee the forecast and what drives it: %s/orgs/%s/billing\n",
+			fmt.Sprintf("The forecast for %s is %s before VAT, %d%% of the monthly budget of %s.\n\nSee the forecast and what drives it: %s/org/billing?org=%s\n",
 				month, Naira(f.Spend), crossed, Naira(*a.BudgetMinor), s.publicURL, orgID))
 	}
 	switch {
@@ -109,7 +109,7 @@ func (s *Service) RefreshForecast(ctx context.Context, orgID uuid.UUID) (Forecas
 			fmt.Sprintf("PGDock: %s has reached its spend cap", s.orgName(ctx, orgID)),
 			fmt.Sprintf("Usage charges for %s are forecast at %s, at or above the spend cap of %s.\n\n"+
 				"Until the cap is raised or next month starts, new branches, dedicated instances and HA are refused, webhook deliveries queue, and scheduled jobs are skipped. "+
-				"Databases stay connected and no data is deleted.\n\nChange the cap: %s/orgs/%s/billing\n",
+				"Databases stay connected and no data is deleted.\n\nChange the cap: %s/org/billing?org=%s\n",
 				month, Naira(f.Usage), Naira(*a.SpendCapMinor), s.publicURL, orgID))
 	case !capped && a.Capped:
 		s.log.Info("spend cap lifted", "org", orgID)

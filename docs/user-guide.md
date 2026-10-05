@@ -41,6 +41,9 @@ branches listed inside; the toggle beside the filters switches to a list.
 | **Owner** | Everything an admin can, plus add or remove owners, transfer projects out, delete the organisation. An org always keeps at least one owner. |
 | **Admin** | Manage members and invitations, settings, backup storage, tokens, every project (as its admin), usage and the audit log. |
 | **Member** | See only the projects they're added to, with that project's role; create projects if the org allows it (Settings → *Members can create projects*, on by default), becoming their admin. |
+| **Billing** | See and change billing (plan, invoices, business details, contacts, budget and spend cap) and nothing in the projects. For finance staff; only owners can give this role. |
+
+Only owners and billing members see **Billing**: see [Billing](billing.md).
 
 On a project, roles are:
 

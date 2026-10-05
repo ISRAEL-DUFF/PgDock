@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, errorMessage, type HAStatus, type Project } from "../api/client";
 import { formatBytes, formatDate } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
+import { CostEstimate } from "./CostEstimate";
 import { OperationLog } from "./OperationLog";
 import {
   Alert,
@@ -297,6 +298,15 @@ export function HACard({ p }: { p: Project }) {
               URL stays the same.
             </li>
           </ol>
+          <CostEstimate
+            org={p.org_id}
+            what="HA"
+            req={
+              p.instance?.cpus != null
+                ? { cpus: p.instance.cpus, memory_mb: p.instance.memory_mb ?? 0, disk_gb: p.instance.volume_gb ?? 0, standby_only: true, synchronous: sync }
+                : null
+            }
+          />
           {nodes.data && targets.length === 0 && (
             <Alert tone="warn">
               HA needs a second node that takes dedicated instances.

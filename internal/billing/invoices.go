@@ -295,7 +295,7 @@ func (s *Service) mailInvoice(ctx context.Context, inv store.Invoice) {
 	if inv.TotalMinor > 0 && inv.DueAt != nil {
 		fmt.Fprintf(&b, "Due: %s\n", inv.DueAt.UTC().Format("2 January 2006"))
 	}
-	fmt.Fprintf(&b, "\nView and download it: %s/orgs/%s/billing/invoices/%s\n", s.publicURL, inv.OrgID, inv.ID)
+	fmt.Fprintf(&b, "\nView and download it: %s/org/billing?org=%s&invoice=%s\n", s.publicURL, inv.OrgID, inv.ID)
 	if err := s.mail.Send(ctx, mail.Message{
 		To: to, Subject: fmt.Sprintf("PGDock invoice %s for %s", *inv.Number, month), Body: b.String(),
 		Headers: map[string]string{"X-PGDock-Event": "billing.invoice"},

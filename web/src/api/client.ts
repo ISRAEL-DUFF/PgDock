@@ -42,6 +42,27 @@ function gridQs(g: GridOptions, extra: Record<string, string | undefined>): stri
   const s = p.toString();
   return s ? `?${s}` : "";
 }
+export type BillingAccount = S["BillingAccount"];
+export type BillingContact = S["BillingContact"];
+export type BillingForecast = S["BillingForecast"];
+export type BillingSettings = S["BillingSettings"];
+export type PlanChange = S["PlanChange"];
+export type PlanChangeRequest = S["PlanChangeRequest"];
+export type PriceBook = S["PriceBook"];
+export type Prices = S["Prices"];
+export type Invoice = S["Invoice"];
+export type InvoiceDetail = S["InvoiceDetail"];
+export type InvoiceLine = S["InvoiceLine"];
+export type CreditNote = S["CreditNote"];
+export type LedgerCheck = S["LedgerCheck"];
+export type EstimateRequest = { cpus?: number; memory_mb?: number; disk_gb?: number; ha?: boolean; synchronous?: boolean; standby_only?: boolean };
+export type CostEstimate = { hourly_minor: number; monthly_minor: number; lines: InvoiceLine[] };
+export type PricePreview = {
+  period: string;
+  current_total_minor: number;
+  projected_total_minor: number;
+  items: { org_id: string; org_name: string; plan: string; current_minor: number; projected_minor: number }[];
+};
 export type APIToken = S["APIToken"];
 export type Incident = S["Incident"];
 export type IncidentSeverity = S["IncidentSeverity"];
@@ -493,6 +514,41 @@ export const api = {
   poolerHosts: () => getJSON<S["PoolerHosts"]>("/api/v1/pooler-hosts"),
   isolationChecks: () => getJSON<S["IsolationCheckList"]>("/api/v1/security/isolation-checks"),
   runIsolationChecks: () => request<S["OperationList"]>("POST", "/api/v1/security/isolation-checks"),
+
+  // Billing (V3 §3): owners and billing members.
+  billing: (org: string) => getJSON<BillingAccount>(`/api/v1/orgs/${org}/billing`),
+  updateBilling: (org: string, b: S["BillingDetailsUpdate"]) => request<BillingAccount>("PATCH", `/api/v1/orgs/${org}/billing`, b),
+  changePlan: (org: string, b: PlanChangeRequest) => request<PlanChange>("POST", `/api/v1/orgs/${org}/billing/plan`, b),
+  billingContacts: (org: string) => getJSON<{ items: BillingContact[] }>(`/api/v1/orgs/${org}/billing/contacts`),
+  addBillingContact: (org: string, b: BillingContact) => request<BillingContact>("POST", `/api/v1/orgs/${org}/billing/contacts`, b),
+  removeBillingContact: (org: string, email: string) =>
+    request<void>("DELETE", `/api/v1/orgs/${org}/billing/contacts/${encodeURIComponent(email)}`),
+  forecast: (org: string) => getJSON<BillingForecast>(`/api/v1/orgs/${org}/billing/forecast`),
+  invoices: (org: string) => getJSON<S["InvoiceList"]>(`/api/v1/orgs/${org}/billing/invoices`),
+  invoice: (org: string, id: string) => getJSON<InvoiceDetail>(`/api/v1/orgs/${org}/billing/invoices/${id}`),
+  invoicePdfUrl: (org: string, id: string) => `/api/v1/orgs/${org}/billing/invoices/${id}/pdf`,
+  /** What a dedicated size, HA or sync replication costs; anyone in the org may ask. */
+  estimate: (org: string, b: EstimateRequest) =>
+    request<CostEstimate>("POST", `/api/v1/orgs/${org}/billing/estimate`, b),
+
+  billingSettings: () => getJSON<BillingSettings>("/api/v1/admin/billing/settings"),
+  saveBillingSettings: (b: BillingSettings) => request<BillingSettings>("PUT", "/api/v1/admin/billing/settings", b),
+  priceBooks: () => getJSON<{ current_version: number; items: PriceBook[] }>("/api/v1/admin/price-books"),
+  createPriceBook: (b: S["PriceBookInput"]) => request<PriceBook>("POST", "/api/v1/admin/price-books", b),
+  updatePriceBook: (v: number, b: S["PriceBookInput"]) => request<PriceBook>("PUT", `/api/v1/admin/price-books/${v}`, b),
+  deletePriceBook: (v: number) => request<void>("DELETE", `/api/v1/admin/price-books/${v}`),
+  publishPriceBook: (v: number) => request<{ price_book: PriceBook; notified: number }>("POST", `/api/v1/admin/price-books/${v}/publish`),
+  previewPriceBook: (v: number, period?: string) => request<PricePreview>("POST", `/api/v1/admin/price-books/${v}/preview`, { period }),
+  adminInvoices: (p: { status?: Invoice["status"]; period?: string } = {}) => getJSON<S["InvoiceList"]>(`/api/v1/admin/invoices${qs(p)}`),
+  adminInvoice: (id: string) => getJSON<InvoiceDetail>(`/api/v1/admin/invoices/${id}`),
+  adminInvoicePdfUrl: (id: string) => `/api/v1/admin/invoices/${id}/pdf`,
+  draftInvoices: (period: string, org_id?: string) => request<{ drafts: number }>("POST", "/api/v1/admin/invoices/draft", { period, org_id }),
+  holdInvoice: (id: string, held: boolean, reason?: string) => request<Invoice>("POST", `/api/v1/admin/invoices/${id}/hold`, { held, reason }),
+  issueInvoice: (id: string) => request<Invoice>("POST", `/api/v1/admin/invoices/${id}/issue`),
+  creditNote: (id: string, amount_minor: number, reason: string) =>
+    request<CreditNote>("POST", `/api/v1/admin/invoices/${id}/credit-notes`, { amount_minor, reason }),
+  ledgerCheck: () => getJSON<LedgerCheck>("/api/v1/admin/ledger/check"),
+  adminUpdateOrgBilling: (org: string, b: S["AdminBillingUpdate"]) => request<BillingAccount>("PATCH", `/api/v1/admin/orgs/${org}/billing`, b),
 
   generalSettings: () => getJSON<GeneralSettings>("/api/v1/settings/general"),
   setDbHost: (db_host: string) => request<GeneralSettings>("PUT", "/api/v1/settings/db-host", { db_host }),

@@ -37,9 +37,21 @@ bundle share one version (spec §11.5).
   from pgdock-server and the status page (the SLA's two vantage points).
   Project Settings → Compute → High availability, `pgdock ha`, Admin →
   Nodes → etcd. See docs/ha.md.
+- Billing core: price books (versioned prices, repricing at least 30
+  days ahead, grandfathering, a preview of each org's invoice), Free, Pro
+  and Team plans with prorated plan changes and annual terms, monthly
+  invoices (usage in arrears, the plan fee in advance, VAT, expected WHT)
+  numbered `PGD-YYYY-NNNNNN` and downloadable as PDF, credit notes, a
+  double-entry ledger the database keeps balanced and append-only, the
+  month's forecast, budget alerts, a spend cap that pauses new billable
+  resources, and cost estimates before promoting or enabling HA. A new
+  `billing` org role for finance staff. Org → Billing, Admin → Billing,
+  `pgdock billing`. Invoices aren't issued automatically until an admin
+  turns it on. See docs/billing.md.
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
-- New migrations 00022 and 00023 (moves, Postgres releases). Upgrade notes:
+- New migrations 00022 and 00023 (moves, Postgres releases), 00026
+  (billing). Upgrade notes:
   docs/upgrade.md#upgrading-to-v3.
 
 - Fixed: the first-run setup code printed by `install.sh` was missing its

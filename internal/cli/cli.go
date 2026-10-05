@@ -217,6 +217,12 @@ func (a *App) commands() []command {
 			{name: "invite", summary: "Add: invite <p> <email> --role admin|developer|read_only", run: (*App).membersInvite},
 			{name: "remove", summary: "Remove: remove <p> <email>", run: (*App).membersRemove},
 		}},
+		{name: "billing", summary: "The organisation's plan, forecast and invoices (owners and billing members)", sub: []command{
+			{name: "show", summary: "Plan, forecast, budget and spend cap: show", run: (*App).billingShow},
+			{name: "plan", summary: "Change plan: plan free|pro|team [--annual] [--now] [--dry-run]", run: (*App).billingPlan},
+			{name: "invoices", summary: "List invoices", run: (*App).billingInvoices},
+			{name: "invoice", summary: "Show or download one: invoice <number|id> [--pdf file.pdf]", run: (*App).billingInvoice},
+		}},
 		{name: "tokens", summary: "API tokens", sub: []command{
 			{name: "list", summary: "List your tokens", run: (*App).tokensList},
 			{name: "create", summary: "create --name … --scopes read,write [--project <p>] [--expires 90d]", run: (*App).tokensCreate},
