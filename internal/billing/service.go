@@ -467,8 +467,24 @@ func Naira(kobo int64) string {
 func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
-	var forecastAt time.Time
+	var forecastAt, requeryAt time.Time
+	var nightly time.Time // the last day re-queried in full
 	for {
+		// Missed provider events (V3 §3.4.8): the last two hours hourly, the
+		// whole previous day once a night.
+		if now := s.Now(); len(s.providers) > 0 && now.Sub(requeryAt) >= time.Hour {
+			if _, err := s.Requery(ctx, now.Add(-2*time.Hour), now); err != nil && ctx.Err() == nil {
+				s.log.Warn("billing: re-query", "err", err)
+			}
+			requeryAt = now
+			if y := dayStart(now).AddDate(0, 0, -1); now.UTC().Hour() >= 1 && nightly.Before(y) {
+				if _, err := s.Requery(ctx, y, y.AddDate(0, 0, 1)); err != nil && ctx.Err() == nil {
+					s.log.Warn("billing: nightly re-query", "err", err)
+				} else {
+					nightly = y
+				}
+			}
+		}
 		// Forecasts, budget alerts and the spend cap: hourly (V3 §3.10).
 		if now := s.Now(); now.Sub(forecastAt) >= time.Hour {
 			if err := s.RefreshForecasts(ctx); err != nil && ctx.Err() == nil {

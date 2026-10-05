@@ -1926,7 +1926,8 @@ func (q *Queries) UpsertPaymentMethod(ctx context.Context, arg UpsertPaymentMeth
 }
 
 const virtualAccountByNumber = `-- name: VirtualAccountByNumber :one
-SELECT id, org_id, provider, account_number, bank_name, account_name, provider_ref, created_at FROM virtual_accounts WHERE provider = $1 AND account_number = $2
+SELECT id, org_id, provider, account_number, bank_name, account_name, provider_ref, created_at FROM virtual_accounts WHERE provider = $1 AND (account_number = $2 OR provider_ref = $2)
+LIMIT 1
 `
 
 type VirtualAccountByNumberParams struct {
@@ -1934,7 +1935,8 @@ type VirtualAccountByNumberParams struct {
 	AccountNumber string
 }
 
-// tenant: system - attributing a transfer.
+// tenant: system - attributing a transfer, by the account's number or the
+// provider's reference for it.
 func (q *Queries) VirtualAccountByNumber(ctx context.Context, arg VirtualAccountByNumberParams) (VirtualAccount, error) {
 	row := q.db.QueryRow(ctx, virtualAccountByNumber, arg.Provider, arg.AccountNumber)
 	var i VirtualAccount

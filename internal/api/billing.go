@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -554,4 +555,41 @@ func (s *Server) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org gen
 		lines = []gen.InvoiceLine{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"hourly_minor": e.HourlyMinor, "monthly_minor": e.MonthlyMinor, "lines": lines})
+}
+
+// PaymentWebhook implements POST /api/v1/payments/webhooks/{provider}. The
+// provider authenticates it; its body is only a hint, since the event is
+// re-verified with the provider before anything is posted. A failure to
+// process answers 500, so the provider retries (re-query also recovers it).
+func (s *Server) PaymentWebhook(w http.ResponseWriter, r *http.Request, provider gen.PaymentWebhookParamsProvider) {
+	if s.billing == nil {
+		writeError(w, http.StatusNotFound, "not_found", "no payment provider here")
+		return
+	}
+	p, ok := s.billing.Provider(string(provider))
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "payment provider "+string(provider)+" isn't configured")
+		return
+	}
+	ev, err := p.ParseWebhook(r.Context(), r)
+	switch {
+	case errors.Is(err, billing.ErrIgnoredEvent):
+		w.WriteHeader(http.StatusOK)
+		return
+	case errors.Is(err, billing.ErrUnauthenticated):
+		s.log.Warn("payment webhook refused", "provider", provider, "err", err, "remote", r.RemoteAddr)
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "the webhook's signature didn't verify")
+		return
+	case err != nil:
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	// Processing goes on if the provider hangs up.
+	out, err := s.billing.HandleEvent(context.WithoutCancel(r.Context()), p.Name(), ev)
+	if err != nil && out == billing.OutcomeFailed {
+		s.log.Warn("payment webhook", "provider", provider, "event", ev.ID, "err", err)
+		writeError(w, http.StatusInternalServerError, "internal", "the event will be retried")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"outcome": out})
 }

@@ -174,6 +174,7 @@ var auditActions = map[string]string{
 	"PUT /api/v1/settings/db-host":               "settings.db_host",
 	"POST /api/v1/dev/operations":                "dev.operation",
 	"POST /api/v1/settings/db-host/check":        "", // read-only check
+	"POST /api/v1/payments/webhooks/{provider}":  "", // the payment event log records them
 	"POST /api/v1/projects/{id}/backups":         "backup.create",
 	"POST /api/v1/backups/{id}/restore":          "backup.restore",
 	"POST /api/v1/restore-tests":                 "backup.restore_test",
@@ -351,6 +352,8 @@ var csrfExempt = map[string]bool{
 	"POST /api/v1/agent/register":    true,
 	"POST /api/v1/auth/device":       true,
 	"POST /api/v1/auth/device/token": true,
+	// Signed by the provider; no cookies.
+	"POST /api/v1/payments/webhooks/{provider}": true,
 }
 
 // reauthRequired lists destructive routes needing a recent step-up auth

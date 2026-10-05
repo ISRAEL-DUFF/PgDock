@@ -2481,6 +2481,24 @@ func (e GetOrgUsageParamsFormat) Valid() bool {
 	}
 }
 
+// Defines values for PaymentWebhookParamsProvider.
+const (
+	Flutterwave PaymentWebhookParamsProvider = "flutterwave"
+	Ispend      PaymentWebhookParamsProvider = "ispend"
+)
+
+// Valid indicates whether the value is a known member of the PaymentWebhookParamsProvider enum.
+func (e PaymentWebhookParamsProvider) Valid() bool {
+	switch e {
+	case Flutterwave:
+		return true
+	case Ispend:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListProjectAuditParamsOutcome.
 const (
 	ListProjectAuditParamsOutcomeDenied  ListProjectAuditParamsOutcome = "denied"
@@ -6240,6 +6258,12 @@ type GetOrgUsageParams struct {
 // GetOrgUsageParamsFormat defines parameters for GetOrgUsage.
 type GetOrgUsageParamsFormat string
 
+// PaymentWebhookJSONBody defines parameters for PaymentWebhook.
+type PaymentWebhookJSONBody map[string]interface{}
+
+// PaymentWebhookParamsProvider defines parameters for PaymentWebhook.
+type PaymentWebhookParamsProvider string
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
 	// Org The organisation to list; your personal organisation when omitted.
@@ -6575,6 +6599,9 @@ type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
 
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
+
+// PaymentWebhookJSONRequestBody defines body for PaymentWebhook for application/json ContentType.
+type PaymentWebhookJSONRequestBody PaymentWebhookJSONBody
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
@@ -8276,6 +8303,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/usage (the `GetOrgUsage` operationId).
 	GetOrgUsage(ctx context.Context, org OrgID, params *GetOrgUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PaymentWebhookWithBody A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+	PaymentWebhookWithBody(ctx context.Context, provider PaymentWebhookParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PaymentWebhook A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+	PaymentWebhook(ctx context.Context, provider PaymentWebhookParamsProvider, body PaymentWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
 	//
@@ -13182,6 +13223,40 @@ func (c *Client) TransferOrgOwnership(ctx context.Context, org OrgID, body Trans
 // Corresponds with GET /api/v1/orgs/{org}/usage (the `GetOrgUsage` operationId).
 func (c *Client) GetOrgUsage(ctx context.Context, org OrgID, params *GetOrgUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOrgUsageRequest(c.Server, org, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PaymentWebhookWithBody A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+func (c *Client) PaymentWebhookWithBody(ctx context.Context, provider PaymentWebhookParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPaymentWebhookRequestWithBody(c.Server, provider, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PaymentWebhook A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+func (c *Client) PaymentWebhook(ctx context.Context, provider PaymentWebhookParamsProvider, body PaymentWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPaymentWebhookRequest(c.Server, provider, body)
 	if err != nil {
 		return nil, err
 	}
@@ -22204,6 +22279,53 @@ func NewGetOrgUsageRequest(server string, org OrgID, params *GetOrgUsageParams) 
 	return req, nil
 }
 
+// NewPaymentWebhookRequest calls the generic PaymentWebhook builder with application/json body
+func NewPaymentWebhookRequest(server string, provider PaymentWebhookParamsProvider, body PaymentWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPaymentWebhookRequestWithBody(server, provider, "application/json", bodyReader)
+}
+
+// NewPaymentWebhookRequestWithBody constructs an http.Request for the PaymentWebhook method, with any body, and a specified content type
+func NewPaymentWebhookRequestWithBody(server string, provider PaymentWebhookParamsProvider, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/payments/webhooks/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetPoolerHostsRequest constructs an http.Request for the GetPoolerHosts method
 func NewGetPoolerHostsRequest(server string) (*http.Request, error) {
 	var err error
@@ -28750,6 +28872,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/usage (the `GetOrgUsage` operationId).
 	GetOrgUsageWithResponse(ctx context.Context, org OrgID, params *GetOrgUsageParams, reqEditors ...RequestEditorFn) (*GetOrgUsageResponse, error)
+
+	// PaymentWebhookWithBodyWithResponse A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+	PaymentWebhookWithBodyWithResponse(ctx context.Context, provider PaymentWebhookParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PaymentWebhookResponse, error)
+
+	// PaymentWebhookWithResponse A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+	PaymentWebhookWithResponse(ctx context.Context, provider PaymentWebhookParamsProvider, body PaymentWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*PaymentWebhookResponse, error)
 
 	// GetPoolerHostsWithResponse The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
 	//
@@ -37072,6 +37208,47 @@ func (r GetOrgUsageResponse) ContentType() string {
 	return ""
 }
 
+type PaymentWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PaymentWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PaymentWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PaymentWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PaymentWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PaymentWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetPoolerHostsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -45181,6 +45358,32 @@ func (c *ClientWithResponses) GetOrgUsageWithResponse(ctx context.Context, org O
 	return ParseGetOrgUsageResponse(rsp)
 }
 
+// PaymentWebhookWithBodyWithResponse A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+func (c *ClientWithResponses) PaymentWebhookWithBodyWithResponse(ctx context.Context, provider PaymentWebhookParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PaymentWebhookResponse, error) {
+	rsp, err := c.PaymentWebhookWithBody(ctx, provider, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePaymentWebhookResponse(rsp)
+}
+
+// PaymentWebhookWithResponse A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/payments/webhooks/{provider} (the `PaymentWebhook` operationId).
+func (c *ClientWithResponses) PaymentWebhookWithResponse(ctx context.Context, provider PaymentWebhookParamsProvider, body PaymentWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*PaymentWebhookResponse, error) {
+	rsp, err := c.PaymentWebhook(ctx, provider, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePaymentWebhookResponse(rsp)
+}
+
 // GetPoolerHostsWithResponse The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -52279,6 +52482,38 @@ func ParseGetOrgUsageResponse(rsp *http.Response) (*GetOrgUsageResponse, error) 
 
 	case rsp.StatusCode == 200:
 		// Content-type (text/csv) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParsePaymentWebhookResponse parses an HTTP response from a PaymentWebhookWithResponse call
+func ParsePaymentWebhookResponse(rsp *http.Response) (*PaymentWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PaymentWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 

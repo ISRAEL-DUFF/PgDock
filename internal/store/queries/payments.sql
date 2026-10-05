@@ -186,8 +186,10 @@ RETURNING *;
 SELECT * FROM virtual_accounts WHERE org_id = @org_id ORDER BY created_at;
 
 -- name: VirtualAccountByNumber :one
--- tenant: system - attributing a transfer.
-SELECT * FROM virtual_accounts WHERE provider = @provider AND account_number = @account_number;
+-- tenant: system - attributing a transfer, by the account's number or the
+-- provider's reference for it.
+SELECT * FROM virtual_accounts WHERE provider = @provider AND (account_number = @account_number OR provider_ref = @account_number)
+LIMIT 1;
 
 -- ---- WHT ---------------------------------------------------------------------
 

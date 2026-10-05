@@ -3679,6 +3679,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/webhooks/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A payment provider's webhook (authenticated by its signature, re-verified before anything is posted) */
+        post: operations["paymentWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/maintenance": {
         parameters: {
             query?: never;
@@ -12943,6 +12960,40 @@ export interface operations {
                         }[];
                     };
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    paymentWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "flutterwave" | "ispend";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted (including duplicates and events PGDock doesn't act on). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signature didn't verify. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

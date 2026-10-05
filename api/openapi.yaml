@@ -5095,6 +5095,33 @@ paths:
                           format: int64
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/payments/webhooks/{provider}:
+    post:
+      operationId: paymentWebhook
+      summary: A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+      tags: [billing]
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [flutterwave, ispend]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Accepted (including duplicates and events PGDock doesn't act on).
+        "401":
+          description: The signature didn't verify.
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/maintenance:
     get:
       operationId: getMaintenance

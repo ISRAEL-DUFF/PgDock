@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -31,6 +32,8 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
+	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/console"
@@ -53,6 +56,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tlscert"
@@ -222,6 +226,12 @@ func run() error {
 
 	// Billing (V3 §3): price books, accounts, plan changes.
 	billingSvc := billing.New(pool, mailSvc, cfg.Insight.PublicURL, log)
+	billingSvc.SetPayments(paymentProviders(cfg.Payments), billing.Routing{
+		Cards: cfg.Payments.Cards, VAPrimary: cfg.Payments.VAPrimary, VAFallback: cfg.Payments.VAFallback, Wallet: cfg.Payments.Wallet,
+	}, keyring)
+	if backups != nil {
+		billingSvc.SetDocStore(billingDocs{backups})
+	}
 	if err := billingSvc.Init(ctx); err != nil {
 		return fmt.Errorf("billing: %w", err)
 	}
@@ -702,4 +712,45 @@ func rotateMasterKey(cfg config.Config, keyring *crypto.Keyring, log *slog.Logge
 	log.Info("master key rotated; remove PGDOCK_MASTER_KEY_PREVIOUS and restart", "key_id", keyring.PrimaryID().String(),
 		"sign_in_challenges_cleared", res.Cleared)
 	return nil
+}
+
+// paymentProviders are the configured payment providers (V3 §3.4).
+func paymentProviders(c config.Payments) []billing.PaymentProvider {
+	var out []billing.PaymentProvider
+	if c.FlutterwaveOn() {
+		out = append(out, flutterwave.New(flutterwave.Config{BaseURL: c.FlutterwaveURL, SecretKey: c.FlutterwaveSecretKey,
+			WebhookHash: c.FlutterwaveWebhookHash, BVN: c.FlutterwaveBVN}))
+	}
+	if c.ISpendOn() {
+		out = append(out, ispend.New(ispend.Config{BaseURL: c.ISpendURL, APIKey: c.ISpendAPIKey, WebhookSecret: c.ISpendWebhookSecret}))
+	}
+	return out
+}
+
+// billingDocs keeps billing documents (proofs of payment, WHT credit
+// notes) in the platform's backup storage, under billing/.
+type billingDocs struct{ b *backup.Service }
+
+func (d billingDocs) client(ctx context.Context) (*storage.Client, error) {
+	_, t, err := d.b.StorageTarget(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return storage.New(t)
+}
+
+func (d billingDocs) Put(ctx context.Context, key string, r io.Reader) error {
+	c, err := d.client(ctx)
+	if err != nil {
+		return err
+	}
+	return c.Upload(ctx, c.Target().Key("billing/"+key), r)
+}
+
+func (d billingDocs) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	c, err := d.client(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.Download(ctx, c.Target().Key("billing/"+key))
 }

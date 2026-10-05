@@ -2477,6 +2477,24 @@ func (e GetOrgUsageParamsFormat) Valid() bool {
 	}
 }
 
+// Defines values for PaymentWebhookParamsProvider.
+const (
+	Flutterwave PaymentWebhookParamsProvider = "flutterwave"
+	Ispend      PaymentWebhookParamsProvider = "ispend"
+)
+
+// Valid indicates whether the value is a known member of the PaymentWebhookParamsProvider enum.
+func (e PaymentWebhookParamsProvider) Valid() bool {
+	switch e {
+	case Flutterwave:
+		return true
+	case Ispend:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListProjectAuditParamsOutcome.
 const (
 	ListProjectAuditParamsOutcomeDenied  ListProjectAuditParamsOutcome = "denied"
@@ -6236,6 +6254,12 @@ type GetOrgUsageParams struct {
 // GetOrgUsageParamsFormat defines parameters for GetOrgUsage.
 type GetOrgUsageParamsFormat string
 
+// PaymentWebhookJSONBody defines parameters for PaymentWebhook.
+type PaymentWebhookJSONBody map[string]interface{}
+
+// PaymentWebhookParamsProvider defines parameters for PaymentWebhook.
+type PaymentWebhookParamsProvider string
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
 	// Org The organisation to list; your personal organisation when omitted.
@@ -6571,6 +6595,9 @@ type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
 
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
+
+// PaymentWebhookJSONRequestBody defines body for PaymentWebhook for application/json ContentType.
+type PaymentWebhookJSONRequestBody PaymentWebhookJSONBody
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
@@ -7153,6 +7180,9 @@ type ServerInterface interface {
 	// GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
 	// (GET /api/v1/orgs/{org}/usage)
 	GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams)
+	// PaymentWebhook A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+	// (POST /api/v1/payments/webhooks/{provider})
+	PaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentWebhookParamsProvider)
 	// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
 	// (GET /api/v1/pooler-hosts)
 	GetPoolerHosts(w http.ResponseWriter, r *http.Request)
@@ -8365,6 +8395,12 @@ func (_ Unimplemented) TransferOrgOwnership(w http.ResponseWriter, r *http.Reque
 // GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
 // (GET /api/v1/orgs/{org}/usage)
 func (_ Unimplemented) GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PaymentWebhook A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+// (POST /api/v1/payments/webhooks/{provider})
+func (_ Unimplemented) PaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentWebhookParamsProvider) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12742,6 +12778,32 @@ func (siw *ServerInterfaceWrapper) GetOrgUsage(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// PaymentWebhook operation middleware
+func (siw *ServerInterfaceWrapper) PaymentWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider PaymentWebhookParamsProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PaymentWebhook(w, r, provider)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPoolerHosts operation middleware
 func (siw *ServerInterfaceWrapper) GetPoolerHosts(w http.ResponseWriter, r *http.Request) {
 
@@ -16807,6 +16869,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/price-books/{version}/preview", wrapper.PreviewPriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/payments/webhooks/{provider}", wrapper.PaymentWebhook)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)

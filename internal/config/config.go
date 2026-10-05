@@ -52,6 +52,8 @@ type Config struct {
 	Insight Insight
 	// Status connects to the status page (V3 §2.6).
 	Status Status
+	// Payments configures the payment providers (V3 §3.4).
+	Payments Payments
 	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
 	// majors projects may run (V3 §2.4); the newest is the default.
 	PGVersions []int
@@ -156,6 +158,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadBackups(getenv, &cfg)...)
 	errs = append(errs, loadInsight(getenv, &cfg)...)
 	errs = append(errs, loadStatus(getenv, readFile, &cfg)...)
+	errs = append(errs, loadPayments(getenv, readFile, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err
