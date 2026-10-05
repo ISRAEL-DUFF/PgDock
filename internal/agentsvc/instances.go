@@ -120,7 +120,9 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	defer in.lock(spec.ID)()
 	name, vol, restoreName := names(spec.ID)
 
-	if _, err := in.dc.InspectContainer(ctx, name); err == nil && spec.Recreate && spec.Restore == nil {
+	var prev memberPorts
+	if old, err := in.dc.InspectContainer(ctx, name); err == nil && spec.Recreate && spec.Restore == nil {
+		prev = portsOf(old)
 		if err := in.dc.StopContainer(ctx, name, 60*time.Second); err != nil {
 			return agentapi.Instance{}, fmt.Errorf("stop for recreate: %w", err)
 		}
@@ -224,6 +226,11 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		cc.HostConfig.NetworkMode = in.cfg.Network
 		cc.Networking = &docker.NetworkingConfig{EndpointsConfig: map[string]docker.EndpointSettings{in.cfg.Network: {Aliases: []string{name}}}}
 	}
+	if spec.Patroni != nil {
+		if err := in.applyPatroni(&cc, spec, name, settings, prev); err != nil {
+			return agentapi.Instance{}, err
+		}
+	}
 	if _, err := in.dc.CreateContainer(ctx, name, cc); err != nil {
 		return agentapi.Instance{}, err
 	}
@@ -281,6 +288,13 @@ func pgdataFor(major int) string {
 // ready waits for the instance to accept connections and makes sure its
 // pg_hba.conf lets move logins in.
 func (in *instances) ready(ctx context.Context, name string) error {
+	if c, err := in.dc.InspectContainer(ctx, name); err == nil && c.Config.Labels[patroniLabel] != "" {
+		// Patroni owns pg_hba.conf (the move rules are in its
+		// configuration), and a new standby may restore for a long time:
+		// ready is Patroni answering. pgdock-server follows the member's
+		// role and state through the REST API.
+		return in.waitPatroni(ctx, name)
+	}
 	if err := in.waitReady(ctx, name); err != nil {
 		return err
 	}
@@ -469,6 +483,14 @@ func (in *instances) info(ctx context.Context, id string) (agentapi.Instance, er
 		out.Host, out.Port = name, 5432
 	case out.PublishedPort != 0:
 		out.Host, out.Port = out.PublishedHost, out.PublishedPort
+	}
+	if c.Config.Labels[patroniLabel] != "" {
+		out.Patroni = true
+		out.PublishedRestPort = portsOf(c).rest
+		out.RestPort = 8008
+		if in.cfg.Network == "" {
+			out.RestPort = out.PublishedRestPort
+		}
 	}
 	return out, nil
 }

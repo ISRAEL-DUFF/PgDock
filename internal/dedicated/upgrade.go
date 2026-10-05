@@ -68,6 +68,10 @@ func (s *Service) UpgradePreflight(ctx context.Context, p store.Project, to int)
 	add := func(name, status, format string, a ...any) {
 		plan.Checks = append(plan.Checks, Check{Name: name, Status: status, Message: fmt.Sprintf(format, a...)})
 	}
+	if src.HaEnabled {
+		add(CheckTarget, CheckBlocked, "turn HA off before a major upgrade, and on again after it")
+		return plan, nil
+	}
 	if v, err := s.projects.CheckPGVersion(to); err != nil {
 		add(CheckVersion, CheckBlocked, "%v", err)
 		return plan, nil

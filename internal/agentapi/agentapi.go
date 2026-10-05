@@ -250,7 +250,39 @@ type InstanceSpec struct {
 	// PGVersion is the Postgres major (0: the agent's default, 18). The
 	// agent's image may be a template with {major} in it (V3 §2.4).
 	PGVersion int `json:"pg_version,omitempty"`
+	// Patroni, when set, runs the instance as a member of a Patroni
+	// cluster (an HA instance, V3 §2.2): Patroni starts Postgres with these
+	// settings, takes over an existing data directory as the leader, or,
+	// on an empty volume, joins as a standby built from the newest WAL-G
+	// base backup (or pg_basebackup from the leader).
+	Patroni *PatroniSpec `json:"patroni,omitempty"`
 }
+
+// PatroniSpec configures an HA member.
+type PatroniSpec struct {
+	// Scope names the cluster (the instance's id); members of one HA
+	// instance share it. The member's name is the spec's ID.
+	Scope string `json:"scope"`
+	// Etcd are the cluster's client URLs; EtcdCA, EtcdCert and EtcdKey the
+	// TLS material for them.
+	Etcd     []string `json:"etcd"`
+	EtcdCA   string   `json:"etcd_ca"`
+	EtcdCert string   `json:"etcd_cert"`
+	EtcdKey  string   `json:"etcd_key"`
+	// ReplicationUser/Password stream WAL between members; RestPassword
+	// protects Patroni's REST API's changing endpoints (user "patroni").
+	ReplicationUser     string `json:"replication_user"`
+	ReplicationPassword string `json:"replication_password"`
+	RestPassword        string `json:"rest_password"`
+	// Synchronous turns on synchronous_mode when the cluster is first
+	// initialised (later changes go through the REST API).
+	Synchronous bool `json:"synchronous,omitempty"`
+	// PeerAllow are the CIDRs the other members connect from.
+	PeerAllow []string `json:"peer_allow"`
+}
+
+// PatroniREST is the user of Patroni's REST API.
+const PatroniREST = "patroni"
 
 // DefaultPGVersion is the major an instance spec without one runs.
 const DefaultPGVersion = 18
@@ -303,6 +335,12 @@ type Instance struct {
 	// newer minor, recreating the container upgrades it (V3 §2.4).
 	Version      string `json:"version,omitempty"`
 	ImageVersion string `json:"image_version,omitempty"`
+	// RestPort/PublishedRestPort are Patroni's REST API on an HA member
+	// (0 otherwise), as Port/PublishedPort are Postgres.
+	RestPort          int `json:"rest_port,omitempty"`
+	PublishedRestPort int `json:"published_rest_port,omitempty"`
+	// Patroni says whether the container runs Patroni.
+	Patroni bool `json:"patroni,omitempty"`
 }
 
 // WALGBackupRequest is POST /v1/instances/{id}/walg/backup.

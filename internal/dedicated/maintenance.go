@@ -120,7 +120,7 @@ func (s *Service) CheckReleases(ctx context.Context, before time.Time) error {
 			errs = append(errs, err)
 			continue
 		}
-		res, err := agent.Instance(ctx, inst.ID.String())
+		res, err := agent.Instance(ctx, agentKey(inst))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("instance %s: %w", inst.ID, err))
 			continue
@@ -276,7 +276,7 @@ func (s *Service) MinorUpgradeNow(ctx context.Context, id uuid.UUID) (store.GetM
 	if err != nil {
 		return store.GetMinorUpgradeRow{}, err
 	}
-	res, err := agent.Instance(ctx, inst.ID.String())
+	res, err := agent.Instance(ctx, agentKey(inst))
 	if err != nil {
 		return store.GetMinorUpgradeRow{}, err
 	}

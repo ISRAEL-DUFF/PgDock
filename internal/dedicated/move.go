@@ -73,6 +73,9 @@ func (s *Service) Move(ctx context.Context, mp MoveParams) (store.Operation, err
 			if err != nil {
 				return nil, err
 			}
+			if src.HaEnabled {
+				return nil, fmt.Errorf("%w: turn HA off before moving this project (a switchover moves the primary between its nodes)", provision.ErrConflict)
+			}
 			if src.NodeID == mp.NodeID {
 				return nil, fmt.Errorf("%w: the project is already on that node", provision.ErrInvalid)
 			}
@@ -503,7 +506,7 @@ func (s *Service) retireSource(ctx context.Context, p store.Project, log *jobs.S
 				if err != nil {
 					return err
 				}
-				if _, err := agent.StopInstance(ctx, inst.ID.String()); err != nil {
+				if _, err := agent.StopInstance(ctx, agentKey(inst)); err != nil {
 					return fmt.Errorf("stop the old instance: %w", err)
 				}
 				if err := q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "stopped"}); err != nil {

@@ -29,6 +29,8 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindDemote:        {Handler: s.runDemote, OnFail: s.failDemote, MaxAttempts: 2, Timeout: 12 * time.Hour},
 		KindMove:          {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
 		KindUpgrade:       {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
+		KindHAEnable:      {Handler: s.runHAEnable, OnFail: s.failHAEnable, MaxAttempts: 2, Timeout: 24 * time.Hour},
+		KindHADisable:     {Handler: s.runHADisable, MaxAttempts: 3},
 	}
 }
 
@@ -238,7 +240,11 @@ func (s *Service) Act(ctx context.Context, p store.Project, action string) (agen
 	if err != nil {
 		return agentapi.Instance{}, err
 	}
-	id := inst.ID.String()
+	if inst.HaEnabled {
+		// Stopping or restarting one member would fail over (V3 §2.2).
+		return agentapi.Instance{}, fmt.Errorf("%w: this project has HA; use a switchover, or turn HA off first", provision.ErrConflict)
+	}
+	id := agentKey(inst)
 	var res agentapi.Instance
 	switch action {
 	case ActionStop:
@@ -274,7 +280,7 @@ func (s *Service) Status(ctx context.Context, inst store.Instance) (agentapi.Ins
 	if err != nil {
 		return agentapi.Instance{}, err
 	}
-	return agent.Instance(ctx, inst.ID.String())
+	return agent.Instance(ctx, agentKey(inst))
 }
 
 func decodeJSON(raw []byte, v any) error {

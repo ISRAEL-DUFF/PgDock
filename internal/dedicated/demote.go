@@ -128,6 +128,9 @@ func (s *Service) DemotePreflight(ctx context.Context, p store.Project, o Demote
 	if p.Tier != provision.TierDedicated {
 		return DemotePlan{}, fmt.Errorf("%w: only dedicated projects can be demoted", provision.ErrInvalid)
 	}
+	if inst, err := store.New(s.db).GetInstance(ctx, p.InstanceID); err == nil && inst.HaEnabled {
+		return DemotePlan{}, fmt.Errorf("%w: turn HA off before demoting this project", provision.ErrConflict)
+	}
 	return s.preflight(ctx, p, o, nil)
 }
 
@@ -607,7 +610,7 @@ func (s *Service) finishDemotion(ctx context.Context, op store.Operation, p stor
 			if err != nil {
 				return err
 			}
-			if _, err := agent.StopInstance(ctx, inst.ID.String()); err != nil {
+			if _, err := agent.StopInstance(ctx, agentKey(inst)); err != nil {
 				return fmt.Errorf("stop the dedicated instance: %w", err)
 			}
 			if err := q.SetInstanceStatus(ctx, store.SetInstanceStatusParams{ID: inst.ID, Status: "stopped"}); err != nil {
@@ -732,7 +735,7 @@ func (s *Service) destroyRetained(ctx context.Context, instanceID uuid.UUID) err
 	if err != nil {
 		return err
 	}
-	if err := agent.DestroyInstance(ctx, inst.ID.String()); err != nil {
+	if err := agent.DestroyInstance(ctx, agentKey(inst)); err != nil {
 		return err
 	}
 	return q.MarkInstanceDeleted(ctx, inst.ID)

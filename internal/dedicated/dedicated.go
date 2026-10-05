@@ -421,6 +421,10 @@ func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agenta
 	if inst.Kind == provision.TierShared {
 		return sharedSpec(inst, secret), nil
 	}
+	if inst.Patroni {
+		// An HA instance: the leader's member (V3 §2.2).
+		return s.memberSpec(ctx, inst, leaderKey(inst))
+	}
 	w, err := s.walgFor(ctx, inst)
 	if err != nil {
 		return agentapi.InstanceSpec{}, err
@@ -661,7 +665,8 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 	if err := log.Info(ctx, "backup", "wal-g backup-push on %s", agent.Node.Name); err != nil {
 		return store.Backup{}, err
 	}
-	res, err := agent.BaseBackup(ctx, inst.ID.String(), agentapi.WALGBackupRequest{RetainFull: s.cfg.RetainFull})
+	// From the leader (V3 §2.2: WAL-G runs from the current primary).
+	res, err := agent.BaseBackup(ctx, agentKey(inst), agentapi.WALGBackupRequest{RetainFull: s.cfg.RetainFull})
 	if err != nil {
 		return store.Backup{}, err
 	}
@@ -676,7 +681,7 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 		return store.Backup{}, err
 	}
 	// Retention happened in WAL-G; forget backups it no longer lists.
-	if list, err := agent.BaseBackups(ctx, inst.ID.String()); err == nil {
+	if list, err := agent.BaseBackups(ctx, agentKey(inst)); err == nil {
 		keep := map[string]bool{}
 		for _, l := range list {
 			keep[l.Name] = true
@@ -743,7 +748,19 @@ func (s *Service) removeInstance(ctx context.Context, inst store.Instance) (node
 	if err != nil {
 		return "", archived, err
 	}
-	if err := agent.DestroyInstance(ctx, inst.ID.String()); err != nil {
+	// An HA instance's other members first, then the leader.
+	members, err := store.New(s.db).ListInstanceMembers(ctx, inst.ID)
+	if err != nil {
+		return "", archived, err
+	}
+	for _, m := range members {
+		if m.ID != leaderKey(inst) {
+			if err := s.removeMember(ctx, m.ID, m.NodeID); err != nil {
+				return "", archived, err
+			}
+		}
+	}
+	if err := agent.DestroyInstance(ctx, agentKey(inst)); err != nil {
 		return "", archived, err
 	}
 	if inst.WalgPrefix != nil {
