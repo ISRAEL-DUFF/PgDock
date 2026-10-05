@@ -141,6 +141,7 @@ pgdock jobs pause|resume|run|history <p> <job>
 
 pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
 pgdock billing invoices | invoice <number|id> [--pdf file.pdf]
+pgdock billing pay <number|id> [--wallet] | transfer | payments   # a link to pay, the bank account to transfer to, payments received
 
 pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>
 pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>

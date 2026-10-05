@@ -6658,6 +6658,18 @@ export interface components {
             total_minor: number;
             /** Format: int64 */
             wht_expected_minor: number;
+            /**
+             * Format: int64
+             * @description Kobo settled against this invoice so far (payments and credit applied).
+             */
+            paid_minor: number;
+            /**
+             * Format: int64
+             * @description Kobo withheld as WHT by the customer, awaiting a certificate.
+             */
+            wht_deducted_minor: number;
+            /** Format: date-time */
+            wht_evidenced_at?: string | null;
             vat_rate: components["schemas"]["Decimal"];
             price_book_version: number;
             /** Format: date-time */

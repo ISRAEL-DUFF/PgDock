@@ -22,6 +22,7 @@ func toAPIInvoice(i store.Invoice, orgName *string) gen.Invoice {
 		PeriodStart: openapi_types.Date{Time: i.PeriodStart.Time}, PeriodEnd: openapi_types.Date{Time: i.PeriodEnd.Time},
 		Status: gen.InvoiceStatus(i.Status), Held: i.Held, HoldReason: i.HoldReason,
 		SubtotalMinor: i.SubtotalMinor, VatMinor: i.VatMinor, TotalMinor: i.TotalMinor, WhtExpectedMinor: i.WhtExpectedMinor,
+		PaidMinor: i.PaidMinor, WhtDeductedMinor: i.WhtDeductedMinor, WhtEvidencedAt: i.WhtEvidencedAt,
 		VatRate: billing.DecFromNumeric(i.VatRate).String(), PriceBookVersion: int(i.PriceBookVersion),
 		IssuedAt: i.IssuedAt, DueAt: i.DueAt, PaidAt: i.PaidAt, CreatedAt: i.CreatedAt,
 	}

@@ -222,6 +222,9 @@ func (a *App) commands() []command {
 			{name: "plan", summary: "Change plan: plan free|pro|team [--annual] [--now] [--dry-run]", run: (*App).billingPlan},
 			{name: "invoices", summary: "List invoices", run: (*App).billingInvoices},
 			{name: "invoice", summary: "Show or download one: invoice <number|id> [--pdf file.pdf]", run: (*App).billingInvoice},
+			{name: "pay", summary: "Get a link to pay an invoice: pay <number|id> [--wallet]", run: (*App).billingPay},
+			{name: "transfer", summary: "Show the bank account to transfer to", run: (*App).billingTransfer},
+			{name: "payments", summary: "List payments received", run: (*App).billingPayments},
 		}},
 		{name: "tokens", summary: "API tokens", sub: []command{
 			{name: "list", summary: "List your tokens", run: (*App).tokensList},

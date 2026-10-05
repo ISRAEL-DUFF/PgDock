@@ -10750,7 +10750,7 @@ components:
     Invoice:
       type: object
       required: [id, org_id, period_start, period_end, status, held, subtotal_minor, vat_minor, total_minor,
-                 wht_expected_minor, vat_rate, price_book_version, created_at]
+                 wht_expected_minor, paid_minor, wht_deducted_minor, vat_rate, price_book_version, created_at]
       properties:
         id:
           type: string
@@ -10790,6 +10790,18 @@ components:
         wht_expected_minor:
           type: integer
           format: int64
+        paid_minor:
+          type: integer
+          format: int64
+          description: Kobo settled against this invoice so far (payments and credit applied).
+        wht_deducted_minor:
+          type: integer
+          format: int64
+          description: Kobo withheld as WHT by the customer, awaiting a certificate.
+        wht_evidenced_at:
+          type: string
+          format: date-time
+          nullable: true
         vat_rate:
           $ref: "#/components/schemas/Decimal"
         price_book_version:

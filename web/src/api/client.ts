@@ -56,6 +56,19 @@ export type InvoiceLine = S["InvoiceLine"];
 export type CreditNote = S["CreditNote"];
 export type LedgerCheck = S["LedgerCheck"];
 export type EstimateRequest = { cpus?: number; memory_mb?: number; disk_gb?: number; ha?: boolean; synchronous?: boolean; standby_only?: boolean };
+export type PaymentMethod = S["PaymentMethod"];
+export type Payment = S["Payment"];
+export type VirtualAccount = S["VirtualAccount"];
+export type PaymentEvent = S["PaymentEvent"];
+export type OutstandingWht = S["OutstandingWht"];
+export type Reconciliation = S["Reconciliation"];
+export type CheckoutRequest = {
+  channel: "card" | "wallet" | "stablecoin";
+  purpose: "invoice" | "topup" | "card_setup";
+  invoice_id?: string;
+  amount_minor?: number;
+  mandate_limit_minor?: number;
+};
 export type CostEstimate = { hourly_minor: number; monthly_minor: number; lines: InvoiceLine[] };
 export type PricePreview = {
   period: string;
@@ -232,6 +245,33 @@ export async function request<T>(method: Method, path: string, body?: unknown, f
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   return (text === "" ? undefined : JSON.parse(text)) as T;
+}
+
+/** POSTs a file as the raw body (billing documents). */
+export async function uploadFile(path: string, file: Blob): Promise<unknown> {
+  let token = cookieToken() || csrfToken;
+  if (!token) {
+    const s = await request<{ csrf_token: string }>("GET", "/api/v1/session");
+    csrfToken ||= s.csrf_token;
+    token = cookieToken() || csrfToken;
+  }
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/octet-stream", "X-CSRF-Token": token },
+    credentials: "same-origin",
+    body: file,
+  });
+  if (!res.ok) {
+    let err: ApiErrorBody | undefined;
+    try {
+      err = (await res.json()) as ApiErrorBody;
+    } catch {
+      err = undefined;
+    }
+    throw new ApiRequestError(res.status, err);
+  }
+  const text = await res.text();
+  return text === "" ? undefined : JSON.parse(text);
 }
 
 export function getJSON<T>(path: string, fetchFn?: typeof fetch): Promise<T> {
@@ -530,6 +570,42 @@ export const api = {
   /** What a dedicated size, HA or sync replication costs; anyone in the org may ask. */
   estimate: (org: string, b: EstimateRequest) =>
     request<CostEstimate>("POST", `/api/v1/orgs/${org}/billing/estimate`, b),
+
+  checkout: (org: string, b: CheckoutRequest) =>
+    request<{ reference: string; checkout_url: string; amount_minor: number }>("POST", `/api/v1/orgs/${org}/billing/checkout`, b),
+  virtualAccount: (org: string) => request<VirtualAccount>("POST", `/api/v1/orgs/${org}/billing/virtual-account`),
+  paymentMethods: (org: string) => getJSON<{ items: PaymentMethod[] }>(`/api/v1/orgs/${org}/billing/payment-methods`),
+  removePaymentMethod: (org: string, id: string) => request<void>("DELETE", `/api/v1/orgs/${org}/billing/payment-methods/${id}`),
+  defaultPaymentMethod: (org: string, id: string) => request<void>("POST", `/api/v1/orgs/${org}/billing/payment-methods/${id}/default`),
+  setAutoTopup: (org: string, b: S["AutoTopup"]) => request<void>("PUT", `/api/v1/orgs/${org}/billing/auto-topup`, b),
+  clearAutoTopup: (org: string) => request<void>("DELETE", `/api/v1/orgs/${org}/billing/auto-topup`),
+  payments: (org: string) => getJSON<S["PaymentList"]>(`/api/v1/orgs/${org}/billing/payments`),
+  receiptUrl: (org: string, id: string) => `/api/v1/orgs/${org}/billing/payments/${id}/receipt`,
+  uploadWht: (org: string, invoice: string, file: File) => uploadFile(`/api/v1/orgs/${org}/billing/invoices/${invoice}/wht-certificate${qs({ filename: file.name })}`, file),
+
+  adminPayments: (p: { provider?: string } = {}) => getJSON<S["PaymentList"]>(`/api/v1/admin/payments${qs(p)}`),
+  recordPayment: (b: {
+    org_id: string;
+    amount_minor: number;
+    reference: string;
+    note?: string;
+    invoice_id?: string;
+    topup?: boolean;
+    received_at?: string;
+    proof_key?: string;
+  }) => request<Payment>("POST", "/api/v1/admin/payments", b),
+  uploadProof: (org: string, file: File) =>
+    uploadFile(`/api/v1/admin/billing/documents${qs({ org_id: org, filename: file.name })}`, file) as Promise<{ key: string }>,
+  refundPayment: (id: string, amount_minor: number, reason: string) =>
+    request<{ id: string; status: string; amount_minor: number }>("POST", `/api/v1/admin/payments/${id}/refund`, { amount_minor, reason }),
+  paymentEvents: (outcome?: string) => getJSON<{ items: PaymentEvent[] }>(`/api/v1/admin/payment-events${qs({ outcome })}`),
+  attributeEvent: (id: number, org_id: string) => request<Payment>("POST", `/api/v1/admin/payment-events/${id}/attribute`, { org_id }),
+  outstandingWht: () => getJSON<{ items: OutstandingWht[] }>("/api/v1/admin/wht"),
+  whtCsvUrl: () => "/api/v1/admin/wht?format=csv",
+  adminUploadWht: (invoice: string, file: File) => uploadFile(`/api/v1/admin/invoices/${invoice}/wht-certificate${qs({ filename: file.name })}`, file),
+  reconciliation: () => getJSON<{ items: Reconciliation[] }>("/api/v1/admin/reconciliation"),
+  runReconciliation: (from?: string, to?: string) => request<{ items: Reconciliation[] }>("POST", "/api/v1/admin/reconciliation", { from, to }),
+  setGrace: (org: string, until: string | null) => request<void>("PUT", `/api/v1/admin/orgs/${org}/billing/grace`, { until }),
 
   billingSettings: () => getJSON<BillingSettings>("/api/v1/admin/billing/settings"),
   saveBillingSettings: (b: BillingSettings) => request<BillingSettings>("PUT", "/api/v1/admin/billing/settings", b),

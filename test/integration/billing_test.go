@@ -304,6 +304,23 @@ func TestCLIBilling(t *testing.T) {
 	if r := runCLI(t, bin, env, "billing", "invoice", *issued.Number); r.code != 0 || !strings.Contains(r.stdout, "Pro (monthly)") {
 		t.Fatalf("invoice: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
+
+	// Paying: a checkout link, then a transfer to the org's own account.
+	if r := runCLI(t, bin, env, "billing", "pay", *issued.Number); r.code != 0 || !strings.Contains(r.stdout, "http") || !strings.Contains(r.stdout, ngn(issued.TotalMinor)) {
+		t.Fatalf("pay: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	r := runCLI(t, bin, env, "billing", "transfer")
+	fields := strings.Fields(strings.TrimPrefix(r.stdout, "Transfer to "))
+	if r.code != 0 || len(fields) == 0 {
+		t.Fatalf("transfer: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if _, err := e.ISpend.Transfer(strings.TrimSuffix(fields[0], ","), issued.TotalMinor); err != nil {
+		t.Fatal(err)
+	}
+	awaitPay(t, "the transfer", func() bool { return invoiceStatus(e, issued.Id) == "paid" })
+	if r := runCLI(t, bin, env, "billing", "payments"); r.code != 0 || !strings.Contains(r.stdout, ngn(issued.TotalMinor)) || !strings.Contains(r.stdout, "transfer") {
+		t.Fatalf("payments: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
 }
 
 // TestMonthOfRealUsageInvoices is M20's done-when: a month of V2 usage,
@@ -475,4 +492,17 @@ func TestMonthOfRealUsageInvoices(t *testing.T) {
 	if e.Do("GET", "/api/v1/admin/ledger/check", nil, &check); !check.Balanced || check.Transactions != 2 {
 		t.Fatalf("ledger: %+v", check)
 	}
+}
+
+// ngn formats kobo the way the CLI does: 1500000 → "NGN 15,000.00".
+func ngn(kobo int64) string {
+	whole := fmt.Sprint(kobo / 100)
+	var b strings.Builder
+	for i, c := range whole {
+		if i > 0 && (len(whole)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(c)
+	}
+	return fmt.Sprintf("NGN %s.%02d", b.String(), kobo%100)
 }

@@ -26,8 +26,22 @@ import {
 import { naira, parseNaira, periodLabel, periodOf } from "../lib/billing";
 import { formatDate } from "../lib/format";
 import { InvoiceBody, InvoiceStatus } from "./Billing";
+import {
+  EventsTab,
+  PaymentsTab,
+  ReconciliationTab,
+  WhtTab,
+} from "../components/AdminPayments";
 
-type Tab = "invoices" | "prices" | "settings" | "ledger";
+type Tab =
+  | "invoices"
+  | "payments"
+  | "wht"
+  | "events"
+  | "reconciliation"
+  | "prices"
+  | "settings"
+  | "ledger";
 
 /** The platform admin's billing: invoices and drafts, price books, tax
  * and seller settings, and the ledger check (V3 §3). */
@@ -44,6 +58,10 @@ export function AdminBillingPage() {
           onChange={setTab}
           options={[
             { value: "invoices", label: "Invoices" },
+            { value: "payments", label: "Payments" },
+            { value: "wht", label: "WHT" },
+            { value: "events", label: "Events" },
+            { value: "reconciliation", label: "Reconciliation" },
             { value: "prices", label: "Price books" },
             { value: "settings", label: "Settings" },
             { value: "ledger", label: "Ledger" },
@@ -52,6 +70,10 @@ export function AdminBillingPage() {
       }
     >
       {tab === "invoices" && <InvoicesTab />}
+      {tab === "payments" && <PaymentsTab />}
+      {tab === "wht" && <WhtTab />}
+      {tab === "events" && <EventsTab />}
+      {tab === "reconciliation" && <ReconciliationTab />}
       {tab === "prices" && <PriceBooksTab />}
       {tab === "settings" && <SettingsTab />}
       {tab === "ledger" && <LedgerTab />}
@@ -688,6 +710,25 @@ function SettingsTab() {
           />
           Issue each month&apos;s drafts automatically on the 1st (turn on when
           payments are live)
+        </label>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={v.stablecoin ?? false}
+            onChange={(e) => setS({ ...v, stablecoin: e.target.checked })}
+          />
+          Offer USDT top-ups through iSpend to prepaid organisations
+        </label>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={v.delete_for_non_payment ?? false}
+            onChange={(e) =>
+              setS({ ...v, delete_for_non_payment: e.target.checked })
+            }
+          />
+          Delete dedicated projects 7 days after the deletion notice (day 40 of
+          non-payment). Off, the notice is sent and nothing is deleted.
         </label>
       </div>
       {msg && (

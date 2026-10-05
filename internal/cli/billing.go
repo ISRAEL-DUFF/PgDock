@@ -223,3 +223,81 @@ func (a *App) billingInvoice(args []string) error {
 		}
 	})
 }
+
+func (a *App) billingPay(args []string) error {
+	fs := flag.NewFlagSet("billing pay", flag.ContinueOnError)
+	wallet := fs.Bool("wallet", false, "pay with an iSpend wallet instead of a card")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 1, "billing pay <number|id> [--wallet]"); err != nil {
+		return err
+	}
+	org, err := a.orgID()
+	if err != nil {
+		return err
+	}
+	id, err := a.invoiceID(org, pos[0])
+	if err != nil {
+		return err
+	}
+	ch := client.StartCheckoutJSONBodyChannelCard
+	if *wallet {
+		ch = client.StartCheckoutJSONBodyChannelWallet
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.StartCheckoutWithResponse(c, org, client.StartCheckoutJSONRequestBody{Channel: ch, Purpose: client.StartCheckoutJSONBodyPurposeInvoice, InvoiceId: &id})
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.emit(r.JSON201, func(w io.Writer) {
+		fmt.Fprintf(w, "Pay %s at:\n%s\n", naira(r.JSON201.AmountMinor), r.JSON201.CheckoutUrl)
+	})
+}
+
+func (a *App) billingTransfer(args []string) error {
+	if _, err := parse(flag.NewFlagSet("billing transfer", flag.ContinueOnError), args); err != nil {
+		return err
+	}
+	org, err := a.orgID()
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.OrgVirtualAccountWithResponse(c, org)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.emit(r.JSON200, func(w io.Writer) {
+		v := r.JSON200
+		fmt.Fprintf(w, "Transfer to %s, %s (%s).\n", v.AccountNumber, v.BankName, v.AccountName)
+		fmt.Fprintln(w, "The account is this organisation's alone; transfers settle the oldest open invoice and anything over becomes credit.")
+	})
+}
+
+func (a *App) billingPayments(args []string) error {
+	if _, err := parse(flag.NewFlagSet("billing payments", flag.ContinueOnError), args); err != nil {
+		return err
+	}
+	org, err := a.orgID()
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.ListOrgPaymentsWithResponse(c, org)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.emit(r.JSON200, func(w io.Writer) {
+		tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+		fmt.Fprintln(tw, "RECEIVED\tAMOUNT\tVIA\tREFERENCE")
+		for _, p := range r.JSON200.Items {
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", p.ReceivedAt.Format("2006-01-02"), naira(p.AmountMinor), p.Channel, p.ProviderRef)
+		}
+		_ = tw.Flush()
+	})
+}

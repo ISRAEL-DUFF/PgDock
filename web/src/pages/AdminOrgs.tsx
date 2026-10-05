@@ -21,6 +21,7 @@ import {
 } from "../components/ui";
 import { formatBytes, formatDate } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
+import { GraceControl } from "../components/AdminPayments";
 import { formatQuantity, LIMIT_LABELS, monthStart } from "../lib/usage";
 
 function statusBadge(status: string) {
@@ -167,6 +168,9 @@ export function AdminOrgPage() {
               onPick={(cid) => api.setOrgCluster(id, cid, true).then(refresh, (e) => setErr(errorMessage(e)))}
             />
           )}
+        </Panel>
+        <Panel title="Billing standing">
+          <GraceControl org={id} />
         </Panel>
         <SuspendCard org={o} onDone={refresh} />
         <BreakGlassCard org={o} onDone={refresh} />

@@ -29,6 +29,13 @@ import {
 import { INVOICE_STATUS, naira, parseNaira, periodLabel } from "../lib/billing";
 import { formatDate } from "../lib/format";
 import { setCurrentOrg, useCurrentOrg } from "../lib/org";
+import {
+  BalancePanel,
+  InvoicePay,
+  MethodsPanel,
+  PaymentsPanel,
+  StandingBanner,
+} from "../components/BillingPayments";
 
 /** Owners and billing members see billing (V3 §3.2). */
 export function canSeeBilling(role: string | undefined): boolean {
@@ -120,6 +127,7 @@ export function BillingPage() {
       description={`${org.name}'s plan, spend and invoices. Amounts are before VAT unless they say otherwise.`}
       testId="billing"
     >
+      <StandingBanner a={a} />
       {a.capped && (
         <Alert tone="warn" title="Spend cap reached">
           New branches, dedicated instances and HA are paused, webhook
@@ -175,6 +183,10 @@ export function BillingPage() {
           )}
         </Panel>
       </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BalancePanel org={org.id} a={a} />
+        <MethodsPanel org={org.id} a={a} />
+      </div>
       <SpendControls org={org.id} a={a} />
       <DetailsPanel org={org.id} a={a} />
       <ContactsPanel org={org.id} />
@@ -221,8 +233,10 @@ export function BillingPage() {
           </Table>
         )}
       </Panel>
+      <PaymentsPanel org={org.id} />
       <InvoicePanel
         org={org.id}
+        a={a}
         id={openInvoice}
         onClose={() => setOpenInvoice(undefined)}
       />
@@ -668,10 +682,12 @@ function ContactsPanel({ org }: { org: string }) {
 function InvoicePanel({
   org,
   id,
+  a,
   onClose,
 }: {
   org: string;
   id?: string;
+  a?: BillingAccount;
   onClose: () => void;
 }) {
   const q = useQuery({
@@ -698,7 +714,12 @@ function InvoicePanel({
       }
     >
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
-      {d && <InvoiceBody d={d} />}
+      {d && (
+        <div className="flex flex-col gap-4">
+          <InvoicePay org={org} inv={d.invoice} a={a} />
+          <InvoiceBody d={d} />
+        </div>
+      )}
     </SidePanel>
   );
 }

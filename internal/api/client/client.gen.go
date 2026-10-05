@@ -4029,16 +4029,19 @@ type InviteRequest struct {
 
 // Invoice defines model for Invoice.
 type Invoice struct {
-	CreatedAt        time.Time          `json:"created_at"`
-	DueAt            *time.Time         `json:"due_at,omitempty"`
-	Held             bool               `json:"held"`
-	HoldReason       *string            `json:"hold_reason,omitempty"`
-	Id               openapi_types.UUID `json:"id"`
-	IssuedAt         *time.Time         `json:"issued_at,omitempty"`
-	Number           *string            `json:"number,omitempty"`
-	OrgId            openapi_types.UUID `json:"org_id"`
-	OrgName          *string            `json:"org_name,omitempty"`
-	PaidAt           *time.Time         `json:"paid_at,omitempty"`
+	CreatedAt  time.Time          `json:"created_at"`
+	DueAt      *time.Time         `json:"due_at,omitempty"`
+	Held       bool               `json:"held"`
+	HoldReason *string            `json:"hold_reason,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+	IssuedAt   *time.Time         `json:"issued_at,omitempty"`
+	Number     *string            `json:"number,omitempty"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	OrgName    *string            `json:"org_name,omitempty"`
+	PaidAt     *time.Time         `json:"paid_at,omitempty"`
+
+	// PaidMinor Kobo settled against this invoice so far (payments and credit applied).
+	PaidMinor        int64              `json:"paid_minor"`
 	PeriodEnd        openapi_types.Date `json:"period_end"`
 	PeriodStart      openapi_types.Date `json:"period_start"`
 	PriceBookVersion int                `json:"price_book_version"`
@@ -4050,8 +4053,12 @@ type Invoice struct {
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
 	// Example: 34.25
-	VatRate          Decimal `json:"vat_rate"`
-	WhtExpectedMinor int64   `json:"wht_expected_minor"`
+	VatRate Decimal `json:"vat_rate"`
+
+	// WhtDeductedMinor Kobo withheld as WHT by the customer, awaiting a certificate.
+	WhtDeductedMinor int64      `json:"wht_deducted_minor"`
+	WhtEvidencedAt   *time.Time `json:"wht_evidenced_at,omitempty"`
+	WhtExpectedMinor int64      `json:"wht_expected_minor"`
 }
 
 // InvoiceStatus defines model for Invoice.Status.
