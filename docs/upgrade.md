@@ -114,6 +114,15 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   details first. A **Pro** quota plan is added between Personal and Team
   (an existing quota plan named Pro is kept as it is). See
   [Billing](billing.md).
+- **Payments** (migration 00027) are off until you configure a provider:
+  `PGDOCK_FLW_SECRET_KEY` and `PGDOCK_FLW_WEBHOOK_HASH` for Flutterwave,
+  `PGDOCK_ISPEND_BASE_URL`, `PGDOCK_ISPEND_API_KEY` and
+  `PGDOCK_ISPEND_WEBHOOK_SECRET` for iSpend. Set the providers' webhook
+  URLs to `https://<your PGDock>/api/v1/payments/webhooks/flutterwave` and
+  `…/ispend`; they must be reachable from the internet. Dunning starts
+  for invoices past their due date once the server runs, but nothing is
+  deleted for non-payment unless you turn it on (Admin → Billing →
+  Settings). See [Payments](payments.md).
 
 ## Rolling back
 

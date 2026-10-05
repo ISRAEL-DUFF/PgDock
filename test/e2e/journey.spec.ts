@@ -1194,6 +1194,29 @@ test.describe("with the saved session", () => {
     expect(pdf.suggestedFilename()).toMatch(/^PGD-\d{4}-\d{6}\.pdf$/);
     expect(readFileSync((await pdf.path())!).subarray(0, 4).toString()).toBe("%PDF");
     await shot(page, "52-invoice");
+    const total = ((await page.getByTestId("invoice-total").textContent()) ?? "").replace(/[^\d.,]/g, "");
+    await page.keyboard.press("Escape");
+
+    // The team pays by transfer to PGDock's account; the admin records it
+    // and the invoice is settled, with a receipt.
+    await page.goto("/admin/billing");
+    await page.getByRole("radio", { name: "Payments" }).click();
+    await page.getByRole("button", { name: "Record a payment" }).click();
+    const rec = page.getByTestId("record-payment");
+    await rec.getByLabel("Organisation").selectOption({ label: "Metered team" });
+    await rec.getByLabel("Amount received (₦)").fill(total);
+    await rec.getByLabel("Bank reference").fill("GTB-E2E-0001");
+    await rec.getByRole("button", { name: "Record" }).click();
+    const paid = page.getByTestId("admin-payment-row").filter({ hasText: "Metered team" });
+    await expect(paid).toContainText("GTB-E2E-0001");
+    await expect(paid).toContainText("manual");
+    await shot(page, "53-admin-payments");
+    await page.goto("/org/billing");
+    await expect(page.getByTestId("invoice-row").first()).toContainText("Paid");
+    await expect(page.getByTestId("payment-row").first()).toContainText("GTB-E2E-0001");
+    const [receipt] = await Promise.all([page.waitForEvent("download"), page.getByTestId("payment-row").first().getByRole("link", { name: /Receipt/ }).click()]);
+    expect(readFileSync((await receipt.path())!).subarray(0, 4).toString()).toBe("%PDF");
+    await shot(page, "54-billing-paid");
   });
 
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {

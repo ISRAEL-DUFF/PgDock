@@ -4,7 +4,7 @@ PGDock bills organisations in naira (V3 §3). This page covers the billing
 core that V3's M20 adds: price books, plans and proration, monthly
 invoices, VAT and withholding tax, credit notes, the ledger, forecasts and
 spend controls. Taking payments (cards, transfers, wallets), prepaid
-balances, dunning and WHT certificates come in M21.
+balances, dunning and WHT certificates are in [Payments](payments.md).
 
 Amounts are integers in **kobo** everywhere: in the API, the database and
 the ledger. Unit prices may have fractions of a kobo ("34.25" kobo per
@@ -181,10 +181,11 @@ Admin → Billing → **Settings** (`/api/v1/admin/billing/settings`):
 - PGDock's legal name, address, TIN, VAT registration and billing email,
   as invoices show them.
 - Automatic issue on the 1st.
+- Offering USDT top-ups through iSpend (off by default).
+- Deleting dedicated projects for non-payment (off by default: the
+  notice is sent and nothing is deleted).
 
-## Not yet (M21)
+## Payments
 
-Payments by card, transfer and wallet, receipts, prepaid balances and
-daily deduction, auto top-up, WHT matching and credit-note evidence,
-dunning and suspension for non-payment, and reconciliation with the
-providers.
+Paying invoices, prepaid balances, WHT credit notes, dunning and
+reconciliation: see [Payments](payments.md).

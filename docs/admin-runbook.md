@@ -58,8 +58,18 @@ people (V2 §14 M16):
   lists what fires when. A failed backup or restore test comes first.
 - **Requests** (Platform → Dedicated requests): approve within the node
   capacity you have, or reject with a reason.
+- **Payments** (Admin → Billing): attribute any transfer under **Events →
+  Unmatched**, look at **Reconciliation** (it should say "No
+  differences" for each provider), and record any payment to PGDock's own
+  bank account under **Payments**. See [Payments](payments.md).
 
 ## Weekly
+
+- **WHT** (Admin → Billing → WHT): chase credit notes older than 30 days;
+  send the CSV to the accountant monthly.
+- **Overdue organisations:** dunning runs by itself; hold it for an org
+  that has agreed to pay later (Admin → Organisations → the org →
+  Billing standing).
 
 - **Capacity** (Nodes, and the [capacity notes](operations.md#capacity)):
   add a shared node before one passes about 200 projects, its disk 70%,

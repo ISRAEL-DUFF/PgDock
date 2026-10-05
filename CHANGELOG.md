@@ -48,10 +48,22 @@ bundle share one version (spec §11.5).
   `billing` org role for finance staff. Org → Billing, Admin → Billing,
   `pgdock billing`. Invoices aren't issued automatically until an admin
   turns it on. See docs/billing.md.
+- Payments: cards through Flutterwave (saved and charged when an
+  invoice is issued), bank transfers into each organisation's own virtual
+  account (iSpend, falling back to Flutterwave), Pay with iSpend and
+  wallet mandates, optional USDT top-ups, and manual payments with proof.
+  Webhooks are verified with the provider before anything is posted, and
+  re-queried hourly and nightly. Receipts, refunds from credit, prepaid
+  balances with daily deduction, alerts and auto top-up, WHT matching and
+  credit-note uploads, a dunning ladder (overdue, restricted, suspended,
+  deletion only if enabled), and nightly reconciliation with each
+  provider. Org → Billing, Admin → Billing → Payments / WHT / Events /
+  Reconciliation, `pgdock billing pay|transfer|payments`. See
+  docs/payments.md.
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
 - New migrations 00022 and 00023 (moves, Postgres releases), 00026
-  (billing). Upgrade notes:
+  (billing), 00027 (payments). Upgrade notes:
   docs/upgrade.md#upgrading-to-v3.
 
 - Fixed: the first-run setup code printed by `install.sh` was missing its

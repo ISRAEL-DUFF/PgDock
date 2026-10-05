@@ -60,7 +60,7 @@ export function PaymentsTab() {
             <option value="">All providers</option>
             <option value="flutterwave">Flutterwave</option>
             <option value="ispend">iSpend</option>
-            <option value="manual">Manual</option>
+            <option value="bank">Recorded by hand</option>
           </Select>
           <Button variant="primary" onClick={() => setRecording(true)}>
             Record a payment
