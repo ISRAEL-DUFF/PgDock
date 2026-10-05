@@ -207,11 +207,16 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		if err != nil {
 			return err
 		}
-		txn, ok := invoiceTxn(inv, lines, by)
-		if !ok {
-			return nil
+		if txn, ok := invoiceTxn(inv, lines, by); ok {
+			if _, err := Post(ctx, tx, txn); err != nil {
+				return err
+			}
 		}
-		_, err = Post(ctx, tx, txn)
+		// Credit the org holds (an overpayment, a credit note) pays it.
+		if _, err := s.applyCredit(ctx, tx, inv.OrgID); err != nil {
+			return err
+		}
+		inv, err = q.GetInvoice(ctx, inv.ID)
 		return err
 	})
 	if err != nil {

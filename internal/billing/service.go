@@ -30,7 +30,51 @@ type Service struct {
 	log       *slog.Logger
 	// Now is the clock (tests move it).
 	Now func() time.Time
+
+	// Payments (V3 §3.4): the configured providers by name, which channel
+	// goes where, and what to do once money arrives.
+	providers map[string]PaymentProvider
+	routing   Routing
+	onPaid    func(ctx context.Context, orgID uuid.UUID)
+	// onChargeFailed runs when an automatic charge is declined (dunning).
+	onChargeFailed func(ctx context.Context, orgID uuid.UUID)
+	seal           Sealer
+	docs           DocStore
 }
+
+// Routing is which provider serves each channel (V3 §3.4.1: configuration,
+// not code). Empty means the channel isn't offered.
+type Routing struct {
+	Cards      string // hosted checkout and saved-card charges
+	VAPrimary  string // virtual accounts
+	VAFallback string
+	Wallet     string // Pay with iSpend and mandates
+}
+
+// Sealer encrypts card tokens at rest (the master key).
+type Sealer interface {
+	Encrypt(plaintext, aad []byte) ([]byte, error)
+	Decrypt(ciphertext, aad []byte) ([]byte, error)
+}
+
+// SetPayments configures payment providers and routing.
+func (s *Service) SetPayments(providers []PaymentProvider, r Routing, seal Sealer) {
+	s.providers = map[string]PaymentProvider{}
+	for _, p := range providers {
+		s.providers[p.Name()] = p
+	}
+	s.routing = r
+	s.seal = seal
+}
+
+// Provider returns a configured provider.
+func (s *Service) Provider(name string) (PaymentProvider, bool) {
+	p, ok := s.providers[name]
+	return p, ok
+}
+
+// OnPaid runs f after each new payment (dunning re-evaluates).
+func (s *Service) OnPaid(f func(ctx context.Context, orgID uuid.UUID)) { s.onPaid = f }
 
 // New returns the billing service. mailer may be nil (no email).
 func New(db *pgxpool.Pool, mailer Mailer, publicURL string, log *slog.Logger) *Service {
@@ -62,6 +106,9 @@ type Settings struct {
 	// AutoIssue issues each month's drafts on the 1st; otherwise the admin
 	// issues them.
 	AutoIssue bool `json:"auto_issue"`
+	// Stablecoin allows USDT top-ups through iSpend (V3 §3.4.5); off until
+	// the regulatory position is confirmed.
+	Stablecoin bool `json:"stablecoin"`
 }
 
 // Seller is PGDock's company on invoices.

@@ -122,32 +122,38 @@ type BackupKey struct {
 }
 
 type BillingAccount struct {
-	OrgID             uuid.UUID
-	Plan              string
-	Term              string
-	TermEndsAt        *time.Time
-	Mode              string
-	PriceBookVersion  int32
-	Grandfathered     bool
-	LegalName         *string
-	Address           *string
-	Tin               *string
-	VatRegistered     bool
-	DeductsWht        bool
-	ProviderCustomers json.RawMessage
-	PaymentTermsDays  int32
-	BudgetMinor       *int64
-	SpendCapMinor     *int64
-	AutoTopup         []byte
-	DunningState      string
-	GraceUntil        *time.Time
-	ForecastMinor     *int64
-	ForecastAt        *time.Time
-	Capped            bool
-	BudgetAlerted     int32
-	BudgetMonth       pgtype.Date
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	OrgID               uuid.UUID
+	Plan                string
+	Term                string
+	TermEndsAt          *time.Time
+	Mode                string
+	PriceBookVersion    int32
+	Grandfathered       bool
+	LegalName           *string
+	Address             *string
+	Tin                 *string
+	VatRegistered       bool
+	DeductsWht          bool
+	ProviderCustomers   json.RawMessage
+	PaymentTermsDays    int32
+	BudgetMinor         *int64
+	SpendCapMinor       *int64
+	AutoTopup           []byte
+	DunningState        string
+	GraceUntil          *time.Time
+	ForecastMinor       *int64
+	ForecastAt          *time.Time
+	Capped              bool
+	BudgetAlerted       int32
+	BudgetMonth         pgtype.Date
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	DunningSince        *time.Time
+	DeletionScheduledAt *time.Time
+	BalanceAlerted      int32
+	BalanceMonth        pgtype.Date
+	ZeroBalanceAt       *time.Time
+	CardFailingSince    *time.Time
 }
 
 type BillingContact struct {
@@ -228,6 +234,15 @@ type DeviceAuthRequest struct {
 	LastPolledAt    *time.Time
 	ExpiresAt       time.Time
 	CreatedAt       time.Time
+}
+
+type DunningStep struct {
+	ID      int64
+	OrgID   uuid.UUID
+	Cycle   time.Time
+	Step    string
+	Detail  *string
+	TakenAt time.Time
 }
 
 type EditorPreference struct {
@@ -385,6 +400,9 @@ type Invoice struct {
 	PdfObjectKey     *string
 	PriceBookVersion int32
 	CreatedAt        time.Time
+	PaidMinor        int64
+	WhtDeductedMinor int64
+	WhtEvidencedAt   *time.Time
 }
 
 type InvoiceLine struct {
@@ -547,6 +565,84 @@ type OutboundCounter struct {
 	Failures int64
 }
 
+type Payment struct {
+	ID             uuid.UUID
+	OrgID          uuid.UUID
+	Provider       string
+	Channel        string
+	ProviderRef    string
+	Reference      *string
+	AmountMinor    int64
+	FeeMinor       int64
+	RefundedMinor  int64
+	FxQuote        []byte
+	Note           *string
+	ProofObjectKey *string
+	RecordedBy     *uuid.UUID
+	ReceivedAt     time.Time
+	CreatedAt      time.Time
+}
+
+type PaymentAllocation struct {
+	PaymentID   uuid.UUID
+	InvoiceID   uuid.UUID
+	AmountMinor int64
+	WhtMinor    int64
+}
+
+type PaymentEvent struct {
+	ID              int64
+	Provider        string
+	ProviderEventID string
+	Kind            string
+	OrgID           *uuid.UUID
+	Reference       *string
+	ProviderRef     *string
+	AmountMinor     *int64
+	Currency        *string
+	Payload         json.RawMessage
+	ReceivedAt      time.Time
+	ProcessedAt     *time.Time
+	Outcome         *string
+	Error           *string
+}
+
+type PaymentIntent struct {
+	ID          uuid.UUID
+	OrgID       uuid.UUID
+	Reference   string
+	Provider    string
+	Channel     string
+	Purpose     string
+	InvoiceID   *uuid.UUID
+	MethodID    *uuid.UUID
+	AmountMinor int64
+	Status      string
+	CheckoutUrl *string
+	Automatic   bool
+	Error       *string
+	CreatedAt   time.Time
+	CompletedAt *time.Time
+}
+
+type PaymentMethod struct {
+	ID           uuid.UUID
+	OrgID        uuid.UUID
+	Provider     string
+	Kind         string
+	TokenSealed  []byte
+	ProviderRef  *string
+	Brand        *string
+	Last4        *string
+	ExpMonth     *int32
+	ExpYear      *int32
+	LimitMinor   *int64
+	IsDefault    bool
+	Status       string
+	RemindedDays int32
+	CreatedAt    time.Time
+}
+
 type PoolerConfig struct {
 	ID         int32
 	Generation int64
@@ -560,6 +656,14 @@ type PoolerEvent struct {
 	Kind       string
 	Detail     json.RawMessage
 	OccurredAt time.Time
+}
+
+type PrepaidDeduction struct {
+	OrgID       uuid.UUID
+	Month       pgtype.Date
+	Account     string
+	AmountMinor int64
+	UpdatedAt   time.Time
 }
 
 type PriceBook struct {
@@ -643,6 +747,19 @@ type ReapedSession struct {
 	DurationS int32
 	Query     *string
 	CreatedAt time.Time
+}
+
+type Refund struct {
+	ID          uuid.UUID
+	PaymentID   uuid.UUID
+	AmountMinor int64
+	Reason      string
+	ProviderRef *string
+	Status      string
+	Error       *string
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+	CompletedAt *time.Time
 }
 
 type RetiredDatabase struct {
@@ -770,6 +887,17 @@ type User struct {
 	LastActiveAt    *time.Time
 }
 
+type VirtualAccount struct {
+	ID            uuid.UUID
+	OrgID         uuid.UUID
+	Provider      string
+	AccountNumber string
+	BankName      string
+	AccountName   string
+	ProviderRef   *string
+	CreatedAt     time.Time
+}
+
 type Webhook struct {
 	ID                  uuid.UUID
 	ProjectID           uuid.UUID
@@ -803,4 +931,15 @@ type WebhookDelivery struct {
 	ReplayedAt      *time.Time
 	Payload         []byte
 	CreatedAt       time.Time
+}
+
+type WhtCertificate struct {
+	ID         uuid.UUID
+	InvoiceID  uuid.UUID
+	OrgID      uuid.UUID
+	ObjectKey  string
+	Filename   string
+	SizeBytes  int64
+	UploadedBy *uuid.UUID
+	UploadedAt time.Time
 }
