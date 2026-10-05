@@ -139,6 +139,29 @@ func (a *Agent) CreateInstance(ctx context.Context, spec agentapi.InstanceSpec) 
 	return r, a.do(ctx, http.MethodPost, agentapi.PathInstances, spec, &r)
 }
 
+// EtcdAddress calls GET /v1/etcd/address.
+func (a *Agent) EtcdAddress(ctx context.Context) (agentapi.EtcdAddress, error) {
+	var r agentapi.EtcdAddress
+	return r, a.do(ctx, http.MethodGet, agentapi.PathEtcdAddress, nil, &r)
+}
+
+// RunEtcd calls PUT /v1/etcd.
+func (a *Agent) RunEtcd(ctx context.Context, spec agentapi.EtcdSpec) (agentapi.Etcd, error) {
+	var r agentapi.Etcd
+	return r, a.do(ctx, http.MethodPut, agentapi.PathEtcd, spec, &r)
+}
+
+// Etcd calls GET /v1/etcd.
+func (a *Agent) Etcd(ctx context.Context) (agentapi.Etcd, error) {
+	var r agentapi.Etcd
+	return r, a.do(ctx, http.MethodGet, agentapi.PathEtcd, nil, &r)
+}
+
+// RemoveEtcd calls DELETE /v1/etcd: the container and its data.
+func (a *Agent) RemoveEtcd(ctx context.Context) error {
+	return a.do(ctx, http.MethodDelete, agentapi.PathEtcd, nil, nil)
+}
+
 // Instance calls GET /v1/instances/{id}.
 func (a *Agent) Instance(ctx context.Context, id string) (agentapi.Instance, error) {
 	var r agentapi.Instance

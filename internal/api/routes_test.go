@@ -544,6 +544,8 @@ var specMatrix = map[authz.Action][]string{
 		"PATCH /api/v1/admin/plans/{plan_id}", "GET /api/v1/admin/dedicated-requests",
 		"POST /api/v1/admin/dedicated-requests/{request_id}/approve", "POST /api/v1/admin/dedicated-requests/{request_id}/reject",
 		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
+		// V3 §2.2 "a 3-member etcd cluster spread across the control node and two other nodes"
+		"GET /api/v1/admin/etcd", "POST /api/v1/admin/etcd",
 		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"
 		"GET /api/v1/admin/maintenance", "PUT /api/v1/admin/maintenance/window",
 		"POST /api/v1/admin/instances/{instance_id}/minor-upgrade",

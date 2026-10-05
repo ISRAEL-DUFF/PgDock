@@ -217,6 +217,19 @@ services:
       - ../../tmp/bin:/pgdock:ro
       - /var/run/docker.sock:/var/run/docker.sock
 
+  # A third node, for the etcd cluster's third member and HA failover
+  # tests (V3 §2.2).
+  agent-test-3:
+    image: postgres:18
+    profiles: [test]
+    entrypoint: ["sleep", "infinity"]
+    stop_signal: SIGKILL
+    ports:
+      - "127.0.0.1:${PGDOCK_TEST_AGENT3_PORT:-7073}:7070"
+    volumes:
+      - ../../tmp/bin:/pgdock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
   # Import sources: a Supabase image and a plain Postgres 15. Published on
   # the gateway address so the control plane (host) and the agent
   # (container) use one connection string.

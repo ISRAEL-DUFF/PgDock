@@ -263,6 +263,8 @@ var routeRules = map[string]rule{
 	"POST /api/v1/admin/dedicated-requests/{request_id}/approve": {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/dedicated-requests/{request_id}/reject":  {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/usage":                                    {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/etcd":                                     {scope: scopePlatform, action: authz.PlatformManage},
+	"POST /api/v1/admin/etcd":                                    {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/maintenance":                              {scope: scopePlatform, action: authz.PlatformManage},
 	"PUT /api/v1/admin/maintenance/window":                       {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/instances/{instance_id}/minor-upgrade":   {scope: scopePlatform, action: authz.PlatformManage},

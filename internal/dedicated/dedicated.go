@@ -22,6 +22,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -75,6 +76,9 @@ type Service struct {
 	cfg      Config
 	log      *slog.Logger
 
+	// Etcd is the etcd cluster HA instances use (V3 §2.2); nil when the
+	// server runs without one.
+	Etcd *ha.Service
 	// Quotas, when set, checks organisation limits for demotions (the
 	// tenancy service).
 	Quotas Quotas

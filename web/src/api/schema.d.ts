@@ -3285,6 +3285,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/etcd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The etcd cluster HA instances keep their state in, and each member's health */
+        get: operations["getEtcdCluster"];
+        put?: never;
+        /** Set up the etcd cluster, one member on each of three nodes */
+        post: operations["setupEtcdCluster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/shared-clusters": {
         parameters: {
             query?: never;
@@ -4029,6 +4047,28 @@ export interface components {
             /** @description Running instances whose image has a newer minor release. */
             behind: components["schemas"]["InstanceSummary"][];
             history: components["schemas"]["MinorUpgrade"][];
+        };
+        EtcdSetupRequest: {
+            node_ids: string[];
+        };
+        EtcdMember: {
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            name: string;
+            client_url: string;
+            /** @enum {string} */
+            status: "starting" | "healthy" | "unhealthy";
+            error?: string | null;
+            /** Format: date-time */
+            checked_at?: string | null;
+        };
+        EtcdCluster: {
+            members: components["schemas"]["EtcdMember"][];
+            /** @description Set up, with a quorum of healthy members. */
+            ready: boolean;
+            /** @description Why it isn't ready. */
+            reason?: string;
         };
         InstanceSummary: {
             /** @description Postgres major version. */
@@ -11286,6 +11326,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MinorUpgrade"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEtcdCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cluster. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtcdCluster"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setupEtcdCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EtcdSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description The setup operation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

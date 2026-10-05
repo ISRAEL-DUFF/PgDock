@@ -81,6 +81,15 @@ type AuthChallenge struct {
 	CreatedAt time.Time
 }
 
+type AvailabilityMinute struct {
+	ProjectID  uuid.UUID
+	Minute     time.Time
+	InternalOk *bool
+	ExternalOk *bool
+	Available  bool
+	Excluded   bool
+}
+
 type Backup struct {
 	ID              uuid.UUID
 	ProjectID       *uuid.UUID
@@ -169,6 +178,29 @@ type EmailToken struct {
 	CreatedAt time.Time
 }
 
+type EtcdMember struct {
+	NodeID    uuid.UUID
+	Name      string
+	ClientUrl string
+	PeerUrl   string
+	Status    string
+	Error     *string
+	CheckedAt *time.Time
+	CreatedAt time.Time
+}
+
+type FailoverEvent struct {
+	ID         int64
+	InstanceID uuid.UUID
+	FromMember *uuid.UUID
+	ToMember   *uuid.UUID
+	FromNode   *uuid.UUID
+	ToNode     *uuid.UUID
+	Kind       string
+	DurationMs *int32
+	OccurredAt time.Time
+}
+
 type Incident struct {
 	ID         uuid.UUID
 	Title      string
@@ -219,6 +251,31 @@ type Instance struct {
 	PgRelease          *string
 	PgReleaseAvailable *string
 	ReleaseCheckedAt   *time.Time
+	HaEnabled          bool
+	SyncReplication    bool
+	Patroni            bool
+	LeaderMember       *uuid.UUID
+	PatroniSecret      []byte
+}
+
+type InstanceMember struct {
+	ID         uuid.UUID
+	InstanceID uuid.UUID
+	NodeID     uuid.UUID
+	Role       string
+	State      *string
+	Host       *string
+	Port       *int32
+	RestHost   *string
+	RestPort   *int32
+	AdminHost  *string
+	AdminPort  *int32
+	LagBytes   *int64
+	Timeline   *int32
+	Error      *string
+	UpdatedAt  time.Time
+	CreatedAt  time.Time
+	DeletedAt  *time.Time
 }
 
 type Invitation struct {

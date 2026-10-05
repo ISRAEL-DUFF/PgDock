@@ -585,6 +585,27 @@ func (e EditorPreferencesMigrationFormat) Valid() bool {
 	}
 }
 
+// Defines values for EtcdMemberStatus.
+const (
+	EtcdMemberStatusHealthy   EtcdMemberStatus = "healthy"
+	EtcdMemberStatusStarting  EtcdMemberStatus = "starting"
+	EtcdMemberStatusUnhealthy EtcdMemberStatus = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the EtcdMemberStatus enum.
+func (e EtcdMemberStatus) Valid() bool {
+	switch e {
+	case EtcdMemberStatusHealthy:
+		return true
+	case EtcdMemberStatusStarting:
+		return true
+	case EtcdMemberStatusUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExtensionTier.
 const (
 	ExtensionTierDedicated ExtensionTier = "dedicated"
@@ -2003,22 +2024,22 @@ func (e UserPlatformRole) Valid() bool {
 
 // Defines values for WebhookStatus.
 const (
-	Broken  WebhookStatus = "broken"
-	Failing WebhookStatus = "failing"
-	Healthy WebhookStatus = "healthy"
-	Paused  WebhookStatus = "paused"
+	WebhookStatusBroken  WebhookStatus = "broken"
+	WebhookStatusFailing WebhookStatus = "failing"
+	WebhookStatusHealthy WebhookStatus = "healthy"
+	WebhookStatusPaused  WebhookStatus = "paused"
 )
 
 // Valid indicates whether the value is a known member of the WebhookStatus enum.
 func (e WebhookStatus) Valid() bool {
 	switch e {
-	case Broken:
+	case WebhookStatusBroken:
 		return true
-	case Failing:
+	case WebhookStatusFailing:
 		return true
-	case Healthy:
+	case WebhookStatusHealthy:
 		return true
-	case Paused:
+	case WebhookStatusPaused:
 		return true
 	default:
 		return false
@@ -3101,6 +3122,36 @@ type Error struct {
 
 	// Statement The DDL statement Postgres refused.
 	Statement *string `json:"statement,omitempty"`
+}
+
+// EtcdCluster defines model for EtcdCluster.
+type EtcdCluster struct {
+	Members []EtcdMember `json:"members"`
+
+	// Ready Set up, with a quorum of healthy members.
+	Ready bool `json:"ready"`
+
+	// Reason Why it isn't ready.
+	Reason *string `json:"reason,omitempty"`
+}
+
+// EtcdMember defines model for EtcdMember.
+type EtcdMember struct {
+	CheckedAt *time.Time         `json:"checked_at,omitempty"`
+	ClientUrl string             `json:"client_url"`
+	Error     *string            `json:"error,omitempty"`
+	Name      string             `json:"name"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+	Status    EtcdMemberStatus   `json:"status"`
+}
+
+// EtcdMemberStatus defines model for EtcdMember.Status.
+type EtcdMemberStatus string
+
+// EtcdSetupRequest defines model for EtcdSetupRequest.
+type EtcdSetupRequest struct {
+	NodeIds []openapi_types.UUID `json:"node_ids"`
 }
 
 // Extension defines model for Extension.
@@ -5650,6 +5701,9 @@ type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 // RejectDedicatedRequestJSONRequestBody defines body for RejectDedicatedRequest for application/json ContentType.
 type RejectDedicatedRequestJSONRequestBody = DecideRequest
 
+// SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
+type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
+
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
 
@@ -6046,6 +6100,25 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequest(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+	//
+	// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
+	GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetupEtcdClusterWithBody Set up the etcd cluster, one member on each of three nodes
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+	SetupEtcdClusterWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+	SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
 	//
@@ -8534,6 +8607,55 @@ func (c *Client) RejectDedicatedRequestWithBody(ctx context.Context, requestId R
 // Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 func (c *Client) RejectDedicatedRequest(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRejectDedicatedRequestRequest(c.Server, requestId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+//
+// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
+func (c *Client) GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEtcdClusterRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetupEtcdClusterWithBody Set up the etcd cluster, one member on each of three nodes
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+func (c *Client) SetupEtcdClusterWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetupEtcdClusterRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+func (c *Client) SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetupEtcdClusterRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14283,6 +14405,73 @@ func NewRejectDedicatedRequestRequestWithBody(server string, requestId RequestID
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/admin/dedicated-requests/%s/reject", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetEtcdClusterRequest constructs an http.Request for the GetEtcdCluster method
+func NewGetEtcdClusterRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/etcd")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetupEtcdClusterRequest calls the generic SetupEtcdCluster builder with application/json body
+func NewSetupEtcdClusterRequest(server string, body SetupEtcdClusterJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetupEtcdClusterRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetupEtcdClusterRequestWithBody constructs an http.Request for the SetupEtcdCluster method, with any body, and a specified content type
+func NewSetupEtcdClusterRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/etcd")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -23740,6 +23929,27 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequestWithResponse(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectDedicatedRequestResponse, error)
 
+	// GetEtcdClusterWithResponse The etcd cluster HA instances keep their state in, and each member's health
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
+	GetEtcdClusterWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error)
+
+	// SetupEtcdClusterWithBodyWithResponse Set up the etcd cluster, one member on each of three nodes
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+	SetupEtcdClusterWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
+
+	// SetupEtcdClusterWithResponse Set up the etcd cluster, one member on each of three nodes
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+	SetupEtcdClusterWithResponse(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
+
 	// MinorUpgradeInstanceWithResponse Restart an instance onto its image's newer Postgres minor release now, outside the window
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -26560,6 +26770,102 @@ func (r RejectDedicatedRequestResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RejectDedicatedRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetEtcdClusterResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *EtcdCluster
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetEtcdClusterResponse) GetJSON200() *EtcdCluster {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetEtcdClusterResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetEtcdClusterResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEtcdClusterResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEtcdClusterResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetEtcdClusterResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetupEtcdClusterResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r SetupEtcdClusterResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetupEtcdClusterResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetupEtcdClusterResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetupEtcdClusterResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetupEtcdClusterResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetupEtcdClusterResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -36788,6 +37094,45 @@ func (c *ClientWithResponses) RejectDedicatedRequestWithResponse(ctx context.Con
 	return ParseRejectDedicatedRequestResponse(rsp)
 }
 
+// GetEtcdClusterWithResponse The etcd cluster HA instances keep their state in, and each member's health
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
+func (c *ClientWithResponses) GetEtcdClusterWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error) {
+	rsp, err := c.GetEtcdCluster(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEtcdClusterResponse(rsp)
+}
+
+// SetupEtcdClusterWithBodyWithResponse Set up the etcd cluster, one member on each of three nodes
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+func (c *ClientWithResponses) SetupEtcdClusterWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error) {
+	rsp, err := c.SetupEtcdClusterWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetupEtcdClusterResponse(rsp)
+}
+
+// SetupEtcdClusterWithResponse Set up the etcd cluster, one member on each of three nodes
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
+func (c *ClientWithResponses) SetupEtcdClusterWithResponse(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error) {
+	rsp, err := c.SetupEtcdCluster(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetupEtcdClusterResponse(rsp)
+}
+
 // MinorUpgradeInstanceWithResponse Restart an instance onto its image's newer Postgres minor release now, outside the window
 //
 // Returns a wrapper object for the known response body format(s).
@@ -41409,6 +41754,72 @@ func ParseRejectDedicatedRequestResponse(rsp *http.Response) (*RejectDedicatedRe
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEtcdClusterResponse parses an HTTP response from a GetEtcdClusterWithResponse call
+func ParseGetEtcdClusterResponse(rsp *http.Response) (*GetEtcdClusterResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEtcdClusterResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EtcdCluster
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetupEtcdClusterResponse parses an HTTP response from a SetupEtcdClusterWithResponse call
+func ParseSetupEtcdClusterResponse(rsp *http.Response) (*SetupEtcdClusterResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetupEtcdClusterResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

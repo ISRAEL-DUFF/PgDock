@@ -4410,6 +4410,39 @@ paths:
                 $ref: "#/components/schemas/MinorUpgrade"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/etcd:
+    get:
+      operationId: getEtcdCluster
+      summary: The etcd cluster HA instances keep their state in, and each member's health
+      tags: [admin]
+      responses:
+        "200":
+          description: The cluster.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EtcdCluster"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: setupEtcdCluster
+      summary: Set up the etcd cluster, one member on each of three nodes
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EtcdSetupRequest"
+      responses:
+        "202":
+          description: The setup operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/shared-clusters:
     get:
       operationId: listSharedClusters
@@ -5913,6 +5946,54 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MinorUpgrade"
+    EtcdSetupRequest:
+      type: object
+      required: [node_ids]
+      properties:
+        node_ids:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: string
+            format: uuid
+    EtcdMember:
+      type: object
+      required: [node_id, node_name, name, client_url, status]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        name:
+          type: string
+        client_url:
+          type: string
+        status:
+          type: string
+          enum: [starting, healthy, unhealthy]
+        error:
+          type: string
+          nullable: true
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+    EtcdCluster:
+      type: object
+      required: [members, ready]
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/EtcdMember"
+        ready:
+          type: boolean
+          description: Set up, with a quorum of healthy members.
+        reason:
+          type: string
+          description: Why it isn't ready.
     InstanceSummary:
       type: object
       required: [id, kind, status, node_id, node_name, pg_version]

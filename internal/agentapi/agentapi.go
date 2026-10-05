@@ -30,6 +30,10 @@ const (
 	PathInstanceStop   = "/v1/instances/{id}/stop"
 	PathWALGBackup     = "/v1/instances/{id}/walg/backup"
 	PathWALGBackupList = "/v1/instances/{id}/walg/backups"
+
+	// The node's etcd member (V3 §2.2).
+	PathEtcd        = "/v1/etcd"
+	PathEtcdAddress = "/v1/etcd/address"
 )
 
 // PGConn is how the agent reaches a Postgres server. Passwords travel only
@@ -324,4 +328,41 @@ type WALGBackupResult struct {
 	Backup     WALGBackup `json:"backup"`
 	DurationMS int64      `json:"duration_ms"`
 	Deleted    string     `json:"deleted,omitempty"` // retention output
+}
+
+// EtcdAddress is where this node's etcd member is reached, by clients and
+// by the other members: the container's name on the agent's Docker
+// network, or the node's published address with fixed ports.
+type EtcdAddress struct {
+	Host       string `json:"host"`
+	ClientPort int    `json:"client_port"`
+	PeerPort   int    `json:"peer_port"`
+}
+
+// EtcdSpec is PUT /v1/etcd: run (or re-create) this node's etcd member.
+type EtcdSpec struct {
+	Name string `json:"name"`
+	// InitialCluster is etcd's --initial-cluster ("a=https://h:2380,…");
+	// State is "new" when the cluster is bootstrapped, "existing" when the
+	// member joins one (after "member add").
+	InitialCluster string `json:"initial_cluster"`
+	State          string `json:"state"`
+	Token          string `json:"token"`
+	CAPEM          string `json:"ca_pem"`
+	CertPEM        string `json:"cert_pem"`
+	KeyPEM         string `json:"key_pem"`
+	// Wipe removes the member's data first (rejoining after "member
+	// remove").
+	Wipe bool `json:"wipe,omitempty"`
+}
+
+// Etcd is the state of the node's etcd member.
+type Etcd struct {
+	Container string      `json:"container"`
+	State     string      `json:"state"` // running, exited, missing
+	Running   bool        `json:"running"`
+	Address   EtcdAddress `json:"address"`
+	// Healthy is the member's own /health over TLS; Error says why not.
+	Healthy bool   `json:"healthy"`
+	Error   string `json:"error,omitempty"`
 }

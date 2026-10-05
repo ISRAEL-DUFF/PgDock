@@ -41,6 +41,8 @@ type InstanceConfig struct {
 	// (pgdock_move_<id>) may use them; added to pg_hba.conf on every start,
 	// so instances created before V3 get them too.
 	MoveAllow []string
+	// EtcdImage is the image of the node's etcd member (V3 §2.2).
+	EtcdImage string
 }
 
 // instances manages Postgres containers.

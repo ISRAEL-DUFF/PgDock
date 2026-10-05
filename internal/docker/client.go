@@ -5,6 +5,7 @@
 package docker
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
 	"context"
@@ -158,13 +159,18 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 // 304); the caller closes the body.
 func (c *Client) raw(ctx context.Context, method, path string, query url.Values, in any) (*http.Response, error) {
 	var body io.Reader
+	ctype := ""
 	if in != nil {
 		b, err := json.Marshal(in)
 		if err != nil {
 			return nil, err
 		}
-		body = bytes.NewReader(b)
+		body, ctype = bytes.NewReader(b), "application/json"
 	}
+	return c.send(ctx, method, path, query, body, ctype)
+}
+
+func (c *Client) send(ctx context.Context, method, path string, query url.Values, body io.Reader, ctype string) (*http.Response, error) {
 	u := c.apiBase(ctx) + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
@@ -173,8 +179,8 @@ func (c *Client) raw(ctx context.Context, method, path string, query url.Values,
 	if err != nil {
 		return nil, err
 	}
-	if in != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if ctype != "" {
+		req.Header.Set("Content-Type", ctype)
 	}
 	res, err := c.http.Do(req)
 	if err != nil {
@@ -400,6 +406,40 @@ func (c *Client) ListContainers(ctx context.Context, label string) ([]ContainerS
 	var out []ContainerSummary
 	err = c.do(ctx, http.MethodGet, "/containers/json", url.Values{"all": {"true"}, "filters": {string(filters)}}, nil, &out)
 	return out, err
+}
+
+// File is one file CopyTo writes.
+type File struct {
+	Name string // relative to the directory; a trailing "/" makes a directory
+	Mode int64
+	Data []byte
+}
+
+// CopyTo writes files into dir of a container, created or running (the
+// archive endpoint); dir must exist in the image.
+func (c *Client) CopyTo(ctx context.Context, id, dir string, files []File) error {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for _, f := range files {
+		h := &tar.Header{Name: f.Name, Mode: f.Mode, Size: int64(len(f.Data)), ModTime: time.Now(), Typeflag: tar.TypeReg}
+		if dir, ok := strings.CutSuffix(f.Name, "/"); ok { // a directory
+			h.Name, h.Size, h.Typeflag = dir, 0, tar.TypeDir
+		}
+		if err := tw.WriteHeader(h); err != nil {
+			return err
+		}
+		if _, err := tw.Write(f.Data); err != nil {
+			return err
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	res, err := c.send(ctx, http.MethodPut, "/containers/"+url.PathEscape(id)+"/archive", url.Values{"path": {dir}}, &buf, "application/x-tar")
+	if err != nil {
+		return err
+	}
+	return res.Body.Close()
 }
 
 // InspectContainer returns a container by name or ID (ErrNotFound if absent).

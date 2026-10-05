@@ -51,6 +51,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
@@ -267,9 +268,14 @@ func Start(t testing.TB, opts Options) *Env {
 	ded.Snapshot = backups.Snapshot
 	svc.Instances = ded
 	backups.Dedicated = ded
+	haSvc := ha.New(db, keyring, nodeSvc, log)
+	ded.Etcd = haSvc
 
 	kinds := svc.Kinds()
 	for name, k := range backups.Kinds() {
+		kinds[name] = k
+	}
+	for name, k := range haSvc.Kinds() {
 		kinds[name] = k
 	}
 	for name, k := range ded.Kinds() {

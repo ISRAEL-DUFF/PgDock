@@ -14,7 +14,7 @@ import (
 )
 
 const getInstance = `-- name: GetInstance :one
-SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at FROM instances WHERE id = $1
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret FROM instances WHERE id = $1
 `
 
 func (q *Queries) GetInstance(ctx context.Context, id uuid.UUID) (Instance, error) {
@@ -46,6 +46,11 @@ func (q *Queries) GetInstance(ctx context.Context, id uuid.UUID) (Instance, erro
 		&i.PgRelease,
 		&i.PgReleaseAvailable,
 		&i.ReleaseCheckedAt,
+		&i.HaEnabled,
+		&i.SyncReplication,
+		&i.Patroni,
+		&i.LeaderMember,
+		&i.PatroniSecret,
 	)
 	return i, err
 }
@@ -99,7 +104,7 @@ func (q *Queries) GetInstanceTarget(ctx context.Context, id uuid.UUID) (GetInsta
 const insertInstance = `-- name: InsertInstance :one
 INSERT INTO instances (id, node_id, kind, pg_version, port, cpu_limit, mem_limit_mb, volume_gb, profile, walg_prefix, status)
 VALUES ($1, $2, $3, $4, 5432, $5, $6, $7, $8, $9, 'provisioning')
-RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at
+RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret
 `
 
 type InsertInstanceParams struct {
@@ -153,6 +158,11 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 		&i.PgRelease,
 		&i.PgReleaseAvailable,
 		&i.ReleaseCheckedAt,
+		&i.HaEnabled,
+		&i.SyncReplication,
+		&i.Patroni,
+		&i.LeaderMember,
+		&i.PatroniSecret,
 	)
 	return i, err
 }
@@ -216,7 +226,7 @@ func (q *Queries) ListInstanceSummaries(ctx context.Context) ([]ListInstanceSumm
 }
 
 const listNodeInstances = `-- name: ListNodeInstances :many
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at, (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)::int AS projects
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at, i.ha_enabled, i.sync_replication, i.patroni, i.leader_member, i.patroni_secret, (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)::int AS projects
 FROM instances i
 WHERE i.node_id = $1 AND i.deleted_at IS NULL
 ORDER BY i.created_at
@@ -248,6 +258,11 @@ type ListNodeInstancesRow struct {
 	PgRelease          *string
 	PgReleaseAvailable *string
 	ReleaseCheckedAt   *time.Time
+	HaEnabled          bool
+	SyncReplication    bool
+	Patroni            bool
+	LeaderMember       *uuid.UUID
+	PatroniSecret      []byte
 	Projects           int32
 }
 
@@ -287,6 +302,11 @@ func (q *Queries) ListNodeInstances(ctx context.Context, nodeID uuid.UUID) ([]Li
 			&i.PgRelease,
 			&i.PgReleaseAvailable,
 			&i.ReleaseCheckedAt,
+			&i.HaEnabled,
+			&i.SyncReplication,
+			&i.Patroni,
+			&i.LeaderMember,
+			&i.PatroniSecret,
 			&i.Projects,
 		); err != nil {
 			return nil, err
@@ -300,7 +320,7 @@ func (q *Queries) ListNodeInstances(ctx context.Context, nodeID uuid.UUID) ([]Li
 }
 
 const listOrphanedInstances = `-- name: ListOrphanedInstances :many
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at FROM instances i
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at, i.ha_enabled, i.sync_replication, i.patroni, i.leader_member, i.patroni_secret FROM instances i
 WHERE i.deleted_at IS NULL
   AND i.created_at < now() - interval '5 minutes'
   AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL)
@@ -352,6 +372,11 @@ func (q *Queries) ListOrphanedInstances(ctx context.Context) ([]Instance, error)
 			&i.PgRelease,
 			&i.PgReleaseAvailable,
 			&i.ReleaseCheckedAt,
+			&i.HaEnabled,
+			&i.SyncReplication,
+			&i.Patroni,
+			&i.LeaderMember,
+			&i.PatroniSecret,
 		); err != nil {
 			return nil, err
 		}
@@ -373,7 +398,7 @@ func (q *Queries) MarkInstanceDeleted(ctx context.Context, id uuid.UUID) error {
 }
 
 const orgSharedInstances = `-- name: OrgSharedInstances :many
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at, n.name AS node_name FROM instances i JOIN nodes n ON n.id = i.node_id
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at, i.ha_enabled, i.sync_replication, i.patroni, i.leader_member, i.patroni_secret, n.name AS node_name FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.deleted_at IS NULL AND i.org_id = $1
 `
 
@@ -403,6 +428,11 @@ type OrgSharedInstancesRow struct {
 	PgRelease          *string
 	PgReleaseAvailable *string
 	ReleaseCheckedAt   *time.Time
+	HaEnabled          bool
+	SyncReplication    bool
+	Patroni            bool
+	LeaderMember       *uuid.UUID
+	PatroniSecret      []byte
 	NodeName           string
 }
 
@@ -442,6 +472,11 @@ func (q *Queries) OrgSharedInstances(ctx context.Context, orgID *uuid.UUID) ([]O
 			&i.PgRelease,
 			&i.PgReleaseAvailable,
 			&i.ReleaseCheckedAt,
+			&i.HaEnabled,
+			&i.SyncReplication,
+			&i.Patroni,
+			&i.LeaderMember,
+			&i.PatroniSecret,
 			&i.NodeName,
 		); err != nil {
 			return nil, err
@@ -494,7 +529,7 @@ func (q *Queries) PickDedicatedNode(ctx context.Context) (Node, error) {
 }
 
 const pickSharedInstance = `-- name: PickSharedInstance :one
-SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at FROM instances i
+SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at, i.ha_enabled, i.sync_replication, i.patroni, i.leader_member, i.patroni_secret FROM instances i
 JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
   AND i.deleted_at IS NULL AND i.pg_version = $1
@@ -543,6 +578,11 @@ func (q *Queries) PickSharedInstance(ctx context.Context, arg PickSharedInstance
 		&i.PgRelease,
 		&i.PgReleaseAvailable,
 		&i.ReleaseCheckedAt,
+		&i.HaEnabled,
+		&i.SyncReplication,
+		&i.Patroni,
+		&i.LeaderMember,
+		&i.PatroniSecret,
 	)
 	return i, err
 }
@@ -654,7 +694,7 @@ func (q *Queries) SharedInstanceForeignProjects(ctx context.Context, arg SharedI
 }
 
 const sharedInstanceOnNode = `-- name: SharedInstanceOnNode :one
-SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at FROM instances WHERE node_id = $1 AND kind = 'shared' AND deleted_at IS NULL
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret FROM instances WHERE node_id = $1 AND kind = 'shared' AND deleted_at IS NULL
 `
 
 func (q *Queries) SharedInstanceOnNode(ctx context.Context, nodeID uuid.UUID) (Instance, error) {
@@ -686,6 +726,11 @@ func (q *Queries) SharedInstanceOnNode(ctx context.Context, nodeID uuid.UUID) (I
 		&i.PgRelease,
 		&i.PgReleaseAvailable,
 		&i.ReleaseCheckedAt,
+		&i.HaEnabled,
+		&i.SyncReplication,
+		&i.Patroni,
+		&i.LeaderMember,
+		&i.PatroniSecret,
 	)
 	return i, err
 }
@@ -746,7 +791,7 @@ VALUES ($1, 'shared', $2, $3, $4, $5, 'running')
 ON CONFLICT (node_id) WHERE kind = 'shared' AND deleted_at IS NULL DO UPDATE
 SET pg_version = EXCLUDED.pg_version, port = EXCLUDED.port,
     admin_host = EXCLUDED.admin_host, admin_port = EXCLUDED.admin_port, status = 'running'
-RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at
+RETURNING id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret
 `
 
 type UpsertSharedInstanceParams struct {
@@ -792,6 +837,11 @@ func (q *Queries) UpsertSharedInstance(ctx context.Context, arg UpsertSharedInst
 		&i.PgRelease,
 		&i.PgReleaseAvailable,
 		&i.ReleaseCheckedAt,
+		&i.HaEnabled,
+		&i.SyncReplication,
+		&i.Patroni,
+		&i.LeaderMember,
+		&i.PatroniSecret,
 	)
 	return i, err
 }

@@ -166,7 +166,7 @@ func TestWebhookDelivery(t *testing.T) {
 		Name: "orders-to-shop", Tables: []string{"orders"}, Url: rc.URL + "/hook", Headers: &hdrs,
 		Events: []gen.WebhookRequestEvents{gen.WebhookRequestEventsINSERT, gen.WebhookRequestEventsUPDATE, gen.WebhookRequestEventsDELETE},
 	})
-	if !strings.HasPrefix(wh.Secret, "whsec_") || wh.Webhook.Status != gen.Healthy || len(wh.Webhook.HeaderNames) != 1 {
+	if !strings.HasPrefix(wh.Secret, "whsec_") || wh.Webhook.Status != gen.WebhookStatusHealthy || len(wh.Webhook.HeaderNames) != 1 {
 		t.Fatalf("created: %+v", wh)
 	}
 
@@ -280,7 +280,7 @@ func TestWebhookDelivery(t *testing.T) {
 	var list gen.WebhookList
 	e.Do("GET", "/api/v1/projects/"+pid+"/webhooks", nil, &list)
 	for _, w := range list.Items {
-		if w.Name == "qty-changes" && (w.Status != gen.Paused || w.Backlog != 0) {
+		if w.Name == "qty-changes" && (w.Status != gen.WebhookStatusPaused || w.Backlog != 0) {
 			t.Fatalf("paused webhook: %+v", w)
 		}
 	}
@@ -346,7 +346,7 @@ func TestWebhookReceiverDownAnHour(t *testing.T) {
 	}
 	var w gen.Webhook
 	e.Do("GET", whPath, nil, &w)
-	if w.Status != gen.Failing || !w.Enabled || w.Backlog != n {
+	if w.Status != gen.WebhookStatusFailing || !w.Enabled || w.Backlog != n {
 		t.Fatalf("webhook while the receiver is down: %+v", w)
 	}
 
@@ -371,7 +371,7 @@ func TestWebhookReceiverDownAnHour(t *testing.T) {
 		}
 	}
 	e.Do("GET", whPath, nil, &w)
-	if w.Status != gen.Healthy || w.Backlog != 0 || w.ConsecutiveFailures != 0 {
+	if w.Status != gen.WebhookStatusHealthy || w.Backlog != 0 || w.ConsecutiveFailures != 0 {
 		t.Fatalf("webhook after recovery: %+v", w)
 	}
 }
@@ -405,7 +405,7 @@ func TestWebhookRateLimitQueues(t *testing.T) {
 	}
 	var w gen.Webhook
 	e.Do("GET", "/api/v1/projects/"+pid+"/webhooks/"+wh.Webhook.Id.String(), nil, &w)
-	if w.Backlog != n-5 || w.Status != gen.Healthy {
+	if w.Backlog != n-5 || w.Status != gen.WebhookStatusHealthy {
 		t.Fatalf("queued, not dropped: %+v", w)
 	}
 	for minute := 0; len(rc.received()) < n; minute++ {

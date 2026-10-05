@@ -581,6 +581,27 @@ func (e EditorPreferencesMigrationFormat) Valid() bool {
 	}
 }
 
+// Defines values for EtcdMemberStatus.
+const (
+	EtcdMemberStatusHealthy   EtcdMemberStatus = "healthy"
+	EtcdMemberStatusStarting  EtcdMemberStatus = "starting"
+	EtcdMemberStatusUnhealthy EtcdMemberStatus = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the EtcdMemberStatus enum.
+func (e EtcdMemberStatus) Valid() bool {
+	switch e {
+	case EtcdMemberStatusHealthy:
+		return true
+	case EtcdMemberStatusStarting:
+		return true
+	case EtcdMemberStatusUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExtensionTier.
 const (
 	ExtensionTierDedicated ExtensionTier = "dedicated"
@@ -1999,22 +2020,22 @@ func (e UserPlatformRole) Valid() bool {
 
 // Defines values for WebhookStatus.
 const (
-	Broken  WebhookStatus = "broken"
-	Failing WebhookStatus = "failing"
-	Healthy WebhookStatus = "healthy"
-	Paused  WebhookStatus = "paused"
+	WebhookStatusBroken  WebhookStatus = "broken"
+	WebhookStatusFailing WebhookStatus = "failing"
+	WebhookStatusHealthy WebhookStatus = "healthy"
+	WebhookStatusPaused  WebhookStatus = "paused"
 )
 
 // Valid indicates whether the value is a known member of the WebhookStatus enum.
 func (e WebhookStatus) Valid() bool {
 	switch e {
-	case Broken:
+	case WebhookStatusBroken:
 		return true
-	case Failing:
+	case WebhookStatusFailing:
 		return true
-	case Healthy:
+	case WebhookStatusHealthy:
 		return true
-	case Paused:
+	case WebhookStatusPaused:
 		return true
 	default:
 		return false
@@ -3097,6 +3118,36 @@ type Error struct {
 
 	// Statement The DDL statement Postgres refused.
 	Statement *string `json:"statement,omitempty"`
+}
+
+// EtcdCluster defines model for EtcdCluster.
+type EtcdCluster struct {
+	Members []EtcdMember `json:"members"`
+
+	// Ready Set up, with a quorum of healthy members.
+	Ready bool `json:"ready"`
+
+	// Reason Why it isn't ready.
+	Reason *string `json:"reason,omitempty"`
+}
+
+// EtcdMember defines model for EtcdMember.
+type EtcdMember struct {
+	CheckedAt *time.Time         `json:"checked_at,omitempty"`
+	ClientUrl string             `json:"client_url"`
+	Error     *string            `json:"error,omitempty"`
+	Name      string             `json:"name"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+	Status    EtcdMemberStatus   `json:"status"`
+}
+
+// EtcdMemberStatus defines model for EtcdMember.Status.
+type EtcdMemberStatus string
+
+// EtcdSetupRequest defines model for EtcdSetupRequest.
+type EtcdSetupRequest struct {
+	NodeIds []openapi_types.UUID `json:"node_ids"`
 }
 
 // Extension defines model for Extension.
@@ -5646,6 +5697,9 @@ type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 // RejectDedicatedRequestJSONRequestBody defines body for RejectDedicatedRequest for application/json ContentType.
 type RejectDedicatedRequestJSONRequestBody = DecideRequest
 
+// SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
+type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
+
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
 
@@ -5945,6 +5999,12 @@ type ServerInterface interface {
 	// RejectDedicatedRequest Reject a dedicated request (platform admin)
 	// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
 	RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
+	// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+	// (GET /api/v1/admin/etcd)
+	GetEtcdCluster(w http.ResponseWriter, r *http.Request)
+	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+	// (POST /api/v1/admin/etcd)
+	SetupEtcdCluster(w http.ResponseWriter, r *http.Request)
 	// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
 	// (POST /api/v1/admin/instances/{instance_id}/minor-upgrade)
 	MinorUpgradeInstance(w http.ResponseWriter, r *http.Request, instanceId openapi_types.UUID)
@@ -6620,6 +6680,18 @@ func (_ Unimplemented) ApproveDedicatedRequest(w http.ResponseWriter, r *http.Re
 // RejectDedicatedRequest Reject a dedicated request (platform admin)
 // (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
 func (_ Unimplemented) RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+// (GET /api/v1/admin/etcd)
+func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+// (POST /api/v1/admin/etcd)
+func (_ Unimplemented) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8089,6 +8161,34 @@ func (siw *ServerInterfaceWrapper) RejectDedicatedRequest(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RejectDedicatedRequest(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEtcdCluster operation middleware
+func (siw *ServerInterfaceWrapper) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEtcdCluster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetupEtcdCluster operation middleware
+func (siw *ServerInterfaceWrapper) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetupEtcdCluster(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -14724,6 +14824,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/instances/{instance_id}/minor-upgrade", wrapper.MinorUpgradeInstance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/etcd", wrapper.GetEtcdCluster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/etcd", wrapper.SetupEtcdCluster)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/shared-clusters", wrapper.ListSharedClusters)

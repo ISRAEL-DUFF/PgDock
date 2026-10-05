@@ -57,7 +57,7 @@ func env(name, def string) string {
 
 type opts struct {
 	state, listen, server, token, bootstrap, node, advertise, caFile, pgBin, diskPath string
-	dockerHost, image, network, publish, dbAllow, moveAllow                           string
+	dockerHost, image, network, publish, dbAllow, moveAllow, etcdImage                string
 	insecure                                                                          bool
 
 	// Pooler hosts (V3 §2.1).
@@ -86,6 +86,7 @@ func flags(name string, args []string) (*opts, error) {
 	fs.StringVar(&o.publish, "publish", env("PGDOCK_AGENT_PUBLISH", ""), "node address to publish instance ports on (e.g. its private IP)")
 	fs.StringVar(&o.dbAllow, "db-allow", env("PGDOCK_AGENT_DB_ALLOW", defaultDBAllow),
 		"comma-separated CIDRs new instances accept logins from: the control plane and poolers (spec §7.1)")
+	fs.StringVar(&o.etcdImage, "etcd-image", env("PGDOCK_AGENT_ETCD_IMAGE", agentsvc.DefaultEtcdImage), "image of the node's etcd member (HA instances)")
 	fs.StringVar(&o.moveAllow, "move-allow", env("PGDOCK_AGENT_MOVE_ALLOW", defaultMoveAllow),
 		"comma-separated CIDRs other instances replicate from during a move; only the moves' own logins may use them (V3 §2.3)")
 	fs.StringVar(&o.poolerDir, "pooler-dir", env("PGDOCK_AGENT_POOLER_DIR", ""), "pooler host: directory the PgBouncers read their pgdock files from (enables pooler mode)")
@@ -225,7 +226,7 @@ func serve(o *opts) error {
 	}
 	svc := agentsvc.New(agentsvc.Config{
 		Version: version.Get().Version, NodeID: st.NodeID, PGBinDir: o.pgBin, DiskPath: o.diskPath,
-		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish, HBAAllow: cidrs, MoveAllow: moveCIDRs},
+		Instances: agentsvc.InstanceConfig{Docker: o.dockerHost, Image: o.image, Network: o.network, PublishAddr: o.publish, HBAAllow: cidrs, MoveAllow: moveCIDRs, EtcdImage: o.etcdImage},
 	}, log)
 	if o.poolerDir != "" {
 		if err := enablePooler(ctx, svc, o, log); err != nil {

@@ -36,6 +36,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/floatip"
+	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
@@ -187,6 +188,14 @@ func run() error {
 		for name, k := range backups.Dedicated.Kinds() {
 			kinds[name] = k
 		}
+		// The etcd cluster for HA instances (V3 §2.2).
+		etcdSvc := ha.New(pool, keyring, nodeSvc, log)
+		backups.Dedicated.Etcd = etcdSvc
+		for name, k := range etcdSvc.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); etcdSvc.Run(bgCtx, 30*time.Second) }()
 		// The standby edge pooler (V3 §2.1): push the configuration to the
 		// pooler hosts and keep the floating IP on a healthy one.
 		poolerArbiter = setupPoolerHosts(cfg, pm, nodeSvc, log)
