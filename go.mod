@@ -13,6 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0
 	github.com/caddyserver/certmagic v0.25.4
 	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/johannesboyne/gofakes3 v1.2.0

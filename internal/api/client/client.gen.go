@@ -894,6 +894,36 @@ func (e InvitationPreviewKind) Valid() bool {
 	}
 }
 
+// Defines values for InvoiceStatus.
+const (
+	InvoiceStatusDraft          InvoiceStatus = "draft"
+	InvoiceStatusIssued         InvoiceStatus = "issued"
+	InvoiceStatusPaid           InvoiceStatus = "paid"
+	InvoiceStatusPaidWhtPending InvoiceStatus = "paid_wht_pending"
+	InvoiceStatusPartiallyPaid  InvoiceStatus = "partially_paid"
+	InvoiceStatusVoid           InvoiceStatus = "void"
+)
+
+// Valid indicates whether the value is a known member of the InvoiceStatus enum.
+func (e InvoiceStatus) Valid() bool {
+	switch e {
+	case InvoiceStatusDraft:
+		return true
+	case InvoiceStatusIssued:
+		return true
+	case InvoiceStatusPaid:
+		return true
+	case InvoiceStatusPaidWhtPending:
+		return true
+	case InvoiceStatusPartiallyPaid:
+		return true
+	case InvoiceStatusVoid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InvoiceLineKind.
 const (
 	InvoiceLineKindAddon     InvoiceLineKind = "addon"
@@ -2343,6 +2373,36 @@ func (e ListDedicatedRequestsParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminListInvoicesParamsStatus.
+const (
+	AdminListInvoicesParamsStatusDraft          AdminListInvoicesParamsStatus = "draft"
+	AdminListInvoicesParamsStatusIssued         AdminListInvoicesParamsStatus = "issued"
+	AdminListInvoicesParamsStatusPaid           AdminListInvoicesParamsStatus = "paid"
+	AdminListInvoicesParamsStatusPaidWhtPending AdminListInvoicesParamsStatus = "paid_wht_pending"
+	AdminListInvoicesParamsStatusPartiallyPaid  AdminListInvoicesParamsStatus = "partially_paid"
+	AdminListInvoicesParamsStatusVoid           AdminListInvoicesParamsStatus = "void"
+)
+
+// Valid indicates whether the value is a known member of the AdminListInvoicesParamsStatus enum.
+func (e AdminListInvoicesParamsStatus) Valid() bool {
+	switch e {
+	case AdminListInvoicesParamsStatusDraft:
+		return true
+	case AdminListInvoicesParamsStatusIssued:
+		return true
+	case AdminListInvoicesParamsStatusPaid:
+		return true
+	case AdminListInvoicesParamsStatusPaidWhtPending:
+		return true
+	case AdminListInvoicesParamsStatusPartiallyPaid:
+		return true
+	case AdminListInvoicesParamsStatusVoid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAlertsParamsStatus.
 const (
 	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
@@ -3105,6 +3165,17 @@ type CreatedToken struct {
 	Token  APIToken `json:"token"`
 }
 
+// CreditNote defines model for CreditNote.
+type CreditNote struct {
+	AmountMinor int64              `json:"amount_minor"`
+	Id          openapi_types.UUID `json:"id"`
+	InvoiceId   openapi_types.UUID `json:"invoice_id"`
+	IssuedAt    time.Time          `json:"issued_at"`
+	Number      string             `json:"number"`
+	Reason      string             `json:"reason"`
+	VatMinor    int64              `json:"vat_minor"`
+}
+
 // DbColumn defines model for DbColumn.
 type DbColumn struct {
 	Default  *string `json:"default,omitempty"`
@@ -3750,6 +3821,43 @@ type InviteRequest struct {
 	Role     OrgRole              `json:"role"`
 }
 
+// Invoice defines model for Invoice.
+type Invoice struct {
+	CreatedAt        time.Time          `json:"created_at"`
+	DueAt            *time.Time         `json:"due_at,omitempty"`
+	Held             bool               `json:"held"`
+	HoldReason       *string            `json:"hold_reason,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	IssuedAt         *time.Time         `json:"issued_at,omitempty"`
+	Number           *string            `json:"number,omitempty"`
+	OrgId            openapi_types.UUID `json:"org_id"`
+	OrgName          *string            `json:"org_name,omitempty"`
+	PaidAt           *time.Time         `json:"paid_at,omitempty"`
+	PeriodEnd        openapi_types.Date `json:"period_end"`
+	PeriodStart      openapi_types.Date `json:"period_start"`
+	PriceBookVersion int                `json:"price_book_version"`
+	Status           InvoiceStatus      `json:"status"`
+	SubtotalMinor    int64              `json:"subtotal_minor"`
+	TotalMinor       int64              `json:"total_minor"`
+	VatMinor         int64              `json:"vat_minor"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate          Decimal `json:"vat_rate"`
+	WhtExpectedMinor int64   `json:"wht_expected_minor"`
+}
+
+// InvoiceStatus defines model for Invoice.Status.
+type InvoiceStatus string
+
+// InvoiceDetail defines model for InvoiceDetail.
+type InvoiceDetail struct {
+	CreditNotes []CreditNote  `json:"credit_notes"`
+	Invoice     Invoice       `json:"invoice"`
+	Lines       []InvoiceLine `json:"lines"`
+}
+
 // InvoiceLine defines model for InvoiceLine.
 type InvoiceLine struct {
 	// Amount Kobo.
@@ -3772,6 +3880,11 @@ type InvoiceLine struct {
 
 // InvoiceLineKind defines model for InvoiceLine.Kind.
 type InvoiceLineKind string
+
+// InvoiceList defines model for InvoiceList.
+type InvoiceList struct {
+	Items []Invoice `json:"items"`
+}
 
 // IsolationCheck defines model for IsolationCheck.
 type IsolationCheck struct {
@@ -3898,6 +4011,24 @@ type JobUpdate struct {
 
 // JobUpdateOverlap defines model for JobUpdate.Overlap.
 type JobUpdateOverlap string
+
+// LedgerCheck defines model for LedgerCheck.
+type LedgerCheck struct {
+	// Accounts Each account's balance (debits minus credits) across organisations.
+	Accounts []struct {
+		Account      string `json:"account"`
+		BalanceMinor int64  `json:"balance_minor"`
+	} `json:"accounts"`
+	Balanced     bool  `json:"balanced"`
+	CreditsMinor int64 `json:"credits_minor"`
+	DebitsMinor  int64 `json:"debits_minor"`
+	Problems     []struct {
+		CreditsMinor int64              `json:"credits_minor"`
+		DebitsMinor  int64              `json:"debits_minor"`
+		TxnId        openapi_types.UUID `json:"txn_id"`
+	} `json:"problems"`
+	Transactions int `json:"transactions"`
+}
 
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
@@ -5852,6 +5983,9 @@ type IncidentID = openapi_types.UUID
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
 
+// InvoiceID defines model for InvoiceID.
+type InvoiceID = openapi_types.UUID
+
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
 
@@ -5926,9 +6060,44 @@ type ListDedicatedRequestsParams struct {
 // ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParamsStatus string
 
+// AdminListInvoicesParams defines parameters for AdminListInvoices.
+type AdminListInvoicesParams struct {
+	Status *AdminListInvoicesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Period The usage month, YYYY-MM.
+	Period *string `form:"period,omitempty" json:"period,omitempty"`
+}
+
+// AdminListInvoicesParamsStatus defines parameters for AdminListInvoices.
+type AdminListInvoicesParamsStatus string
+
+// AdminDraftInvoicesJSONBody defines parameters for AdminDraftInvoices.
+type AdminDraftInvoicesJSONBody struct {
+	OrgId  *openapi_types.UUID `json:"org_id,omitempty"`
+	Period string              `json:"period"`
+}
+
+// AdminCreateCreditNoteJSONBody defines parameters for AdminCreateCreditNote.
+type AdminCreateCreditNoteJSONBody struct {
+	AmountMinor int64  `json:"amount_minor"`
+	Reason      string `json:"reason"`
+}
+
+// AdminHoldInvoiceJSONBody defines parameters for AdminHoldInvoice.
+type AdminHoldInvoiceJSONBody struct {
+	Held   bool    `json:"held"`
+	Reason *string `json:"reason,omitempty"`
+}
+
 // AdminListOrgsParams defines parameters for AdminListOrgs.
 type AdminListOrgsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// PreviewPriceBookJSONBody defines parameters for PreviewPriceBook.
+type PreviewPriceBookJSONBody struct {
+	// Period The usage month (default the last complete one).
+	Period *string `json:"period,omitempty"`
 }
 
 // DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
@@ -6185,6 +6354,15 @@ type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
 
+// AdminDraftInvoicesJSONRequestBody defines body for AdminDraftInvoices for application/json ContentType.
+type AdminDraftInvoicesJSONRequestBody AdminDraftInvoicesJSONBody
+
+// AdminCreateCreditNoteJSONRequestBody defines body for AdminCreateCreditNote for application/json ContentType.
+type AdminCreateCreditNoteJSONRequestBody AdminCreateCreditNoteJSONBody
+
+// AdminHoldInvoiceJSONRequestBody defines body for AdminHoldInvoice for application/json ContentType.
+type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -6217,6 +6395,9 @@ type CreatePriceBookJSONRequestBody = PriceBookInput
 
 // UpdatePriceBookJSONRequestBody defines body for UpdatePriceBook for application/json ContentType.
 type UpdatePriceBookJSONRequestBody = PriceBookInput
+
+// PreviewPriceBookJSONRequestBody defines body for PreviewPriceBook for application/json ContentType.
+type PreviewPriceBookJSONRequestBody PreviewPriceBookJSONBody
 
 // MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
 type MoveProjectJSONRequestBody = MoveProjectRequest
@@ -6673,6 +6854,73 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/admin/invitations/{invitation_id} (the `RevokePlatformInvitation` operationId).
 	RevokePlatformInvitation(ctx context.Context, invitationId InvitationID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AdminListInvoices Invoices across organisations, drafts included
+	//
+	// Corresponds with GET /api/v1/admin/invoices (the `AdminListInvoices` operationId).
+	AdminListInvoices(ctx context.Context, params *AdminListInvoicesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminDraftInvoicesWithBody Generate (or refresh) a month's drafts now, for every organisation or one
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+	AdminDraftInvoicesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminDraftInvoices Generate (or refresh) a month's drafts now, for every organisation or one
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+	AdminDraftInvoices(ctx context.Context, body AdminDraftInvoicesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminGetInvoice An invoice, drafts included
+	//
+	// Corresponds with GET /api/v1/admin/invoices/{invoice_id} (the `AdminGetInvoice` operationId).
+	AdminGetInvoice(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminCreateCreditNoteWithBody Issue a credit note against an issued invoice (amount before VAT)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+	AdminCreateCreditNoteWithBody(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminCreateCreditNote Issue a credit note against an issued invoice (amount before VAT)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+	AdminCreateCreditNote(ctx context.Context, invoiceId InvoiceID, body AdminCreateCreditNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminHoldInvoiceWithBody Hold a draft for review (it isn't issued on the 1st), or release it
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+	AdminHoldInvoiceWithBody(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminHoldInvoice Hold a draft for review (it isn't issued on the 1st), or release it
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+	AdminHoldInvoice(ctx context.Context, invoiceId InvoiceID, body AdminHoldInvoiceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminIssueInvoice Issue a draft now (a held one is released)
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/issue (the `AdminIssueInvoice` operationId).
+	AdminIssueInvoice(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminGetInvoicePdf An invoice (or draft) as PDF
+	//
+	// Corresponds with GET /api/v1/admin/invoices/{invoice_id}/pdf (the `AdminGetInvoicePdf` operationId).
+	AdminGetInvoicePdf(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
+	//
+	// Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
+	AdminLedgerCheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	//
 	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
@@ -6879,6 +7127,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/price-books/{version} (the `UpdatePriceBook` operationId).
 	UpdatePriceBook(ctx context.Context, version PriceBookVersion, body UpdatePriceBookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewPriceBookWithBody Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+	PreviewPriceBookWithBody(ctx context.Context, version PriceBookVersion, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewPriceBook Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+	PreviewPriceBook(ctx context.Context, version PriceBookVersion, body PreviewPriceBookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PublishPriceBook Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
 	//
@@ -7768,6 +8030,21 @@ type ClientInterface interface {
 	//
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContact(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOrgInvoices The organisation's issued invoices
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices (the `ListOrgInvoices` operationId).
+	ListOrgInvoices(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgInvoice An invoice with its lines and credit notes
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
+	GetOrgInvoice(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgInvoicePdf An invoice as PDF
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
+	GetOrgInvoicePdf(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ChangeOrgPlanWithBody Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 	//
@@ -9503,6 +9780,183 @@ func (c *Client) RevokePlatformInvitation(ctx context.Context, invitationId Invi
 	return c.Client.Do(req)
 }
 
+// AdminListInvoices Invoices across organisations, drafts included
+//
+// Corresponds with GET /api/v1/admin/invoices (the `AdminListInvoices` operationId).
+func (c *Client) AdminListInvoices(ctx context.Context, params *AdminListInvoicesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminListInvoicesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminDraftInvoicesWithBody Generate (or refresh) a month's drafts now, for every organisation or one
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+func (c *Client) AdminDraftInvoicesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminDraftInvoicesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminDraftInvoices Generate (or refresh) a month's drafts now, for every organisation or one
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+func (c *Client) AdminDraftInvoices(ctx context.Context, body AdminDraftInvoicesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminDraftInvoicesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminGetInvoice An invoice, drafts included
+//
+// Corresponds with GET /api/v1/admin/invoices/{invoice_id} (the `AdminGetInvoice` operationId).
+func (c *Client) AdminGetInvoice(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminGetInvoiceRequest(c.Server, invoiceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminCreateCreditNoteWithBody Issue a credit note against an issued invoice (amount before VAT)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+func (c *Client) AdminCreateCreditNoteWithBody(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminCreateCreditNoteRequestWithBody(c.Server, invoiceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminCreateCreditNote Issue a credit note against an issued invoice (amount before VAT)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+func (c *Client) AdminCreateCreditNote(ctx context.Context, invoiceId InvoiceID, body AdminCreateCreditNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminCreateCreditNoteRequest(c.Server, invoiceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminHoldInvoiceWithBody Hold a draft for review (it isn't issued on the 1st), or release it
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+func (c *Client) AdminHoldInvoiceWithBody(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminHoldInvoiceRequestWithBody(c.Server, invoiceId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminHoldInvoice Hold a draft for review (it isn't issued on the 1st), or release it
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+func (c *Client) AdminHoldInvoice(ctx context.Context, invoiceId InvoiceID, body AdminHoldInvoiceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminHoldInvoiceRequest(c.Server, invoiceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminIssueInvoice Issue a draft now (a held one is released)
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/issue (the `AdminIssueInvoice` operationId).
+func (c *Client) AdminIssueInvoice(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminIssueInvoiceRequest(c.Server, invoiceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminGetInvoicePdf An invoice (or draft) as PDF
+//
+// Corresponds with GET /api/v1/admin/invoices/{invoice_id}/pdf (the `AdminGetInvoicePdf` operationId).
+func (c *Client) AdminGetInvoicePdf(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminGetInvoicePdfRequest(c.Server, invoiceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
+//
+// Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
+func (c *Client) AdminLedgerCheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminLedgerCheckRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 //
 // Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
@@ -10010,6 +10464,40 @@ func (c *Client) UpdatePriceBookWithBody(ctx context.Context, version PriceBookV
 // Corresponds with PUT /api/v1/admin/price-books/{version} (the `UpdatePriceBook` operationId).
 func (c *Client) UpdatePriceBook(ctx context.Context, version PriceBookVersion, body UpdatePriceBookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdatePriceBookRequest(c.Server, version, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewPriceBookWithBody Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+func (c *Client) PreviewPriceBookWithBody(ctx context.Context, version PriceBookVersion, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewPriceBookRequestWithBody(c.Server, version, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewPriceBook Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+func (c *Client) PreviewPriceBook(ctx context.Context, version PriceBookVersion, body PreviewPriceBookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewPriceBookRequest(c.Server, version, body)
 	if err != nil {
 		return nil, err
 	}
@@ -12099,6 +12587,51 @@ func (c *Client) AddBillingContact(ctx context.Context, org OrgID, body AddBilli
 // Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 func (c *Client) RemoveBillingContact(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRemoveBillingContactRequest(c.Server, org, email)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListOrgInvoices The organisation's issued invoices
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/invoices (the `ListOrgInvoices` operationId).
+func (c *Client) ListOrgInvoices(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgInvoicesRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgInvoice An invoice with its lines and credit notes
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
+func (c *Client) GetOrgInvoice(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgInvoiceRequest(c.Server, org, invoiceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgInvoicePdf An invoice as PDF
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
+func (c *Client) GetOrgInvoicePdf(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgInvoicePdfRequest(c.Server, org, invoiceId)
 	if err != nil {
 		return nil, err
 	}
@@ -15906,6 +16439,335 @@ func NewRevokePlatformInvitationRequest(server string, invitationId InvitationID
 	return req, nil
 }
 
+// NewAdminListInvoicesRequest constructs an http.Request for the AdminListInvoices method
+func NewAdminListInvoicesRequest(server string, params *AdminListInvoicesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Period != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "period", *params.Period, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminDraftInvoicesRequest calls the generic AdminDraftInvoices builder with application/json body
+func NewAdminDraftInvoicesRequest(server string, body AdminDraftInvoicesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminDraftInvoicesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAdminDraftInvoicesRequestWithBody constructs an http.Request for the AdminDraftInvoices method, with any body, and a specified content type
+func NewAdminDraftInvoicesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices/draft")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminGetInvoiceRequest constructs an http.Request for the AdminGetInvoice method
+func NewAdminGetInvoiceRequest(server string, invoiceId InvoiceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminCreateCreditNoteRequest calls the generic AdminCreateCreditNote builder with application/json body
+func NewAdminCreateCreditNoteRequest(server string, invoiceId InvoiceID, body AdminCreateCreditNoteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminCreateCreditNoteRequestWithBody(server, invoiceId, "application/json", bodyReader)
+}
+
+// NewAdminCreateCreditNoteRequestWithBody constructs an http.Request for the AdminCreateCreditNote method, with any body, and a specified content type
+func NewAdminCreateCreditNoteRequestWithBody(server string, invoiceId InvoiceID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices/%s/credit-notes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminHoldInvoiceRequest calls the generic AdminHoldInvoice builder with application/json body
+func NewAdminHoldInvoiceRequest(server string, invoiceId InvoiceID, body AdminHoldInvoiceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminHoldInvoiceRequestWithBody(server, invoiceId, "application/json", bodyReader)
+}
+
+// NewAdminHoldInvoiceRequestWithBody constructs an http.Request for the AdminHoldInvoice method, with any body, and a specified content type
+func NewAdminHoldInvoiceRequestWithBody(server string, invoiceId InvoiceID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices/%s/hold", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminIssueInvoiceRequest constructs an http.Request for the AdminIssueInvoice method
+func NewAdminIssueInvoiceRequest(server string, invoiceId InvoiceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices/%s/issue", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminGetInvoicePdfRequest constructs an http.Request for the AdminGetInvoicePdf method
+func NewAdminGetInvoicePdfRequest(server string, invoiceId InvoiceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/invoices/%s/pdf", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminLedgerCheckRequest constructs an http.Request for the AdminLedgerCheck method
+func NewAdminLedgerCheckRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/ledger/check")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetMaintenanceRequest constructs an http.Request for the GetMaintenance method
 func NewGetMaintenanceRequest(server string) (*http.Request, error) {
 	var err error
@@ -16698,6 +17560,53 @@ func NewUpdatePriceBookRequestWithBody(server string, version PriceBookVersion, 
 	}
 
 	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPreviewPriceBookRequest calls the generic PreviewPriceBook builder with application/json body
+func NewPreviewPriceBookRequest(server string, version PriceBookVersion, body PreviewPriceBookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewPriceBookRequestWithBody(server, version, "application/json", bodyReader)
+}
+
+// NewPreviewPriceBookRequestWithBody constructs an http.Request for the PreviewPriceBook method, with any body, and a specified content type
+func NewPreviewPriceBookRequestWithBody(server string, version PriceBookVersion, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "version", version, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/price-books/%s/preview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -20046,6 +20955,122 @@ func NewRemoveBillingContactRequest(server string, org OrgID, email string) (*ht
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListOrgInvoicesRequest constructs an http.Request for the ListOrgInvoices method
+func NewListOrgInvoicesRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/invoices", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrgInvoiceRequest constructs an http.Request for the GetOrgInvoice method
+func NewGetOrgInvoiceRequest(server string, org OrgID, invoiceId InvoiceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/invoices/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrgInvoicePdfRequest constructs an http.Request for the GetOrgInvoicePdf method
+func NewGetOrgInvoicePdfRequest(server string, org OrgID, invoiceId InvoiceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/invoices/%s/pdf", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -26008,6 +27033,83 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/admin/invitations/{invitation_id} (the `RevokePlatformInvitation` operationId).
 	RevokePlatformInvitationWithResponse(ctx context.Context, invitationId InvitationID, reqEditors ...RequestEditorFn) (*RevokePlatformInvitationResponse, error)
 
+	// AdminListInvoicesWithResponse Invoices across organisations, drafts included
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/invoices (the `AdminListInvoices` operationId).
+	AdminListInvoicesWithResponse(ctx context.Context, params *AdminListInvoicesParams, reqEditors ...RequestEditorFn) (*AdminListInvoicesResponse, error)
+
+	// AdminDraftInvoicesWithBodyWithResponse Generate (or refresh) a month's drafts now, for every organisation or one
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+	AdminDraftInvoicesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminDraftInvoicesResponse, error)
+
+	// AdminDraftInvoicesWithResponse Generate (or refresh) a month's drafts now, for every organisation or one
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+	AdminDraftInvoicesWithResponse(ctx context.Context, body AdminDraftInvoicesJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminDraftInvoicesResponse, error)
+
+	// AdminGetInvoiceWithResponse An invoice, drafts included
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/invoices/{invoice_id} (the `AdminGetInvoice` operationId).
+	AdminGetInvoiceWithResponse(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*AdminGetInvoiceResponse, error)
+
+	// AdminCreateCreditNoteWithBodyWithResponse Issue a credit note against an issued invoice (amount before VAT)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+	AdminCreateCreditNoteWithBodyWithResponse(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminCreateCreditNoteResponse, error)
+
+	// AdminCreateCreditNoteWithResponse Issue a credit note against an issued invoice (amount before VAT)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+	AdminCreateCreditNoteWithResponse(ctx context.Context, invoiceId InvoiceID, body AdminCreateCreditNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminCreateCreditNoteResponse, error)
+
+	// AdminHoldInvoiceWithBodyWithResponse Hold a draft for review (it isn't issued on the 1st), or release it
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+	AdminHoldInvoiceWithBodyWithResponse(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminHoldInvoiceResponse, error)
+
+	// AdminHoldInvoiceWithResponse Hold a draft for review (it isn't issued on the 1st), or release it
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+	AdminHoldInvoiceWithResponse(ctx context.Context, invoiceId InvoiceID, body AdminHoldInvoiceJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminHoldInvoiceResponse, error)
+
+	// AdminIssueInvoiceWithResponse Issue a draft now (a held one is released)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/issue (the `AdminIssueInvoice` operationId).
+	AdminIssueInvoiceWithResponse(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*AdminIssueInvoiceResponse, error)
+
+	// AdminGetInvoicePdfWithResponse An invoice (or draft) as PDF
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/invoices/{invoice_id}/pdf (the `AdminGetInvoicePdf` operationId).
+	AdminGetInvoicePdfWithResponse(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*AdminGetInvoicePdfResponse, error)
+
+	// AdminLedgerCheckWithResponse Check the ledger's invariants and show each account's balance (V3 §3.3)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
+	AdminLedgerCheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminLedgerCheckResponse, error)
+
 	// GetMaintenanceWithResponse The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -26232,6 +27334,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/price-books/{version} (the `UpdatePriceBook` operationId).
 	UpdatePriceBookWithResponse(ctx context.Context, version PriceBookVersion, body UpdatePriceBookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePriceBookResponse, error)
+
+	// PreviewPriceBookWithBodyWithResponse Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+	PreviewPriceBookWithBodyWithResponse(ctx context.Context, version PriceBookVersion, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewPriceBookResponse, error)
+
+	// PreviewPriceBookWithResponse Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+	PreviewPriceBookWithResponse(ctx context.Context, version PriceBookVersion, body PreviewPriceBookJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewPriceBookResponse, error)
 
 	// PublishPriceBookWithResponse Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
 	//
@@ -27201,6 +28317,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContactWithResponse(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*RemoveBillingContactResponse, error)
+
+	// ListOrgInvoicesWithResponse The organisation's issued invoices
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices (the `ListOrgInvoices` operationId).
+	ListOrgInvoicesWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgInvoicesResponse, error)
+
+	// GetOrgInvoiceWithResponse An invoice with its lines and credit notes
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
+	GetOrgInvoiceWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*GetOrgInvoiceResponse, error)
+
+	// GetOrgInvoicePdfWithResponse An invoice as PDF
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
+	GetOrgInvoicePdfWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*GetOrgInvoicePdfResponse, error)
 
 	// ChangeOrgPlanWithBodyWithResponse Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 	//
@@ -29379,6 +30516,387 @@ func (r RevokePlatformInvitationResponse) ContentType() string {
 	return ""
 }
 
+type AdminListInvoicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InvoiceList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminListInvoicesResponse) GetJSON200() *InvoiceList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminListInvoicesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminListInvoicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminListInvoicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminListInvoicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminListInvoicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminDraftInvoicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Drafts int `json:"drafts"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminDraftInvoicesResponse) GetJSON200() *struct {
+	Drafts int `json:"drafts"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminDraftInvoicesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminDraftInvoicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminDraftInvoicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminDraftInvoicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminDraftInvoicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminGetInvoiceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InvoiceDetail
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminGetInvoiceResponse) GetJSON200() *InvoiceDetail {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminGetInvoiceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminGetInvoiceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminGetInvoiceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminGetInvoiceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminGetInvoiceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminCreateCreditNoteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CreditNote
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AdminCreateCreditNoteResponse) GetJSON201() *CreditNote {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminCreateCreditNoteResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminCreateCreditNoteResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminCreateCreditNoteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminCreateCreditNoteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminCreateCreditNoteResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminHoldInvoiceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Invoice
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminHoldInvoiceResponse) GetJSON200() *Invoice {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminHoldInvoiceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminHoldInvoiceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminHoldInvoiceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminHoldInvoiceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminHoldInvoiceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminIssueInvoiceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Invoice
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminIssueInvoiceResponse) GetJSON200() *Invoice {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminIssueInvoiceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminIssueInvoiceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminIssueInvoiceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminIssueInvoiceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminIssueInvoiceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminGetInvoicePdfResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminGetInvoicePdfResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminGetInvoicePdfResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminGetInvoicePdfResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminGetInvoicePdfResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminGetInvoicePdfResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminLedgerCheckResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LedgerCheck
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminLedgerCheckResponse) GetJSON200() *LedgerCheck {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminLedgerCheckResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminLedgerCheckResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminLedgerCheckResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminLedgerCheckResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminLedgerCheckResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMaintenanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -30318,6 +31836,76 @@ func (r UpdatePriceBookResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdatePriceBookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewPriceBookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		CurrentTotalMinor int64 `json:"current_total_minor"`
+		Items             []struct {
+			CurrentMinor   int64              `json:"current_minor"`
+			OrgId          openapi_types.UUID `json:"org_id"`
+			OrgName        string             `json:"org_name"`
+			Plan           string             `json:"plan"`
+			ProjectedMinor int64              `json:"projected_minor"`
+		} `json:"items"`
+		Period              string `json:"period"`
+		ProjectedTotalMinor int64  `json:"projected_total_minor"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewPriceBookResponse) GetJSON200() *struct {
+	CurrentTotalMinor int64 `json:"current_total_minor"`
+	Items             []struct {
+		CurrentMinor   int64              `json:"current_minor"`
+		OrgId          openapi_types.UUID `json:"org_id"`
+		OrgName        string             `json:"org_name"`
+		Plan           string             `json:"plan"`
+		ProjectedMinor int64              `json:"projected_minor"`
+	} `json:"items"`
+	Period              string `json:"period"`
+	ProjectedTotalMinor int64  `json:"projected_total_minor"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PreviewPriceBookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewPriceBookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewPriceBookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewPriceBookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewPriceBookResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -34072,6 +35660,143 @@ func (r RemoveBillingContactResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RemoveBillingContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListOrgInvoicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InvoiceList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgInvoicesResponse) GetJSON200() *InvoiceList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListOrgInvoicesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgInvoicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgInvoicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgInvoicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgInvoicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgInvoiceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InvoiceDetail
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgInvoiceResponse) GetJSON200() *InvoiceDetail {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgInvoiceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgInvoiceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgInvoiceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgInvoiceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgInvoiceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgInvoicePdfResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgInvoicePdfResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgInvoicePdfResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgInvoicePdfResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgInvoicePdfResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgInvoicePdfResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -40427,6 +42152,149 @@ func (c *ClientWithResponses) RevokePlatformInvitationWithResponse(ctx context.C
 	return ParseRevokePlatformInvitationResponse(rsp)
 }
 
+// AdminListInvoicesWithResponse Invoices across organisations, drafts included
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/invoices (the `AdminListInvoices` operationId).
+func (c *ClientWithResponses) AdminListInvoicesWithResponse(ctx context.Context, params *AdminListInvoicesParams, reqEditors ...RequestEditorFn) (*AdminListInvoicesResponse, error) {
+	rsp, err := c.AdminListInvoices(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminListInvoicesResponse(rsp)
+}
+
+// AdminDraftInvoicesWithBodyWithResponse Generate (or refresh) a month's drafts now, for every organisation or one
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+func (c *ClientWithResponses) AdminDraftInvoicesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminDraftInvoicesResponse, error) {
+	rsp, err := c.AdminDraftInvoicesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminDraftInvoicesResponse(rsp)
+}
+
+// AdminDraftInvoicesWithResponse Generate (or refresh) a month's drafts now, for every organisation or one
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/draft (the `AdminDraftInvoices` operationId).
+func (c *ClientWithResponses) AdminDraftInvoicesWithResponse(ctx context.Context, body AdminDraftInvoicesJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminDraftInvoicesResponse, error) {
+	rsp, err := c.AdminDraftInvoices(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminDraftInvoicesResponse(rsp)
+}
+
+// AdminGetInvoiceWithResponse An invoice, drafts included
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/invoices/{invoice_id} (the `AdminGetInvoice` operationId).
+func (c *ClientWithResponses) AdminGetInvoiceWithResponse(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*AdminGetInvoiceResponse, error) {
+	rsp, err := c.AdminGetInvoice(ctx, invoiceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminGetInvoiceResponse(rsp)
+}
+
+// AdminCreateCreditNoteWithBodyWithResponse Issue a credit note against an issued invoice (amount before VAT)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+func (c *ClientWithResponses) AdminCreateCreditNoteWithBodyWithResponse(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminCreateCreditNoteResponse, error) {
+	rsp, err := c.AdminCreateCreditNoteWithBody(ctx, invoiceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminCreateCreditNoteResponse(rsp)
+}
+
+// AdminCreateCreditNoteWithResponse Issue a credit note against an issued invoice (amount before VAT)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/credit-notes (the `AdminCreateCreditNote` operationId).
+func (c *ClientWithResponses) AdminCreateCreditNoteWithResponse(ctx context.Context, invoiceId InvoiceID, body AdminCreateCreditNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminCreateCreditNoteResponse, error) {
+	rsp, err := c.AdminCreateCreditNote(ctx, invoiceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminCreateCreditNoteResponse(rsp)
+}
+
+// AdminHoldInvoiceWithBodyWithResponse Hold a draft for review (it isn't issued on the 1st), or release it
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+func (c *ClientWithResponses) AdminHoldInvoiceWithBodyWithResponse(ctx context.Context, invoiceId InvoiceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminHoldInvoiceResponse, error) {
+	rsp, err := c.AdminHoldInvoiceWithBody(ctx, invoiceId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminHoldInvoiceResponse(rsp)
+}
+
+// AdminHoldInvoiceWithResponse Hold a draft for review (it isn't issued on the 1st), or release it
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/hold (the `AdminHoldInvoice` operationId).
+func (c *ClientWithResponses) AdminHoldInvoiceWithResponse(ctx context.Context, invoiceId InvoiceID, body AdminHoldInvoiceJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminHoldInvoiceResponse, error) {
+	rsp, err := c.AdminHoldInvoice(ctx, invoiceId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminHoldInvoiceResponse(rsp)
+}
+
+// AdminIssueInvoiceWithResponse Issue a draft now (a held one is released)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/invoices/{invoice_id}/issue (the `AdminIssueInvoice` operationId).
+func (c *ClientWithResponses) AdminIssueInvoiceWithResponse(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*AdminIssueInvoiceResponse, error) {
+	rsp, err := c.AdminIssueInvoice(ctx, invoiceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminIssueInvoiceResponse(rsp)
+}
+
+// AdminGetInvoicePdfWithResponse An invoice (or draft) as PDF
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/invoices/{invoice_id}/pdf (the `AdminGetInvoicePdf` operationId).
+func (c *ClientWithResponses) AdminGetInvoicePdfWithResponse(ctx context.Context, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*AdminGetInvoicePdfResponse, error) {
+	rsp, err := c.AdminGetInvoicePdf(ctx, invoiceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminGetInvoicePdfResponse(rsp)
+}
+
+// AdminLedgerCheckWithResponse Check the ledger's invariants and show each account's balance (V3 §3.3)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
+func (c *ClientWithResponses) AdminLedgerCheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminLedgerCheckResponse, error) {
+	rsp, err := c.AdminLedgerCheck(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminLedgerCheckResponse(rsp)
+}
+
 // GetMaintenanceWithResponse The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 //
 // Returns a wrapper object for the known response body format(s).
@@ -40836,6 +42704,32 @@ func (c *ClientWithResponses) UpdatePriceBookWithResponse(ctx context.Context, v
 		return nil, err
 	}
 	return ParseUpdatePriceBookResponse(rsp)
+}
+
+// PreviewPriceBookWithBodyWithResponse Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+func (c *ClientWithResponses) PreviewPriceBookWithBodyWithResponse(ctx context.Context, version PriceBookVersion, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewPriceBookResponse, error) {
+	rsp, err := c.PreviewPriceBookWithBody(ctx, version, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewPriceBookResponse(rsp)
+}
+
+// PreviewPriceBookWithResponse Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/price-books/{version}/preview (the `PreviewPriceBook` operationId).
+func (c *ClientWithResponses) PreviewPriceBookWithResponse(ctx context.Context, version PriceBookVersion, body PreviewPriceBookJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewPriceBookResponse, error) {
+	rsp, err := c.PreviewPriceBook(ctx, version, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewPriceBookResponse(rsp)
 }
 
 // PublishPriceBookWithResponse Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
@@ -42525,6 +44419,45 @@ func (c *ClientWithResponses) RemoveBillingContactWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseRemoveBillingContactResponse(rsp)
+}
+
+// ListOrgInvoicesWithResponse The organisation's issued invoices
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/invoices (the `ListOrgInvoices` operationId).
+func (c *ClientWithResponses) ListOrgInvoicesWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgInvoicesResponse, error) {
+	rsp, err := c.ListOrgInvoices(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgInvoicesResponse(rsp)
+}
+
+// GetOrgInvoiceWithResponse An invoice with its lines and credit notes
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
+func (c *ClientWithResponses) GetOrgInvoiceWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*GetOrgInvoiceResponse, error) {
+	rsp, err := c.GetOrgInvoice(ctx, org, invoiceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgInvoiceResponse(rsp)
+}
+
+// GetOrgInvoicePdfWithResponse An invoice as PDF
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
+func (c *ClientWithResponses) GetOrgInvoicePdfWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*GetOrgInvoicePdfResponse, error) {
+	rsp, err := c.GetOrgInvoicePdf(ctx, org, invoiceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgInvoicePdfResponse(rsp)
 }
 
 // ChangeOrgPlanWithBodyWithResponse Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
@@ -45621,6 +47554,265 @@ func ParseRevokePlatformInvitationResponse(rsp *http.Response) (*RevokePlatformI
 	return response, nil
 }
 
+// ParseAdminListInvoicesResponse parses an HTTP response from a AdminListInvoicesWithResponse call
+func ParseAdminListInvoicesResponse(rsp *http.Response) (*AdminListInvoicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminListInvoicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InvoiceList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminDraftInvoicesResponse parses an HTTP response from a AdminDraftInvoicesWithResponse call
+func ParseAdminDraftInvoicesResponse(rsp *http.Response) (*AdminDraftInvoicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminDraftInvoicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Drafts int `json:"drafts"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminGetInvoiceResponse parses an HTTP response from a AdminGetInvoiceWithResponse call
+func ParseAdminGetInvoiceResponse(rsp *http.Response) (*AdminGetInvoiceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminGetInvoiceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InvoiceDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminCreateCreditNoteResponse parses an HTTP response from a AdminCreateCreditNoteWithResponse call
+func ParseAdminCreateCreditNoteResponse(rsp *http.Response) (*AdminCreateCreditNoteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminCreateCreditNoteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CreditNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminHoldInvoiceResponse parses an HTTP response from a AdminHoldInvoiceWithResponse call
+func ParseAdminHoldInvoiceResponse(rsp *http.Response) (*AdminHoldInvoiceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminHoldInvoiceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Invoice
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminIssueInvoiceResponse parses an HTTP response from a AdminIssueInvoiceWithResponse call
+func ParseAdminIssueInvoiceResponse(rsp *http.Response) (*AdminIssueInvoiceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminIssueInvoiceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Invoice
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminGetInvoicePdfResponse parses an HTTP response from a AdminGetInvoicePdfWithResponse call
+func ParseAdminGetInvoicePdfResponse(rsp *http.Response) (*AdminGetInvoicePdfResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminGetInvoicePdfResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminLedgerCheckResponse parses an HTTP response from a AdminLedgerCheckWithResponse call
+func ParseAdminLedgerCheckResponse(rsp *http.Response) (*AdminLedgerCheckResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminLedgerCheckResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LedgerCheck
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetMaintenanceResponse parses an HTTP response from a GetMaintenanceWithResponse call
 func ParseGetMaintenanceResponse(rsp *http.Response) (*GetMaintenanceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -46255,6 +48447,50 @@ func ParseUpdatePriceBookResponse(rsp *http.Response) (*UpdatePriceBookResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PriceBook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewPriceBookResponse parses an HTTP response from a PreviewPriceBookWithResponse call
+func ParsePreviewPriceBookResponse(rsp *http.Response) (*PreviewPriceBookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewPriceBookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			CurrentTotalMinor int64 `json:"current_total_minor"`
+			Items             []struct {
+				CurrentMinor   int64              `json:"current_minor"`
+				OrgId          openapi_types.UUID `json:"org_id"`
+				OrgName        string             `json:"org_name"`
+				Plan           string             `json:"plan"`
+				ProjectedMinor int64              `json:"projected_minor"`
+			} `json:"items"`
+			Period              string `json:"period"`
+			ProjectedTotalMinor int64  `json:"projected_total_minor"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -48850,6 +51086,98 @@ func ParseRemoveBillingContactResponse(rsp *http.Response) (*RemoveBillingContac
 	case rsp.StatusCode == 204:
 		break // No content-type
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOrgInvoicesResponse parses an HTTP response from a ListOrgInvoicesWithResponse call
+func ParseListOrgInvoicesResponse(rsp *http.Response) (*ListOrgInvoicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgInvoicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InvoiceList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgInvoiceResponse parses an HTTP response from a GetOrgInvoiceWithResponse call
+func ParseGetOrgInvoiceResponse(rsp *http.Response) (*GetOrgInvoiceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgInvoiceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InvoiceDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgInvoicePdfResponse parses an HTTP response from a GetOrgInvoicePdfWithResponse call
+func ParseGetOrgInvoicePdfResponse(rsp *http.Response) (*GetOrgInvoicePdfResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgInvoicePdfResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

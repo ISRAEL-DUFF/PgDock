@@ -890,6 +890,36 @@ func (e InvitationPreviewKind) Valid() bool {
 	}
 }
 
+// Defines values for InvoiceStatus.
+const (
+	InvoiceStatusDraft          InvoiceStatus = "draft"
+	InvoiceStatusIssued         InvoiceStatus = "issued"
+	InvoiceStatusPaid           InvoiceStatus = "paid"
+	InvoiceStatusPaidWhtPending InvoiceStatus = "paid_wht_pending"
+	InvoiceStatusPartiallyPaid  InvoiceStatus = "partially_paid"
+	InvoiceStatusVoid           InvoiceStatus = "void"
+)
+
+// Valid indicates whether the value is a known member of the InvoiceStatus enum.
+func (e InvoiceStatus) Valid() bool {
+	switch e {
+	case InvoiceStatusDraft:
+		return true
+	case InvoiceStatusIssued:
+		return true
+	case InvoiceStatusPaid:
+		return true
+	case InvoiceStatusPaidWhtPending:
+		return true
+	case InvoiceStatusPartiallyPaid:
+		return true
+	case InvoiceStatusVoid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InvoiceLineKind.
 const (
 	InvoiceLineKindAddon     InvoiceLineKind = "addon"
@@ -2339,6 +2369,36 @@ func (e ListDedicatedRequestsParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminListInvoicesParamsStatus.
+const (
+	AdminListInvoicesParamsStatusDraft          AdminListInvoicesParamsStatus = "draft"
+	AdminListInvoicesParamsStatusIssued         AdminListInvoicesParamsStatus = "issued"
+	AdminListInvoicesParamsStatusPaid           AdminListInvoicesParamsStatus = "paid"
+	AdminListInvoicesParamsStatusPaidWhtPending AdminListInvoicesParamsStatus = "paid_wht_pending"
+	AdminListInvoicesParamsStatusPartiallyPaid  AdminListInvoicesParamsStatus = "partially_paid"
+	AdminListInvoicesParamsStatusVoid           AdminListInvoicesParamsStatus = "void"
+)
+
+// Valid indicates whether the value is a known member of the AdminListInvoicesParamsStatus enum.
+func (e AdminListInvoicesParamsStatus) Valid() bool {
+	switch e {
+	case AdminListInvoicesParamsStatusDraft:
+		return true
+	case AdminListInvoicesParamsStatusIssued:
+		return true
+	case AdminListInvoicesParamsStatusPaid:
+		return true
+	case AdminListInvoicesParamsStatusPaidWhtPending:
+		return true
+	case AdminListInvoicesParamsStatusPartiallyPaid:
+		return true
+	case AdminListInvoicesParamsStatusVoid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAlertsParamsStatus.
 const (
 	ListAlertsParamsStatusFiring   ListAlertsParamsStatus = "firing"
@@ -3101,6 +3161,17 @@ type CreatedToken struct {
 	Token  APIToken `json:"token"`
 }
 
+// CreditNote defines model for CreditNote.
+type CreditNote struct {
+	AmountMinor int64              `json:"amount_minor"`
+	Id          openapi_types.UUID `json:"id"`
+	InvoiceId   openapi_types.UUID `json:"invoice_id"`
+	IssuedAt    time.Time          `json:"issued_at"`
+	Number      string             `json:"number"`
+	Reason      string             `json:"reason"`
+	VatMinor    int64              `json:"vat_minor"`
+}
+
 // DbColumn defines model for DbColumn.
 type DbColumn struct {
 	Default  *string `json:"default,omitempty"`
@@ -3746,6 +3817,43 @@ type InviteRequest struct {
 	Role     OrgRole              `json:"role"`
 }
 
+// Invoice defines model for Invoice.
+type Invoice struct {
+	CreatedAt        time.Time          `json:"created_at"`
+	DueAt            *time.Time         `json:"due_at,omitempty"`
+	Held             bool               `json:"held"`
+	HoldReason       *string            `json:"hold_reason,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	IssuedAt         *time.Time         `json:"issued_at,omitempty"`
+	Number           *string            `json:"number,omitempty"`
+	OrgId            openapi_types.UUID `json:"org_id"`
+	OrgName          *string            `json:"org_name,omitempty"`
+	PaidAt           *time.Time         `json:"paid_at,omitempty"`
+	PeriodEnd        openapi_types.Date `json:"period_end"`
+	PeriodStart      openapi_types.Date `json:"period_start"`
+	PriceBookVersion int                `json:"price_book_version"`
+	Status           InvoiceStatus      `json:"status"`
+	SubtotalMinor    int64              `json:"subtotal_minor"`
+	TotalMinor       int64              `json:"total_minor"`
+	VatMinor         int64              `json:"vat_minor"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate          Decimal `json:"vat_rate"`
+	WhtExpectedMinor int64   `json:"wht_expected_minor"`
+}
+
+// InvoiceStatus defines model for Invoice.Status.
+type InvoiceStatus string
+
+// InvoiceDetail defines model for InvoiceDetail.
+type InvoiceDetail struct {
+	CreditNotes []CreditNote  `json:"credit_notes"`
+	Invoice     Invoice       `json:"invoice"`
+	Lines       []InvoiceLine `json:"lines"`
+}
+
 // InvoiceLine defines model for InvoiceLine.
 type InvoiceLine struct {
 	// Amount Kobo.
@@ -3768,6 +3876,11 @@ type InvoiceLine struct {
 
 // InvoiceLineKind defines model for InvoiceLine.Kind.
 type InvoiceLineKind string
+
+// InvoiceList defines model for InvoiceList.
+type InvoiceList struct {
+	Items []Invoice `json:"items"`
+}
 
 // IsolationCheck defines model for IsolationCheck.
 type IsolationCheck struct {
@@ -3894,6 +4007,24 @@ type JobUpdate struct {
 
 // JobUpdateOverlap defines model for JobUpdate.Overlap.
 type JobUpdateOverlap string
+
+// LedgerCheck defines model for LedgerCheck.
+type LedgerCheck struct {
+	// Accounts Each account's balance (debits minus credits) across organisations.
+	Accounts []struct {
+		Account      string `json:"account"`
+		BalanceMinor int64  `json:"balance_minor"`
+	} `json:"accounts"`
+	Balanced     bool  `json:"balanced"`
+	CreditsMinor int64 `json:"credits_minor"`
+	DebitsMinor  int64 `json:"debits_minor"`
+	Problems     []struct {
+		CreditsMinor int64              `json:"credits_minor"`
+		DebitsMinor  int64              `json:"debits_minor"`
+		TxnId        openapi_types.UUID `json:"txn_id"`
+	} `json:"problems"`
+	Transactions int `json:"transactions"`
+}
 
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
@@ -5848,6 +5979,9 @@ type IncidentID = openapi_types.UUID
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
 
+// InvoiceID defines model for InvoiceID.
+type InvoiceID = openapi_types.UUID
+
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
 
@@ -5922,9 +6056,44 @@ type ListDedicatedRequestsParams struct {
 // ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParamsStatus string
 
+// AdminListInvoicesParams defines parameters for AdminListInvoices.
+type AdminListInvoicesParams struct {
+	Status *AdminListInvoicesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Period The usage month, YYYY-MM.
+	Period *string `form:"period,omitempty" json:"period,omitempty"`
+}
+
+// AdminListInvoicesParamsStatus defines parameters for AdminListInvoices.
+type AdminListInvoicesParamsStatus string
+
+// AdminDraftInvoicesJSONBody defines parameters for AdminDraftInvoices.
+type AdminDraftInvoicesJSONBody struct {
+	OrgId  *openapi_types.UUID `json:"org_id,omitempty"`
+	Period string              `json:"period"`
+}
+
+// AdminCreateCreditNoteJSONBody defines parameters for AdminCreateCreditNote.
+type AdminCreateCreditNoteJSONBody struct {
+	AmountMinor int64  `json:"amount_minor"`
+	Reason      string `json:"reason"`
+}
+
+// AdminHoldInvoiceJSONBody defines parameters for AdminHoldInvoice.
+type AdminHoldInvoiceJSONBody struct {
+	Held   bool    `json:"held"`
+	Reason *string `json:"reason,omitempty"`
+}
+
 // AdminListOrgsParams defines parameters for AdminListOrgs.
 type AdminListOrgsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// PreviewPriceBookJSONBody defines parameters for PreviewPriceBook.
+type PreviewPriceBookJSONBody struct {
+	// Period The usage month (default the last complete one).
+	Period *string `json:"period,omitempty"`
 }
 
 // DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
@@ -6181,6 +6350,15 @@ type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
 
+// AdminDraftInvoicesJSONRequestBody defines body for AdminDraftInvoices for application/json ContentType.
+type AdminDraftInvoicesJSONRequestBody AdminDraftInvoicesJSONBody
+
+// AdminCreateCreditNoteJSONRequestBody defines body for AdminCreateCreditNote for application/json ContentType.
+type AdminCreateCreditNoteJSONRequestBody AdminCreateCreditNoteJSONBody
+
+// AdminHoldInvoiceJSONRequestBody defines body for AdminHoldInvoice for application/json ContentType.
+type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -6213,6 +6391,9 @@ type CreatePriceBookJSONRequestBody = PriceBookInput
 
 // UpdatePriceBookJSONRequestBody defines body for UpdatePriceBook for application/json ContentType.
 type UpdatePriceBookJSONRequestBody = PriceBookInput
+
+// PreviewPriceBookJSONRequestBody defines body for PreviewPriceBook for application/json ContentType.
+type PreviewPriceBookJSONRequestBody PreviewPriceBookJSONBody
 
 // MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
 type MoveProjectJSONRequestBody = MoveProjectRequest
@@ -6528,6 +6709,30 @@ type ServerInterface interface {
 	// RevokePlatformInvitation Revoke a platform invitation (platform admin)
 	// (DELETE /api/v1/admin/invitations/{invitation_id})
 	RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID)
+	// AdminListInvoices Invoices across organisations, drafts included
+	// (GET /api/v1/admin/invoices)
+	AdminListInvoices(w http.ResponseWriter, r *http.Request, params AdminListInvoicesParams)
+	// AdminDraftInvoices Generate (or refresh) a month's drafts now, for every organisation or one
+	// (POST /api/v1/admin/invoices/draft)
+	AdminDraftInvoices(w http.ResponseWriter, r *http.Request)
+	// AdminGetInvoice An invoice, drafts included
+	// (GET /api/v1/admin/invoices/{invoice_id})
+	AdminGetInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminCreateCreditNote Issue a credit note against an issued invoice (amount before VAT)
+	// (POST /api/v1/admin/invoices/{invoice_id}/credit-notes)
+	AdminCreateCreditNote(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminHoldInvoice Hold a draft for review (it isn't issued on the 1st), or release it
+	// (POST /api/v1/admin/invoices/{invoice_id}/hold)
+	AdminHoldInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminIssueInvoice Issue a draft now (a held one is released)
+	// (POST /api/v1/admin/invoices/{invoice_id}/issue)
+	AdminIssueInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminGetInvoicePdf An invoice (or draft) as PDF
+	// (GET /api/v1/admin/invoices/{invoice_id}/pdf)
+	AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
+	// (GET /api/v1/admin/ledger/check)
+	AdminLedgerCheck(w http.ResponseWriter, r *http.Request)
 	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	// (GET /api/v1/admin/maintenance)
 	GetMaintenance(w http.ResponseWriter, r *http.Request)
@@ -6588,6 +6793,9 @@ type ServerInterface interface {
 	// UpdatePriceBook Edit a draft price book
 	// (PUT /api/v1/admin/price-books/{version})
 	UpdatePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// PreviewPriceBook Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+	// (POST /api/v1/admin/price-books/{version}/preview)
+	PreviewPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
 	// PublishPriceBook Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
 	// (POST /api/v1/admin/price-books/{version}/publish)
 	PublishPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
@@ -6828,6 +7036,15 @@ type ServerInterface interface {
 	// RemoveBillingContact Remove a billing contact
 	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// ListOrgInvoices The organisation's issued invoices
+	// (GET /api/v1/orgs/{org}/billing/invoices)
+	ListOrgInvoices(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgInvoice An invoice with its lines and credit notes
+	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id})
+	GetOrgInvoice(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
+	// GetOrgInvoicePdf An invoice as PDF
+	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
+	GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
 	// ChangeOrgPlan Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
 	// (POST /api/v1/orgs/{org}/billing/plan)
 	ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -7296,6 +7513,54 @@ func (_ Unimplemented) RevokePlatformInvitation(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminListInvoices Invoices across organisations, drafts included
+// (GET /api/v1/admin/invoices)
+func (_ Unimplemented) AdminListInvoices(w http.ResponseWriter, r *http.Request, params AdminListInvoicesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminDraftInvoices Generate (or refresh) a month's drafts now, for every organisation or one
+// (POST /api/v1/admin/invoices/draft)
+func (_ Unimplemented) AdminDraftInvoices(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetInvoice An invoice, drafts included
+// (GET /api/v1/admin/invoices/{invoice_id})
+func (_ Unimplemented) AdminGetInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminCreateCreditNote Issue a credit note against an issued invoice (amount before VAT)
+// (POST /api/v1/admin/invoices/{invoice_id}/credit-notes)
+func (_ Unimplemented) AdminCreateCreditNote(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminHoldInvoice Hold a draft for review (it isn't issued on the 1st), or release it
+// (POST /api/v1/admin/invoices/{invoice_id}/hold)
+func (_ Unimplemented) AdminHoldInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminIssueInvoice Issue a draft now (a held one is released)
+// (POST /api/v1/admin/invoices/{invoice_id}/issue)
+func (_ Unimplemented) AdminIssueInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetInvoicePdf An invoice (or draft) as PDF
+// (GET /api/v1/admin/invoices/{invoice_id}/pdf)
+func (_ Unimplemented) AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
+// (GET /api/v1/admin/ledger/check)
+func (_ Unimplemented) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 // (GET /api/v1/admin/maintenance)
 func (_ Unimplemented) GetMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -7413,6 +7678,12 @@ func (_ Unimplemented) GetPriceBook(w http.ResponseWriter, r *http.Request, vers
 // UpdatePriceBook Edit a draft price book
 // (PUT /api/v1/admin/price-books/{version})
 func (_ Unimplemented) UpdatePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewPriceBook Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+// (POST /api/v1/admin/price-books/{version}/preview)
+func (_ Unimplemented) PreviewPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7893,6 +8164,24 @@ func (_ Unimplemented) AddBillingContact(w http.ResponseWriter, r *http.Request,
 // RemoveBillingContact Remove a billing contact
 // (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgInvoices The organisation's issued invoices
+// (GET /api/v1/orgs/{org}/billing/invoices)
+func (_ Unimplemented) ListOrgInvoices(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgInvoice An invoice with its lines and credit notes
+// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id})
+func (_ Unimplemented) GetOrgInvoice(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgInvoicePdf An invoice as PDF
+// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
+func (_ Unimplemented) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8991,6 +9280,210 @@ func (siw *ServerInterfaceWrapper) RevokePlatformInvitation(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// AdminListInvoices operation middleware
+func (siw *ServerInterfaceWrapper) AdminListInvoices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListInvoicesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "period" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "period", r.URL.Query(), &params.Period, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "period"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "period", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListInvoices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminDraftInvoices operation middleware
+func (siw *ServerInterfaceWrapper) AdminDraftInvoices(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminDraftInvoices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetInvoice operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetInvoice(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminCreateCreditNote operation middleware
+func (siw *ServerInterfaceWrapper) AdminCreateCreditNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminCreateCreditNote(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminHoldInvoice operation middleware
+func (siw *ServerInterfaceWrapper) AdminHoldInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminHoldInvoice(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminIssueInvoice operation middleware
+func (siw *ServerInterfaceWrapper) AdminIssueInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminIssueInvoice(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetInvoicePdf operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetInvoicePdf(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminLedgerCheck operation middleware
+func (siw *ServerInterfaceWrapper) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminLedgerCheck(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMaintenance operation middleware
 func (siw *ServerInterfaceWrapper) GetMaintenance(w http.ResponseWriter, r *http.Request) {
 
@@ -9437,6 +9930,32 @@ func (siw *ServerInterfaceWrapper) UpdatePriceBook(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdatePriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewPriceBook operation middleware
+func (siw *ServerInterfaceWrapper) PreviewPriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewPriceBook(w, r, version)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -11320,6 +11839,102 @@ func (siw *ServerInterfaceWrapper) RemoveBillingContact(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveBillingContact(w, r, org, email)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgInvoices operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgInvoices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgInvoices(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgInvoice operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgInvoice(w, r, org, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgInvoicePdf operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgInvoicePdf(w, r, org, invoiceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -15896,6 +16511,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts/{email}", wrapper.RemoveBillingContact)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices", wrapper.ListOrgInvoices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}", wrapper.GetOrgInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf", wrapper.GetOrgInvoicePdf)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/usage", wrapper.GetOrgUsage)
 	})
 	r.Group(func(r chi.Router) {
@@ -16041,6 +16665,33 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/v1/admin/orgs/{org}/billing", wrapper.AdminUpdateOrgBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/invoices", wrapper.AdminListInvoices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/draft", wrapper.AdminDraftInvoices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}", wrapper.AdminGetInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/pdf", wrapper.AdminGetInvoicePdf)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/hold", wrapper.AdminHoldInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/issue", wrapper.AdminIssueInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/credit-notes", wrapper.AdminCreateCreditNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/ledger/check", wrapper.AdminLedgerCheck)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/price-books/{version}/preview", wrapper.PreviewPriceBook)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)

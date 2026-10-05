@@ -278,7 +278,18 @@ func (s *Service) ChangePlan(ctx context.Context, orgID uuid.UUID, r PlanRequest
 		case r.Term == TermAnnual && np.AnnualMinor == 0:
 			return invalid("the %s plan has no annual term", np.Name)
 		case r.Plan == a.Plan && r.Term == a.Term:
-			return fmt.Errorf("%w: the organisation is already on %s (%s)", ErrConflict, np.Name, r.Term)
+			// Choosing the current plan again cancels a scheduled change.
+			if _, err := q.PendingPlanChange(ctx, orgID); errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("%w: the organisation is already on %s (%s)", ErrConflict, np.Name, r.Term)
+			} else if err != nil {
+				return err
+			}
+			out = PlanChange{FromPlan: a.Plan, FromTerm: a.Term, ToPlan: a.Plan, ToTerm: a.Term, EffectiveAt: s.Now(), Applied: true, TermEndsAt: a.TermEndsAt}
+			if r.DryRun {
+				return nil
+			}
+			_, err := q.CancelPendingPlanChanges(ctx, orgID)
+			return err
 		}
 		now := s.Now()
 		out = PlanChange{FromPlan: a.Plan, FromTerm: a.Term, ToPlan: r.Plan, ToTerm: r.Term, TermEndsAt: a.TermEndsAt}

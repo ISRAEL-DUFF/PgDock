@@ -144,6 +144,30 @@ func (q *Queries) DeleteBillingContact(ctx context.Context, arg DeleteBillingCon
 	return result.RowsAffected(), nil
 }
 
+const deleteDraftInvoice = `-- name: DeleteDraftInvoice :execrows
+DELETE FROM invoices WHERE id = $1 AND status = 'draft'
+`
+
+// tenant: system - a draft with nothing left to bill.
+func (q *Queries) DeleteDraftInvoice(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDraftInvoice, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteInvoiceLines = `-- name: DeleteInvoiceLines :exec
+DELETE FROM invoice_lines WHERE invoice_id = $1
+  AND EXISTS (SELECT 1 FROM invoices WHERE id = $1 AND status = 'draft')
+`
+
+// tenant: system - replacing a draft's lines.
+func (q *Queries) DeleteInvoiceLines(ctx context.Context, invoiceID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteInvoiceLines, invoiceID)
+	return err
+}
+
 const deletePriceBookDraft = `-- name: DeletePriceBookDraft :execrows
 DELETE FROM price_books WHERE version = $1 AND published_at IS NULL
 `
@@ -155,6 +179,53 @@ func (q *Queries) DeletePriceBookDraft(ctx context.Context, version int32) (int6
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const draftsForPeriod = `-- name: DraftsForPeriod :many
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at FROM invoices WHERE status = 'draft' AND period_start = $1 ORDER BY created_at
+`
+
+// tenant: system - a month's drafts, for issuing.
+func (q *Queries) DraftsForPeriod(ctx context.Context, periodStart pgtype.Date) ([]Invoice, error) {
+	rows, err := q.db.Query(ctx, draftsForPeriod, periodStart)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Invoice
+	for rows.Next() {
+		var i Invoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Number,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.Status,
+			&i.Held,
+			&i.HoldReason,
+			&i.SubtotalMinor,
+			&i.VatMinor,
+			&i.TotalMinor,
+			&i.WhtExpectedMinor,
+			&i.VatRate,
+			&i.BillTo,
+			&i.Seller,
+			&i.DueAt,
+			&i.IssuedAt,
+			&i.PaidAt,
+			&i.PdfObjectKey,
+			&i.PriceBookVersion,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const duePlanChanges = `-- name: DuePlanChanges :many
@@ -267,6 +338,142 @@ func (q *Queries) GetBillingAccount(ctx context.Context, orgID uuid.UUID) (Billi
 	return i, err
 }
 
+const getCreditNote = `-- name: GetCreditNote :one
+SELECT id, invoice_id, org_id, number, amount_minor, vat_minor, reason, issued_by, issued_at FROM credit_notes WHERE id = $1
+`
+
+// tenant: system - a credit note by id.
+func (q *Queries) GetCreditNote(ctx context.Context, id uuid.UUID) (CreditNote, error) {
+	row := q.db.QueryRow(ctx, getCreditNote, id)
+	var i CreditNote
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceID,
+		&i.OrgID,
+		&i.Number,
+		&i.AmountMinor,
+		&i.VatMinor,
+		&i.Reason,
+		&i.IssuedBy,
+		&i.IssuedAt,
+	)
+	return i, err
+}
+
+const getInvoice = `-- name: GetInvoice :one
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at FROM invoices WHERE id = $1
+`
+
+// tenant: system - an invoice by id (admin, or after the org check).
+func (q *Queries) GetInvoice(ctx context.Context, id uuid.UUID) (Invoice, error) {
+	row := q.db.QueryRow(ctx, getInvoice, id)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getOrgInvoice = `-- name: GetOrgInvoice :one
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at FROM invoices WHERE id = $1 AND org_id = $2
+`
+
+type GetOrgInvoiceParams struct {
+	ID    uuid.UUID
+	OrgID uuid.UUID
+}
+
+// tenant: org - an invoice of the org in the request.
+func (q *Queries) GetOrgInvoice(ctx context.Context, arg GetOrgInvoiceParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, getOrgInvoice, arg.ID, arg.OrgID)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getOrgInvoiceForPeriod = `-- name: GetOrgInvoiceForPeriod :one
+
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at FROM invoices WHERE org_id = $1 AND period_start = $2
+`
+
+type GetOrgInvoiceForPeriodParams struct {
+	OrgID       uuid.UUID
+	PeriodStart pgtype.Date
+}
+
+// ---- Invoices -------------------------------------------------------------
+// tenant: system - an org's invoice for a month.
+func (q *Queries) GetOrgInvoiceForPeriod(ctx context.Context, arg GetOrgInvoiceForPeriodParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, getOrgInvoiceForPeriod, arg.OrgID, arg.PeriodStart)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getPriceBook = `-- name: GetPriceBook :one
 SELECT version, effective_at, prices, notes, created_at, published_at, published_by FROM price_books WHERE version = $1
 `
@@ -285,6 +492,143 @@ func (q *Queries) GetPriceBook(ctx context.Context, version int32) (PriceBook, e
 		&i.PublishedBy,
 	)
 	return i, err
+}
+
+const insertCreditNote = `-- name: InsertCreditNote :one
+
+INSERT INTO credit_notes (invoice_id, org_id, number, amount_minor, vat_minor, reason, issued_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, invoice_id, org_id, number, amount_minor, vat_minor, reason, issued_by, issued_at
+`
+
+type InsertCreditNoteParams struct {
+	InvoiceID   uuid.UUID
+	OrgID       uuid.UUID
+	Number      string
+	AmountMinor int64
+	VatMinor    int64
+	Reason      string
+	IssuedBy    *uuid.UUID
+}
+
+// ---- Credit notes ---------------------------------------------------------
+// tenant: system - a credit note on an invoice the caller resolved.
+func (q *Queries) InsertCreditNote(ctx context.Context, arg InsertCreditNoteParams) (CreditNote, error) {
+	row := q.db.QueryRow(ctx, insertCreditNote,
+		arg.InvoiceID,
+		arg.OrgID,
+		arg.Number,
+		arg.AmountMinor,
+		arg.VatMinor,
+		arg.Reason,
+		arg.IssuedBy,
+	)
+	var i CreditNote
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceID,
+		&i.OrgID,
+		&i.Number,
+		&i.AmountMinor,
+		&i.VatMinor,
+		&i.Reason,
+		&i.IssuedBy,
+		&i.IssuedAt,
+	)
+	return i, err
+}
+
+const insertDraftInvoice = `-- name: InsertDraftInvoice :one
+INSERT INTO invoices (org_id, period_start, period_end, status, subtotal_minor, vat_minor, total_minor,
+                      wht_expected_minor, vat_rate, price_book_version)
+VALUES ($1, $2, $3, 'draft', $4, $5, $6,
+        $7, $8, $9)
+RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at
+`
+
+type InsertDraftInvoiceParams struct {
+	OrgID            uuid.UUID
+	PeriodStart      pgtype.Date
+	PeriodEnd        pgtype.Date
+	SubtotalMinor    int64
+	VatMinor         int64
+	TotalMinor       int64
+	WhtExpectedMinor int64
+	VatRate          pgtype.Numeric
+	PriceBookVersion int32
+}
+
+// tenant: system - a draft for an org the caller resolved.
+func (q *Queries) InsertDraftInvoice(ctx context.Context, arg InsertDraftInvoiceParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, insertDraftInvoice,
+		arg.OrgID,
+		arg.PeriodStart,
+		arg.PeriodEnd,
+		arg.SubtotalMinor,
+		arg.VatMinor,
+		arg.TotalMinor,
+		arg.WhtExpectedMinor,
+		arg.VatRate,
+		arg.PriceBookVersion,
+	)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const insertInvoiceLine = `-- name: InsertInvoiceLine :exec
+INSERT INTO invoice_lines (invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+
+type InsertInvoiceLineParams struct {
+	InvoiceID      uuid.UUID
+	Kind           string
+	Description    string
+	ProjectID      *uuid.UUID
+	Metric         *string
+	Quantity       pgtype.Numeric
+	UnitPriceMinor pgtype.Numeric
+	AmountMinor    int64
+	RevenueAccount string
+}
+
+// tenant: system - a draft's line.
+func (q *Queries) InsertInvoiceLine(ctx context.Context, arg InsertInvoiceLineParams) error {
+	_, err := q.db.Exec(ctx, insertInvoiceLine,
+		arg.InvoiceID,
+		arg.Kind,
+		arg.Description,
+		arg.ProjectID,
+		arg.Metric,
+		arg.Quantity,
+		arg.UnitPriceMinor,
+		arg.AmountMinor,
+		arg.RevenueAccount,
+	)
+	return err
 }
 
 const insertLedgerEntry = `-- name: InsertLedgerEntry :one
@@ -410,6 +754,133 @@ func (q *Queries) InsertPriceBook(ctx context.Context, arg InsertPriceBookParams
 		&i.CreatedAt,
 		&i.PublishedAt,
 		&i.PublishedBy,
+	)
+	return i, err
+}
+
+const invoiceCreditNotes = `-- name: InvoiceCreditNotes :many
+SELECT id, invoice_id, org_id, number, amount_minor, vat_minor, reason, issued_by, issued_at FROM credit_notes WHERE invoice_id = $1 ORDER BY issued_at
+`
+
+// tenant: system - credit notes of an invoice the caller resolved.
+func (q *Queries) InvoiceCreditNotes(ctx context.Context, invoiceID uuid.UUID) ([]CreditNote, error) {
+	rows, err := q.db.Query(ctx, invoiceCreditNotes, invoiceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CreditNote
+	for rows.Next() {
+		var i CreditNote
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceID,
+			&i.OrgID,
+			&i.Number,
+			&i.AmountMinor,
+			&i.VatMinor,
+			&i.Reason,
+			&i.IssuedBy,
+			&i.IssuedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const invoiceLines = `-- name: InvoiceLines :many
+SELECT id, invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account FROM invoice_lines WHERE invoice_id = $1 ORDER BY id
+`
+
+// tenant: system - lines of an invoice the caller resolved.
+func (q *Queries) InvoiceLines(ctx context.Context, invoiceID uuid.UUID) ([]InvoiceLine, error) {
+	rows, err := q.db.Query(ctx, invoiceLines, invoiceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InvoiceLine
+	for rows.Next() {
+		var i InvoiceLine
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceID,
+			&i.Kind,
+			&i.Description,
+			&i.ProjectID,
+			&i.Metric,
+			&i.Quantity,
+			&i.UnitPriceMinor,
+			&i.AmountMinor,
+			&i.RevenueAccount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const issueInvoice = `-- name: IssueInvoice :one
+UPDATE invoices SET status = $1, number = $2, issued_at = $3, due_at = $4,
+  bill_to = $5, seller = $6, paid_at = $7
+WHERE id = $8 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at
+`
+
+type IssueInvoiceParams struct {
+	Status   string
+	Number   *string
+	IssuedAt *time.Time
+	DueAt    *time.Time
+	BillTo   json.RawMessage
+	Seller   json.RawMessage
+	PaidAt   *time.Time
+	ID       uuid.UUID
+}
+
+// tenant: system - a draft becomes an issued invoice.
+func (q *Queries) IssueInvoice(ctx context.Context, arg IssueInvoiceParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, issueInvoice,
+		arg.Status,
+		arg.Number,
+		arg.IssuedAt,
+		arg.DueAt,
+		arg.BillTo,
+		arg.Seller,
+		arg.PaidAt,
+		arg.ID,
+	)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -606,6 +1077,140 @@ func (q *Queries) ListBillingContacts(ctx context.Context, orgID uuid.UUID) ([]B
 	return items, nil
 }
 
+const listInvoices = `-- name: ListInvoices :many
+SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, o.name AS org_name FROM invoices i JOIN organizations o ON o.id = i.org_id
+WHERE ($1::text IS NULL OR i.status = $1)
+  AND ($2::date IS NULL OR i.period_start = $2)
+ORDER BY i.period_start DESC, o.name LIMIT $3
+`
+
+type ListInvoicesParams struct {
+	Status      *string
+	PeriodStart pgtype.Date
+	Lim         int32
+}
+
+type ListInvoicesRow struct {
+	ID               uuid.UUID
+	OrgID            uuid.UUID
+	Number           *string
+	PeriodStart      pgtype.Date
+	PeriodEnd        pgtype.Date
+	Status           string
+	Held             bool
+	HoldReason       *string
+	SubtotalMinor    int64
+	VatMinor         int64
+	TotalMinor       int64
+	WhtExpectedMinor int64
+	VatRate          pgtype.Numeric
+	BillTo           json.RawMessage
+	Seller           json.RawMessage
+	DueAt            *time.Time
+	IssuedAt         *time.Time
+	PaidAt           *time.Time
+	PdfObjectKey     *string
+	PriceBookVersion int32
+	CreatedAt        time.Time
+	OrgName          string
+}
+
+// tenant: system - the admin's invoices.
+func (q *Queries) ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]ListInvoicesRow, error) {
+	rows, err := q.db.Query(ctx, listInvoices, arg.Status, arg.PeriodStart, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInvoicesRow
+	for rows.Next() {
+		var i ListInvoicesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Number,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.Status,
+			&i.Held,
+			&i.HoldReason,
+			&i.SubtotalMinor,
+			&i.VatMinor,
+			&i.TotalMinor,
+			&i.WhtExpectedMinor,
+			&i.VatRate,
+			&i.BillTo,
+			&i.Seller,
+			&i.DueAt,
+			&i.IssuedAt,
+			&i.PaidAt,
+			&i.PdfObjectKey,
+			&i.PriceBookVersion,
+			&i.CreatedAt,
+			&i.OrgName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrgInvoices = `-- name: ListOrgInvoices :many
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at FROM invoices WHERE org_id = $1 AND status <> 'draft' ORDER BY period_start DESC, created_at DESC LIMIT $2
+`
+
+type ListOrgInvoicesParams struct {
+	OrgID uuid.UUID
+	Lim   int32
+}
+
+// tenant: org - the org's issued invoices (drafts are the admin's).
+func (q *Queries) ListOrgInvoices(ctx context.Context, arg ListOrgInvoicesParams) ([]Invoice, error) {
+	rows, err := q.db.Query(ctx, listOrgInvoices, arg.OrgID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Invoice
+	for rows.Next() {
+		var i Invoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Number,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.Status,
+			&i.Held,
+			&i.HoldReason,
+			&i.SubtotalMinor,
+			&i.VatMinor,
+			&i.TotalMinor,
+			&i.WhtExpectedMinor,
+			&i.VatRate,
+			&i.BillTo,
+			&i.Seller,
+			&i.DueAt,
+			&i.IssuedAt,
+			&i.PaidAt,
+			&i.PdfObjectKey,
+			&i.PriceBookVersion,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPriceBooks = `-- name: ListPriceBooks :many
 
 SELECT version, effective_at, prices, notes, created_at, published_at, published_by FROM price_books ORDER BY version DESC
@@ -680,6 +1285,40 @@ func (q *Queries) LockBillingAccount(ctx context.Context, orgID uuid.UUID) (Bill
 	return i, err
 }
 
+const lockInvoice = `-- name: LockInvoice :one
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at FROM invoices WHERE id = $1 FOR UPDATE
+`
+
+// tenant: system - an invoice for a change.
+func (q *Queries) LockInvoice(ctx context.Context, id uuid.UUID) (Invoice, error) {
+	row := q.db.QueryRow(ctx, lockInvoice, id)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const markPlanChangeApplied = `-- name: MarkPlanChangeApplied :exec
 UPDATE billing_plan_changes SET applied = true, lines = $1 WHERE id = $2
 `
@@ -693,6 +1332,25 @@ type MarkPlanChangeAppliedParams struct {
 func (q *Queries) MarkPlanChangeApplied(ctx context.Context, arg MarkPlanChangeAppliedParams) error {
 	_, err := q.db.Exec(ctx, markPlanChangeApplied, arg.Lines, arg.ID)
 	return err
+}
+
+const nextBillingNumber = `-- name: NextBillingNumber :one
+INSERT INTO billing_sequences (kind, year, last) VALUES ($1, $2, 1)
+ON CONFLICT (kind, year) DO UPDATE SET last = billing_sequences.last + 1
+RETURNING last
+`
+
+type NextBillingNumberParams struct {
+	Kind string
+	Year int32
+}
+
+// tenant: system - the next number of a kind in a year; never reused.
+func (q *Queries) NextBillingNumber(ctx context.Context, arg NextBillingNumberParams) (int32, error) {
+	row := q.db.QueryRow(ctx, nextBillingNumber, arg.Kind, arg.Year)
+	var last int32
+	err := row.Scan(&last)
+	return last, err
 }
 
 const orgLedger = `-- name: OrgLedger :many
@@ -750,6 +1408,56 @@ func (q *Queries) OrgQuotaPlanName(ctx context.Context, orgID uuid.UUID) (string
 	return name, err
 }
 
+const orgUsageByDay = `-- name: OrgUsageByDay :many
+
+SELECT project_id, metric, date_trunc('day', period_start AT TIME ZONE 'UTC')::timestamp AS day,
+       sum(quantity)::numeric AS quantity
+FROM usage_records
+WHERE org_id = $1 AND period_start >= $2 AND period_start < $3
+GROUP BY project_id, metric, day ORDER BY day, project_id, metric
+`
+
+type OrgUsageByDayParams struct {
+	OrgID  uuid.UUID
+	FromTs time.Time
+	ToTs   time.Time
+}
+
+type OrgUsageByDayRow struct {
+	ProjectID uuid.UUID
+	Metric    string
+	Day       pgtype.Timestamp
+	Quantity  pgtype.Numeric
+}
+
+// ---- Rating ---------------------------------------------------------------
+// tenant: system - rating an org the caller resolved: each project's
+// metrics per UTC day in [@from_ts, @to_ts).
+func (q *Queries) OrgUsageByDay(ctx context.Context, arg OrgUsageByDayParams) ([]OrgUsageByDayRow, error) {
+	rows, err := q.db.Query(ctx, orgUsageByDay, arg.OrgID, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrgUsageByDayRow
+	for rows.Next() {
+		var i OrgUsageByDayRow
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.Metric,
+			&i.Day,
+			&i.Quantity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pendingPlanChange = `-- name: PendingPlanChange :one
 SELECT id, org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_at, requested_by, applied, cancelled, lines FROM billing_plan_changes WHERE org_id = $1 AND NOT applied AND NOT cancelled
 ORDER BY requested_at DESC LIMIT 1
@@ -774,6 +1482,50 @@ func (q *Queries) PendingPlanChange(ctx context.Context, orgID uuid.UUID) (Billi
 		&i.Lines,
 	)
 	return i, err
+}
+
+const planChangesFrom = `-- name: PlanChangesFrom :many
+SELECT id, org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_at, requested_by, applied, cancelled, lines FROM billing_plan_changes WHERE org_id = $1 AND applied AND effective_at >= $2
+ORDER BY effective_at, requested_at
+`
+
+type PlanChangesFromParams struct {
+	OrgID  uuid.UUID
+	FromTs time.Time
+}
+
+// tenant: system - an org's applied changes from @from_ts on.
+func (q *Queries) PlanChangesFrom(ctx context.Context, arg PlanChangesFromParams) ([]BillingPlanChange, error) {
+	rows, err := q.db.Query(ctx, planChangesFrom, arg.OrgID, arg.FromTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BillingPlanChange
+	for rows.Next() {
+		var i BillingPlanChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.FromPlan,
+			&i.ToPlan,
+			&i.FromTerm,
+			&i.ToTerm,
+			&i.EffectiveAt,
+			&i.RequestedAt,
+			&i.RequestedBy,
+			&i.Applied,
+			&i.Cancelled,
+			&i.Lines,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const planChangesIn = `-- name: PlanChangesIn :many
@@ -811,6 +1563,36 @@ func (q *Queries) PlanChangesIn(ctx context.Context, arg PlanChangesInParams) ([
 			&i.Cancelled,
 			&i.Lines,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const projectNamesByID = `-- name: ProjectNamesByID :many
+SELECT id, name FROM projects WHERE id = ANY($1::uuid[])
+`
+
+type ProjectNamesByIDRow struct {
+	ID   uuid.UUID
+	Name string
+}
+
+// tenant: system - names for invoice lines (deleted projects included).
+func (q *Queries) ProjectNamesByID(ctx context.Context, ids []uuid.UUID) ([]ProjectNamesByIDRow, error) {
+	rows, err := q.db.Query(ctx, projectNamesByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectNamesByIDRow
+	for rows.Next() {
+		var i ProjectNamesByIDRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -879,6 +1661,37 @@ func (q *Queries) RepriceAccounts(ctx context.Context, arg RepriceAccountsParams
 		return nil, err
 	}
 	return items, nil
+}
+
+const scheduledChangeBy = `-- name: ScheduledChangeBy :one
+SELECT id, org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_at, requested_by, applied, cancelled, lines FROM billing_plan_changes WHERE org_id = $1 AND NOT applied AND NOT cancelled AND effective_at <= $2
+ORDER BY requested_at DESC LIMIT 1
+`
+
+type ScheduledChangeByParams struct {
+	OrgID uuid.UUID
+	At    time.Time
+}
+
+// tenant: system - the scheduled change in effect at @at.
+func (q *Queries) ScheduledChangeBy(ctx context.Context, arg ScheduledChangeByParams) (BillingPlanChange, error) {
+	row := q.db.QueryRow(ctx, scheduledChangeBy, arg.OrgID, arg.At)
+	var i BillingPlanChange
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.FromPlan,
+		&i.ToPlan,
+		&i.FromTerm,
+		&i.ToTerm,
+		&i.EffectiveAt,
+		&i.RequestedAt,
+		&i.RequestedBy,
+		&i.Applied,
+		&i.Cancelled,
+		&i.Lines,
+	)
+	return i, err
 }
 
 const setBillingAdmin = `-- name: SetBillingAdmin :one
@@ -1006,6 +1819,47 @@ func (q *Queries) SetBillingPriceBook(ctx context.Context, arg SetBillingPriceBo
 	return err
 }
 
+const setInvoiceHold = `-- name: SetInvoiceHold :one
+UPDATE invoices SET held = $1, hold_reason = $2
+WHERE id = $3 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at
+`
+
+type SetInvoiceHoldParams struct {
+	Held       bool
+	HoldReason *string
+	ID         uuid.UUID
+}
+
+// tenant: system - the admin holds or releases a draft.
+func (q *Queries) SetInvoiceHold(ctx context.Context, arg SetInvoiceHoldParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, setInvoiceHold, arg.Held, arg.HoldReason, arg.ID)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const setOrgQuotaPlan = `-- name: SetOrgQuotaPlan :exec
 UPDATE organizations o SET plan_id = qp.id FROM quota_plans qp
 WHERE o.id = $1 AND qp.name = $2::text
@@ -1114,6 +1968,60 @@ func (q *Queries) UpdateBillingDetails(ctx context.Context, arg UpdateBillingDet
 		&i.BudgetMonth,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateDraftInvoice = `-- name: UpdateDraftInvoice :one
+UPDATE invoices SET subtotal_minor = $1, vat_minor = $2, total_minor = $3,
+  wht_expected_minor = $4, vat_rate = $5, price_book_version = $6
+WHERE id = $7 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at
+`
+
+type UpdateDraftInvoiceParams struct {
+	SubtotalMinor    int64
+	VatMinor         int64
+	TotalMinor       int64
+	WhtExpectedMinor int64
+	VatRate          pgtype.Numeric
+	PriceBookVersion int32
+	ID               uuid.UUID
+}
+
+// tenant: system - re-rating a draft.
+func (q *Queries) UpdateDraftInvoice(ctx context.Context, arg UpdateDraftInvoiceParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, updateDraftInvoice,
+		arg.SubtotalMinor,
+		arg.VatMinor,
+		arg.TotalMinor,
+		arg.WhtExpectedMinor,
+		arg.VatRate,
+		arg.PriceBookVersion,
+		arg.ID,
+	)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
 	)
 	return i, err
 }

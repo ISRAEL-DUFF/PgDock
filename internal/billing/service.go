@@ -73,9 +73,10 @@ type Seller struct {
 	Email     string `json:"email"`
 }
 
-// DefaultSettings: VAT at 7.5% and WHT at 5%, issued automatically.
+// DefaultSettings: VAT at 7.5% and WHT at 5%. Drafts aren't issued
+// automatically until an admin turns it on (when payments are live).
 func DefaultSettings() Settings {
-	return Settings{VATRate: D("0.075"), WHTRate: D("0.05"), AutoIssue: true, Seller: Seller{LegalName: "PGDock"}}
+	return Settings{VATRate: D("0.075"), WHTRate: D("0.05"), Seller: Seller{LegalName: "PGDock"}}
 }
 
 // Validate checks the rates.
@@ -162,8 +163,17 @@ func (s *Service) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = q.EnsureAllBillingAccounts(ctx, cur.Version)
-	return err
+	if _, err := q.EnsureAllBillingAccounts(ctx, cur.Version); err != nil {
+		return err
+	}
+	// Billing starts with the month it was first set up in: usage from
+	// before is never invoiced.
+	if _, err := q.GetSetting(ctx, invoicedKey); errors.Is(err, pgx.ErrNoRows) {
+		return q.PutSetting(ctx, store.PutSettingParams{Key: invoicedKey, Value: mustJSON(MonthStart(s.Now()).AddDate(0, -1, 0))})
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
 
 // CurrentBook is the published book in effect now.
@@ -415,6 +425,9 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 		}
 		if _, err := s.Reprice(ctx); err != nil && ctx.Err() == nil {
 			s.log.Warn("billing: repricing", "err", err)
+		}
+		if err := s.Invoicing(ctx); err != nil && ctx.Err() == nil {
+			s.log.Warn("billing: invoicing", "err", err)
 		}
 		select {
 		case <-ctx.Done():

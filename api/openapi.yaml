@@ -3776,6 +3776,57 @@ paths:
           description: Removed.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices:
+    get:
+      operationId: listOrgInvoices
+      summary: The organisation's issued invoices
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Invoices, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices/{invoice_id}:
+    get:
+      operationId: getOrgInvoice
+      summary: An invoice with its lines and credit notes
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf:
+    get:
+      operationId: getOrgInvoicePdf
+      summary: An invoice as PDF
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/usage:
     get:
       operationId: getOrgUsage
@@ -4742,6 +4793,241 @@ paths:
                 $ref: "#/components/schemas/BillingAccount"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices:
+    get:
+      operationId: adminListInvoices
+      summary: Invoices across organisations, drafts included
+      tags: [admin]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, issued, paid, paid_wht_pending, partially_paid, void]
+        - name: period
+          in: query
+          description: The usage month, YYYY-MM.
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+      responses:
+        "200":
+          description: Invoices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/draft:
+    post:
+      operationId: adminDraftInvoices
+      summary: Generate (or refresh) a month's drafts now, for every organisation or one
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period]
+              properties:
+                period:
+                  type: string
+                  pattern: '^\d{4}-\d{2}$'
+                org_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: How many drafts there are.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [drafts]
+                properties:
+                  drafts:
+                    type: integer
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}:
+    get:
+      operationId: adminGetInvoice
+      summary: An invoice, drafts included
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/pdf:
+    get:
+      operationId: adminGetInvoicePdf
+      summary: An invoice (or draft) as PDF
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/hold:
+    post:
+      operationId: adminHoldInvoice
+      summary: Hold a draft for review (it isn't issued on the 1st), or release it
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [held]
+              properties:
+                held:
+                  type: boolean
+                reason:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/issue:
+    post:
+      operationId: adminIssueInvoice
+      summary: Issue a draft now (a held one is released)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The issued invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/credit-notes:
+    post:
+      operationId: adminCreateCreditNote
+      summary: Issue a credit note against an issued invoice (amount before VAT)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_minor, reason]
+              properties:
+                amount_minor:
+                  type: integer
+                  format: int64
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: The credit note.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNote"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/ledger/check:
+    get:
+      operationId: adminLedgerCheck
+      summary: Check the ledger's invariants and show each account's balance (V3 §3.3)
+      tags: [admin]
+      responses:
+        "200":
+          description: The check.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerCheck"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books/{version}/preview:
+    post:
+      operationId: previewPriceBook
+      summary: Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                period:
+                  type: string
+                  pattern: '^\d{4}-\d{2}$'
+                  description: The usage month (default the last complete one).
+      responses:
+        "200":
+          description: Estimates (before VAT).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [period, items, current_total_minor, projected_total_minor]
+                properties:
+                  period:
+                    type: string
+                  current_total_minor:
+                    type: integer
+                    format: int64
+                  projected_total_minor:
+                    type: integer
+                    format: int64
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [org_id, org_name, plan, current_minor, projected_minor]
+                      properties:
+                        org_id:
+                          type: string
+                          format: uuid
+                        org_name:
+                          type: string
+                        plan:
+                          type: string
+                        current_minor:
+                          type: integer
+                          format: int64
+                        projected_minor:
+                          type: integer
+                          format: int64
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/maintenance:
     get:
       operationId: getMaintenance
@@ -4909,6 +5195,13 @@ components:
         format: uuid
     OrgID:
       name: org
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InvoiceID:
+      name: invoice_id
       in: path
       required: true
       schema:
@@ -9761,6 +10054,154 @@ components:
         total_minor:
           type: integer
           format: int64
+    Invoice:
+      type: object
+      required: [id, org_id, period_start, period_end, status, held, subtotal_minor, vat_minor, total_minor,
+                 wht_expected_minor, vat_rate, price_book_version, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, issued, paid, paid_wht_pending, partially_paid, void]
+        held:
+          type: boolean
+        hold_reason:
+          type: string
+          nullable: true
+        subtotal_minor:
+          type: integer
+          format: int64
+        vat_minor:
+          type: integer
+          format: int64
+        total_minor:
+          type: integer
+          format: int64
+        wht_expected_minor:
+          type: integer
+          format: int64
+        vat_rate:
+          $ref: "#/components/schemas/Decimal"
+        price_book_version:
+          type: integer
+        issued_at:
+          type: string
+          format: date-time
+          nullable: true
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    InvoiceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+    CreditNote:
+      type: object
+      required: [id, invoice_id, number, amount_minor, vat_minor, reason, issued_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        amount_minor:
+          type: integer
+          format: int64
+        vat_minor:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        issued_at:
+          type: string
+          format: date-time
+    InvoiceDetail:
+      type: object
+      required: [invoice, lines, credit_notes]
+      properties:
+        invoice:
+          $ref: "#/components/schemas/Invoice"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        credit_notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditNote"
+    LedgerCheck:
+      type: object
+      required: [balanced, transactions, debits_minor, credits_minor, problems, accounts]
+      properties:
+        balanced:
+          type: boolean
+        transactions:
+          type: integer
+        debits_minor:
+          type: integer
+          format: int64
+        credits_minor:
+          type: integer
+          format: int64
+        problems:
+          type: array
+          items:
+            type: object
+            required: [txn_id, debits_minor, credits_minor]
+            properties:
+              txn_id:
+                type: string
+                format: uuid
+              debits_minor:
+                type: integer
+                format: int64
+              credits_minor:
+                type: integer
+                format: int64
+        accounts:
+          type: array
+          description: Each account's balance (debits minus credits) across organisations.
+          items:
+            type: object
+            required: [account, balance_minor]
+            properties:
+              account:
+                type: string
+              balance_minor:
+                type: integer
+                format: int64
     OrgQuotas:
       type: object
       required: [plan, items, dedicated_allowance, dedicated_use]

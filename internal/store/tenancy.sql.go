@@ -405,6 +405,9 @@ func (q *Queries) GetPlan(ctx context.Context, id uuid.UUID) (QuotaPlan, error) 
 const hourlyDedicated = `-- name: HourlyDedicated :many
 SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start,
        COALESCE(i.cpu_limit, 0)::float8 AS cpus, COALESCE(i.mem_limit_mb, 0)::int AS mem_mb, COALESCE(i.volume_gb, 0)::int AS disk_gb,
+       -- HA standbys (V3 §2.2): the members besides the primary, each the instance's size.
+       (CASE WHEN i.ha_enabled THEN GREATEST((SELECT count(*) FROM instance_members m WHERE m.instance_id = i.id) - 1, 0) ELSE 0 END)::int AS standbys,
+       (i.ha_enabled AND i.sync_replication)::bool AS sync_replication,
        (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, p.created_at)) / 3600)::float8 AS fraction
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
@@ -420,14 +423,16 @@ type HourlyDedicatedParams struct {
 }
 
 type HourlyDedicatedRow struct {
-	ProjectID   uuid.UUID
-	OrgID       uuid.UUID
-	PlanID      uuid.UUID
-	PeriodStart time.Time
-	Cpus        float64
-	MemMb       int32
-	DiskGb      int32
-	Fraction    float64
+	ProjectID       uuid.UUID
+	OrgID           uuid.UUID
+	PlanID          uuid.UUID
+	PeriodStart     time.Time
+	Cpus            float64
+	MemMb           int32
+	DiskGb          int32
+	Standbys        int32
+	SyncReplication bool
+	Fraction        float64
 }
 
 // tenant: system - usage recording; rows carry org_id.
@@ -450,6 +455,8 @@ func (q *Queries) HourlyDedicated(ctx context.Context, arg HourlyDedicatedParams
 			&i.Cpus,
 			&i.MemMb,
 			&i.DiskGb,
+			&i.Standbys,
+			&i.SyncReplication,
 			&i.Fraction,
 		); err != nil {
 			return nil, err

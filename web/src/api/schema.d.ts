@@ -2786,6 +2786,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/billing/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's issued invoices */
+        get: operations["listOrgInvoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice with its lines and credit notes */
+        get: operations["getOrgInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice as PDF */
+        get: operations["getOrgInvoicePdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/usage": {
         parameters: {
             query?: never;
@@ -3439,6 +3490,159 @@ export interface paths {
         head?: never;
         /** The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book) */
         patch: operations["adminUpdateOrgBilling"];
+        trace?: never;
+    };
+    "/api/v1/admin/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoices across organisations, drafts included */
+        get: operations["adminListInvoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate (or refresh) a month's drafts now, for every organisation or one */
+        post: operations["adminDraftInvoices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice, drafts included */
+        get: operations["adminGetInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice (or draft) as PDF */
+        get: operations["adminGetInvoicePdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hold a draft for review (it isn't issued on the 1st), or release it */
+        post: operations["adminHoldInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a draft now (a held one is released) */
+        post: operations["adminIssueInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a credit note against an issued invoice (amount before VAT) */
+        post: operations["adminCreateCreditNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/ledger/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check the ledger's invariants and show each account's balance (V3 §3.3) */
+        get: operations["adminLedgerCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books/{version}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate each organisation's invoice for a month under this price book (V3 §3.9) */
+        post: operations["previewPriceBook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/maintenance": {
@@ -6039,6 +6243,84 @@ export interface components {
             /** Format: int64 */
             total_minor: number;
         };
+        Invoice: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string | null;
+            number?: string | null;
+            /** Format: date */
+            period_start: string;
+            /** Format: date */
+            period_end: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "paid" | "paid_wht_pending" | "partially_paid" | "void";
+            held: boolean;
+            hold_reason?: string | null;
+            /** Format: int64 */
+            subtotal_minor: number;
+            /** Format: int64 */
+            vat_minor: number;
+            /** Format: int64 */
+            total_minor: number;
+            /** Format: int64 */
+            wht_expected_minor: number;
+            vat_rate: components["schemas"]["Decimal"];
+            price_book_version: number;
+            /** Format: date-time */
+            issued_at?: string | null;
+            /** Format: date-time */
+            due_at?: string | null;
+            /** Format: date-time */
+            paid_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        InvoiceList: {
+            items: components["schemas"]["Invoice"][];
+        };
+        CreditNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoice_id: string;
+            number: string;
+            /** Format: int64 */
+            amount_minor: number;
+            /** Format: int64 */
+            vat_minor: number;
+            reason: string;
+            /** Format: date-time */
+            issued_at: string;
+        };
+        InvoiceDetail: {
+            invoice: components["schemas"]["Invoice"];
+            lines: components["schemas"]["InvoiceLine"][];
+            credit_notes: components["schemas"]["CreditNote"][];
+        };
+        LedgerCheck: {
+            balanced: boolean;
+            transactions: number;
+            /** Format: int64 */
+            debits_minor: number;
+            /** Format: int64 */
+            credits_minor: number;
+            problems: {
+                /** Format: uuid */
+                txn_id: string;
+                /** Format: int64 */
+                debits_minor: number;
+                /** Format: int64 */
+                credits_minor: number;
+            }[];
+            /** @description Each account's balance (debits minus credits) across organisations. */
+            accounts: {
+                account: string;
+                /** Format: int64 */
+                balance_minor: number;
+            }[];
+        };
         OrgQuotas: {
             plan: string;
             items: components["schemas"]["QuotaItem"][];
@@ -6312,6 +6594,7 @@ export interface components {
         TokenID: string;
         RequestID: string;
         OrgID: string;
+        InvoiceID: string;
         PriceBookVersion: number;
         UserID: string;
         InvitationID: string;
@@ -11001,6 +11284,77 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listOrgInvoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoices, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgInvoicePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getOrgUsage: {
         parameters: {
             query?: {
@@ -12210,6 +12564,259 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListInvoices: {
+        parameters: {
+            query?: {
+                status?: "draft" | "issued" | "paid" | "paid_wht_pending" | "partially_paid" | "void";
+                /** @description The usage month, YYYY-MM. */
+                period?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminDraftInvoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    period: string;
+                    /** Format: uuid */
+                    org_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description How many drafts there are. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        drafts: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetInvoicePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminHoldInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    held: boolean;
+                    reason?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminIssueInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The issued invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminCreateCreditNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    amount_minor: number;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The credit note. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNote"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminLedgerCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The check. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerCheck"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The usage month (default the last complete one). */
+                    period?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Estimates (before VAT). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        period: string;
+                        /** Format: int64 */
+                        current_total_minor: number;
+                        /** Format: int64 */
+                        projected_total_minor: number;
+                        items: {
+                            /** Format: uuid */
+                            org_id: string;
+                            org_name: string;
+                            plan: string;
+                            /** Format: int64 */
+                            current_minor: number;
+                            /** Format: int64 */
+                            projected_minor: number;
+                        }[];
+                    };
                 };
             };
             default: components["responses"]["Error"];

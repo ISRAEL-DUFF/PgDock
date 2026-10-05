@@ -122,6 +122,18 @@ func (d Dec) String() string {
 	return s
 }
 
+// Round2 is d to 2 decimal places, trailing zeros removed (for display).
+func (d Dec) Round2() string {
+	s := d.rat().FloatString(2)
+	if strings.Contains(s, ".") {
+		s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
+	}
+	if s == "-0" {
+		return "0"
+	}
+	return s
+}
+
 func (d Dec) MarshalJSON() ([]byte, error) { return json.Marshal(d.String()) }
 
 func (d *Dec) UnmarshalJSON(b []byte) error {

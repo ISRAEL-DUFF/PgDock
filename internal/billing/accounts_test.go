@@ -105,6 +105,16 @@ func TestAccountsAndPlanChanges(t *testing.T) {
 	if a, _ := s.Account(ctx, org); a.Plan != billing.PlanTeam {
 		t.Error("the downgrade applied early")
 	}
+	// Choosing Team again cancels it; choosing Pro schedules it again.
+	if c, err := s.ChangePlan(ctx, org, billing.PlanRequest{Plan: billing.PlanTeam}); err != nil || !c.Applied || len(c.Lines) != 0 {
+		t.Fatalf("keep team: %+v %v", c, err)
+	}
+	if _, err := store.New(db).PendingPlanChange(ctx, org); err == nil {
+		t.Fatal("the downgrade is still scheduled")
+	}
+	if _, err := s.ChangePlan(ctx, org, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
+		t.Fatal(err)
+	}
 	if n, err := s.ApplyDueChanges(ctx); err != nil || n != 0 {
 		t.Fatalf("early sweep: %d %v", n, err)
 	}

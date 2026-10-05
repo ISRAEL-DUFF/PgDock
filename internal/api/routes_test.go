@@ -282,7 +282,7 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
 		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(), "{target_id}", uuid.NewString(),
 		"{webhook_id}", uuid.NewString(), "{job_id}", uuid.NewString(),
-		"{user_code}", "BCDF-GHJK", "{email}", "ap@example.com", "{version}", "1",
+		"{user_code}", "BCDF-GHJK", "{email}", "ap@example.com", "{version}", "1", "{invoice_id}", uuid.NewString(),
 	).Replace(pattern)
 	for _, m := range []string{"GET", "POST"} {
 		if rl := routeRules[m+" "+pattern]; rl.scope == scopeOrgQuery {
@@ -518,7 +518,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgBillingManage: {
 		"GET /api/v1/orgs/{org}/billing", "PATCH /api/v1/orgs/{org}/billing", "POST /api/v1/orgs/{org}/billing/plan",
 		"GET /api/v1/orgs/{org}/billing/contacts", "POST /api/v1/orgs/{org}/billing/contacts",
-		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}",
+		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
+		"GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}", "GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf",
 	},
 	// §10.10 "Org owners can export any project as a pg_dump file"
 	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},
@@ -564,6 +565,10 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/price-books", "POST /api/v1/admin/price-books", "GET /api/v1/admin/price-books/{version}",
 		"PUT /api/v1/admin/price-books/{version}", "DELETE /api/v1/admin/price-books/{version}",
 		"POST /api/v1/admin/price-books/{version}/publish", "PATCH /api/v1/admin/orgs/{org}/billing",
+		"POST /api/v1/admin/price-books/{version}/preview", "GET /api/v1/admin/invoices", "POST /api/v1/admin/invoices/draft",
+		"GET /api/v1/admin/invoices/{invoice_id}", "GET /api/v1/admin/invoices/{invoice_id}/pdf",
+		"POST /api/v1/admin/invoices/{invoice_id}/hold", "POST /api/v1/admin/invoices/{invoice_id}/issue",
+		"POST /api/v1/admin/invoices/{invoice_id}/credit-notes", "GET /api/v1/admin/ledger/check",
 		"POST /api/v1/admin/instances/{instance_id}/minor-upgrade",
 		// §7.2 "The platform admin can set a platform-wide maximum"
 		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",

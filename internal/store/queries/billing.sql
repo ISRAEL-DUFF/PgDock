@@ -200,3 +200,126 @@ UPDATE billing_plan_changes SET applied = true, lines = @lines WHERE id = @id;
 -- tenant: system - an org's applied changes in a billing period.
 SELECT * FROM billing_plan_changes WHERE org_id = @org_id AND applied
   AND effective_at >= @from_ts AND effective_at < @to_ts ORDER BY effective_at, requested_at;
+
+-- ---- Rating ---------------------------------------------------------------
+
+-- name: OrgUsageByDay :many
+-- tenant: system - rating an org the caller resolved: each project's
+-- metrics per UTC day in [@from_ts, @to_ts).
+SELECT project_id, metric, date_trunc('day', period_start AT TIME ZONE 'UTC')::timestamp AS day,
+       sum(quantity)::numeric AS quantity
+FROM usage_records
+WHERE org_id = @org_id AND period_start >= @from_ts AND period_start < @to_ts
+GROUP BY project_id, metric, day ORDER BY day, project_id, metric;
+
+-- name: ProjectNamesByID :many
+-- tenant: system - names for invoice lines (deleted projects included).
+SELECT id, name FROM projects WHERE id = ANY(@ids::uuid[]);
+
+-- name: PlanChangesFrom :many
+-- tenant: system - an org's applied changes from @from_ts on.
+SELECT * FROM billing_plan_changes WHERE org_id = @org_id AND applied AND effective_at >= @from_ts
+ORDER BY effective_at, requested_at;
+
+-- name: ScheduledChangeBy :one
+-- tenant: system - the scheduled change in effect at @at.
+SELECT * FROM billing_plan_changes WHERE org_id = @org_id AND NOT applied AND NOT cancelled AND effective_at <= @at
+ORDER BY requested_at DESC LIMIT 1;
+
+-- ---- Invoices -------------------------------------------------------------
+
+-- name: GetOrgInvoiceForPeriod :one
+-- tenant: system - an org's invoice for a month.
+SELECT * FROM invoices WHERE org_id = @org_id AND period_start = @period_start;
+
+-- name: InsertDraftInvoice :one
+-- tenant: system - a draft for an org the caller resolved.
+INSERT INTO invoices (org_id, period_start, period_end, status, subtotal_minor, vat_minor, total_minor,
+                      wht_expected_minor, vat_rate, price_book_version)
+VALUES (@org_id, @period_start, @period_end, 'draft', @subtotal_minor, @vat_minor, @total_minor,
+        @wht_expected_minor, @vat_rate, @price_book_version)
+RETURNING *;
+
+-- name: UpdateDraftInvoice :one
+-- tenant: system - re-rating a draft.
+UPDATE invoices SET subtotal_minor = @subtotal_minor, vat_minor = @vat_minor, total_minor = @total_minor,
+  wht_expected_minor = @wht_expected_minor, vat_rate = @vat_rate, price_book_version = @price_book_version
+WHERE id = @id AND status = 'draft' RETURNING *;
+
+-- name: DeleteDraftInvoice :execrows
+-- tenant: system - a draft with nothing left to bill.
+DELETE FROM invoices WHERE id = @id AND status = 'draft';
+
+-- name: DeleteInvoiceLines :exec
+-- tenant: system - replacing a draft's lines.
+DELETE FROM invoice_lines WHERE invoice_id = @invoice_id
+  AND EXISTS (SELECT 1 FROM invoices WHERE id = @invoice_id AND status = 'draft');
+
+-- name: InsertInvoiceLine :exec
+-- tenant: system - a draft's line.
+INSERT INTO invoice_lines (invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account)
+VALUES (@invoice_id, @kind, @description, sqlc.narg(project_id), sqlc.narg(metric), @quantity, @unit_price_minor, @amount_minor, @revenue_account);
+
+-- name: InvoiceLines :many
+-- tenant: system - lines of an invoice the caller resolved.
+SELECT * FROM invoice_lines WHERE invoice_id = @invoice_id ORDER BY id;
+
+-- name: GetInvoice :one
+-- tenant: system - an invoice by id (admin, or after the org check).
+SELECT * FROM invoices WHERE id = @id;
+
+-- name: GetOrgInvoice :one
+-- tenant: org - an invoice of the org in the request.
+SELECT * FROM invoices WHERE id = @id AND org_id = @org_id;
+
+-- name: LockInvoice :one
+-- tenant: system - an invoice for a change.
+SELECT * FROM invoices WHERE id = @id FOR UPDATE;
+
+-- name: ListOrgInvoices :many
+-- tenant: org - the org's issued invoices (drafts are the admin's).
+SELECT * FROM invoices WHERE org_id = @org_id AND status <> 'draft' ORDER BY period_start DESC, created_at DESC LIMIT @lim;
+
+-- name: ListInvoices :many
+-- tenant: system - the admin's invoices.
+SELECT i.*, o.name AS org_name FROM invoices i JOIN organizations o ON o.id = i.org_id
+WHERE (sqlc.narg(status)::text IS NULL OR i.status = sqlc.narg(status))
+  AND (sqlc.narg(period_start)::date IS NULL OR i.period_start = sqlc.narg(period_start))
+ORDER BY i.period_start DESC, o.name LIMIT @lim;
+
+-- name: DraftsForPeriod :many
+-- tenant: system - a month's drafts, for issuing.
+SELECT * FROM invoices WHERE status = 'draft' AND period_start = @period_start ORDER BY created_at;
+
+-- name: SetInvoiceHold :one
+-- tenant: system - the admin holds or releases a draft.
+UPDATE invoices SET held = @held, hold_reason = sqlc.narg(hold_reason)
+WHERE id = @id AND status = 'draft' RETURNING *;
+
+-- name: NextBillingNumber :one
+-- tenant: system - the next number of a kind in a year; never reused.
+INSERT INTO billing_sequences (kind, year, last) VALUES (@kind, @year, 1)
+ON CONFLICT (kind, year) DO UPDATE SET last = billing_sequences.last + 1
+RETURNING last;
+
+-- name: IssueInvoice :one
+-- tenant: system - a draft becomes an issued invoice.
+UPDATE invoices SET status = @status, number = @number, issued_at = @issued_at, due_at = @due_at,
+  bill_to = @bill_to, seller = @seller, paid_at = sqlc.narg(paid_at)
+WHERE id = @id AND status = 'draft' RETURNING *;
+
+-- ---- Credit notes ---------------------------------------------------------
+
+-- name: InsertCreditNote :one
+-- tenant: system - a credit note on an invoice the caller resolved.
+INSERT INTO credit_notes (invoice_id, org_id, number, amount_minor, vat_minor, reason, issued_by)
+VALUES (@invoice_id, @org_id, @number, @amount_minor, @vat_minor, @reason, sqlc.narg(issued_by))
+RETURNING *;
+
+-- name: InvoiceCreditNotes :many
+-- tenant: system - credit notes of an invoice the caller resolved.
+SELECT * FROM credit_notes WHERE invoice_id = @invoice_id ORDER BY issued_at;
+
+-- name: GetCreditNote :one
+-- tenant: system - a credit note by id.
+SELECT * FROM credit_notes WHERE id = @id;

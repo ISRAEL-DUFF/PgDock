@@ -91,6 +91,58 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 		t.Errorf("after scheduling the downgrade: %+v %+v", acct.Plan, acct.PendingChange)
 	}
 
+	// This month's invoice: drafted by the admin, hidden from the org until
+	// issued, then numbered, emailed, posted, and downloadable.
+	period := time.Now().UTC().Format("2006-01")
+	var drafted struct{ Drafts int }
+	if code := e.Do("POST", "/api/v1/admin/invoices/draft", map[string]any{"period": period, "org_id": org.Id}, &drafted); code != http.StatusOK || drafted.Drafts != 1 {
+		t.Fatalf("draft: %d %+v", code, drafted)
+	}
+	var invs gen.InvoiceList
+	if e.Do("GET", "/api/v1/admin/invoices?status=draft&period="+period, nil, &invs); len(invs.Items) != 1 || invs.Items[0].OrgName == nil || *invs.Items[0].OrgName != "Acme" {
+		t.Fatalf("admin drafts: %+v", invs)
+	}
+	inv := invs.Items[0]
+	if fin.Do("GET", "/api/v1/orgs/"+oid+"/billing/invoices", nil, &invs); len(invs.Items) != 0 {
+		t.Errorf("the org sees a draft: %+v", invs.Items)
+	}
+	if code := fin.Do("GET", "/api/v1/orgs/"+oid+"/billing/invoices/"+inv.Id.String(), nil, nil); code != http.StatusNotFound {
+		t.Errorf("the org reads a draft: %d", code)
+	}
+	reason := "checking the storage numbers"
+	var held gen.Invoice
+	if code := e.Do("POST", "/api/v1/admin/invoices/"+inv.Id.String()+"/hold", map[string]any{"held": true, "reason": reason}, &held); code != http.StatusOK || !held.Held {
+		t.Fatalf("hold: %d %+v", code, held)
+	}
+	var issued gen.Invoice
+	if code := e.Do("POST", "/api/v1/admin/invoices/"+inv.Id.String()+"/issue", nil, &issued); code != http.StatusOK || issued.Number == nil || issued.Status != gen.InvoiceStatusIssued {
+		t.Fatalf("issue: %d %+v", code, issued)
+	}
+	if code := e.Do("POST", "/api/v1/admin/invoices/"+inv.Id.String()+"/issue", nil, nil); code != http.StatusConflict {
+		t.Errorf("issue twice: %d", code)
+	}
+	var detail gen.InvoiceDetail
+	if code := fin.Do("GET", "/api/v1/orgs/"+oid+"/billing/invoices/"+inv.Id.String(), nil, &detail); code != http.StatusOK || len(detail.Lines) == 0 || detail.Invoice.TotalMinor != issued.TotalMinor {
+		t.Fatalf("org reads the invoice: %d %+v", code, detail)
+	}
+	if code, body := fin.DoRaw("GET", "/api/v1/orgs/"+oid+"/billing/invoices/"+inv.Id.String()+"/pdf", nil); code != http.StatusOK || !strings.HasPrefix(string(body), "%PDF") {
+		t.Errorf("invoice PDF: %d %.20q", code, body)
+	}
+	if code := admin.Do("GET", "/api/v1/orgs/"+oid+"/billing/invoices", nil, nil); code != http.StatusForbidden {
+		t.Errorf("an admin lists invoices: %d", code)
+	}
+	if n := e.SMTP.Count("ap@acme.example", *issued.Number); n != 1 {
+		t.Errorf("invoice emails to the contact: %d", n)
+	}
+	var cn gen.CreditNote
+	if code := e.Do("POST", "/api/v1/admin/invoices/"+inv.Id.String()+"/credit-notes", map[string]any{"amount_minor": 1000, "reason": "goodwill"}, &cn); code != http.StatusCreated || cn.VatMinor != 75 {
+		t.Fatalf("credit note: %d %+v", code, cn)
+	}
+	var check gen.LedgerCheck
+	if code := e.Do("GET", "/api/v1/admin/ledger/check", nil, &check); code != http.StatusOK || !check.Balanced || check.Transactions != 2 || check.DebitsMinor != check.CreditsMinor {
+		t.Fatalf("ledger check: %d %+v", code, check)
+	}
+
 	// Price books: a draft can't be published inside the notice period.
 	var books struct {
 		CurrentVersion int `json:"current_version"`
@@ -123,6 +175,26 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 	var pub struct {
 		PriceBook gen.PriceBook `json:"price_book"`
 		Notified  int
+	}
+	// Keeping Pro cancels the scheduled downgrade.
+	if code := fin.Do("POST", "/api/v1/orgs/"+oid+"/billing/plan", gen.PlanChangeRequest{Plan: "pro"}, nil); code != http.StatusOK {
+		t.Fatalf("keep pro: %d", code)
+	}
+	acct = gen.BillingAccount{}
+	if fin.Do("GET", "/api/v1/orgs/"+oid+"/billing", nil, &acct); acct.PendingChange != nil {
+		t.Errorf("the downgrade is still scheduled: %+v", acct.PendingChange)
+	}
+	var preview struct {
+		Items []struct {
+			OrgName        string `json:"org_name"`
+			CurrentMinor   int64  `json:"current_minor"`
+			ProjectedMinor int64  `json:"projected_minor"`
+		}
+	}
+	if code := e.Do("POST", path+"/preview", map[string]string{"period": period}, &preview); code != http.StatusOK || len(preview.Items) != 1 ||
+		preview.Items[0].ProjectedMinor-preview.Items[0].CurrentMinor != 500_000 {
+		// Pro goes from ₦15,000 to ₦20,000 a month: the org's next fee in advance.
+		t.Errorf("preview: %d %+v", code, preview)
 	}
 	if code := e.Do("POST", path+"/publish", nil, &pub); code != http.StatusOK || pub.PriceBook.PublishedAt == nil || pub.Notified != 1 {
 		t.Fatalf("publish: %d %+v", code, pub)
