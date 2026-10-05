@@ -180,6 +180,8 @@ type Incident struct {
 	ResolvedAt *time.Time
 	CreatedBy  *uuid.UUID
 	PushedAt   *time.Time
+	PushError  *string
+	UpdatedAt  time.Time
 }
 
 type IncidentUpdate struct {

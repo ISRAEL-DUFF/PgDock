@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image pooler-host-images test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image pooler-host-images status-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
 
 all: build
 
@@ -198,7 +198,7 @@ e2e-images:
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
-test-integration: pooler-seed test-agent-bin pg-image pooler-host-images
+test-integration: pooler-seed test-agent-bin pg-image pooler-host-images status-image
 	$(COMPOSE) --profile test up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
 
@@ -217,6 +217,10 @@ pg-image:
 pooler-host-images:
 	docker build $(DOCKER_BUILD_FLAGS) -f deploy/pooler-host/Dockerfile -t pgdock-pooler-host:local .
 	docker build $(DOCKER_BUILD_FLAGS) -f deploy/pooler-host/keepalived.Dockerfile -t pgdock-keepalived:local .
+
+## status-image: pgdock-status, the separately hosted status page (V3 §2.6).
+status-image:
+	docker build $(DOCKER_BUILD_FLAGS) -f deploy/status/Dockerfile -t pgdock-status:local .
 
 # The agent the integration tests run inside the agent-test container.
 test-agent-bin:

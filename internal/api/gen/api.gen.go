@@ -626,6 +626,54 @@ func (e ImportPreflightRoleReferencesKind) Valid() bool {
 	}
 }
 
+// Defines values for IncidentSeverity.
+const (
+	IncidentSeverityCritical    IncidentSeverity = "critical"
+	IncidentSeverityMaintenance IncidentSeverity = "maintenance"
+	IncidentSeverityMajor       IncidentSeverity = "major"
+	IncidentSeverityMinor       IncidentSeverity = "minor"
+)
+
+// Valid indicates whether the value is a known member of the IncidentSeverity enum.
+func (e IncidentSeverity) Valid() bool {
+	switch e {
+	case IncidentSeverityCritical:
+		return true
+	case IncidentSeverityMaintenance:
+		return true
+	case IncidentSeverityMajor:
+		return true
+	case IncidentSeverityMinor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentStatus.
+const (
+	IncidentStatusIdentified    IncidentStatus = "identified"
+	IncidentStatusInvestigating IncidentStatus = "investigating"
+	IncidentStatusMonitoring    IncidentStatus = "monitoring"
+	IncidentStatusResolved      IncidentStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IncidentStatus enum.
+func (e IncidentStatus) Valid() bool {
+	switch e {
+	case IncidentStatusIdentified:
+		return true
+	case IncidentStatusInvestigating:
+		return true
+	case IncidentStatusMonitoring:
+		return true
+	case IncidentStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceActionRequestAction.
 const (
 	Restart InstanceActionRequestAction = "restart"
@@ -1019,6 +1067,36 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	case PersonalCredentialsInfoAccessReadOnly:
 		return true
 	case PersonalCredentialsInfoAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PoolerEventKind.
+const (
+	PushFailed PoolerEventKind = "push_failed"
+	Reassigned PoolerEventKind = "reassigned"
+	Recovered  PoolerEventKind = "recovered"
+	SplitBrain PoolerEventKind = "split_brain"
+	Stale      PoolerEventKind = "stale"
+	TookIp     PoolerEventKind = "took_ip"
+)
+
+// Valid indicates whether the value is a known member of the PoolerEventKind enum.
+func (e PoolerEventKind) Valid() bool {
+	switch e {
+	case PushFailed:
+		return true
+	case Reassigned:
+		return true
+	case Recovered:
+		return true
+	case SplitBrain:
+		return true
+	case Stale:
+		return true
+	case TookIp:
 		return true
 	default:
 		return false
@@ -2486,6 +2564,16 @@ type ConnectionInfo struct {
 	User string `json:"user"`
 }
 
+// CreateIncidentRequest defines model for CreateIncidentRequest.
+type CreateIncidentRequest struct {
+	Body       string           `json:"body"`
+	Components []string         `json:"components"`
+	Region     *string          `json:"region,omitempty"`
+	Severity   IncidentSeverity `json:"severity"`
+	Status     IncidentStatus   `json:"status"`
+	Title      string           `json:"title"`
+}
+
 // CreateNodeRequest defines model for CreateNodeRequest.
 type CreateNodeRequest struct {
 	// Name Example: node-b
@@ -2939,6 +3027,56 @@ type ImportRequest struct {
 type ImportSource struct {
 	// SourceUrl Example: postgresql://postgres:secret@db.abcd.supabase.co:5432/postgres
 	SourceUrl string `json:"source_url"`
+}
+
+// Incident defines model for Incident.
+type Incident struct {
+	Components []string           `json:"components"`
+	Id         openapi_types.UUID `json:"id"`
+	PushError  *string            `json:"push_error,omitempty"`
+
+	// PushedAt When the status page last took this version; unset while a push is due.
+	PushedAt   *time.Time       `json:"pushed_at,omitempty"`
+	Region     *string          `json:"region,omitempty"`
+	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
+	Severity   IncidentSeverity `json:"severity"`
+	StartedAt  time.Time        `json:"started_at"`
+	Status     IncidentStatus   `json:"status"`
+	Title      string           `json:"title"`
+	UpdatedAt  time.Time        `json:"updated_at"`
+	Updates    []IncidentUpdate `json:"updates"`
+}
+
+// IncidentList defines model for IncidentList.
+type IncidentList struct {
+	// Components Status page components an incident can name.
+	Components           []string   `json:"components"`
+	Items                []Incident `json:"items"`
+	StatusPageConfigured bool       `json:"status_page_configured"`
+	StatusPageUrl        *string    `json:"status_page_url,omitempty"`
+}
+
+// IncidentSeverity defines model for IncidentSeverity.
+type IncidentSeverity string
+
+// IncidentStatus defines model for IncidentStatus.
+type IncidentStatus string
+
+// IncidentUpdate defines model for IncidentUpdate.
+type IncidentUpdate struct {
+	Body     string    `json:"body"`
+	Id       int64     `json:"id"`
+	PostedAt time.Time `json:"posted_at"`
+
+	// PostedBy The poster's email.
+	PostedBy *string        `json:"posted_by,omitempty"`
+	Status   IncidentStatus `json:"status"`
+}
+
+// IncidentUpdateRequest defines model for IncidentUpdateRequest.
+type IncidentUpdateRequest struct {
+	Body   string         `json:"body"`
+	Status IncidentStatus `json:"status"`
 }
 
 // InstanceActionRequest defines model for InstanceActionRequest.
@@ -3510,6 +3648,54 @@ type PlatformUsageRow struct {
 	OrgId    openapi_types.UUID `json:"org_id"`
 	OrgName  string             `json:"org_name"`
 	Quantity float32            `json:"quantity"`
+}
+
+// PoolerEvent defines model for PoolerEvent.
+type PoolerEvent struct {
+	CreatedAt time.Time              `json:"created_at"`
+	Detail    map[string]interface{} `json:"detail"`
+	Host      *string                `json:"host,omitempty"`
+	Id        int64                  `json:"id"`
+	Kind      PoolerEventKind        `json:"kind"`
+}
+
+// PoolerEventKind defines model for PoolerEvent.Kind.
+type PoolerEventKind string
+
+// PoolerHost defines model for PoolerHost.
+type PoolerHost struct {
+	Generation int64 `json:"generation"`
+
+	// Holder The floating IP routes to this host.
+	Holder      bool               `json:"holder"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	PrivateAddr *string            `json:"private_addr,omitempty"`
+	Reachable   bool               `json:"reachable"`
+	Ready       bool               `json:"ready"`
+	Reason      *string            `json:"reason,omitempty"`
+	ServerId    string             `json:"server_id"`
+	Stale       bool               `json:"stale"`
+
+	// VrrpState keepalived's state (MASTER, BACKUP, FAULT, STOP), empty before it reports.
+	VrrpState string `json:"vrrp_state"`
+}
+
+// PoolerHosts defines model for PoolerHosts.
+type PoolerHosts struct {
+	CheckedAt *time.Time `json:"checked_at,omitempty"`
+
+	// Enabled Pooler hosts are configured (the arbiter runs).
+	Enabled        bool          `json:"enabled"`
+	Events         []PoolerEvent `json:"events"`
+	Generation     int64         `json:"generation"`
+	HolderError    *string       `json:"holder_error,omitempty"`
+	HolderName     *string       `json:"holder_name,omitempty"`
+	HolderServerId *string       `json:"holder_server_id,omitempty"`
+	Hosts          []PoolerHost  `json:"hosts"`
+	ManagesIp      bool          `json:"manages_ip"`
+	NoHealthy      bool          `json:"no_healthy"`
+	SplitBrain     bool          `json:"split_brain"`
 }
 
 // Profile defines model for Profile.
@@ -4529,6 +4715,13 @@ type TransferProjectRequest struct {
 	OrgId openapi_types.UUID `json:"org_id"`
 }
 
+// UpdateIncidentRequest defines model for UpdateIncidentRequest.
+type UpdateIncidentRequest struct {
+	Components *[]string         `json:"components,omitempty"`
+	Severity   *IncidentSeverity `json:"severity,omitempty"`
+	Title      *string           `json:"title,omitempty"`
+}
+
 // UpdateMeRequest defines model for UpdateMeRequest.
 type UpdateMeRequest struct {
 	Name *string `json:"name,omitempty"`
@@ -4796,6 +4989,9 @@ type AuditTarget = string
 
 // BackupID defines model for BackupID.
 type BackupID = openapi_types.UUID
+
+// IncidentID defines model for IncidentID.
+type IncidentID = openapi_types.UUID
 
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
@@ -5214,6 +5410,15 @@ type CreateImportJSONRequestBody = ImportRequest
 // ImportPreflightJSONRequestBody defines body for ImportPreflight for application/json ContentType.
 type ImportPreflightJSONRequestBody = ImportSource
 
+// CreateIncidentJSONRequestBody defines body for CreateIncident for application/json ContentType.
+type CreateIncidentJSONRequestBody = CreateIncidentRequest
+
+// UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
+type UpdateIncidentJSONRequestBody = UpdateIncidentRequest
+
+// PostIncidentUpdateJSONRequestBody defines body for PostIncidentUpdate for application/json ContentType.
+type PostIncidentUpdateJSONRequestBody = IncidentUpdateRequest
+
 // AcceptInvitationJSONRequestBody defines body for AcceptInvitation for application/json ContentType.
 type AcceptInvitationJSONRequestBody = AcceptInvitationRequest
 
@@ -5561,6 +5766,21 @@ type ServerInterface interface {
 	// ImportPreflight Inspect a source database before importing it
 	// (POST /api/v1/imports/preflight)
 	ImportPreflight(w http.ResponseWriter, r *http.Request)
+	// ListIncidents Incidents for the status page, open first (V3 §2.6)
+	// (GET /api/v1/incidents)
+	ListIncidents(w http.ResponseWriter, r *http.Request)
+	// CreateIncident Open an incident; it is pushed to the status page
+	// (POST /api/v1/incidents)
+	CreateIncident(w http.ResponseWriter, r *http.Request)
+	// GetIncident An incident and its updates
+	// (GET /api/v1/incidents/{id})
+	GetIncident(w http.ResponseWriter, r *http.Request, id IncidentID)
+	// UpdateIncident Change an incident's title, components or severity
+	// (PATCH /api/v1/incidents/{id})
+	UpdateIncident(w http.ResponseWriter, r *http.Request, id IncidentID)
+	// PostIncidentUpdate Post an update; its status becomes the incident's
+	// (POST /api/v1/incidents/{id}/updates)
+	PostIncidentUpdate(w http.ResponseWriter, r *http.Request, id IncidentID)
 	// AcceptInvitation Accept an invitation link (public, token-gated)
 	// (POST /api/v1/invitations/accept)
 	AcceptInvitation(w http.ResponseWriter, r *http.Request)
@@ -5708,6 +5928,9 @@ type ServerInterface interface {
 	// GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
 	// (GET /api/v1/orgs/{org}/usage)
 	GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams)
+	// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+	// (GET /api/v1/pooler-hosts)
+	GetPoolerHosts(w http.ResponseWriter, r *http.Request)
 	// ListProfiles Dedicated instance sizes
 	// (GET /api/v1/profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
@@ -6362,6 +6585,36 @@ func (_ Unimplemented) ImportPreflight(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListIncidents Incidents for the status page, open first (V3 §2.6)
+// (GET /api/v1/incidents)
+func (_ Unimplemented) ListIncidents(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateIncident Open an incident; it is pushed to the status page
+// (POST /api/v1/incidents)
+func (_ Unimplemented) CreateIncident(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetIncident An incident and its updates
+// (GET /api/v1/incidents/{id})
+func (_ Unimplemented) GetIncident(w http.ResponseWriter, r *http.Request, id IncidentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateIncident Change an incident's title, components or severity
+// (PATCH /api/v1/incidents/{id})
+func (_ Unimplemented) UpdateIncident(w http.ResponseWriter, r *http.Request, id IncidentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PostIncidentUpdate Post an update; its status becomes the incident's
+// (POST /api/v1/incidents/{id}/updates)
+func (_ Unimplemented) PostIncidentUpdate(w http.ResponseWriter, r *http.Request, id IncidentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AcceptInvitation Accept an invitation link (public, token-gated)
 // (POST /api/v1/invitations/accept)
 func (_ Unimplemented) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
@@ -6653,6 +6906,12 @@ func (_ Unimplemented) TransferOrgOwnership(w http.ResponseWriter, r *http.Reque
 // GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
 // (GET /api/v1/orgs/{org}/usage)
 func (_ Unimplemented) GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+// (GET /api/v1/pooler-hosts)
+func (_ Unimplemented) GetPoolerHosts(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8615,6 +8874,112 @@ func (siw *ServerInterfaceWrapper) ImportPreflight(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListIncidents operation middleware
+func (siw *ServerInterfaceWrapper) ListIncidents(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIncidents(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateIncident operation middleware
+func (siw *ServerInterfaceWrapper) CreateIncident(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateIncident(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetIncident operation middleware
+func (siw *ServerInterfaceWrapper) GetIncident(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IncidentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetIncident(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateIncident operation middleware
+func (siw *ServerInterfaceWrapper) UpdateIncident(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IncidentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateIncident(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostIncidentUpdate operation middleware
+func (siw *ServerInterfaceWrapper) PostIncidentUpdate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IncidentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostIncidentUpdate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AcceptInvitation operation middleware
 func (siw *ServerInterfaceWrapper) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 
@@ -10024,6 +10389,20 @@ func (siw *ServerInterfaceWrapper) GetOrgUsage(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOrgUsage(w, r, org, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPoolerHosts operation middleware
+func (siw *ServerInterfaceWrapper) GetPoolerHosts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPoolerHosts(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13384,6 +13763,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/alerts", wrapper.ListAlerts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/incidents", wrapper.ListIncidents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/incidents", wrapper.CreateIncident)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/incidents/{id}", wrapper.GetIncident)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/incidents/{id}", wrapper.UpdateIncident)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/incidents/{id}/updates", wrapper.PostIncidentUpdate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pooler-hosts", wrapper.GetPoolerHosts)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/settings/alerts", wrapper.GetAlertSettings)

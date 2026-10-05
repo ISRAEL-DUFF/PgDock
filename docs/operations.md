@@ -17,6 +17,8 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
   | Node unreachable | critical | A node's agent has not answered for 2+ minutes |
   | Project disk | warning | A project is larger than its disk warning (Project Settings → Database) |
   | Pooler down | critical | A PgBouncer's admin console does not answer |
+  | Pooler host not ready | critical | An edge pooler host can't serve or is stale ([standby edge pooler](edge-poolers.md)) |
+  | Pooler split brain | critical | Both edge pooler hosts say keepalived made them MASTER |
   | Isolation check | critical | The nightly tenant-isolation check found a problem |
 
 - **Operations** shows every long action with its step log.

@@ -205,7 +205,7 @@ func advance(t track, state, detail string, now time.Time, failAfter, recoverAft
 
 // impact is how an open incident shows on its components.
 func impact(severity string) string {
-	if severity == "minor" {
+	if severity == "minor" || severity == "maintenance" {
 		return statusapi.Degraded
 	}
 	return statusapi.Down

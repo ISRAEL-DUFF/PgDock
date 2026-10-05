@@ -1905,6 +1905,112 @@ paths:
                 $ref: "#/components/schemas/AlertList"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/incidents:
+    get:
+      operationId: listIncidents
+      summary: Incidents for the status page, open first (V3 §2.6)
+      tags: [incidents]
+      responses:
+        "200":
+          description: Incidents and the status page connection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createIncident
+      summary: Open an incident; it is pushed to the status page
+      tags: [incidents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIncidentRequest"
+      responses:
+        "201":
+          description: The incident.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/incidents/{id}:
+    get:
+      operationId: getIncident
+      summary: An incident and its updates
+      tags: [incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentID"
+      responses:
+        "200":
+          description: The incident.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateIncident
+      summary: Change an incident's title, components or severity
+      tags: [incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIncidentRequest"
+      responses:
+        "200":
+          description: The incident.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/incidents/{id}/updates:
+    post:
+      operationId: postIncidentUpdate
+      summary: Post an update; its status becomes the incident's
+      tags: [incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncidentUpdateRequest"
+      responses:
+        "201":
+          description: The incident with the new update.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/pooler-hosts:
+    get:
+      operationId: getPoolerHosts
+      summary: The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+      tags: [nodes]
+      responses:
+        "200":
+          description: The arbiter's latest check and events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolerHosts"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/settings/alerts:
     get:
       operationId: getAlertSettings
@@ -4294,6 +4400,13 @@ components:
         items:
           type: string
     BackupID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IncidentID:
       name: id
       in: path
       required: true
@@ -7179,6 +7292,212 @@ components:
         critical:
           type: integer
           format: int64
+    IncidentSeverity:
+      type: string
+      enum: [minor, major, critical, maintenance]
+    IncidentStatus:
+      type: string
+      enum: [investigating, identified, monitoring, resolved]
+    Incident:
+      type: object
+      required: [id, title, components, severity, status, started_at, updated_at, updates]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        components:
+          type: array
+          items:
+            type: string
+        region:
+          type: string
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        started_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        pushed_at:
+          type: string
+          format: date-time
+          description: When the status page last took this version; unset while a push is due.
+        push_error:
+          type: string
+        updates:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncidentUpdate"
+    IncidentUpdate:
+      type: object
+      required: [id, status, body, posted_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        body:
+          type: string
+        posted_at:
+          type: string
+          format: date-time
+        posted_by:
+          type: string
+          description: The poster's email.
+    IncidentList:
+      type: object
+      required: [items, components, status_page_configured]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+        components:
+          type: array
+          description: Status page components an incident can name.
+          items:
+            type: string
+        status_page_configured:
+          type: boolean
+        status_page_url:
+          type: string
+    CreateIncidentRequest:
+      type: object
+      required: [title, components, severity, status, body]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        components:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        region:
+          type: string
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+    UpdateIncidentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        components:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+    IncidentUpdateRequest:
+      type: object
+      required: [status, body]
+      properties:
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+    PoolerHost:
+      type: object
+      required: [id, name, server_id, reachable, ready, stale, vrrp_state, generation, holder]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        private_addr:
+          type: string
+        server_id:
+          type: string
+        reachable:
+          type: boolean
+        ready:
+          type: boolean
+        stale:
+          type: boolean
+        vrrp_state:
+          type: string
+          description: keepalived's state (MASTER, BACKUP, FAULT, STOP), empty before it reports.
+        generation:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        holder:
+          type: boolean
+          description: The floating IP routes to this host.
+    PoolerEvent:
+      type: object
+      required: [id, kind, created_at, detail]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [took_ip, reassigned, split_brain, stale, push_failed, recovered]
+        host:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        detail:
+          type: object
+          additionalProperties: true
+    PoolerHosts:
+      type: object
+      required: [enabled, generation, hosts, manages_ip, split_brain, no_healthy, events]
+      properties:
+        enabled:
+          type: boolean
+          description: Pooler hosts are configured (the arbiter runs).
+        checked_at:
+          type: string
+          format: date-time
+        generation:
+          type: integer
+          format: int64
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolerHost"
+        manages_ip:
+          type: boolean
+        holder_server_id:
+          type: string
+        holder_name:
+          type: string
+        holder_error:
+          type: string
+        split_brain:
+          type: boolean
+        no_healthy:
+          type: boolean
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolerEvent"
     AlertSmtp:
       type: object
       required: [host, port, from, to, tls, has_password]

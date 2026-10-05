@@ -630,6 +630,54 @@ func (e ImportPreflightRoleReferencesKind) Valid() bool {
 	}
 }
 
+// Defines values for IncidentSeverity.
+const (
+	IncidentSeverityCritical    IncidentSeverity = "critical"
+	IncidentSeverityMaintenance IncidentSeverity = "maintenance"
+	IncidentSeverityMajor       IncidentSeverity = "major"
+	IncidentSeverityMinor       IncidentSeverity = "minor"
+)
+
+// Valid indicates whether the value is a known member of the IncidentSeverity enum.
+func (e IncidentSeverity) Valid() bool {
+	switch e {
+	case IncidentSeverityCritical:
+		return true
+	case IncidentSeverityMaintenance:
+		return true
+	case IncidentSeverityMajor:
+		return true
+	case IncidentSeverityMinor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentStatus.
+const (
+	IncidentStatusIdentified    IncidentStatus = "identified"
+	IncidentStatusInvestigating IncidentStatus = "investigating"
+	IncidentStatusMonitoring    IncidentStatus = "monitoring"
+	IncidentStatusResolved      IncidentStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IncidentStatus enum.
+func (e IncidentStatus) Valid() bool {
+	switch e {
+	case IncidentStatusIdentified:
+		return true
+	case IncidentStatusInvestigating:
+		return true
+	case IncidentStatusMonitoring:
+		return true
+	case IncidentStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceActionRequestAction.
 const (
 	Restart InstanceActionRequestAction = "restart"
@@ -1023,6 +1071,36 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	case PersonalCredentialsInfoAccessReadOnly:
 		return true
 	case PersonalCredentialsInfoAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PoolerEventKind.
+const (
+	PushFailed PoolerEventKind = "push_failed"
+	Reassigned PoolerEventKind = "reassigned"
+	Recovered  PoolerEventKind = "recovered"
+	SplitBrain PoolerEventKind = "split_brain"
+	Stale      PoolerEventKind = "stale"
+	TookIp     PoolerEventKind = "took_ip"
+)
+
+// Valid indicates whether the value is a known member of the PoolerEventKind enum.
+func (e PoolerEventKind) Valid() bool {
+	switch e {
+	case PushFailed:
+		return true
+	case Reassigned:
+		return true
+	case Recovered:
+		return true
+	case SplitBrain:
+		return true
+	case Stale:
+		return true
+	case TookIp:
 		return true
 	default:
 		return false
@@ -2490,6 +2568,16 @@ type ConnectionInfo struct {
 	User string `json:"user"`
 }
 
+// CreateIncidentRequest defines model for CreateIncidentRequest.
+type CreateIncidentRequest struct {
+	Body       string           `json:"body"`
+	Components []string         `json:"components"`
+	Region     *string          `json:"region,omitempty"`
+	Severity   IncidentSeverity `json:"severity"`
+	Status     IncidentStatus   `json:"status"`
+	Title      string           `json:"title"`
+}
+
 // CreateNodeRequest defines model for CreateNodeRequest.
 type CreateNodeRequest struct {
 	// Name Example: node-b
@@ -2943,6 +3031,56 @@ type ImportRequest struct {
 type ImportSource struct {
 	// SourceUrl Example: postgresql://postgres:secret@db.abcd.supabase.co:5432/postgres
 	SourceUrl string `json:"source_url"`
+}
+
+// Incident defines model for Incident.
+type Incident struct {
+	Components []string           `json:"components"`
+	Id         openapi_types.UUID `json:"id"`
+	PushError  *string            `json:"push_error,omitempty"`
+
+	// PushedAt When the status page last took this version; unset while a push is due.
+	PushedAt   *time.Time       `json:"pushed_at,omitempty"`
+	Region     *string          `json:"region,omitempty"`
+	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
+	Severity   IncidentSeverity `json:"severity"`
+	StartedAt  time.Time        `json:"started_at"`
+	Status     IncidentStatus   `json:"status"`
+	Title      string           `json:"title"`
+	UpdatedAt  time.Time        `json:"updated_at"`
+	Updates    []IncidentUpdate `json:"updates"`
+}
+
+// IncidentList defines model for IncidentList.
+type IncidentList struct {
+	// Components Status page components an incident can name.
+	Components           []string   `json:"components"`
+	Items                []Incident `json:"items"`
+	StatusPageConfigured bool       `json:"status_page_configured"`
+	StatusPageUrl        *string    `json:"status_page_url,omitempty"`
+}
+
+// IncidentSeverity defines model for IncidentSeverity.
+type IncidentSeverity string
+
+// IncidentStatus defines model for IncidentStatus.
+type IncidentStatus string
+
+// IncidentUpdate defines model for IncidentUpdate.
+type IncidentUpdate struct {
+	Body     string    `json:"body"`
+	Id       int64     `json:"id"`
+	PostedAt time.Time `json:"posted_at"`
+
+	// PostedBy The poster's email.
+	PostedBy *string        `json:"posted_by,omitempty"`
+	Status   IncidentStatus `json:"status"`
+}
+
+// IncidentUpdateRequest defines model for IncidentUpdateRequest.
+type IncidentUpdateRequest struct {
+	Body   string         `json:"body"`
+	Status IncidentStatus `json:"status"`
 }
 
 // InstanceActionRequest defines model for InstanceActionRequest.
@@ -3514,6 +3652,54 @@ type PlatformUsageRow struct {
 	OrgId    openapi_types.UUID `json:"org_id"`
 	OrgName  string             `json:"org_name"`
 	Quantity float32            `json:"quantity"`
+}
+
+// PoolerEvent defines model for PoolerEvent.
+type PoolerEvent struct {
+	CreatedAt time.Time              `json:"created_at"`
+	Detail    map[string]interface{} `json:"detail"`
+	Host      *string                `json:"host,omitempty"`
+	Id        int64                  `json:"id"`
+	Kind      PoolerEventKind        `json:"kind"`
+}
+
+// PoolerEventKind defines model for PoolerEvent.Kind.
+type PoolerEventKind string
+
+// PoolerHost defines model for PoolerHost.
+type PoolerHost struct {
+	Generation int64 `json:"generation"`
+
+	// Holder The floating IP routes to this host.
+	Holder      bool               `json:"holder"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	PrivateAddr *string            `json:"private_addr,omitempty"`
+	Reachable   bool               `json:"reachable"`
+	Ready       bool               `json:"ready"`
+	Reason      *string            `json:"reason,omitempty"`
+	ServerId    string             `json:"server_id"`
+	Stale       bool               `json:"stale"`
+
+	// VrrpState keepalived's state (MASTER, BACKUP, FAULT, STOP), empty before it reports.
+	VrrpState string `json:"vrrp_state"`
+}
+
+// PoolerHosts defines model for PoolerHosts.
+type PoolerHosts struct {
+	CheckedAt *time.Time `json:"checked_at,omitempty"`
+
+	// Enabled Pooler hosts are configured (the arbiter runs).
+	Enabled        bool          `json:"enabled"`
+	Events         []PoolerEvent `json:"events"`
+	Generation     int64         `json:"generation"`
+	HolderError    *string       `json:"holder_error,omitempty"`
+	HolderName     *string       `json:"holder_name,omitempty"`
+	HolderServerId *string       `json:"holder_server_id,omitempty"`
+	Hosts          []PoolerHost  `json:"hosts"`
+	ManagesIp      bool          `json:"manages_ip"`
+	NoHealthy      bool          `json:"no_healthy"`
+	SplitBrain     bool          `json:"split_brain"`
 }
 
 // Profile defines model for Profile.
@@ -4533,6 +4719,13 @@ type TransferProjectRequest struct {
 	OrgId openapi_types.UUID `json:"org_id"`
 }
 
+// UpdateIncidentRequest defines model for UpdateIncidentRequest.
+type UpdateIncidentRequest struct {
+	Components *[]string         `json:"components,omitempty"`
+	Severity   *IncidentSeverity `json:"severity,omitempty"`
+	Title      *string           `json:"title,omitempty"`
+}
+
 // UpdateMeRequest defines model for UpdateMeRequest.
 type UpdateMeRequest struct {
 	Name *string `json:"name,omitempty"`
@@ -4800,6 +4993,9 @@ type AuditTarget = string
 
 // BackupID defines model for BackupID.
 type BackupID = openapi_types.UUID
+
+// IncidentID defines model for IncidentID.
+type IncidentID = openapi_types.UUID
 
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
@@ -5217,6 +5413,15 @@ type CreateImportJSONRequestBody = ImportRequest
 
 // ImportPreflightJSONRequestBody defines body for ImportPreflight for application/json ContentType.
 type ImportPreflightJSONRequestBody = ImportSource
+
+// CreateIncidentJSONRequestBody defines body for CreateIncident for application/json ContentType.
+type CreateIncidentJSONRequestBody = CreateIncidentRequest
+
+// UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
+type UpdateIncidentJSONRequestBody = UpdateIncidentRequest
+
+// PostIncidentUpdateJSONRequestBody defines body for PostIncidentUpdate for application/json ContentType.
+type PostIncidentUpdateJSONRequestBody = IncidentUpdateRequest
 
 // AcceptInvitationJSONRequestBody defines body for AcceptInvitation for application/json ContentType.
 type AcceptInvitationJSONRequestBody = AcceptInvitationRequest
@@ -6151,6 +6356,58 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/imports/preflight (the `ImportPreflight` operationId).
 	ImportPreflight(ctx context.Context, body ImportPreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListIncidents Incidents for the status page, open first (V3 §2.6)
+	//
+	// Corresponds with GET /api/v1/incidents (the `ListIncidents` operationId).
+	ListIncidents(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIncidentWithBody Open an incident; it is pushed to the status page
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+	CreateIncidentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIncident Open an incident; it is pushed to the status page
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+	CreateIncident(ctx context.Context, body CreateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIncident An incident and its updates
+	//
+	// Corresponds with GET /api/v1/incidents/{id} (the `GetIncident` operationId).
+	GetIncident(ctx context.Context, id IncidentID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateIncidentWithBody Change an incident's title, components or severity
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+	UpdateIncidentWithBody(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateIncident Change an incident's title, components or severity
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+	UpdateIncident(ctx context.Context, id IncidentID, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostIncidentUpdateWithBody Post an update; its status becomes the incident's
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+	PostIncidentUpdateWithBody(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostIncidentUpdate Post an update; its status becomes the incident's
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+	PostIncidentUpdate(ctx context.Context, id IncidentID, body PostIncidentUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// AcceptInvitationWithBody Accept an invitation link (public, token-gated)
 	//
 	// Signed in, accepts for the current account (which must have the
@@ -6571,6 +6828,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/usage (the `GetOrgUsage` operationId).
 	GetOrgUsage(ctx context.Context, org OrgID, params *GetOrgUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+	//
+	// Corresponds with GET /api/v1/pooler-hosts (the `GetPoolerHosts` operationId).
+	GetPoolerHosts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProfiles Dedicated instance sizes
 	//
@@ -9328,6 +9590,138 @@ func (c *Client) ImportPreflight(ctx context.Context, body ImportPreflightJSONRe
 	return c.Client.Do(req)
 }
 
+// ListIncidents Incidents for the status page, open first (V3 §2.6)
+//
+// Corresponds with GET /api/v1/incidents (the `ListIncidents` operationId).
+func (c *Client) ListIncidents(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIncidentsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateIncidentWithBody Open an incident; it is pushed to the status page
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+func (c *Client) CreateIncidentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIncidentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateIncident Open an incident; it is pushed to the status page
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+func (c *Client) CreateIncident(ctx context.Context, body CreateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIncidentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetIncident An incident and its updates
+//
+// Corresponds with GET /api/v1/incidents/{id} (the `GetIncident` operationId).
+func (c *Client) GetIncident(ctx context.Context, id IncidentID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIncidentRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateIncidentWithBody Change an incident's title, components or severity
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+func (c *Client) UpdateIncidentWithBody(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIncidentRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateIncident Change an incident's title, components or severity
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+func (c *Client) UpdateIncident(ctx context.Context, id IncidentID, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIncidentRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostIncidentUpdateWithBody Post an update; its status becomes the incident's
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+func (c *Client) PostIncidentUpdateWithBody(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostIncidentUpdateRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostIncidentUpdate Post an update; its status becomes the incident's
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+func (c *Client) PostIncidentUpdate(ctx context.Context, id IncidentID, body PostIncidentUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostIncidentUpdateRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // AcceptInvitationWithBody Accept an invitation link (public, token-gated)
 //
 // Signed in, accepts for the current account (which must have the
@@ -10389,6 +10783,21 @@ func (c *Client) TransferOrgOwnership(ctx context.Context, org OrgID, body Trans
 // Corresponds with GET /api/v1/orgs/{org}/usage (the `GetOrgUsage` operationId).
 func (c *Client) GetOrgUsage(ctx context.Context, org OrgID, params *GetOrgUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOrgUsageRequest(c.Server, org, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+//
+// Corresponds with GET /api/v1/pooler-hosts (the `GetPoolerHosts` operationId).
+func (c *Client) GetPoolerHosts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPoolerHostsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -15464,6 +15873,201 @@ func NewImportPreflightRequestWithBody(server string, contentType string, body i
 	return req, nil
 }
 
+// NewListIncidentsRequest constructs an http.Request for the ListIncidents method
+func NewListIncidentsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/incidents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateIncidentRequest calls the generic CreateIncident builder with application/json body
+func NewCreateIncidentRequest(server string, body CreateIncidentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateIncidentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateIncidentRequestWithBody constructs an http.Request for the CreateIncident method, with any body, and a specified content type
+func NewCreateIncidentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/incidents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetIncidentRequest constructs an http.Request for the GetIncident method
+func NewGetIncidentRequest(server string, id IncidentID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/incidents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateIncidentRequest calls the generic UpdateIncident builder with application/json body
+func NewUpdateIncidentRequest(server string, id IncidentID, body UpdateIncidentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateIncidentRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateIncidentRequestWithBody constructs an http.Request for the UpdateIncident method, with any body, and a specified content type
+func NewUpdateIncidentRequestWithBody(server string, id IncidentID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/incidents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostIncidentUpdateRequest calls the generic PostIncidentUpdate builder with application/json body
+func NewPostIncidentUpdateRequest(server string, id IncidentID, body PostIncidentUpdateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostIncidentUpdateRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPostIncidentUpdateRequestWithBody constructs an http.Request for the PostIncidentUpdate method, with any body, and a specified content type
+func NewPostIncidentUpdateRequestWithBody(server string, id IncidentID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/incidents/%s/updates", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewAcceptInvitationRequest calls the generic AcceptInvitation builder with application/json body
 func NewAcceptInvitationRequest(server string, body AcceptInvitationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -17570,6 +18174,33 @@ func NewGetOrgUsageRequest(server string, org OrgID, params *GetOrgUsageParams) 
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
 		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPoolerHostsRequest constructs an http.Request for the GetPoolerHosts method
+func NewGetPoolerHostsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/pooler-hosts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -22852,6 +23483,62 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/imports/preflight (the `ImportPreflight` operationId).
 	ImportPreflightWithResponse(ctx context.Context, body ImportPreflightJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportPreflightResponse, error)
 
+	// ListIncidentsWithResponse Incidents for the status page, open first (V3 §2.6)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/incidents (the `ListIncidents` operationId).
+	ListIncidentsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIncidentsResponse, error)
+
+	// CreateIncidentWithBodyWithResponse Open an incident; it is pushed to the status page
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+	CreateIncidentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIncidentResponse, error)
+
+	// CreateIncidentWithResponse Open an incident; it is pushed to the status page
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+	CreateIncidentWithResponse(ctx context.Context, body CreateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIncidentResponse, error)
+
+	// GetIncidentWithResponse An incident and its updates
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/incidents/{id} (the `GetIncident` operationId).
+	GetIncidentWithResponse(ctx context.Context, id IncidentID, reqEditors ...RequestEditorFn) (*GetIncidentResponse, error)
+
+	// UpdateIncidentWithBodyWithResponse Change an incident's title, components or severity
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+	UpdateIncidentWithBodyWithResponse(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIncidentResponse, error)
+
+	// UpdateIncidentWithResponse Change an incident's title, components or severity
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+	UpdateIncidentWithResponse(ctx context.Context, id IncidentID, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIncidentResponse, error)
+
+	// PostIncidentUpdateWithBodyWithResponse Post an update; its status becomes the incident's
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+	PostIncidentUpdateWithBodyWithResponse(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIncidentUpdateResponse, error)
+
+	// PostIncidentUpdateWithResponse Post an update; its status becomes the incident's
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+	PostIncidentUpdateWithResponse(ctx context.Context, id IncidentID, body PostIncidentUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*PostIncidentUpdateResponse, error)
+
 	// AcceptInvitationWithBodyWithResponse Accept an invitation link (public, token-gated)
 	//
 	// Signed in, accepts for the current account (which must have the
@@ -23338,6 +24025,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/usage (the `GetOrgUsage` operationId).
 	GetOrgUsageWithResponse(ctx context.Context, org OrgID, params *GetOrgUsageParams, reqEditors ...RequestEditorFn) (*GetOrgUsageResponse, error)
+
+	// GetPoolerHostsWithResponse The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/pooler-hosts (the `GetPoolerHosts` operationId).
+	GetPoolerHostsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPoolerHostsResponse, error)
 
 	// ListProfilesWithResponse Dedicated instance sizes
 	//
@@ -27315,6 +28009,246 @@ func (r ImportPreflightResponse) ContentType() string {
 	return ""
 }
 
+type ListIncidentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *IncidentList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListIncidentsResponse) GetJSON200() *IncidentList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListIncidentsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListIncidentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIncidentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIncidentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListIncidentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateIncidentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Incident
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateIncidentResponse) GetJSON201() *Incident {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateIncidentResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateIncidentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateIncidentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateIncidentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateIncidentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetIncidentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Incident
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetIncidentResponse) GetJSON200() *Incident {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetIncidentResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetIncidentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIncidentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIncidentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetIncidentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateIncidentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Incident
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateIncidentResponse) GetJSON200() *Incident {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateIncidentResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateIncidentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateIncidentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateIncidentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateIncidentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostIncidentUpdateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Incident
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PostIncidentUpdateResponse) GetJSON201() *Incident {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PostIncidentUpdateResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PostIncidentUpdateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostIncidentUpdateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostIncidentUpdateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostIncidentUpdateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type AcceptInvitationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -29570,6 +30504,54 @@ func (r GetOrgUsageResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetOrgUsageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPoolerHostsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PoolerHosts
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPoolerHostsResponse) GetJSON200() *PoolerHosts {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetPoolerHostsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPoolerHostsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPoolerHostsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPoolerHostsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPoolerHostsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -35604,6 +36586,110 @@ func (c *ClientWithResponses) ImportPreflightWithResponse(ctx context.Context, b
 	return ParseImportPreflightResponse(rsp)
 }
 
+// ListIncidentsWithResponse Incidents for the status page, open first (V3 §2.6)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/incidents (the `ListIncidents` operationId).
+func (c *ClientWithResponses) ListIncidentsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIncidentsResponse, error) {
+	rsp, err := c.ListIncidents(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIncidentsResponse(rsp)
+}
+
+// CreateIncidentWithBodyWithResponse Open an incident; it is pushed to the status page
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+func (c *ClientWithResponses) CreateIncidentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIncidentResponse, error) {
+	rsp, err := c.CreateIncidentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIncidentResponse(rsp)
+}
+
+// CreateIncidentWithResponse Open an incident; it is pushed to the status page
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/incidents (the `CreateIncident` operationId).
+func (c *ClientWithResponses) CreateIncidentWithResponse(ctx context.Context, body CreateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIncidentResponse, error) {
+	rsp, err := c.CreateIncident(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIncidentResponse(rsp)
+}
+
+// GetIncidentWithResponse An incident and its updates
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/incidents/{id} (the `GetIncident` operationId).
+func (c *ClientWithResponses) GetIncidentWithResponse(ctx context.Context, id IncidentID, reqEditors ...RequestEditorFn) (*GetIncidentResponse, error) {
+	rsp, err := c.GetIncident(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIncidentResponse(rsp)
+}
+
+// UpdateIncidentWithBodyWithResponse Change an incident's title, components or severity
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+func (c *ClientWithResponses) UpdateIncidentWithBodyWithResponse(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIncidentResponse, error) {
+	rsp, err := c.UpdateIncidentWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIncidentResponse(rsp)
+}
+
+// UpdateIncidentWithResponse Change an incident's title, components or severity
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/incidents/{id} (the `UpdateIncident` operationId).
+func (c *ClientWithResponses) UpdateIncidentWithResponse(ctx context.Context, id IncidentID, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIncidentResponse, error) {
+	rsp, err := c.UpdateIncident(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIncidentResponse(rsp)
+}
+
+// PostIncidentUpdateWithBodyWithResponse Post an update; its status becomes the incident's
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+func (c *ClientWithResponses) PostIncidentUpdateWithBodyWithResponse(ctx context.Context, id IncidentID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIncidentUpdateResponse, error) {
+	rsp, err := c.PostIncidentUpdateWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostIncidentUpdateResponse(rsp)
+}
+
+// PostIncidentUpdateWithResponse Post an update; its status becomes the incident's
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/incidents/{id}/updates (the `PostIncidentUpdate` operationId).
+func (c *ClientWithResponses) PostIncidentUpdateWithResponse(ctx context.Context, id IncidentID, body PostIncidentUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*PostIncidentUpdateResponse, error) {
+	rsp, err := c.PostIncidentUpdate(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostIncidentUpdateResponse(rsp)
+}
+
 // AcceptInvitationWithBodyWithResponse Accept an invitation link (public, token-gated)
 //
 // Signed in, accepts for the current account (which must have the
@@ -36479,6 +37565,19 @@ func (c *ClientWithResponses) GetOrgUsageWithResponse(ctx context.Context, org O
 		return nil, err
 	}
 	return ParseGetOrgUsageResponse(rsp)
+}
+
+// GetPoolerHostsWithResponse The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/pooler-hosts (the `GetPoolerHosts` operationId).
+func (c *ClientWithResponses) GetPoolerHostsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPoolerHostsResponse, error) {
+	rsp, err := c.GetPoolerHosts(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPoolerHostsResponse(rsp)
 }
 
 // ListProfilesWithResponse Dedicated instance sizes
@@ -40471,6 +41570,171 @@ func ParseImportPreflightResponse(rsp *http.Response) (*ImportPreflightResponse,
 	return response, nil
 }
 
+// ParseListIncidentsResponse parses an HTTP response from a ListIncidentsWithResponse call
+func ParseListIncidentsResponse(rsp *http.Response) (*ListIncidentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIncidentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IncidentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateIncidentResponse parses an HTTP response from a CreateIncidentWithResponse call
+func ParseCreateIncidentResponse(rsp *http.Response) (*CreateIncidentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateIncidentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Incident
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetIncidentResponse parses an HTTP response from a GetIncidentWithResponse call
+func ParseGetIncidentResponse(rsp *http.Response) (*GetIncidentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIncidentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Incident
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateIncidentResponse parses an HTTP response from a UpdateIncidentWithResponse call
+func ParseUpdateIncidentResponse(rsp *http.Response) (*UpdateIncidentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateIncidentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Incident
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostIncidentUpdateResponse parses an HTTP response from a PostIncidentUpdateWithResponse call
+func ParsePostIncidentUpdateResponse(rsp *http.Response) (*PostIncidentUpdateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostIncidentUpdateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Incident
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseAcceptInvitationResponse parses an HTTP response from a AcceptInvitationWithResponse call
 func ParseAcceptInvitationResponse(rsp *http.Response) (*AcceptInvitationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -42033,6 +43297,39 @@ func ParseGetOrgUsageResponse(rsp *http.Response) (*GetOrgUsageResponse, error) 
 
 	case rsp.StatusCode == 200:
 		// Content-type (text/csv) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPoolerHostsResponse parses an HTTP response from a GetPoolerHostsWithResponse call
+func ParseGetPoolerHostsResponse(rsp *http.Response) (*GetPoolerHostsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPoolerHostsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PoolerHosts
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 

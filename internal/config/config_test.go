@@ -209,3 +209,29 @@ func TestInsightConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestStatusConfig(t *testing.T) {
+	cfg, err := load(env(nil), noFiles)
+	if err != nil || cfg.Status.URL != "" {
+		t.Fatalf("status defaults: %+v %v", cfg.Status, err)
+	}
+	secret := strings.Repeat("s", 32)
+	cfg, err = load(env(map[string]string{
+		"PGDOCK_STATUS_URL": "https://status.example.com/", "PGDOCK_STATUS_PUSH_SECRET": secret,
+		"PGDOCK_STATUS_COMPONENTS": "dashboard, edge-pooler,,backups", "PGDOCK_STATUS_REGION": "eu-central",
+	}), noFiles)
+	if err != nil || cfg.Status.URL != "https://status.example.com" || cfg.Status.PushSecret != secret ||
+		strings.Join(cfg.Status.Components, "|") != "dashboard|edge-pooler|backups" || cfg.Status.Region != "eu-central" {
+		t.Fatalf("status: %+v %v", cfg.Status, err)
+	}
+	for name, m := range map[string]map[string]string{
+		"no secret":    {"PGDOCK_STATUS_URL": "https://status.example.com"},
+		"short secret": {"PGDOCK_STATUS_URL": "https://status.example.com", "PGDOCK_STATUS_PUSH_SECRET": "short"},
+		"bad url":      {"PGDOCK_STATUS_URL": "status.example.com", "PGDOCK_STATUS_PUSH_SECRET": secret},
+		"both":         {"PGDOCK_STATUS_PUSH_SECRET": secret, "PGDOCK_STATUS_PUSH_SECRET_FILE": "/x"},
+	} {
+		if _, err := load(env(m), noFiles); err == nil || !strings.Contains(err.Error(), "PGDOCK_STATUS") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}

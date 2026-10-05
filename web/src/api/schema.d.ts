@@ -1413,6 +1413,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Incidents for the status page, open first (V3 §2.6) */
+        get: operations["listIncidents"];
+        put?: never;
+        /** Open an incident; it is pushed to the status page */
+        post: operations["createIncident"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An incident and its updates */
+        get: operations["getIncident"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change an incident's title, components or severity */
+        patch: operations["updateIncident"];
+        trace?: never;
+    };
+    "/api/v1/incidents/{id}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post an update; its status becomes the incident's */
+        post: operations["postIncidentUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pooler-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1) */
+        get: operations["getPoolerHosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/alerts": {
         parameters: {
             query?: never;
@@ -4609,6 +4679,111 @@ export interface components {
             /** Format: int64 */
             critical: number;
         };
+        /** @enum {string} */
+        IncidentSeverity: "minor" | "major" | "critical" | "maintenance";
+        /** @enum {string} */
+        IncidentStatus: "investigating" | "identified" | "monitoring" | "resolved";
+        Incident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            components: string[];
+            region?: string;
+            severity: components["schemas"]["IncidentSeverity"];
+            status: components["schemas"]["IncidentStatus"];
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            resolved_at?: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * Format: date-time
+             * @description When the status page last took this version; unset while a push is due.
+             */
+            pushed_at?: string;
+            push_error?: string;
+            updates: components["schemas"]["IncidentUpdate"][];
+        };
+        IncidentUpdate: {
+            /** Format: int64 */
+            id: number;
+            status: components["schemas"]["IncidentStatus"];
+            body: string;
+            /** Format: date-time */
+            posted_at: string;
+            /** @description The poster's email. */
+            posted_by?: string;
+        };
+        IncidentList: {
+            items: components["schemas"]["Incident"][];
+            /** @description Status page components an incident can name. */
+            components: string[];
+            status_page_configured: boolean;
+            status_page_url?: string;
+        };
+        CreateIncidentRequest: {
+            title: string;
+            components: string[];
+            region?: string;
+            severity: components["schemas"]["IncidentSeverity"];
+            status: components["schemas"]["IncidentStatus"];
+            body: string;
+        };
+        UpdateIncidentRequest: {
+            title?: string;
+            components?: string[];
+            severity?: components["schemas"]["IncidentSeverity"];
+        };
+        IncidentUpdateRequest: {
+            status: components["schemas"]["IncidentStatus"];
+            body: string;
+        };
+        PoolerHost: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            private_addr?: string;
+            server_id: string;
+            reachable: boolean;
+            ready: boolean;
+            stale: boolean;
+            /** @description keepalived's state (MASTER, BACKUP, FAULT, STOP), empty before it reports. */
+            vrrp_state: string;
+            /** Format: int64 */
+            generation: number;
+            reason?: string;
+            /** @description The floating IP routes to this host. */
+            holder: boolean;
+        };
+        PoolerEvent: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "took_ip" | "reassigned" | "split_brain" | "stale" | "push_failed" | "recovered";
+            host?: string;
+            /** Format: date-time */
+            created_at: string;
+            detail: {
+                [key: string]: unknown;
+            };
+        };
+        PoolerHosts: {
+            /** @description Pooler hosts are configured (the arbiter runs). */
+            enabled: boolean;
+            /** Format: date-time */
+            checked_at?: string;
+            /** Format: int64 */
+            generation: number;
+            hosts: components["schemas"]["PoolerHost"][];
+            manages_ip: boolean;
+            holder_server_id?: string;
+            holder_name?: string;
+            holder_error?: string;
+            split_brain: boolean;
+            no_healthy: boolean;
+            events: components["schemas"]["PoolerEvent"][];
+        };
         AlertSmtp: {
             host: string;
             port: number;
@@ -5392,6 +5567,7 @@ export interface components {
         /** @description Metrics to return; all when omitted. */
         MetricNames: string[];
         BackupID: string;
+        IncidentID: string;
         NodeID: string;
         ProjectID: string;
         OperationID: string;
@@ -7593,6 +7769,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AlertList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listIncidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Incidents and the status page connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIncidentRequest"];
+            };
+        };
+        responses: {
+            /** @description The incident. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IncidentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The incident. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IncidentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIncidentRequest"];
+            };
+        };
+        responses: {
+            /** @description The incident. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    postIncidentUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IncidentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The incident with the new update. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPoolerHosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The arbiter's latest check and events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolerHosts"];
                 };
             };
             default: components["responses"]["Error"];

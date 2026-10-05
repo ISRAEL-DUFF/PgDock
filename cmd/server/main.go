@@ -36,6 +36,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/floatip"
+	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/logging"
@@ -280,6 +281,17 @@ func run() error {
 		}
 	}
 
+	// The status page (V3 §2.6): incidents, and heartbeats for what
+	// pgdock-status can't probe from outside.
+	incidentSvc := incidents.New(pool, incidents.Config{
+		URL: cfg.Status.URL, Secret: cfg.Status.PushSecret, Components: cfg.Status.Components, Region: cfg.Status.Region,
+	}, log)
+	if cfg.Status.URL != "" {
+		log.Info("pushing heartbeats and incidents to the status page", "url", cfg.Status.URL)
+		bg.Add(1)
+		go func() { defer bg.Done(); incidentSvc.Run(bgCtx, time.Minute) }()
+	}
+
 	notifier := jobs.NewNotifier(pool, log)
 	runner := jobs.NewRunner(pool, notifier, log, jobs.RunnerConfig{Concurrency: cfg.Workers}, kinds)
 	bg.Add(2)
@@ -329,6 +341,8 @@ func run() error {
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,
+		Incidents:       incidentSvc,
+		PoolerArbiter:   poolerArbiter,
 		Tokens:          tokenSvc,
 		PublicURL:       cfg.Insight.PublicURL,
 		MetricsInterval: cfg.Insight.MetricsInterval,

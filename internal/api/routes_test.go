@@ -546,6 +546,10 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/storage-targets", "POST /api/v1/admin/storage-targets",
 		"GET /api/v1/admin/storage-targets/{target_id}", "PATCH /api/v1/admin/storage-targets/{target_id}",
 		"DELETE /api/v1/admin/storage-targets/{target_id}",
+		// V3 §2.6 "manually by the platform admin. Updates are posted from
+		// the admin console"; §2.1 the pooler hosts are platform infrastructure.
+		"GET /api/v1/incidents", "POST /api/v1/incidents", "GET /api/v1/incidents/{id}",
+		"PATCH /api/v1/incidents/{id}", "POST /api/v1/incidents/{id}/updates", "GET /api/v1/pooler-hosts",
 	},
 }
 

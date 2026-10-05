@@ -22,12 +22,14 @@ import (
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/console"
+	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/outbound"
+	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
@@ -68,6 +70,8 @@ type Server struct {
 	webhooks  *webhooks.Service
 	jobs      *schedjobs.Service
 	outbound  *outbound.Service
+	incidents *incidents.Service
+	arbiter   *pooler.Arbiter
 
 	tokenLimit    *auth.Limiter
 	orgTokenLimit *auth.Limiter
@@ -135,6 +139,10 @@ type Options struct {
 	Webhooks *webhooks.Service
 	Jobs     *schedjobs.Service
 	Outbound *outbound.Service
+	// Incidents backs Admin → Incidents and the status page pushes
+	// (V3 §2.6); PoolerArbiter reports the edge pooler hosts (V3 §2.1).
+	Incidents     *incidents.Service
+	PoolerArbiter *pooler.Arbiter
 	// Tokens issues and checks API tokens and device logins; nil disables
 	// bearer authentication. TokenRate and OrgTokenRate are requests per
 	// minute per token and per organisation's tokens (defaults 600, 1200).
@@ -159,7 +167,7 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches,
 		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,

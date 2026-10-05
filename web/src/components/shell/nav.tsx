@@ -8,6 +8,7 @@ import {
   Gauge,
   House,
   Inbox,
+  Megaphone,
   ScrollText,
   Server,
   Settings,
@@ -243,6 +244,13 @@ export function platformRail(): RailItem[] {
       to: "/alerts",
       match: ["/alerts"],
       divider: true,
+    },
+    {
+      key: "incidents",
+      label: "Incidents",
+      icon: Megaphone,
+      to: "/admin/incidents",
+      match: ["/admin/incidents"],
     },
     {
       key: "platform-audit",

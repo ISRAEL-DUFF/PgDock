@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net"
@@ -9,6 +10,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,8 +21,10 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/floatip"
+	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/pooler"
+	"github.com/israel-duff/pgdock/internal/statusapi"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
@@ -186,6 +191,15 @@ func TestPoolerHostFailover(t *testing.T) {
 	}
 	t.Logf("active %s, standby %s", active.name, standby.name)
 
+	// pgdock-status, outside the dev network, probing both ports through
+	// the shared address as an outside prober would (V3 §2.6).
+	st := startStatusContainer(t, creds.Connection.SessionUrl, creds.Connection.PooledUrl, vip)
+	st.waitEdge(t, statusapi.Operational, false)
+	hb := incidents.New(e.DB, incidents.Config{URL: st.url, Secret: statusSecret}, log)
+	if err := hb.Heartbeat(ctx); err != nil {
+		t.Fatalf("heartbeat to the status container: %v", err)
+	}
+
 	// Kill the active host: no clean shutdown, as on a crashed machine.
 	start := time.Now()
 	if out, err := exec.Command("docker", "kill", active.container).CombinedOutput(); err != nil {
@@ -224,4 +238,158 @@ func TestPoolerHostFailover(t *testing.T) {
 	if snap := arb.Snapshot(); snap.HolderName != standby.name {
 		t.Fatalf("arbiter sees the floating IP on %q, want %s", snap.HolderName, standby.name)
 	}
+	if s := st.state(t, "backups"); s != statusapi.Operational {
+		t.Fatalf("backups on the status page after a heartbeat: %s", s)
+	}
+
+	// Now lose both hosts: the status page marks the edge pooler down and
+	// opens an incident by itself. Bringing one back resolves it.
+	st.waitEdge(t, statusapi.Operational, false)
+	if out, err := exec.Command("docker", "kill", standby.container).CombinedOutput(); err != nil {
+		t.Fatalf("kill %s: %v: %s", standby.container, err, out)
+	}
+	st.waitEdge(t, statusapi.Down, true)
+	for _, c := range []string{active.container, active.container + "-keepalived"} {
+		if out, err := exec.Command("docker", "restart", c).CombinedOutput(); err != nil {
+			t.Fatalf("restart %s: %v: %s", c, err, out)
+		}
+	}
+	st.waitEdge(t, statusapi.Operational, false)
+	var list struct {
+		Incidents []statusapi.Incident `json:"incidents"`
+	}
+	st.get(t, "/api/v1/incidents", &list)
+	resolved := 0
+	for _, in := range list.Incidents {
+		if in.Auto && in.ResolvedAt != nil && slices.Contains(in.Components, "edge-pooler") {
+			resolved++
+		}
+	}
+	if resolved == 0 {
+		t.Fatalf("no automatically resolved edge pooler incident: %+v", list.Incidents)
+	}
+}
+
+// statusContainer is pgdock-status in Docker, on the host's network.
+type statusContainer struct{ name, url string }
+
+func startStatusContainer(t *testing.T, sessionURL, pooledURL, vip string) *statusContainer {
+	t.Helper()
+	image := os.Getenv("PGDOCK_TEST_STATUS_IMAGE")
+	if image == "" {
+		t.Skip("PGDOCK_TEST_STATUS_IMAGE is not set (make status-image)")
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+	through := func(raw, port string) string {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		u.Host = net.JoinHostPort(vip, port)
+		return u.String()
+	}
+	cfg := `public_url = "http://` + addr + `"
+listen = "` + addr + `"
+interval = "1s"
+fail_after = 3
+recover_after = 2
+push_secret = "` + statusSecret + `"
+
+[[component]]
+id = "edge-pooler"
+name = "Edge pooler"
+  [[component.probe]]
+  name = "session port"
+  kind = "postgres"
+  dsn = "` + through(sessionURL, "5432") + `"
+  timeout = "2s"
+  [[component.probe]]
+  name = "transaction port"
+  kind = "postgres"
+  dsn = "` + through(pooledURL, "6543") + `"
+  timeout = "2s"
+
+[[component]]
+id = "backups"
+heartbeat = true
+`
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "status.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := &statusContainer{name: "pgdock-test-status", url: "http://" + addr}
+	_ = exec.Command("docker", "rm", "-f", "-v", c.name).Run()
+	out, err := exec.Command("docker", "run", "-d", "--name", c.name, "--network", "host",
+		"-e", "PGDOCK_STATUS_LOG_FORMAT=text", "-v", dir+":/etc/pgdock-status:ro", image).CombinedOutput()
+	if err != nil {
+		t.Fatalf("start pgdock-status: %v: %s", err, out)
+	}
+	t.Cleanup(func() {
+		if t.Failed() {
+			out, _ := exec.Command("docker", "logs", "--tail", "60", c.name).CombinedOutput()
+			t.Logf("pgdock-status:\n%s", out)
+		}
+		_ = exec.Command("docker", "rm", "-f", "-v", c.name).Run()
+	})
+	return c
+}
+
+func (c *statusContainer) get(t *testing.T, path string, v any) bool {
+	t.Helper()
+	resp, err := http.Get(c.url + path)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode == http.StatusOK && json.NewDecoder(resp.Body).Decode(v) == nil
+}
+
+func (c *statusContainer) state(t *testing.T, id string) string {
+	t.Helper()
+	var st struct {
+		Components []struct{ ID, Status string } `json:"components"`
+	}
+	c.get(t, "/api/v1/status", &st)
+	for _, x := range st.Components {
+		if x.ID == id {
+			return x.Status
+		}
+	}
+	return ""
+}
+
+// waitEdge waits for the edge pooler's state and whether an incident is
+// open for it.
+func (c *statusContainer) waitEdge(t *testing.T, want string, incident bool) {
+	t.Helper()
+	var last string
+	waitFor(t, 90*time.Second, "the status page to show the edge pooler "+want, func() bool {
+		var st struct {
+			Components []struct{ ID, Status string } `json:"components"`
+			Active     []statusapi.Incident          `json:"active_incidents"`
+		}
+		if !c.get(t, "/api/v1/status", &st) {
+			return false
+		}
+		open := false
+		for _, in := range st.Active {
+			open = open || (in.Auto && slices.Contains(in.Components, "edge-pooler"))
+		}
+		for _, x := range st.Components {
+			if x.ID == "edge-pooler" {
+				last = x.Status
+				return x.Status == want && open == incident
+			}
+		}
+		return false
+	})
+	t.Logf("status page: edge pooler %s (incident open: %v)", last, incident)
 }

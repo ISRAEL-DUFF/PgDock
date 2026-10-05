@@ -9,6 +9,7 @@ import { NotFound } from "./pages/NotFound";
 
 // Pages load on first visit; the shell and sign-in pages are in the main bundle.
 const AlertsPage = lazyRouteComponent(() => import("./pages/Alerts"), "AlertsPage");
+const IncidentsPage = lazyRouteComponent(() => import("./pages/Incidents"), "IncidentsPage");
 const AccountPage = lazyRouteComponent(() => import("./pages/Account"), "AccountPage");
 const DevicePage = lazyRouteComponent(() => import("./pages/Device"), "DevicePage");
 const AdminUsersPage = lazyRouteComponent(() => import("./pages/AdminUsers"), "AdminUsersPage");
@@ -158,6 +159,7 @@ const nodeDetail = createRoute({ getParentRoute: () => app, path: "/nodes/$id", 
 const operations = createRoute({ getParentRoute: () => app, path: "/operations", component: OperationsPage });
 const operation = createRoute({ getParentRoute: () => app, path: "/operations/$id", component: OperationDetailPage });
 const alertsRoute = createRoute({ getParentRoute: () => app, path: "/alerts", component: AlertsPage });
+const incidentsRoute = createRoute({ getParentRoute: () => app, path: "/admin/incidents", component: IncidentsPage });
 const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: AuditPage });
 const settings = createRoute({ getParentRoute: () => app, path: "/settings", component: SettingsPage });
 const orgUsage = createRoute({ getParentRoute: () => app, path: "/org/usage", component: UsagePage });
@@ -200,6 +202,7 @@ const routeTree = root.addChildren([
     operations,
     operation,
     alertsRoute,
+    incidentsRoute,
     audit,
     settings,
     orgUsage,

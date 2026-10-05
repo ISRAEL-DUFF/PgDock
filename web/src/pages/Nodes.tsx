@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { api, errorMessage, type Node, type NodeCreated } from "../api/client";
+import { api, errorMessage, type Node, type NodeCreated, type PoolerHosts } from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Badge, Button, Panel, CodeBlock, Field, Input, PageHeading, Select, StateBadge, Table, TableSkeleton, PageSkeleton } from "../components/ui";
@@ -9,7 +9,7 @@ import { formatBytes, formatDate, relativeTime } from "../lib/format";
 import { MetricCharts } from "../components/Metrics";
 import { nodeCharts } from "./ProjectMetrics";
 
-type Role = "shared" | "dedicated" | "both";
+type Role = "shared" | "dedicated" | "both" | "pooler";
 
 export function agentBadge(n: Node) {
   if (n.status === "removed") return <Badge>removed</Badge>;
@@ -63,6 +63,7 @@ export function NodesPage() {
         }
       />
       {adding && <AddNode onClose={() => setAdding(false)} />}
+      <PoolerHostsPanel />
       {q.isPending && <TableSkeleton cols={6} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
       {q.data && (
@@ -125,7 +126,18 @@ function AddNode({ onClose }: { onClose: () => void }) {
         </Button>
       }
     >
-      {created ? (
+      {created && created.node.role === "pooler" ? (
+        <div className="flex flex-col gap-3 text-sm">
+          <p>
+            On <strong>{created.node.name}</strong>, put this one-time token in <code className="font-mono">deploy/pooler-host/.env</code> as{" "}
+            <code className="font-mono">PGDOCK_AGENT_TOKEN</code> within 24 hours (until {formatDate(created.expires_at)}), with the host's private address as{" "}
+            <code className="font-mono">PGDOCK_AGENT_ADVERTISE</code>, then start the pooler host and its keepalived with{" "}
+            <code className="font-mono">docker compose up -d</code> (docs/edge-poolers.md).
+          </p>
+          <CodeBlock code={`PGDOCK_AGENT_TOKEN=${created.token}`} />
+          <p className="text-xs text-muted">It appears under Edge pooler hosts once its agent registers and takes the configuration.</p>
+        </div>
+      ) : created ? (
         <div className="flex flex-col gap-3 text-sm">
           <p>
             On <strong>{created.node.name}</strong>, with Docker installed and the <code className="font-mono">pgdock-agent</code> binary, run this within 24
@@ -149,6 +161,7 @@ function AddNode({ onClose }: { onClose: () => void }) {
                   <option value="dedicated">dedicated</option>
                   <option value="shared">shared</option>
                   <option value="both">both</option>
+                  <option value="pooler">pooler (edge pooler host)</option>
                 </Select>
               )}
             </Field>
@@ -161,6 +174,95 @@ function AddNode({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       )}
+    </Panel>
+  );
+}
+
+const eventLabel: Record<string, string> = {
+  took_ip: "Took the floating IP",
+  reassigned: "Floating IP moved by PGDock",
+  split_brain: "Split brain",
+  stale: "Configuration stale",
+  push_failed: "Push failed",
+  recovered: "Recovered",
+};
+
+function eventDetail(e: PoolerHosts["events"][number]) {
+  const d = e.detail as Record<string, unknown>;
+  if (e.kind === "reassigned") return `from ${String(d.from ?? "?")} to ${String(d.to ?? "?")}`;
+  if (e.kind === "push_failed") return String(d.error ?? "");
+  if (e.kind === "stale" || e.kind === "recovered") return String(d.reason ?? "");
+  if (e.kind === "took_ip") return d.vrrp_state ? `keepalived ${String(d.vrrp_state)}` : "";
+  return "";
+}
+
+/** The standby edge pooler (V3 §2.1): both pooler hosts, which one holds the
+ * floating IP, and what happened lately. */
+function PoolerHostsPanel() {
+  const q = useQuery({ queryKey: ["pooler-hosts"], queryFn: api.poolerHosts, refetchInterval: 3000 });
+  if (!q.data || (!q.data.hosts.length && !q.data.events.length)) return null;
+  const d = q.data;
+  return (
+    <Panel
+      title="Edge pooler hosts"
+      className="mb-4"
+      testId="pooler-hosts"
+      description={
+        d.manages_ip
+          ? d.holder_name
+            ? `The floating IP routes to ${d.holder_name}. Configuration generation ${d.generation}.`
+            : "The floating IP is not assigned to a pooler host."
+          : `keepalived moves the shared address; PGDock doesn't manage a floating IP. Configuration generation ${d.generation}.`
+      }
+      actions={d.checked_at && <span className="text-xs text-muted">checked {relativeTime(d.checked_at)}</span>}
+    >
+      <div className="flex flex-col gap-3">
+        {d.split_brain && <Alert title="Split brain">More than one pooler host says keepalived made it MASTER. PGDock keeps the floating IP on one healthy host.</Alert>}
+        {d.no_healthy && <Alert title="No healthy pooler host">Connections through the edge pooler are failing.</Alert>}
+        {d.holder_error && (
+          <Alert tone="warn" title="Floating IP">
+            {d.holder_error}
+          </Alert>
+        )}
+        <Table head={["Host", "Serving", "keepalived", "Configuration", "Floating IP"]}>
+          {d.hosts.map((h) => (
+            <tr key={h.id} data-testid="pooler-host-row">
+              <td className="px-3 py-2">
+                <Link to="/nodes/$id" params={{ id: h.id }} className="font-medium hover:underline">
+                  {h.name}
+                </Link>
+                {h.server_id && <div className="font-mono text-[11px] text-muted">server {h.server_id}</div>}
+              </td>
+              <td className="px-3 py-2">
+                {!h.reachable ? <Badge tone="danger">unreachable</Badge> : h.ready ? <Badge tone="ok">ready</Badge> : <Badge tone="warn">not ready</Badge>}
+                {h.reason && !h.ready && <div className="mt-0.5 max-w-xs text-[11px] text-muted">{h.reason}</div>}
+              </td>
+              <td className="px-3 py-2 font-mono text-xs">{h.vrrp_state || "—"}</td>
+              <td className="px-3 py-2 text-xs">
+                {h.stale || h.generation < d.generation ? <Badge tone="warn">stale · gen {h.generation}</Badge> : <span className="text-muted">gen {h.generation}</span>}
+              </td>
+              <td className="px-3 py-2">{h.holder ? <Badge tone="accent">holder</Badge> : <span className="text-muted">—</span>}</td>
+            </tr>
+          ))}
+        </Table>
+        {d.events.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-fg-light">Recent events</p>
+            <ul className="flex flex-col gap-1 text-xs" data-testid="pooler-events">
+              {d.events.slice(0, 10).map((e) => (
+                <li key={e.id} className="flex flex-wrap gap-x-2">
+                  <span className="w-20 shrink-0 text-muted" title={formatDate(e.created_at)}>
+                    {relativeTime(e.created_at)}
+                  </span>
+                  <span className="font-medium">{eventLabel[e.kind] ?? e.kind}</span>
+                  {e.host && <span className="text-muted">{e.host}</span>}
+                  <span className="min-w-0 truncate text-muted">{eventDetail(e)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </Panel>
   );
 }
@@ -183,7 +285,7 @@ export function NodeDetailPage() {
   const m = (n.agent.metrics ?? {}) as Metrics;
   const hasShared = instances.some((i) => i.kind === "shared");
 
-  const setRole = async (role: Role) => {
+  const setRole = async (role: Exclude<Role, "pooler">) => {
     setErr(null);
     try {
       await api.updateNode(n.id, role);
@@ -248,15 +350,22 @@ export function NodeDetailPage() {
         </Panel>
         <Panel title="Placement">
           <div className="flex flex-col gap-3 text-sm">
-            <Field label="Role" hint="Which tiers new projects may be placed here with. Existing instances stay.">
-              {(fid) => (
-                <Select id={fid} value={n.role} onChange={(e) => setRole(e.target.value as Role)} className="self-start">
-                  <option value="shared">shared</option>
-                  <option value="dedicated">dedicated</option>
-                  <option value="both">both</option>
-                </Select>
-              )}
-            </Field>
+            {n.role === "pooler" ? (
+              <p className="text-muted">
+                An edge pooler host: it runs both PgBouncers and keepalived for the floating IP, never databases. Its state is under Edge pooler hosts on the
+                Nodes page.
+              </p>
+            ) : (
+              <Field label="Role" hint="Which tiers new projects may be placed here with. Existing instances stay.">
+                {(fid) => (
+                  <Select id={fid} value={n.role} onChange={(e) => setRole(e.target.value as Exclude<Role, "pooler">)} className="self-start">
+                    <option value="shared">shared</option>
+                    <option value="dedicated">dedicated</option>
+                    <option value="both">both</option>
+                  </Select>
+                )}
+              </Field>
+            )}
             {(n.role === "shared" || n.role === "both") && !hasShared && n.agent.registered && (
               <div className="flex flex-wrap items-end gap-2">
                 <Field label="Run a shared cluster here (memory, MB)">

@@ -43,6 +43,10 @@ function gridQs(g: GridOptions, extra: Record<string, string | undefined>): stri
   return s ? `?${s}` : "";
 }
 export type APIToken = S["APIToken"];
+export type Incident = S["Incident"];
+export type IncidentSeverity = S["IncidentSeverity"];
+export type IncidentStatus = S["IncidentStatus"];
+export type PoolerHosts = S["PoolerHosts"];
 export type TokenScope = S["TokenScope"];
 export type CreatedToken = S["CreatedToken"];
 export type DeviceRequest = S["DeviceRequest"];
@@ -459,6 +463,11 @@ export const api = {
   alertSettings: () => getJSON<AlertSettings>("/api/v1/settings/alerts"),
   saveAlertSettings: (b: AlertSettingsRequest) => request<AlertSettings>("PUT", "/api/v1/settings/alerts", b),
   testAlerts: () => request<S["AlertTestResult"]>("POST", "/api/v1/settings/alerts/test"),
+  incidents: () => getJSON<S["IncidentList"]>("/api/v1/incidents"),
+  createIncident: (b: S["CreateIncidentRequest"]) => request<Incident>("POST", "/api/v1/incidents", b),
+  updateIncident: (id: string, b: S["UpdateIncidentRequest"]) => request<Incident>("PATCH", `/api/v1/incidents/${id}`, b),
+  postIncidentUpdate: (id: string, b: S["IncidentUpdateRequest"]) => request<Incident>("POST", `/api/v1/incidents/${id}/updates`, b),
+  poolerHosts: () => getJSON<S["PoolerHosts"]>("/api/v1/pooler-hosts"),
   isolationChecks: () => getJSON<S["IsolationCheckList"]>("/api/v1/security/isolation-checks"),
   runIsolationChecks: () => request<S["OperationList"]>("POST", "/api/v1/security/isolation-checks"),
 

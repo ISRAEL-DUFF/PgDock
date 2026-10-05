@@ -121,6 +121,19 @@ state (assigned hash, last check, floating-IP holder) on `nodes` and a
   run on two real Hetzner servers before V3 ships; the install docs will
   include the steps.
 
+### As built
+
+Where the build differs from the design above (details in
+docs/decisions.md, M17):
+- keepalived runs in its own container beside the pooler-host container
+  (PgBouncers and the agent), so only keepalived needs `NET_ADMIN`.
+- A configuration change succeeds when at least one pooler host takes it.
+  A host that misses it is stale, fails keepalived's check, and is pushed
+  to again until it catches up.
+- The done-when test runs pgdock-status on the host's network, outside the
+  Docker network the pooler hosts share; Docker doesn't route between
+  bridge networks.
+
 ### Upgrade path
 
 Existing installs keep their single pooler host. Adding a standby is

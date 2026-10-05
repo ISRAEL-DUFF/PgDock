@@ -51,6 +51,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/mail"
@@ -111,6 +112,8 @@ type Env struct {
 	Webhooks *webhooks.Service
 	Jobs     *schedjobs.Service
 	Outbound *outbound.Service
+	// Incidents pushes to Options.StatusURL; tests call Push and Heartbeat.
+	Incidents *incidents.Service
 	// OrgID is the owner's personal organisation, where CreateProject puts
 	// projects.
 	OrgID uuid.UUID
@@ -159,6 +162,8 @@ type Options struct {
 	// S3Link puts a cuttable TCP link (Env.S3Link) between agents and the
 	// fake S3 ConfigureBackups starts.
 	S3Link bool
+	// StatusURL and StatusSecret point incidents at a status service.
+	StatusURL, StatusSecret string
 	// TokenRate and OrgTokenRate override the API token rate limits
 	// (requests per minute).
 	TokenRate, OrgTokenRate int
@@ -329,8 +334,10 @@ func Start(t testing.TB, opts Options) *Env {
 	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
+	incidentSvc := incidents.New(db, incidents.Config{URL: opts.StatusURL, Secret: opts.StatusSecret}, log)
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
+		Incidents: incidentSvc,
+		Orgs:      orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
@@ -351,7 +358,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

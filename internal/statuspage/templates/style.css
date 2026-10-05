@@ -21,7 +21,7 @@ h3 { font-size: 15px; margin: 0 0 4px; }
 .banner.down { border-left-color: var(--down); }
 .banner.unknown { border-left-color: var(--none); }
 .incident.active { border-left: 6px solid var(--down); }
-.incident.active.minor { border-left-color: var(--partial); }
+.incident.active.minor, .incident.active.maintenance { border-left-color: var(--partial); }
 .components { list-style: none; margin: 0; padding: 0; }
 .component { padding: 12px 0; border-top: 1px solid var(--line); }
 .component:first-child { border-top: 0; }

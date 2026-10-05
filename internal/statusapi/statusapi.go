@@ -57,7 +57,7 @@ func StateOf(rank int) string {
 
 // Incident severities and statuses.
 var (
-	Severities = []string{"minor", "major", "critical"}
+	Severities = []string{"minor", "major", "critical", "maintenance"}
 	Statuses   = []string{"investigating", "identified", "monitoring", "resolved"}
 )
 

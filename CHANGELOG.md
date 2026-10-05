@@ -5,6 +5,18 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V3 (in progress, on feature/pgdock3)
+- Standby edge pooler: two pooler hosts behind a floating IP with
+  keepalived. pgdock-server pushes the PgBouncer configuration to both and
+  moves the floating IP itself if keepalived doesn't. Admin → Nodes shows
+  both hosts and recent pooler events. See docs/edge-poolers.md.
+- `pgdock-status`, a status page to run on separate infrastructure. It
+  probes PGDock from outside and takes signed heartbeats for the rest. It
+  opens and resolves incidents by itself, keeps 90 days of history, and
+  emails subscribers. Admin → Incidents posts incidents to it. See
+  docs/status-page.md.
+- New migrations 00020 and 00021 (pooler hosts, incidents).
+
 - Fixed: the first-run setup code printed by `install.sh` was missing its
   trailing `=`, so the wizard called it wrong. The installer now prints the
   whole code, new codes have no padding, and the server ignores spaces,
