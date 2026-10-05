@@ -102,11 +102,12 @@ WHERE id = @id;
 
 -- name: OverdueInvoices :many
 -- tenant: system - unpaid invoices past due, for dunning.
-SELECT * FROM invoices WHERE status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < @at ORDER BY due_at;
+SELECT * FROM invoices WHERE status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < @at::timestamptz ORDER BY due_at;
 
 -- name: OrgOverdueSince :one
 -- tenant: system - when an org's oldest unpaid invoice fell due.
-SELECT min(due_at)::timestamptz FROM invoices WHERE org_id = @org_id AND status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < @at;
+SELECT due_at FROM invoices WHERE org_id = @org_id AND status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < @at::timestamptz
+ORDER BY due_at LIMIT 1;
 
 -- ---- Refunds -----------------------------------------------------------------
 
@@ -262,7 +263,7 @@ UPDATE billing_accounts SET card_failing_since = sqlc.narg(card_failing_since) W
 -- tenant: system - orgs owing money or in a dunning state.
 SELECT b.*, o.status AS org_status, o.name AS org_name FROM billing_accounts b JOIN organizations o ON o.id = b.org_id
 WHERE o.status <> 'deleted' AND (b.dunning_state <> 'ok' OR b.card_failing_since IS NOT NULL
-  OR EXISTS (SELECT 1 FROM invoices i WHERE i.org_id = b.org_id AND i.status IN ('issued', 'partially_paid') AND i.total_minor > 0 AND i.due_at < @at)
+  OR EXISTS (SELECT 1 FROM invoices i WHERE i.org_id = b.org_id AND i.status IN ('issued', 'partially_paid') AND i.total_minor > 0 AND i.due_at < @at::timestamptz)
   OR b.zero_balance_at IS NOT NULL);
 
 -- name: SetProviderCustomer :exec
@@ -281,3 +282,9 @@ SELECT * FROM payment_events WHERE id = @id;
 -- name: RecentAutoTopup :one
 -- tenant: system - whether an org was auto-topped-up recently.
 SELECT EXISTS (SELECT 1 FROM payment_intents WHERE org_id = @org_id AND automatic AND purpose = 'topup' AND created_at > @since)::bool;
+
+-- name: WHTDeducted :many
+-- tenant: system - every invoice with WHT deducted, for the tax export.
+SELECT i.*, o.name AS org_name, b.legal_name, b.tin FROM invoices i JOIN organizations o ON o.id = i.org_id
+LEFT JOIN billing_accounts b ON b.org_id = i.org_id
+WHERE i.wht_deducted_minor > 0 ORDER BY i.paid_at;

@@ -335,3 +335,7 @@ WHERE org_id = @org_id;
 -- name: OrgSpendCapped :one
 -- tenant: system - whether an org has reached its spend cap (V3 §3.10).
 SELECT coalesce((SELECT capped FROM billing_accounts WHERE org_id = @org_id), false)::bool;
+
+-- name: OrgDunningState :one
+-- tenant: system - an org's dunning state, for the creation checks.
+SELECT coalesce((SELECT dunning_state FROM billing_accounts WHERE org_id = @org_id), 'ok')::text;

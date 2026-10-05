@@ -69,6 +69,9 @@ func (f *Fake) SetDown(down bool) { f.mu.Lock(); f.down = down; f.mu.Unlock() }
 // DropWebhooks loses the next n webhooks (missed events).
 func (f *Fake) DropWebhooks(n int) { f.mu.Lock(); f.drop = n; f.mu.Unlock() }
 
+// Accept lets charges of token succeed again.
+func (f *Fake) Accept(token string) { f.mu.Lock(); delete(f.declined, token); f.mu.Unlock() }
+
 // Decline makes charges of token fail.
 func (f *Fake) Decline(token, reason string) { f.mu.Lock(); f.declined[token] = reason; f.mu.Unlock() }
 

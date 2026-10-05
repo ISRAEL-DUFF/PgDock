@@ -1407,6 +1407,18 @@ func (q *Queries) NextBillingNumber(ctx context.Context, arg NextBillingNumberPa
 	return last, err
 }
 
+const orgDunningState = `-- name: OrgDunningState :one
+SELECT coalesce((SELECT dunning_state FROM billing_accounts WHERE org_id = $1), 'ok')::text
+`
+
+// tenant: system - an org's dunning state, for the creation checks.
+func (q *Queries) OrgDunningState(ctx context.Context, orgID uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, orgDunningState, orgID)
+	var column_1 string
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const orgLedger = `-- name: OrgLedger :many
 SELECT id, txn_id, org_id, account, direction, amount_minor, source_type, source_id, idempotency_key, memo, created_by, created_at FROM ledger_entries WHERE org_id = $1 ORDER BY id DESC LIMIT $2
 `

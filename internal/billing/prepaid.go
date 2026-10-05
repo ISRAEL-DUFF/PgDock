@@ -327,5 +327,8 @@ func (s *Service) Daily(ctx context.Context) error {
 	if err := s.CardReminders(ctx); err != nil {
 		errs = append(errs, err)
 	}
+	if err := s.RunDunning(ctx); err != nil {
+		errs = append(errs, err)
+	}
 	return errors.Join(errs...)
 }

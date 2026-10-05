@@ -22,6 +22,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
@@ -255,6 +257,25 @@ func run() error {
 		}
 		bg.Add(1)
 		go func() { defer bg.Done(); tenancySvc.Run(bgCtx) }()
+		// Dunning suspends through tenancy and, when allowed, deletes an
+		// org's dedicated projects (keeping final backups).
+		billingSvc.SetDunning(tenancySvc, func(ctx context.Context, orgID uuid.UUID) (int, error) {
+			ps, err := store.New(pool).OrgLiveProjects(ctx, orgID)
+			if err != nil {
+				return 0, err
+			}
+			n := 0
+			for _, p := range ps {
+				if p.Tier != provision.TierDedicated {
+					continue
+				}
+				if _, err := projects.Delete(ctx, p.ID, p.Name, false, nil); err != nil {
+					return n, err
+				}
+				n++
+			}
+			return n, nil
+		})
 	}
 
 	// Database branches and their hourly expiry (V2 §8).

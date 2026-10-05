@@ -83,7 +83,7 @@ func (q *Queries) DefaultPaymentMethod(ctx context.Context, orgID uuid.UUID) (Pa
 const dunningAccounts = `-- name: DunningAccounts :many
 SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.auto_topup, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, b.dunning_since, b.deletion_scheduled_at, b.balance_alerted, b.balance_month, b.zero_balance_at, b.card_failing_since, o.status AS org_status, o.name AS org_name FROM billing_accounts b JOIN organizations o ON o.id = b.org_id
 WHERE o.status <> 'deleted' AND (b.dunning_state <> 'ok' OR b.card_failing_since IS NOT NULL
-  OR EXISTS (SELECT 1 FROM invoices i WHERE i.org_id = b.org_id AND i.status IN ('issued', 'partially_paid') AND i.total_minor > 0 AND i.due_at < $1)
+  OR EXISTS (SELECT 1 FROM invoices i WHERE i.org_id = b.org_id AND i.status IN ('issued', 'partially_paid') AND i.total_minor > 0 AND i.due_at < $1::timestamptz)
   OR b.zero_balance_at IS NOT NULL)
 `
 
@@ -125,7 +125,7 @@ type DunningAccountsRow struct {
 }
 
 // tenant: system - orgs owing money or in a dunning state.
-func (q *Queries) DunningAccounts(ctx context.Context, at *time.Time) ([]DunningAccountsRow, error) {
+func (q *Queries) DunningAccounts(ctx context.Context, at time.Time) ([]DunningAccountsRow, error) {
 	rows, err := q.db.Query(ctx, dunningAccounts, at)
 	if err != nil {
 		return nil, err
@@ -1216,20 +1216,21 @@ func (q *Queries) OrgDunningSteps(ctx context.Context, arg OrgDunningStepsParams
 }
 
 const orgOverdueSince = `-- name: OrgOverdueSince :one
-SELECT min(due_at)::timestamptz FROM invoices WHERE org_id = $1 AND status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < $2
+SELECT due_at FROM invoices WHERE org_id = $1 AND status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < $2::timestamptz
+ORDER BY due_at LIMIT 1
 `
 
 type OrgOverdueSinceParams struct {
 	OrgID uuid.UUID
-	At    *time.Time
+	At    time.Time
 }
 
 // tenant: system - when an org's oldest unpaid invoice fell due.
-func (q *Queries) OrgOverdueSince(ctx context.Context, arg OrgOverdueSinceParams) (time.Time, error) {
+func (q *Queries) OrgOverdueSince(ctx context.Context, arg OrgOverdueSinceParams) (*time.Time, error) {
 	row := q.db.QueryRow(ctx, orgOverdueSince, arg.OrgID, arg.At)
-	var column_1 time.Time
-	err := row.Scan(&column_1)
-	return column_1, err
+	var due_at *time.Time
+	err := row.Scan(&due_at)
+	return due_at, err
 }
 
 const outstandingWHT = `-- name: OutstandingWHT :many
@@ -1316,11 +1317,11 @@ func (q *Queries) OutstandingWHT(ctx context.Context) ([]OutstandingWHTRow, erro
 }
 
 const overdueInvoices = `-- name: OverdueInvoices :many
-SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < $1 ORDER BY due_at
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE status IN ('issued', 'partially_paid') AND total_minor > 0 AND due_at < $1::timestamptz ORDER BY due_at
 `
 
 // tenant: system - unpaid invoices past due, for dunning.
-func (q *Queries) OverdueInvoices(ctx context.Context, at *time.Time) ([]Invoice, error) {
+func (q *Queries) OverdueInvoices(ctx context.Context, at time.Time) ([]Invoice, error) {
 	rows, err := q.db.Query(ctx, overdueInvoices, at)
 	if err != nil {
 		return nil, err
@@ -1968,4 +1969,89 @@ func (q *Queries) VirtualAccountByNumber(ctx context.Context, arg VirtualAccount
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const wHTDeducted = `-- name: WHTDeducted :many
+SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, i.paid_minor, i.wht_deducted_minor, i.wht_evidenced_at, o.name AS org_name, b.legal_name, b.tin FROM invoices i JOIN organizations o ON o.id = i.org_id
+LEFT JOIN billing_accounts b ON b.org_id = i.org_id
+WHERE i.wht_deducted_minor > 0 ORDER BY i.paid_at
+`
+
+type WHTDeductedRow struct {
+	ID               uuid.UUID
+	OrgID            uuid.UUID
+	Number           *string
+	PeriodStart      pgtype.Date
+	PeriodEnd        pgtype.Date
+	Status           string
+	Held             bool
+	HoldReason       *string
+	SubtotalMinor    int64
+	VatMinor         int64
+	TotalMinor       int64
+	WhtExpectedMinor int64
+	VatRate          pgtype.Numeric
+	BillTo           json.RawMessage
+	Seller           json.RawMessage
+	DueAt            *time.Time
+	IssuedAt         *time.Time
+	PaidAt           *time.Time
+	PdfObjectKey     *string
+	PriceBookVersion int32
+	CreatedAt        time.Time
+	PaidMinor        int64
+	WhtDeductedMinor int64
+	WhtEvidencedAt   *time.Time
+	OrgName          string
+	LegalName        *string
+	Tin              *string
+}
+
+// tenant: system - every invoice with WHT deducted, for the tax export.
+func (q *Queries) WHTDeducted(ctx context.Context) ([]WHTDeductedRow, error) {
+	rows, err := q.db.Query(ctx, wHTDeducted)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WHTDeductedRow
+	for rows.Next() {
+		var i WHTDeductedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Number,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.Status,
+			&i.Held,
+			&i.HoldReason,
+			&i.SubtotalMinor,
+			&i.VatMinor,
+			&i.TotalMinor,
+			&i.WhtExpectedMinor,
+			&i.VatRate,
+			&i.BillTo,
+			&i.Seller,
+			&i.DueAt,
+			&i.IssuedAt,
+			&i.PaidAt,
+			&i.PdfObjectKey,
+			&i.PriceBookVersion,
+			&i.CreatedAt,
+			&i.PaidMinor,
+			&i.WhtDeductedMinor,
+			&i.WhtEvidencedAt,
+			&i.OrgName,
+			&i.LegalName,
+			&i.Tin,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

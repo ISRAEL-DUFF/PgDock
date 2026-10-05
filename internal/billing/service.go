@@ -38,6 +38,8 @@ type Service struct {
 	onPaid    func(ctx context.Context, orgID uuid.UUID)
 	// onChargeFailed runs when an automatic charge is declined (dunning).
 	onChargeFailed func(ctx context.Context, orgID uuid.UUID)
+	suspender      Suspender
+	remover        Remover
 	seal           Sealer
 	docs           DocStore
 }
@@ -109,6 +111,10 @@ type Settings struct {
 	// Stablecoin allows USDT top-ups through iSpend (V3 §3.4.5); off until
 	// the regulatory position is confirmed.
 	Stablecoin bool `json:"stablecoin"`
+	// DeleteForNonPayment lets dunning delete an org's paid resources 47
+	// days after payment was due (V3 §3.8); off, such orgs are listed for
+	// the admin instead.
+	DeleteForNonPayment bool `json:"delete_for_non_payment"`
 }
 
 // Seller is PGDock's company on invoices.
@@ -491,6 +497,9 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 					s.log.Warn("billing: nightly re-query", "err", err)
 				} else {
 					nightly = y
+					if _, err := s.Reconcile(ctx, y, y.AddDate(0, 0, 1)); err != nil && ctx.Err() == nil {
+						s.log.Warn("billing: reconciliation", "err", err)
+					}
 				}
 			}
 		}
