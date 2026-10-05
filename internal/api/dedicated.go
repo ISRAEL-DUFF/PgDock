@@ -274,7 +274,15 @@ func (s *Server) GetPromotionEstimate(w http.ResponseWriter, r *http.Request, _ 
 		s.internalError(w, "promotion estimate", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, gen.PromotionEstimate{SizeBytes: est.SizeBytes, EstimatedDowntimeSeconds: int(est.Downtime.Seconds())})
+	out := gen.PromotionEstimate{SizeBytes: est.SizeBytes, EstimatedDowntimeSeconds: int(est.Downtime.Seconds())}
+	if est.Mode != "" {
+		m := gen.PromotionEstimateCopyMode(est.Mode)
+		out.CopyMode = &m
+	}
+	if est.Reason != "" {
+		out.FallbackReason = &est.Reason
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // PromoteProject implements POST /api/v1/projects/{id}/promote.
@@ -353,6 +361,13 @@ func toAPIDemotePlan(pl dedicated.DemotePlan) gen.DemotePreflight {
 		if t.FreeBytes >= 0 {
 			out.Target.FreeBytes = ptrTo(int64(t.FreeBytes))
 		}
+	}
+	if pl.CopyMode != "" {
+		m := gen.DemotePreflightCopyMode(pl.CopyMode)
+		out.CopyMode = &m
+	}
+	if pl.CopyReason != "" {
+		out.FallbackReason = &pl.CopyReason
 	}
 	return out
 }

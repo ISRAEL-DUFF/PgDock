@@ -528,6 +528,24 @@ func (e DemoteCheckStatus) Valid() bool {
 	}
 }
 
+// Defines values for DemotePreflightCopyMode.
+const (
+	DemotePreflightCopyModeDump    DemotePreflightCopyMode = "dump"
+	DemotePreflightCopyModeLogical DemotePreflightCopyMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the DemotePreflightCopyMode enum.
+func (e DemotePreflightCopyMode) Valid() bool {
+	switch e {
+	case DemotePreflightCopyModeDump:
+		return true
+	case DemotePreflightCopyModeLogical:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EditColumnIdentity.
 const (
 	Always    EditColumnIdentity = "always"
@@ -1227,6 +1245,24 @@ func (e ProjectTier) Valid() bool {
 	case ProjectTierDedicated:
 		return true
 	case ProjectTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PromotionEstimateCopyMode.
+const (
+	PromotionEstimateCopyModeDump    PromotionEstimateCopyMode = "dump"
+	PromotionEstimateCopyModeLogical PromotionEstimateCopyMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the PromotionEstimateCopyMode enum.
+func (e PromotionEstimateCopyMode) Valid() bool {
+	switch e {
+	case PromotionEstimateCopyModeDump:
+		return true
+	case PromotionEstimateCopyModeLogical:
 		return true
 	default:
 		return false
@@ -2822,11 +2858,17 @@ type DemoteCheckStatus string
 type DemotePreflight struct {
 	Checks []DemoteCheck `json:"checks"`
 
+	// CopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+	CopyMode *DemotePreflightCopyMode `json:"copy_mode,omitempty"`
+
 	// Eligible No check blocks the demotion (warnings still need accept_warnings).
 	Eligible bool `json:"eligible"`
 
-	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
+	// EstimatedDowntimeSeconds How long writes are expected to pause.
 	EstimatedDowntimeSeconds int `json:"estimated_downtime_seconds"`
+
+	// FallbackReason Why logical replication can't be used.
+	FallbackReason *string `json:"fallback_reason,omitempty"`
 
 	// Resets The guardrails that change, e.g. "connection limit 90 → 20".
 	Resets []string `json:"resets"`
@@ -2837,6 +2879,9 @@ type DemotePreflight struct {
 	SizeBytes     int64           `json:"size_bytes"`
 	Target        *DemoteTarget   `json:"target,omitempty"`
 }
+
+// DemotePreflightCopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+type DemotePreflightCopyMode string
 
 // DemoteRequest defines model for DemoteRequest.
 type DemoteRequest struct {
@@ -4017,10 +4062,19 @@ type PromoteRequest struct {
 
 // PromotionEstimate defines model for PromotionEstimate.
 type PromotionEstimate struct {
-	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
-	EstimatedDowntimeSeconds int   `json:"estimated_downtime_seconds"`
-	SizeBytes                int64 `json:"size_bytes"`
+	// CopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+	CopyMode *PromotionEstimateCopyMode `json:"copy_mode,omitempty"`
+
+	// EstimatedDowntimeSeconds How long writes are expected to pause.
+	EstimatedDowntimeSeconds int `json:"estimated_downtime_seconds"`
+
+	// FallbackReason Why logical replication can't be used.
+	FallbackReason *string `json:"fallback_reason,omitempty"`
+	SizeBytes      int64   `json:"size_bytes"`
 }
+
+// PromotionEstimateCopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+type PromotionEstimateCopyMode string
 
 // PublishTermsRequest defines model for PublishTermsRequest.
 type PublishTermsRequest struct {

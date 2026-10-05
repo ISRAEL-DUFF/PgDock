@@ -273,4 +273,13 @@ func TestLogicalPreflightBlocks(t *testing.T) {
 	if rep.OK() || !strings.Contains(rep.Reason(), "large objects") {
 		t.Fatalf("reason: %q", rep.Reason())
 	}
+	// The small test cluster runs wal_level=replica: nothing moves out of
+	// it by logical replication.
+	rep, err = logical.Preflight(ctx, p.dst, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.OK() || rep.Blockers[0].Check != "wal_level" || !strings.Contains(rep.Reason(), "wal_level=logical") {
+		t.Fatalf("a replica-level source: %+v", rep.Blockers)
+	}
 }

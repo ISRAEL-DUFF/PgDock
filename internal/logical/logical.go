@@ -81,7 +81,8 @@ func (r Report) Reason() string {
 }
 
 // Preflight checks src (the database being moved, as the superuser) and
-// target (any database on the target server, as the superuser).
+// target (any database on the target server, as the superuser). A nil
+// target checks the source alone (an estimate before a target is chosen).
 func Preflight(ctx context.Context, src, target *pgx.Conn) (Report, error) {
 	var r Report
 	var walLevel string
@@ -93,8 +94,11 @@ func Preflight(ctx context.Context, src, target *pgx.Conn) (Report, error) {
 	if err != nil {
 		return r, fmt.Errorf("preflight source: %w", err)
 	}
-	if err := target.QueryRow(ctx, `SELECT current_setting('server_version_num')::int`).Scan(&r.TargetVersion); err != nil {
-		return r, fmt.Errorf("preflight target: %w", err)
+	r.TargetVersion = r.SourceVersion
+	if target != nil {
+		if err := target.QueryRow(ctx, `SELECT current_setting('server_version_num')::int`).Scan(&r.TargetVersion); err != nil {
+			return r, fmt.Errorf("preflight target: %w", err)
+		}
 	}
 	block := func(check, format string, a ...any) {
 		r.Blockers = append(r.Blockers, Issue{Check: check, Detail: fmt.Sprintf(format, a...)})
@@ -141,7 +145,7 @@ func Preflight(ctx context.Context, src, target *pgx.Conn) (Report, error) {
 	if err != nil {
 		return r, err
 	}
-	if len(r.Extensions) > 0 {
+	if len(r.Extensions) > 0 && target != nil {
 		avail, err := names(ctx, target, `SELECT name FROM pg_available_extensions`)
 		if err != nil {
 			return r, err

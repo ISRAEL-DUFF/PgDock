@@ -439,19 +439,9 @@ func (s *Service) finishMove(ctx context.Context, op store.Operation, p store.Pr
 	if err := q.SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {
 		return err
 	}
-	args := store.MovePhaseParams{OperationID: op.ID, Phase: "done"}
-	msg := "resumed; clients reach the new instance with the same URL"
-	if !frozeAt.IsZero() {
-		froze := time.Since(frozeAt)
-		ms := int32(froze.Milliseconds())
-		args.FreezeMs = &ms
-		msg += fmt.Sprintf(" (writes were paused for %s)", froze.Round(10*time.Millisecond))
-	}
+	msg := "resumed; clients reach the new instance with the same URL" + s.moveDone(ctx, op, frozeAt)
 	if err := log.Info(ctx, "pooler", "%s", msg); err != nil {
 		return err
-	}
-	if err := q.MovePhase(ctx, args); err != nil {
-		s.log.Warn("could not record move progress", "operation", op.ID, "err", err)
 	}
 	if err := s.retireSource(ctx, p, log); err != nil {
 		return err
@@ -529,10 +519,7 @@ func (s *Service) failMove(ctx context.Context, op store.Operation, log *jobs.St
 	if p.InstanceID == params.TargetInstance {
 		return s.finishMove(ctx, op, p, params.SourceInstance, log, time.Time{})
 	}
-	if err := q.MovePhase(ctx, store.MovePhaseParams{OperationID: op.ID, Phase: "failed"}); err != nil {
-		s.log.Warn("could not record move progress", "operation", op.ID, "err", err)
-	}
-	s.cleanupMove(ctx, op, p.InstanceID, params.TargetInstance, p.DbName, log)
+	s.moveFailed(ctx, op, p.InstanceID, params.TargetInstance, p.DbName, log)
 	if err := s.unfreeze(ctx, p, log, "source writable again; route resumed"); err != nil {
 		return err
 	}
@@ -560,4 +547,30 @@ type MoveWait struct {
 
 func (w MoveWait) withReport(r func(logical.Status) error) logical.WaitOptions {
 	return logical.WaitOptions{MaxLag: w.MaxLag, StableFor: w.StableFor, Poll: w.Poll, Report: r}
+}
+
+// moveDone records a finished move (its pause, if this attempt froze
+// writes) and returns the pause for the log.
+func (s *Service) moveDone(ctx context.Context, op store.Operation, frozeAt time.Time) string {
+	args := store.MovePhaseParams{OperationID: op.ID, Phase: "done"}
+	msg := ""
+	if !frozeAt.IsZero() {
+		froze := time.Since(frozeAt)
+		ms := int32(froze.Milliseconds())
+		args.FreezeMs = &ms
+		msg = fmt.Sprintf(" (writes were paused for %s)", froze.Round(10*time.Millisecond))
+	}
+	if err := store.New(s.db).MovePhase(ctx, args); err != nil {
+		s.log.Warn("could not record move progress", "operation", op.ID, "err", err)
+	}
+	return msg
+}
+
+// moveFailed records a move rolled back before its cutover and removes its
+// replication objects.
+func (s *Service) moveFailed(ctx context.Context, op store.Operation, source, target uuid.UUID, db string, log *jobs.StepLogger) {
+	if err := store.New(s.db).MovePhase(ctx, store.MovePhaseParams{OperationID: op.ID, Phase: "failed"}); err != nil {
+		s.log.Warn("could not record move progress", "operation", op.ID, "err", err)
+	}
+	s.cleanupMove(ctx, op, source, target, db, log)
 }

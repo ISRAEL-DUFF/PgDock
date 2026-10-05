@@ -3993,8 +3993,15 @@ export interface components {
         PromotionEstimate: {
             /** Format: int64 */
             size_bytes: number;
-            /** @description Roughly dump + restore time, while writes wait. */
+            /** @description How long writes are expected to pause. */
             estimated_downtime_seconds: number;
+            /**
+             * @description logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+             * @enum {string}
+             */
+            copy_mode?: "logical" | "dump";
+            /** @description Why logical replication can't be used. */
+            fallback_reason?: string;
         };
         DemoteRequest: {
             /**
@@ -4032,8 +4039,15 @@ export interface components {
             checks: components["schemas"]["DemoteCheck"][];
             /** Format: int64 */
             size_bytes: number;
-            /** @description Roughly dump + restore time, while writes wait. */
+            /** @description How long writes are expected to pause. */
             estimated_downtime_seconds: number;
+            /**
+             * @description logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+             * @enum {string}
+             */
+            copy_mode?: "logical" | "dump";
+            /** @description Why logical replication can't be used. */
+            fallback_reason?: string;
             target?: components["schemas"]["DemoteTarget"];
             settings_after: components["schemas"]["ProjectSettings"];
             /** @description The guardrails that change, e.g. "connection limit 90 → 20". */

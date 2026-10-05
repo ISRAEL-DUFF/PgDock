@@ -744,8 +744,8 @@ test.describe("with the saved session", () => {
     await shot(page, "23-promote-wizard");
     await page.getByRole("button", { name: "Promote now" }).click();
     await expect(page.getByTestId("promote-done")).toBeVisible({ timeout: 240_000 });
-    await expect(page.getByTestId("operation-log")).toContainText("verified:");
-    await expect(page.getByTestId("operation-log")).toContainText("writes were frozen for");
+    await expect(page.getByTestId("operation-log")).toContainText("logical replication");
+    await expect(page.getByTestId("operation-log")).toContainText("writes were paused for");
     await shot(page, "24-promoted");
 
     // The writer keeps going on the new instance, then stops.

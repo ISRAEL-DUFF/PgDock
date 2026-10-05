@@ -14,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/pgverify"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
@@ -76,6 +75,8 @@ type DemotePlan struct {
 	Checks    []Check
 	SizeBytes int64
 	Downtime  time.Duration
+	// CopyMode and CopyReason: how the data would move (see Estimate).
+	CopyMode, CopyReason string
 	// Target is the shared cluster chosen (nil: none can take it).
 	Target *store.SharedClustersForOrgRow
 	// Settings are the project's settings on the shared tier; Resets says
@@ -184,10 +185,11 @@ func (s *Service) preflight(ctx context.Context, p store.Project, o DemoteOption
 	defer db.Close(context.Background())
 
 	// Size: within the per-project and total shared storage limits.
-	if err := db.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&plan.SizeBytes); err != nil {
+	est, err := estimate(ctx, db)
+	if err != nil {
 		return plan, err
 	}
-	plan.Downtime = (5*time.Second + time.Duration(float64(plan.SizeBytes)/estimateBytesPerSecond*float64(time.Second))).Round(time.Second)
+	plan.SizeBytes, plan.Downtime, plan.CopyMode, plan.CopyReason = est.SizeBytes, est.Downtime, est.Mode, est.Reason
 	sizeOK := true
 	if s.Quotas != nil {
 		err := s.Quotas.CheckSharedStorage(ctx, p.OrgID, float64(plan.SizeBytes))
@@ -458,7 +460,7 @@ func (s *Service) runDemote(ctx context.Context, op store.Operation, log *jobs.S
 	}
 	if p.InstanceID == params.TargetInstance {
 		// A retry after the cutover committed: only finishing steps remain.
-		return s.finishDemotion(ctx, p, log, time.Time{})
+		return s.finishDemotion(ctx, op, p, params.SourceInstance, log, time.Time{})
 	}
 	if p.Status != provision.StatusDemoting {
 		return jobs.Permanent(fmt.Errorf("project is %s, not demoting", p.Status))
@@ -499,6 +501,8 @@ func (s *Service) runDemote(ctx context.Context, op store.Operation, log *jobs.S
 	}
 	// A retry may find a partial copy: start from an empty database.
 	if op.Attempts > 1 {
+		// An earlier attempt's subscription must go before its database can.
+		s.cleanupMove(ctx, op, p.InstanceID, pt.InstanceID, p.DbName, nil)
 		if err := s.projects.RecreateDatabase(ctx, pt, log); err != nil {
 			return err
 		}
@@ -506,50 +510,15 @@ func (s *Service) runDemote(ctx context.Context, op store.Operation, log *jobs.S
 	if err := s.projects.SyncMemberRoles(ctx, pt, log); err != nil {
 		return err
 	}
-	src, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
-	if err != nil {
-		return err
-	}
-	defer src.Close(context.Background())
-
-	// Step 3: freeze.
-	start := time.Now()
-	if err := s.freeze(ctx, p, log); err != nil {
-		return err
-	}
-	if s.cfg.AfterFreeze != nil {
-		if err := s.cfg.AfterFreeze(ctx); err != nil {
-			return jobs.Permanent(err)
-		}
-	}
-
-	// Step 4: copy, owners and grants as they are.
+	// Steps 3-5: copy and verify, by logical replication while the
+	// dedicated instance keeps serving (V3 §2.3) or by dump/restore during
+	// the freeze; either way writes are frozen when it returns.
 	agent, err := s.nodes.ForInstance(ctx, params.TargetInstance)
 	if err != nil {
 		return err
 	}
-	took, err := s.copyKeepingOwners(ctx, agent, p, src, params.TargetInstance, false)
+	run, err := s.copyForMove(ctx, op, p, pt, agent, log, true)
 	if err != nil {
-		return jobs.Permanent(fmt.Errorf("copy: %w", err))
-	}
-	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name, took.Round(time.Millisecond)); err != nil {
-		return err
-	}
-
-	// Step 5: verify.
-	dst, err := s.projects.AdminConn(ctx, params.TargetInstance, p.DbName)
-	if err != nil {
-		return err
-	}
-	defer dst.Close(context.Background())
-	v, err := pgverify.Compare(ctx, src, dst, nil)
-	if err != nil {
-		return fmt.Errorf("verify: %w", err)
-	}
-	if !v.OK() {
-		return jobs.Permanent(fmt.Errorf("verification failed: %s", v.Summary()))
-	}
-	if err := log.Info(ctx, "verify", "verified: %d table(s), %d row(s), and %d sequence(s) match", v.Tables, v.Rows, v.Sequences); err != nil {
 		return err
 	}
 	if err := s.projects.SyncMemberRoles(ctx, pt, nil); err != nil {
@@ -584,13 +553,14 @@ func (s *Service) runDemote(ctx context.Context, op store.Operation, log *jobs.S
 	if err != nil {
 		return err
 	}
-	return s.finishDemotion(ctx, p, log, start)
+	return s.finishDemotion(ctx, op, p, params.SourceInstance, log, run.frozeAt)
 }
 
 // finishDemotion re-renders the route, resumes the poolers, marks the
 // project active, takes its first logical backup, and stops the dedicated
 // instance (V2 §5.3 steps 6-8). It is idempotent.
-func (s *Service) finishDemotion(ctx context.Context, p store.Project, log *jobs.StepLogger, frozeAt time.Time) error {
+func (s *Service) finishDemotion(ctx context.Context, op store.Operation, p store.Project, source uuid.UUID, log *jobs.StepLogger, frozeAt time.Time) error {
+	defer s.cleanupMove(context.WithoutCancel(ctx), op, source, p.InstanceID, p.DbName, log)
 	if err := s.projects.SyncPooler(ctx, log, "pooler", "route switched to the shared cluster"); err != nil {
 		return err
 	}
@@ -601,10 +571,7 @@ func (s *Service) finishDemotion(ctx context.Context, p store.Project, log *jobs
 	if err := q.SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {
 		return err
 	}
-	msg := "resumed; clients now reach the shared cluster with the same URL"
-	if !frozeAt.IsZero() {
-		msg += fmt.Sprintf(" (writes were frozen for %s)", time.Since(frozeAt).Round(100*time.Millisecond))
-	}
+	msg := "resumed; clients now reach the shared cluster with the same URL" + s.moveDone(ctx, op, frozeAt)
 	if err := log.Info(ctx, "pooler", "%s", msg); err != nil {
 		return err
 	}
@@ -662,8 +629,9 @@ func (s *Service) failDemote(ctx context.Context, op store.Operation, log *jobs.
 		return err
 	}
 	if p.InstanceID == params.TargetInstance {
-		return s.finishDemotion(ctx, p, log, time.Time{})
+		return s.finishDemotion(ctx, op, p, params.SourceInstance, log, time.Time{})
 	}
+	s.moveFailed(ctx, op, p.InstanceID, params.TargetInstance, p.DbName, log)
 	if err := s.unfreeze(ctx, p, log, "dedicated instance writable again; route resumed"); err != nil {
 		return err
 	}

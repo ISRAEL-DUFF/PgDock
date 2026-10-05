@@ -155,15 +155,18 @@ export function PromoteCard({ p }: { p: Project }) {
           {estimate.data && (
             <Alert tone="accent" title={`Estimated write freeze: ${duration(estimate.data.estimated_downtime_seconds)}`}>
               <span data-testid="promote-estimate">
-                The database is {formatBytes(estimate.data.size_bytes)}. During the freeze, apps on the pooled URL wait rather than fail; session connections
-                are dropped once and reconnect.
+                The database is {formatBytes(estimate.data.size_bytes)}.{" "}
+                {estimate.data.copy_mode === "dump"
+                  ? `It is copied while writes wait, because logical replication can't be used: ${estimate.data.fallback_reason}.`
+                  : "It is copied by logical replication while the project keeps serving; writes only pause for the switch."}{" "}
+                During the pause, apps on the pooled URL wait rather than fail; session connections are dropped once and reconnect.
               </span>
             </Alert>
           )}
           {estimate.isError && <Alert>{errorMessage(estimate.error)}</Alert>}
           <ol className="list-decimal pl-5 text-sm text-muted">
             <li>A dedicated instance starts with the same role and password.</li>
-            <li>Writes freeze; the data is copied and every table's rows and sequences are checked.</li>
+            <li>The data is copied and checked, then writes pause while the last changes arrive.</li>
             <li>The pooler route moves to the new instance and clients continue, with the same URL.</li>
             <li>The shared copy stays read-only for 48 hours, then is dropped. A failure before the switch changes nothing.</li>
           </ol>

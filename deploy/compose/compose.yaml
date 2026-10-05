@@ -183,6 +183,10 @@ services:
       - log_statement=none
       - -c
       - hba_file=/etc/pgdock/pg_hba.conf
+      # Moves by logical replication (V3 §2.3); changing it restarts the
+      # cluster once.
+      - -c
+      - wal_level=logical
     volumes:
       - shared-data:/var/lib/postgresql
       - ./shared-pg-hba.conf:/etc/pgdock/pg_hba.conf:ro

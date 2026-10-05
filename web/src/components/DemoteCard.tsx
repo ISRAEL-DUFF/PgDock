@@ -138,8 +138,11 @@ export function DemoteCard({ p }: { p: Project }) {
               {pf.data.eligible && (
                 <Alert tone="accent" title={`Estimated write freeze: ${duration(pf.data.estimated_downtime_seconds)}`}>
                   The database is {formatBytes(pf.data.size_bytes)}
-                  {pf.data.target && <> and moves to node {pf.data.target.node_name}</>}. During the freeze, apps on the pooled URL wait rather than fail;
-                  session connections are dropped once and reconnect.
+                  {pf.data.target && <> and moves to node {pf.data.target.node_name}</>}.{" "}
+                  {pf.data.copy_mode === "dump"
+                    ? `It is copied while writes wait, because logical replication can't be used: ${pf.data.fallback_reason}.`
+                    : "It is copied by logical replication while the project keeps serving; writes only pause for the switch."}{" "}
+                  During the pause, apps on the pooled URL wait rather than fail; session connections are dropped once and reconnect.
                 </Alert>
               )}
               {pf.data.resets.length > 0 && (

@@ -243,7 +243,7 @@ func TestDemotionLiveWriter(t *testing.T) {
 	t.Logf("demotion log:\n%s", log)
 	t.Logf("tx writer: %d commits, %d errors %v; session writer: %d commits, %d errors %v",
 		len(tx.acked), len(tx.errs), tx.errs, len(session.acked), len(session.errs), session.errs)
-	for _, want := range []string{"checks passed", "writes frozen", "verified:", "route switched to the shared cluster", "writes were frozen for",
+	for _, want := range []string{"checks passed", "writes frozen", "logical replication", "match", "route switched to the shared cluster", "writes were paused for",
 		"dedicated instance stopped", "point-in-time recovery ends here"} {
 		if !strings.Contains(log, want) {
 			t.Errorf("demotion log lacks %q", want)
