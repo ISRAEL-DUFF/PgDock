@@ -262,25 +262,25 @@ func (e BackupStatus) Valid() bool {
 
 // Defines values for BackupKind.
 const (
-	Base     BackupKind = "base"
-	Final    BackupKind = "final"
-	Logical  BackupKind = "logical"
-	Metadata BackupKind = "metadata"
-	Safety   BackupKind = "safety"
+	BackupKindBase     BackupKind = "base"
+	BackupKindFinal    BackupKind = "final"
+	BackupKindLogical  BackupKind = "logical"
+	BackupKindMetadata BackupKind = "metadata"
+	BackupKindSafety   BackupKind = "safety"
 )
 
 // Valid indicates whether the value is a known member of the BackupKind enum.
 func (e BackupKind) Valid() bool {
 	switch e {
-	case Base:
+	case BackupKindBase:
 		return true
-	case Final:
+	case BackupKindFinal:
 		return true
-	case Logical:
+	case BackupKindLogical:
 		return true
-	case Metadata:
+	case BackupKindMetadata:
 		return true
-	case Safety:
+	case BackupKindSafety:
 		return true
 	default:
 		return false
@@ -947,6 +947,54 @@ func (e MetricsResponseResolution) Valid() bool {
 	}
 }
 
+// Defines values for MoveMode.
+const (
+	MoveModeDump    MoveMode = "dump"
+	MoveModeLogical MoveMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the MoveMode enum.
+func (e MoveMode) Valid() bool {
+	switch e {
+	case MoveModeDump:
+		return true
+	case MoveModeLogical:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MovePhase.
+const (
+	MovePhaseCopying   MovePhase = "copying"
+	MovePhaseCutover   MovePhase = "cutover"
+	MovePhaseDone      MovePhase = "done"
+	MovePhaseFailed    MovePhase = "failed"
+	MovePhasePreparing MovePhase = "preparing"
+	MovePhaseStreaming MovePhase = "streaming"
+)
+
+// Valid indicates whether the value is a known member of the MovePhase enum.
+func (e MovePhase) Valid() bool {
+	switch e {
+	case MovePhaseCopying:
+		return true
+	case MovePhaseCutover:
+		return true
+	case MovePhaseDone:
+		return true
+	case MovePhaseFailed:
+		return true
+	case MovePhasePreparing:
+		return true
+	case MovePhaseStreaming:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperationLogEntryLevel.
 const (
 	OperationLogEntryLevelError OperationLogEntryLevel = "error"
@@ -1130,9 +1178,11 @@ const (
 	ProjectStatusDeleting     ProjectStatus = "deleting"
 	ProjectStatusDemoting     ProjectStatus = "demoting"
 	ProjectStatusError        ProjectStatus = "error"
+	ProjectStatusMoving       ProjectStatus = "moving"
 	ProjectStatusPromoting    ProjectStatus = "promoting"
 	ProjectStatusProvisioning ProjectStatus = "provisioning"
 	ProjectStatusRestoring    ProjectStatus = "restoring"
+	ProjectStatusUpgrading    ProjectStatus = "upgrading"
 )
 
 // Valid indicates whether the value is a known member of the ProjectStatus enum.
@@ -1146,11 +1196,15 @@ func (e ProjectStatus) Valid() bool {
 		return true
 	case ProjectStatusError:
 		return true
+	case ProjectStatusMoving:
+		return true
 	case ProjectStatusPromoting:
 		return true
 	case ProjectStatusProvisioning:
 		return true
 	case ProjectStatusRestoring:
+		return true
+	case ProjectStatusUpgrading:
 		return true
 	default:
 		return false
@@ -3377,6 +3431,42 @@ type MetricsResponse struct {
 // MetricsResponseResolution defines model for MetricsResponse.Resolution.
 type MetricsResponseResolution string
 
+// Move defines model for Move.
+type Move struct {
+	// FallbackReason Why logical replication wasn't used.
+	FallbackReason *string    `json:"fallback_reason,omitempty"`
+	FinishedAt     *time.Time `json:"finished_at,omitempty"`
+
+	// FreezeMs How long writes were paused.
+	FreezeMs       *int               `json:"freeze_ms,omitempty"`
+	Id             openapi_types.UUID `json:"id"`
+	LagBytes       *int64             `json:"lag_bytes,omitempty"`
+	Mode           MoveMode           `json:"mode"`
+	OperationId    openapi_types.UUID `json:"operation_id"`
+	Phase          MovePhase          `json:"phase"`
+	SourceInstance openapi_types.UUID `json:"source_instance"`
+	StartedAt      time.Time          `json:"started_at"`
+	TablesReady    *int               `json:"tables_ready,omitempty"`
+	TablesTotal    *int               `json:"tables_total,omitempty"`
+	TargetInstance openapi_types.UUID `json:"target_instance"`
+}
+
+// MoveMode defines model for Move.Mode.
+type MoveMode string
+
+// MovePhase defines model for Move.Phase.
+type MovePhase string
+
+// MoveList defines model for MoveList.
+type MoveList struct {
+	Items []Move `json:"items"`
+}
+
+// MoveProjectRequest defines model for MoveProjectRequest.
+type MoveProjectRequest struct {
+	NodeId openapi_types.UUID `json:"node_id"`
+}
+
 // MyInvitationList defines model for MyInvitationList.
 type MyInvitationList struct {
 	Items []Invitation `json:"items"`
@@ -5341,6 +5431,9 @@ type CreatePlanJSONRequestBody = PlanRequest
 // UpdatePlanJSONRequestBody defines body for UpdatePlan for application/json ContentType.
 type UpdatePlanJSONRequestBody = PlanRequest
 
+// MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
+type MoveProjectJSONRequestBody = MoveProjectRequest
+
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
 
@@ -5649,6 +5742,9 @@ type ServerInterface interface {
 	// UpdatePlan Change a quota plan template (platform admin)
 	// (PATCH /api/v1/admin/plans/{plan_id})
 	UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID)
+	// MoveProject Move a project to another node (platform admin, V3 §2.3)
+	// (POST /api/v1/admin/projects/{project_id}/move)
+	MoveProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	// (GET /api/v1/admin/settings/mail)
 	GetMailSettings(w http.ResponseWriter, r *http.Request)
@@ -6027,6 +6123,9 @@ type ServerInterface interface {
 	// GetProjectMetrics A project's metric series and top queries
 	// (GET /api/v1/projects/{id}/metrics)
 	GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams)
+	// ListProjectMoves The project's recent moves between instances, newest first
+	// (GET /api/v1/projects/{id}/moves)
+	ListProjectMoves(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
 	// (POST /api/v1/projects/{id}/pitr)
 	RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -6348,6 +6447,12 @@ func (_ Unimplemented) CreatePlan(w http.ResponseWriter, r *http.Request) {
 // UpdatePlan Change a quota plan template (platform admin)
 // (PATCH /api/v1/admin/plans/{plan_id})
 func (_ Unimplemented) UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MoveProject Move a project to another node (platform admin, V3 §2.3)
+// (POST /api/v1/admin/projects/{project_id}/move)
+func (_ Unimplemented) MoveProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7104,6 +7209,12 @@ func (_ Unimplemented) UpdateProjectMember(w http.ResponseWriter, r *http.Reques
 // GetProjectMetrics A project's metric series and top queries
 // (GET /api/v1/projects/{id}/metrics)
 func (_ Unimplemented) GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListProjectMoves The project's recent moves between instances, newest first
+// (GET /api/v1/projects/{id}/moves)
+func (_ Unimplemented) ListProjectMoves(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8034,6 +8145,32 @@ func (siw *ServerInterfaceWrapper) UpdatePlan(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdatePlan(w, r, planId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MoveProject operation middleware
+func (siw *ServerInterfaceWrapper) MoveProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "project_id" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project_id", chi.URLParam(r, "project_id"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveProject(w, r, projectId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -11458,6 +11595,32 @@ func (siw *ServerInterfaceWrapper) GetProjectMetrics(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjectMoves operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectMoves(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectMoves(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RestoreProjectPITR operation middleware
 func (siw *ServerInterfaceWrapper) RestoreProjectPITR(w http.ResponseWriter, r *http.Request) {
 
@@ -13652,6 +13815,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.PromoteProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/projects/{project_id}/move", wrapper.MoveProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/moves", wrapper.ListProjectMoves)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote/preflight", wrapper.DemotePreflight)

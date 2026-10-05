@@ -24,10 +24,12 @@ import (
 // Prefix names every object a move creates on either side.
 const Prefix = "pgdock_move_"
 
-// schema holds the move's own objects on both sides: the DDL block's
-// function and the marker table the cutover syncs on. Superuser-owned and
-// dropped by Cleanup.
-const schema = "pgdock_move"
+// Schema holds the move's own objects on both sides: the DDL block's
+// function and the marker table the cutover syncs on. Superuser-owned,
+// dropped by Cleanup, and never part of a dump.
+const Schema = "pgdock_move"
+
+const schema = Schema
 
 // Margin is added to each sequence on the target at cutover. Writes are
 // frozen before sequences are read, so it only guards against values taken

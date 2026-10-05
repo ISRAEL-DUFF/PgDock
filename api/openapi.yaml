@@ -1004,6 +1004,58 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/projects/{project_id}/move:
+    post:
+      operationId: moveProject
+      summary: Move a project to another node (platform admin, V3 §2.3)
+      description: |
+        Queues a `logical_move` operation. A shared project goes to the
+        shared cluster on the node (same Postgres version); a dedicated
+        project gets a new instance of the same size there. The data is
+        copied by logical replication while the project keeps serving, then
+        writes pause for a few seconds while the route switches. When
+        logical replication isn't possible (see the operation log) the copy
+        is a dump/restore during the pause instead. Connection strings don't
+        change; the old copy is kept for 48 hours.
+      tags: [projects]
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveProjectRequest"
+      responses:
+        "202":
+          description: Move queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/moves:
+    get:
+      operationId: listProjectMoves
+      summary: The project's recent moves between instances, newest first
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Moves.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoveList"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/demote/preflight:
     post:
       operationId: demotePreflight
@@ -4626,7 +4678,7 @@ components:
           description: Fail the first N attempts to exercise retries.
     ProjectStatus:
       type: string
-      enum: [provisioning, active, promoting, demoting, restoring, deleting, error]
+      enum: [provisioning, active, promoting, demoting, moving, upgrading, restoring, deleting, error]
     ProjectTier:
       type: string
       enum: [shared, dedicated]
@@ -6350,6 +6402,62 @@ components:
         last_day:
           type: string
           format: date
+    MoveProjectRequest:
+      type: object
+      required: [node_id]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+    Move:
+      type: object
+      required: [id, operation_id, source_instance, target_instance, mode, phase, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        operation_id:
+          type: string
+          format: uuid
+        source_instance:
+          type: string
+          format: uuid
+        target_instance:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [logical, dump]
+        fallback_reason:
+          type: string
+          description: Why logical replication wasn't used.
+        phase:
+          type: string
+          enum: [preparing, copying, streaming, cutover, done, failed]
+        tables_total:
+          type: integer
+        tables_ready:
+          type: integer
+        lag_bytes:
+          type: integer
+          format: int64
+        freeze_ms:
+          type: integer
+          description: How long writes were paused.
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    MoveList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Move"
     PromoteRequest:
       type: object
       properties:

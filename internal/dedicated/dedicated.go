@@ -60,6 +60,9 @@ type Config struct {
 	// writes are frozen; an error fails it there (tests use it to exercise
 	// the rollback).
 	AfterFreeze func(ctx context.Context) error
+	// MoveWait tunes when a logical move cuts over (defaults: lag under
+	// 1 MB for 30 s, checked every 2 s).
+	MoveWait MoveWait
 }
 
 // Service manages dedicated instances.

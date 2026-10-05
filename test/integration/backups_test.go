@@ -55,7 +55,7 @@ func TestBackupDeleteRestoreVerify(t *testing.T) {
 		t.Fatalf("list backups: %d %+v", code, list)
 	}
 	b := list.Items[0]
-	if b.Status != gen.BackupStatusSucceeded || b.Kind != gen.Logical || b.SizeBytes == nil || *b.SizeBytes == 0 || b.Checksum == nil {
+	if b.Status != gen.BackupStatusSucceeded || b.Kind != gen.BackupKindLogical || b.SizeBytes == nil || *b.SizeBytes == 0 || b.Checksum == nil {
 		t.Fatalf("backup row: %+v", b)
 	}
 	// The object is in the bucket under projects/<id>/logical/, encrypted.
@@ -134,7 +134,7 @@ func TestBackupDeleteRestoreVerify(t *testing.T) {
 		t.Fatalf("project after in-place restore: %s", proj.Status)
 	}
 	// A safety backup of the pre-restore state (10 rows) was taken first.
-	safety := gen.Safety
+	safety := gen.BackupKindSafety
 	e.Do("GET", "/api/v1/backups?kind="+string(safety), nil, &list)
 	if len(list.Items) != 1 || list.Items[0].ExpiresAt == nil || list.Items[0].ProjectId == nil || *list.Items[0].ProjectId != p.Id {
 		t.Fatalf("safety backups: %+v", list.Items)
@@ -176,7 +176,7 @@ func TestBackupDeleteRestoreVerify(t *testing.T) {
 	if op = e.WaitOperation(del.Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("delete: %s\n%s", op.Status, testenv.FormatLog(op))
 	}
-	final := gen.Final
+	final := gen.BackupKindFinal
 	e.Do("GET", "/api/v1/backups?kind="+string(final), nil, &list)
 	if len(list.Items) != 1 || list.Items[0].ExpiresAt == nil || time.Until(*list.Items[0].ExpiresAt) < 29*24*time.Hour ||
 		list.Items[0].ProjectDeleted == nil || !*list.Items[0].ProjectDeleted {

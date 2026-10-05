@@ -822,6 +822,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/projects/{project_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a project to another node (platform admin, V3 §2.3)
+         * @description Queues a `logical_move` operation. A shared project goes to the
+         *     shared cluster on the node (same Postgres version); a dedicated
+         *     project gets a new instance of the same size there. The data is
+         *     copied by logical replication while the project keeps serving, then
+         *     writes pause for a few seconds while the route switches. When
+         *     logical replication isn't possible (see the operation log) the copy
+         *     is a dump/restore during the pause instead. Connection strings don't
+         *     change; the old copy is kept for 48 hours.
+         */
+        post: operations["moveProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/moves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's recent moves between instances, newest first */
+        get: operations["listProjectMoves"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/demote/preflight": {
         parameters: {
             query?: never;
@@ -3265,7 +3309,7 @@ export interface components {
             fail_attempts: number;
         };
         /** @enum {string} */
-        ProjectStatus: "provisioning" | "active" | "promoting" | "demoting" | "restoring" | "deleting" | "error";
+        ProjectStatus: "provisioning" | "active" | "promoting" | "demoting" | "moving" | "upgrading" | "restoring" | "deleting" | "error";
         /** @enum {string} */
         ProjectTier: "shared" | "dedicated";
         ConnectionInfo: {
@@ -4207,6 +4251,39 @@ export interface components {
             failures: number;
             /** Format: date */
             last_day: string;
+        };
+        MoveProjectRequest: {
+            /** Format: uuid */
+            node_id: string;
+        };
+        Move: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            operation_id: string;
+            /** Format: uuid */
+            source_instance: string;
+            /** Format: uuid */
+            target_instance: string;
+            /** @enum {string} */
+            mode: "logical" | "dump";
+            /** @description Why logical replication wasn't used. */
+            fallback_reason?: string;
+            /** @enum {string} */
+            phase: "preparing" | "copying" | "streaming" | "cutover" | "done" | "failed";
+            tables_total?: number;
+            tables_ready?: number;
+            /** Format: int64 */
+            lag_bytes?: number;
+            /** @description How long writes were paused. */
+            freeze_ms?: number;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+        };
+        MoveList: {
+            items: components["schemas"]["Move"][];
         };
         PromoteRequest: {
             /** Format: uuid */
@@ -6760,6 +6837,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Move queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectMoves: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moves. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveList"];
                 };
             };
             default: components["responses"]["Error"];

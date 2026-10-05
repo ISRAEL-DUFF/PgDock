@@ -213,7 +213,7 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 	if err != nil {
 		return err
 	}
-	took, err := s.copyKeepingOwners(ctx, agent, p, src, inst.ID)
+	took, err := s.copyKeepingOwners(ctx, agent, p, src, inst.ID, false)
 	if err != nil {
 		return jobs.Permanent(fmt.Errorf("copy: %w", err))
 	}
@@ -466,7 +466,7 @@ func (s *Service) DropRetired(ctx context.Context) error {
 	var errs []error
 	for _, r := range due {
 		what := "retired shared copy"
-		if r.Reason == retiredDemotion {
+		if r.Reason == retiredDemotion || r.Reason == retiredMoveInstance {
 			what = "dedicated instance kept after demotion"
 			err = s.destroyRetained(ctx, r.InstanceID)
 		} else {

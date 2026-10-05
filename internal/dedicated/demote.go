@@ -528,7 +528,7 @@ func (s *Service) runDemote(ctx context.Context, op store.Operation, log *jobs.S
 	if err != nil {
 		return err
 	}
-	took, err := s.copyKeepingOwners(ctx, agent, p, src, params.TargetInstance)
+	took, err := s.copyKeepingOwners(ctx, agent, p, src, params.TargetInstance, false)
 	if err != nil {
 		return jobs.Permanent(fmt.Errorf("copy: %w", err))
 	}

@@ -64,16 +64,18 @@ func newLogicalPair(t *testing.T, ddl string) *logicalPair {
 			t.Fatal(err)
 		}
 	}
+	p.src, p.dst = connect(srcURL, p.name), connect(dstURL, p.name)
+	// Cleanups run last first: replication objects, then the databases,
+	// then the connections.
 	t.Cleanup(func() {
-		m := logical.Move{Name: logical.Name(p.name), Database: p.name}
-		_ = logical.Cleanup(context.Background(), m, p.src, p.srcAdmin, p.dst)
-		_ = p.src.Close(context.Background())
-		_ = p.dst.Close(context.Background())
 		for _, c := range []*pgx.Conn{p.srcAdmin, p.dstAdmin} {
 			_, _ = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+p.name+" WITH (FORCE)")
 		}
 	})
-	p.src, p.dst = connect(srcURL, p.name), connect(dstURL, p.name)
+	t.Cleanup(func() {
+		m := logical.Move{Name: logical.Name(p.name), Database: p.name}
+		_ = logical.Cleanup(context.Background(), m, p.src, p.srcAdmin, p.dst)
+	})
 	// The schema on both sides, as the move's pg_dump --schema-only would.
 	for _, c := range []*pgx.Conn{p.src, p.dst} {
 		if _, err := c.Exec(ctx, ddl); err != nil {

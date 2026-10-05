@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/logical"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -25,7 +26,10 @@ import (
 // comment on, are created on the target first and left out of the dump.
 // PGDock's own webhook schema (superuser-owned, V2 §9.1) is copied first,
 // as the superuser: it holds only PGDock's objects and queued events.
-func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p store.Project, src *pgx.Conn, target uuid.UUID) (time.Duration, error) {
+//
+// schemaOnly copies the definitions without rows: a logical move's
+// subscription copies the data.
+func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p store.Project, src *pgx.Conn, target uuid.UUID, schemaOnly bool) (time.Duration, error) {
 	from, err := s.projects.AgentConn(ctx, p.InstanceID, p.DbName)
 	if err != nil {
 		return 0, err
@@ -83,7 +87,7 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 	var took time.Duration
 	if hooks {
 		res, err := agent.Copy(ctx, agentapi.CopyRequest{
-			Source: from, Dump: agentapi.DumpOptions{Schemas: []string{"pgdock"}},
+			Source: from, Dump: agentapi.DumpOptions{Schemas: []string{"pgdock"}, SchemaOnly: schemaOnly},
 			Target: to, Restore: agentapi.RestoreOptions{KeepOwners: true},
 		})
 		if err != nil {
@@ -101,7 +105,7 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 			}
 		}
 		res, err := agent.Copy(ctx, agentapi.CopyRequest{
-			Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"pgdock"}, ExcludeExtensions: names},
+			Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"pgdock", logical.Schema}, ExcludeExtensions: names, SchemaOnly: schemaOnly},
 			Target: c, Restore: agentapi.RestoreOptions{KeepOwners: true},
 		})
 		took += time.Duration(res.DurationMS) * time.Millisecond

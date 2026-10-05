@@ -266,25 +266,25 @@ func (e BackupStatus) Valid() bool {
 
 // Defines values for BackupKind.
 const (
-	Base     BackupKind = "base"
-	Final    BackupKind = "final"
-	Logical  BackupKind = "logical"
-	Metadata BackupKind = "metadata"
-	Safety   BackupKind = "safety"
+	BackupKindBase     BackupKind = "base"
+	BackupKindFinal    BackupKind = "final"
+	BackupKindLogical  BackupKind = "logical"
+	BackupKindMetadata BackupKind = "metadata"
+	BackupKindSafety   BackupKind = "safety"
 )
 
 // Valid indicates whether the value is a known member of the BackupKind enum.
 func (e BackupKind) Valid() bool {
 	switch e {
-	case Base:
+	case BackupKindBase:
 		return true
-	case Final:
+	case BackupKindFinal:
 		return true
-	case Logical:
+	case BackupKindLogical:
 		return true
-	case Metadata:
+	case BackupKindMetadata:
 		return true
-	case Safety:
+	case BackupKindSafety:
 		return true
 	default:
 		return false
@@ -951,6 +951,54 @@ func (e MetricsResponseResolution) Valid() bool {
 	}
 }
 
+// Defines values for MoveMode.
+const (
+	MoveModeDump    MoveMode = "dump"
+	MoveModeLogical MoveMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the MoveMode enum.
+func (e MoveMode) Valid() bool {
+	switch e {
+	case MoveModeDump:
+		return true
+	case MoveModeLogical:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MovePhase.
+const (
+	MovePhaseCopying   MovePhase = "copying"
+	MovePhaseCutover   MovePhase = "cutover"
+	MovePhaseDone      MovePhase = "done"
+	MovePhaseFailed    MovePhase = "failed"
+	MovePhasePreparing MovePhase = "preparing"
+	MovePhaseStreaming MovePhase = "streaming"
+)
+
+// Valid indicates whether the value is a known member of the MovePhase enum.
+func (e MovePhase) Valid() bool {
+	switch e {
+	case MovePhaseCopying:
+		return true
+	case MovePhaseCutover:
+		return true
+	case MovePhaseDone:
+		return true
+	case MovePhaseFailed:
+		return true
+	case MovePhasePreparing:
+		return true
+	case MovePhaseStreaming:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperationLogEntryLevel.
 const (
 	OperationLogEntryLevelError OperationLogEntryLevel = "error"
@@ -1134,9 +1182,11 @@ const (
 	ProjectStatusDeleting     ProjectStatus = "deleting"
 	ProjectStatusDemoting     ProjectStatus = "demoting"
 	ProjectStatusError        ProjectStatus = "error"
+	ProjectStatusMoving       ProjectStatus = "moving"
 	ProjectStatusPromoting    ProjectStatus = "promoting"
 	ProjectStatusProvisioning ProjectStatus = "provisioning"
 	ProjectStatusRestoring    ProjectStatus = "restoring"
+	ProjectStatusUpgrading    ProjectStatus = "upgrading"
 )
 
 // Valid indicates whether the value is a known member of the ProjectStatus enum.
@@ -1150,11 +1200,15 @@ func (e ProjectStatus) Valid() bool {
 		return true
 	case ProjectStatusError:
 		return true
+	case ProjectStatusMoving:
+		return true
 	case ProjectStatusPromoting:
 		return true
 	case ProjectStatusProvisioning:
 		return true
 	case ProjectStatusRestoring:
+		return true
+	case ProjectStatusUpgrading:
 		return true
 	default:
 		return false
@@ -3381,6 +3435,42 @@ type MetricsResponse struct {
 // MetricsResponseResolution defines model for MetricsResponse.Resolution.
 type MetricsResponseResolution string
 
+// Move defines model for Move.
+type Move struct {
+	// FallbackReason Why logical replication wasn't used.
+	FallbackReason *string    `json:"fallback_reason,omitempty"`
+	FinishedAt     *time.Time `json:"finished_at,omitempty"`
+
+	// FreezeMs How long writes were paused.
+	FreezeMs       *int               `json:"freeze_ms,omitempty"`
+	Id             openapi_types.UUID `json:"id"`
+	LagBytes       *int64             `json:"lag_bytes,omitempty"`
+	Mode           MoveMode           `json:"mode"`
+	OperationId    openapi_types.UUID `json:"operation_id"`
+	Phase          MovePhase          `json:"phase"`
+	SourceInstance openapi_types.UUID `json:"source_instance"`
+	StartedAt      time.Time          `json:"started_at"`
+	TablesReady    *int               `json:"tables_ready,omitempty"`
+	TablesTotal    *int               `json:"tables_total,omitempty"`
+	TargetInstance openapi_types.UUID `json:"target_instance"`
+}
+
+// MoveMode defines model for Move.Mode.
+type MoveMode string
+
+// MovePhase defines model for Move.Phase.
+type MovePhase string
+
+// MoveList defines model for MoveList.
+type MoveList struct {
+	Items []Move `json:"items"`
+}
+
+// MoveProjectRequest defines model for MoveProjectRequest.
+type MoveProjectRequest struct {
+	NodeId openapi_types.UUID `json:"node_id"`
+}
+
 // MyInvitationList defines model for MyInvitationList.
 type MyInvitationList struct {
 	Items []Invitation `json:"items"`
@@ -5345,6 +5435,9 @@ type CreatePlanJSONRequestBody = PlanRequest
 // UpdatePlanJSONRequestBody defines body for UpdatePlan for application/json ContentType.
 type UpdatePlanJSONRequestBody = PlanRequest
 
+// MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
+type MoveProjectJSONRequestBody = MoveProjectRequest
+
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
 
@@ -5860,6 +5953,38 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/admin/plans/{plan_id} (the `UpdatePlan` operationId).
 	UpdatePlan(ctx context.Context, planId openapi_types.UUID, body UpdatePlanJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MoveProjectWithBody Move a project to another node (platform admin, V3 §2.3)
+	//
+	// Queues a `logical_move` operation. A shared project goes to the
+	// shared cluster on the node (same Postgres version); a dedicated
+	// project gets a new instance of the same size there. The data is
+	// copied by logical replication while the project keeps serving, then
+	// writes pause for a few seconds while the route switches. When
+	// logical replication isn't possible (see the operation log) the copy
+	// is a dump/restore during the pause instead. Connection strings don't
+	// change; the old copy is kept for 48 hours.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+	MoveProjectWithBody(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MoveProject Move a project to another node (platform admin, V3 §2.3)
+	//
+	// Queues a `logical_move` operation. A shared project goes to the
+	// shared cluster on the node (same Postgres version); a dedicated
+	// project gets a new instance of the same size there. The data is
+	// copied by logical replication while the project keeps serving, then
+	// writes pause for a few seconds while the route switches. When
+	// logical replication isn't possible (see the operation log) the copy
+	// is a dump/restore during the pause instead. Connection strings don't
+	// change; the old copy is kept for 48 hours.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+	MoveProject(ctx context.Context, projectId openapi_types.UUID, body MoveProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	//
@@ -7201,6 +7326,11 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/metrics (the `GetProjectMetrics` operationId).
 	GetProjectMetrics(ctx context.Context, id ProjectID, params *GetProjectMetricsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListProjectMoves The project's recent moves between instances, newest first
+	//
+	// Corresponds with GET /api/v1/projects/{id}/moves (the `ListProjectMoves` operationId).
+	ListProjectMoves(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RestoreProjectPITRWithBody Point-in-time recovery of a dedicated project into a new one
 	//
 	// Restores the newest base backup taken before `target_time` (default:
@@ -8465,6 +8595,58 @@ func (c *Client) UpdatePlanWithBody(ctx context.Context, planId openapi_types.UU
 // Corresponds with PATCH /api/v1/admin/plans/{plan_id} (the `UpdatePlan` operationId).
 func (c *Client) UpdatePlan(ctx context.Context, planId openapi_types.UUID, body UpdatePlanJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdatePlanRequest(c.Server, planId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MoveProjectWithBody Move a project to another node (platform admin, V3 §2.3)
+//
+// Queues a `logical_move` operation. A shared project goes to the
+// shared cluster on the node (same Postgres version); a dedicated
+// project gets a new instance of the same size there. The data is
+// copied by logical replication while the project keeps serving, then
+// writes pause for a few seconds while the route switches. When
+// logical replication isn't possible (see the operation log) the copy
+// is a dump/restore during the pause instead. Connection strings don't
+// change; the old copy is kept for 48 hours.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+func (c *Client) MoveProjectWithBody(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveProjectRequestWithBody(c.Server, projectId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MoveProject Move a project to another node (platform admin, V3 §2.3)
+//
+// Queues a `logical_move` operation. A shared project goes to the
+// shared cluster on the node (same Postgres version); a dedicated
+// project gets a new instance of the same size there. The data is
+// copied by logical replication while the project keeps serving, then
+// writes pause for a few seconds while the route switches. When
+// logical replication isn't possible (see the operation log) the copy
+// is a dump/restore during the pause instead. Connection strings don't
+// change; the old copy is kept for 48 hours.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+func (c *Client) MoveProject(ctx context.Context, projectId openapi_types.UUID, body MoveProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveProjectRequest(c.Server, projectId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11605,6 +11787,21 @@ func (c *Client) GetProjectMetrics(ctx context.Context, id ProjectID, params *Ge
 	return c.Client.Do(req)
 }
 
+// ListProjectMoves The project's recent moves between instances, newest first
+//
+// Corresponds with GET /api/v1/projects/{id}/moves (the `ListProjectMoves` operationId).
+func (c *Client) ListProjectMoves(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectMovesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // RestoreProjectPITRWithBody Point-in-time recovery of a dedicated project into a new one
 //
 // Restores the newest base backup taken before `target_time` (default:
@@ -14222,6 +14419,53 @@ func NewUpdatePlanRequestWithBody(server string, planId openapi_types.UUID, cont
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewMoveProjectRequest calls the generic MoveProject builder with application/json body
+func NewMoveProjectRequest(server string, projectId openapi_types.UUID, body MoveProjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewMoveProjectRequestWithBody(server, projectId, "application/json", bodyReader)
+}
+
+// NewMoveProjectRequestWithBody constructs an http.Request for the MoveProject method, with any body, and a specified content type
+func NewMoveProjectRequestWithBody(server string, projectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "project_id", projectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/projects/%s/move", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -19697,6 +19941,40 @@ func NewGetProjectMetricsRequest(server string, id ProjectID, params *GetProject
 	return req, nil
 }
 
+// NewListProjectMovesRequest constructs an http.Request for the ListProjectMoves method
+func NewListProjectMovesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/moves", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRestoreProjectPITRRequest calls the generic RestoreProjectPITR builder with application/json body
 func NewRestoreProjectPITRRequest(server string, id ProjectID, body RestoreProjectPITRJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -22956,6 +23234,38 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/v1/admin/plans/{plan_id} (the `UpdatePlan` operationId).
 	UpdatePlanWithResponse(ctx context.Context, planId openapi_types.UUID, body UpdatePlanJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlanResponse, error)
 
+	// MoveProjectWithBodyWithResponse Move a project to another node (platform admin, V3 §2.3)
+	//
+	// Queues a `logical_move` operation. A shared project goes to the
+	// shared cluster on the node (same Postgres version); a dedicated
+	// project gets a new instance of the same size there. The data is
+	// copied by logical replication while the project keeps serving, then
+	// writes pause for a few seconds while the route switches. When
+	// logical replication isn't possible (see the operation log) the copy
+	// is a dump/restore during the pause instead. Connection strings don't
+	// change; the old copy is kept for 48 hours.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+	MoveProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MoveProjectResponse, error)
+
+	// MoveProjectWithResponse Move a project to another node (platform admin, V3 §2.3)
+	//
+	// Queues a `logical_move` operation. A shared project goes to the
+	// shared cluster on the node (same Postgres version); a dedicated
+	// project gets a new instance of the same size there. The data is
+	// copied by logical replication while the project keeps serving, then
+	// writes pause for a few seconds while the route switches. When
+	// logical replication isn't possible (see the operation log) the copy
+	// is a dump/restore during the pause instead. Connection strings don't
+	// change; the old copy is kept for 48 hours.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+	MoveProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, body MoveProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*MoveProjectResponse, error)
+
 	// GetMailSettingsWithResponse Platform SMTP settings (platform admin; no password)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -24441,6 +24751,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/metrics (the `GetProjectMetrics` operationId).
 	GetProjectMetricsWithResponse(ctx context.Context, id ProjectID, params *GetProjectMetricsParams, reqEditors ...RequestEditorFn) (*GetProjectMetricsResponse, error)
+
+	// ListProjectMovesWithResponse The project's recent moves between instances, newest first
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/moves (the `ListProjectMoves` operationId).
+	ListProjectMovesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListProjectMovesResponse, error)
 
 	// RestoreProjectPITRWithBodyWithResponse Point-in-time recovery of a dedicated project into a new one
 	//
@@ -26187,6 +26504,54 @@ func (r UpdatePlanResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdatePlanResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type MoveProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r MoveProjectResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r MoveProjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r MoveProjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MoveProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MoveProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MoveProjectResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -32066,6 +32431,54 @@ func (r GetProjectMetricsResponse) ContentType() string {
 	return ""
 }
 
+type ListProjectMovesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MoveList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProjectMovesResponse) GetJSON200() *MoveList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListProjectMovesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListProjectMovesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectMovesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectMovesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectMovesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type RestoreProjectPITRResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -35687,6 +36100,50 @@ func (c *ClientWithResponses) UpdatePlanWithResponse(ctx context.Context, planId
 	return ParseUpdatePlanResponse(rsp)
 }
 
+// MoveProjectWithBodyWithResponse Move a project to another node (platform admin, V3 §2.3)
+//
+// Queues a `logical_move` operation. A shared project goes to the
+// shared cluster on the node (same Postgres version); a dedicated
+// project gets a new instance of the same size there. The data is
+// copied by logical replication while the project keeps serving, then
+// writes pause for a few seconds while the route switches. When
+// logical replication isn't possible (see the operation log) the copy
+// is a dump/restore during the pause instead. Connection strings don't
+// change; the old copy is kept for 48 hours.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+func (c *ClientWithResponses) MoveProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MoveProjectResponse, error) {
+	rsp, err := c.MoveProjectWithBody(ctx, projectId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveProjectResponse(rsp)
+}
+
+// MoveProjectWithResponse Move a project to another node (platform admin, V3 §2.3)
+//
+// Queues a `logical_move` operation. A shared project goes to the
+// shared cluster on the node (same Postgres version); a dedicated
+// project gets a new instance of the same size there. The data is
+// copied by logical replication while the project keeps serving, then
+// writes pause for a few seconds while the route switches. When
+// logical replication isn't possible (see the operation log) the copy
+// is a dump/restore during the pause instead. Connection strings don't
+// change; the old copy is kept for 48 hours.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/projects/{project_id}/move (the `MoveProject` operationId).
+func (c *ClientWithResponses) MoveProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, body MoveProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*MoveProjectResponse, error) {
+	rsp, err := c.MoveProject(ctx, projectId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveProjectResponse(rsp)
+}
+
 // GetMailSettingsWithResponse Platform SMTP settings (platform admin; no password)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -38247,6 +38704,19 @@ func (c *ClientWithResponses) GetProjectMetricsWithResponse(ctx context.Context,
 	return ParseGetProjectMetricsResponse(rsp)
 }
 
+// ListProjectMovesWithResponse The project's recent moves between instances, newest first
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/moves (the `ListProjectMoves` operationId).
+func (c *ClientWithResponses) ListProjectMovesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListProjectMovesResponse, error) {
+	rsp, err := c.ListProjectMoves(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectMovesResponse(rsp)
+}
+
 // RestoreProjectPITRWithBodyWithResponse Point-in-time recovery of a dedicated project into a new one
 //
 // Restores the newest base backup taken before `target_time` (default:
@@ -40299,6 +40769,39 @@ func ParseUpdatePlanResponse(rsp *http.Response) (*UpdatePlanResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMoveProjectResponse parses an HTTP response from a MoveProjectWithResponse call
+func ParseMoveProjectResponse(rsp *http.Response) (*MoveProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MoveProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -44356,6 +44859,39 @@ func ParseGetProjectMetricsResponse(rsp *http.Response) (*GetProjectMetricsRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MetricsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectMovesResponse parses an HTTP response from a ListProjectMovesWithResponse call
+func ParseListProjectMovesResponse(rsp *http.Response) (*ListProjectMovesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectMovesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MoveList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

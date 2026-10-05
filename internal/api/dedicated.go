@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/dedicated"
@@ -402,4 +404,56 @@ func (s *Server) DemoteProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 		return
 	}
 	s.writeOperation(w, "demote", op)
+}
+
+// MoveProject implements POST /api/v1/admin/projects/{project_id}/move.
+func (s *Server) MoveProject(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	var req gen.MoveProjectRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	a.set("node_id", req.NodeId.String())
+	op, err := ds.Move(r.Context(), dedicated.MoveParams{ProjectID: id, NodeID: req.NodeId, CreatedBy: userID(r.Context())})
+	if err != nil {
+		s.provisionError(w, "move", err)
+		return
+	}
+	s.writeOperation(w, "move", op)
+}
+
+// ListProjectMoves implements GET /api/v1/projects/{id}/moves.
+func (s *Server) ListProjectMoves(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	list, err := store.New(s.db).LatestMoves(r.Context(), store.LatestMovesParams{ProjectID: id, Lim: 20})
+	if err != nil {
+		s.internalError(w, "list moves", err)
+		return
+	}
+	out := gen.MoveList{Items: make([]gen.Move, 0, len(list))}
+	for _, m := range list {
+		mv := gen.Move{
+			Id: m.ID, OperationId: m.OperationID, SourceInstance: m.SourceInstance, TargetInstance: m.TargetInstance,
+			Mode: gen.MoveMode(m.Mode), FallbackReason: m.FallbackReason, Phase: gen.MovePhase(m.Phase),
+			LagBytes: m.LagBytes, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt,
+		}
+		if m.TablesTotal != nil {
+			v := int(*m.TablesTotal)
+			mv.TablesTotal = &v
+		}
+		if m.TablesReady != nil {
+			v := int(*m.TablesReady)
+			mv.TablesReady = &v
+		}
+		if m.FreezeMs != nil {
+			v := int(*m.FreezeMs)
+			mv.FreezeMs = &v
+		}
+		out.Items = append(out.Items, mv)
+	}
+	writeJSON(w, http.StatusOK, out)
 }

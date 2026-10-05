@@ -43,7 +43,7 @@ JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id
 JOIN organizations o ON o.id = p.org_id
 WHERE p.deleted_at IS NULL
-  AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'restoring')
+  AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
   AND o.status <> 'suspended'
 ORDER BY p.db_name;
 

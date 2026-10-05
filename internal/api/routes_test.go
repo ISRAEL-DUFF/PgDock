@@ -416,6 +416,8 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects/{id}/storage-target",
 		// V2 §8 Project → Branches
 		"GET /api/v1/projects/{id}/branches",
+		// V3 §2.3: a project's moves between instances
+		"GET /api/v1/projects/{id}/moves",
 	},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
@@ -550,6 +552,8 @@ var specMatrix = map[authz.Action][]string{
 		// the admin console"; §2.1 the pooler hosts are platform infrastructure.
 		"GET /api/v1/incidents", "POST /api/v1/incidents", "GET /api/v1/incidents/{id}",
 		"PATCH /api/v1/incidents/{id}", "POST /api/v1/incidents/{id}/updates", "GET /api/v1/pooler-hosts",
+		// V3 §5.3: moving projects between nodes is the platform's call
+		"POST /api/v1/admin/projects/{project_id}/move",
 	},
 }
 

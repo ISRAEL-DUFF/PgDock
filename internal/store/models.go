@@ -256,6 +256,23 @@ type MetricPoint struct {
 	Value      float64
 }
 
+type Move struct {
+	ID             uuid.UUID
+	OperationID    uuid.UUID
+	ProjectID      uuid.UUID
+	SourceInstance uuid.UUID
+	TargetInstance uuid.UUID
+	Mode           string
+	FallbackReason *string
+	Phase          string
+	TablesTotal    *int32
+	TablesReady    *int32
+	LagBytes       *int64
+	FreezeMs       *int32
+	StartedAt      time.Time
+	FinishedAt     *time.Time
+}
+
 type Node struct {
 	ID                    uuid.UUID
 	Name                  string
