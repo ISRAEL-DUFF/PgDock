@@ -45,6 +45,8 @@ func sharedSettings(memMB int) map[string]string {
 		"autovacuum_max_workers":     "5",
 		"shared_preload_libraries":   "pg_stat_statements",
 		"log_min_duration_statement": "5s",
+		// Logical-replication moves (V3 §2.3).
+		"wal_level": "logical",
 	}
 }
 

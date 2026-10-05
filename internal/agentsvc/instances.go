@@ -156,12 +156,13 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	}
 
 	cmd := []string{"postgres"}
-	settings := map[string]string{"listen_addresses": "*", "password_encryption": "scram-sha-256"}
+	// wal_level=logical: moves replicate out of any instance (V3 §2.3);
+	// WAL-G archives it as it would replica.
+	settings := map[string]string{"listen_addresses": "*", "password_encryption": "scram-sha-256", "wal_level": "logical"}
 	if spec.WALG != nil {
 		settings["archive_mode"] = "on"
 		settings["archive_command"] = "wal-g wal-push %p"
 		settings["archive_timeout"] = "60"
-		settings["wal_level"] = "replica"
 	}
 	for k, v := range spec.Settings {
 		if !settingName.MatchString(k) || strings.ContainsAny(v, "\x00\n") {
