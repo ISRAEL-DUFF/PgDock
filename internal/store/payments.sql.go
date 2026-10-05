@@ -1518,6 +1518,23 @@ func (q *Queries) PrepaidDeducted(ctx context.Context, arg PrepaidDeductedParams
 	return items, nil
 }
 
+const recentAutoTopup = `-- name: RecentAutoTopup :one
+SELECT EXISTS (SELECT 1 FROM payment_intents WHERE org_id = $1 AND automatic AND purpose = 'topup' AND created_at > $2)::bool
+`
+
+type RecentAutoTopupParams struct {
+	OrgID uuid.UUID
+	Since time.Time
+}
+
+// tenant: system - whether an org was auto-topped-up recently.
+func (q *Queries) RecentAutoTopup(ctx context.Context, arg RecentAutoTopupParams) (bool, error) {
+	row := q.db.QueryRow(ctx, recentAutoTopup, arg.OrgID, arg.Since)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const revokeMandateByRef = `-- name: RevokeMandateByRef :one
 UPDATE payment_methods SET status = 'revoked', is_default = false WHERE provider = $1 AND provider_ref = $2 AND kind = 'mandate'
 RETURNING id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at

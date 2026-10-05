@@ -277,3 +277,7 @@ SELECT * FROM payment_events WHERE outcome = 'unmatched' ORDER BY id DESC LIMIT 
 -- name: GetPaymentEvent :one
 -- tenant: system - one event of the admin's log.
 SELECT * FROM payment_events WHERE id = @id;
+
+-- name: RecentAutoTopup :one
+-- tenant: system - whether an org was auto-topped-up recently.
+SELECT EXISTS (SELECT 1 FROM payment_intents WHERE org_id = @org_id AND automatic AND purpose = 'topup' AND created_at > @since)::bool;

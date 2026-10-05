@@ -282,7 +282,7 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 		out.NextFee = pl.MonthlyMinor
 		out.Lines = append(out.Lines, Line{
 			Kind: KindPlan, Quantity: DecInt(1), UnitPrice: DecInt(pl.MonthlyMinor), Amount: pl.MonthlyMinor, Revenue: AccRevenuePrefix + next.plan,
-			Description: fmt.Sprintf("%s plan, %s", pl.Name, mEnd.Format("January 2006")),
+			Description: fmt.Sprintf("%s plan, %s", pl.Name, mEnd.Format("January 2006")), Advance: true,
 		})
 	}
 

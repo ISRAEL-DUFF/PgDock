@@ -468,8 +468,17 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	var forecastAt, requeryAt time.Time
+	var daily time.Time   // the last day the daily work ran
 	var nightly time.Time // the last day re-queried in full
 	for {
+		// Prepaid deductions, balance alerts, card reminders: daily, after
+		// midnight's usage is recorded.
+		if now := s.Now(); now.UTC().Hour() >= 1 && daily.Before(dayStart(now)) {
+			if err := s.Daily(ctx); err != nil && ctx.Err() == nil {
+				s.log.Warn("billing: daily", "err", err)
+			}
+			daily = dayStart(now)
+		}
 		// Missed provider events (V3 §3.4.8): the last two hours hourly, the
 		// whole previous day once a night.
 		if now := s.Now(); len(s.providers) > 0 && now.Sub(requeryAt) >= time.Hour {

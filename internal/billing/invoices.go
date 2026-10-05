@@ -207,6 +207,11 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		if err != nil {
 			return err
 		}
+		if a.Mode == ModePrepaid {
+			// Revenue was recognised as it was deducted; the rest now.
+			inv, err = s.settlePrepaidInvoice(ctx, tx, inv, lines)
+			return err
+		}
 		if txn, ok := invoiceTxn(inv, lines, by); ok {
 			if _, err := Post(ctx, tx, txn); err != nil {
 				return err
@@ -223,6 +228,10 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		return inv, err
 	}
 	s.mailInvoice(ctx, inv)
+	s.chargeOnIssue(ctx, inv)
+	if fresh, err := store.New(s.db).GetInvoice(ctx, inv.ID); err == nil {
+		inv = fresh
+	}
 	return inv, nil
 }
 

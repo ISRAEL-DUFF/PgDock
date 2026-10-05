@@ -113,6 +113,8 @@ type Line struct {
 	Amount      int64      `json:"amount"`     // kobo
 	// Revenue is the ledger account the line's revenue goes to.
 	Revenue string `json:"revenue"`
+	// Advance marks the next month's plan fee, billed in advance.
+	Advance bool `json:"advance,omitempty"`
 }
 
 // Line kinds.
