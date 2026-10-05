@@ -152,6 +152,28 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 		t.Fatalf("ledger check: %d %+v", code, check)
 	}
 
+	// At the spend cap, a new branch is refused with the reason; reading
+	// and the cost estimate still work.
+	if _, err := e.DB.Exec(context.Background(), `UPDATE billing_accounts SET capped = true WHERE org_id = $1`, org.Id); err != nil {
+		t.Fatal(err)
+	}
+	live := gen.BranchRequestSourceLive
+	var refused gen.Error
+	if code := admin.Do("POST", "/api/v1/projects/"+p.Project.Id.String()+"/branches", gen.BranchRequest{Name: "capped", Source: &live}, &refused); code != http.StatusConflict ||
+		!strings.Contains(refused.Message, "spend cap") {
+		t.Errorf("branch at the spend cap: %d %+v", code, refused)
+	}
+	var est struct {
+		MonthlyMinor int64 `json:"monthly_minor"`
+	}
+	if code := admin.Do("POST", "/api/v1/orgs/"+oid+"/billing/estimate", map[string]any{"cpus": 2, "memory_mb": 4096, "disk_gb": 40}, &est); code != http.StatusOK ||
+		est.MonthlyMinor != billing.D("9655.76").Frac(730, 1).Round() {
+		t.Errorf("estimate: %d %+v", code, est)
+	}
+	if _, err := e.DB.Exec(context.Background(), `UPDATE billing_accounts SET capped = false WHERE org_id = $1`, org.Id); err != nil {
+		t.Fatal(err)
+	}
+
 	// Price books: a draft can't be published inside the notice period.
 	var books struct {
 		CurrentVersion int `json:"current_version"`
