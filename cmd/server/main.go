@@ -30,6 +30,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/console"
@@ -219,6 +220,14 @@ func run() error {
 	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
 	authSvc.SetHooks(orgSvc.Hooks())
 
+	// Billing (V3 §3): price books, accounts, plan changes.
+	billingSvc := billing.New(pool, mailSvc, cfg.Insight.PublicURL, log)
+	if err := billingSvc.Init(ctx); err != nil {
+		return fmt.Errorf("billing: %w", err)
+	}
+	bg.Add(1)
+	go func() { defer bg.Done(); billingSvc.Run(bgCtx, 10*time.Minute) }()
+
 	// Quotas, storage locks, the reaper, usage, suspension (V2 §10).
 	tokenSvc := tokens.New(pool, keyring, mailSvc, tokens.Config{PublicURL: cfg.Insight.PublicURL}, log)
 	bg.Add(1)
@@ -369,6 +378,7 @@ func run() error {
 		Outbound:        outboundSvc,
 		Incidents:       incidentSvc,
 		PoolerArbiter:   poolerArbiter,
+		Billing:         billingSvc,
 		Tokens:          tokenSvc,
 		PublicURL:       cfg.Insight.PublicURL,
 		MetricsInterval: cfg.Insight.MetricsInterval,

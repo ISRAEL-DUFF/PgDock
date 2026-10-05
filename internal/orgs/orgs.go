@@ -276,6 +276,10 @@ func (s *Service) SetMemberRole(ctx context.Context, orgID uuid.UUID, actorRole 
 		if (cur.Role == authz.OrgOwner || role == authz.OrgOwner) && actorRole != authz.OrgOwner {
 			return fmt.Errorf("%w: only owners can add or remove owners", ErrForbidden)
 		}
+		if (cur.Role == authz.OrgBilling || role == authz.OrgBilling) && actorRole != authz.OrgOwner {
+			// Admins can't see billing, so they don't hand out access to it.
+			return fmt.Errorf("%w: only owners can give or take the billing role", ErrForbidden)
+		}
 		if cur.Role == authz.OrgOwner && role != authz.OrgOwner {
 			if n, err := q.CountOrgOwners(ctx, orgID); err != nil {
 				return err

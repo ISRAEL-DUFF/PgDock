@@ -7,9 +7,79 @@ package store
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const addBillingContact = `-- name: AddBillingContact :one
+INSERT INTO billing_contacts (org_id, email, name) VALUES ($1, $2, $3)
+ON CONFLICT (org_id, email) DO UPDATE SET name = EXCLUDED.name RETURNING org_id, email, name, created_at
+`
+
+type AddBillingContactParams struct {
+	OrgID uuid.UUID
+	Email string
+	Name  *string
+}
+
+// tenant: system - a contact of an org the caller resolved.
+func (q *Queries) AddBillingContact(ctx context.Context, arg AddBillingContactParams) (BillingContact, error) {
+	row := q.db.QueryRow(ctx, addBillingContact, arg.OrgID, arg.Email, arg.Name)
+	var i BillingContact
+	err := row.Scan(
+		&i.OrgID,
+		&i.Email,
+		&i.Name,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const billingRecipients = `-- name: BillingRecipients :many
+SELECT c.email::text AS email FROM billing_contacts c WHERE c.org_id = $1
+UNION
+SELECT u.email::text FROM org_members m JOIN users u ON u.id = m.user_id
+WHERE m.org_id = $1 AND m.role IN ('owner', 'billing') AND u.disabled_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM billing_contacts WHERE org_id = $1)
+`
+
+// tenant: system - who gets an org's billing email: its contacts, else
+// its owners and billing members.
+func (q *Queries) BillingRecipients(ctx context.Context, orgID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, billingRecipients, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var email string
+		if err := rows.Scan(&email); err != nil {
+			return nil, err
+		}
+		items = append(items, email)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const cancelPendingPlanChanges = `-- name: CancelPendingPlanChanges :execrows
+UPDATE billing_plan_changes SET cancelled = true WHERE org_id = $1 AND NOT applied AND NOT cancelled
+`
+
+// tenant: system - a new choice replaces a scheduled one.
+func (q *Queries) CancelPendingPlanChanges(ctx context.Context, orgID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, cancelPendingPlanChanges, orgID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
 
 const countLedgerTxn = `-- name: CountLedgerTxn :one
 SELECT count(*)::int FROM ledger_entries WHERE txn_id = $1
@@ -21,6 +91,200 @@ func (q *Queries) CountLedgerTxn(ctx context.Context, txnID uuid.UUID) (int32, e
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const countPublishedPriceBooks = `-- name: CountPublishedPriceBooks :one
+SELECT count(*)::int FROM price_books WHERE published_at IS NOT NULL
+`
+
+// tenant: platform - whether a first book exists.
+func (q *Queries) CountPublishedPriceBooks(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countPublishedPriceBooks)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const currentPriceBook = `-- name: CurrentPriceBook :one
+SELECT version, effective_at, prices, notes, created_at, published_at, published_by FROM price_books WHERE published_at IS NOT NULL AND effective_at <= $1
+ORDER BY effective_at DESC, version DESC LIMIT 1
+`
+
+// tenant: platform - the published book in effect at @at.
+func (q *Queries) CurrentPriceBook(ctx context.Context, at time.Time) (PriceBook, error) {
+	row := q.db.QueryRow(ctx, currentPriceBook, at)
+	var i PriceBook
+	err := row.Scan(
+		&i.Version,
+		&i.EffectiveAt,
+		&i.Prices,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.PublishedBy,
+	)
+	return i, err
+}
+
+const deleteBillingContact = `-- name: DeleteBillingContact :execrows
+DELETE FROM billing_contacts WHERE org_id = $1 AND email = $2
+`
+
+type DeleteBillingContactParams struct {
+	OrgID uuid.UUID
+	Email string
+}
+
+// tenant: system - a contact of an org the caller resolved.
+func (q *Queries) DeleteBillingContact(ctx context.Context, arg DeleteBillingContactParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteBillingContact, arg.OrgID, arg.Email)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deletePriceBookDraft = `-- name: DeletePriceBookDraft :execrows
+DELETE FROM price_books WHERE version = $1 AND published_at IS NULL
+`
+
+// tenant: platform - drops a draft.
+func (q *Queries) DeletePriceBookDraft(ctx context.Context, version int32) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePriceBookDraft, version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const duePlanChanges = `-- name: DuePlanChanges :many
+SELECT id, org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_at, requested_by, applied, cancelled, lines FROM billing_plan_changes WHERE NOT applied AND NOT cancelled AND effective_at <= $1 ORDER BY effective_at
+`
+
+// tenant: system - scheduled changes whose time has come.
+func (q *Queries) DuePlanChanges(ctx context.Context, at time.Time) ([]BillingPlanChange, error) {
+	rows, err := q.db.Query(ctx, duePlanChanges, at)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BillingPlanChange
+	for rows.Next() {
+		var i BillingPlanChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.FromPlan,
+			&i.ToPlan,
+			&i.FromTerm,
+			&i.ToTerm,
+			&i.EffectiveAt,
+			&i.RequestedAt,
+			&i.RequestedBy,
+			&i.Applied,
+			&i.Cancelled,
+			&i.Lines,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const ensureAllBillingAccounts = `-- name: EnsureAllBillingAccounts :execrows
+INSERT INTO billing_accounts (org_id, price_book_version)
+SELECT id, $1 FROM organizations WHERE status <> 'deleted'
+ON CONFLICT (org_id) DO NOTHING
+`
+
+// tenant: system - every live org without an account gets one.
+func (q *Queries) EnsureAllBillingAccounts(ctx context.Context, priceBookVersion int32) (int64, error) {
+	result, err := q.db.Exec(ctx, ensureAllBillingAccounts, priceBookVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const ensureBillingAccount = `-- name: EnsureBillingAccount :exec
+
+INSERT INTO billing_accounts (org_id, price_book_version) VALUES ($1, $2)
+ON CONFLICT (org_id) DO NOTHING
+`
+
+type EnsureBillingAccountParams struct {
+	OrgID            uuid.UUID
+	PriceBookVersion int32
+}
+
+// ---- Billing accounts -----------------------------------------------------
+// tenant: system - an org the caller resolved gets an account on the current book.
+func (q *Queries) EnsureBillingAccount(ctx context.Context, arg EnsureBillingAccountParams) error {
+	_, err := q.db.Exec(ctx, ensureBillingAccount, arg.OrgID, arg.PriceBookVersion)
+	return err
+}
+
+const getBillingAccount = `-- name: GetBillingAccount :one
+SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at FROM billing_accounts WHERE org_id = $1
+`
+
+// tenant: system - the account of an org the caller resolved.
+func (q *Queries) GetBillingAccount(ctx context.Context, orgID uuid.UUID) (BillingAccount, error) {
+	row := q.db.QueryRow(ctx, getBillingAccount, orgID)
+	var i BillingAccount
+	err := row.Scan(
+		&i.OrgID,
+		&i.Plan,
+		&i.Term,
+		&i.TermEndsAt,
+		&i.Mode,
+		&i.PriceBookVersion,
+		&i.Grandfathered,
+		&i.LegalName,
+		&i.Address,
+		&i.Tin,
+		&i.VatRegistered,
+		&i.DeductsWht,
+		&i.ProviderCustomers,
+		&i.PaymentTermsDays,
+		&i.BudgetMinor,
+		&i.SpendCapMinor,
+		&i.AutoTopup,
+		&i.DunningState,
+		&i.GraceUntil,
+		&i.ForecastMinor,
+		&i.ForecastAt,
+		&i.Capped,
+		&i.BudgetAlerted,
+		&i.BudgetMonth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPriceBook = `-- name: GetPriceBook :one
+SELECT version, effective_at, prices, notes, created_at, published_at, published_by FROM price_books WHERE version = $1
+`
+
+// tenant: platform - price books are platform-wide.
+func (q *Queries) GetPriceBook(ctx context.Context, version int32) (PriceBook, error) {
+	row := q.db.QueryRow(ctx, getPriceBook, version)
+	var i PriceBook
+	err := row.Scan(
+		&i.Version,
+		&i.EffectiveAt,
+		&i.Prices,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.PublishedBy,
+	)
+	return i, err
 }
 
 const insertLedgerEntry = `-- name: InsertLedgerEntry :one
@@ -60,6 +324,94 @@ func (q *Queries) InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryPa
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertPlanChange = `-- name: InsertPlanChange :one
+
+INSERT INTO billing_plan_changes (org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_by, applied, lines)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_at, requested_by, applied, cancelled, lines
+`
+
+type InsertPlanChangeParams struct {
+	OrgID       uuid.UUID
+	FromPlan    string
+	ToPlan      string
+	FromTerm    string
+	ToTerm      string
+	EffectiveAt time.Time
+	RequestedBy *uuid.UUID
+	Applied     bool
+	Lines       json.RawMessage
+}
+
+// ---- Plan changes ---------------------------------------------------------
+// tenant: system - a change for an org the caller resolved.
+func (q *Queries) InsertPlanChange(ctx context.Context, arg InsertPlanChangeParams) (BillingPlanChange, error) {
+	row := q.db.QueryRow(ctx, insertPlanChange,
+		arg.OrgID,
+		arg.FromPlan,
+		arg.ToPlan,
+		arg.FromTerm,
+		arg.ToTerm,
+		arg.EffectiveAt,
+		arg.RequestedBy,
+		arg.Applied,
+		arg.Lines,
+	)
+	var i BillingPlanChange
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.FromPlan,
+		&i.ToPlan,
+		&i.FromTerm,
+		&i.ToTerm,
+		&i.EffectiveAt,
+		&i.RequestedAt,
+		&i.RequestedBy,
+		&i.Applied,
+		&i.Cancelled,
+		&i.Lines,
+	)
+	return i, err
+}
+
+const insertPriceBook = `-- name: InsertPriceBook :one
+INSERT INTO price_books (version, effective_at, prices, notes, published_at, published_by)
+VALUES ((SELECT coalesce(max(version), 0) + 1 FROM price_books), $1, $2, $3,
+        $4, $5)
+RETURNING version, effective_at, prices, notes, created_at, published_at, published_by
+`
+
+type InsertPriceBookParams struct {
+	EffectiveAt time.Time
+	Prices      json.RawMessage
+	Notes       *string
+	PublishedAt *time.Time
+	PublishedBy *uuid.UUID
+}
+
+// tenant: platform - a new draft (or the first, published) book.
+func (q *Queries) InsertPriceBook(ctx context.Context, arg InsertPriceBookParams) (PriceBook, error) {
+	row := q.db.QueryRow(ctx, insertPriceBook,
+		arg.EffectiveAt,
+		arg.Prices,
+		arg.Notes,
+		arg.PublishedAt,
+		arg.PublishedBy,
+	)
+	var i PriceBook
+	err := row.Scan(
+		&i.Version,
+		&i.EffectiveAt,
+		&i.Prices,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.PublishedBy,
+	)
+	return i, err
 }
 
 const ledgerAccountTotals = `-- name: LedgerAccountTotals :many
@@ -136,6 +488,213 @@ func (q *Queries) LedgerTotals(ctx context.Context) (LedgerTotalsRow, error) {
 	return i, err
 }
 
+const listBillingAccounts = `-- name: ListBillingAccounts :many
+SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.auto_topup, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, o.name AS org_name, o.status AS org_status FROM billing_accounts b
+JOIN organizations o ON o.id = b.org_id WHERE o.status <> 'deleted' ORDER BY o.name
+`
+
+type ListBillingAccountsRow struct {
+	OrgID             uuid.UUID
+	Plan              string
+	Term              string
+	TermEndsAt        *time.Time
+	Mode              string
+	PriceBookVersion  int32
+	Grandfathered     bool
+	LegalName         *string
+	Address           *string
+	Tin               *string
+	VatRegistered     bool
+	DeductsWht        bool
+	ProviderCustomers json.RawMessage
+	PaymentTermsDays  int32
+	BudgetMinor       *int64
+	SpendCapMinor     *int64
+	AutoTopup         []byte
+	DunningState      string
+	GraceUntil        *time.Time
+	ForecastMinor     *int64
+	ForecastAt        *time.Time
+	Capped            bool
+	BudgetAlerted     int32
+	BudgetMonth       pgtype.Date
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	OrgName           string
+	OrgStatus         string
+}
+
+// tenant: system - invoicing, repricing and the admin's views.
+func (q *Queries) ListBillingAccounts(ctx context.Context) ([]ListBillingAccountsRow, error) {
+	rows, err := q.db.Query(ctx, listBillingAccounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBillingAccountsRow
+	for rows.Next() {
+		var i ListBillingAccountsRow
+		if err := rows.Scan(
+			&i.OrgID,
+			&i.Plan,
+			&i.Term,
+			&i.TermEndsAt,
+			&i.Mode,
+			&i.PriceBookVersion,
+			&i.Grandfathered,
+			&i.LegalName,
+			&i.Address,
+			&i.Tin,
+			&i.VatRegistered,
+			&i.DeductsWht,
+			&i.ProviderCustomers,
+			&i.PaymentTermsDays,
+			&i.BudgetMinor,
+			&i.SpendCapMinor,
+			&i.AutoTopup,
+			&i.DunningState,
+			&i.GraceUntil,
+			&i.ForecastMinor,
+			&i.ForecastAt,
+			&i.Capped,
+			&i.BudgetAlerted,
+			&i.BudgetMonth,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OrgName,
+			&i.OrgStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBillingContacts = `-- name: ListBillingContacts :many
+
+SELECT org_id, email, name, created_at FROM billing_contacts WHERE org_id = $1 ORDER BY email
+`
+
+// ---- Contacts -------------------------------------------------------------
+// tenant: system - contacts of an org the caller resolved.
+func (q *Queries) ListBillingContacts(ctx context.Context, orgID uuid.UUID) ([]BillingContact, error) {
+	rows, err := q.db.Query(ctx, listBillingContacts, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BillingContact
+	for rows.Next() {
+		var i BillingContact
+		if err := rows.Scan(
+			&i.OrgID,
+			&i.Email,
+			&i.Name,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPriceBooks = `-- name: ListPriceBooks :many
+
+SELECT version, effective_at, prices, notes, created_at, published_at, published_by FROM price_books ORDER BY version DESC
+`
+
+// ---- Price books ----------------------------------------------------------
+// tenant: platform - the admin's price books.
+func (q *Queries) ListPriceBooks(ctx context.Context) ([]PriceBook, error) {
+	rows, err := q.db.Query(ctx, listPriceBooks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PriceBook
+	for rows.Next() {
+		var i PriceBook
+		if err := rows.Scan(
+			&i.Version,
+			&i.EffectiveAt,
+			&i.Prices,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.PublishedAt,
+			&i.PublishedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockBillingAccount = `-- name: LockBillingAccount :one
+SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at FROM billing_accounts WHERE org_id = $1 FOR UPDATE
+`
+
+// tenant: system - the account of an org the caller resolved, for a change.
+func (q *Queries) LockBillingAccount(ctx context.Context, orgID uuid.UUID) (BillingAccount, error) {
+	row := q.db.QueryRow(ctx, lockBillingAccount, orgID)
+	var i BillingAccount
+	err := row.Scan(
+		&i.OrgID,
+		&i.Plan,
+		&i.Term,
+		&i.TermEndsAt,
+		&i.Mode,
+		&i.PriceBookVersion,
+		&i.Grandfathered,
+		&i.LegalName,
+		&i.Address,
+		&i.Tin,
+		&i.VatRegistered,
+		&i.DeductsWht,
+		&i.ProviderCustomers,
+		&i.PaymentTermsDays,
+		&i.BudgetMinor,
+		&i.SpendCapMinor,
+		&i.AutoTopup,
+		&i.DunningState,
+		&i.GraceUntil,
+		&i.ForecastMinor,
+		&i.ForecastAt,
+		&i.Capped,
+		&i.BudgetAlerted,
+		&i.BudgetMonth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const markPlanChangeApplied = `-- name: MarkPlanChangeApplied :exec
+UPDATE billing_plan_changes SET applied = true, lines = $1 WHERE id = $2
+`
+
+type MarkPlanChangeAppliedParams struct {
+	Lines json.RawMessage
+	ID    uuid.UUID
+}
+
+// tenant: system - a scheduled change took effect.
+func (q *Queries) MarkPlanChangeApplied(ctx context.Context, arg MarkPlanChangeAppliedParams) error {
+	_, err := q.db.Exec(ctx, markPlanChangeApplied, arg.Lines, arg.ID)
+	return err
+}
+
 const orgLedger = `-- name: OrgLedger :many
 SELECT id, txn_id, org_id, account, direction, amount_minor, source_type, source_id, idempotency_key, memo, created_by, created_at FROM ledger_entries WHERE org_id = $1 ORDER BY id DESC LIMIT $2
 `
@@ -179,6 +738,290 @@ func (q *Queries) OrgLedger(ctx context.Context, arg OrgLedgerParams) ([]LedgerE
 	return items, nil
 }
 
+const orgQuotaPlanName = `-- name: OrgQuotaPlanName :one
+SELECT q.name FROM organizations o JOIN quota_plans q ON q.id = o.plan_id WHERE o.id = $1
+`
+
+// tenant: system - the org's quota plan name.
+func (q *Queries) OrgQuotaPlanName(ctx context.Context, orgID uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, orgQuotaPlanName, orgID)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
+const pendingPlanChange = `-- name: PendingPlanChange :one
+SELECT id, org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_at, requested_by, applied, cancelled, lines FROM billing_plan_changes WHERE org_id = $1 AND NOT applied AND NOT cancelled
+ORDER BY requested_at DESC LIMIT 1
+`
+
+// tenant: system - an org's scheduled change.
+func (q *Queries) PendingPlanChange(ctx context.Context, orgID uuid.UUID) (BillingPlanChange, error) {
+	row := q.db.QueryRow(ctx, pendingPlanChange, orgID)
+	var i BillingPlanChange
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.FromPlan,
+		&i.ToPlan,
+		&i.FromTerm,
+		&i.ToTerm,
+		&i.EffectiveAt,
+		&i.RequestedAt,
+		&i.RequestedBy,
+		&i.Applied,
+		&i.Cancelled,
+		&i.Lines,
+	)
+	return i, err
+}
+
+const planChangesIn = `-- name: PlanChangesIn :many
+SELECT id, org_id, from_plan, to_plan, from_term, to_term, effective_at, requested_at, requested_by, applied, cancelled, lines FROM billing_plan_changes WHERE org_id = $1 AND applied
+  AND effective_at >= $2 AND effective_at < $3 ORDER BY effective_at, requested_at
+`
+
+type PlanChangesInParams struct {
+	OrgID  uuid.UUID
+	FromTs time.Time
+	ToTs   time.Time
+}
+
+// tenant: system - an org's applied changes in a billing period.
+func (q *Queries) PlanChangesIn(ctx context.Context, arg PlanChangesInParams) ([]BillingPlanChange, error) {
+	rows, err := q.db.Query(ctx, planChangesIn, arg.OrgID, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BillingPlanChange
+	for rows.Next() {
+		var i BillingPlanChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.FromPlan,
+			&i.ToPlan,
+			&i.FromTerm,
+			&i.ToTerm,
+			&i.EffectiveAt,
+			&i.RequestedAt,
+			&i.RequestedBy,
+			&i.Applied,
+			&i.Cancelled,
+			&i.Lines,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const publishPriceBook = `-- name: PublishPriceBook :one
+UPDATE price_books SET published_at = now(), published_by = $1
+WHERE version = $2 AND published_at IS NULL RETURNING version, effective_at, prices, notes, created_at, published_at, published_by
+`
+
+type PublishPriceBookParams struct {
+	PublishedBy *uuid.UUID
+	Version     int32
+}
+
+// tenant: platform - publishes a draft.
+func (q *Queries) PublishPriceBook(ctx context.Context, arg PublishPriceBookParams) (PriceBook, error) {
+	row := q.db.QueryRow(ctx, publishPriceBook, arg.PublishedBy, arg.Version)
+	var i PriceBook
+	err := row.Scan(
+		&i.Version,
+		&i.EffectiveAt,
+		&i.Prices,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.PublishedBy,
+	)
+	return i, err
+}
+
+const repriceAccounts = `-- name: RepriceAccounts :many
+UPDATE billing_accounts SET price_book_version = $1, updated_at = now()
+WHERE price_book_version < $1 AND NOT grandfathered
+  AND NOT (term = 'annual' AND term_ends_at > $2::timestamptz)
+RETURNING org_id
+`
+
+type RepriceAccountsParams struct {
+	Version int32
+	At      time.Time
+}
+
+// tenant: system - moves orgs to @version on its effective date, except
+// grandfathered ones and annual terms still running.
+func (q *Queries) RepriceAccounts(ctx context.Context, arg RepriceAccountsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, repriceAccounts, arg.Version, arg.At)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var org_id uuid.UUID
+		if err := rows.Scan(&org_id); err != nil {
+			return nil, err
+		}
+		items = append(items, org_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setBillingAdmin = `-- name: SetBillingAdmin :one
+UPDATE billing_accounts SET grandfathered = $1, mode = $2, payment_terms_days = $3,
+  price_book_version = $4, updated_at = now()
+WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at
+`
+
+type SetBillingAdminParams struct {
+	Grandfathered    bool
+	Mode             string
+	PaymentTermsDays int32
+	PriceBookVersion int32
+	OrgID            uuid.UUID
+}
+
+// tenant: system - the admin's settings for an org (grandfathering, mode, terms).
+func (q *Queries) SetBillingAdmin(ctx context.Context, arg SetBillingAdminParams) (BillingAccount, error) {
+	row := q.db.QueryRow(ctx, setBillingAdmin,
+		arg.Grandfathered,
+		arg.Mode,
+		arg.PaymentTermsDays,
+		arg.PriceBookVersion,
+		arg.OrgID,
+	)
+	var i BillingAccount
+	err := row.Scan(
+		&i.OrgID,
+		&i.Plan,
+		&i.Term,
+		&i.TermEndsAt,
+		&i.Mode,
+		&i.PriceBookVersion,
+		&i.Grandfathered,
+		&i.LegalName,
+		&i.Address,
+		&i.Tin,
+		&i.VatRegistered,
+		&i.DeductsWht,
+		&i.ProviderCustomers,
+		&i.PaymentTermsDays,
+		&i.BudgetMinor,
+		&i.SpendCapMinor,
+		&i.AutoTopup,
+		&i.DunningState,
+		&i.GraceUntil,
+		&i.ForecastMinor,
+		&i.ForecastAt,
+		&i.Capped,
+		&i.BudgetAlerted,
+		&i.BudgetMonth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBillingPlan = `-- name: SetBillingPlan :one
+UPDATE billing_accounts SET plan = $1, term = $2, term_ends_at = $3,
+  payment_terms_days = $4, updated_at = now()
+WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at
+`
+
+type SetBillingPlanParams struct {
+	Plan             string
+	Term             string
+	TermEndsAt       *time.Time
+	PaymentTermsDays int32
+	OrgID            uuid.UUID
+}
+
+// tenant: system - applies a plan change to an org the caller resolved.
+func (q *Queries) SetBillingPlan(ctx context.Context, arg SetBillingPlanParams) (BillingAccount, error) {
+	row := q.db.QueryRow(ctx, setBillingPlan,
+		arg.Plan,
+		arg.Term,
+		arg.TermEndsAt,
+		arg.PaymentTermsDays,
+		arg.OrgID,
+	)
+	var i BillingAccount
+	err := row.Scan(
+		&i.OrgID,
+		&i.Plan,
+		&i.Term,
+		&i.TermEndsAt,
+		&i.Mode,
+		&i.PriceBookVersion,
+		&i.Grandfathered,
+		&i.LegalName,
+		&i.Address,
+		&i.Tin,
+		&i.VatRegistered,
+		&i.DeductsWht,
+		&i.ProviderCustomers,
+		&i.PaymentTermsDays,
+		&i.BudgetMinor,
+		&i.SpendCapMinor,
+		&i.AutoTopup,
+		&i.DunningState,
+		&i.GraceUntil,
+		&i.ForecastMinor,
+		&i.ForecastAt,
+		&i.Capped,
+		&i.BudgetAlerted,
+		&i.BudgetMonth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBillingPriceBook = `-- name: SetBillingPriceBook :exec
+UPDATE billing_accounts SET price_book_version = $1, updated_at = now() WHERE org_id = $2
+`
+
+type SetBillingPriceBookParams struct {
+	PriceBookVersion int32
+	OrgID            uuid.UUID
+}
+
+// tenant: system - repricing moves an org to a version.
+func (q *Queries) SetBillingPriceBook(ctx context.Context, arg SetBillingPriceBookParams) error {
+	_, err := q.db.Exec(ctx, setBillingPriceBook, arg.PriceBookVersion, arg.OrgID)
+	return err
+}
+
+const setOrgQuotaPlan = `-- name: SetOrgQuotaPlan :exec
+UPDATE organizations o SET plan_id = qp.id FROM quota_plans qp
+WHERE o.id = $1 AND qp.name = $2::text
+`
+
+type SetOrgQuotaPlanParams struct {
+	OrgID     uuid.UUID
+	QuotaPlan string
+}
+
+// tenant: system - a plan change sets the org's limits.
+func (q *Queries) SetOrgQuotaPlan(ctx context.Context, arg SetOrgQuotaPlanParams) error {
+	_, err := q.db.Exec(ctx, setOrgQuotaPlan, arg.OrgID, arg.QuotaPlan)
+	return err
+}
+
 const unbalancedLedgerTxns = `-- name: UnbalancedLedgerTxns :many
 SELECT txn_id, sum(amount_minor) FILTER (WHERE direction = 'debit')::bigint AS debits,
        sum(amount_minor) FILTER (WHERE direction = 'credit')::bigint AS credits
@@ -211,4 +1054,99 @@ func (q *Queries) UnbalancedLedgerTxns(ctx context.Context) ([]UnbalancedLedgerT
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateBillingDetails = `-- name: UpdateBillingDetails :one
+UPDATE billing_accounts SET legal_name = $1, address = $2, tin = $3,
+  vat_registered = $4, deducts_wht = $5, budget_minor = $6,
+  spend_cap_minor = $7, updated_at = now()
+WHERE org_id = $8 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at
+`
+
+type UpdateBillingDetailsParams struct {
+	LegalName     *string
+	Address       *string
+	Tin           *string
+	VatRegistered bool
+	DeductsWht    bool
+	BudgetMinor   *int64
+	SpendCapMinor *int64
+	OrgID         uuid.UUID
+}
+
+// tenant: system - an org's business details and spend controls.
+func (q *Queries) UpdateBillingDetails(ctx context.Context, arg UpdateBillingDetailsParams) (BillingAccount, error) {
+	row := q.db.QueryRow(ctx, updateBillingDetails,
+		arg.LegalName,
+		arg.Address,
+		arg.Tin,
+		arg.VatRegistered,
+		arg.DeductsWht,
+		arg.BudgetMinor,
+		arg.SpendCapMinor,
+		arg.OrgID,
+	)
+	var i BillingAccount
+	err := row.Scan(
+		&i.OrgID,
+		&i.Plan,
+		&i.Term,
+		&i.TermEndsAt,
+		&i.Mode,
+		&i.PriceBookVersion,
+		&i.Grandfathered,
+		&i.LegalName,
+		&i.Address,
+		&i.Tin,
+		&i.VatRegistered,
+		&i.DeductsWht,
+		&i.ProviderCustomers,
+		&i.PaymentTermsDays,
+		&i.BudgetMinor,
+		&i.SpendCapMinor,
+		&i.AutoTopup,
+		&i.DunningState,
+		&i.GraceUntil,
+		&i.ForecastMinor,
+		&i.ForecastAt,
+		&i.Capped,
+		&i.BudgetAlerted,
+		&i.BudgetMonth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updatePriceBookDraft = `-- name: UpdatePriceBookDraft :one
+UPDATE price_books SET effective_at = $1, prices = $2, notes = $3
+WHERE version = $4 AND published_at IS NULL RETURNING version, effective_at, prices, notes, created_at, published_at, published_by
+`
+
+type UpdatePriceBookDraftParams struct {
+	EffectiveAt time.Time
+	Prices      json.RawMessage
+	Notes       *string
+	Version     int32
+}
+
+// tenant: platform - edits a draft (published books are frozen by trigger).
+func (q *Queries) UpdatePriceBookDraft(ctx context.Context, arg UpdatePriceBookDraftParams) (PriceBook, error) {
+	row := q.db.QueryRow(ctx, updatePriceBookDraft,
+		arg.EffectiveAt,
+		arg.Prices,
+		arg.Notes,
+		arg.Version,
+	)
+	var i PriceBook
+	err := row.Scan(
+		&i.Version,
+		&i.EffectiveAt,
+		&i.Prices,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.PublishedBy,
+	)
+	return i, err
 }

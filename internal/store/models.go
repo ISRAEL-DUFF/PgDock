@@ -168,6 +168,8 @@ type BillingPlanChange struct {
 	RequestedAt time.Time
 	RequestedBy *uuid.UUID
 	Applied     bool
+	Cancelled   bool
+	Lines       json.RawMessage
 }
 
 type BillingSequence struct {

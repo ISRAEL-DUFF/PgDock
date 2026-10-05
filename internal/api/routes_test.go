@@ -282,7 +282,7 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
 		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(), "{target_id}", uuid.NewString(),
 		"{webhook_id}", uuid.NewString(), "{job_id}", uuid.NewString(),
-		"{user_code}", "BCDF-GHJK",
+		"{user_code}", "BCDF-GHJK", "{email}", "ap@example.com", "{version}", "1",
 	).Replace(pattern)
 	for _, m := range []string{"GET", "POST"} {
 		if rl := routeRules[m+" "+pattern]; rl.scope == scopeOrgQuery {
@@ -514,6 +514,12 @@ var specMatrix = map[authz.Action][]string{
 		// §2.4 "any org owner can end the session early"
 		"POST /api/v1/orgs/{org}/break-glass/{session_id}/end",
 	},
+	// V3 §3.2 "Only org owners and members with a new billing org role can see or change billing"
+	authz.OrgBillingManage: {
+		"GET /api/v1/orgs/{org}/billing", "PATCH /api/v1/orgs/{org}/billing", "POST /api/v1/orgs/{org}/billing/plan",
+		"GET /api/v1/orgs/{org}/billing/contacts", "POST /api/v1/orgs/{org}/billing/contacts",
+		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}",
+	},
 	// §10.10 "Org owners can export any project as a pg_dump file"
 	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},
 	// The signed-in user's own account
@@ -553,6 +559,11 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/etcd", "POST /api/v1/admin/etcd",
 		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"
 		"GET /api/v1/admin/maintenance", "PUT /api/v1/admin/maintenance/window",
+		// V3 §3.6, §3.9: billing settings, price books, an org's billing terms
+		"GET /api/v1/admin/billing/settings", "PUT /api/v1/admin/billing/settings",
+		"GET /api/v1/admin/price-books", "POST /api/v1/admin/price-books", "GET /api/v1/admin/price-books/{version}",
+		"PUT /api/v1/admin/price-books/{version}", "DELETE /api/v1/admin/price-books/{version}",
+		"POST /api/v1/admin/price-books/{version}/publish", "PATCH /api/v1/admin/orgs/{org}/billing",
 		"POST /api/v1/admin/instances/{instance_id}/minor-upgrade",
 		// §7.2 "The platform admin can set a platform-wide maximum"
 		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",

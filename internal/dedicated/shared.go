@@ -68,6 +68,15 @@ func sharedSpec(inst store.Instance, secret provision.AdminSecret) agentapi.Inst
 	}
 }
 
+// checkPGVersion resolves a requested major against the supported ones
+// (without a projects service, as in unit tests, it takes v as given).
+func (s *Service) checkPGVersion(v int) (int, error) {
+	if s.projects == nil {
+		return v, nil
+	}
+	return s.projects.CheckPGVersion(v)
+}
+
 // AddSharedCluster records a shared cluster on node and queues its
 // creation. memoryMB sizes it (its CPU is not limited: it is the node's
 // shared tenant pool).
@@ -75,12 +84,8 @@ func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memory
 	if memoryMB < 512 || memoryMB > 1<<20 {
 		return store.Operation{}, fmt.Errorf("%w: memory must be 512 MB to 1 TB", provision.ErrInvalid)
 	}
-	pgVersion, err := s.projects.CheckPGVersion(pgVersion)
-	if err != nil {
-		return store.Operation{}, err
-	}
 	var op store.Operation
-	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		n, err := q.GetNode(ctx, nodeID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -101,6 +106,9 @@ func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memory
 		if _, err := q.SharedInstanceOnNode(ctx, nodeID); err == nil {
 			return fmt.Errorf("%w: node %s already has a shared cluster", provision.ErrConflict, n.Name)
 		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if pgVersion, err = s.checkPGVersion(pgVersion); err != nil {
 			return err
 		}
 		mem := int32(memoryMB)

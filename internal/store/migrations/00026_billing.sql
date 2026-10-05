@@ -7,6 +7,14 @@ ALTER TABLE org_members ADD CONSTRAINT org_members_role_check CHECK (role IN ('o
 ALTER TABLE invitations DROP CONSTRAINT invitations_org_role_check;
 ALTER TABLE invitations ADD CONSTRAINT invitations_org_role_check CHECK (org_role IN ('owner', 'admin', 'member', 'billing'));
 
+-- The Pro plan's limits, between Personal (Free) and Team.
+INSERT INTO quota_plans (name, limits) VALUES
+  ('Pro', '{"projects": 15, "branches": 15, "shared_storage_mb": 10240, "project_storage_mb": 4096,
+            "project_connections": 25, "backup_storage_mb": 30720, "webhook_deliveries_per_min": 120,
+            "scheduled_jobs": 30, "job_min_interval_s": 60, "http_job_runs_per_hour": 300,
+            "console_queries": 3, "operations_in_flight": 4}')
+ON CONFLICT (name) DO NOTHING;
+
 -- Versioned prices (V3 §3.9). A draft has no published_at; published ones
 -- are immutable (trigger below).
 CREATE TABLE price_books (
@@ -69,7 +77,10 @@ CREATE TABLE billing_plan_changes (
   effective_at timestamptz NOT NULL,
   requested_at timestamptz NOT NULL DEFAULT now(),
   requested_by uuid REFERENCES users(id),
-  applied      boolean NOT NULL DEFAULT false
+  applied      boolean NOT NULL DEFAULT false,
+  cancelled    boolean NOT NULL DEFAULT false,
+  -- The proration lines it adds to the invoice for its month.
+  lines        jsonb NOT NULL DEFAULT '[]'
 );
 CREATE INDEX billing_plan_changes_org ON billing_plan_changes (org_id, effective_at);
 
@@ -204,6 +215,7 @@ DROP TABLE billing_contacts;
 DROP TABLE billing_accounts;
 DROP TABLE price_books;
 DROP FUNCTION price_book_frozen();
+-- The Pro quota plan stays: orgs may use it, and it may be an older custom plan.
 DELETE FROM org_members WHERE role = 'billing';
 UPDATE invitations SET org_role = 'member' WHERE org_role = 'billing';
 ALTER TABLE invitations DROP CONSTRAINT invitations_org_role_check;

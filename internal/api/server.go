@@ -20,6 +20,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/incidents"
@@ -72,6 +73,7 @@ type Server struct {
 	outbound  *outbound.Service
 	incidents *incidents.Service
 	arbiter   *pooler.Arbiter
+	billing   *billing.Service
 
 	tokenLimit    *auth.Limiter
 	orgTokenLimit *auth.Limiter
@@ -143,6 +145,9 @@ type Options struct {
 	// (V3 §2.6); PoolerArbiter reports the edge pooler hosts (V3 §2.1).
 	Incidents     *incidents.Service
 	PoolerArbiter *pooler.Arbiter
+	// Billing runs price books, billing accounts and invoices (V3 §3);
+	// nil disables billing.
+	Billing *billing.Service
 	// Tokens issues and checks API tokens and device logins; nil disables
 	// bearer authentication. TokenRate and OrgTokenRate are requests per
 	// minute per token and per organisation's tokens (defaults 600, 1200).
@@ -168,7 +173,7 @@ func NewHandler(opts Options) http.Handler {
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
 		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches,
-		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound,
+		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound, billing: opts.Billing,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
 	}

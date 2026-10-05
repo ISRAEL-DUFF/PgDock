@@ -2716,6 +2716,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members) */
+        get: operations["getOrgBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change business details and spend controls */
+        patch: operations["updateOrgBilling"];
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated */
+        post: operations["changeOrgPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Billing contacts, who receive invoices and payment email */
+        get: operations["listBillingContacts"];
+        put?: never;
+        /** Add a billing contact */
+        post: operations["addBillingContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/contacts/{email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a billing contact */
+        delete: operations["removeBillingContact"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/usage": {
         parameters: {
             query?: never;
@@ -3280,6 +3350,95 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/billing/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tax rates and the seller's details on invoices */
+        get: operations["getBillingSettings"];
+        /** Change the billing settings */
+        put: operations["putBillingSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Price book versions, newest first (V3 §3.9) */
+        get: operations["listPriceBooks"];
+        put?: never;
+        /** Create a draft price book */
+        post: operations["createPriceBook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One price book */
+        get: operations["getPriceBook"];
+        /** Edit a draft price book */
+        put: operations["updatePriceBook"];
+        post?: never;
+        /** Delete a draft price book */
+        delete: operations["deletePriceBook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books/{version}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed */
+        post: operations["publishPriceBook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book) */
+        patch: operations["adminUpdateOrgBilling"];
         trace?: never;
     };
     "/api/v1/admin/maintenance": {
@@ -5699,6 +5858,187 @@ export interface components {
             /** @description The Unlimited plan has no allowance to stay within. */
             unlimited?: boolean;
         };
+        /**
+         * @description An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+         * @example 34.25
+         */
+        Decimal: string;
+        PricePlan: {
+            name: string;
+            /**
+             * Format: int64
+             * @description The monthly fee in kobo, billed in advance.
+             */
+            monthly_minor: number;
+            /**
+             * Format: int64
+             * @description The fee for a year in advance, in kobo; 0 when the plan has no annual term.
+             */
+            annual_minor: number;
+            /** @description The quota plan (limits) an organisation on this plan gets. */
+            quota_plan: string;
+            /** @description Each metric's monthly allowance, in the metric's unit. */
+            included: {
+                [key: string]: components["schemas"]["Decimal"];
+            };
+            /** @description Kobo per unit above the allowance; a metric with no price isn't charged. */
+            unit: {
+                [key: string]: components["schemas"]["Decimal"];
+            };
+            payment_terms_days: number;
+        };
+        Prices: {
+            /** @enum {string} */
+            currency: "NGN";
+            plans: {
+                [key: string]: components["schemas"]["PricePlan"];
+            };
+            dedicated: {
+                vcpu_hour: components["schemas"]["Decimal"];
+                ram_gb_hour: components["schemas"]["Decimal"];
+                disk_gb_hour: components["schemas"]["Decimal"];
+            };
+            addons: {
+                ha_premium_percent: components["schemas"]["Decimal"];
+                sync_replication_hour: components["schemas"]["Decimal"];
+            };
+        };
+        PriceBook: {
+            version: number;
+            /** Format: date-time */
+            effective_at: string;
+            prices: components["schemas"]["Prices"];
+            notes?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            published_at?: string | null;
+        };
+        PriceBookInput: {
+            /** Format: date-time */
+            effective_at: string;
+            prices: components["schemas"]["Prices"];
+            notes?: string | null;
+        };
+        BillingSettings: {
+            vat_rate: components["schemas"]["Decimal"];
+            wht_rate: components["schemas"]["Decimal"];
+            /** @description Issue each month's draft invoices automatically on the 1st. */
+            auto_issue: boolean;
+            seller: {
+                legal_name: string;
+                address: string;
+                tin: string;
+                vat_number: string;
+                email: string;
+            };
+        };
+        InvoiceLine: {
+            /** @enum {string} */
+            kind: "plan" | "overage" | "dedicated" | "addon" | "credit" | "proration";
+            description: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            metric?: string | null;
+            quantity: components["schemas"]["Decimal"];
+            unit_price: components["schemas"]["Decimal"];
+            /**
+             * Format: int64
+             * @description Kobo.
+             */
+            amount: number;
+        };
+        PlanOption: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            monthly_minor: number;
+            /** Format: int64 */
+            annual_minor: number;
+        };
+        BillingAccount: {
+            /** Format: uuid */
+            org_id: string;
+            plan: string;
+            plan_name: string;
+            /** @enum {string} */
+            term: "monthly" | "annual";
+            /** Format: date-time */
+            term_ends_at?: string | null;
+            /** @enum {string} */
+            mode: "postpaid" | "prepaid";
+            price_book_version: number;
+            grandfathered: boolean;
+            legal_name?: string | null;
+            address?: string | null;
+            tin?: string | null;
+            vat_registered: boolean;
+            deducts_wht: boolean;
+            payment_terms_days: number;
+            /** Format: int64 */
+            budget_minor?: number | null;
+            /** Format: int64 */
+            spend_cap_minor?: number | null;
+            dunning_state: string;
+            /** Format: int64 */
+            forecast_minor?: number | null;
+            capped?: boolean;
+            pending_change?: {
+                to_plan: string;
+                to_term: string;
+                /** Format: date-time */
+                effective_at: string;
+            } | null;
+            /** @description The plans on the organisation's price book. */
+            plans: components["schemas"]["PlanOption"][];
+        };
+        BillingDetailsUpdate: {
+            legal_name?: string | null;
+            address?: string | null;
+            tin?: string | null;
+            vat_registered: boolean;
+            deducts_wht: boolean;
+            /** Format: int64 */
+            budget_minor?: number | null;
+            /** Format: int64 */
+            spend_cap_minor?: number | null;
+        };
+        AdminBillingUpdate: {
+            grandfathered: boolean;
+            /** @enum {string} */
+            mode: "postpaid" | "prepaid";
+            payment_terms_days: number;
+            price_book_version: number;
+        };
+        BillingContact: {
+            email: string;
+            name?: string | null;
+        };
+        PlanChangeRequest: {
+            plan: string;
+            /** @enum {string} */
+            term?: "monthly" | "annual";
+            /** @description Apply a downgrade now, with a credit for the unused part. */
+            immediately?: boolean;
+            dry_run?: boolean;
+        };
+        PlanChange: {
+            from_plan: string;
+            from_term: string;
+            to_plan: string;
+            to_term: string;
+            /** Format: date-time */
+            effective_at: string;
+            upgrade: boolean;
+            /** @description In effect now; otherwise scheduled for effective_at. */
+            applied: boolean;
+            /** Format: date-time */
+            term_ends_at?: string | null;
+            /** @description Lines on the next invoice (before VAT). */
+            lines: components["schemas"]["InvoiceLine"][];
+            /** Format: int64 */
+            total_minor: number;
+        };
         OrgQuotas: {
             plan: string;
             items: components["schemas"]["QuotaItem"][];
@@ -5972,6 +6312,7 @@ export interface components {
         TokenID: string;
         RequestID: string;
         OrgID: string;
+        PriceBookVersion: number;
         UserID: string;
         InvitationID: string;
         /** @description The organisation to list; your personal organisation when omitted. */
@@ -10509,6 +10850,157 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingDetailsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    changeOrgPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description The change and its prorated lines. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanChange"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBillingContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contacts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["BillingContact"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addBillingContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingContact"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingContact"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeBillingContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getOrgUsage: {
         parameters: {
             query?: {
@@ -11498,6 +11990,226 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBillingSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putBillingSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPriceBooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Price books. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        current_version: number;
+                        items: components["schemas"]["PriceBook"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceBookInput"];
+            };
+        };
+        responses: {
+            /** @description The draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The price book. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceBookInput"];
+            };
+        };
+        responses: {
+            /** @description The draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deletePriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    publishPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        price_book: components["schemas"]["PriceBook"];
+                        /** @description Organisations emailed about the change. */
+                        notified: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUpdateOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminBillingUpdate"];
+            };
+        };
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
                 };
             };
             default: components["responses"]["Error"];

@@ -56,6 +56,24 @@ func (e APITokenStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminBillingUpdateMode.
+const (
+	AdminBillingUpdateModePostpaid AdminBillingUpdateMode = "postpaid"
+	AdminBillingUpdateModePrepaid  AdminBillingUpdateMode = "prepaid"
+)
+
+// Valid indicates whether the value is a known member of the AdminBillingUpdateMode enum.
+func (e AdminBillingUpdateMode) Valid() bool {
+	switch e {
+	case AdminBillingUpdateModePostpaid:
+		return true
+	case AdminBillingUpdateModePrepaid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminOrgSummaryStatus.
 const (
 	AdminOrgSummaryStatusActive    AdminOrgSummaryStatus = "active"
@@ -281,6 +299,42 @@ func (e BackupKind) Valid() bool {
 	case BackupKindMetadata:
 		return true
 	case BackupKindSafety:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BillingAccountMode.
+const (
+	BillingAccountModePostpaid BillingAccountMode = "postpaid"
+	BillingAccountModePrepaid  BillingAccountMode = "prepaid"
+)
+
+// Valid indicates whether the value is a known member of the BillingAccountMode enum.
+func (e BillingAccountMode) Valid() bool {
+	switch e {
+	case BillingAccountModePostpaid:
+		return true
+	case BillingAccountModePrepaid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BillingAccountTerm.
+const (
+	BillingAccountTermAnnual  BillingAccountTerm = "annual"
+	BillingAccountTermMonthly BillingAccountTerm = "monthly"
+)
+
+// Valid indicates whether the value is a known member of the BillingAccountTerm enum.
+func (e BillingAccountTerm) Valid() bool {
+	switch e {
+	case BillingAccountTermAnnual:
+		return true
+	case BillingAccountTermMonthly:
 		return true
 	default:
 		return false
@@ -836,6 +890,36 @@ func (e InvitationPreviewKind) Valid() bool {
 	}
 }
 
+// Defines values for InvoiceLineKind.
+const (
+	InvoiceLineKindAddon     InvoiceLineKind = "addon"
+	InvoiceLineKindCredit    InvoiceLineKind = "credit"
+	InvoiceLineKindDedicated InvoiceLineKind = "dedicated"
+	InvoiceLineKindOverage   InvoiceLineKind = "overage"
+	InvoiceLineKindPlan      InvoiceLineKind = "plan"
+	InvoiceLineKindProration InvoiceLineKind = "proration"
+)
+
+// Valid indicates whether the value is a known member of the InvoiceLineKind enum.
+func (e InvoiceLineKind) Valid() bool {
+	switch e {
+	case InvoiceLineKindAddon:
+		return true
+	case InvoiceLineKindCredit:
+		return true
+	case InvoiceLineKindDedicated:
+		return true
+	case InvoiceLineKindOverage:
+		return true
+	case InvoiceLineKindPlan:
+		return true
+	case InvoiceLineKindProration:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for JobKind.
 const (
 	JobKindHttp JobKind = "http"
@@ -1229,6 +1313,24 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	}
 }
 
+// Defines values for PlanChangeRequestTerm.
+const (
+	PlanChangeRequestTermAnnual  PlanChangeRequestTerm = "annual"
+	PlanChangeRequestTermMonthly PlanChangeRequestTerm = "monthly"
+)
+
+// Valid indicates whether the value is a known member of the PlanChangeRequestTerm enum.
+func (e PlanChangeRequestTerm) Valid() bool {
+	switch e {
+	case PlanChangeRequestTermAnnual:
+		return true
+	case PlanChangeRequestTermMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PoolerEventKind.
 const (
 	PushFailed PoolerEventKind = "push_failed"
@@ -1253,6 +1355,21 @@ func (e PoolerEventKind) Valid() bool {
 	case Stale:
 		return true
 	case TookIp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PricesCurrency.
+const (
+	NGN PricesCurrency = "NGN"
+)
+
+// Valid indicates whether the value is a known member of the PricesCurrency enum.
+func (e PricesCurrency) Valid() bool {
+	switch e {
+	case NGN:
 		return true
 	default:
 		return false
@@ -2414,6 +2531,17 @@ type AcceptTermsRequest struct {
 	Version int `json:"version"`
 }
 
+// AdminBillingUpdate defines model for AdminBillingUpdate.
+type AdminBillingUpdate struct {
+	Grandfathered    bool                   `json:"grandfathered"`
+	Mode             AdminBillingUpdateMode `json:"mode"`
+	PaymentTermsDays int                    `json:"payment_terms_days"`
+	PriceBookVersion int                    `json:"price_book_version"`
+}
+
+// AdminBillingUpdateMode defines model for AdminBillingUpdate.Mode.
+type AdminBillingUpdateMode string
+
 // AdminOrg defines model for AdminOrg.
 type AdminOrg struct {
 	// BreakGlass Your open break-glass sessions on this organisation.
@@ -2715,6 +2843,83 @@ type BackupOverview struct {
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
 
+// BillingAccount defines model for BillingAccount.
+type BillingAccount struct {
+	Address          *string            `json:"address,omitempty"`
+	BudgetMinor      *int64             `json:"budget_minor,omitempty"`
+	Capped           *bool              `json:"capped,omitempty"`
+	DeductsWht       bool               `json:"deducts_wht"`
+	DunningState     string             `json:"dunning_state"`
+	ForecastMinor    *int64             `json:"forecast_minor,omitempty"`
+	Grandfathered    bool               `json:"grandfathered"`
+	LegalName        *string            `json:"legal_name,omitempty"`
+	Mode             BillingAccountMode `json:"mode"`
+	OrgId            openapi_types.UUID `json:"org_id"`
+	PaymentTermsDays int                `json:"payment_terms_days"`
+	PendingChange    *struct {
+		EffectiveAt time.Time `json:"effective_at"`
+		ToPlan      string    `json:"to_plan"`
+		ToTerm      string    `json:"to_term"`
+	} `json:"pending_change,omitempty"`
+	Plan     string `json:"plan"`
+	PlanName string `json:"plan_name"`
+
+	// Plans The plans on the organisation's price book.
+	Plans            []PlanOption       `json:"plans"`
+	PriceBookVersion int                `json:"price_book_version"`
+	SpendCapMinor    *int64             `json:"spend_cap_minor,omitempty"`
+	Term             BillingAccountTerm `json:"term"`
+	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
+	Tin              *string            `json:"tin,omitempty"`
+	VatRegistered    bool               `json:"vat_registered"`
+}
+
+// BillingAccountMode defines model for BillingAccount.Mode.
+type BillingAccountMode string
+
+// BillingAccountTerm defines model for BillingAccount.Term.
+type BillingAccountTerm string
+
+// BillingContact defines model for BillingContact.
+type BillingContact struct {
+	Email string  `json:"email"`
+	Name  *string `json:"name,omitempty"`
+}
+
+// BillingDetailsUpdate defines model for BillingDetailsUpdate.
+type BillingDetailsUpdate struct {
+	Address       *string `json:"address,omitempty"`
+	BudgetMinor   *int64  `json:"budget_minor,omitempty"`
+	DeductsWht    bool    `json:"deducts_wht"`
+	LegalName     *string `json:"legal_name,omitempty"`
+	SpendCapMinor *int64  `json:"spend_cap_minor,omitempty"`
+	Tin           *string `json:"tin,omitempty"`
+	VatRegistered bool    `json:"vat_registered"`
+}
+
+// BillingSettings defines model for BillingSettings.
+type BillingSettings struct {
+	// AutoIssue Issue each month's draft invoices automatically on the 1st.
+	AutoIssue bool `json:"auto_issue"`
+	Seller    struct {
+		Address   string `json:"address"`
+		Email     string `json:"email"`
+		LegalName string `json:"legal_name"`
+		Tin       string `json:"tin"`
+		VatNumber string `json:"vat_number"`
+	} `json:"seller"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate Decimal `json:"vat_rate"`
+
+	// WhtRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	WhtRate Decimal `json:"wht_rate"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -2960,6 +3165,11 @@ type DecideRequest struct {
 	// RaiseAllowance On approval, raise the organisation's allowance to fit this instance.
 	RaiseAllowance *bool `json:"raise_allowance,omitempty"`
 }
+
+// Decimal An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+//
+// Example: 34.25
+type Decimal = string
 
 // DedicatedAllowance defines model for DedicatedAllowance.
 type DedicatedAllowance struct {
@@ -3536,6 +3746,29 @@ type InviteRequest struct {
 	Role     OrgRole              `json:"role"`
 }
 
+// InvoiceLine defines model for InvoiceLine.
+type InvoiceLine struct {
+	// Amount Kobo.
+	Amount      int64               `json:"amount"`
+	Description string              `json:"description"`
+	Kind        InvoiceLineKind     `json:"kind"`
+	Metric      *string             `json:"metric,omitempty"`
+	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Quantity An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	Quantity Decimal `json:"quantity"`
+
+	// UnitPrice An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	UnitPrice Decimal `json:"unit_price"`
+}
+
+// InvoiceLineKind defines model for InvoiceLine.Kind.
+type InvoiceLineKind string
+
 // IsolationCheck defines model for IsolationCheck.
 type IsolationCheck struct {
 	InstanceId     openapi_types.UUID `json:"instance_id"`
@@ -4073,12 +4306,50 @@ type Plan struct {
 	OrgCount int                `json:"org_count"`
 }
 
+// PlanChange defines model for PlanChange.
+type PlanChange struct {
+	// Applied In effect now; otherwise scheduled for effective_at.
+	Applied     bool      `json:"applied"`
+	EffectiveAt time.Time `json:"effective_at"`
+	FromPlan    string    `json:"from_plan"`
+	FromTerm    string    `json:"from_term"`
+
+	// Lines Lines on the next invoice (before VAT).
+	Lines      []InvoiceLine `json:"lines"`
+	TermEndsAt *time.Time    `json:"term_ends_at,omitempty"`
+	ToPlan     string        `json:"to_plan"`
+	ToTerm     string        `json:"to_term"`
+	TotalMinor int64         `json:"total_minor"`
+	Upgrade    bool          `json:"upgrade"`
+}
+
+// PlanChangeRequest defines model for PlanChangeRequest.
+type PlanChangeRequest struct {
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// Immediately Apply a downgrade now, with a credit for the unused part.
+	Immediately *bool                  `json:"immediately,omitempty"`
+	Plan        string                 `json:"plan"`
+	Term        *PlanChangeRequestTerm `json:"term,omitempty"`
+}
+
+// PlanChangeRequestTerm defines model for PlanChangeRequest.Term.
+type PlanChangeRequestTerm string
+
 // PlanList defines model for PlanList.
 type PlanList struct {
 	Items []Plan `json:"items"`
 
 	// Keys Known limit keys, in display order.
 	Keys []string `json:"keys"`
+}
+
+// PlanOption defines model for PlanOption.
+type PlanOption struct {
+	AnnualMinor  int64  `json:"annual_minor"`
+	Id           string `json:"id"`
+	MonthlyMinor int64  `json:"monthly_minor"`
+	Name         string `json:"name"`
 }
 
 // PlanRequest defines model for PlanRequest.
@@ -4149,6 +4420,79 @@ type PoolerHosts struct {
 	NoHealthy      bool          `json:"no_healthy"`
 	SplitBrain     bool          `json:"split_brain"`
 }
+
+// PriceBook defines model for PriceBook.
+type PriceBook struct {
+	CreatedAt   time.Time  `json:"created_at"`
+	EffectiveAt time.Time  `json:"effective_at"`
+	Notes       *string    `json:"notes,omitempty"`
+	Prices      Prices     `json:"prices"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+	Version     int        `json:"version"`
+}
+
+// PriceBookInput defines model for PriceBookInput.
+type PriceBookInput struct {
+	EffectiveAt time.Time `json:"effective_at"`
+	Notes       *string   `json:"notes,omitempty"`
+	Prices      Prices    `json:"prices"`
+}
+
+// PricePlan defines model for PricePlan.
+type PricePlan struct {
+	// AnnualMinor The fee for a year in advance, in kobo; 0 when the plan has no annual term.
+	AnnualMinor int64 `json:"annual_minor"`
+
+	// Included Each metric's monthly allowance, in the metric's unit.
+	Included map[string]Decimal `json:"included"`
+
+	// MonthlyMinor The monthly fee in kobo, billed in advance.
+	MonthlyMinor     int64  `json:"monthly_minor"`
+	Name             string `json:"name"`
+	PaymentTermsDays int    `json:"payment_terms_days"`
+
+	// QuotaPlan The quota plan (limits) an organisation on this plan gets.
+	QuotaPlan string `json:"quota_plan"`
+
+	// Unit Kobo per unit above the allowance; a metric with no price isn't charged.
+	Unit map[string]Decimal `json:"unit"`
+}
+
+// Prices defines model for Prices.
+type Prices struct {
+	Addons struct {
+		// HaPremiumPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		HaPremiumPercent Decimal `json:"ha_premium_percent"`
+
+		// SyncReplicationHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		SyncReplicationHour Decimal `json:"sync_replication_hour"`
+	} `json:"addons"`
+	Currency  PricesCurrency `json:"currency"`
+	Dedicated struct {
+		// DiskGbHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		DiskGbHour Decimal `json:"disk_gb_hour"`
+
+		// RamGbHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		RamGbHour Decimal `json:"ram_gb_hour"`
+
+		// VcpuHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		VcpuHour Decimal `json:"vcpu_hour"`
+	} `json:"dedicated"`
+	Plans map[string]PricePlan `json:"plans"`
+}
+
+// PricesCurrency defines model for Prices.Currency.
+type PricesCurrency string
 
 // Profile defines model for Profile.
 type Profile struct {
@@ -5525,6 +5869,9 @@ type OrgID = openapi_types.UUID
 // OrgQuery defines model for OrgQuery.
 type OrgQuery = openapi_types.UUID
 
+// PriceBookVersion defines model for PriceBookVersion.
+type PriceBookVersion = int
+
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
 
@@ -5819,6 +6166,9 @@ type TestStorageTargetParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// PutBillingSettingsJSONRequestBody defines body for PutBillingSettings for application/json ContentType.
+type PutBillingSettingsJSONRequestBody = BillingSettings
+
 // ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
 type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 
@@ -5837,6 +6187,9 @@ type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 // AdminUpdateOrgJSONRequestBody defines body for AdminUpdateOrg for application/json ContentType.
 type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
 
+// AdminUpdateOrgBillingJSONRequestBody defines body for AdminUpdateOrgBilling for application/json ContentType.
+type AdminUpdateOrgBillingJSONRequestBody = AdminBillingUpdate
+
 // AdminStartBreakGlassJSONRequestBody defines body for AdminStartBreakGlass for application/json ContentType.
 type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 
@@ -5854,6 +6207,12 @@ type CreatePlanJSONRequestBody = PlanRequest
 
 // UpdatePlanJSONRequestBody defines body for UpdatePlan for application/json ContentType.
 type UpdatePlanJSONRequestBody = PlanRequest
+
+// CreatePriceBookJSONRequestBody defines body for CreatePriceBook for application/json ContentType.
+type CreatePriceBookJSONRequestBody = PriceBookInput
+
+// UpdatePriceBookJSONRequestBody defines body for UpdatePriceBook for application/json ContentType.
+type UpdatePriceBookJSONRequestBody = PriceBookInput
 
 // MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
 type MoveProjectJSONRequestBody = MoveProjectRequest
@@ -5968,6 +6327,15 @@ type DeleteOrgJSONRequestBody = DeleteOrgRequest
 
 // UpdateOrgJSONRequestBody defines body for UpdateOrg for application/json ContentType.
 type UpdateOrgJSONRequestBody = UpdateOrgRequest
+
+// UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
+type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
+
+// AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
+type AddBillingContactJSONRequestBody = BillingContact
+
+// ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
+type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
 
 // InviteOrgMemberJSONRequestBody defines body for InviteOrgMember for application/json ContentType.
 type InviteOrgMemberJSONRequestBody = InviteRequest
@@ -6127,6 +6495,12 @@ type ServerInterface interface {
 	// ListPlatformAudit The platform audit log, newest first (platform admin)
 	// (GET /api/v1/admin/audit)
 	ListPlatformAudit(w http.ResponseWriter, r *http.Request, params ListPlatformAuditParams)
+	// GetBillingSettings Tax rates and the seller's details on invoices
+	// (GET /api/v1/admin/billing/settings)
+	GetBillingSettings(w http.ResponseWriter, r *http.Request)
+	// PutBillingSettings Change the billing settings
+	// (PUT /api/v1/admin/billing/settings)
+	PutBillingSettings(w http.ResponseWriter, r *http.Request)
 	// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 	// (GET /api/v1/admin/dedicated-requests)
 	ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams)
@@ -6169,6 +6543,9 @@ type ServerInterface interface {
 	// AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
 	// (PATCH /api/v1/admin/orgs/{org})
 	AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminUpdateOrgBilling The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
+	// (PATCH /api/v1/admin/orgs/{org}/billing)
+	AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
 	// (POST /api/v1/admin/orgs/{org}/break-glass)
 	AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -6196,6 +6573,24 @@ type ServerInterface interface {
 	// UpdatePlan Change a quota plan template (platform admin)
 	// (PATCH /api/v1/admin/plans/{plan_id})
 	UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID)
+	// ListPriceBooks Price book versions, newest first (V3 §3.9)
+	// (GET /api/v1/admin/price-books)
+	ListPriceBooks(w http.ResponseWriter, r *http.Request)
+	// CreatePriceBook Create a draft price book
+	// (POST /api/v1/admin/price-books)
+	CreatePriceBook(w http.ResponseWriter, r *http.Request)
+	// DeletePriceBook Delete a draft price book
+	// (DELETE /api/v1/admin/price-books/{version})
+	DeletePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// GetPriceBook One price book
+	// (GET /api/v1/admin/price-books/{version})
+	GetPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// UpdatePriceBook Edit a draft price book
+	// (PUT /api/v1/admin/price-books/{version})
+	UpdatePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// PublishPriceBook Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
+	// (POST /api/v1/admin/price-books/{version}/publish)
+	PublishPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
 	// MoveProject Move a project to another node (platform admin, V3 §2.3)
 	// (POST /api/v1/admin/projects/{project_id}/move)
 	MoveProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
@@ -6418,6 +6813,24 @@ type ServerInterface interface {
 	// ListOrgAudit The organisation's audit log, newest first
 	// (GET /api/v1/orgs/{org}/audit)
 	ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams)
+	// GetOrgBilling The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members)
+	// (GET /api/v1/orgs/{org}/billing)
+	GetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// UpdateOrgBilling Change business details and spend controls
+	// (PATCH /api/v1/orgs/{org}/billing)
+	UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListBillingContacts Billing contacts, who receive invoices and payment email
+	// (GET /api/v1/orgs/{org}/billing/contacts)
+	ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AddBillingContact Add a billing contact
+	// (POST /api/v1/orgs/{org}/billing/contacts)
+	AddBillingContact(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RemoveBillingContact Remove a billing contact
+	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
+	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// ChangeOrgPlan Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
+	// (POST /api/v1/orgs/{org}/billing/plan)
+	ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EndBreakGlass End a break-glass session early (owner)
 	// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
 	EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID)
@@ -6817,6 +7230,18 @@ func (_ Unimplemented) ListPlatformAudit(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetBillingSettings Tax rates and the seller's details on invoices
+// (GET /api/v1/admin/billing/settings)
+func (_ Unimplemented) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutBillingSettings Change the billing settings
+// (PUT /api/v1/admin/billing/settings)
+func (_ Unimplemented) PutBillingSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 // (GET /api/v1/admin/dedicated-requests)
 func (_ Unimplemented) ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams) {
@@ -6901,6 +7326,12 @@ func (_ Unimplemented) AdminUpdateOrg(w http.ResponseWriter, r *http.Request, or
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminUpdateOrgBilling The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
+// (PATCH /api/v1/admin/orgs/{org}/billing)
+func (_ Unimplemented) AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
 // (POST /api/v1/admin/orgs/{org}/break-glass)
 func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -6952,6 +7383,42 @@ func (_ Unimplemented) CreatePlan(w http.ResponseWriter, r *http.Request) {
 // UpdatePlan Change a quota plan template (platform admin)
 // (PATCH /api/v1/admin/plans/{plan_id})
 func (_ Unimplemented) UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPriceBooks Price book versions, newest first (V3 §3.9)
+// (GET /api/v1/admin/price-books)
+func (_ Unimplemented) ListPriceBooks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreatePriceBook Create a draft price book
+// (POST /api/v1/admin/price-books)
+func (_ Unimplemented) CreatePriceBook(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeletePriceBook Delete a draft price book
+// (DELETE /api/v1/admin/price-books/{version})
+func (_ Unimplemented) DeletePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPriceBook One price book
+// (GET /api/v1/admin/price-books/{version})
+func (_ Unimplemented) GetPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePriceBook Edit a draft price book
+// (PUT /api/v1/admin/price-books/{version})
+func (_ Unimplemented) UpdatePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PublishPriceBook Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
+// (POST /api/v1/admin/price-books/{version}/publish)
+func (_ Unimplemented) PublishPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7396,6 +7863,42 @@ func (_ Unimplemented) UpdateOrg(w http.ResponseWriter, r *http.Request, org Org
 // ListOrgAudit The organisation's audit log, newest first
 // (GET /api/v1/orgs/{org}/audit)
 func (_ Unimplemented) ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgBilling The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members)
+// (GET /api/v1/orgs/{org}/billing)
+func (_ Unimplemented) GetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateOrgBilling Change business details and spend controls
+// (PATCH /api/v1/orgs/{org}/billing)
+func (_ Unimplemented) UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListBillingContacts Billing contacts, who receive invoices and payment email
+// (GET /api/v1/orgs/{org}/billing/contacts)
+func (_ Unimplemented) ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AddBillingContact Add a billing contact
+// (POST /api/v1/orgs/{org}/billing/contacts)
+func (_ Unimplemented) AddBillingContact(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveBillingContact Remove a billing contact
+// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
+func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ChangeOrgPlan Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
+// (POST /api/v1/orgs/{org}/billing/plan)
+func (_ Unimplemented) ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8267,6 +8770,34 @@ func (siw *ServerInterfaceWrapper) ListPlatformAudit(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// GetBillingSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBillingSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutBillingSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutBillingSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutBillingSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListDedicatedRequests operation middleware
 func (siw *ServerInterfaceWrapper) ListDedicatedRequests(w http.ResponseWriter, r *http.Request) {
 
@@ -8573,6 +9104,32 @@ func (siw *ServerInterfaceWrapper) AdminUpdateOrg(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// AdminUpdateOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUpdateOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AdminStartBreakGlass operation middleware
 func (siw *ServerInterfaceWrapper) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request) {
 
@@ -8774,6 +9331,138 @@ func (siw *ServerInterfaceWrapper) UpdatePlan(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdatePlan(w, r, planId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPriceBooks operation middleware
+func (siw *ServerInterfaceWrapper) ListPriceBooks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPriceBooks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePriceBook operation middleware
+func (siw *ServerInterfaceWrapper) CreatePriceBook(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePriceBook(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePriceBook operation middleware
+func (siw *ServerInterfaceWrapper) DeletePriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPriceBook operation middleware
+func (siw *ServerInterfaceWrapper) GetPriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePriceBook operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PublishPriceBook operation middleware
+func (siw *ServerInterfaceWrapper) PublishPriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublishPriceBook(w, r, version)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10492,6 +11181,171 @@ func (siw *ServerInterfaceWrapper) ListOrgAudit(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListOrgAudit(w, r, org, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBillingContacts operation middleware
+func (siw *ServerInterfaceWrapper) ListBillingContacts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBillingContacts(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddBillingContact operation middleware
+func (siw *ServerInterfaceWrapper) AddBillingContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddBillingContact(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveBillingContact operation middleware
+func (siw *ServerInterfaceWrapper) RemoveBillingContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "email" -------------
+	var email string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "email", chi.URLParam(r, "email"), &email, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveBillingContact(w, r, org, email)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangeOrgPlan operation middleware
+func (siw *ServerInterfaceWrapper) ChangeOrgPlan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangeOrgPlan(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -15024,6 +15878,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/quotas", wrapper.GetOrgQuotas)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing", wrapper.GetOrgBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}/billing", wrapper.UpdateOrgBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/plan", wrapper.ChangeOrgPlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts", wrapper.ListBillingContacts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts", wrapper.AddBillingContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts/{email}", wrapper.RemoveBillingContact)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/usage", wrapper.GetOrgUsage)
 	})
 	r.Group(func(r chi.Router) {
@@ -15142,6 +16014,33 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/usage", wrapper.PlatformUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/billing/settings", wrapper.GetBillingSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/billing/settings", wrapper.PutBillingSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/price-books", wrapper.ListPriceBooks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/price-books", wrapper.CreatePriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/admin/price-books/{version}", wrapper.DeletePriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/price-books/{version}", wrapper.GetPriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/price-books/{version}", wrapper.UpdatePriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/price-books/{version}/publish", wrapper.PublishPriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/orgs/{org}/billing", wrapper.AdminUpdateOrgBilling)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)

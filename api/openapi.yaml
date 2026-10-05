@@ -3657,6 +3657,125 @@ paths:
                 $ref: "#/components/schemas/OrgQuotas"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing:
+    get:
+      operationId: getOrgBilling
+      summary: The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateOrgBilling
+      summary: Change business details and spend controls
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingDetailsUpdate"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/plan:
+    post:
+      operationId: changeOrgPlan
+      summary: Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanChangeRequest"
+      responses:
+        "200":
+          description: The change and its prorated lines.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanChange"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/contacts:
+    get:
+      operationId: listBillingContacts
+      summary: Billing contacts, who receive invoices and payment email
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Contacts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BillingContact"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: addBillingContact
+      summary: Add a billing contact
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingContact"
+      responses:
+        "201":
+          description: Added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingContact"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/contacts/{email}:
+    delete:
+      operationId: removeBillingContact
+      summary: Remove a billing contact
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed.
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/usage:
     get:
       operationId: getOrgUsage
@@ -4456,6 +4575,173 @@ paths:
                 $ref: "#/components/schemas/PlatformUsage"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/billing/settings:
+    get:
+      operationId: getBillingSettings
+      summary: Tax rates and the seller's details on invoices
+      tags: [admin]
+      responses:
+        "200":
+          description: Settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putBillingSettings
+      summary: Change the billing settings
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books:
+    get:
+      operationId: listPriceBooks
+      summary: Price book versions, newest first (V3 §3.9)
+      tags: [admin]
+      responses:
+        "200":
+          description: Price books.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, current_version]
+                properties:
+                  current_version:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createPriceBook
+      summary: Create a draft price book
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceBookInput"
+      responses:
+        "201":
+          description: The draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books/{version}:
+    get:
+      operationId: getPriceBook
+      summary: One price book
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      responses:
+        "200":
+          description: The price book.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: updatePriceBook
+      summary: Edit a draft price book
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceBookInput"
+      responses:
+        "200":
+          description: The draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deletePriceBook
+      summary: Delete a draft price book
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books/{version}/publish:
+    post:
+      operationId: publishPriceBook
+      summary: Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      responses:
+        "200":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [price_book, notified]
+                properties:
+                  price_book:
+                    $ref: "#/components/schemas/PriceBook"
+                  notified:
+                    type: integer
+                    description: Organisations emailed about the change.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/billing:
+    patch:
+      operationId: adminUpdateOrgBilling
+      summary: The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBillingUpdate"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/maintenance:
     get:
       operationId: getMaintenance
@@ -4628,6 +4914,12 @@ components:
       schema:
         type: string
         format: uuid
+    PriceBookVersion:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: integer
     UserID:
       name: user
       in: path
@@ -9144,6 +9436,331 @@ components:
         unlimited:
           type: boolean
           description: The Unlimited plan has no allowance to stay within.
+    Decimal:
+      type: string
+      description: An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+      example: "34.25"
+    PricePlan:
+      type: object
+      required: [name, monthly_minor, annual_minor, quota_plan, included, unit, payment_terms_days]
+      properties:
+        name:
+          type: string
+        monthly_minor:
+          type: integer
+          format: int64
+          description: The monthly fee in kobo, billed in advance.
+        annual_minor:
+          type: integer
+          format: int64
+          description: The fee for a year in advance, in kobo; 0 when the plan has no annual term.
+        quota_plan:
+          type: string
+          description: The quota plan (limits) an organisation on this plan gets.
+        included:
+          type: object
+          description: Each metric's monthly allowance, in the metric's unit.
+          additionalProperties:
+            $ref: "#/components/schemas/Decimal"
+        unit:
+          type: object
+          description: Kobo per unit above the allowance; a metric with no price isn't charged.
+          additionalProperties:
+            $ref: "#/components/schemas/Decimal"
+        payment_terms_days:
+          type: integer
+    Prices:
+      type: object
+      required: [currency, plans, dedicated, addons]
+      properties:
+        currency:
+          type: string
+          enum: [NGN]
+        plans:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/PricePlan"
+        dedicated:
+          type: object
+          required: [vcpu_hour, ram_gb_hour, disk_gb_hour]
+          properties:
+            vcpu_hour:
+              $ref: "#/components/schemas/Decimal"
+            ram_gb_hour:
+              $ref: "#/components/schemas/Decimal"
+            disk_gb_hour:
+              $ref: "#/components/schemas/Decimal"
+        addons:
+          type: object
+          required: [ha_premium_percent, sync_replication_hour]
+          properties:
+            ha_premium_percent:
+              $ref: "#/components/schemas/Decimal"
+            sync_replication_hour:
+              $ref: "#/components/schemas/Decimal"
+    PriceBook:
+      type: object
+      required: [version, effective_at, prices, created_at]
+      properties:
+        version:
+          type: integer
+        effective_at:
+          type: string
+          format: date-time
+        prices:
+          $ref: "#/components/schemas/Prices"
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+    PriceBookInput:
+      type: object
+      required: [effective_at, prices]
+      properties:
+        effective_at:
+          type: string
+          format: date-time
+        prices:
+          $ref: "#/components/schemas/Prices"
+        notes:
+          type: string
+          nullable: true
+    BillingSettings:
+      type: object
+      required: [vat_rate, wht_rate, auto_issue, seller]
+      properties:
+        vat_rate:
+          $ref: "#/components/schemas/Decimal"
+        wht_rate:
+          $ref: "#/components/schemas/Decimal"
+        auto_issue:
+          type: boolean
+          description: Issue each month's draft invoices automatically on the 1st.
+        seller:
+          type: object
+          required: [legal_name, address, tin, vat_number, email]
+          properties:
+            legal_name:
+              type: string
+            address:
+              type: string
+            tin:
+              type: string
+            vat_number:
+              type: string
+            email:
+              type: string
+    InvoiceLine:
+      type: object
+      required: [kind, description, quantity, unit_price, amount]
+      properties:
+        kind:
+          type: string
+          enum: [plan, overage, dedicated, addon, credit, proration]
+        description:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        metric:
+          type: string
+          nullable: true
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+        unit_price:
+          $ref: "#/components/schemas/Decimal"
+        amount:
+          type: integer
+          format: int64
+          description: Kobo.
+    PlanOption:
+      type: object
+      required: [id, name, monthly_minor, annual_minor]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        monthly_minor:
+          type: integer
+          format: int64
+        annual_minor:
+          type: integer
+          format: int64
+    BillingAccount:
+      type: object
+      required: [org_id, plan, plan_name, term, mode, price_book_version, grandfathered, vat_registered, deducts_wht,
+                 payment_terms_days, dunning_state, plans]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        plan:
+          type: string
+        plan_name:
+          type: string
+        term:
+          type: string
+          enum: [monthly, annual]
+        term_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        mode:
+          type: string
+          enum: [postpaid, prepaid]
+        price_book_version:
+          type: integer
+        grandfathered:
+          type: boolean
+        legal_name:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        tin:
+          type: string
+          nullable: true
+        vat_registered:
+          type: boolean
+        deducts_wht:
+          type: boolean
+        payment_terms_days:
+          type: integer
+        budget_minor:
+          type: integer
+          format: int64
+          nullable: true
+        spend_cap_minor:
+          type: integer
+          format: int64
+          nullable: true
+        dunning_state:
+          type: string
+        forecast_minor:
+          type: integer
+          format: int64
+          nullable: true
+        capped:
+          type: boolean
+        pending_change:
+          type: object
+          nullable: true
+          required: [to_plan, to_term, effective_at]
+          properties:
+            to_plan:
+              type: string
+            to_term:
+              type: string
+            effective_at:
+              type: string
+              format: date-time
+        plans:
+          type: array
+          description: The plans on the organisation's price book.
+          items:
+            $ref: "#/components/schemas/PlanOption"
+    BillingDetailsUpdate:
+      type: object
+      required: [vat_registered, deducts_wht]
+      properties:
+        legal_name:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        tin:
+          type: string
+          nullable: true
+        vat_registered:
+          type: boolean
+        deducts_wht:
+          type: boolean
+        budget_minor:
+          type: integer
+          format: int64
+          nullable: true
+        spend_cap_minor:
+          type: integer
+          format: int64
+          nullable: true
+    AdminBillingUpdate:
+      type: object
+      required: [grandfathered, mode, payment_terms_days, price_book_version]
+      properties:
+        grandfathered:
+          type: boolean
+        mode:
+          type: string
+          enum: [postpaid, prepaid]
+        payment_terms_days:
+          type: integer
+        price_book_version:
+          type: integer
+    BillingContact:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+          nullable: true
+    PlanChangeRequest:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          type: string
+        term:
+          type: string
+          enum: [monthly, annual]
+        immediately:
+          type: boolean
+          description: Apply a downgrade now, with a credit for the unused part.
+        dry_run:
+          type: boolean
+    PlanChange:
+      type: object
+      required: [from_plan, from_term, to_plan, to_term, effective_at, upgrade, applied, lines, total_minor]
+      properties:
+        from_plan:
+          type: string
+        from_term:
+          type: string
+        to_plan:
+          type: string
+        to_term:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        upgrade:
+          type: boolean
+        applied:
+          type: boolean
+          description: In effect now; otherwise scheduled for effective_at.
+        term_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        lines:
+          type: array
+          description: Lines on the next invoice (before VAT).
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        total_minor:
+          type: integer
+          format: int64
     OrgQuotas:
       type: object
       required: [plan, items, dedicated_allowance, dedicated_use]
