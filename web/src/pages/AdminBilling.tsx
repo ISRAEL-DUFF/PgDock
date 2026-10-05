@@ -144,7 +144,7 @@ function InvoicesTab() {
               <tr key={inv.id} data-testid="admin-invoice-row">
                 <td className="px-3 py-2">
                   <button
-                    className="text-accent hover:underline"
+                    className="text-accent-text hover:underline"
                     onClick={() => setOpen(inv.id)}
                   >
                     {inv.org_name}
@@ -198,7 +198,7 @@ function InvoicesTab() {
                 </td>
                 <td className="px-3 py-2 text-right">
                   <a
-                    className="inline-flex items-center gap-1 text-accent hover:underline"
+                    className="inline-flex items-center gap-1 text-accent-text hover:underline"
                     href={api.adminInvoicePdfUrl(inv.id)}
                   >
                     <Download className="h-3.5 w-3.5" /> PDF

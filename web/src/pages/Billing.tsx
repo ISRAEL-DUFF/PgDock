@@ -190,7 +190,7 @@ export function BillingPage() {
               <tr key={inv.id} data-testid="invoice-row">
                 <td className="px-3 py-2 font-mono text-xs">
                   <button
-                    className="text-accent hover:underline"
+                    className="text-accent-text hover:underline"
                     onClick={() => setOpenInvoice(inv.id)}
                   >
                     {inv.number}
@@ -210,7 +210,7 @@ export function BillingPage() {
                 </td>
                 <td className="px-3 py-2 text-right">
                   <a
-                    className="inline-flex items-center gap-1 text-accent hover:underline"
+                    className="inline-flex items-center gap-1 text-accent-text hover:underline"
                     href={api.invoicePdfUrl(org.id, inv.id)}
                   >
                     <Download className="h-3.5 w-3.5" /> PDF
