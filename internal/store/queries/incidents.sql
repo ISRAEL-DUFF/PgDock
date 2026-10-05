@@ -42,7 +42,9 @@ UPDATE incidents SET push_error = @push_error WHERE id = @id;
 
 -- name: OverdueJobs :one
 -- tenant: system - the status heartbeat counts platform-wide scheduler lag, not any organisation's data.
-SELECT count(*) FROM scheduled_jobs WHERE enabled AND next_run_at < now() - interval '5 minutes';
+-- The same jobs DueJobs picks: a deleted project's jobs never run.
+SELECT count(*) FROM scheduled_jobs j JOIN projects p ON p.id = j.project_id
+WHERE j.enabled AND j.next_run_at < now() - interval '5 minutes' AND p.deleted_at IS NULL;
 
 -- name: DedicatedNodeHealth :one
 -- tenant: system - the status heartbeat counts unreachable nodes from the platform's own alerts.

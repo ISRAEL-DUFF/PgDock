@@ -247,10 +247,12 @@ func (q *Queries) MarkIncidentPushed(ctx context.Context, arg MarkIncidentPushed
 }
 
 const overdueJobs = `-- name: OverdueJobs :one
-SELECT count(*) FROM scheduled_jobs WHERE enabled AND next_run_at < now() - interval '5 minutes'
+SELECT count(*) FROM scheduled_jobs j JOIN projects p ON p.id = j.project_id
+WHERE j.enabled AND j.next_run_at < now() - interval '5 minutes' AND p.deleted_at IS NULL
 `
 
 // tenant: system - the status heartbeat counts platform-wide scheduler lag, not any organisation's data.
+// The same jobs DueJobs picks: a deleted project's jobs never run.
 func (q *Queries) OverdueJobs(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, overdueJobs)
 	var count int64
