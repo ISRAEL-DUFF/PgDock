@@ -130,6 +130,8 @@ pgdock promote <p> [--node <id>] [--profile <size>]
 pgdock demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
 pgdock upgrade <p> --to <major> [--check]        # a newer Postgres major
 pgdock moves <p>                                  # recent moves, with the pause each took
+pgdock ha status <p> | enable <p> [--node <id>] [--sync] | disable <p>
+pgdock ha switchover <p> [--to <member>] | sync <p> on|off
 pgdock move <p> --node <id>                       # platform admins: put the project on another node
 
 pgdock webhooks list <p> | create <p> <name> --tables orders --url https://… [--events INSERT,UPDATE] [--columns c] [--header K=V]

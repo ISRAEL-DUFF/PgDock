@@ -6,6 +6,7 @@ import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { useOperationToast } from "../components/Toasts";
 import { Alert, Badge, Button, Panel, CodeBlock, Field, Input, PageHeading, Select, StateBadge, Table, TableSkeleton, PageSkeleton } from "../components/ui";
 import { formatBytes, formatDate, relativeTime } from "../lib/format";
+import { EtcdPanel } from "../components/EtcdPanel";
 import { MaintenancePanel } from "../components/MaintenancePanel";
 import { MetricCharts } from "../components/Metrics";
 import { nodeCharts } from "./ProjectMetrics";
@@ -66,6 +67,7 @@ export function NodesPage() {
       {adding && <AddNode onClose={() => setAdding(false)} />}
       <PoolerHostsPanel />
       <MaintenancePanel />
+      <EtcdPanel />
       {q.isPending && <TableSkeleton cols={6} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
       {q.data && (

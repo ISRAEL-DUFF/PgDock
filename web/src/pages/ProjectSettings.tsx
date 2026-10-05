@@ -6,6 +6,7 @@ import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { CredentialPanel } from "../components/Credentials";
 import { DemoteCard } from "../components/DemoteCard";
 import { PromoteCard } from "../components/PromoteCard";
+import { HACard } from "../components/HACard";
 import { MovesCard, UpgradeCard } from "../components/UpgradeCard";
 import { ProjectStorageCard } from "../components/StorageTargets";
 import { StorageCard, SwitchCredentialsCard } from "../components/TenancyCards";
@@ -76,6 +77,7 @@ export function ProjectComputePage() {
         />
       </Panel>
       {p.tier === "dedicated" && p.instance && <InstancePanel projectId={p.id} instance={p.instance} />}
+      <HACard p={p} />
       <UpgradeCard p={p} />
       {!p.parent_project_id && <PromoteCard p={p} />}
       <DemoteCard p={p} />

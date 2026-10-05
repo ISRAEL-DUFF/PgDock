@@ -29,6 +29,14 @@ bundle share one version (spec §11.5).
 - Minor releases are applied automatically in a weekly maintenance window
   (Admin → Nodes; default Sunday 02:00–06:00 UTC), one instance at a time
   with the poolers holding clients.
+- HA for dedicated projects: a standby on another node under Patroni,
+  with a three-member etcd cluster. The pooler route follows the leader,
+  so writes are back through the same URL about 20 seconds after the
+  primary's node dies. Planned switchovers, optional synchronous
+  replication, failover history, and the month's availability measured
+  from pgdock-server and the status page (the SLA's two vantage points).
+  Project Settings → Compute → High availability, `pgdock ha`, Admin →
+  Nodes → etcd. See docs/ha.md.
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
 - New migrations 00022 and 00023 (moves, Postgres releases). Upgrade notes:

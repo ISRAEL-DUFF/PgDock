@@ -202,6 +202,13 @@ func (a *App) commands() []command {
 		}},
 		{name: "promote", summary: "Move a project to a dedicated instance: promote <p> [--node <id>] [--profile]", run: (*App).promote},
 		{name: "demote", summary: "Move a dedicated project back to the shared tier: demote <p> [--node <id>] [--check] [--accept-warnings]", run: (*App).demote},
+		{name: "ha", summary: "High availability for a dedicated project", sub: []command{
+			{name: "status", summary: "Members, lag, failovers and availability: status <p>", run: (*App).haStatus},
+			{name: "enable", summary: "Add a standby on another node: enable <p> [--node <id>] [--sync]", run: (*App).haEnable},
+			{name: "disable", summary: "Remove the standby: disable <p>", run: (*App).haDisable},
+			{name: "switchover", summary: "Planned switchover: switchover <p> [--to <member>]", run: (*App).haSwitchover},
+			{name: "sync", summary: "Synchronous replication: sync <p> on|off", run: (*App).haSync},
+		}},
 		{name: "upgrade", summary: "Upgrade to a newer Postgres major: upgrade <p> --to 18 [--check]", run: (*App).upgrade},
 		{name: "move", summary: "Move a project to another node (platform admin): move <p> --node <id>", run: (*App).move},
 		{name: "moves", summary: "A project's recent moves between instances: moves <p>", run: (*App).moves},

@@ -96,8 +96,15 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
 - **Moves pause webhooks and skip jobs.** While a project is moving or
   upgrading, webhook deliveries wait and scheduled job runs are skipped, as
   during a promotion in V2.
-- New migrations 00022 (moves, the `moving` and `upgrading` statuses) and
-  00023 (Postgres releases, minor-upgrade history).
+- New migrations 00022 (moves, the `moving` and `upgrading` statuses),
+  00023 (Postgres releases, minor-upgrade history), 00024 and 00025 (HA:
+  etcd members, HA members, failover history, SLA probes and
+  availability).
+- **HA** needs the new `pgdock-postgres` images (they now carry Patroni;
+  `./install.sh` and `make pg-image` build them) on every node, the agents
+  of V3, and the etcd cluster set up once (Admin → Nodes). Agents pull
+  `gcr.io/etcd-development/etcd:v3.6.5` when asked to run a member; open
+  ports 2379–2380 between the three etcd nodes. See [HA](ha.md).
 
 ## Rolling back
 
