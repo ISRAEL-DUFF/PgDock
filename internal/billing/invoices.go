@@ -361,6 +361,10 @@ func (s *Service) CreditNote(ctx context.Context, invoiceID uuid.UUID, amount in
 		for _, c := range prior {
 			credited += c.AmountMinor + c.VatMinor
 		}
+		owed, err := outstanding(ctx, q, inv)
+		if err != nil {
+			return err
+		}
 		if credited+amount+vat > inv.TotalMinor {
 			return invalid("the invoice's total is %s and %s is already credited; at most %s more (before VAT) can be",
 				Naira(inv.TotalMinor), Naira(credited), Naira(DecInt(inv.TotalMinor-credited).Quo(DecInt(1).Add(DecFromNumeric(inv.VatRate))).Round()))
@@ -380,16 +384,29 @@ func (s *Service) CreditNote(ctx context.Context, invoiceID uuid.UUID, amount in
 		if err != nil {
 			return err
 		}
-		_, err = Post(ctx, tx, creditNoteTxn(inv, lines, cn, by))
-		return err
+		if _, err := Post(ctx, tx, creditNoteTxn(inv, lines, cn, max(owed, 0), by)); err != nil {
+			return err
+		}
+		// Credited down to nothing: settled, so dunning doesn't chase it.
+		if (inv.Status == StatusIssued || inv.Status == StatusPartiallyPaid) && owed-(amount+vat) <= 0 {
+			status := StatusPaid
+			if inv.WhtDeductedMinor > 0 && inv.WhtEvidencedAt == nil {
+				status = StatusPaidWHTPending
+			}
+			if _, err := q.SettleInvoice(ctx, store.SettleInvoiceParams{ID: inv.ID, Status: status}); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	return cn, err
 }
 
 // creditNoteTxn reverses part of an invoice: debit revenue (spread over the
-// invoice's product lines in proportion) and VAT; credit what the org owes,
-// or, once the invoice is paid, its credit balance.
-func creditNoteTxn(inv store.Invoice, lines []store.InvoiceLine, cn store.CreditNote, by *uuid.UUID) Txn {
+// invoice's product lines in proportion) and VAT; credit what the org
+// still owes on the invoice (owed, before this note), and the rest to its
+// credit balance.
+func creditNoteTxn(inv store.Invoice, lines []store.InvoiceLine, cn store.CreditNote, owed int64, by *uuid.UUID) Txn {
 	org := inv.OrgID
 	byAcct := map[string]int64{}
 	var pos int64
@@ -421,11 +438,13 @@ func creditNoteTxn(inv store.Invoice, lines []store.InvoiceLine, cn store.Credit
 	if cn.VatMinor > 0 {
 		t.Entries = append(t.Entries, Dr(AccVATPayable, &org, cn.VatMinor))
 	}
-	credit := AccReceivable
-	if inv.Status == StatusPaid || inv.Status == StatusPaidWHTPending {
-		credit = AccCreditBalance
+	total := cn.AmountMinor + cn.VatMinor
+	if r := min(owed, total); r > 0 {
+		t.Entries = append(t.Entries, Cr(AccReceivable, &org, r))
 	}
-	t.Entries = append(t.Entries, Cr(credit, &org, cn.AmountMinor+cn.VatMinor))
+	if rest := total - max(min(owed, total), 0); rest > 0 {
+		t.Entries = append(t.Entries, Cr(AccCreditBalance, &org, rest))
+	}
 	return t
 }
 

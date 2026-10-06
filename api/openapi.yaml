@@ -13210,6 +13210,17 @@ components:
               credits_minor:
                 type: integer
                 format: int64
+              kind:
+                type: string
+                description: |
+                  Set for a ledger that disagrees with what it records (txn_id is then empty): invoice_ledger,
+                  invoice_arithmetic, invoice_allocations, invoice_outstanding, credit_note_ledger, payment_ledger,
+                  receivable, account_sign.
+              ref:
+                type: string
+                description: The invoice or credit note number, payment reference, or organisation.
+              detail:
+                type: string
         accounts:
           type: array
           description: Each account's balance (debits minus credits) across organisations.

@@ -336,6 +336,9 @@ func (s *Server) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
 		TxnID   openapi_types.UUID `json:"txn_id"`
 		Debits  int64              `json:"debits_minor"`
 		Credits int64              `json:"credits_minor"`
+		Kind    string             `json:"kind,omitempty"`
+		Ref     string             `json:"ref,omitempty"`
+		Detail  string             `json:"detail,omitempty"`
 	}
 	type account struct {
 		Account string `json:"account"`
@@ -350,7 +353,7 @@ func (s *Server) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
 		Accounts     []account `json:"accounts"`
 	}{Balanced: len(probs) == 0, Transactions: int(t.Txns), Debits: t.Debits, Credits: t.Credits, Problems: []problem{}, Accounts: []account{}}
 	for _, p := range probs {
-		raw.Problems = append(raw.Problems, problem{p.Txn, p.Debits, p.Credits})
+		raw.Problems = append(raw.Problems, problem{p.Txn, p.Debits, p.Credits, p.Kind, p.Ref, p.Detail})
 	}
 	for _, a := range accts {
 		raw.Accounts = append(raw.Accounts, account{a.Account, a.Balance})

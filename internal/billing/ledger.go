@@ -203,15 +203,27 @@ func Balance(ctx context.Context, db store.DBTX, org *uuid.UUID, account string)
 	return store.New(db).LedgerBalance(ctx, store.LedgerBalanceParams{OrgID: org, Account: account})
 }
 
-// Problem is a broken ledger invariant.
+// Problem is a broken ledger invariant: an unbalanced transaction (Txn,
+// Debits, Credits), or, with Kind set, a ledger that disagrees with the
+// invoices, credit notes and payments it records (the M27 billing audit).
 type Problem struct {
 	Txn     uuid.UUID
 	Debits  int64
 	Credits int64
+	// Kind: invoice_ledger, invoice_arithmetic, invoice_allocations,
+	// invoice_outstanding, credit_note_ledger, payment_ledger, receivable,
+	// account_sign.
+	Kind   string
+	Ref    string
+	Detail string
 }
 
 // Check verifies the ledger's invariants: every transaction balances, so
-// all debits equal all credits.
+// all debits equal all credits; every issued invoice, credit note and
+// payment has the transaction its amounts say; each invoice's lines, VAT
+// and total agree, and what it records as paid is what was allocated to
+// it; each organisation's receivable is what its open invoices owe; and
+// no organisation's WHT receivable or credit flips sign.
 func Check(ctx context.Context, db store.DBTX) ([]Problem, error) {
 	q := store.New(db)
 	rows, err := q.UnbalancedLedgerTxns(ctx)
@@ -228,6 +240,13 @@ func Check(ctx context.Context, db store.DBTX) ([]Problem, error) {
 	}
 	if t.Debits != t.Credits && len(out) == 0 {
 		out = append(out, Problem{Debits: t.Debits, Credits: t.Credits})
+	}
+	audit, err := q.BillingAuditProblems(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range audit {
+		out = append(out, Problem{Kind: a.Kind, Ref: a.Ref, Detail: a.Detail})
 	}
 	return out, nil
 }

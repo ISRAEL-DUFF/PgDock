@@ -5226,9 +5226,18 @@ type LedgerCheck struct {
 	CreditsMinor int64 `json:"credits_minor"`
 	DebitsMinor  int64 `json:"debits_minor"`
 	Problems     []struct {
-		CreditsMinor int64              `json:"credits_minor"`
-		DebitsMinor  int64              `json:"debits_minor"`
-		TxnId        openapi_types.UUID `json:"txn_id"`
+		CreditsMinor int64   `json:"credits_minor"`
+		DebitsMinor  int64   `json:"debits_minor"`
+		Detail       *string `json:"detail,omitempty"`
+
+		// Kind Set for a ledger that disagrees with what it records (txn_id is then empty): invoice_ledger,
+		// invoice_arithmetic, invoice_allocations, invoice_outstanding, credit_note_ledger, payment_ledger,
+		// receivable, account_sign.
+		Kind *string `json:"kind,omitempty"`
+
+		// Ref The invoice or credit note number, payment reference, or organisation.
+		Ref   *string            `json:"ref,omitempty"`
+		TxnId openapi_types.UUID `json:"txn_id"`
 	} `json:"problems"`
 	Transactions int `json:"transactions"`
 }

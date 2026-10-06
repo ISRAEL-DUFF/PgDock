@@ -8173,6 +8173,15 @@ export interface components {
                 debits_minor: number;
                 /** Format: int64 */
                 credits_minor: number;
+                /**
+                 * @description Set for a ledger that disagrees with what it records (txn_id is then empty): invoice_ledger,
+                 *     invoice_arithmetic, invoice_allocations, invoice_outstanding, credit_note_ledger, payment_ledger,
+                 *     receivable, account_sign.
+                 */
+                kind?: string;
+                /** @description The invoice or credit note number, payment reference, or organisation. */
+                ref?: string;
+                detail?: string;
             }[];
             /** @description Each account's balance (debits minus credits) across organisations. */
             accounts: {

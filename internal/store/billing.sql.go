@@ -38,6 +38,113 @@ func (q *Queries) AddBillingContact(ctx context.Context, arg AddBillingContactPa
 	return i, err
 }
 
+const billingAuditProblems = `-- name: BillingAuditProblems :many
+WITH led AS (
+  SELECT split_part(idempotency_key, '#', 1) AS k, account, direction, amount_minor, org_id FROM ledger_entries
+), inv AS (
+  SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, i.paid_minor, i.wht_deducted_minor, i.wht_evidenced_at, (SELECT coalesce(sum(amount_minor + vat_minor), 0) FROM credit_notes c WHERE c.invoice_id = i.id)::bigint AS credited,
+    EXISTS (SELECT 1 FROM led l WHERE l.k = 'invoice:' || i.id) AS posted,
+    coalesce((SELECT sum(CASE WHEN l.account = 'receivable' AND l.direction = 'debit' THEN l.amount_minor
+                              WHEN l.account = 'credit_balance' AND l.direction = 'credit' THEN -l.amount_minor ELSE 0 END)
+              FROM led l WHERE l.k = 'invoice:' || i.id), 0)::bigint AS ledger_total,
+    coalesce((SELECT sum(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM led l
+              WHERE l.k = 'invoice:' || i.id AND l.account = 'vat_payable'), 0)::bigint AS ledger_vat,
+    coalesce((SELECT sum(d.amount_minor) FROM prepaid_deductions d WHERE d.org_id = i.org_id AND d.month = i.period_start), 0)::bigint AS deducted
+  FROM invoices i WHERE i.status NOT IN ('draft', 'void')
+)
+SELECT 'invoice_ledger'::text AS kind, coalesce(i.number, i.id::text)::text AS ref,
+  format('total %s, ledger %s; VAT %s, ledger %s; prepaid deductions %s', i.total_minor, i.ledger_total, i.vat_minor, i.ledger_vat, i.deducted)::text AS detail
+FROM inv i
+WHERE i.total_minor <> 0 AND CASE WHEN i.posted THEN i.total_minor <> i.ledger_total OR i.vat_minor <> i.ledger_vat
+                                  ELSE i.total_minor <> i.deducted END
+UNION ALL
+SELECT 'invoice_arithmetic', coalesce(i.number, i.id::text),
+  format('subtotal %s, lines %s, VAT %s at %s, total %s', i.subtotal_minor,
+    (SELECT coalesce(sum(amount_minor), 0) FROM invoice_lines l WHERE l.invoice_id = i.id), i.vat_minor, i.vat_rate, i.total_minor)
+FROM inv i
+WHERE i.subtotal_minor <> (SELECT coalesce(sum(amount_minor), 0) FROM invoice_lines l WHERE l.invoice_id = i.id)
+   OR i.vat_minor <> round(i.subtotal_minor * i.vat_rate)
+   OR i.total_minor <> i.subtotal_minor + i.vat_minor
+UNION ALL
+SELECT 'invoice_allocations', coalesce(i.number, i.id::text),
+  format('paid %s, allocated %s; WHT %s, allocated %s', i.paid_minor, coalesce(a.paid, 0), i.wht_deducted_minor, coalesce(a.wht, 0))
+FROM inv i
+LEFT JOIN (SELECT invoice_id, sum(amount_minor)::bigint AS paid, sum(wht_minor)::bigint AS wht FROM payment_allocations GROUP BY 1) a ON a.invoice_id = i.id
+WHERE i.paid_minor < coalesce(a.paid, 0) OR i.wht_deducted_minor <> coalesce(a.wht, 0)
+UNION ALL
+SELECT 'invoice_outstanding', coalesce(i.number, i.id::text),
+  format('%s: total %s, paid %s, WHT %s, credited %s', i.status, i.total_minor, i.paid_minor, i.wht_deducted_minor, i.credited)
+FROM inv i
+WHERE i.total_minor > 0 AND (i.paid_minor + i.wht_deducted_minor > i.total_minor
+   OR (i.status IN ('paid', 'paid_wht_pending') AND i.total_minor - i.paid_minor - i.wht_deducted_minor - i.credited > 0)
+   OR (i.status IN ('issued', 'partially_paid') AND i.total_minor - i.paid_minor - i.wht_deducted_minor - i.credited <= 0))
+UNION ALL
+SELECT 'credit_note_ledger', c.number,
+  format('note %s, ledger %s', c.amount_minor + c.vat_minor,
+    coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'credit_note:' || c.id AND l.direction = 'credit'), 0))
+FROM credit_notes c
+WHERE c.amount_minor + c.vat_minor <> coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'credit_note:' || c.id AND l.direction = 'credit'), 0)
+UNION ALL
+SELECT 'payment_ledger', p.provider || ':' || p.provider_ref,
+  format('payment %s, ledger %s', p.amount_minor,
+    coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'payment:' || p.id AND l.direction = 'debit'), 0))
+FROM payments p
+WHERE p.amount_minor <> coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'payment:' || p.id AND l.direction = 'debit'), 0)
+UNION ALL
+SELECT 'receivable', o.org_id::text,
+  format('ledger %s, open invoices %s', o.ledger, coalesce(v.owed, 0))
+FROM (SELECT org_id, sum(CASE WHEN direction = 'debit' THEN amount_minor ELSE -amount_minor END)::bigint AS ledger
+      FROM ledger_entries WHERE account = 'receivable' GROUP BY org_id) o
+LEFT JOIN (SELECT org_id, sum(greatest(total_minor - paid_minor - wht_deducted_minor - credited, 0))::bigint AS owed
+           FROM inv WHERE total_minor > 0 GROUP BY org_id) v ON v.org_id = o.org_id
+WHERE o.ledger <> coalesce(v.owed, 0)
+UNION ALL
+SELECT 'account_sign', org_id::text || ' wht_receivable',
+  format('balance %s', sum(CASE WHEN direction = 'debit' THEN amount_minor ELSE -amount_minor END))
+FROM ledger_entries WHERE account = 'wht_receivable' AND org_id IS NOT NULL
+GROUP BY org_id
+HAVING sum(CASE WHEN direction = 'debit' THEN amount_minor ELSE -amount_minor END) < 0
+`
+
+type BillingAuditProblemsRow struct {
+	Kind   string
+	Ref    string
+	Detail string
+}
+
+// tenant: system - the M27 billing audit: invariants tying the ledger to invoices, credit notes and payments.
+// An issued invoice's transaction carries its total and VAT; a prepaid
+// org's invoice (no transaction of its own) was deducted in full.
+// An invoice's arithmetic: lines add up to the subtotal, VAT is the
+// subtotal at the rate rounded half away from zero, total is both.
+// Payments' allocations are part of what an invoice records as paid (the
+// rest came from the org's credit), and all of its WHT.
+// Payments and WHT never exceed an invoice's total; a settled invoice owes
+// nothing and an open one still owes something.
+// A credit note's transaction gives back its amount and VAT.
+// A payment's transaction brings in its amount (cash and fees).
+// An organisation's receivable is what its open invoices still owe.
+// WHT deducted can't be more than was evidenced.
+func (q *Queries) BillingAuditProblems(ctx context.Context) ([]BillingAuditProblemsRow, error) {
+	rows, err := q.db.Query(ctx, billingAuditProblems)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BillingAuditProblemsRow
+	for rows.Next() {
+		var i BillingAuditProblemsRow
+		if err := rows.Scan(&i.Kind, &i.Ref, &i.Detail); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const billingRecipients = `-- name: BillingRecipients :many
 SELECT c.email::text AS email FROM billing_contacts c WHERE c.org_id = $1
 UNION
