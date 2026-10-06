@@ -15,9 +15,9 @@ WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active' AN
   AND coalesce(p.last_active_at, p.created_at) < @idle_before
 ORDER BY p.created_at;
 
--- name: MarkPauseWarned :exec
--- tenant: system - the Free tier sweep records the 24-hour notice.
-UPDATE projects SET pause_warned_at = now() WHERE id = @id;
+-- name: MarkPauseWarned :execrows
+-- tenant: system - the Free tier sweep claims the 24-hour notice (once).
+UPDATE projects SET pause_warned_at = now() WHERE id = @id AND pause_warned_at IS NULL AND lifecycle = 'active';
 
 -- name: SetProjectPaused :one
 -- tenant: system - a pause operation on a project it already loaded.
@@ -48,9 +48,10 @@ SELECT p.* FROM projects p
 WHERE p.deleted_at IS NULL AND p.lifecycle = 'archived'
 ORDER BY p.archived_at;
 
--- name: SetArchiveNotice :exec
--- tenant: system - the Free tier sweep records a deletion notice sent.
-UPDATE projects SET archive_notice_days = @days WHERE id = @id;
+-- name: SetArchiveNotice :execrows
+-- tenant: system - the Free tier sweep claims a deletion notice (once).
+UPDATE projects SET archive_notice_days = @days
+WHERE id = @id AND lifecycle = 'archived' AND (archive_notice_days IS NULL OR archive_notice_days > @days);
 
 -- name: SleepingPaidProjects :many
 -- tenant: system - the Free tier sweep across organisations: paused or archived projects whose organisation now pays.

@@ -123,6 +123,15 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   for invoices past their due date once the server runs, but nothing is
   deleted for non-payment unless you turn it on (Admin → Billing →
   Settings). See [Payments](payments.md).
+- **The Free tier** (migration 00028): idle Free projects are paused after
+  7 days without client connections (owners are warned a day before) and
+  archived after 90 days paused. The activity clock of every existing
+  project starts at the upgrade. The bundle sets `PGDOCK_WAKER_ADDR`, the
+  waker that wakes paused projects; with pooler hosts elsewhere, point it
+  at the server's private address. Archiving needs backup storage. Open
+  signup can use Cloudflare Turnstile (`PGDOCK_TURNSTILE_SITE_KEY`,
+  `PGDOCK_TURNSTILE_SECRET`) and caps accounts per IP a day
+  (`PGDOCK_SIGNUPS_PER_IP`, default 3). See [The Free tier](free-tier.md).
 
 ## Rolling back
 

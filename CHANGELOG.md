@@ -62,10 +62,20 @@ bundle share one version (spec §11.5).
   Organisations → an org → Billing sets its mode (postpaid or prepaid),
   payment terms and price book. Refunds can reopen the invoices a payment
   settled. See docs/payments.md.
+- The Free tier: a Free project idle for 7 days (no client connections
+  through the poolers) is paused after a day's warning, and one paused for
+  90 days is archived to a verified backup. The next connection wakes it:
+  the client gets a message saying it is resuming (or being restored),
+  and a retry gets in. Resume from the dashboard, `pgdock resume`, or the
+  API. Archived projects are deleted after a year, with 30 and 7 days'
+  notice. Paid plans are never paused. See docs/free-tier.md.
+- Open signup: Cloudflare Turnstile on the signup page and a cap on
+  accounts per IP address a day. A Pricing page in the dashboard, and
+  public prices at `GET /api/v1/pricing`.
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
 - New migrations 00022 and 00023 (moves, Postgres releases), 00026
-  (billing), 00027 (payments). Upgrade notes:
+  (billing), 00027 (payments), 00028 (the Free tier). Upgrade notes:
   docs/upgrade.md#upgrading-to-v3.
 
 - Fixed: the first-run setup code printed by `install.sh` was missing its

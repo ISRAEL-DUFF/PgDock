@@ -237,14 +237,17 @@ func (q *Queries) FreeProjectsPausedSince(ctx context.Context, pausedBefore *tim
 	return items, nil
 }
 
-const markPauseWarned = `-- name: MarkPauseWarned :exec
-UPDATE projects SET pause_warned_at = now() WHERE id = $1
+const markPauseWarned = `-- name: MarkPauseWarned :execrows
+UPDATE projects SET pause_warned_at = now() WHERE id = $1 AND pause_warned_at IS NULL AND lifecycle = 'active'
 `
 
-// tenant: system - the Free tier sweep records the 24-hour notice.
-func (q *Queries) MarkPauseWarned(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, markPauseWarned, id)
-	return err
+// tenant: system - the Free tier sweep claims the 24-hour notice (once).
+func (q *Queries) MarkPauseWarned(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markPauseWarned, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const projectByDatabase = `-- name: ProjectByDatabase :one
@@ -300,8 +303,9 @@ func (q *Queries) ProjectByDatabase(ctx context.Context, db string) (Project, er
 	return i, err
 }
 
-const setArchiveNotice = `-- name: SetArchiveNotice :exec
-UPDATE projects SET archive_notice_days = $1 WHERE id = $2
+const setArchiveNotice = `-- name: SetArchiveNotice :execrows
+UPDATE projects SET archive_notice_days = $1
+WHERE id = $2 AND lifecycle = 'archived' AND (archive_notice_days IS NULL OR archive_notice_days > $1)
 `
 
 type SetArchiveNoticeParams struct {
@@ -309,10 +313,13 @@ type SetArchiveNoticeParams struct {
 	ID   uuid.UUID
 }
 
-// tenant: system - the Free tier sweep records a deletion notice sent.
-func (q *Queries) SetArchiveNotice(ctx context.Context, arg SetArchiveNoticeParams) error {
-	_, err := q.db.Exec(ctx, setArchiveNotice, arg.Days, arg.ID)
-	return err
+// tenant: system - the Free tier sweep claims a deletion notice (once).
+func (q *Queries) SetArchiveNotice(ctx context.Context, arg SetArchiveNoticeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setArchiveNotice, arg.Days, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setProjectArchived = `-- name: SetProjectArchived :one

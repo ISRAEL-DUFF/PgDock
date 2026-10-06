@@ -1228,6 +1228,15 @@ test.describe("with the saved session", () => {
     const [receipt] = await Promise.all([page.waitForEvent("download"), page.getByTestId("payment-row").first().getByRole("link", { name: /Receipt/ }).click()]);
     expect(readFileSync((await receipt.path())!).subarray(0, 4).toString()).toBe("%PDF");
     await shot(page, "54-billing-paid");
+
+    // Pricing: plans side by side and a month's estimate (V3 §11).
+    await page.goto("/pricing");
+    await expect(page.getByRole("heading", { name: "Pricing", exact: true })).toBeVisible();
+    await expect(page.getByTestId("plan-monthly-pro")).toContainText("₦");
+    await page.getByLabel("Dedicated vCPUs").fill("2");
+    await page.getByLabel("RAM (GB)").fill("4");
+    await expect(page.getByTestId("estimate-total")).toContainText("₦");
+    await shot(page, "55-pricing");
   });
 
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {

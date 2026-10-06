@@ -139,6 +139,8 @@ pgdock webhooks delete <p> <webhook> | deliveries <p> <webhook> [--dead] | repla
 pgdock jobs list <p> | create <p> <name> --cron '0 3 * * *' [--tz Europe/Berlin] (--sql '…' | --sql @file.sql | --url https://…)
 pgdock jobs pause|resume|run|history <p> <job>
 
+pgdock resume <p>   # wake a paused Free project, or restore an archived one
+
 pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
 pgdock billing invoices | invoice <number|id> [--pdf file.pdf]
 pgdock billing pay <number|id> [--wallet] | transfer | payments   # a link to pay, the bank account to transfer to, payments received

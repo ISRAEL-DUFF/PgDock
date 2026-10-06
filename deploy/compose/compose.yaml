@@ -84,6 +84,15 @@ services:
       PGDOCK_TENANCY_SWEEP_INTERVAL: ${PGDOCK_TENANCY_SWEEP_INTERVAL:-5m}
       PGDOCK_METRICS_TOKEN: ${PGDOCK_METRICS_TOKEN:-}
       PGDOCK_CONSOLE_DISABLED: ${PGDOCK_CONSOLE_DISABLED:-false}
+      # The waker answers paused Free projects' connections (V3 §4.2); the
+      # poolers reach it at this address. Pooler hosts elsewhere need the
+      # server's private address instead (docs/free-tier.md).
+      PGDOCK_WAKER_ADDR: ${PGDOCK_WAKER_ADDR:-172.31.250.11:6435}
+      PGDOCK_WAKER_LISTEN: ${PGDOCK_WAKER_LISTEN:-:6435}
+      # Open signup's protection (V3 §7.4).
+      PGDOCK_TURNSTILE_SITE_KEY: ${PGDOCK_TURNSTILE_SITE_KEY:-}
+      PGDOCK_TURNSTILE_SECRET: ${PGDOCK_TURNSTILE_SECRET:-}
+      PGDOCK_SIGNUPS_PER_IP: ${PGDOCK_SIGNUPS_PER_IP:-3}
     volumes:
       - pgdock-data:/var/lib/pgdock
       - pooler-config:/var/lib/pgdock/pooler

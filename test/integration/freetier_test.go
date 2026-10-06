@@ -236,3 +236,28 @@ func TestFreeTierSweepRules(t *testing.T) {
 		return err == nil && p.DeletedAt != nil
 	})
 }
+
+// TestCLIResume wakes a paused project from the pgdock binary.
+func TestCLIResume(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	ctx := context.Background()
+	bin := buildCLI(t)
+	token := e.CreateToken(map[string]any{"name": "cli", "org_id": e.OrgID, "scopes": []string{"read", "write"}})
+	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	c := e.CreateProject("Sleepy")
+	if _, err := e.DB.Exec(ctx, `UPDATE projects SET lifecycle = 'paused', paused_at = now() WHERE id = $1`, c.Project.Id); err != nil {
+		t.Fatal(err)
+	}
+	if r := runCLI(t, bin, env, "projects", "info", "Sleepy"); r.code != 0 || !strings.Contains(r.stdout, "paused for inactivity") {
+		t.Fatalf("info: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "resume", "Sleepy"); r.code != 0 || !strings.Contains(r.stdout, "accepts connections again") {
+		t.Fatalf("resume: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if p := lifecycle(t, e, c.Project); p.Lifecycle != freetier.Active {
+		t.Errorf("after resume: %s", p.Lifecycle)
+	}
+	if r := runCLI(t, bin, env, "resume", "Sleepy"); r.code == 0 {
+		t.Errorf("resuming an active project succeeded:\n%s", r.stdout)
+	}
+}

@@ -168,6 +168,20 @@ storage:
 Statements running over 10 minutes, and transactions idle over 5, are
 ended on the shared tier.
 
+## Free projects that sleep
+
+On the Free plan, a project with no client connections for 7 days is
+**paused**. You get an email a day before. Its data is kept. The next
+connection wakes it: that first connection is refused with *"This project
+was paused for inactivity and is resuming. Retry in about 30 seconds."*,
+and the retry works. With the pooled URL, the message comes with the
+first query. A project paused for 90 days is **archived** to a verified
+backup. The next connection restores it, which takes minutes. Archived
+projects are deleted after a year, with 30 and 7 days' notice. You can
+also resume a project with **Resume** on its page, or with
+`pgdock resume <project>`. Paid plans never sleep: see **Pricing** in the
+sidebar. Details: [The Free tier](free-tier.md).
+
 ## Your data
 
 - **Export** any project as a `pg_dump` file at any time (Project →

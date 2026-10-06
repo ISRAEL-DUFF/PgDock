@@ -34,23 +34,30 @@ type Manager struct {
 	hosts   *hostSet // pooler hosts (V3 §2.1), when set
 
 	// The waker (V3 §4.2), as the poolers reach it: paused and archived
-	// projects route there. Empty: they keep their usual route.
+	// projects route there. Empty: they keep their usual route. Its own
+	// lock: m.mu is held through a Sync, which waits for the database.
+	wakerMu   sync.Mutex
 	wakerHost string
 	wakerPort int
 }
 
 // SetWaker routes paused and archived projects to the waker at host:port.
 func (m *Manager) SetWaker(host string, port int) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.wakerMu.Lock()
+	defer m.wakerMu.Unlock()
 	m.wakerHost, m.wakerPort = host, port
 }
 
 // WakerSet reports whether paused projects route to a waker.
 func (m *Manager) WakerSet() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.wakerHost != ""
+	_, port := m.waker()
+	return port != 0
+}
+
+func (m *Manager) waker() (string, int) {
+	m.wakerMu.Lock()
+	defer m.wakerMu.Unlock()
+	return m.wakerHost, m.wakerPort
 }
 
 // NewManager returns a Manager writing files with mode into dir and
@@ -101,15 +108,16 @@ func (m *Manager) Sync(ctx context.Context) error {
 		return fmt.Errorf("pooler sync: load routes: %w", err)
 	}
 	cfg := Config{Users: append([]User(nil), m.static...)}
+	wakerHost, wakerPort := m.waker()
 	for _, r := range rows {
 		s, err := store.DecodeProjectSettings(r.Settings)
 		if err != nil {
 			return fmt.Errorf("pooler sync: %s: %w", r.DbName, err)
 		}
 		host, port := r.Host, int(r.Port)
-		if r.Lifecycle != "active" && m.wakerHost != "" {
+		if r.Lifecycle != "active" && wakerHost != "" {
 			// Asleep: the waker answers, and wakes the project (V3 §4.2).
-			host, port = m.wakerHost, m.wakerPort
+			host, port = wakerHost, wakerPort
 			s.PoolSize, s.ConnectionLimit = 1, 1
 		}
 		cfg.Routes = append(cfg.Routes, Route{

@@ -209,6 +209,7 @@ func (a *App) commands() []command {
 			{name: "switchover", summary: "Planned switchover: switchover <p> [--to <member>]", run: (*App).haSwitchover},
 			{name: "sync", summary: "Synchronous replication: sync <p> on|off", run: (*App).haSync},
 		}},
+		{name: "resume", summary: "Resume a paused Free project, or restore an archived one: resume <p>", run: (*App).resume},
 		{name: "upgrade", summary: "Upgrade to a newer Postgres major: upgrade <p> --to 18 [--check]", run: (*App).upgrade},
 		{name: "move", summary: "Move a project to another node (platform admin): move <p> --node <id>", run: (*App).move},
 		{name: "moves", summary: "A project's recent moves between instances: moves <p>", run: (*App).moves},

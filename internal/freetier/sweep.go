@@ -11,8 +11,6 @@ import (
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
-const sweepLockKey int64 = 0x7067646f636b16 // "pgdock\x16"
-
 // Swept counts what one sweep did.
 type Swept struct {
 	Warned, Paused, Archived, Noticed, Deleted, Resumed int
@@ -37,21 +35,11 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 
 // Sweep does what is due (V3 §4): projects of organisations that now pay
 // wake; idle Free projects are warned, then paused; long-paused ones are
-// archived; long-archived ones get their notices, then are deleted. One
-// server sweeps at a time.
+// archived; long-archived ones get their notices, then are deleted. Safe
+// on several servers at once: operations are one per project, and each
+// notice is claimed by a conditional update before it is sent.
 func (s *Service) Sweep(ctx context.Context) (Swept, error) {
 	var out Swept
-	conn, err := s.db.Acquire(ctx)
-	if err != nil {
-		return out, err
-	}
-	defer conn.Release()
-	var got bool
-	if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", sweepLockKey).Scan(&got); err != nil || !got {
-		return out, err
-	}
-	defer func() { _, _ = conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock($1)", sweepLockKey) }()
-
 	q := store.New(s.db)
 	now := s.now()
 	var errs []error
@@ -79,11 +67,14 @@ func (s *Service) Sweep(ctx context.Context) (Swept, error) {
 		for _, p := range idle {
 			switch {
 			case p.PauseWarnedAt == nil:
+				if n, err := q.MarkPauseWarned(ctx, p.ID); err != nil || n == 0 {
+					try(err)
+					continue
+				}
 				s.notify(ctx, p, fmt.Sprintf("[PGDock] %s will be paused in %s", p.Name, hours(s.cfg.Warn)), fmt.Sprintf(
 					"%s has had no client connections since %s. Free projects are paused after %d days without connections, so it will be paused in about %s.\n\n"+
 						"Connecting to it before then keeps it active. A paused project keeps its data and resumes on the next connection.\n\n%s",
 					p.Name, lastActive(p).UTC().Format("2 Jan 2006"), days(s.cfg.PauseAfter), hours(s.cfg.Warn), s.projectLink(p)))
-				try(q.MarkPauseWarned(ctx, p.ID))
 				out.Warned++
 			case now.Sub(lastActive(p)) >= s.cfg.PauseAfter && now.Sub(*p.PauseWarnedAt) >= s.cfg.Warn:
 				if _, err := s.enqueue(ctx, p.ID, nil, func(store.Project) (string, error) { return KindPause, nil }); err == nil {
@@ -132,13 +123,13 @@ func (s *Service) sweepArchived(ctx context.Context, p store.Project, now time.T
 		if sent || now.Before(due.AddDate(0, 0, -d)) {
 			continue
 		}
+		if n, err := store.New(s.db).SetArchiveNotice(ctx, store.SetArchiveNoticeParams{ID: p.ID, Days: ptr(int32(d))}); err != nil || n == 0 {
+			return noticed, 0, err // another server sent it
+		}
 		s.notify(ctx, p, fmt.Sprintf("[PGDock] %s will be deleted in %d days", p.Name, d), fmt.Sprintf(
 			"%s has been archived since %s. Archived Free projects are deleted after %d days, so it will be deleted on %s.\n\n"+
 				"Connecting to it, or restoring it from the dashboard, before then keeps it:\n%s",
 			p.Name, p.ArchivedAt.UTC().Format("2 Jan 2006"), days(s.cfg.DeleteAfter), due.UTC().Format("2 Jan 2006"), s.projectLink(p)))
-		if err := store.New(s.db).SetArchiveNotice(ctx, store.SetArchiveNoticeParams{ID: p.ID, Days: ptr(int32(d))}); err != nil {
-			return noticed, 0, err
-		}
 		p.ArchiveNoticeDays = ptr(int32(d))
 		noticed++
 		break

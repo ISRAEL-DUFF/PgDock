@@ -110,6 +110,9 @@ func (a *App) projectsInfo(args []string) error {
 		fmt.Fprintf(w, "ID:\t%s\n", p.Id)
 		fmt.Fprintf(w, "Tier:\t%s\n", p.Tier)
 		fmt.Fprintf(w, "Status:\t%s\n", p.Status)
+		if p.Lifecycle != nil && *p.Lifecycle != "active" {
+			fmt.Fprintf(w, "Lifecycle:\t%s for inactivity (pgdock resume %s)\n", *p.Lifecycle, p.Name)
+		}
 		fmt.Fprintf(w, "Database:\t%s\n", p.DbName)
 		fmt.Fprintf(w, "Host:\t%s (pooled %d, session %d)\n", p.Connection.Host, p.Connection.PooledPort, p.Connection.SessionPort)
 		if p.MyRole != nil {
@@ -455,4 +458,25 @@ func (a *App) demote(args []string) error {
 	return a.emit(op, func(w io.Writer) {
 		fmt.Fprintf(w, "Demoted %s to the shared tier (operation %s); its URL and every password are unchanged.\n", p.Name, op.Id)
 	})
+}
+
+func (a *App) resume(args []string) error {
+	pos, err := parse(flag.NewFlagSet("resume", flag.ContinueOnError), args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 1, "resume <project>"); err != nil {
+		return err
+	}
+	p, err := a.project(pos[0])
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.ResumeProjectWithResponse(c, p.Id)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.followOp(r.JSON202, p.Name+" accepts connections again")
 }
