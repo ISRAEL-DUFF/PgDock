@@ -379,3 +379,38 @@ func TestRefundsAndWebhookAuthentication(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// TestForgedEventCannotRedirectATransfer is from the M27 security review:
+// a webhook that names one org's payment intent for a transaction that is
+// really another org's transfer (only possible with a leaked webhook
+// secret) credits the org the provider says the money is for.
+func TestForgedEventCannotRedirectATransfer(t *testing.T) {
+	w := newPayWorld(t)
+	ctx := context.Background()
+	attacker, victim := newOrg(t, w.db, "attacker"), newOrg(t, w.db, "victim")
+	intent, err := w.s.StartCheckout(ctx, billing.CheckoutStart{OrgID: attacker, Channel: billing.ChannelCard, Purpose: billing.PurposeTopup, AmountMinor: 100_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	va, err := w.s.EnsureVirtualAccount(ctx, victim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.isp.DropWebhooks(1) // the genuine notification is lost
+	ref, err := w.isp.Transfer(va.AccountNumber, 5_000_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := w.s.HandleEvent(ctx, billing.ProviderISpend, billing.Event{ID: "forged-1", Kind: billing.EventTransferReceived,
+		ProviderRef: ref, Reference: intent.Reference, AmountMinor: 5_000_000, Currency: "NGN"})
+	if err != nil || out != billing.OutcomePosted {
+		t.Fatalf("event: %s %v", out, err)
+	}
+	if b := balance(t, w.db, &attacker, billing.AccCreditBalance); b != 0 {
+		t.Errorf("the attacker's org was credited %d", -b)
+	}
+	if b := balance(t, w.db, &victim, billing.AccCreditBalance); b != -5_000_000 {
+		t.Errorf("the victim's credit %d, want -5000000", b)
+	}
+	mustCheck(t, w.db)
+}

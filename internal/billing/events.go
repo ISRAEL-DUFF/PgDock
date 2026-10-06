@@ -456,6 +456,16 @@ func (s *Service) settleVerified(ctx context.Context, p PaymentProvider, provide
 		return err
 	}
 	q := store.New(s.db)
+	// Only the provider's own record says whose money it is: an intent the
+	// event named counts only if the verified transaction carries its
+	// reference too. A transfer into a virtual account goes to that
+	// account's organisation, whatever the event claimed (M27 review).
+	if intent != nil && tx.Reference != intent.Reference {
+		if tx.Reference != "" {
+			return rejectedError{"the reference doesn't match"}
+		}
+		intent = nil
+	}
 	if intent == nil && tx.Reference != "" {
 		if in, err := q.GetPaymentIntentByRef(ctx, tx.Reference); err == nil {
 			intent = &in
@@ -468,8 +478,8 @@ func (s *Service) settleVerified(ctx context.Context, p PaymentProvider, provide
 		return rejectedError{"currency " + tx.Currency}
 	case tx.AmountMinor <= 0:
 		return rejectedError{"no amount"}
-	case intent != nil && tx.Reference != "" && tx.Reference != intent.Reference:
-		return rejectedError{"the reference doesn't match"}
+	case intent != nil && intent.Provider != p.Name():
+		return rejectedError{"the intent is with another provider"}
 	case intent != nil && tx.Channel != ChannelTransfer && tx.AmountMinor < intent.AmountMinor:
 		return rejectedError{fmt.Sprintf("paid %d, expected %d", tx.AmountMinor, intent.AmountMinor)}
 	}

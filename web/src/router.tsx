@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { AppShell } from "./components/shell/AppShell";
 import { ToastProvider } from "./components/Toasts";
+import { StepUpHost } from "./components/StepUp";
 import { sessionQuery } from "./lib/session";
 import { LoginPage } from "./pages/Login";
 import { SetupPage } from "./pages/Setup";
@@ -246,6 +247,7 @@ const root = createRootRouteWithContext<Ctx>()({
   component: () => (
     <ToastProvider>
       <Outlet />
+      <StepUpHost />
     </ToastProvider>
   ),
   notFoundComponent: NotFound,

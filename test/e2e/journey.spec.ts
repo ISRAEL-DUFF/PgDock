@@ -143,6 +143,21 @@ async function signedIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 }
 
+/** Confirms the password and a code when a sensitive action asks for them
+ * (the step-up dialog appears only when the last one has expired). */
+async function stepUpIfAsked(page: Page) {
+  const d = page.getByTestId("step-up");
+  try {
+    await d.waitFor({ timeout: 3_000 });
+  } catch {
+    return;
+  }
+  await d.getByLabel("Your password").fill(password);
+  await d.getByLabel("Your authenticator code").fill(await freshTotp(totpSecret));
+  await d.getByRole("button", { name: "Confirm" }).click();
+  await expect(d).toBeHidden();
+}
+
 async function count(url: string, sql: string): Promise<number> {
   const c = await connect(url);
   try {
@@ -1209,6 +1224,7 @@ test.describe("with the saved session", () => {
     await rec.getByLabel("Amount received (₦)").fill(total);
     await rec.getByLabel("Bank reference").fill("GTB-E2E-0001");
     await rec.getByRole("button", { name: "Record" }).click();
+    await stepUpIfAsked(page);
     const paid = page.getByTestId("admin-payment-row").filter({ hasText: "Metered team" });
     await expect(paid).toContainText("GTB-E2E-0001");
     await expect(paid).toContainText("manual");
@@ -1222,6 +1238,7 @@ test.describe("with the saved session", () => {
     await expect(terms).toContainText("Pro (monthly)");
     await terms.getByLabel("Payment terms (days)").fill("30");
     await terms.getByRole("button", { name: "Save", exact: true }).click();
+    await stepUpIfAsked(page);
     await expect(terms).toContainText("Saved.");
     await expect(terms.getByLabel("Payment terms (days)")).toHaveValue("30");
     await page.goto("/org/billing");

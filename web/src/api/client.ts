@@ -308,11 +308,43 @@ function cookieToken(): string {
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+let reauthHandler: (() => Promise<boolean>) | null = null;
+
+/**
+ * Registers what to do when the server wants a fresh step-up (password and
+ * code) before a sensitive action: resolve true once the user has confirmed,
+ * and the request is sent again.
+ */
+export function setReauthHandler(h: (() => Promise<boolean>) | null) {
+  reauthHandler = h;
+}
+
 export async function request<T>(
   method: Method,
   path: string,
   body?: unknown,
   fetchFn: typeof fetch = fetch,
+): Promise<T> {
+  try {
+    return await send<T>(method, path, body, fetchFn);
+  } catch (e) {
+    if (
+      e instanceof ApiRequestError &&
+      e.code === "reauth_required" &&
+      reauthHandler &&
+      path !== "/api/v1/auth/reauth"
+    ) {
+      if (await reauthHandler()) return send<T>(method, path, body, fetchFn);
+    }
+    throw e;
+  }
+}
+
+async function send<T>(
+  method: Method,
+  path: string,
+  body: unknown,
+  fetchFn: typeof fetch,
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
