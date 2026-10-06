@@ -126,7 +126,7 @@ type Service struct {
 	setupCode string
 	mailer    Mailer
 	hooks     Hooks
-	guard SignupGuard
+	guard     SignupGuard
 }
 
 // NewService returns a Service. setupCode guards the first-run wizard: it

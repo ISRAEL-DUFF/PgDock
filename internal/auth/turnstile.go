@@ -75,9 +75,9 @@ func (t Turnstile) Verify(ctx context.Context, token string, ip *netip.Addr) err
 // SignupGuard is open signup's protection (V3 §7.4): an anti-bot challenge
 // and a cap on accounts created from one IP address a day.
 type SignupGuard struct {
-	Check BotCheck
-	SiteKey   string
-	PerIP     int
+	Check   BotCheck
+	SiteKey string
+	PerIP   int
 }
 
 // SetSignupGuard installs open signup's protection.
