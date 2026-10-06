@@ -1,0 +1,150 @@
+package cloud
+
+import (
+	"context"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"gopkg.in/yaml.v3"
+)
+
+func TestHetznerAgainstFake(t *testing.T) {
+	fake := NewFakeHetzner("tok")
+	srv := httptest.NewServer(fake)
+	defer srv.Close()
+	ctx := context.Background()
+	h := &HetznerProvider{API: srv.URL + "/v1", Token: "tok"}
+
+	cat, err := h.PriceCatalog(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range cat {
+		if p.Type == "cx11" {
+			t.Error("a deprecated type is in the catalog")
+		}
+	}
+	p, err := Cheapest(cat, "fsn1", 4, 8, 100)
+	if err != nil || p.Type != "cpx31" || p.MonthlyMinor != 1511 || p.Currency != "EUR" {
+		t.Fatalf("cheapest: %+v %v", p, err)
+	}
+	if _, err := Cheapest(cat, "fsn1", 64, 1, 1); err == nil {
+		t.Error("an impossible size fit")
+	}
+
+	s, err := h.CreateServer(ctx, ServerSpec{Name: "pgd-eu-1", Type: "cpx31", Location: "fsn1", Image: "ubuntu-24.04", UserData: "#cloud-config\n", Labels: map[string]string{"pgdock": "node"}})
+	if err != nil || s.ID == "" || s.Type != "cpx31" || s.PrivateIP == "" {
+		t.Fatalf("create: %+v %v", s, err)
+	}
+	if _, err := h.CreateServer(ctx, ServerSpec{Name: "pgd-eu-1", Type: "cpx31"}); err == nil {
+		t.Error("a duplicate name was created")
+	}
+	list, err := h.ListServers(ctx, Filter{Labels: map[string]string{"pgdock": "node"}})
+	if err != nil || len(list) != 1 || list[0].ID != s.ID {
+		t.Fatalf("list: %+v %v", list, err)
+	}
+	v, err := h.CreateVolume(ctx, VolumeSpec{Name: "data", SizeGB: 100, Location: "fsn1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := h.AttachVolume(ctx, v.ID, s.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.AssignFloatingIP(ctx, "77", s.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.DeleteServer(ctx, s.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.DeleteServer(ctx, s.ID); err != nil {
+		t.Errorf("deleting a deleted server: %v", err)
+	}
+	if list, _ := h.ListServers(ctx, Filter{}); len(list) != 0 {
+		t.Errorf("after delete: %+v", list)
+	}
+	bad := &HetznerProvider{API: srv.URL, Token: "wrong"}
+	if _, err := bad.ListServers(ctx, Filter{}); err == nil || !strings.Contains(err.Error(), "unauthorized") {
+		t.Errorf("bad token: %v", err)
+	}
+}
+
+func TestManualProvider(t *testing.T) {
+	m := ManualProvider{Catalog: []ServerPrice{{Type: "colo-1u", Location: "lagos", CPUs: 32, MemoryGB: 128, DiskGB: 2000, MonthlyMinor: 45000000, Currency: "NGN"}}}
+	if _, err := m.CreateServer(context.Background(), ServerSpec{}); err != ErrManual {
+		t.Errorf("create: %v", err)
+	}
+	cat, _ := m.PriceCatalog(context.Background())
+	if p, ok := Price(cat, "colo-1u", "lagos"); !ok || p.Currency != "NGN" {
+		t.Errorf("price: %+v", p)
+	}
+}
+
+func TestCloudInit(t *testing.T) {
+	b := Bootstrap{
+		NodeName: "pgd-eu-2", ServerURL: "https://pgdock.example.com", Token: "pgdreg_abc-DEF_123",
+		AgentImage: "ghcr.io/acme/pgdock-agent:3.0.0", PGImage: "ghcr.io/acme/pgdock-postgres:{major}-walg3.0.9",
+		PrivateCIDR: "10.0.0.0/16", SSHKeys: []string{"ssh-ed25519 AAAA ops"},
+		ServerCA: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
+	}
+	doc, err := b.CloudInit()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(doc, "#cloud-config\n") {
+		t.Fatal("not a cloud-config document")
+	}
+	var parsed struct {
+		Hostname   string `yaml:"hostname"`
+		Packages   []string
+		WriteFiles []struct {
+			Path, Permissions, Content string
+		} `yaml:"write_files"`
+		Runcmd [][]string
+		Keys   []string `yaml:"ssh_authorized_keys"`
+	}
+	if err := yaml.Unmarshal([]byte(doc), &parsed); err != nil {
+		t.Fatalf("YAML: %v\n%s", err, doc)
+	}
+	if parsed.Hostname != "pgd-eu-2" || len(parsed.Runcmd) != 1 || len(parsed.Keys) != 1 {
+		t.Errorf("parsed: %+v", parsed)
+	}
+	files := map[string]string{}
+	for _, f := range parsed.WriteFiles {
+		files[f.Path] = f.Content
+		if f.Path == "/etc/pgdock/agent.env" && f.Permissions != "0600" {
+			t.Errorf("agent.env permissions %s", f.Permissions)
+		}
+	}
+	env := files["/etc/pgdock/agent.env"]
+	for _, want := range []string{"PGDOCK_AGENT_TOKEN=pgdreg_abc-DEF_123", "PGDOCK_AGENT_DB_ALLOW=10.0.0.0/16", "PGDOCK_AGENT_SERVER_CA=/etc/pgdock/server-ca.pem"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("agent.env lacks %s:\n%s", want, env)
+		}
+	}
+	if !strings.Contains(files["/etc/ssh/sshd_config.d/90-pgdock.conf"], "PasswordAuthentication no") {
+		t.Error("SSH isn't hardened")
+	}
+	if !strings.Contains(files["/etc/pgdock/server-ca.pem"], "BEGIN CERTIFICATE") {
+		t.Error("the CA isn't written")
+	}
+	if !strings.Contains(files["/usr/local/sbin/pgdock-join"], "ufw --force enable") {
+		t.Error("no firewall")
+	}
+	if got := TokenFromCloudInit(doc); got != b.Token {
+		t.Errorf("token back: %q", got)
+	}
+
+	for name, mut := range map[string]func(*Bootstrap){
+		"token with a quote": func(b *Bootstrap) { b.Token = "x'; rm -rf /" },
+		"image with a space": func(b *Bootstrap) { b.AgentImage = "a b" },
+		"bad CIDR":           func(b *Bootstrap) { b.PrivateCIDR = "10.0.0.0; reboot" },
+		"bad name":           func(b *Bootstrap) { b.NodeName = "Bad_Name" },
+	} {
+		c := b
+		mut(&c)
+		if _, err := c.CloudInit(); err == nil {
+			t.Errorf("%s: rendered", name)
+		}
+	}
+}

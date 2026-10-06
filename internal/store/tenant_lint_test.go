@@ -17,6 +17,7 @@ var tenantTables = []string{
 	"webhooks", "webhook_deliveries", "scheduled_jobs", "job_runs", "outbound_allowlist", "outbound_counters",
 	"saved_queries", "saved_query_favorites", "moves", "minor_upgrades", "availability_minutes", "failover_events", "ledger_entries", "billing_accounts", "billing_contacts", "billing_plan_changes", "invoices", "invoice_lines", "credit_notes", "payment_events", "payment_intents", "payments", "payment_allocations", "refunds", "payment_methods", "virtual_accounts", "wht_certificates", "prepaid_deductions", "dunning_steps",
 	"tickets", "ticket_messages", "org_support_phones", "legal_documents", "legal_acceptances", "mrr_snapshots",
+	"rebalance_moves", "cost_allocations",
 }
 
 // TestTenantQueriesAreScoped is the V2 §2.6 lint: every query on a tenant

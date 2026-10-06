@@ -195,6 +195,37 @@ type BreakGlassSession struct {
 	EndedBy   *uuid.UUID
 }
 
+type CapacityProposal struct {
+	ID               uuid.UUID
+	Region           string
+	Tier             string
+	Reason           string
+	Provider         string
+	ServerType       string
+	Location         string
+	MonthlyCostMinor int64
+	Currency         string
+	Status           string
+	Auto             bool
+	NodeID           *uuid.UUID
+	OperationID      *uuid.UUID
+	Error            *string
+	DecidedBy        *uuid.UUID
+	DecidedAt        *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type CostAllocation struct {
+	Day         pgtype.Date
+	OrgID       uuid.UUID
+	Category    string
+	Region      string
+	Currency    string
+	AmountMinor pgtype.Numeric
+	Quantity    pgtype.Numeric
+}
+
 type CreditNote struct {
 	ID          uuid.UUID
 	InvoiceID   uuid.UUID
@@ -283,6 +314,16 @@ type FailoverEvent struct {
 	Kind       string
 	DurationMs *int32
 	OccurredAt time.Time
+}
+
+type FxRate struct {
+	ID          int64
+	Currency    string
+	NgnPerUnit  pgtype.Numeric
+	EffectiveAt time.Time
+	Source      string
+	SetBy       *uuid.UUID
+	CreatedAt   time.Time
 }
 
 type Incident struct {
@@ -534,6 +575,14 @@ type Node struct {
 	PoolerVrrpState       *string
 	PoolerReady           *bool
 	PoolerCheckedAt       *time.Time
+	Provider              string
+	Region                string
+	ServerType            *string
+	MonthlyCostMinor      *int64
+	CostCurrency          string
+	Lifecycle             string
+	EmptySince            *time.Time
+	Keep                  bool
 }
 
 type Operation struct {
@@ -789,6 +838,21 @@ type ReapedSession struct {
 	DurationS int32
 	Query     *string
 	CreatedAt time.Time
+}
+
+type RebalanceMove struct {
+	ID          uuid.UUID
+	Batch       uuid.UUID
+	Kind        string
+	ProjectID   uuid.UUID
+	FromNode    uuid.UUID
+	ToNode      *uuid.UUID
+	Reason      string
+	Status      string
+	OperationID *uuid.UUID
+	Error       *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Refund struct {

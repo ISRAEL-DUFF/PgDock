@@ -24,7 +24,7 @@ RETURNING *;
 -- other organisation uses only the untagged ones (V2 s10.5).
 SELECT i.* FROM instances i
 JOIN nodes n ON n.id = i.node_id
-WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
+WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.lifecycle = 'active' AND n.role IN ('shared', 'both')
   AND i.deleted_at IS NULL AND i.pg_version = @pg_version
   AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = @org_id)
            THEN i.org_id = @org_id ELSE i.org_id IS NULL END
@@ -75,7 +75,7 @@ ORDER BY i.created_at;
 -- dedicated instances and runs the fewest.
 -- name: PickDedicatedNode :one
 SELECT n.* FROM nodes n
-WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.agent_cert_fp IS NOT NULL
+WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.lifecycle = 'active' AND n.agent_cert_fp IS NOT NULL
 ORDER BY (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.kind = 'dedicated' AND i.deleted_at IS NULL), n.created_at
 LIMIT 1;
 
