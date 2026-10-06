@@ -9,6 +9,10 @@
 # Patroni (HA instances, V3 §2.2) runs on the Python of the official
 # python image of the same Debian release, copied in with a virtualenv of
 # pinned wheels from PyPI: again no system packages.
+#
+# hypopg (hypothetical indexes for query insights' estimates, V3 §8) is
+# the one package installed, from the PGDG repository the official image
+# already uses.
 ARG REGISTRY=
 ARG PG_MAJOR=18
 
@@ -32,6 +36,10 @@ RUN --mount=type=secret,id=ca_bundle,required=false \
 
 FROM ${REGISTRY}postgres:${PG_MAJOR}
 ARG PG_MAJOR
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends "postgresql-${PG_MAJOR}-hypopg" \
+ && rm -rf /var/lib/apt/lists/* \
+ && test -f "/usr/share/postgresql/${PG_MAJOR}/extension/hypopg.control"
 COPY --from=walg /out-wal-g /usr/local/bin/wal-g
 COPY --from=patroni /usr/local/lib/python3.13 /usr/local/lib/python3.13
 COPY --from=patroni /usr/local/lib/libpython3.13.so.1.0 /usr/local/lib/
@@ -42,4 +50,4 @@ RUN ln -s python3.13 /usr/local/bin/python3 && ln -s python3 /usr/local/bin/pyth
 COPY --chmod=755 pgdock-patroni.sh /usr/local/bin/pgdock-patroni
 COPY --chmod=755 pgdock-hba.sh /docker-entrypoint-initdb.d/10-pgdock-hba.sh
 LABEL org.opencontainers.image.title="pgdock-postgres" \
-      org.opencontainers.image.description="PostgreSQL ${PG_MAJOR} with WAL-G v3.0.9 for PGDock instances"
+      org.opencontainers.image.description="PostgreSQL ${PG_MAJOR} with WAL-G v3.0.9 and hypopg for PGDock instances"

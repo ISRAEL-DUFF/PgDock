@@ -917,6 +917,45 @@ func (e IncidentStatus) Valid() bool {
 	}
 }
 
+// Defines values for IndexReportHypopg.
+const (
+	Available   IndexReportHypopg = "available"
+	Installed   IndexReportHypopg = "installed"
+	Unavailable IndexReportHypopg = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the IndexReportHypopg enum.
+func (e IndexReportHypopg) Valid() bool {
+	switch e {
+	case Available:
+		return true
+	case Installed:
+		return true
+	case Unavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IndexSuggestionReasons.
+const (
+	SeqScanFilter       IndexSuggestionReasons = "seq_scan_filter"
+	UnindexedForeignKey IndexSuggestionReasons = "unindexed_foreign_key"
+)
+
+// Valid indicates whether the value is a known member of the IndexSuggestionReasons enum.
+func (e IndexSuggestionReasons) Valid() bool {
+	switch e {
+	case SeqScanFilter:
+		return true
+	case UnindexedForeignKey:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceActionRequestAction.
 const (
 	Restart InstanceActionRequestAction = "restart"
@@ -2147,6 +2186,27 @@ func (e SignupSettingsMode) Valid() bool {
 	}
 }
 
+// Defines values for SlowQuerySource.
+const (
+	SlowQuerySourceReaper   SlowQuerySource = "reaper"
+	SlowQuerySourceRunning  SlowQuerySource = "running"
+	SlowQuerySourceSnapshot SlowQuerySource = "snapshot"
+)
+
+// Valid indicates whether the value is a known member of the SlowQuerySource enum.
+func (e SlowQuerySource) Valid() bool {
+	switch e {
+	case SlowQuerySourceReaper:
+		return true
+	case SlowQuerySourceRunning:
+		return true
+	case SlowQuerySourceSnapshot:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StorageState.
 const (
 	StorageStateHard StorageState = "hard"
@@ -2747,6 +2807,30 @@ func (e AuditOutcome) Valid() bool {
 	}
 }
 
+// Defines values for InsightRange.
+const (
+	InsightRangeN1h  InsightRange = "1h"
+	InsightRangeN24h InsightRange = "24h"
+	InsightRangeN30d InsightRange = "30d"
+	InsightRangeN7d  InsightRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the InsightRange enum.
+func (e InsightRange) Valid() bool {
+	switch e {
+	case InsightRangeN1h:
+		return true
+	case InsightRangeN24h:
+		return true
+	case InsightRangeN30d:
+		return true
+	case InsightRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MetricRange.
 const (
 	MetricRangeN1h  MetricRange = "1h"
@@ -3104,6 +3188,102 @@ func (e ListProjectAuditParamsOutcome) Valid() bool {
 	case ListProjectAuditParamsOutcomeFailure:
 		return true
 	case ListProjectAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListInsightQueriesParamsRange.
+const (
+	ListInsightQueriesParamsRangeN1h  ListInsightQueriesParamsRange = "1h"
+	ListInsightQueriesParamsRangeN24h ListInsightQueriesParamsRange = "24h"
+	ListInsightQueriesParamsRangeN30d ListInsightQueriesParamsRange = "30d"
+	ListInsightQueriesParamsRangeN7d  ListInsightQueriesParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the ListInsightQueriesParamsRange enum.
+func (e ListInsightQueriesParamsRange) Valid() bool {
+	switch e {
+	case ListInsightQueriesParamsRangeN1h:
+		return true
+	case ListInsightQueriesParamsRangeN24h:
+		return true
+	case ListInsightQueriesParamsRangeN30d:
+		return true
+	case ListInsightQueriesParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListInsightQueriesParamsSort.
+const (
+	Calls ListInsightQueriesParamsSort = "calls"
+	Mean  ListInsightQueriesParamsSort = "mean"
+	Rows  ListInsightQueriesParamsSort = "rows"
+	Total ListInsightQueriesParamsSort = "total"
+)
+
+// Valid indicates whether the value is a known member of the ListInsightQueriesParamsSort enum.
+func (e ListInsightQueriesParamsSort) Valid() bool {
+	switch e {
+	case Calls:
+		return true
+	case Mean:
+		return true
+	case Rows:
+		return true
+	case Total:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetInsightQueryParamsRange.
+const (
+	GetInsightQueryParamsRangeN1h  GetInsightQueryParamsRange = "1h"
+	GetInsightQueryParamsRangeN24h GetInsightQueryParamsRange = "24h"
+	GetInsightQueryParamsRangeN30d GetInsightQueryParamsRange = "30d"
+	GetInsightQueryParamsRangeN7d  GetInsightQueryParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the GetInsightQueryParamsRange enum.
+func (e GetInsightQueryParamsRange) Valid() bool {
+	switch e {
+	case GetInsightQueryParamsRangeN1h:
+		return true
+	case GetInsightQueryParamsRangeN24h:
+		return true
+	case GetInsightQueryParamsRangeN30d:
+		return true
+	case GetInsightQueryParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSlowQueriesParamsRange.
+const (
+	ListSlowQueriesParamsRangeN1h  ListSlowQueriesParamsRange = "1h"
+	ListSlowQueriesParamsRangeN24h ListSlowQueriesParamsRange = "24h"
+	ListSlowQueriesParamsRangeN30d ListSlowQueriesParamsRange = "30d"
+	ListSlowQueriesParamsRangeN7d  ListSlowQueriesParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the ListSlowQueriesParamsRange enum.
+func (e ListSlowQueriesParamsRange) Valid() bool {
+	switch e {
+	case ListSlowQueriesParamsRangeN1h:
+		return true
+	case ListSlowQueriesParamsRangeN24h:
+		return true
+	case ListSlowQueriesParamsRangeN30d:
+		return true
+	case ListSlowQueriesParamsRangeN7d:
 		return true
 	default:
 		return false
@@ -3734,6 +3914,11 @@ type BillingSettings struct {
 	WhtRate Decimal `json:"wht_rate"`
 }
 
+// BloatList defines model for BloatList.
+type BloatList struct {
+	Items []TableBloat `json:"items"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -4012,6 +4197,20 @@ type CreditNote struct {
 	VatMinor    int64              `json:"vat_minor"`
 }
 
+// DBSession defines model for DBSession.
+type DBSession struct {
+	InTransactionMs int64 `json:"in_transaction_ms"`
+	Pid             int   `json:"pid"`
+
+	// Platform One of PGDock's own sessions.
+	Platform  bool   `json:"platform"`
+	Query     string `json:"query"`
+	Role      string `json:"role"`
+	RunningMs int64  `json:"running_ms"`
+	State     string `json:"state"`
+	WaitEvent string `json:"wait_event"`
+}
+
 // DbColumn defines model for DbColumn.
 type DbColumn struct {
 	Default  *string `json:"default,omitempty"`
@@ -4260,6 +4459,18 @@ type DnsCheck struct {
 type DrainResult struct {
 	Moves int  `json:"moves"`
 	Node  Node `json:"node"`
+}
+
+// DuplicateIndex defines model for DuplicateIndex.
+type DuplicateIndex struct {
+	Bytes      int64  `json:"bytes"`
+	Definition string `json:"definition"`
+	Exact      bool   `json:"exact"`
+	Name       string `json:"name"`
+	Of         string `json:"of"`
+	Scans      int64  `json:"scans"`
+	Schema     string `json:"schema"`
+	Table      string `json:"table"`
 }
 
 // EditColumn defines model for EditColumn.
@@ -4575,6 +4786,123 @@ type IncidentUpdate struct {
 type IncidentUpdateRequest struct {
 	Body   string         `json:"body"`
 	Status IncidentStatus `json:"status"`
+}
+
+// IndexEstimate defines model for IndexEstimate.
+type IndexEstimate struct {
+	CostAfter   float64 `json:"cost_after"`
+	CostBefore  float64 `json:"cost_before"`
+	Improvement float64 `json:"improvement"`
+	UsesIndex   bool    `json:"uses_index"`
+}
+
+// IndexInfo defines model for IndexInfo.
+type IndexInfo struct {
+	Bytes      int64  `json:"bytes"`
+	Definition string `json:"definition"`
+	Name       string `json:"name"`
+	Scans      int64  `json:"scans"`
+	Schema     string `json:"schema"`
+	Table      string `json:"table"`
+}
+
+// IndexReport defines model for IndexReport.
+type IndexReport struct {
+	Duplicates    []DuplicateIndex  `json:"duplicates"`
+	HeavySeqScans []TableScans      `json:"heavy_seq_scans"`
+	Hypopg        IndexReportHypopg `json:"hypopg"`
+	StatsSince    *time.Time        `json:"stats_since,omitempty"`
+	Suggestions   []IndexSuggestion `json:"suggestions"`
+	Unused        []IndexInfo       `json:"unused"`
+}
+
+// IndexReportHypopg defines model for IndexReport.Hypopg.
+type IndexReportHypopg string
+
+// IndexSuggestion defines model for IndexSuggestion.
+type IndexSuggestion struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change    SchemaChange             `json:"change"`
+	Columns   []string                 `json:"columns"`
+	Estimate  *IndexEstimate           `json:"estimate,omitempty"`
+	QueryIds  []string                 `json:"query_ids"`
+	Reasons   []IndexSuggestionReasons `json:"reasons"`
+	Schema    string                   `json:"schema"`
+	SeqScans  int64                    `json:"seq_scans"`
+	Statement string                   `json:"statement"`
+	Table     string                   `json:"table"`
+	TableRows float64                  `json:"table_rows"`
+}
+
+// IndexSuggestionReasons defines model for IndexSuggestion.Reasons.
+type IndexSuggestionReasons string
+
+// InsightExplainRequest defines model for InsightExplainRequest.
+type InsightExplainRequest struct {
+	Generic *bool  `json:"generic,omitempty"`
+	QueryId string `json:"query_id"`
+}
+
+// InsightPlan defines model for InsightPlan.
+type InsightPlan struct {
+	Generic bool     `json:"generic"`
+	Indexes []string `json:"indexes"`
+
+	// Plan EXPLAIN (FORMAT JSON)'s output.
+	Plan      interface{} `json:"plan"`
+	SeqScans  []string    `json:"seq_scans"`
+	Statement string      `json:"statement"`
+	TotalCost float64     `json:"total_cost"`
+}
+
+// InsightPoint defines model for InsightPoint.
+type InsightPoint struct {
+	Calls   int64     `json:"calls"`
+	MaxMs   float64   `json:"max_ms"`
+	MeanMs  float64   `json:"mean_ms"`
+	Rows    int64     `json:"rows"`
+	TotalMs float64   `json:"total_ms"`
+	Ts      time.Time `json:"ts"`
+}
+
+// InsightQuery defines model for InsightQuery.
+type InsightQuery struct {
+	Calls      int64 `json:"calls"`
+	HasExample bool  `json:"has_example"`
+
+	// HitRatio Share of blocks read from shared buffers.
+	HitRatio float64 `json:"hit_ratio"`
+	MaxMs    float64 `json:"max_ms"`
+	MeanMs   float64 `json:"mean_ms"`
+
+	// Query The normalised text, with $1… for literals.
+	Query string `json:"query"`
+
+	// QueryId pg_stat_statements' queryid (a 64-bit integer, as a string).
+	QueryId string `json:"query_id"`
+	Rows    int64  `json:"rows"`
+
+	// Share Share of the project's total query time.
+	Share   float64 `json:"share"`
+	TotalMs float64 `json:"total_ms"`
+}
+
+// InsightQueryDetail defines model for InsightQueryDetail.
+type InsightQueryDetail struct {
+	// Example The latest statement seen with its literals.
+	Example     *string        `json:"example,omitempty"`
+	ExampleAt   *time.Time     `json:"example_at,omitempty"`
+	FirstSeen   time.Time      `json:"first_seen"`
+	LastSeen    time.Time      `json:"last_seen"`
+	Query       InsightQuery   `json:"query"`
+	Series      []InsightPoint `json:"series"`
+	StepSeconds int            `json:"step_seconds"`
+}
+
+// InsightQueryList defines model for InsightQueryList.
+type InsightQueryList struct {
+	Items []InsightQuery `json:"items"`
+	Range string         `json:"range"`
 }
 
 // InstanceActionRequest defines model for InstanceActionRequest.
@@ -4957,6 +5285,18 @@ type LegalVersion struct {
 // LegalVersionList defines model for LegalVersionList.
 type LegalVersionList struct {
 	Items []LegalVersion `json:"items"`
+}
+
+// LockBlock defines model for LockBlock.
+type LockBlock struct {
+	Blocked  DBSession   `json:"blocked"`
+	Blockers []DBSession `json:"blockers"`
+	Lock     string      `json:"lock"`
+}
+
+// LockList defines model for LockList.
+type LockList struct {
+	Items []LockBlock `json:"items"`
 }
 
 // LoginChallenge defines model for LoginChallenge.
@@ -6624,6 +6964,27 @@ type SignupSettings struct {
 // SignupSettingsMode defines model for SignupSettings.Mode.
 type SignupSettingsMode string
 
+// SlowQuery defines model for SlowQuery.
+type SlowQuery struct {
+	DurationMs float64   `json:"duration_ms"`
+	Query      string    `json:"query"`
+	QueryId    *string   `json:"query_id,omitempty"`
+	Role       string    `json:"role"`
+	SeenAt     time.Time `json:"seen_at"`
+
+	// Source running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+	Source SlowQuerySource `json:"source"`
+}
+
+// SlowQuerySource running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+type SlowQuerySource string
+
+// SlowQueryList defines model for SlowQueryList.
+type SlowQueryList struct {
+	Items       []SlowQuery `json:"items"`
+	ThresholdMs int         `json:"threshold_ms"`
+}
+
 // SqlCancelRequest defines model for SqlCancelRequest.
 type SqlCancelRequest struct {
 	QueryId openapi_types.UUID `json:"query_id"`
@@ -6874,6 +7235,20 @@ type SwitchoverRequest struct {
 	Candidate *openapi_types.UUID `json:"candidate,omitempty"`
 }
 
+// TableBloat defines model for TableBloat.
+type TableBloat struct {
+	BloatBytes     int64      `json:"bloat_bytes"`
+	BloatRatio     float64    `json:"bloat_ratio"`
+	Bytes          int64      `json:"bytes"`
+	DeadRows       int64      `json:"dead_rows"`
+	ExpectedBytes  int64      `json:"expected_bytes"`
+	LastAutovacuum *time.Time `json:"last_autovacuum,omitempty"`
+	LastVacuum     *time.Time `json:"last_vacuum,omitempty"`
+	LiveRows       int64      `json:"live_rows"`
+	Schema         string     `json:"schema"`
+	Table          string     `json:"table"`
+}
+
 // TableConstraint defines model for TableConstraint.
 type TableConstraint struct {
 	Columns    *[]string           `json:"columns,omitempty"`
@@ -6937,6 +7312,16 @@ type TablePage struct {
 
 // TablePageOrder defines model for TablePage.Order.
 type TablePageOrder string
+
+// TableScans defines model for TableScans.
+type TableScans struct {
+	IdxScans   int64   `json:"idx_scans"`
+	Rows       float64 `json:"rows"`
+	Schema     string  `json:"schema"`
+	SeqScans   int64   `json:"seq_scans"`
+	SeqTupRead int64   `json:"seq_tup_read"`
+	Table      string  `json:"table"`
+}
 
 // Terms defines model for Terms.
 type Terms struct {
@@ -7456,6 +7841,12 @@ type BackupID = openapi_types.UUID
 // IncidentID defines model for IncidentID.
 type IncidentID = openapi_types.UUID
 
+// InsightQueryID defines model for InsightQueryID.
+type InsightQueryID = string
+
+// InsightRange defines model for InsightRange.
+type InsightRange string
+
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
 
@@ -7864,6 +8255,35 @@ type ListProjectAuditParams struct {
 
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
+
+// ListInsightQueriesParams defines parameters for ListInsightQueries.
+type ListInsightQueriesParams struct {
+	Range *ListInsightQueriesParamsRange `form:"range,omitempty" json:"range,omitempty"`
+	Sort  *ListInsightQueriesParamsSort  `form:"sort,omitempty" json:"sort,omitempty"`
+	Limit *int                           `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListInsightQueriesParamsRange defines parameters for ListInsightQueries.
+type ListInsightQueriesParamsRange string
+
+// ListInsightQueriesParamsSort defines parameters for ListInsightQueries.
+type ListInsightQueriesParamsSort string
+
+// GetInsightQueryParams defines parameters for GetInsightQuery.
+type GetInsightQueryParams struct {
+	Range *GetInsightQueryParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// GetInsightQueryParamsRange defines parameters for GetInsightQuery.
+type GetInsightQueryParamsRange string
+
+// ListSlowQueriesParams defines parameters for ListSlowQueries.
+type ListSlowQueriesParams struct {
+	Range *ListSlowQueriesParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// ListSlowQueriesParamsRange defines parameters for ListSlowQueries.
+type ListSlowQueriesParamsRange string
 
 // ListJobRunsParams defines parameters for ListJobRuns.
 type ListJobRunsParams struct {
@@ -8274,6 +8694,9 @@ type UpdateProjectHAJSONRequestBody = HAUpdateRequest
 
 // EnableProjectHAJSONRequestBody defines body for EnableProjectHA for application/json ContentType.
 type EnableProjectHAJSONRequestBody = HAEnableRequest
+
+// ExplainInsightQueryJSONRequestBody defines body for ExplainInsightQuery for application/json ContentType.
+type ExplainInsightQueryJSONRequestBody = InsightExplainRequest
 
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
@@ -9102,6 +9525,27 @@ type ServerInterface interface {
 	// EnableProjectHA Turn HA on
 	// (POST /api/v1/projects/{id}/ha)
 	EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
+	// (GET /api/v1/projects/{id}/insights/bloat)
+	GetInsightBloat(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ExplainInsightQuery EXPLAIN (without ANALYZE) a query as the project's role
+	// (POST /api/v1/projects/{id}/insights/explain)
+	ExplainInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetInsightIndexes Index suggestions, unused and duplicate indexes
+	// (GET /api/v1/projects/{id}/insights/indexes)
+	GetInsightIndexes(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetInsightLocks Current blocking chains
+	// (GET /api/v1/projects/{id}/insights/locks)
+	GetInsightLocks(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListInsightQueries Top queries over a range (Pro, Team and dedicated projects)
+	// (GET /api/v1/projects/{id}/insights/queries)
+	ListInsightQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListInsightQueriesParams)
+	// GetInsightQuery A query's totals, its calls and latency over time, and its example
+	// (GET /api/v1/projects/{id}/insights/queries/{query_id})
+	GetInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId InsightQueryID, params GetInsightQueryParams)
+	// ListSlowQueries Statements over the slow-query threshold
+	// (GET /api/v1/projects/{id}/insights/slow)
+	ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -10782,6 +11226,48 @@ func (_ Unimplemented) UpdateProjectHA(w http.ResponseWriter, r *http.Request, i
 // EnableProjectHA Turn HA on
 // (POST /api/v1/projects/{id}/ha)
 func (_ Unimplemented) EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
+// (GET /api/v1/projects/{id}/insights/bloat)
+func (_ Unimplemented) GetInsightBloat(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExplainInsightQuery EXPLAIN (without ANALYZE) a query as the project's role
+// (POST /api/v1/projects/{id}/insights/explain)
+func (_ Unimplemented) ExplainInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightIndexes Index suggestions, unused and duplicate indexes
+// (GET /api/v1/projects/{id}/insights/indexes)
+func (_ Unimplemented) GetInsightIndexes(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightLocks Current blocking chains
+// (GET /api/v1/projects/{id}/insights/locks)
+func (_ Unimplemented) GetInsightLocks(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListInsightQueries Top queries over a range (Pro, Team and dedicated projects)
+// (GET /api/v1/projects/{id}/insights/queries)
+func (_ Unimplemented) ListInsightQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListInsightQueriesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightQuery A query's totals, its calls and latency over time, and its example
+// (GET /api/v1/projects/{id}/insights/queries/{query_id})
+func (_ Unimplemented) GetInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId InsightQueryID, params GetInsightQueryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSlowQueries Statements over the slow-query threshold
+// (GET /api/v1/projects/{id}/insights/slow)
+func (_ Unimplemented) ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17423,6 +17909,271 @@ func (siw *ServerInterfaceWrapper) EnableProjectHA(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetInsightBloat operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightBloat(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightBloat(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExplainInsightQuery operation middleware
+func (siw *ServerInterfaceWrapper) ExplainInsightQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExplainInsightQuery(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInsightIndexes operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightIndexes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightIndexes(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInsightLocks operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightLocks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightLocks(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListInsightQueries operation middleware
+func (siw *ServerInterfaceWrapper) ListInsightQueries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListInsightQueriesParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListInsightQueries(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInsightQuery operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId InsightQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetInsightQueryParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightQuery(w, r, id, queryId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSlowQueries operation middleware
+func (siw *ServerInterfaceWrapper) ListSlowQueries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSlowQueriesParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSlowQueries(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProjectInstanceAction operation middleware
 func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, r *http.Request) {
 
@@ -20806,6 +21557,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/reclaim-space", wrapper.ReclaimSpace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/queries", wrapper.ListInsightQueries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/queries/{query_id}", wrapper.GetInsightQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/insights/explain", wrapper.ExplainInsightQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/slow", wrapper.ListSlowQueries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/indexes", wrapper.GetInsightIndexes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/bloat", wrapper.GetInsightBloat)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/locks", wrapper.GetInsightLocks)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/reaped", wrapper.ListReapedSessions)

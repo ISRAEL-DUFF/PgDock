@@ -4283,6 +4283,143 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/queries:
+    get:
+      operationId: listInsightQueries
+      summary: Top queries over a range (Pro, Team and dedicated projects)
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/InsightRange"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [total, mean, calls, rows]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Most expensive first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightQueryList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/queries/{query_id}:
+    get:
+      operationId: getInsightQuery
+      summary: A query's totals, its calls and latency over time, and its example
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/InsightQueryID"
+        - $ref: "#/components/parameters/InsightRange"
+      responses:
+        "200":
+          description: The query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightQueryDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/explain:
+    post:
+      operationId: explainInsightQuery
+      summary: EXPLAIN (without ANALYZE) a query as the project's role
+      description: |
+        On its latest captured example with literals, or as a generic plan
+        (parameters unknown) when there is none or `generic` is set. Runs in
+        a read-only transaction; the statement is not executed.
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsightExplainRequest"
+      responses:
+        "200":
+          description: The plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightPlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/slow:
+    get:
+      operationId: listSlowQueries
+      summary: Statements over the slow-query threshold
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/InsightRange"
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlowQueryList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/indexes:
+    get:
+      operationId: getInsightIndexes
+      summary: Index suggestions, unused and duplicate indexes
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexReport"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/bloat:
+    get:
+      operationId: getInsightBloat
+      summary: Estimated table bloat (reclaim it with reclaim-space)
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Most bloated first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BloatList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/locks:
+    get:
+      operationId: getInsightLocks
+      summary: Current blocking chains
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Blocked sessions, longest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LockList"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/reaped:
     get:
       operationId: listReapedSessions
@@ -6705,6 +6842,18 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   parameters:
+    InsightRange:
+      name: range
+      in: query
+      schema:
+        type: string
+        enum: ["1h", "24h", "7d", "30d"]
+    InsightQueryID:
+      name: query_id
+      in: path
+      required: true
+      schema:
+        type: string
     SavedQueryID:
       name: query_id
       in: path
@@ -13580,6 +13729,369 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TableFootprint"
+    InsightQuery:
+      type: object
+      required: [query_id, query, has_example, calls, total_ms, mean_ms, max_ms, rows, hit_ratio, share]
+      properties:
+        query_id:
+          type: string
+          description: pg_stat_statements' queryid (a 64-bit integer, as a string).
+        query:
+          type: string
+          description: The normalised text, with $1… for literals.
+        has_example:
+          type: boolean
+        calls:
+          type: integer
+          format: int64
+        total_ms:
+          type: number
+          format: double
+        mean_ms:
+          type: number
+          format: double
+        max_ms:
+          type: number
+          format: double
+        rows:
+          type: integer
+          format: int64
+        hit_ratio:
+          type: number
+          format: double
+          description: Share of blocks read from shared buffers.
+        share:
+          type: number
+          format: double
+          description: Share of the project's total query time.
+    InsightQueryList:
+      type: object
+      required: [range, items]
+      properties:
+        range:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightQuery"
+    InsightPoint:
+      type: object
+      required: [ts, calls, total_ms, mean_ms, max_ms, rows]
+      properties:
+        ts:
+          type: string
+          format: date-time
+        calls:
+          type: integer
+          format: int64
+        total_ms:
+          type: number
+          format: double
+        mean_ms:
+          type: number
+          format: double
+        max_ms:
+          type: number
+          format: double
+        rows:
+          type: integer
+          format: int64
+    InsightQueryDetail:
+      type: object
+      required: [query, first_seen, last_seen, step_seconds, series]
+      properties:
+        query:
+          $ref: "#/components/schemas/InsightQuery"
+        example:
+          type: string
+          nullable: true
+          description: The latest statement seen with its literals.
+        example_at:
+          type: string
+          format: date-time
+          nullable: true
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        step_seconds:
+          type: integer
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightPoint"
+    InsightExplainRequest:
+      type: object
+      required: [query_id]
+      properties:
+        query_id:
+          type: string
+        generic:
+          type: boolean
+    InsightPlan:
+      type: object
+      required: [generic, statement, plan, total_cost, indexes, seq_scans]
+      properties:
+        generic:
+          type: boolean
+        statement:
+          type: string
+        plan:
+          description: EXPLAIN (FORMAT JSON)'s output.
+        total_cost:
+          type: number
+          format: double
+        indexes:
+          type: array
+          items:
+            type: string
+        seq_scans:
+          type: array
+          items:
+            type: string
+    SlowQuery:
+      type: object
+      required: [query, duration_ms, source, role, seen_at]
+      properties:
+        query_id:
+          type: string
+          nullable: true
+        query:
+          type: string
+        duration_ms:
+          type: number
+          format: double
+        source:
+          type: string
+          enum: [running, snapshot, reaper]
+          description: running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+        role:
+          type: string
+        seen_at:
+          type: string
+          format: date-time
+    SlowQueryList:
+      type: object
+      required: [threshold_ms, items]
+      properties:
+        threshold_ms:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlowQuery"
+    IndexEstimate:
+      type: object
+      required: [cost_before, cost_after, improvement, uses_index]
+      properties:
+        cost_before:
+          type: number
+          format: double
+        cost_after:
+          type: number
+          format: double
+        improvement:
+          type: number
+          format: double
+        uses_index:
+          type: boolean
+    IndexSuggestion:
+      type: object
+      required: [schema, table, columns, reasons, query_ids, statement, change, table_rows, seq_scans]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        reasons:
+          type: array
+          items:
+            type: string
+            enum: [seq_scan_filter, unindexed_foreign_key]
+        query_ids:
+          type: array
+          items:
+            type: string
+        statement:
+          type: string
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+        estimate:
+          allOf:
+            - $ref: "#/components/schemas/IndexEstimate"
+          nullable: true
+        table_rows:
+          type: number
+          format: double
+        seq_scans:
+          type: integer
+          format: int64
+    IndexInfo:
+      type: object
+      required: [schema, table, name, definition, bytes, scans]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        name:
+          type: string
+        definition:
+          type: string
+        bytes:
+          type: integer
+          format: int64
+        scans:
+          type: integer
+          format: int64
+    DuplicateIndex:
+      allOf:
+        - $ref: "#/components/schemas/IndexInfo"
+        - type: object
+          required: [of, exact]
+          properties:
+            of:
+              type: string
+            exact:
+              type: boolean
+    TableScans:
+      type: object
+      required: [schema, table, rows, seq_scans, seq_tup_read, idx_scans]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        rows:
+          type: number
+          format: double
+        seq_scans:
+          type: integer
+          format: int64
+        seq_tup_read:
+          type: integer
+          format: int64
+        idx_scans:
+          type: integer
+          format: int64
+    IndexReport:
+      type: object
+      required: [suggestions, unused, duplicates, heavy_seq_scans, hypopg]
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndexSuggestion"
+        unused:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndexInfo"
+        duplicates:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateIndex"
+        heavy_seq_scans:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableScans"
+        hypopg:
+          type: string
+          enum: [installed, available, unavailable]
+        stats_since:
+          type: string
+          format: date-time
+          nullable: true
+    TableBloat:
+      type: object
+      required: [schema, table, bytes, expected_bytes, bloat_bytes, bloat_ratio, live_rows, dead_rows]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        bytes:
+          type: integer
+          format: int64
+        expected_bytes:
+          type: integer
+          format: int64
+        bloat_bytes:
+          type: integer
+          format: int64
+        bloat_ratio:
+          type: number
+          format: double
+        live_rows:
+          type: integer
+          format: int64
+        dead_rows:
+          type: integer
+          format: int64
+        last_vacuum:
+          type: string
+          format: date-time
+          nullable: true
+        last_autovacuum:
+          type: string
+          format: date-time
+          nullable: true
+    BloatList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableBloat"
+    DBSession:
+      type: object
+      required: [pid, role, state, wait_event, query, running_ms, in_transaction_ms, platform]
+      properties:
+        pid:
+          type: integer
+        role:
+          type: string
+        state:
+          type: string
+        wait_event:
+          type: string
+        query:
+          type: string
+        running_ms:
+          type: integer
+          format: int64
+        in_transaction_ms:
+          type: integer
+          format: int64
+        platform:
+          type: boolean
+          description: One of PGDock's own sessions.
+    LockBlock:
+      type: object
+      required: [blocked, lock, blockers]
+      properties:
+        blocked:
+          $ref: "#/components/schemas/DBSession"
+        lock:
+          type: string
+        blockers:
+          type: array
+          items:
+            $ref: "#/components/schemas/DBSession"
+    LockList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LockBlock"
     ReclaimSpaceRequest:
       type: object
       required: [schema, table]

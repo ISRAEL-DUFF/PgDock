@@ -3192,6 +3192,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/insights/queries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Top queries over a range (Pro, Team and dedicated projects) */
+        get: operations["listInsightQueries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/queries/{query_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A query's totals, its calls and latency over time, and its example */
+        get: operations["getInsightQuery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * EXPLAIN (without ANALYZE) a query as the project's role
+         * @description On its latest captured example with literals, or as a generic plan
+         *     (parameters unknown) when there is none or `generic` is set. Runs in
+         *     a read-only transaction; the statement is not executed.
+         */
+        post: operations["explainInsightQuery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/slow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Statements over the slow-query threshold */
+        get: operations["listSlowQueries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/indexes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index suggestions, unused and duplicate indexes */
+        get: operations["getInsightIndexes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/bloat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estimated table bloat (reclaim it with reclaim-space) */
+        get: operations["getInsightBloat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/locks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current blocking chains */
+        get: operations["getInsightLocks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/reaped": {
         parameters: {
             query?: never;
@@ -8328,6 +8452,199 @@ export interface components {
             limit_bytes?: number | null;
             tables: components["schemas"]["TableFootprint"][];
         };
+        InsightQuery: {
+            /** @description pg_stat_statements' queryid (a 64-bit integer, as a string). */
+            query_id: string;
+            /** @description The normalised text, with $1… for literals. */
+            query: string;
+            has_example: boolean;
+            /** Format: int64 */
+            calls: number;
+            /** Format: double */
+            total_ms: number;
+            /** Format: double */
+            mean_ms: number;
+            /** Format: double */
+            max_ms: number;
+            /** Format: int64 */
+            rows: number;
+            /**
+             * Format: double
+             * @description Share of blocks read from shared buffers.
+             */
+            hit_ratio: number;
+            /**
+             * Format: double
+             * @description Share of the project's total query time.
+             */
+            share: number;
+        };
+        InsightQueryList: {
+            range: string;
+            items: components["schemas"]["InsightQuery"][];
+        };
+        InsightPoint: {
+            /** Format: date-time */
+            ts: string;
+            /** Format: int64 */
+            calls: number;
+            /** Format: double */
+            total_ms: number;
+            /** Format: double */
+            mean_ms: number;
+            /** Format: double */
+            max_ms: number;
+            /** Format: int64 */
+            rows: number;
+        };
+        InsightQueryDetail: {
+            query: components["schemas"]["InsightQuery"];
+            /** @description The latest statement seen with its literals. */
+            example?: string | null;
+            /** Format: date-time */
+            example_at?: string | null;
+            /** Format: date-time */
+            first_seen: string;
+            /** Format: date-time */
+            last_seen: string;
+            step_seconds: number;
+            series: components["schemas"]["InsightPoint"][];
+        };
+        InsightExplainRequest: {
+            query_id: string;
+            generic?: boolean;
+        };
+        InsightPlan: {
+            generic: boolean;
+            statement: string;
+            /** @description EXPLAIN (FORMAT JSON)'s output. */
+            plan: unknown;
+            /** Format: double */
+            total_cost: number;
+            indexes: string[];
+            seq_scans: string[];
+        };
+        SlowQuery: {
+            query_id?: string | null;
+            query: string;
+            /** Format: double */
+            duration_ms: number;
+            /**
+             * @description running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+             * @enum {string}
+             */
+            source: "running" | "snapshot" | "reaper";
+            role: string;
+            /** Format: date-time */
+            seen_at: string;
+        };
+        SlowQueryList: {
+            threshold_ms: number;
+            items: components["schemas"]["SlowQuery"][];
+        };
+        IndexEstimate: {
+            /** Format: double */
+            cost_before: number;
+            /** Format: double */
+            cost_after: number;
+            /** Format: double */
+            improvement: number;
+            uses_index: boolean;
+        };
+        IndexSuggestion: {
+            schema: string;
+            table: string;
+            columns: string[];
+            reasons: ("seq_scan_filter" | "unindexed_foreign_key")[];
+            query_ids: string[];
+            statement: string;
+            change: components["schemas"]["SchemaChange"];
+            estimate?: components["schemas"]["IndexEstimate"] | null;
+            /** Format: double */
+            table_rows: number;
+            /** Format: int64 */
+            seq_scans: number;
+        };
+        IndexInfo: {
+            schema: string;
+            table: string;
+            name: string;
+            definition: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            scans: number;
+        };
+        DuplicateIndex: components["schemas"]["IndexInfo"] & {
+            of: string;
+            exact: boolean;
+        };
+        TableScans: {
+            schema: string;
+            table: string;
+            /** Format: double */
+            rows: number;
+            /** Format: int64 */
+            seq_scans: number;
+            /** Format: int64 */
+            seq_tup_read: number;
+            /** Format: int64 */
+            idx_scans: number;
+        };
+        IndexReport: {
+            suggestions: components["schemas"]["IndexSuggestion"][];
+            unused: components["schemas"]["IndexInfo"][];
+            duplicates: components["schemas"]["DuplicateIndex"][];
+            heavy_seq_scans: components["schemas"]["TableScans"][];
+            /** @enum {string} */
+            hypopg: "installed" | "available" | "unavailable";
+            /** Format: date-time */
+            stats_since?: string | null;
+        };
+        TableBloat: {
+            schema: string;
+            table: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            expected_bytes: number;
+            /** Format: int64 */
+            bloat_bytes: number;
+            /** Format: double */
+            bloat_ratio: number;
+            /** Format: int64 */
+            live_rows: number;
+            /** Format: int64 */
+            dead_rows: number;
+            /** Format: date-time */
+            last_vacuum?: string | null;
+            /** Format: date-time */
+            last_autovacuum?: string | null;
+        };
+        BloatList: {
+            items: components["schemas"]["TableBloat"][];
+        };
+        DBSession: {
+            pid: number;
+            role: string;
+            state: string;
+            wait_event: string;
+            query: string;
+            /** Format: int64 */
+            running_ms: number;
+            /** Format: int64 */
+            in_transaction_ms: number;
+            /** @description One of PGDock's own sessions. */
+            platform: boolean;
+        };
+        LockBlock: {
+            blocked: components["schemas"]["DBSession"];
+            lock: string;
+            blockers: components["schemas"]["DBSession"][];
+        };
+        LockList: {
+            items: components["schemas"]["LockBlock"][];
+        };
         ReclaimSpaceRequest: {
             schema: string;
             table: string;
@@ -8444,6 +8761,8 @@ export interface components {
         };
     };
     parameters: {
+        InsightRange: "1h" | "24h" | "7d" | "30d";
+        InsightQueryID: string;
         SavedQueryID: string;
         SchemaName: string;
         TableName: string;
@@ -13763,6 +14082,180 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listInsightQueries: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["InsightRange"];
+                sort?: "total" | "mean" | "calls" | "rows";
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most expensive first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightQueryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightQuery: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["InsightRange"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                query_id: components["parameters"]["InsightQueryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The query. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightQueryDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    explainInsightQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsightExplainRequest"];
+            };
+        };
+        responses: {
+            /** @description The plan. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightPlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSlowQueries: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["InsightRange"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlowQueryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightIndexes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexReport"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightBloat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most bloated first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloatList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightLocks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Blocked sessions, longest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockList"];
                 };
             };
             default: components["responses"]["Error"];

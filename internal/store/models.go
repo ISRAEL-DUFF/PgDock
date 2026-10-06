@@ -837,6 +837,43 @@ type ProjectMember struct {
 	CreatedAt time.Time
 }
 
+type QuerySnapshot struct {
+	InstanceID     uuid.UUID
+	Dbid           int64
+	Userid         int64
+	Queryid        int64
+	Toplevel       bool
+	Calls          int64
+	TotalMs        float64
+	Rows           int64
+	SharedBlksHit  int64
+	SharedBlksRead int64
+	MaxMs          float64
+	TakenAt        time.Time
+}
+
+type QueryStat struct {
+	ProjectID      uuid.UUID
+	Queryid        int64
+	Bucket         time.Time
+	Calls          int64
+	TotalMs        float64
+	Rows           int64
+	SharedBlksHit  int64
+	SharedBlksRead int64
+	MaxMs          float64
+}
+
+type QueryText struct {
+	ProjectID uuid.UUID
+	Queryid   int64
+	Query     string
+	Example   *string
+	ExampleAt *time.Time
+	FirstSeen time.Time
+	LastSeen  time.Time
+}
+
 type QuotaPlan struct {
 	ID        uuid.UUID
 	Name      string
@@ -961,6 +998,17 @@ type Setting struct {
 	Key       string
 	Value     json.RawMessage
 	UpdatedAt time.Time
+}
+
+type SlowQuery struct {
+	ID         int64
+	ProjectID  uuid.UUID
+	Queryid    *int64
+	Query      string
+	DurationMs float64
+	Source     string
+	RoleName   string
+	SeenAt     time.Time
 }
 
 type StorageTarget struct {

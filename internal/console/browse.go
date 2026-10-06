@@ -82,6 +82,12 @@ func (s *Service) readOnly(ctx context.Context, projectID uuid.UUID, f func(*pgx
 	return s.readOnlyAs(ctx, projectID, modeOwner, f)
 }
 
+// ReadOnly runs f in a read-only transaction as the project's owner, with
+// the console's timeouts (query insights' EXPLAIN and catalog reads).
+func (s *Service) ReadOnly(ctx context.Context, projectID uuid.UUID, f func(*pgx.Conn) error) error {
+	return s.readOnly(ctx, projectID, f)
+}
+
 // readOnlyAs is readOnly as the owner (modeOwner) or as the project's
 // read-only role (modeReadOnly), both inside BEGIN READ ONLY.
 func (s *Service) readOnlyAs(ctx context.Context, projectID uuid.UUID, m mode, f func(*pgx.Conn) error) error {

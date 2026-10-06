@@ -430,6 +430,10 @@ var specMatrix = map[authz.Action][]string{
 	// "SQL console - read" (writes are re-checked in the handler)
 	authz.ConsoleRead: {
 		"POST /api/v1/projects/{id}/sql", "POST /api/v1/projects/{id}/sql/cancel",
+		// V3 §8 query insights read the project's statements and catalog
+		"GET /api/v1/projects/{id}/insights/queries", "GET /api/v1/projects/{id}/insights/queries/{query_id}",
+		"POST /api/v1/projects/{id}/insights/explain", "GET /api/v1/projects/{id}/insights/slow",
+		"GET /api/v1/projects/{id}/insights/indexes", "GET /api/v1/projects/{id}/insights/bloat", "GET /api/v1/projects/{id}/insights/locks",
 		"GET /api/v1/projects/{id}/schema", "GET /api/v1/projects/{id}/tables/{schema}/{table}/rows",
 		// §4.1 the grid's table details and export; previewing a schema
 		// change and rendering it as a migration change nothing

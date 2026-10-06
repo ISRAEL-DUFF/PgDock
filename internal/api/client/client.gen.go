@@ -921,6 +921,45 @@ func (e IncidentStatus) Valid() bool {
 	}
 }
 
+// Defines values for IndexReportHypopg.
+const (
+	Available   IndexReportHypopg = "available"
+	Installed   IndexReportHypopg = "installed"
+	Unavailable IndexReportHypopg = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the IndexReportHypopg enum.
+func (e IndexReportHypopg) Valid() bool {
+	switch e {
+	case Available:
+		return true
+	case Installed:
+		return true
+	case Unavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IndexSuggestionReasons.
+const (
+	SeqScanFilter       IndexSuggestionReasons = "seq_scan_filter"
+	UnindexedForeignKey IndexSuggestionReasons = "unindexed_foreign_key"
+)
+
+// Valid indicates whether the value is a known member of the IndexSuggestionReasons enum.
+func (e IndexSuggestionReasons) Valid() bool {
+	switch e {
+	case SeqScanFilter:
+		return true
+	case UnindexedForeignKey:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceActionRequestAction.
 const (
 	Restart InstanceActionRequestAction = "restart"
@@ -2151,6 +2190,27 @@ func (e SignupSettingsMode) Valid() bool {
 	}
 }
 
+// Defines values for SlowQuerySource.
+const (
+	SlowQuerySourceReaper   SlowQuerySource = "reaper"
+	SlowQuerySourceRunning  SlowQuerySource = "running"
+	SlowQuerySourceSnapshot SlowQuerySource = "snapshot"
+)
+
+// Valid indicates whether the value is a known member of the SlowQuerySource enum.
+func (e SlowQuerySource) Valid() bool {
+	switch e {
+	case SlowQuerySourceReaper:
+		return true
+	case SlowQuerySourceRunning:
+		return true
+	case SlowQuerySourceSnapshot:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StorageState.
 const (
 	StorageStateHard StorageState = "hard"
@@ -2751,6 +2811,30 @@ func (e AuditOutcome) Valid() bool {
 	}
 }
 
+// Defines values for InsightRange.
+const (
+	InsightRangeN1h  InsightRange = "1h"
+	InsightRangeN24h InsightRange = "24h"
+	InsightRangeN30d InsightRange = "30d"
+	InsightRangeN7d  InsightRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the InsightRange enum.
+func (e InsightRange) Valid() bool {
+	switch e {
+	case InsightRangeN1h:
+		return true
+	case InsightRangeN24h:
+		return true
+	case InsightRangeN30d:
+		return true
+	case InsightRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MetricRange.
 const (
 	MetricRangeN1h  MetricRange = "1h"
@@ -3108,6 +3192,102 @@ func (e ListProjectAuditParamsOutcome) Valid() bool {
 	case ListProjectAuditParamsOutcomeFailure:
 		return true
 	case ListProjectAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListInsightQueriesParamsRange.
+const (
+	ListInsightQueriesParamsRangeN1h  ListInsightQueriesParamsRange = "1h"
+	ListInsightQueriesParamsRangeN24h ListInsightQueriesParamsRange = "24h"
+	ListInsightQueriesParamsRangeN30d ListInsightQueriesParamsRange = "30d"
+	ListInsightQueriesParamsRangeN7d  ListInsightQueriesParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the ListInsightQueriesParamsRange enum.
+func (e ListInsightQueriesParamsRange) Valid() bool {
+	switch e {
+	case ListInsightQueriesParamsRangeN1h:
+		return true
+	case ListInsightQueriesParamsRangeN24h:
+		return true
+	case ListInsightQueriesParamsRangeN30d:
+		return true
+	case ListInsightQueriesParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListInsightQueriesParamsSort.
+const (
+	Calls ListInsightQueriesParamsSort = "calls"
+	Mean  ListInsightQueriesParamsSort = "mean"
+	Rows  ListInsightQueriesParamsSort = "rows"
+	Total ListInsightQueriesParamsSort = "total"
+)
+
+// Valid indicates whether the value is a known member of the ListInsightQueriesParamsSort enum.
+func (e ListInsightQueriesParamsSort) Valid() bool {
+	switch e {
+	case Calls:
+		return true
+	case Mean:
+		return true
+	case Rows:
+		return true
+	case Total:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetInsightQueryParamsRange.
+const (
+	GetInsightQueryParamsRangeN1h  GetInsightQueryParamsRange = "1h"
+	GetInsightQueryParamsRangeN24h GetInsightQueryParamsRange = "24h"
+	GetInsightQueryParamsRangeN30d GetInsightQueryParamsRange = "30d"
+	GetInsightQueryParamsRangeN7d  GetInsightQueryParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the GetInsightQueryParamsRange enum.
+func (e GetInsightQueryParamsRange) Valid() bool {
+	switch e {
+	case GetInsightQueryParamsRangeN1h:
+		return true
+	case GetInsightQueryParamsRangeN24h:
+		return true
+	case GetInsightQueryParamsRangeN30d:
+		return true
+	case GetInsightQueryParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSlowQueriesParamsRange.
+const (
+	ListSlowQueriesParamsRangeN1h  ListSlowQueriesParamsRange = "1h"
+	ListSlowQueriesParamsRangeN24h ListSlowQueriesParamsRange = "24h"
+	ListSlowQueriesParamsRangeN30d ListSlowQueriesParamsRange = "30d"
+	ListSlowQueriesParamsRangeN7d  ListSlowQueriesParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the ListSlowQueriesParamsRange enum.
+func (e ListSlowQueriesParamsRange) Valid() bool {
+	switch e {
+	case ListSlowQueriesParamsRangeN1h:
+		return true
+	case ListSlowQueriesParamsRangeN24h:
+		return true
+	case ListSlowQueriesParamsRangeN30d:
+		return true
+	case ListSlowQueriesParamsRangeN7d:
 		return true
 	default:
 		return false
@@ -3738,6 +3918,11 @@ type BillingSettings struct {
 	WhtRate Decimal `json:"wht_rate"`
 }
 
+// BloatList defines model for BloatList.
+type BloatList struct {
+	Items []TableBloat `json:"items"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -4016,6 +4201,20 @@ type CreditNote struct {
 	VatMinor    int64              `json:"vat_minor"`
 }
 
+// DBSession defines model for DBSession.
+type DBSession struct {
+	InTransactionMs int64 `json:"in_transaction_ms"`
+	Pid             int   `json:"pid"`
+
+	// Platform One of PGDock's own sessions.
+	Platform  bool   `json:"platform"`
+	Query     string `json:"query"`
+	Role      string `json:"role"`
+	RunningMs int64  `json:"running_ms"`
+	State     string `json:"state"`
+	WaitEvent string `json:"wait_event"`
+}
+
 // DbColumn defines model for DbColumn.
 type DbColumn struct {
 	Default  *string `json:"default,omitempty"`
@@ -4264,6 +4463,18 @@ type DnsCheck struct {
 type DrainResult struct {
 	Moves int  `json:"moves"`
 	Node  Node `json:"node"`
+}
+
+// DuplicateIndex defines model for DuplicateIndex.
+type DuplicateIndex struct {
+	Bytes      int64  `json:"bytes"`
+	Definition string `json:"definition"`
+	Exact      bool   `json:"exact"`
+	Name       string `json:"name"`
+	Of         string `json:"of"`
+	Scans      int64  `json:"scans"`
+	Schema     string `json:"schema"`
+	Table      string `json:"table"`
 }
 
 // EditColumn defines model for EditColumn.
@@ -4579,6 +4790,123 @@ type IncidentUpdate struct {
 type IncidentUpdateRequest struct {
 	Body   string         `json:"body"`
 	Status IncidentStatus `json:"status"`
+}
+
+// IndexEstimate defines model for IndexEstimate.
+type IndexEstimate struct {
+	CostAfter   float64 `json:"cost_after"`
+	CostBefore  float64 `json:"cost_before"`
+	Improvement float64 `json:"improvement"`
+	UsesIndex   bool    `json:"uses_index"`
+}
+
+// IndexInfo defines model for IndexInfo.
+type IndexInfo struct {
+	Bytes      int64  `json:"bytes"`
+	Definition string `json:"definition"`
+	Name       string `json:"name"`
+	Scans      int64  `json:"scans"`
+	Schema     string `json:"schema"`
+	Table      string `json:"table"`
+}
+
+// IndexReport defines model for IndexReport.
+type IndexReport struct {
+	Duplicates    []DuplicateIndex  `json:"duplicates"`
+	HeavySeqScans []TableScans      `json:"heavy_seq_scans"`
+	Hypopg        IndexReportHypopg `json:"hypopg"`
+	StatsSince    *time.Time        `json:"stats_since,omitempty"`
+	Suggestions   []IndexSuggestion `json:"suggestions"`
+	Unused        []IndexInfo       `json:"unused"`
+}
+
+// IndexReportHypopg defines model for IndexReport.Hypopg.
+type IndexReportHypopg string
+
+// IndexSuggestion defines model for IndexSuggestion.
+type IndexSuggestion struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change    SchemaChange             `json:"change"`
+	Columns   []string                 `json:"columns"`
+	Estimate  *IndexEstimate           `json:"estimate,omitempty"`
+	QueryIds  []string                 `json:"query_ids"`
+	Reasons   []IndexSuggestionReasons `json:"reasons"`
+	Schema    string                   `json:"schema"`
+	SeqScans  int64                    `json:"seq_scans"`
+	Statement string                   `json:"statement"`
+	Table     string                   `json:"table"`
+	TableRows float64                  `json:"table_rows"`
+}
+
+// IndexSuggestionReasons defines model for IndexSuggestion.Reasons.
+type IndexSuggestionReasons string
+
+// InsightExplainRequest defines model for InsightExplainRequest.
+type InsightExplainRequest struct {
+	Generic *bool  `json:"generic,omitempty"`
+	QueryId string `json:"query_id"`
+}
+
+// InsightPlan defines model for InsightPlan.
+type InsightPlan struct {
+	Generic bool     `json:"generic"`
+	Indexes []string `json:"indexes"`
+
+	// Plan EXPLAIN (FORMAT JSON)'s output.
+	Plan      interface{} `json:"plan"`
+	SeqScans  []string    `json:"seq_scans"`
+	Statement string      `json:"statement"`
+	TotalCost float64     `json:"total_cost"`
+}
+
+// InsightPoint defines model for InsightPoint.
+type InsightPoint struct {
+	Calls   int64     `json:"calls"`
+	MaxMs   float64   `json:"max_ms"`
+	MeanMs  float64   `json:"mean_ms"`
+	Rows    int64     `json:"rows"`
+	TotalMs float64   `json:"total_ms"`
+	Ts      time.Time `json:"ts"`
+}
+
+// InsightQuery defines model for InsightQuery.
+type InsightQuery struct {
+	Calls      int64 `json:"calls"`
+	HasExample bool  `json:"has_example"`
+
+	// HitRatio Share of blocks read from shared buffers.
+	HitRatio float64 `json:"hit_ratio"`
+	MaxMs    float64 `json:"max_ms"`
+	MeanMs   float64 `json:"mean_ms"`
+
+	// Query The normalised text, with $1… for literals.
+	Query string `json:"query"`
+
+	// QueryId pg_stat_statements' queryid (a 64-bit integer, as a string).
+	QueryId string `json:"query_id"`
+	Rows    int64  `json:"rows"`
+
+	// Share Share of the project's total query time.
+	Share   float64 `json:"share"`
+	TotalMs float64 `json:"total_ms"`
+}
+
+// InsightQueryDetail defines model for InsightQueryDetail.
+type InsightQueryDetail struct {
+	// Example The latest statement seen with its literals.
+	Example     *string        `json:"example,omitempty"`
+	ExampleAt   *time.Time     `json:"example_at,omitempty"`
+	FirstSeen   time.Time      `json:"first_seen"`
+	LastSeen    time.Time      `json:"last_seen"`
+	Query       InsightQuery   `json:"query"`
+	Series      []InsightPoint `json:"series"`
+	StepSeconds int            `json:"step_seconds"`
+}
+
+// InsightQueryList defines model for InsightQueryList.
+type InsightQueryList struct {
+	Items []InsightQuery `json:"items"`
+	Range string         `json:"range"`
 }
 
 // InstanceActionRequest defines model for InstanceActionRequest.
@@ -4961,6 +5289,18 @@ type LegalVersion struct {
 // LegalVersionList defines model for LegalVersionList.
 type LegalVersionList struct {
 	Items []LegalVersion `json:"items"`
+}
+
+// LockBlock defines model for LockBlock.
+type LockBlock struct {
+	Blocked  DBSession   `json:"blocked"`
+	Blockers []DBSession `json:"blockers"`
+	Lock     string      `json:"lock"`
+}
+
+// LockList defines model for LockList.
+type LockList struct {
+	Items []LockBlock `json:"items"`
 }
 
 // LoginChallenge defines model for LoginChallenge.
@@ -6628,6 +6968,27 @@ type SignupSettings struct {
 // SignupSettingsMode defines model for SignupSettings.Mode.
 type SignupSettingsMode string
 
+// SlowQuery defines model for SlowQuery.
+type SlowQuery struct {
+	DurationMs float64   `json:"duration_ms"`
+	Query      string    `json:"query"`
+	QueryId    *string   `json:"query_id,omitempty"`
+	Role       string    `json:"role"`
+	SeenAt     time.Time `json:"seen_at"`
+
+	// Source running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+	Source SlowQuerySource `json:"source"`
+}
+
+// SlowQuerySource running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+type SlowQuerySource string
+
+// SlowQueryList defines model for SlowQueryList.
+type SlowQueryList struct {
+	Items       []SlowQuery `json:"items"`
+	ThresholdMs int         `json:"threshold_ms"`
+}
+
 // SqlCancelRequest defines model for SqlCancelRequest.
 type SqlCancelRequest struct {
 	QueryId openapi_types.UUID `json:"query_id"`
@@ -6878,6 +7239,20 @@ type SwitchoverRequest struct {
 	Candidate *openapi_types.UUID `json:"candidate,omitempty"`
 }
 
+// TableBloat defines model for TableBloat.
+type TableBloat struct {
+	BloatBytes     int64      `json:"bloat_bytes"`
+	BloatRatio     float64    `json:"bloat_ratio"`
+	Bytes          int64      `json:"bytes"`
+	DeadRows       int64      `json:"dead_rows"`
+	ExpectedBytes  int64      `json:"expected_bytes"`
+	LastAutovacuum *time.Time `json:"last_autovacuum,omitempty"`
+	LastVacuum     *time.Time `json:"last_vacuum,omitempty"`
+	LiveRows       int64      `json:"live_rows"`
+	Schema         string     `json:"schema"`
+	Table          string     `json:"table"`
+}
+
 // TableConstraint defines model for TableConstraint.
 type TableConstraint struct {
 	Columns    *[]string           `json:"columns,omitempty"`
@@ -6941,6 +7316,16 @@ type TablePage struct {
 
 // TablePageOrder defines model for TablePage.Order.
 type TablePageOrder string
+
+// TableScans defines model for TableScans.
+type TableScans struct {
+	IdxScans   int64   `json:"idx_scans"`
+	Rows       float64 `json:"rows"`
+	Schema     string  `json:"schema"`
+	SeqScans   int64   `json:"seq_scans"`
+	SeqTupRead int64   `json:"seq_tup_read"`
+	Table      string  `json:"table"`
+}
 
 // Terms defines model for Terms.
 type Terms struct {
@@ -7460,6 +7845,12 @@ type BackupID = openapi_types.UUID
 // IncidentID defines model for IncidentID.
 type IncidentID = openapi_types.UUID
 
+// InsightQueryID defines model for InsightQueryID.
+type InsightQueryID = string
+
+// InsightRange defines model for InsightRange.
+type InsightRange string
+
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
 
@@ -7868,6 +8259,35 @@ type ListProjectAuditParams struct {
 
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
+
+// ListInsightQueriesParams defines parameters for ListInsightQueries.
+type ListInsightQueriesParams struct {
+	Range *ListInsightQueriesParamsRange `form:"range,omitempty" json:"range,omitempty"`
+	Sort  *ListInsightQueriesParamsSort  `form:"sort,omitempty" json:"sort,omitempty"`
+	Limit *int                           `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListInsightQueriesParamsRange defines parameters for ListInsightQueries.
+type ListInsightQueriesParamsRange string
+
+// ListInsightQueriesParamsSort defines parameters for ListInsightQueries.
+type ListInsightQueriesParamsSort string
+
+// GetInsightQueryParams defines parameters for GetInsightQuery.
+type GetInsightQueryParams struct {
+	Range *GetInsightQueryParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// GetInsightQueryParamsRange defines parameters for GetInsightQuery.
+type GetInsightQueryParamsRange string
+
+// ListSlowQueriesParams defines parameters for ListSlowQueries.
+type ListSlowQueriesParams struct {
+	Range *ListSlowQueriesParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// ListSlowQueriesParamsRange defines parameters for ListSlowQueries.
+type ListSlowQueriesParamsRange string
 
 // ListJobRunsParams defines parameters for ListJobRuns.
 type ListJobRunsParams struct {
@@ -8278,6 +8698,9 @@ type UpdateProjectHAJSONRequestBody = HAUpdateRequest
 
 // EnableProjectHAJSONRequestBody defines body for EnableProjectHA for application/json ContentType.
 type EnableProjectHAJSONRequestBody = HAEnableRequest
+
+// ExplainInsightQueryJSONRequestBody defines body for ExplainInsightQuery for application/json ContentType.
+type ExplainInsightQueryJSONRequestBody = InsightExplainRequest
 
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
@@ -10779,6 +11202,58 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 	EnableProjectHA(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/bloat (the `GetInsightBloat` operationId).
+	GetInsightBloat(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExplainInsightQueryWithBody EXPLAIN (without ANALYZE) a query as the project's role
+	//
+	// On its latest captured example with literals, or as a generic plan
+	// (parameters unknown) when there is none or `generic` is set. Runs in
+	// a read-only transaction; the statement is not executed.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+	ExplainInsightQueryWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExplainInsightQuery EXPLAIN (without ANALYZE) a query as the project's role
+	//
+	// On its latest captured example with literals, or as a generic plan
+	// (parameters unknown) when there is none or `generic` is set. Runs in
+	// a read-only transaction; the statement is not executed.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+	ExplainInsightQuery(ctx context.Context, id ProjectID, body ExplainInsightQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetInsightIndexes Index suggestions, unused and duplicate indexes
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/indexes (the `GetInsightIndexes` operationId).
+	GetInsightIndexes(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetInsightLocks Current blocking chains
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/locks (the `GetInsightLocks` operationId).
+	GetInsightLocks(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListInsightQueries Top queries over a range (Pro, Team and dedicated projects)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/queries (the `ListInsightQueries` operationId).
+	ListInsightQueries(ctx context.Context, id ProjectID, params *ListInsightQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetInsightQuery A query's totals, its calls and latency over time, and its example
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/queries/{query_id} (the `GetInsightQuery` operationId).
+	GetInsightQuery(ctx context.Context, id ProjectID, queryId InsightQueryID, params *GetInsightQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSlowQueries Statements over the slow-query threshold
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
+	ListSlowQueries(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ProjectInstanceActionWithBody Start, stop, or restart a dedicated project's instance
 	//
@@ -17454,6 +17929,138 @@ func (c *Client) EnableProjectHAWithBody(ctx context.Context, id ProjectID, cont
 // Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 func (c *Client) EnableProjectHA(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEnableProjectHARequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/bloat (the `GetInsightBloat` operationId).
+func (c *Client) GetInsightBloat(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetInsightBloatRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExplainInsightQueryWithBody EXPLAIN (without ANALYZE) a query as the project's role
+//
+// On its latest captured example with literals, or as a generic plan
+// (parameters unknown) when there is none or `generic` is set. Runs in
+// a read-only transaction; the statement is not executed.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+func (c *Client) ExplainInsightQueryWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExplainInsightQueryRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExplainInsightQuery EXPLAIN (without ANALYZE) a query as the project's role
+//
+// On its latest captured example with literals, or as a generic plan
+// (parameters unknown) when there is none or `generic` is set. Runs in
+// a read-only transaction; the statement is not executed.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+func (c *Client) ExplainInsightQuery(ctx context.Context, id ProjectID, body ExplainInsightQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExplainInsightQueryRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetInsightIndexes Index suggestions, unused and duplicate indexes
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/indexes (the `GetInsightIndexes` operationId).
+func (c *Client) GetInsightIndexes(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetInsightIndexesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetInsightLocks Current blocking chains
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/locks (the `GetInsightLocks` operationId).
+func (c *Client) GetInsightLocks(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetInsightLocksRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListInsightQueries Top queries over a range (Pro, Team and dedicated projects)
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/queries (the `ListInsightQueries` operationId).
+func (c *Client) ListInsightQueries(ctx context.Context, id ProjectID, params *ListInsightQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListInsightQueriesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetInsightQuery A query's totals, its calls and latency over time, and its example
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/queries/{query_id} (the `GetInsightQuery` operationId).
+func (c *Client) GetInsightQuery(ctx context.Context, id ProjectID, queryId InsightQueryID, params *GetInsightQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetInsightQueryRequest(c.Server, id, queryId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListSlowQueries Statements over the slow-query threshold
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
+func (c *Client) ListSlowQueries(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSlowQueriesRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -29702,6 +30309,369 @@ func NewEnableProjectHARequestWithBody(server string, id ProjectID, contentType 
 	return req, nil
 }
 
+// NewGetInsightBloatRequest constructs an http.Request for the GetInsightBloat method
+func NewGetInsightBloatRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/insights/bloat", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewExplainInsightQueryRequest calls the generic ExplainInsightQuery builder with application/json body
+func NewExplainInsightQueryRequest(server string, id ProjectID, body ExplainInsightQueryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExplainInsightQueryRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewExplainInsightQueryRequestWithBody constructs an http.Request for the ExplainInsightQuery method, with any body, and a specified content type
+func NewExplainInsightQueryRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/insights/explain", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetInsightIndexesRequest constructs an http.Request for the GetInsightIndexes method
+func NewGetInsightIndexesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/insights/indexes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetInsightLocksRequest constructs an http.Request for the GetInsightLocks method
+func NewGetInsightLocksRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/insights/locks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListInsightQueriesRequest constructs an http.Request for the ListInsightQueries method
+func NewListInsightQueriesRequest(server string, id ProjectID, params *ListInsightQueriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/insights/queries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Range != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "range", *params.Range, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetInsightQueryRequest constructs an http.Request for the GetInsightQuery method
+func NewGetInsightQueryRequest(server string, id ProjectID, queryId InsightQueryID, params *GetInsightQueryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "query_id", queryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/insights/queries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Range != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "range", *params.Range, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSlowQueriesRequest constructs an http.Request for the ListSlowQueries method
+func NewListSlowQueriesRequest(server string, id ProjectID, params *ListSlowQueriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/insights/slow", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Range != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "range", *params.Range, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewProjectInstanceActionRequest calls the generic ProjectInstanceAction builder with application/json body
 func NewProjectInstanceActionRequest(server string, id ProjectID, body ProjectInstanceActionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -36384,6 +37354,70 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 	EnableProjectHAWithResponse(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectHAResponse, error)
+
+	// GetInsightBloatWithResponse Estimated table bloat (reclaim it with reclaim-space)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/bloat (the `GetInsightBloat` operationId).
+	GetInsightBloatWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetInsightBloatResponse, error)
+
+	// ExplainInsightQueryWithBodyWithResponse EXPLAIN (without ANALYZE) a query as the project's role
+	//
+	// On its latest captured example with literals, or as a generic plan
+	// (parameters unknown) when there is none or `generic` is set. Runs in
+	// a read-only transaction; the statement is not executed.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+	ExplainInsightQueryWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExplainInsightQueryResponse, error)
+
+	// ExplainInsightQueryWithResponse EXPLAIN (without ANALYZE) a query as the project's role
+	//
+	// On its latest captured example with literals, or as a generic plan
+	// (parameters unknown) when there is none or `generic` is set. Runs in
+	// a read-only transaction; the statement is not executed.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+	ExplainInsightQueryWithResponse(ctx context.Context, id ProjectID, body ExplainInsightQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*ExplainInsightQueryResponse, error)
+
+	// GetInsightIndexesWithResponse Index suggestions, unused and duplicate indexes
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/indexes (the `GetInsightIndexes` operationId).
+	GetInsightIndexesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetInsightIndexesResponse, error)
+
+	// GetInsightLocksWithResponse Current blocking chains
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/locks (the `GetInsightLocks` operationId).
+	GetInsightLocksWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetInsightLocksResponse, error)
+
+	// ListInsightQueriesWithResponse Top queries over a range (Pro, Team and dedicated projects)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/queries (the `ListInsightQueries` operationId).
+	ListInsightQueriesWithResponse(ctx context.Context, id ProjectID, params *ListInsightQueriesParams, reqEditors ...RequestEditorFn) (*ListInsightQueriesResponse, error)
+
+	// GetInsightQueryWithResponse A query's totals, its calls and latency over time, and its example
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/queries/{query_id} (the `GetInsightQuery` operationId).
+	GetInsightQueryWithResponse(ctx context.Context, id ProjectID, queryId InsightQueryID, params *GetInsightQueryParams, reqEditors ...RequestEditorFn) (*GetInsightQueryResponse, error)
+
+	// ListSlowQueriesWithResponse Statements over the slow-query threshold
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
+	ListSlowQueriesWithResponse(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*ListSlowQueriesResponse, error)
 
 	// ProjectInstanceActionWithBodyWithResponse Start, stop, or restart a dedicated project's instance
 	//
@@ -48621,6 +49655,342 @@ func (r EnableProjectHAResponse) ContentType() string {
 	return ""
 }
 
+type GetInsightBloatResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BloatList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetInsightBloatResponse) GetJSON200() *BloatList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetInsightBloatResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetInsightBloatResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetInsightBloatResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetInsightBloatResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetInsightBloatResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExplainInsightQueryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InsightPlan
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExplainInsightQueryResponse) GetJSON200() *InsightPlan {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ExplainInsightQueryResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ExplainInsightQueryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExplainInsightQueryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExplainInsightQueryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExplainInsightQueryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetInsightIndexesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *IndexReport
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetInsightIndexesResponse) GetJSON200() *IndexReport {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetInsightIndexesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetInsightIndexesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetInsightIndexesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetInsightIndexesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetInsightIndexesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetInsightLocksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LockList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetInsightLocksResponse) GetJSON200() *LockList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetInsightLocksResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetInsightLocksResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetInsightLocksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetInsightLocksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetInsightLocksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListInsightQueriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InsightQueryList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListInsightQueriesResponse) GetJSON200() *InsightQueryList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListInsightQueriesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListInsightQueriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListInsightQueriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListInsightQueriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListInsightQueriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetInsightQueryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InsightQueryDetail
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetInsightQueryResponse) GetJSON200() *InsightQueryDetail {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetInsightQueryResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetInsightQueryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetInsightQueryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetInsightQueryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetInsightQueryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSlowQueriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SlowQueryList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListSlowQueriesResponse) GetJSON200() *SlowQueryList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListSlowQueriesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListSlowQueriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSlowQueriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSlowQueriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSlowQueriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ProjectInstanceActionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -57468,6 +58838,118 @@ func (c *ClientWithResponses) EnableProjectHAWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseEnableProjectHAResponse(rsp)
+}
+
+// GetInsightBloatWithResponse Estimated table bloat (reclaim it with reclaim-space)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/bloat (the `GetInsightBloat` operationId).
+func (c *ClientWithResponses) GetInsightBloatWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetInsightBloatResponse, error) {
+	rsp, err := c.GetInsightBloat(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetInsightBloatResponse(rsp)
+}
+
+// ExplainInsightQueryWithBodyWithResponse EXPLAIN (without ANALYZE) a query as the project's role
+//
+// On its latest captured example with literals, or as a generic plan
+// (parameters unknown) when there is none or `generic` is set. Runs in
+// a read-only transaction; the statement is not executed.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+func (c *ClientWithResponses) ExplainInsightQueryWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExplainInsightQueryResponse, error) {
+	rsp, err := c.ExplainInsightQueryWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExplainInsightQueryResponse(rsp)
+}
+
+// ExplainInsightQueryWithResponse EXPLAIN (without ANALYZE) a query as the project's role
+//
+// On its latest captured example with literals, or as a generic plan
+// (parameters unknown) when there is none or `generic` is set. Runs in
+// a read-only transaction; the statement is not executed.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/insights/explain (the `ExplainInsightQuery` operationId).
+func (c *ClientWithResponses) ExplainInsightQueryWithResponse(ctx context.Context, id ProjectID, body ExplainInsightQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*ExplainInsightQueryResponse, error) {
+	rsp, err := c.ExplainInsightQuery(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExplainInsightQueryResponse(rsp)
+}
+
+// GetInsightIndexesWithResponse Index suggestions, unused and duplicate indexes
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/indexes (the `GetInsightIndexes` operationId).
+func (c *ClientWithResponses) GetInsightIndexesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetInsightIndexesResponse, error) {
+	rsp, err := c.GetInsightIndexes(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetInsightIndexesResponse(rsp)
+}
+
+// GetInsightLocksWithResponse Current blocking chains
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/locks (the `GetInsightLocks` operationId).
+func (c *ClientWithResponses) GetInsightLocksWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetInsightLocksResponse, error) {
+	rsp, err := c.GetInsightLocks(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetInsightLocksResponse(rsp)
+}
+
+// ListInsightQueriesWithResponse Top queries over a range (Pro, Team and dedicated projects)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/queries (the `ListInsightQueries` operationId).
+func (c *ClientWithResponses) ListInsightQueriesWithResponse(ctx context.Context, id ProjectID, params *ListInsightQueriesParams, reqEditors ...RequestEditorFn) (*ListInsightQueriesResponse, error) {
+	rsp, err := c.ListInsightQueries(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListInsightQueriesResponse(rsp)
+}
+
+// GetInsightQueryWithResponse A query's totals, its calls and latency over time, and its example
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/queries/{query_id} (the `GetInsightQuery` operationId).
+func (c *ClientWithResponses) GetInsightQueryWithResponse(ctx context.Context, id ProjectID, queryId InsightQueryID, params *GetInsightQueryParams, reqEditors ...RequestEditorFn) (*GetInsightQueryResponse, error) {
+	rsp, err := c.GetInsightQuery(ctx, id, queryId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetInsightQueryResponse(rsp)
+}
+
+// ListSlowQueriesWithResponse Statements over the slow-query threshold
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
+func (c *ClientWithResponses) ListSlowQueriesWithResponse(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*ListSlowQueriesResponse, error) {
+	rsp, err := c.ListSlowQueries(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSlowQueriesResponse(rsp)
 }
 
 // ProjectInstanceActionWithBodyWithResponse Start, stop, or restart a dedicated project's instance
@@ -67042,6 +68524,237 @@ func ParseEnableProjectHAResponse(rsp *http.Response) (*EnableProjectHAResponse,
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetInsightBloatResponse parses an HTTP response from a GetInsightBloatWithResponse call
+func ParseGetInsightBloatResponse(rsp *http.Response) (*GetInsightBloatResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetInsightBloatResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BloatList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExplainInsightQueryResponse parses an HTTP response from a ExplainInsightQueryWithResponse call
+func ParseExplainInsightQueryResponse(rsp *http.Response) (*ExplainInsightQueryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExplainInsightQueryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InsightPlan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetInsightIndexesResponse parses an HTTP response from a GetInsightIndexesWithResponse call
+func ParseGetInsightIndexesResponse(rsp *http.Response) (*GetInsightIndexesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetInsightIndexesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IndexReport
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetInsightLocksResponse parses an HTTP response from a GetInsightLocksWithResponse call
+func ParseGetInsightLocksResponse(rsp *http.Response) (*GetInsightLocksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetInsightLocksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LockList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListInsightQueriesResponse parses an HTTP response from a ListInsightQueriesWithResponse call
+func ParseListInsightQueriesResponse(rsp *http.Response) (*ListInsightQueriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListInsightQueriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InsightQueryList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetInsightQueryResponse parses an HTTP response from a GetInsightQueryWithResponse call
+func ParseGetInsightQueryResponse(rsp *http.Response) (*GetInsightQueryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetInsightQueryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InsightQueryDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSlowQueriesResponse parses an HTTP response from a ListSlowQueriesWithResponse call
+func ParseListSlowQueriesResponse(rsp *http.Response) (*ListSlowQueriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSlowQueriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlowQueryList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

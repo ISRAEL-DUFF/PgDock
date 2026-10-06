@@ -48,6 +48,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/freetier"
 	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/incidents"
+	"github.com/israel-duff/pgdock/internal/insights"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/legal"
@@ -400,6 +401,7 @@ func run() error {
 	}
 
 	var consoleSvc *console.Service
+	var insightSvc *insights.Service
 	var isoChecks *isocheck.Service
 	var alertSvc *alerts.Service
 	if projects != nil {
@@ -418,6 +420,11 @@ func run() error {
 		collector := metrics.NewCollector(pool, projects, pm, nodeSvc, cfg.Insight.MetricsInterval, log)
 		bg.Add(1)
 		go func() { defer bg.Done(); collector.Run(bgCtx) }()
+		insightSvc = insights.New(pool, projects, consoleSvc, insights.Config{
+			Interval: cfg.Insight.QueryInsightsInterval, SlowQuery: cfg.Insight.SlowQuery, Plans: cfg.Insight.InsightsPlans,
+		}, log)
+		bg.Add(1)
+		go func() { defer bg.Done(); insightSvc.Run(bgCtx) }()
 	}
 	if cfg.Insight.ConsoleDisabled {
 		log.Warn("SQL console disabled (PGDOCK_CONSOLE_DISABLED)")
@@ -491,6 +498,7 @@ func run() error {
 		Nodes:     nodeSvc,
 
 		Console:         consoleSvc,
+		Insights:        insightSvc,
 		IsoChecks:       isoChecks,
 		Alerts:          alertSvc,
 		Orgs:            orgSvc,

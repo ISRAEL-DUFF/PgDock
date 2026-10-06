@@ -27,6 +27,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/costs"
 	"github.com/israel-duff/pgdock/internal/freetier"
 	"github.com/israel-duff/pgdock/internal/incidents"
+	"github.com/israel-duff/pgdock/internal/insights"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/legal"
@@ -80,6 +81,7 @@ type Server struct {
 	capacity  *capacity.Service
 	costs     *costs.Service
 	regions   *regions.Service
+	insights  *insights.Service
 	webhooks  *webhooks.Service
 	jobs      *schedjobs.Service
 	outbound  *outbound.Service
@@ -159,6 +161,8 @@ type Options struct {
 	Costs    *costs.Service
 	// Regions are the platform's regions (V3 §6).
 	Regions *regions.Service
+	// Insights is query insights (V3 §8).
+	Insights *insights.Service
 	// Webhooks, Jobs and Outbound run database webhooks, scheduled jobs and
 	// their outbound requests (V2 §9); nil disables them.
 	Webhooks *webhooks.Service
@@ -195,7 +199,7 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches, freetier: opts.FreeTier, support: opts.Support, legal: opts.Legal, capacity: opts.Capacity, costs: opts.Costs, regions: opts.Regions,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches, freetier: opts.FreeTier, support: opts.Support, legal: opts.Legal, capacity: opts.Capacity, costs: opts.Costs, regions: opts.Regions, insights: opts.Insights,
 		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound, billing: opts.Billing,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
