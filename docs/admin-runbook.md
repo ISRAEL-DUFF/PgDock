@@ -63,6 +63,10 @@ people (V2 §14 M16):
   differences" for each provider), and record any payment to PGDock's own
   bank account under **Payments**. See [Payments](payments.md).
 
+- **Capacity** (Platform → Capacity): approve or reject proposals that
+  wait (an alert fires). When one fails, read its operation log and the
+  server's `/var/log/cloud-init-output.log`. See
+  [capacity and costs](capacity.md).
 - **Support** (Platform → Support): answer what's overdue first. The
   queue is ordered by when each ticket is due an answer. Set tickets that
   wait on the customer to *pending*. See [support](support.md).
@@ -109,6 +113,12 @@ the first real invoice:
 
 ## Monthly
 
+- **Costs & margins**: record the month's exchange rate, check
+  organisations with negative margins and the Free tier's cost, and send
+  the CSV to the accountant with the revenue CSV. When FX erosion grows,
+  plan a repricing (price books, 30 days' notice).
+- **Rebalancing** (Platform → Capacity): approve the week's batch unless
+  automatic rebalancing is on.
 - **Revenue** (Platform → Revenue): send the CSV to the accountant with
   the WHT CSV, and look at churn and receivables over 60 days.
 - **Legal**: when you publish a new SLA or DPA, check Platform → Legal

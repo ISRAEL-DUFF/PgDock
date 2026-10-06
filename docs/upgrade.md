@@ -144,6 +144,15 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   - WhatsApp needs the `PGDOCK_WHATSAPP_*` variables and Meta's webhook
     at `https://<your PGDock>/api/v1/support/whatsapp`.
   - See [Support](support.md).
+- **Capacity and costs** (migration 00030):
+  - Every existing node becomes `manual`, `active`, in the region named
+    by `PGDOCK_REGION` (default `eu-central`), with no cost.
+  - Enter what each node costs under Platform → Capacity → Cost, so cost
+    attribution can divide it, and record an exchange rate (Costs &
+    margins → Exchange rates).
+  - Nothing is bought until you set `PGDOCK_CLOUD_PROVIDER=hetzner` (with
+    its variables) and a monthly budget.
+  - See [Capacity and costs](capacity.md).
 
 ## Rolling back
 

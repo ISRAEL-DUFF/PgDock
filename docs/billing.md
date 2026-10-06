@@ -212,8 +212,8 @@ The figures come from a snapshot of each organisation's plan, taken every
 day and whenever the page is opened. A past month shows its last
 snapshot. Suspended organisations count as paying nothing. **CSV for the
 accountant** (`?format=csv`) has the same table, the ageing and the WHT,
-in naira. Costs, margin and the dollar view come with cost attribution
-(M24).
+in naira. Costs, margins and the FX view are on Platform → Costs & margins: see
+[Capacity and costs](capacity.md).
 
 ## Payments
 

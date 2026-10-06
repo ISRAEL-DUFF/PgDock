@@ -96,6 +96,26 @@ bundle share one version (spec §11.5).
     with their acceptances for the platform admin. See docs/legal.md.
 - New migration 00029 (tickets, support phones, legal documents and
   acceptances, MRR snapshots).
+- Capacity automation:
+  - Hetzner Cloud servers created by PGDock, joining by themselves
+    through cloud-init and a one-time token.
+  - Proposals when a region's shared disk is projected past 70% within 14
+    days, or no dedicated host fits the largest size. They are
+    provisioned within a monthly budget, and wait for approval above it.
+  - Drains with zero-downtime moves, weekly rebalancing, and deletion of
+    servers that stay empty for a day.
+  - Platform → Capacity. See docs/capacity.md.
+- Cost attribution and margins:
+  - Each day's node, storage, transfer, floating IP and overhead costs,
+    divided among organisations.
+  - Margin by plan and organisation, the cost of the Free tier, and unit
+    costs for repricing.
+  - An FX view with recorded naira rates and the erosion since costs were
+    incurred, and a CSV for the accountant.
+  - Platform → Costs & margins.
+- New migration 00030 (node provider, region, cost and lifecycle;
+  capacity proposals; drain and rebalance moves; exchange rates; daily
+  cost allocations).
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
 - New migrations 00022 and 00023 (moves, Postgres releases), 00026

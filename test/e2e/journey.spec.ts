@@ -1296,6 +1296,33 @@ test.describe("with the saved session", () => {
     await shot(page, "58-revenue");
   });
 
+  test("capacity and costs: a node's cost, an exchange rate, and the month's margins", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/admin/capacity");
+    await expect(page.getByTestId("admin-capacity")).toContainText("registered by hand");
+    const row = page.getByTestId("capacity-node-local");
+    await expect(row).toContainText("manual");
+    await row.getByRole("button", { name: "Cost", exact: true }).click();
+    await page.getByLabel("Monthly cost").fill("40");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(row).toContainText("EUR 40.00");
+    await page.getByTestId("capacity-evaluate").click();
+    await expect(page.getByText("Thresholds checked.")).toBeVisible();
+    await shot(page, "59-capacity");
+
+    // Naira per euro, then today's costs attributed: the node's day, and
+    // the floating IP.
+    await page.goto("/admin/costs");
+    await page.getByTestId("fx-rate").fill("1700");
+    await page.getByTestId("fx-save").click();
+    await expect(page.getByTestId("fx-rates")).toContainText("1 EUR = ₦1,700");
+    await page.getByRole("button", { name: "Recompute" }).click();
+    await expect(page.getByTestId("costs-total")).not.toContainText("₦0.00");
+    await expect(page.getByTestId("cost-floating_ip")).toBeVisible();
+    await expect(page.getByTestId("costs-csv")).toHaveAttribute("href", /format=csv/);
+    await shot(page, "60-costs");
+  });
+
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
     await signedIn(page);
     // Calls the API as a CI job would: a bearer token, no cookies.
