@@ -35,6 +35,10 @@ const (
 	KindPoolerHostNotReady = "pooler_host_not_ready"
 	KindPoolerSplitBrain   = "pooler_split_brain"
 	KindIsolationCheck     = "isolation_check_failed"
+	// Capacity automation (V3 §5.2): a proposal waits for approval, or a
+	// provisioning failed in the last day.
+	KindCapacityProposal = "capacity_proposal"
+	KindCapacityFailed   = "capacity_failed"
 	SeverityWarning        = "warning"
 	SeverityCritical       = "critical"
 	defaultInterval        = 30 * time.Second
@@ -274,6 +278,26 @@ func (s *Service) conditions(ctx context.Context) ([]condition, error) {
 		out = append(out, condition{KindProjectDisk, SeverityWarning, "project", p.ID.String(), p.Name,
 			fmt.Sprintf("%s is %s, over its disk warning of %s", p.Name, bytesStr(p.SizeBytes), bytesStr(float64(set.DiskWarnBytes))),
 			map[string]any{"size_bytes": p.SizeBytes, "disk_warn_bytes": set.DiskWarnBytes}})
+	}
+
+	if props, err := q.ListCapacityProposals(ctx); err == nil {
+		for _, p := range props {
+			detail := map[string]any{"proposal_id": p.ID, "server_type": p.ServerType, "monthly_cost_minor": p.MonthlyCostMinor, "currency": p.Currency}
+			switch {
+			case p.Status == "pending":
+				out = append(out, condition{KindCapacityProposal, SeverityWarning, "region", p.Region + "/" + p.Tier, p.Region + " " + p.Tier,
+					"A capacity proposal waits for approval (Platform → Capacity): " + p.Reason, detail})
+			case p.Status == "failed" && time.Since(p.UpdatedAt) < 24*time.Hour:
+				msg := ""
+				if p.Error != nil {
+					msg = *p.Error
+				}
+				out = append(out, condition{KindCapacityFailed, SeverityCritical, "region", p.Region + "/" + p.Tier, p.Region + " " + p.Tier,
+					"Provisioning a " + p.ServerType + " server failed: " + msg, detail})
+			}
+		}
+	} else {
+		errs = append(errs, err)
 	}
 
 	out = append(out, s.poolerConditions(ctx)...)

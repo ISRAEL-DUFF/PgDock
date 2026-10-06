@@ -79,6 +79,13 @@ func TestCapacityProvisionsAndJoins(t *testing.T) {
 	if code := e.Do("POST", "/api/v1/admin/capacity/evaluate", nil, &made); code != http.StatusOK || len(made.Items) != 0 {
 		t.Errorf("a second proposal while one is open: %+v", made)
 	}
+	// The admin is told.
+	if err := e.Alerts.Evaluate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if firing, _, err := e.Alerts.Firing(ctx); err != nil || firing == 0 {
+		t.Errorf("no alert for a proposal waiting: %d %v", firing, err)
+	}
 	if code := e.Do("POST", "/api/v1/admin/capacity/proposals/"+p.Id.String()+"/reject", nil, nil); code != http.StatusOK {
 		t.Fatalf("reject: %d", code)
 	}
@@ -164,6 +171,35 @@ func TestCapacityProvisionsAndJoins(t *testing.T) {
 	}
 	_ = conn.Close(ctx)
 
+	// The rebalancer evens the two out: the new node is nearly empty, so
+	// it proposes moving Before (10 GB) there. The admin rejects the batch.
+	const gb = 1 << 30
+	if _, err := e.DB.Exec(ctx, `UPDATE nodes SET capacity = capacity || jsonb_build_object('disk_total_bytes', $2::bigint, 'disk_free_bytes', $3::bigint) WHERE id = $1`,
+		node.Id, int64(100*gb), int64(90*gb)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.DB.Exec(ctx, `INSERT INTO metric_points (scope, scope_id, metric, ts, resolution, value) VALUES ('project', $1, 'size_bytes', now(), '1m', $2)`,
+		before.Project.Id, float64(10*gb)); err != nil {
+		t.Fatal(err)
+	}
+	var plan gen.RebalancePlan
+	if code := e.Do("POST", "/api/v1/admin/capacity/rebalance", nil, &plan); code != http.StatusOK || plan.Moves < 1 || plan.Batch == nil {
+		t.Fatalf("rebalance: %d %+v", code, plan)
+	}
+	e.Do("GET", "/api/v1/admin/capacity", nil, &capa)
+	found := false
+	for _, m := range capa.Moves {
+		if m.ProjectId == before.Project.Id && m.Kind == gen.Rebalance && m.Status == gen.RebalanceMoveStatusProposed && m.ToName != nil && *m.ToName == srv.Name {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("rebalance moves: %+v", capa.Moves)
+	}
+	if code := e.Do("POST", "/api/v1/admin/capacity/batches/"+plan.Batch.String(), gen.BatchDecision{Approve: false}, &plan); code != http.StatusOK || plan.Moves < 1 {
+		t.Fatalf("reject batch: %d %+v", code, plan)
+	}
+
 	// Drained, its project moves back, nothing new lands there, and once
 	// empty for a day its server is deleted.
 	var dr gen.DrainResult
@@ -221,7 +257,6 @@ func TestCapacityProvisionsAndJoins(t *testing.T) {
 	if n, _ = store.New(e.DB).GetNode(ctx, node.Id); n.Status != "removed" {
 		t.Errorf("node after deletion: %s", n.Status)
 	}
-	_ = before
 }
 
 // TestCostAttributionMatchesManual is M24's cost done-when: a day's node,
