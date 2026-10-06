@@ -169,9 +169,9 @@ func (s *Service) Validate(ctx context.Context, p *provision.CreateParams) (prov
 	}
 	q := store.New(s.db)
 	if p.NodeID == nil {
-		n, err := q.PickDedicatedNode(ctx)
+		n, err := q.PickDedicatedNode(ctx, p.Region)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return prof, fmt.Errorf("%w: no healthy node with an agent accepts dedicated instances", provision.ErrNoCapacity)
+			return prof, fmt.Errorf("%w: no healthy node with an agent in %s accepts dedicated instances", provision.ErrNoCapacity, p.Region)
 		}
 		if err != nil {
 			return prof, err

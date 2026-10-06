@@ -21,7 +21,7 @@ func (q *Queries) ClearDefaultStorageTarget(ctx context.Context) error {
 }
 
 const dedicatedArchiveDrift = `-- name: DedicatedArchiveDrift :many
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days FROM projects p JOIN instances i ON i.id = p.instance_id
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM projects p JOIN instances i ON i.id = p.instance_id
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.tier = 'dedicated'
   AND i.status = 'running' AND i.walg_prefix IS NOT NULL AND i.walg_target_id IS NOT NULL
   AND (COALESCE(p.storage_target_id, (SELECT t.id FROM storage_targets t WHERE t.is_default AND t.org_id IS NULL AND t.deleted_at IS NULL)) IS DISTINCT FROM i.walg_target_id
@@ -81,6 +81,10 @@ func (q *Queries) DedicatedArchiveDrift(ctx context.Context) ([]Project, error) 
 			&i.ArchivedAt,
 			&i.ArchiveBackupID,
 			&i.ArchiveNoticeDays,
+			&i.Region,
+			&i.DataResidency,
+			&i.ForwardRegion,
+			&i.ForwardUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -128,7 +132,7 @@ func (q *Queries) GetBackupKey(ctx context.Context, id uuid.UUID) (BackupKey, er
 
 const getDefaultStorageTarget = `-- name: GetDefaultStorageTarget :one
 
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at FROM storage_targets WHERE is_default AND org_id IS NULL AND deleted_at IS NULL
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE is_default AND org_id IS NULL AND deleted_at IS NULL
 `
 
 // Storage targets (V2 s6): platform targets have no org_id; org targets
@@ -152,12 +156,13 @@ func (q *Queries) GetDefaultStorageTarget(ctx context.Context) (StorageTarget, e
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PgdockRegion,
 	)
 	return i, err
 }
 
 const getOrgStorageTarget = `-- name: GetOrgStorageTarget :one
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at FROM storage_targets WHERE id = $1 AND org_id = $2::uuid AND deleted_at IS NULL
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE id = $1 AND org_id = $2::uuid AND deleted_at IS NULL
 `
 
 type GetOrgStorageTargetParams struct {
@@ -183,12 +188,13 @@ func (q *Queries) GetOrgStorageTarget(ctx context.Context, arg GetOrgStorageTarg
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PgdockRegion,
 	)
 	return i, err
 }
 
 const getPlatformStorageTarget = `-- name: GetPlatformStorageTarget :one
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at FROM storage_targets WHERE id = $1 AND org_id IS NULL AND deleted_at IS NULL
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE id = $1 AND org_id IS NULL AND deleted_at IS NULL
 `
 
 func (q *Queries) GetPlatformStorageTarget(ctx context.Context, id uuid.UUID) (StorageTarget, error) {
@@ -209,12 +215,13 @@ func (q *Queries) GetPlatformStorageTarget(ctx context.Context, id uuid.UUID) (S
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PgdockRegion,
 	)
 	return i, err
 }
 
 const getProjectForUpdate = `-- name: GetProjectForUpdate :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier, lifecycle, last_active_at, pause_warned_at, paused_at, archived_at, archive_backup_id, archive_notice_days FROM projects WHERE id = $1 FOR UPDATE
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier, lifecycle, last_active_at, pause_warned_at, paused_at, archived_at, archive_backup_id, archive_notice_days, region, data_residency, forward_region, forward_until FROM projects WHERE id = $1 FOR UPDATE
 `
 
 // tenant: system - a project the request already authorized, locked while its backup settings change.
@@ -261,12 +268,16 @@ func (q *Queries) GetProjectForUpdate(ctx context.Context, id uuid.UUID) (Projec
 		&i.ArchivedAt,
 		&i.ArchiveBackupID,
 		&i.ArchiveNoticeDays,
+		&i.Region,
+		&i.DataResidency,
+		&i.ForwardRegion,
+		&i.ForwardUntil,
 	)
 	return i, err
 }
 
 const getStorageTarget = `-- name: GetStorageTarget :one
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at FROM storage_targets WHERE id = $1
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE id = $1
 `
 
 // tenant: system - backup workers resolve a project's or a backup's target by id (an org_id-free lookup the caller already scoped).
@@ -288,6 +299,7 @@ func (q *Queries) GetStorageTarget(ctx context.Context, id uuid.UUID) (StorageTa
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PgdockRegion,
 	)
 	return i, err
 }
@@ -333,7 +345,7 @@ func (q *Queries) InsertBackupKey(ctx context.Context, arg InsertBackupKeyParams
 const insertStorageTarget = `-- name: InsertStorageTarget :one
 INSERT INTO storage_targets (id, org_id, name, endpoint, bucket, prefix, region, path_style, credentials, is_default, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at
+RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region
 `
 
 type InsertStorageTargetParams struct {
@@ -380,6 +392,7 @@ func (q *Queries) InsertStorageTarget(ctx context.Context, arg InsertStorageTarg
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PgdockRegion,
 	)
 	return i, err
 }
@@ -401,7 +414,7 @@ func (q *Queries) InstanceArchivingTo(ctx context.Context, arg InstanceArchiving
 }
 
 const listOrgStorageTargets = `-- name: ListOrgStorageTargets :many
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at FROM storage_targets WHERE org_id = $1::uuid AND deleted_at IS NULL ORDER BY name
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE org_id = $1::uuid AND deleted_at IS NULL ORDER BY name
 `
 
 func (q *Queries) ListOrgStorageTargets(ctx context.Context, orgID uuid.UUID) ([]StorageTarget, error) {
@@ -428,6 +441,7 @@ func (q *Queries) ListOrgStorageTargets(ctx context.Context, orgID uuid.UUID) ([
 			&i.CreatedBy,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.PgdockRegion,
 		); err != nil {
 			return nil, err
 		}
@@ -440,7 +454,7 @@ func (q *Queries) ListOrgStorageTargets(ctx context.Context, orgID uuid.UUID) ([
 }
 
 const listPlatformStorageTargets = `-- name: ListPlatformStorageTargets :many
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at FROM storage_targets WHERE org_id IS NULL AND deleted_at IS NULL ORDER BY is_default DESC, name
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE org_id IS NULL AND deleted_at IS NULL ORDER BY is_default DESC, name
 `
 
 func (q *Queries) ListPlatformStorageTargets(ctx context.Context) ([]StorageTarget, error) {
@@ -467,6 +481,7 @@ func (q *Queries) ListPlatformStorageTargets(ctx context.Context) ([]StorageTarg
 			&i.CreatedBy,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.PgdockRegion,
 		); err != nil {
 			return nil, err
 		}
@@ -641,7 +656,7 @@ UPDATE storage_targets
 SET name = $1, endpoint = $2, bucket = $3, prefix = $4, region = $5,
     path_style = $6, credentials = $7, updated_at = now()
 WHERE id = $8 AND deleted_at IS NULL
-RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at
+RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region
 `
 
 type UpdateStorageTargetParams struct {
@@ -683,6 +698,7 @@ func (q *Queries) UpdateStorageTarget(ctx context.Context, arg UpdateStorageTarg
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PgdockRegion,
 	)
 	return i, err
 }

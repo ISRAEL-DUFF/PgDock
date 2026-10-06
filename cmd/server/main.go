@@ -59,6 +59,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/regions"
 	"github.com/israel-duff/pgdock/internal/rotate"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
@@ -187,7 +188,14 @@ func run() error {
 	authSvc.SetSignupGuard(guard)
 
 	kinds := map[string]jobs.Kind{jobs.KindNoop: jobs.Noop()}
-	projects, pm, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, log)
+	// Regions (V3 §6.1): the home region is where projects go by default.
+	regionSvc := regions.New(pool, cfg.Cloud.Region, log)
+	if err := regionSvc.Ensure(ctx); err != nil {
+		return fmt.Errorf("regions: %w", err)
+	}
+	bg.Add(1)
+	go func() { defer bg.Done(); regionSvc.Run(bgCtx, 30*time.Second) }()
+	projects, pm, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, regionSvc, log)
 	if err != nil {
 		return err
 	}
@@ -494,6 +502,7 @@ func run() error {
 		Legal:           legalSvc,
 		Capacity:        capacitySvc,
 		Costs:           costSvc,
+		Regions:         regionSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,
@@ -655,7 +664,7 @@ func toAPITLS(s tlscert.Status) gen.TlsStatus {
 	return out
 }
 
-func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, st *settings.Store, log *slog.Logger) (*provision.Service, *pooler.Manager, error) {
+func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, st *settings.Store, rs *regions.Service, log *slog.Logger) (*provision.Service, *pooler.Manager, error) {
 	if cfg.Shared.AdminURL != "" {
 		// A cluster that is down at boot should not keep the control plane
 		// down; creates fail until it is back.
@@ -716,6 +725,8 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 		PooledPort:       cfg.Public.PooledPort,
 		SSLMode:          cfg.Public.SSLMode,
 		PGVersions:       cfg.PGVersions,
+		HomeRegion:       rs.Home(),
+		RegionHost:       rs.Host,
 		SmokeSessionAddr: pc.SessionAddr,
 		SmokePooledAddr:  pc.PooledAddr,
 		SmokeSSLMode:     pc.SSLMode,
@@ -749,6 +760,9 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 		return nil, nil, fmt.Errorf("agent CA: %w", err)
 	}
 	ns, err := nodes.NewService(pool, ca, cfg.Backups.AgentBootstrapToken, log)
+	if err == nil {
+		ns.SetHomeRegion(cfg.Cloud.Region)
+	}
 	if err != nil {
 		return nil, nil, err
 	}

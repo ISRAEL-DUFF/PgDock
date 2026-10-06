@@ -109,6 +109,10 @@ type Backup struct {
 	EncryptionKeyID *uuid.UUID
 	WalgPrefix      *string
 	CopyOf          *uuid.UUID
+	CopyTargetID    *uuid.UUID
+	CopyStatus      *string
+	CopiedAt        *time.Time
+	CopyError       *string
 }
 
 type BackupKey struct {
@@ -742,6 +746,13 @@ type PoolerEvent struct {
 	OccurredAt time.Time
 }
 
+type PoolerGeneration struct {
+	Region     string
+	Generation int64
+	Hash       string
+	UpdatedAt  time.Time
+}
+
 type PrepaidDeduction struct {
 	OrgID       uuid.UUID
 	Month       pgtype.Date
@@ -800,6 +811,10 @@ type Project struct {
 	ArchivedAt          *time.Time
 	ArchiveBackupID     *uuid.UUID
 	ArchiveNoticeDays   *int32
+	Region              string
+	DataResidency       bool
+	ForwardRegion       *string
+	ForwardUntil        *time.Time
 }
 
 type ProjectDbUser struct {
@@ -868,6 +883,21 @@ type Refund struct {
 	CompletedAt *time.Time
 }
 
+type Region struct {
+	ID              string
+	Name            string
+	Country         string
+	PoolerHost      string
+	Provider        string
+	Location        string
+	StorageTargetID *uuid.UUID
+	CopyTargetID    *uuid.UUID
+	FloatingIpID    *string
+	Residency       bool
+	Status          string
+	CreatedAt       time.Time
+}
+
 type RetiredDatabase struct {
 	ID         uuid.UUID
 	ProjectID  uuid.UUID
@@ -934,20 +964,21 @@ type Setting struct {
 }
 
 type StorageTarget struct {
-	ID          uuid.UUID
-	Name        string
-	Endpoint    string
-	Bucket      string
-	Prefix      string
-	Credentials []byte
-	IsDefault   bool
-	CreatedAt   time.Time
-	OrgID       *uuid.UUID
-	Region      string
-	PathStyle   bool
-	CreatedBy   *uuid.UUID
-	UpdatedAt   time.Time
-	DeletedAt   *time.Time
+	ID           uuid.UUID
+	Name         string
+	Endpoint     string
+	Bucket       string
+	Prefix       string
+	Credentials  []byte
+	IsDefault    bool
+	CreatedAt    time.Time
+	OrgID        *uuid.UUID
+	Region       string
+	PathStyle    bool
+	CreatedBy    *uuid.UUID
+	UpdatedAt    time.Time
+	DeletedAt    *time.Time
+	PgdockRegion *string
 }
 
 type TermsAcceptance struct {

@@ -1,6 +1,6 @@
 -- name: InsertProject :one
-INSERT INTO projects (id, org_id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by)
-VALUES (@id, @org_id, @name, @slug, @db_name, @owner_role, @scram_verifier, @tier, @instance_id, 'provisioning', @settings, sqlc.narg(description), sqlc.narg(created_by))
+INSERT INTO projects (id, org_id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by, region, data_residency)
+VALUES (@id, @org_id, @name, @slug, @db_name, @owner_role, @scram_verifier, @tier, @instance_id, 'provisioning', @settings, sqlc.narg(description), sqlc.narg(created_by), @region, @data_residency)
 RETURNING *;
 
 -- name: GetProject :one

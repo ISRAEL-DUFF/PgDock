@@ -146,7 +146,11 @@ func (s *Server) CreateNode(w http.ResponseWriter, r *http.Request) {
 	a := auditFrom(r.Context())
 	a.set("name", req.Name)
 	a.set("role", string(req.Role))
-	n, tok, exp, err := s.nodes.CreateNode(r.Context(), req.Name, req.PrivateAddr, string(req.Role))
+	region := ""
+	if req.Region != nil {
+		region = *req.Region
+	}
+	n, tok, exp, err := s.nodes.CreateNode(r.Context(), req.Name, req.PrivateAddr, string(req.Role), region)
 	if err != nil {
 		s.backupError(w, "create node", err)
 		return

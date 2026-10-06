@@ -494,14 +494,15 @@ func (q *Queries) OrgSharedInstances(ctx context.Context, orgID *uuid.UUID) ([]O
 const pickDedicatedNode = `-- name: PickDedicatedNode :one
 SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at, n.last_reachable_at, n.provider_server_id, n.pooler_generation, n.pooler_hash, n.pooler_vrrp_state, n.pooler_ready, n.pooler_checked_at, n.provider, n.region, n.server_type, n.monthly_cost_minor, n.cost_currency, n.lifecycle, n.empty_since, n.keep FROM nodes n
 WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.lifecycle = 'active' AND n.agent_cert_fp IS NOT NULL
+  AND n.region = $1
 ORDER BY (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.kind = 'dedicated' AND i.deleted_at IS NULL), n.created_at
 LIMIT 1
 `
 
 // PickDedicatedNode chooses the healthy node with an agent that allows
 // dedicated instances and runs the fewest.
-func (q *Queries) PickDedicatedNode(ctx context.Context) (Node, error) {
-	row := q.db.QueryRow(ctx, pickDedicatedNode)
+func (q *Queries) PickDedicatedNode(ctx context.Context, region string) (Node, error) {
+	row := q.db.QueryRow(ctx, pickDedicatedNode, region)
 	var i Node
 	err := row.Scan(
 		&i.ID,
@@ -542,15 +543,16 @@ const pickSharedInstance = `-- name: PickSharedInstance :one
 SELECT i.id, i.node_id, i.kind, i.pg_version, i.port, i.container_id, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.created_at, i.admin_host, i.admin_port, i.host, i.admin_secret, i.profile, i.walg_prefix, i.error, i.deleted_at, i.org_id, i.walg_target_id, i.walg_key_id, i.pg_release, i.pg_release_available, i.release_checked_at, i.ha_enabled, i.sync_replication, i.patroni, i.leader_member, i.patroni_secret FROM instances i
 JOIN nodes n ON n.id = i.node_id
 WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.lifecycle = 'active' AND n.role IN ('shared', 'both')
-  AND i.deleted_at IS NULL AND i.pg_version = $1
-  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $2)
-           THEN i.org_id = $2 ELSE i.org_id IS NULL END
+  AND i.deleted_at IS NULL AND i.pg_version = $1 AND n.region = $2
+  AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = $3)
+           THEN i.org_id = $3 ELSE i.org_id IS NULL END
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
 LIMIT 1
 `
 
 type PickSharedInstanceParams struct {
 	PgVersion int32
+	Region    string
 	OrgID     *uuid.UUID
 }
 
@@ -560,7 +562,7 @@ type PickSharedInstanceParams struct {
 // An organisation with its own shared clusters uses only those; every
 // other organisation uses only the untagged ones (V2 s10.5).
 func (q *Queries) PickSharedInstance(ctx context.Context, arg PickSharedInstanceParams) (Instance, error) {
-	row := q.db.QueryRow(ctx, pickSharedInstance, arg.PgVersion, arg.OrgID)
+	row := q.db.QueryRow(ctx, pickSharedInstance, arg.PgVersion, arg.Region, arg.OrgID)
 	var i Instance
 	err := row.Scan(
 		&i.ID,

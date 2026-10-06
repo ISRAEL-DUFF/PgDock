@@ -8,8 +8,8 @@ SELECT * FROM nodes WHERE id = @id;
 SELECT * FROM nodes WHERE name = @name;
 
 -- name: InsertNode :one
-INSERT INTO nodes (name, private_addr, role, capacity, registration_token, registration_expires_at)
-VALUES (@name, @private_addr, @role, '{}', @registration_token, @registration_expires_at)
+INSERT INTO nodes (name, private_addr, role, capacity, registration_token, registration_expires_at, region)
+VALUES (@name, @private_addr, @role, '{}', @registration_token, @registration_expires_at, @region)
 RETURNING *;
 
 -- name: SetRegistrationToken :exec

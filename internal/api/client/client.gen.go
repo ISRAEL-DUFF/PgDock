@@ -3831,6 +3831,9 @@ type CreateNodeRequest struct {
 	// Example: 10.0.0.12
 	PrivateAddr string `json:"private_addr"`
 
+	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
+	Region *string `json:"region,omitempty"`
+
 	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
 	Role CreateNodeRequestRole `json:"role"`
 }

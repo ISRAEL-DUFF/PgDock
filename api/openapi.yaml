@@ -8487,6 +8487,9 @@ components:
           type: string
           enum: [shared, dedicated, both, pooler]
           description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database."
+        region:
+          type: string
+          description: The region the node is in (default the home region). A pooler host serves that region's projects.
     NodeCreated:
       type: object
       required: [node, token, expires_at, command]

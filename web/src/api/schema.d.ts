@@ -5608,6 +5608,8 @@ export interface components {
              * @enum {string}
              */
             role: "shared" | "dedicated" | "both" | "pooler";
+            /** @description The region the node is in (default the home region). A pooler host serves that region's projects. */
+            region?: string;
         };
         NodeCreated: {
             node: components["schemas"]["Node"];

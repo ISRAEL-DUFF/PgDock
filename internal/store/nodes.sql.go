@@ -246,8 +246,8 @@ func (q *Queries) GetNodeByRegistrationToken(ctx context.Context, registrationTo
 }
 
 const insertNode = `-- name: InsertNode :one
-INSERT INTO nodes (name, private_addr, role, capacity, registration_token, registration_expires_at)
-VALUES ($1, $2, $3, '{}', $4, $5)
+INSERT INTO nodes (name, private_addr, role, capacity, registration_token, registration_expires_at, region)
+VALUES ($1, $2, $3, '{}', $4, $5, $6)
 RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep
 `
 
@@ -257,6 +257,7 @@ type InsertNodeParams struct {
 	Role                  string
 	RegistrationToken     *string
 	RegistrationExpiresAt *time.Time
+	Region                string
 }
 
 func (q *Queries) InsertNode(ctx context.Context, arg InsertNodeParams) (Node, error) {
@@ -266,6 +267,7 @@ func (q *Queries) InsertNode(ctx context.Context, arg InsertNodeParams) (Node, e
 		arg.Role,
 		arg.RegistrationToken,
 		arg.RegistrationExpiresAt,
+		arg.Region,
 	)
 	var i Node
 	err := row.Scan(

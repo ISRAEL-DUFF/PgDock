@@ -263,7 +263,7 @@ func (q *Queries) GetOrgMember(ctx context.Context, arg GetOrgMemberParams) (Org
 }
 
 const getOrgProject = `-- name: GetOrgProject :one
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier, lifecycle, last_active_at, pause_warned_at, paused_at, archived_at, archive_backup_id, archive_notice_days FROM projects WHERE id = $1 AND org_id = $2
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier, lifecycle, last_active_at, pause_warned_at, paused_at, archived_at, archive_backup_id, archive_notice_days, region, data_residency, forward_region, forward_until FROM projects WHERE id = $1 AND org_id = $2
 `
 
 type GetOrgProjectParams struct {
@@ -314,6 +314,10 @@ func (q *Queries) GetOrgProject(ctx context.Context, arg GetOrgProjectParams) (P
 		&i.ArchivedAt,
 		&i.ArchiveBackupID,
 		&i.ArchiveNoticeDays,
+		&i.Region,
+		&i.DataResidency,
+		&i.ForwardRegion,
+		&i.ForwardUntil,
 	)
 	return i, err
 }
@@ -599,7 +603,7 @@ func (q *Queries) ListInvitationsForEmail(ctx context.Context, email string) ([]
 }
 
 const listOrgBackups = `-- name: ListOrgBackups :many
-SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted,
+SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, b.copy_target_id, b.copy_status, b.copied_at, b.copy_error, p.name AS project_name, (p.deleted_at IS NOT NULL)::bool AS project_deleted,
        t.name AS target_name, t.org_id AS target_org_id, k.fingerprint AS key_fingerprint
 FROM backups b JOIN projects p ON p.id = b.project_id
 LEFT JOIN storage_targets t ON t.id = b.storage_target_id
@@ -640,6 +644,10 @@ type ListOrgBackupsRow struct {
 	EncryptionKeyID *uuid.UUID
 	WalgPrefix      *string
 	CopyOf          *uuid.UUID
+	CopyTargetID    *uuid.UUID
+	CopyStatus      *string
+	CopiedAt        *time.Time
+	CopyError       *string
 	ProjectName     string
 	ProjectDeleted  bool
 	TargetName      *string
@@ -684,6 +692,10 @@ func (q *Queries) ListOrgBackups(ctx context.Context, arg ListOrgBackupsParams) 
 			&i.EncryptionKeyID,
 			&i.WalgPrefix,
 			&i.CopyOf,
+			&i.CopyTargetID,
+			&i.CopyStatus,
+			&i.CopiedAt,
+			&i.CopyError,
 			&i.ProjectName,
 			&i.ProjectDeleted,
 			&i.TargetName,
@@ -913,7 +925,7 @@ func (q *Queries) ListOrgProjectMemberships(ctx context.Context, orgID uuid.UUID
 }
 
 const listOrgProjects = `-- name: ListOrgProjects :many
-SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days FROM projects p
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM projects p
 WHERE p.org_id = $1 AND p.deleted_at IS NULL
   AND ($2::text IS NULL OR p.status = $2)
   AND ($3::bool OR EXISTS (
@@ -988,6 +1000,10 @@ func (q *Queries) ListOrgProjects(ctx context.Context, arg ListOrgProjectsParams
 			&i.ArchivedAt,
 			&i.ArchiveBackupID,
 			&i.ArchiveNoticeDays,
+			&i.Region,
+			&i.DataResidency,
+			&i.ForwardRegion,
+			&i.ForwardUntil,
 		); err != nil {
 			return nil, err
 		}

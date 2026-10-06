@@ -102,7 +102,7 @@ func TestPoolerHostsSyncAndArbiter(t *testing.T) {
 	d := &poolerHostsDriver{db: e.DB, agents: map[string]*agentsvc.Service{}, pushFail: map[string]bool{}, down: map[string]bool{}}
 	dirs := map[string]string{}
 	for i, name := range []string{"edge-a", "edge-b"} {
-		n, err := q.InsertNode(ctx, store.InsertNodeParams{Name: name, PrivateAddr: "127.0.0.1", Role: "pooler"})
+		n, err := q.InsertNode(ctx, store.InsertNodeParams{Name: name, PrivateAddr: "127.0.0.1", Role: "pooler", Region: "eu-central"})
 		if err != nil {
 			t.Fatal(err)
 		}
