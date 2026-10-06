@@ -132,6 +132,18 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   signup can use Cloudflare Turnstile (`PGDOCK_TURNSTILE_SITE_KEY`,
   `PGDOCK_TURNSTILE_SECRET`) and caps accounts per IP a day
   (`PGDOCK_SIGNUPS_PER_IP`, default 3). See [The Free tier](free-tier.md).
+- **Support, revenue and legal** (migration 00029):
+  - It adds tickets, the `support` platform role, legal documents with
+    acceptances, and daily MRR snapshots.
+  - On first start, the server publishes template SLA and DPA documents
+    as version 1, and the terms gain an acceptable use policy. Review and
+    replace them before launch ([Legal documents](legal.md)).
+  - Support email needs `PGDOCK_SUPPORT_EMAIL` and
+    `PGDOCK_SUPPORT_INBOUND_SECRET`, with the provider's inbound webhook
+    at `https://<your PGDock>/api/v1/support/inbound/email`.
+  - WhatsApp needs the `PGDOCK_WHATSAPP_*` variables and Meta's webhook
+    at `https://<your PGDock>/api/v1/support/whatsapp`.
+  - See [Support](support.md).
 
 ## Rolling back
 

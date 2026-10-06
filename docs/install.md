@@ -187,8 +187,8 @@ first visit, which can take a few seconds. Then:
 
 **Add a second platform admin.** The wizard makes exactly one. Once a
 colleague has an account with two-factor set up (invite them under Admin →
-Users), choose **Make admin** next to their name; it asks for your password
-and a code. With two admins, one lost phone doesn't lock you out. If you ever
+Users), choose **Platform role** next to their name and pick platform
+admin; it asks for your password and a code. With two admins, one lost phone doesn't lock you out. If you ever
 are locked out, recover from the server:
 `docker compose exec pgdock-server pgdock-server admin promote <email>` (see
 [operations](operations.md#platform-admins-and-recovery)).

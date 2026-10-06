@@ -182,6 +182,20 @@ also resume a project with **Resume** on its page, or with
 `pgdock resume <project>`. Paid plans never sleep: see **Pricing** in the
 sidebar. Details: [The Free tier](free-tier.md).
 
+## Getting help
+
+**Organisation → Support**: open a ticket, follow it and reply. You can also
+email the support address and reply to PGDock's emails, which thread into
+the ticket. Pro and Team organisations can register WhatsApp numbers that
+message support directly. Pro tickets are answered within a business day,
+Team tickets within four business hours, and urgent issues on a paid plan
+within an hour, any time. Details: [Support](support.md).
+
+**Organisation → Legal**: the service level agreement, the data processing
+agreement and your order form, if you have one. An owner accepts them for
+the organisation, and can also accept them when changing plan. Details:
+[Legal documents](legal.md).
+
 ## Your data
 
 - **Export** any project as a `pg_dump` file at any time (Project →

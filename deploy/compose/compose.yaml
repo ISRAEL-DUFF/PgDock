@@ -93,6 +93,14 @@ services:
       PGDOCK_TURNSTILE_SITE_KEY: ${PGDOCK_TURNSTILE_SITE_KEY:-}
       PGDOCK_TURNSTILE_SECRET: ${PGDOCK_TURNSTILE_SECRET:-}
       PGDOCK_SIGNUPS_PER_IP: ${PGDOCK_SIGNUPS_PER_IP:-3}
+      # Support (V3 §7.1, docs/support.md): the inbox, the email
+      # provider's inbound webhook secret, and WhatsApp's Cloud API.
+      PGDOCK_SUPPORT_EMAIL: ${PGDOCK_SUPPORT_EMAIL:-}
+      PGDOCK_SUPPORT_INBOUND_SECRET: ${PGDOCK_SUPPORT_INBOUND_SECRET:-}
+      PGDOCK_WHATSAPP_PHONE_NUMBER_ID: ${PGDOCK_WHATSAPP_PHONE_NUMBER_ID:-}
+      PGDOCK_WHATSAPP_ACCESS_TOKEN: ${PGDOCK_WHATSAPP_ACCESS_TOKEN:-}
+      PGDOCK_WHATSAPP_APP_SECRET: ${PGDOCK_WHATSAPP_APP_SECRET:-}
+      PGDOCK_WHATSAPP_VERIFY_TOKEN: ${PGDOCK_WHATSAPP_VERIFY_TOKEN:-}
     volumes:
       - pgdock-data:/var/lib/pgdock
       - pooler-config:/var/lib/pgdock/pooler

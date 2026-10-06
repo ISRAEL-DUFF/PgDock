@@ -185,6 +185,36 @@ Admin → Billing → **Settings** (`/api/v1/admin/billing/settings`):
 - Deleting dedicated projects for non-payment (off by default: the
   notice is sent and nothing is deleted).
 
+## Revenue
+
+Admin → **Revenue** (`/api/v1/admin/revenue`, platform admins), the
+first version of V3 §7.2. It shows the following, month by month:
+
+- **MRR**: each paying organisation's plan fee at its price book, with
+  annual plans spread over 12 months. ARR is MRR × 12.
+- **MRR movements** against the month before:
+  - new: an organisation that paid nothing before;
+  - expansion: one that pays more;
+  - contraction: one that pays less;
+  - churned: one that pays nothing now.
+- Paying organisations and ARPA.
+- **Conversions**: organisations that were on Free in the month before
+  and pay now, out of the Free organisations at the start of the month.
+- **Metered revenue**: the usage lines of the month's invoices (overage,
+  dedicated instances, add-ons). It is kept apart from MRR.
+- **Invoiced and collected**: invoices issued for the period, and how
+  much of them has been paid.
+- **Receivables by age**: open invoices bucketed by days past due (not yet
+  due, 1–30, 31–60, 61–90, over 90), and the WHT still waiting for
+  credit-note certificates.
+
+The figures come from a snapshot of each organisation's plan, taken every
+day and whenever the page is opened. A past month shows its last
+snapshot. Suspended organisations count as paying nothing. **CSV for the
+accountant** (`?format=csv`) has the same table, the ageing and the WHT,
+in naira. Costs, margin and the dollar view come with cost attribution
+(M24).
+
 ## Payments
 
 Paying invoices, prepaid balances, WHT credit notes, dunning and

@@ -72,6 +72,30 @@ bundle share one version (spec §11.5).
 - Open signup: Cloudflare Turnstile on the signup page and a cap on
   accounts per IP address a day. A Pricing page in the dashboard, and
   public prices at `GET /api/v1/pricing`.
+- Support:
+  - Tickets from the dashboard (Organisation → Support), email (an
+    inbound webhook, threaded by reference and headers) and WhatsApp
+    (Pro and Team, from registered numbers), all in one console
+    (Platform → Support).
+  - Each ticket shows the organisation's plan, billing standing,
+    projects, recent operations and incidents beside it.
+  - Response targets in Nigerian business hours. Replies go back by the
+    same channel; staff can add internal notes.
+  - A new `support` platform role sees the console and nothing else. See
+    docs/support.md.
+- Revenue dashboard (Platform → Revenue):
+  - MRR and ARR, with new, expansion, contraction and churn.
+  - Paying organisations, ARPA, and conversions from Free.
+  - Metered revenue, invoiced and collected amounts, receivables by age,
+    and outstanding WHT.
+  - A CSV for the accountant.
+- Legal documents:
+  - An acceptable use policy accepted with the terms.
+  - A versioned SLA and DPA, and per-organisation order forms, accepted
+    by an owner (Organisation → Legal, or with a plan change) and listed
+    with their acceptances for the platform admin. See docs/legal.md.
+- New migration 00029 (tickets, support phones, legal documents and
+  acceptances, MRR snapshots).
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
 - New migrations 00022 and 00023 (moves, Postgres releases), 00026

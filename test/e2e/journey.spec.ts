@@ -1156,6 +1156,8 @@ test.describe("with the saved session", () => {
     const preview = page.getByTestId("plan-preview");
     await expect(preview).toContainText("Pro (monthly)");
     await expect(preview).toContainText("On the next invoice");
+    // The owner accepts the SLA and DPA with the upgrade (V3 §7.3).
+    await page.getByTestId("accept-legal").getByRole("checkbox").check();
     await shot(page, "50-billing-plan");
     await page.getByRole("button", { name: "Change plan now" }).click();
     await expect(page.getByTestId("plan-name")).toHaveText("Pro");
@@ -1237,6 +1239,61 @@ test.describe("with the saved session", () => {
     await page.getByLabel("RAM (GB)").fill("4");
     await expect(page.getByTestId("estimate-total")).toContainText("₦");
     await shot(page, "55-pricing");
+  });
+
+  test("support, legal and revenue: a ticket answered from the console, agreements accepted, the month's MRR", async ({ page }) => {
+    await signedIn(page);
+    await page.getByTestId("org-switcher").click();
+    await page.getByRole("menuitem", { name: /Metered team/ }).click();
+    await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
+
+    // Accepted with the upgrade.
+    await page.goto("/org/legal");
+    await expect(page.getByTestId("legal-sla")).toContainText("Accepted ");
+    await expect(page.getByTestId("legal-dpa")).toContainText("Accepted ");
+
+    // A ticket from the dashboard.
+    await page.goto("/org/support");
+    await page.getByTestId("new-ticket").click();
+    await page.getByTestId("ticket-subject").fill("Slow monthly report");
+    await page.getByTestId("ticket-body").fill("The report query takes a minute since Tuesday.");
+    await page.getByTestId("ticket-submit").click();
+    await expect(page.getByTestId("ticket-panel")).toContainText("Slow monthly report");
+    await expect(page.getByTestId("ticket-panel").getByTestId("message-in")).toContainText("takes a minute");
+    await page.keyboard.press("Escape");
+
+    // The console: the organisation beside the thread; a note and a reply.
+    await page.goto("/admin/support");
+    await page.getByRole("row").filter({ hasText: "Slow monthly report" }).click();
+    const t = page.getByTestId("console-ticket");
+    await expect(t.getByTestId("console-context")).toContainText("Metered team");
+    await expect(t.getByTestId("console-context")).toContainText("pro");
+    await t.getByTestId("console-body").fill("Likely the missing index on created_at.");
+    await t.getByTestId("console-note").click();
+    await expect(t.getByTestId("message-note")).toContainText("missing index");
+    await t.getByTestId("console-body").fill("Could you add an index on orders(created_at)?");
+    await t.getByTestId("console-reply").click();
+    await expect(t.getByTestId("message-out")).toContainText("add an index");
+    await t.getByTestId("console-status").selectOption("pending");
+    await expect(t.getByTestId("console-status")).toHaveValue("pending");
+    await shot(page, "56-support-console");
+    await page.keyboard.press("Escape");
+
+    // The customer sees the reply, not the note.
+    await page.goto("/org/support");
+    await page.getByRole("row").filter({ hasText: "Slow monthly report" }).click();
+    const mine = page.getByTestId("ticket-panel");
+    await expect(mine.getByTestId("message-out")).toContainText("add an index");
+    await expect(mine.getByTestId("message-note")).toHaveCount(0);
+    await shot(page, "57-support-ticket");
+    await page.keyboard.press("Escape");
+
+    // The month's recurring revenue includes the team's Pro plan.
+    await page.goto("/admin/revenue");
+    await expect(page.getByTestId("revenue-mrr")).toContainText("₦");
+    await expect(page.getByTestId("revenue-mrr")).not.toContainText("₦0.00");
+    await expect(page.getByTestId("revenue-csv")).toHaveAttribute("href", /format=csv/);
+    await shot(page, "58-revenue");
   });
 
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
