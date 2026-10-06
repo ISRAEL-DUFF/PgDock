@@ -1351,6 +1351,41 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("project-region")).toContainText(mine.items[0].region);
   });
 
+  test("query insights: a slow lookup, its plan, and the index that fixes it", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Catalogue");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const appURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+    const app = await connect(appURL);
+    await app.query(
+      "CREATE TABLE items (id serial PRIMARY KEY, category int NOT NULL, price numeric NOT NULL); " +
+        "INSERT INTO items (category, price) SELECT g % 500, g FROM generate_series(1, 60000) g; ANALYZE items",
+    );
+    // Statistics are read every 5 seconds here (every 5 minutes in production).
+    await expect(async () => {
+      for (let i = 0; i < 20; i++) await app.query(`SELECT avg(price) FROM items WHERE category = ${i}`);
+      await page.goto(`/projects/${id}/insights`);
+      await expect(page.getByTestId("project-insights").locator("tr", { hasText: "FROM items WHERE category" })).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 60_000 });
+    await app.end();
+    await page.getByTestId("project-insights").locator("tr", { hasText: "FROM items WHERE category" }).click();
+    await page.getByTestId("insight-explain").click();
+    await expect(page.getByTestId("insight-plan")).toContainText("Seq Scan on public.items");
+    await shot(page, "62-query-insights");
+    await page.keyboard.press("Escape");
+    await page.getByRole("tab", { name: "Indexes" }).click();
+    const sg = page.getByTestId("suggestion-items-category");
+    await expect(sg).toContainText("CREATE INDEX CONCURRENTLY items_category_idx ON public.items (category);");
+    await shot(page, "63-index-suggestion");
+  });
+
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
     await signedIn(page);
     // Calls the API as a CI job would: a bearer token, no cookies.

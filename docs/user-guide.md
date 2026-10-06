@@ -151,6 +151,18 @@ Deleting your organisation never deletes what is in your own bucket.
   organisation (read, write or admin, optionally to some projects), and
   branches in CI.
 
+## Query insights
+
+On Pro and Team plans and dedicated projects, **Query insights** shows the
+queries that take your database's time, refreshed every 5 minutes: open
+one for its latency over time and its plan (EXPLAIN, which doesn't run
+the query). The **Indexes** tab suggests indexes for slow lookups and
+foreign keys, with the `CREATE INDEX CONCURRENTLY` statement to run or
+save as a migration; enable the `hypopg` extension to see how much each
+would help before creating it. It also lists unused and duplicate
+indexes, table bloat, slow statements, and sessions waiting on locks. See
+[query insights](query-insights.md).
+
 ## Limits
 
 Your organisation's plan sets its limits: projects, branches, storage,

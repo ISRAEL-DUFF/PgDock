@@ -164,6 +164,15 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   - Upgrade the agents with the server: HA members get
     `PGDOCK_ADMIN_USER`, which base backups of HA projects need.
 
+- **Query insights** (migration 00032):
+  - New tables for statistics, texts, snapshots and slow queries. Insights
+    start with a baseline at the first read after the upgrade.
+  - Rebuild or pull the PGDock Postgres image (it now includes hypopg);
+    existing dedicated instances get it at their next recreation or minor
+    upgrade.
+  - Without billing, set `PGDOCK_INSIGHTS_PLANS=all` so shared projects
+    get insights too. See [Query insights](query-insights.md).
+
 ## Rolling back
 
 Check out the previous tag and run `./install.sh` again. If the new

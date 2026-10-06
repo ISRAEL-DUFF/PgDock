@@ -82,6 +82,11 @@ services:
       PGDOCK_BACKUP_HOUR: ${PGDOCK_BACKUP_HOUR:-2}
       PGDOCK_METRICS_INTERVAL: ${PGDOCK_METRICS_INTERVAL:-1m}
       PGDOCK_TENANCY_SWEEP_INTERVAL: ${PGDOCK_TENANCY_SWEEP_INTERVAL:-5m}
+      # Query insights (V3 §8): which plans get them, how often
+      # pg_stat_statements is read, and the slow-query threshold.
+      PGDOCK_INSIGHTS_PLANS: ${PGDOCK_INSIGHTS_PLANS:-pro,team}
+      PGDOCK_INSIGHTS_INTERVAL: ${PGDOCK_INSIGHTS_INTERVAL:-5m}
+      PGDOCK_SLOW_QUERY_MS: ${PGDOCK_SLOW_QUERY_MS:-1000}
       PGDOCK_METRICS_TOKEN: ${PGDOCK_METRICS_TOKEN:-}
       PGDOCK_CONSOLE_DISABLED: ${PGDOCK_CONSOLE_DISABLED:-false}
       # The waker answers paused Free projects' connections (V3 §4.2); the

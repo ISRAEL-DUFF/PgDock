@@ -131,6 +131,18 @@ bundle share one version (spec §11.5).
   - Platform → Regions. See docs/regions.md.
 - New migration 00031 (regions, project region and residency, per-region
   pooler generations, backup copies).
+- Query insights (Pro, Team and dedicated; Project → Query insights,
+  `pgdock insights`):
+  - Top queries over an hour to 30 days, each with its latency and calls
+    over time and its EXPLAIN as a plan tree.
+  - A slow-query log.
+  - Index suggestions with their `CREATE INDEX CONCURRENTLY`, a hypopg
+    estimate where it is enabled, and save as migration.
+  - Unused and duplicate indexes, table bloat with reclaim space, and
+    blocking chains.
+  - See docs/query-insights.md.
+- New migration 00032 (query statistics). The Postgres image includes
+  hypopg.
 - Fixed: base backups of HA projects failed (WAL-G connected as
   `postgres`).
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
