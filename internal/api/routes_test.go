@@ -410,6 +410,8 @@ func TestMembersCanCreateProjectsSetting(t *testing.T) {
 var specMatrix = map[authz.Action][]string{
 	// "View project, metrics, operations"
 	authz.ProjectView: {
+		// V3 §4.2 "Owners can also resume from the dashboard": anyone who could connect wakes it anyway
+		"POST /api/v1/projects/{id}/resume",
 		"GET /api/v1/projects/{id}", "GET /api/v1/projects/{id}/metrics", "GET /api/v1/projects/{id}/extensions",
 		"GET /api/v1/projects/{id}/members", "GET /api/v1/operations/{id}", "GET /api/v1/operations/{id}/stream",
 		// §10.4: storage against the limit, and the reaper's log

@@ -1161,6 +1161,27 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/resume:
+    post:
+      operationId: resumeProject
+      summary: Resume a paused or archived Free project
+      description: |
+        Queues `resume_project` for a paused project (seconds) or
+        `unarchive_project` for an archived one, which restores it from its
+        archive backup (minutes). The first client connection does the same
+        by itself (V3 §4.2).
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/switchover:
     post:
       operationId: switchoverProject
@@ -6208,6 +6229,23 @@ components:
       type: object
       required: [id, org_id, name, slug, db_name, owner_role, tier, status, settings, created_at, connection]
       properties:
+        lifecycle:
+          type: string
+          enum: [active, paused, archived]
+          description: A Free project paused or archived for inactivity (V3 §4).
+        last_active_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: The last time a client was seen through the poolers.
+        paused_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
         parent_project_id:
           type: string
           format: uuid
@@ -6642,7 +6680,7 @@ components:
           $ref: "#/components/schemas/Operation"
     BackupKind:
       type: string
-      enum: [logical, base, final, safety, metadata]
+      enum: [logical, base, final, safety, metadata, archive]
     Backup:
       type: object
       required: [id, kind, status, started_at]

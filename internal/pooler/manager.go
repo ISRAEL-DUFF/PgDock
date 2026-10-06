@@ -32,6 +32,25 @@ type Manager struct {
 
 	hostsMu sync.Mutex
 	hosts   *hostSet // pooler hosts (V3 §2.1), when set
+
+	// The waker (V3 §4.2), as the poolers reach it: paused and archived
+	// projects route there. Empty: they keep their usual route.
+	wakerHost string
+	wakerPort int
+}
+
+// SetWaker routes paused and archived projects to the waker at host:port.
+func (m *Manager) SetWaker(host string, port int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.wakerHost, m.wakerPort = host, port
+}
+
+// WakerSet reports whether paused projects route to a waker.
+func (m *Manager) WakerSet() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.wakerHost != ""
 }
 
 // NewManager returns a Manager writing files with mode into dir and
@@ -87,10 +106,16 @@ func (m *Manager) Sync(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("pooler sync: %s: %w", r.DbName, err)
 		}
+		host, port := r.Host, int(r.Port)
+		if r.Lifecycle != "active" && m.wakerHost != "" {
+			// Asleep: the waker answers, and wakes the project (V3 §4.2).
+			host, port = m.wakerHost, m.wakerPort
+			s.PoolSize, s.ConnectionLimit = 1, 1
+		}
 		cfg.Routes = append(cfg.Routes, Route{
 			Database:         r.DbName,
-			Host:             r.Host,
-			Port:             int(r.Port),
+			Host:             host,
+			Port:             port,
 			PoolSize:         s.PoolSize,
 			MaxDBConnections: s.ConnectionLimit,
 		})
@@ -99,7 +124,7 @@ func (m *Manager) Sync(ctx context.Context) error {
 		// an alias, so existing connection strings still work (V2 §10.2).
 		if r.AliasDbName != nil {
 			cfg.Routes = append(cfg.Routes, Route{
-				Database: *r.AliasDbName, BackendDB: r.DbName, Host: r.Host, Port: int(r.Port),
+				Database: *r.AliasDbName, BackendDB: r.DbName, Host: host, Port: port,
 				PoolSize: s.PoolSize, MaxDBConnections: s.ConnectionLimit,
 			})
 		}

@@ -54,6 +54,10 @@ type Config struct {
 	Status Status
 	// Payments configures the payment providers (V3 §3.4).
 	Payments Payments
+	// FreeTier configures pausing and archiving Free projects (V3 §4).
+	FreeTier FreeTier
+	// Signup configures open signup's protections (V3 §7.4).
+	Signup Signup
 	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
 	// majors projects may run (V3 §2.4); the newest is the default.
 	PGVersions []int
@@ -159,6 +163,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadInsight(getenv, &cfg)...)
 	errs = append(errs, loadStatus(getenv, readFile, &cfg)...)
 	errs = append(errs, loadPayments(getenv, readFile, &cfg)...)
+	errs = append(errs, loadFreeTier(getenv, readFile, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err

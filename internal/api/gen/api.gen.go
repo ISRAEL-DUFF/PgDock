@@ -280,6 +280,7 @@ func (e BackupStatus) Valid() bool {
 
 // Defines values for BackupKind.
 const (
+	BackupKindArchive  BackupKind = "archive"
 	BackupKindBase     BackupKind = "base"
 	BackupKindFinal    BackupKind = "final"
 	BackupKindLogical  BackupKind = "logical"
@@ -290,6 +291,8 @@ const (
 // Valid indicates whether the value is a known member of the BackupKind enum.
 func (e BackupKind) Valid() bool {
 	switch e {
+	case BackupKindArchive:
+		return true
 	case BackupKindBase:
 		return true
 	case BackupKindFinal:
@@ -1418,6 +1421,27 @@ const (
 func (e PricesCurrency) Valid() bool {
 	switch e {
 	case NGN:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectLifecycle.
+const (
+	ProjectLifecycleActive   ProjectLifecycle = "active"
+	ProjectLifecycleArchived ProjectLifecycle = "archived"
+	ProjectLifecyclePaused   ProjectLifecycle = "paused"
+)
+
+// Valid indicates whether the value is a known member of the ProjectLifecycle enum.
+func (e ProjectLifecycle) Valid() bool {
+	switch e {
+	case ProjectLifecycleActive:
+		return true
+	case ProjectLifecycleArchived:
+		return true
+	case ProjectLifecyclePaused:
 		return true
 	default:
 		return false
@@ -4920,7 +4944,8 @@ type ProfileList struct {
 
 // Project defines model for Project.
 type Project struct {
-	Branch *BranchInfo `json:"branch,omitempty"`
+	ArchivedAt *time.Time  `json:"archived_at,omitempty"`
+	Branch     *BranchInfo `json:"branch,omitempty"`
 
 	// BranchCount Live branches of this project.
 	BranchCount *int `json:"branch_count,omitempty"`
@@ -4934,18 +4959,25 @@ type Project struct {
 	Id                   openapi_types.UUID `json:"id"`
 	Instance             *InstanceSummary   `json:"instance,omitempty"`
 
+	// LastActiveAt The last time a client was seen through the poolers.
+	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
+
 	// LastBackupAt When the latest backup of this project finished.
 	LastBackupAt *time.Time `json:"last_backup_at,omitempty"`
 
 	// LegacyCredentialsUntil The V1 credentials stop working at this time.
-	LegacyCredentialsUntil *time.Time         `json:"legacy_credentials_until,omitempty"`
-	MyRole                 *ProjectRole       `json:"my_role,omitempty"`
-	Name                   string             `json:"name"`
-	OrgId                  openapi_types.UUID `json:"org_id"`
-	OwnerRole              string             `json:"owner_role"`
+	LegacyCredentialsUntil *time.Time `json:"legacy_credentials_until,omitempty"`
+
+	// Lifecycle A Free project paused or archived for inactivity (V3 §4).
+	Lifecycle *ProjectLifecycle  `json:"lifecycle,omitempty"`
+	MyRole    *ProjectRole       `json:"my_role,omitempty"`
+	Name      string             `json:"name"`
+	OrgId     openapi_types.UUID `json:"org_id"`
+	OwnerRole string             `json:"owner_role"`
 
 	// ParentProjectId Set for a branch (V2 §8).
 	ParentProjectId *openapi_types.UUID `json:"parent_project_id,omitempty"`
+	PausedAt        *time.Time          `json:"paused_at,omitempty"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
@@ -4963,6 +4995,9 @@ type Project struct {
 	StorageState *StorageState `json:"storage_state,omitempty"`
 	Tier         ProjectTier   `json:"tier"`
 }
+
+// ProjectLifecycle A Free project paused or archived for inactivity (V3 §4).
+type ProjectLifecycle string
 
 // ProjectBackupKey defines model for ProjectBackupKey.
 type ProjectBackupKey struct {
@@ -7785,6 +7820,9 @@ type ServerInterface interface {
 	// ResetBranch Reset a branch from its parent
 	// (POST /api/v1/projects/{id}/reset)
 	ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ResumeProject Resume a paused or archived Free project
+	// (POST /api/v1/projects/{id}/resume)
+	ResumeProject(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -9285,6 +9323,12 @@ func (_ Unimplemented) ReclaimSpace(w http.ResponseWriter, r *http.Request, id P
 // ResetBranch Reset a branch from its parent
 // (POST /api/v1/projects/{id}/reset)
 func (_ Unimplemented) ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResumeProject Resume a paused or archived Free project
+// (POST /api/v1/projects/{id}/resume)
+func (_ Unimplemented) ResumeProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15597,6 +15641,32 @@ func (siw *ServerInterfaceWrapper) ResetBranch(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ResumeProject operation middleware
+func (siw *ServerInterfaceWrapper) ResumeProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResumeProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RotateProjectPassword operation middleware
 func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, r *http.Request) {
 
@@ -17542,6 +17612,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.EnableProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/resume", wrapper.ResumeProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/switchover", wrapper.SwitchoverProject)

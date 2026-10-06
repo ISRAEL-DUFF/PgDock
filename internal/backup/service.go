@@ -45,6 +45,9 @@ const (
 	Final    = "final"
 	Safety   = "safety"
 	Metadata = "metadata"
+	// Archive is an archived Free project's backup (V3 §4.3), kept for as
+	// long as the project is archived.
+	Archive = "archive"
 )
 
 // Errors for the API layer.

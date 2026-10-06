@@ -72,6 +72,7 @@ GROUP BY project_id;
 -- Branches are skipped unless a project admin turned their backups on.
 SELECT p.* FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < @since
+  AND p.lifecycle = 'active' -- a paused project hasn't changed, and refuses connections (V3 §4.2)
   AND (p.parent_project_id IS NULL OR p.branch_backups)
   AND EXISTS (SELECT 1 FROM organizations o WHERE o.id = p.org_id AND o.status = 'active')
   AND NOT EXISTS (
@@ -90,7 +91,7 @@ SELECT * FROM operations WHERE kind = @kind ORDER BY created_at DESC LIMIT 1;
 -- name: RandomProjectWithBackup :one
 -- tenant: system - backup workers and the scheduler, or a project the request already authorized.
 SELECT p.* FROM projects p
-WHERE p.deleted_at IS NULL AND p.status = 'active'
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'archived'
   AND EXISTS (SELECT 1 FROM backups b WHERE b.project_id = p.id AND b.status = 'succeeded' AND b.kind = 'logical')
 ORDER BY random()
 LIMIT 1;
@@ -207,3 +208,7 @@ WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' AND wa
 -- tenant: system - deciding whether a retired WAL-G archive can go.
 SELECT count(*)::int FROM backups
 WHERE kind = 'base' AND status = 'succeeded' AND walg_prefix = @walg_prefix AND storage_target_id = @storage_target_id;
+
+-- name: ExpireBackupAt :exec
+-- tenant: system - an archived project's archive backup expires once the project is deleted (V3 §4.3).
+UPDATE backups SET expires_at = @expires_at WHERE id = @id;

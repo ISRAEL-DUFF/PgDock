@@ -709,6 +709,13 @@ type Project struct {
 	BranchBackups       bool
 	SensitiveData       bool
 	ProbeVerifier       *string
+	Lifecycle           string
+	LastActiveAt        *time.Time
+	PauseWarnedAt       *time.Time
+	PausedAt            *time.Time
+	ArchivedAt          *time.Time
+	ArchiveBackupID     *uuid.UUID
+	ArchiveNoticeDays   *int32
 }
 
 type ProjectDbUser struct {
@@ -885,6 +892,7 @@ type User struct {
 	ApprovedAt      *time.Time
 	RecoveryCodes   []byte
 	LastActiveAt    *time.Time
+	SignupIp        *netip.Addr
 }
 
 type VirtualAccount struct {

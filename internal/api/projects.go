@@ -263,6 +263,10 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 		StorageState:           ptrTo(gen.StorageState(p.StorageState)),
 		CanSwitchCredentials:   ptrTo(provision.CanSwitchCredentials(p)),
 		LegacyCredentialsUntil: p.LegacyUntil,
+		Lifecycle:              ptrTo(gen.ProjectLifecycle(p.Lifecycle)),
+		LastActiveAt:           p.LastActiveAt,
+		PausedAt:               p.PausedAt,
+		ArchivedAt:             p.ArchivedAt,
 	}
 	branchFields(&gp, p)
 	return gp, nil

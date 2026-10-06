@@ -54,6 +54,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/console"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/freetier"
 	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
@@ -72,6 +73,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/store/storetest"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tokens"
+	"github.com/israel-duff/pgdock/internal/waker"
 	"github.com/israel-duff/pgdock/internal/webhooks"
 )
 
@@ -105,6 +107,10 @@ type Env struct {
 	SMTP *SMTPServer
 	// Billing is the billing core (V3 §3); tests move its clock (Now).
 	Billing *billing.Service
+	// FreeTier pauses and archives idle Free projects (V3 §4); tests call
+	// FreeTier.Sweep. Waker is its waker, reached by the test poolers.
+	FreeTier *freetier.Service
+	Waker    *waker.Server
 	// Flutterwave and ISpend are the payment providers' fake sandboxes.
 	Flutterwave *flutterwave.Fake
 	ISpend      *ispend.Fake
@@ -307,12 +313,29 @@ func Start(t testing.TB, opts Options) *Env {
 		k.MaxAttempts = opts.MaxAttempts
 		kinds[provision.KindCreate] = k
 	}
+	freeSvc := freetier.New(db, svc, backups, mailSvc, freetier.Config{PublicURL: "https://pgdock.test"}, log)
+	for name, k := range freeSvc.Kinds() {
+		kinds[name] = k
+	}
+	// The waker listens where the test poolers (containers) reach it.
+	wakerHost := "127.0.0.1"
+	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
+		wakerHost = gw
+	}
+	wakerLn, err := net.Listen("tcp", net.JoinHostPort(wakerHost, "0"))
+	if err != nil {
+		t.Fatalf("waker listen: %v", err)
+	}
+	wakerSrv := waker.New(freeSvc, log)
+	wakerPort := wakerLn.Addr().(*net.TCPAddr).Port
+	pm.SetWaker(wakerHost, wakerPort)
 	notifier := jobs.NewNotifier(db, log)
 	runner := jobs.NewRunner(db, notifier, log, jobs.RunnerConfig{
 		PollInterval: 100 * time.Millisecond, RetryBase: 50 * time.Millisecond, RetryMax: 200 * time.Millisecond,
 	}, kinds)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
+	go func() { defer wg.Done(); _ = wakerSrv.Serve(ctx, wakerLn) }()
 	go func() { defer wg.Done(); notifier.Run(ctx) }()
 	go func() { defer wg.Done(); runner.Run(ctx) }()
 
@@ -369,7 +392,7 @@ func Start(t testing.TB, opts Options) *Env {
 	billingSvc.SetDunning(tenancySvc, nil)
 	billingSvc.SetDocStore(&memDocs{m: map[string][]byte{}})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Incidents: incidentSvc, Billing: billingSvc,
+		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
@@ -393,7 +416,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

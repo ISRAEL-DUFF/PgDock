@@ -82,7 +82,8 @@ DELETE FROM scheduled_jobs WHERE project_id = @project_id;
 -- tenant: system - delivery workers across organisations.
 -- Live projects with at least one webhook.
 SELECT p.* FROM projects p
-WHERE p.deleted_at IS NULL AND EXISTS (SELECT 1 FROM webhooks w WHERE w.project_id = p.id)
+WHERE p.deleted_at IS NULL AND p.lifecycle = 'active' -- paused projects' deliveries wait (V3 §4.2)
+  AND EXISTS (SELECT 1 FROM webhooks w WHERE w.project_id = p.id)
 ORDER BY p.id;
 
 -- name: InsertDelivery :one

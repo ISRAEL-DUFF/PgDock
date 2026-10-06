@@ -917,6 +917,29 @@ export interface paths {
         patch: operations["updateProjectHA"];
         trace?: never;
     };
+    "/api/v1/projects/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused or archived Free project
+         * @description Queues `resume_project` for a paused project (seconds) or
+         *     `unarchive_project` for an archived one, which restores it from its
+         *     archive backup (minutes). The first client connection does the same
+         *     by itself (V3 §4.2).
+         */
+        post: operations["resumeProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/switchover": {
         parameters: {
             query?: never;
@@ -4227,6 +4250,20 @@ export interface components {
         };
         Project: {
             /**
+             * @description A Free project paused or archived for inactivity (V3 §4).
+             * @enum {string}
+             */
+            lifecycle?: "active" | "paused" | "archived";
+            /**
+             * Format: date-time
+             * @description The last time a client was seen through the poolers.
+             */
+            last_active_at?: string | null;
+            /** Format: date-time */
+            paused_at?: string | null;
+            /** Format: date-time */
+            archived_at?: string | null;
+            /**
              * Format: uuid
              * @description Set for a branch (V2 §8).
              */
@@ -4475,7 +4512,7 @@ export interface components {
             operation?: components["schemas"]["Operation"];
         };
         /** @enum {string} */
-        BackupKind: "logical" | "base" | "final" | "safety" | "metadata";
+        BackupKind: "logical" | "base" | "final" | "safety" | "metadata" | "archive";
         Backup: {
             /** Format: uuid */
             id: string;
@@ -8513,6 +8550,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HAStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resumeProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

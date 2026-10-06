@@ -284,6 +284,7 @@ func (e BackupStatus) Valid() bool {
 
 // Defines values for BackupKind.
 const (
+	BackupKindArchive  BackupKind = "archive"
 	BackupKindBase     BackupKind = "base"
 	BackupKindFinal    BackupKind = "final"
 	BackupKindLogical  BackupKind = "logical"
@@ -294,6 +295,8 @@ const (
 // Valid indicates whether the value is a known member of the BackupKind enum.
 func (e BackupKind) Valid() bool {
 	switch e {
+	case BackupKindArchive:
+		return true
 	case BackupKindBase:
 		return true
 	case BackupKindFinal:
@@ -1422,6 +1425,27 @@ const (
 func (e PricesCurrency) Valid() bool {
 	switch e {
 	case NGN:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectLifecycle.
+const (
+	ProjectLifecycleActive   ProjectLifecycle = "active"
+	ProjectLifecycleArchived ProjectLifecycle = "archived"
+	ProjectLifecyclePaused   ProjectLifecycle = "paused"
+)
+
+// Valid indicates whether the value is a known member of the ProjectLifecycle enum.
+func (e ProjectLifecycle) Valid() bool {
+	switch e {
+	case ProjectLifecycleActive:
+		return true
+	case ProjectLifecycleArchived:
+		return true
+	case ProjectLifecyclePaused:
 		return true
 	default:
 		return false
@@ -4924,7 +4948,8 @@ type ProfileList struct {
 
 // Project defines model for Project.
 type Project struct {
-	Branch *BranchInfo `json:"branch,omitempty"`
+	ArchivedAt *time.Time  `json:"archived_at,omitempty"`
+	Branch     *BranchInfo `json:"branch,omitempty"`
 
 	// BranchCount Live branches of this project.
 	BranchCount *int `json:"branch_count,omitempty"`
@@ -4938,18 +4963,25 @@ type Project struct {
 	Id                   openapi_types.UUID `json:"id"`
 	Instance             *InstanceSummary   `json:"instance,omitempty"`
 
+	// LastActiveAt The last time a client was seen through the poolers.
+	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
+
 	// LastBackupAt When the latest backup of this project finished.
 	LastBackupAt *time.Time `json:"last_backup_at,omitempty"`
 
 	// LegacyCredentialsUntil The V1 credentials stop working at this time.
-	LegacyCredentialsUntil *time.Time         `json:"legacy_credentials_until,omitempty"`
-	MyRole                 *ProjectRole       `json:"my_role,omitempty"`
-	Name                   string             `json:"name"`
-	OrgId                  openapi_types.UUID `json:"org_id"`
-	OwnerRole              string             `json:"owner_role"`
+	LegacyCredentialsUntil *time.Time `json:"legacy_credentials_until,omitempty"`
+
+	// Lifecycle A Free project paused or archived for inactivity (V3 §4).
+	Lifecycle *ProjectLifecycle  `json:"lifecycle,omitempty"`
+	MyRole    *ProjectRole       `json:"my_role,omitempty"`
+	Name      string             `json:"name"`
+	OrgId     openapi_types.UUID `json:"org_id"`
+	OwnerRole string             `json:"owner_role"`
 
 	// ParentProjectId Set for a branch (V2 §8).
 	ParentProjectId *openapi_types.UUID `json:"parent_project_id,omitempty"`
+	PausedAt        *time.Time          `json:"paused_at,omitempty"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
@@ -4967,6 +4999,9 @@ type Project struct {
 	StorageState *StorageState `json:"storage_state,omitempty"`
 	Tier         ProjectTier   `json:"tier"`
 }
+
+// ProjectLifecycle A Free project paused or archived for inactivity (V3 §4).
+type ProjectLifecycle string
 
 // ProjectBackupKey defines model for ProjectBackupKey.
 type ProjectBackupKey struct {
@@ -9458,6 +9493,16 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
 	ResetBranch(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResumeProject Resume a paused or archived Free project
+	//
+	// Queues `resume_project` for a paused project (seconds) or
+	// `unarchive_project` for an archived one, which restores it from its
+	// archive backup (minutes). The first client connection does the same
+	// by itself (V3 §4.2).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/resume (the `ResumeProject` operationId).
+	ResumeProject(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RotateProjectPassword Rotate the project password
 	//
@@ -15567,6 +15612,26 @@ func (c *Client) ResetBranchWithBody(ctx context.Context, id ProjectID, contentT
 // Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
 func (c *Client) ResetBranch(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewResetBranchRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResumeProject Resume a paused or archived Free project
+//
+// Queues `resume_project` for a paused project (seconds) or
+// `unarchive_project` for an archived one, which restores it from its
+// archive backup (minutes). The first client connection does the same
+// by itself (V3 §4.2).
+//
+// Corresponds with POST /api/v1/projects/{id}/resume (the `ResumeProject` operationId).
+func (c *Client) ResumeProject(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResumeProjectRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -26602,6 +26667,40 @@ func NewResetBranchRequestWithBody(server string, id ProjectID, contentType stri
 	return req, nil
 }
 
+// NewResumeProjectRequest constructs an http.Request for the ResumeProject method
+func NewResumeProjectRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/resume", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRotateProjectPasswordRequest constructs an http.Request for the RotateProjectPassword method
 func NewRotateProjectPasswordRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -31765,6 +31864,18 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
 	ResetBranchWithResponse(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*ResetBranchResponse, error)
+
+	// ResumeProjectWithResponse Resume a paused or archived Free project
+	//
+	// Queues `resume_project` for a paused project (seconds) or
+	// `unarchive_project` for an archived one, which restores it from its
+	// archive backup (minutes). The first client connection does the same
+	// by itself (V3 §4.2).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/resume (the `ResumeProject` operationId).
+	ResumeProjectWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ResumeProjectResponse, error)
 
 	// RotateProjectPasswordWithResponse Rotate the project password
 	//
@@ -42904,6 +43015,54 @@ func (r ResetBranchResponse) ContentType() string {
 	return ""
 }
 
+type ResumeProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ResumeProjectResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ResumeProjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ResumeProjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ResumeProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResumeProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResumeProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type RotateProjectPasswordResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -50098,6 +50257,24 @@ func (c *ClientWithResponses) ResetBranchWithResponse(ctx context.Context, id Pr
 		return nil, err
 	}
 	return ParseResetBranchResponse(rsp)
+}
+
+// ResumeProjectWithResponse Resume a paused or archived Free project
+//
+// Queues `resume_project` for a paused project (seconds) or
+// `unarchive_project` for an archived one, which restores it from its
+// archive backup (minutes). The first client connection does the same
+// by itself (V3 §4.2).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/resume (the `ResumeProject` operationId).
+func (c *ClientWithResponses) ResumeProjectWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ResumeProjectResponse, error) {
+	rsp, err := c.ResumeProject(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResumeProjectResponse(rsp)
 }
 
 // RotateProjectPasswordWithResponse Rotate the project password
@@ -58504,6 +58681,39 @@ func ParseResetBranchResponse(rsp *http.Response) (*ResetBranchResponse, error) 
 	}
 
 	response := &ResetBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResumeProjectResponse parses an HTTP response from a ResumeProjectWithResponse call
+func ParseResumeProjectResponse(rsp *http.Response) (*ResumeProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResumeProjectResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

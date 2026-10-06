@@ -42,6 +42,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/floatip"
+	"github.com/israel-duff/pgdock/internal/freetier"
 	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
@@ -64,6 +65,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/tlscert"
 	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/pgdock/internal/waker"
 	"github.com/israel-duff/pgdock/internal/webhooks"
 	"github.com/israel-duff/pgdock/web"
 )
@@ -289,6 +291,39 @@ func run() error {
 		go func() { defer bg.Done(); branchSvc.Run(bgCtx, 10*time.Minute) }()
 	}
 
+	// The Free tier: pause idle Free projects, archive long-paused ones,
+	// and wake them on the next connection (V3 §4).
+	var freeSvc *freetier.Service
+	if backups != nil {
+		freeSvc = freetier.New(pool, projects, backups, mailSvc, freetier.Config{
+			PauseAfter: cfg.FreeTier.PauseAfter, ArchiveAfter: cfg.FreeTier.ArchiveAfter, DeleteAfter: cfg.FreeTier.DeleteAfter,
+			PublicURL: cfg.Insight.PublicURL,
+		}, log)
+		for name, k := range freeSvc.Kinds() {
+			kinds[name] = k
+		}
+		if host, port := cfg.FreeTier.WakerHostPort(); host != "" {
+			ln, err := net.Listen("tcp", cfg.FreeTier.WakerListen)
+			if err != nil {
+				return fmt.Errorf("waker: listen on %s: %w", cfg.FreeTier.WakerListen, err)
+			}
+			pm.SetWaker(host, port)
+			ws := waker.New(freeSvc, log)
+			bg.Add(1)
+			go func() {
+				defer bg.Done()
+				if err := ws.Serve(bgCtx, ln); err != nil {
+					log.Error("waker stopped", "err", err)
+				}
+			}()
+			log.Info("waker listening", "listen", cfg.FreeTier.WakerListen, "pooler_address", cfg.FreeTier.WakerAddr)
+		} else {
+			log.Info("PGDOCK_WAKER_ADDR is not set: idle Free projects are not paused")
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); freeSvc.Run(bgCtx, time.Hour) }()
+	}
+
 	// Database webhooks, scheduled jobs and their outbound requests (V2 §9).
 	var webhookSvc *webhooks.Service
 	var jobSvc *schedjobs.Service
@@ -404,6 +439,7 @@ func run() error {
 		Mail:            mailSvc,
 		Tenancy:         tenancySvc,
 		Branches:        branchSvc,
+		FreeTier:        freeSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,

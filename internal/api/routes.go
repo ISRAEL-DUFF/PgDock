@@ -158,6 +158,7 @@ var routeRules = map[string]rule{
 	"PATCH /api/v1/projects/{id}/ha":                               {scope: scopeProject, action: authz.ProjectPromote},
 	"DELETE /api/v1/projects/{id}/ha":                              {scope: scopeProject, action: authz.ProjectPromote},
 	"POST /api/v1/projects/{id}/switchover":                        {scope: scopeProject, action: authz.ProjectPromote},
+	"POST /api/v1/projects/{id}/resume":                            {scope: scopeProject, action: authz.ProjectView},
 	"POST /api/v1/projects/{id}/upgrade/preflight":                 {scope: scopeProject, action: authz.ProjectPromote},
 	"POST /api/v1/projects/{id}/upgrade":                           {scope: scopeProject, action: authz.ProjectPromote},
 	"POST /api/v1/admin/projects/{project_id}/move":                {scope: scopePlatform, action: authz.PlatformManage},
