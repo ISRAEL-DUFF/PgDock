@@ -86,8 +86,15 @@ export function AdminRegionsPage() {
                   {r.status === "hidden" && " · hidden"}
                 </div>
               </td>
-              <td className="px-3 py-2 font-mono text-xs">
-                {r.pooler_host || "platform host"}
+              <td className="px-3 py-2">
+                <div className="font-mono text-xs">
+                  {r.pooler_host || "platform host"}
+                </div>
+                <div className="text-xs text-muted">
+                  {r.home || r.pooler_hosts > 0
+                    ? `${r.pooler_hosts} pooler host${r.pooler_hosts === 1 ? "" : "s"}`
+                    : "served by the home poolers"}
+                </div>
               </td>
               <td className="px-3 py-2">{targetName(r.storage_target_id)}</td>
               <td className="px-3 py-2">
