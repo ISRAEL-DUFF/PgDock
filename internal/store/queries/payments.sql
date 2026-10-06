@@ -241,6 +241,10 @@ UPDATE billing_accounts SET auto_topup = sqlc.narg(auto_topup), updated_at = now
 INSERT INTO dunning_steps (org_id, cycle, step, detail) VALUES (@org_id, @cycle, @step, sqlc.narg(detail))
 ON CONFLICT (org_id, cycle, step) DO NOTHING RETURNING *;
 
+-- name: DeleteDunningStep :exec
+-- tenant: system - a step that didn't happen (the provider was down), to be retried.
+DELETE FROM dunning_steps WHERE org_id = @org_id AND cycle = @cycle AND step = @step;
+
 -- name: OrgDunningSteps :many
 -- tenant: system - an org's steps in a cycle.
 SELECT * FROM dunning_steps WHERE org_id = @org_id AND cycle = @cycle ORDER BY taken_at;
@@ -265,6 +269,13 @@ SELECT b.*, o.status AS org_status, o.name AS org_name FROM billing_accounts b J
 WHERE o.status <> 'deleted' AND (b.dunning_state <> 'ok' OR b.card_failing_since IS NOT NULL
   OR EXISTS (SELECT 1 FROM invoices i WHERE i.org_id = b.org_id AND i.status IN ('issued', 'partially_paid') AND i.total_minor > 0 AND i.due_at < @at::timestamptz)
   OR b.zero_balance_at IS NOT NULL);
+
+-- name: ChargesDeferredByOutage :many
+-- tenant: system - open invoices whose last automatic charge hit a provider outage.
+SELECT i.* FROM invoices i JOIN billing_accounts b ON b.org_id = i.org_id
+WHERE i.status IN ('issued', 'partially_paid') AND b.card_failing_since IS NULL
+  AND (SELECT pi.error FROM payment_intents pi WHERE pi.invoice_id = i.id AND pi.automatic
+       ORDER BY pi.created_at DESC LIMIT 1) LIKE 'provider unavailable%';
 
 -- name: SetProviderCustomer :exec
 -- tenant: system - an org's customer id at a provider.

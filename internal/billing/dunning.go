@@ -110,6 +110,15 @@ func (s *Service) owing(ctx context.Context, a store.BillingAccount, now time.Ti
 // along the ladder (V3 §3.8).
 func (s *Service) RunDunning(ctx context.Context) error {
 	q := store.New(s.db)
+	// Charges on issue that a provider outage stopped are tried again; a
+	// decline now starts the card retries as usual.
+	deferred, err := q.ChargesDeferredByOutage(ctx)
+	if err != nil {
+		return err
+	}
+	for _, inv := range deferred {
+		s.chargeOnIssue(ctx, inv)
+	}
 	accts, err := q.DunningAccounts(ctx, s.Now())
 	if err != nil {
 		return err
@@ -142,10 +151,18 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 			} else if err != nil {
 				return err
 			}
-			if ok, err := s.retryCard(ctx, orgID); err != nil {
+			ok, down, err := s.retryCard(ctx, orgID)
+			if err != nil {
 				return err
-			} else if ok {
+			}
+			if ok {
 				return s.Reevaluate(ctx, orgID)
+			}
+			if down {
+				// A provider outage isn't the customer's failure: the retry
+				// stays due and the next run tries again (M27 chaos test).
+				s.log.Warn("billing: card retry deferred, provider unavailable", "org", orgID, "step", step)
+				return q.DeleteDunningStep(ctx, store.DeleteDunningStepParams{OrgID: orgID, Cycle: *a.CardFailingSince, Step: step})
 			}
 			s.notifyOrg(ctx, orgID, "billing.card_failed", fmt.Sprintf("PGDock: a payment for %s failed again", s.orgName(ctx, orgID)),
 				fmt.Sprintf("Retrying the saved card on day %d failed. Update the card or pay another way: %s/org/billing?org=%s\n", d, s.publicURL, orgID))
@@ -238,14 +255,14 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 
 // retryCard charges each open invoice to the default method; true when
 // everything owed is paid.
-func (s *Service) retryCard(ctx context.Context, orgID uuid.UUID) (bool, error) {
+func (s *Service) retryCard(ctx context.Context, orgID uuid.UUID) (ok, unavailable bool, err error) {
 	q := store.New(s.db)
 	m, err := q.DefaultPaymentMethod(ctx, orgID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
+		return false, false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	var invs []store.Invoice
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
@@ -254,7 +271,7 @@ func (s *Service) retryCard(ctx context.Context, orgID uuid.UUID) (bool, error) 
 		return err
 	})
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	for _, inv := range invs {
 		owed, err := outstanding(ctx, q, inv)
@@ -263,13 +280,13 @@ func (s *Service) retryCard(ctx context.Context, orgID uuid.UUID) (bool, error) 
 		}
 		out, err := s.ChargeMethod(ctx, m, &inv.ID, owed)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		if !out.Succeeded {
-			return false, nil
+			return false, out.Unavailable, nil
 		}
 	}
-	return true, nil
+	return true, false, nil
 }
 
 // reevaluate is Reevaluate as a hook after each payment.

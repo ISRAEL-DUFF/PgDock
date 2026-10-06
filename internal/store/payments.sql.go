@@ -52,6 +52,59 @@ func (q *Queries) AddPrepaidDeduction(ctx context.Context, arg AddPrepaidDeducti
 	return err
 }
 
+const chargesDeferredByOutage = `-- name: ChargesDeferredByOutage :many
+SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, i.paid_minor, i.wht_deducted_minor, i.wht_evidenced_at FROM invoices i JOIN billing_accounts b ON b.org_id = i.org_id
+WHERE i.status IN ('issued', 'partially_paid') AND b.card_failing_since IS NULL
+  AND (SELECT pi.error FROM payment_intents pi WHERE pi.invoice_id = i.id AND pi.automatic
+       ORDER BY pi.created_at DESC LIMIT 1) LIKE 'provider unavailable%'
+`
+
+// tenant: system - open invoices whose last automatic charge hit a provider outage.
+func (q *Queries) ChargesDeferredByOutage(ctx context.Context) ([]Invoice, error) {
+	rows, err := q.db.Query(ctx, chargesDeferredByOutage)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Invoice
+	for rows.Next() {
+		var i Invoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Number,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.Status,
+			&i.Held,
+			&i.HoldReason,
+			&i.SubtotalMinor,
+			&i.VatMinor,
+			&i.TotalMinor,
+			&i.WhtExpectedMinor,
+			&i.VatRate,
+			&i.BillTo,
+			&i.Seller,
+			&i.DueAt,
+			&i.IssuedAt,
+			&i.PaidAt,
+			&i.PdfObjectKey,
+			&i.PriceBookVersion,
+			&i.CreatedAt,
+			&i.PaidMinor,
+			&i.WhtDeductedMinor,
+			&i.WhtEvidencedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const defaultPaymentMethod = `-- name: DefaultPaymentMethod :one
 SELECT id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at FROM payment_methods WHERE org_id = $1 AND status = 'active' ORDER BY is_default DESC, created_at LIMIT 1
 `
@@ -78,6 +131,22 @@ func (q *Queries) DefaultPaymentMethod(ctx context.Context, orgID uuid.UUID) (Pa
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const deleteDunningStep = `-- name: DeleteDunningStep :exec
+DELETE FROM dunning_steps WHERE org_id = $1 AND cycle = $2 AND step = $3
+`
+
+type DeleteDunningStepParams struct {
+	OrgID uuid.UUID
+	Cycle time.Time
+	Step  string
+}
+
+// tenant: system - a step that didn't happen (the provider was down), to be retried.
+func (q *Queries) DeleteDunningStep(ctx context.Context, arg DeleteDunningStepParams) error {
+	_, err := q.db.Exec(ctx, deleteDunningStep, arg.OrgID, arg.Cycle, arg.Step)
+	return err
 }
 
 const dunningAccounts = `-- name: DunningAccounts :many
