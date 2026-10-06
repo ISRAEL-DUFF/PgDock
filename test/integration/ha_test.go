@@ -276,11 +276,18 @@ func TestHASwitchoverAndFailover(t *testing.T) {
 		t.Errorf("writes came back after %s, want under 60 s", restored)
 	}
 
-	st = haStatus(t, e, c.Project.Id)
-	l, ok = leaderOf(st)
-	if !ok || l.NodeId != ns[0].Id {
-		t.Fatalf("leader after the failover: %+v", st.Members)
+	// The members' roles are what the agents last reported: the survivor's
+	// can trail its promotion by a few seconds.
+	for deadline := time.Now().Add(30 * time.Second); ; time.Sleep(500 * time.Millisecond) {
+		st = haStatus(t, e, c.Project.Id)
+		if l, ok = leaderOf(st); ok && l.NodeId == ns[0].Id {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("leader after the failover: %+v", st.Members)
+		}
 	}
+	t.Logf("leader reported %s after writes came back", time.Since(killed)-restored)
 	if len(st.Failovers) != 2 || st.Failovers[0].Kind != gen.Failover || st.Failovers[0].DurationMs == nil {
 		t.Fatalf("history after the failover: %+v", st.Failovers)
 	}
