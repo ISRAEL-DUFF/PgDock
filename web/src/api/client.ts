@@ -596,8 +596,9 @@ export const api = {
   }) => request<Payment>("POST", "/api/v1/admin/payments", b),
   uploadProof: (org: string, file: File) =>
     uploadFile(`/api/v1/admin/billing/documents${qs({ org_id: org, filename: file.name })}`, file) as Promise<{ key: string }>,
-  refundPayment: (id: string, amount_minor: number, reason: string) =>
-    request<{ id: string; status: string; amount_minor: number }>("POST", `/api/v1/admin/payments/${id}/refund`, { amount_minor, reason }),
+  refundPayment: (id: string, amount_minor: number, reason: string, reopen_invoices = false) =>
+    request<{ id: string; status: string; amount_minor: number }>("POST", `/api/v1/admin/payments/${id}/refund`, { amount_minor, reason, reopen_invoices }),
+  adminOrgBilling: (org: string) => getJSON<BillingAccount>(`/api/v1/admin/orgs/${org}/billing`),
   paymentEvents: (outcome?: string) => getJSON<{ items: PaymentEvent[] }>(`/api/v1/admin/payment-events${qs({ outcome })}`),
   attributeEvent: (id: number, org_id: string) => request<Payment>("POST", `/api/v1/admin/payment-events/${id}/attribute`, { org_id }),
   outstandingWht: () => getJSON<{ items: OutstandingWht[] }>("/api/v1/admin/wht"),

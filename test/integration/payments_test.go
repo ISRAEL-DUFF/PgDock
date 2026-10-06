@@ -254,3 +254,34 @@ func TestPaymentsAcrossProviders(t *testing.T) {
 		}
 	}
 }
+
+// TestRefundReopeningInvoice refunds a manual payment that paid an
+// invoice: refused from credit alone, then allowed by reopening it.
+func TestRefundReopeningInvoice(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	o := newPayOrg(t, e, "Refunded Co", false)
+	var pay gen.Payment
+	if code := e.Do("POST", "/api/v1/admin/payments", map[string]any{
+		"org_id": o.id, "amount_minor": o.inv.TotalMinor, "reference": "GTB-R-1", "invoice_id": o.inv.Id,
+	}, &pay); code != http.StatusCreated && code != http.StatusOK {
+		t.Fatalf("record: %d", code)
+	}
+	if s := invoiceStatus(e, o.inv.Id); s != "paid" {
+		t.Fatalf("after the payment: %s", s)
+	}
+	path := "/api/v1/admin/payments/" + pay.Id.String() + "/refund"
+	if code := e.Do("POST", path, map[string]any{"amount_minor": 100_000, "reason": "wrong org"}, nil); code != http.StatusBadRequest {
+		t.Errorf("refund without reopening: %d", code)
+	}
+	var rf struct{ Status string }
+	if code := e.Do("POST", path, map[string]any{"amount_minor": 100_000, "reason": "wrong org", "reopen_invoices": true}, &rf); code != http.StatusOK || rf.Status != "completed" {
+		t.Fatalf("refund reopening: %d %+v", code, rf)
+	}
+	if s := invoiceStatus(e, o.inv.Id); s != "partially_paid" {
+		t.Errorf("after the refund: %s", s)
+	}
+	var check gen.LedgerCheck
+	if e.Do("GET", "/api/v1/admin/ledger/check", nil, &check); !check.Balanced {
+		t.Errorf("ledger: %+v", check)
+	}
+}

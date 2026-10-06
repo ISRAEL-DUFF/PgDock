@@ -84,10 +84,17 @@ Each payment posts to the ledger:
 - Cr `receivable` (each invoice it settles) and Cr `credit_balance` (the
   rest).
 
-A refund comes only out of credit: Dr `credit_balance`, Cr `cash`. It is
-posted when the provider confirms it, so money already applied to an
-invoice is never refunded from under it. Credit an invoice first (a
-credit note) if needed.
+A refund comes out of credit: Dr `credit_balance`, Cr `cash`, posted when
+the provider confirms it. To refund money that paid an invoice, either:
+
+- issue a credit note on the invoice first (the invoice was wrong): the
+  credit note becomes credit, and the refund comes from it; or
+- tick **reopen the invoices** on the refund (the money went back to the
+  payer, a chargeback, a payment to the wrong organisation): the part the
+  credit doesn't cover is taken back off the invoices this payment
+  settled, newest first (Dr `receivable`, Cr `credit_balance`). Those
+  invoices are owed again, and dunning applies once they are overdue. If
+  the provider refuses the refund, the credit pays them again.
 
 ## Channels
 
@@ -118,8 +125,13 @@ credit note) if needed.
 
 ## Prepaid
 
-The platform admin makes an organisation prepaid
-(`PATCH /api/v1/admin/orgs/{org}/billing` with `"mode": "prepaid"`). It pays in advance by topping up, by any channel. Every
+The platform admin makes an organisation prepaid (Admin → Organisations →
+the org → Billing; `PATCH /api/v1/admin/orgs/{org}/billing`). That panel
+also sets payment terms, the price book and grandfathering, and shows the
+org's standing. Switching to prepaid is refused while issued invoices are
+open. Switching back to postpaid returns the deductions for months not
+yet invoiced to the balance, and those months are invoiced instead, so
+nothing is counted twice. It pays in advance by topping up, by any channel. Every
 day PGDock rates the month so far (usage and plan changes, plus VAT) and
 deducts the difference since the previous day from the balance. When the
 monthly invoice is issued it is already paid: the final true-up,
@@ -163,7 +175,7 @@ retried on days 3, 5 and 7. Paying returns everything at once: the
 restriction lifts, the org is reinstated and the deletion is cancelled.
 
 The admin can hold the ladder until a date (Admin → Organisations → the
-org → Billing standing), for an org that has agreed to pay later.
+org → Billing), for an org that has agreed to pay later.
 
 ## Reconciliation
 

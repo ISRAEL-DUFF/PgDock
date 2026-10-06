@@ -5041,6 +5041,21 @@ paths:
         default:
           $ref: "#/components/responses/Error"
   /api/v1/admin/orgs/{org}/billing:
+    get:
+      operationId: adminGetOrgBilling
+      summary: An organisation's billing account, as the platform admin sees it
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
     patch:
       operationId: adminUpdateOrgBilling
       summary: The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
@@ -5452,6 +5467,11 @@ paths:
                   format: int64
                 reason:
                   type: string
+                reopen_invoices:
+                  type: boolean
+                  description: >-
+                    When the organisation's credit doesn't cover the refund, take the rest back
+                    off the invoices this payment settled, which are owed again.
       responses:
         "200":
           description: The refund (pending until the provider confirms).

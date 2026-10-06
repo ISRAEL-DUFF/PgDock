@@ -2,6 +2,7 @@ package billing_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -93,6 +94,67 @@ func TestPrepaidDailyDeductionAndTrueUp(t *testing.T) {
 		t.Errorf("Pro revenue %d", b)
 	}
 	mustCheck(t, db)
+}
+
+// Switching a prepaid org to postpaid mid-month returns the month's
+// deductions, so the invoice recognises its revenue once; switching to
+// prepaid is refused while issued invoices are open.
+func TestSwitchingBillingMode(t *testing.T) {
+	s, db, clk, _ := newService(t)
+	ctx := context.Background()
+	org := newOrg(t, db, "acme")
+	makePrepaid(t, s, org)
+	clk.t = day(1)
+	if _, err := s.ChangePlan(ctx, org, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
+		t.Fatal(err)
+	}
+	topup(t, s, org, "isp-1", 5_000_000)
+	clk.t = day(10)
+	if n, err := s.DeductPrepaid(ctx, org); err != nil || n == 0 {
+		t.Fatalf("deducted %d %v", n, err)
+	}
+	a, _ := s.Account(ctx, org)
+	settings := billing.AdminSettings{Mode: billing.ModePostpaid, PaymentTermsDays: 14, PriceBookVersion: a.PriceBookVersion}
+	if _, err := s.AdminUpdate(ctx, org, settings); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := s.CreditAvailable(ctx, db, org); c != 5_000_000 {
+		t.Errorf("credit after switching to postpaid %d", c)
+	}
+	if b := balance(t, db, &org, "revenue:pro"); b != 0 {
+		t.Errorf("Pro revenue left recognised %d", b)
+	}
+
+	// The month's invoice is a receivable, paid from the returned credit.
+	clk.t = time.Date(2026, 11, 1, 3, 0, 0, 0, time.UTC)
+	inv, err := s.Draft(ctx, org, day(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	issued, err := s.Issue(ctx, inv.ID, nil)
+	if err != nil || issued.Status != billing.StatusPaid {
+		t.Fatalf("issue: %+v %v", issued, err)
+	}
+	if b := balance(t, db, &org, "revenue:pro"); b != -3_000_000 {
+		t.Errorf("Pro revenue %d, want October's and November's fee once", b)
+	}
+	if c, _ := s.CreditAvailable(ctx, db, org); c != 5_000_000-issued.TotalMinor {
+		t.Errorf("credit %d after the invoice of %d", c, issued.TotalMinor)
+	}
+	mustCheck(t, db)
+
+	// Back to prepaid: refused while an issued invoice is open.
+	org2 := newOrg(t, db, "globex")
+	inv2 := issuedProInvoice(t, s, clk, org2)
+	a2, _ := s.Account(ctx, org2)
+	pre := billing.AdminSettings{Mode: billing.ModePrepaid, PaymentTermsDays: a2.PaymentTermsDays, PriceBookVersion: a2.PriceBookVersion}
+	if _, err := s.AdminUpdate(ctx, org2, pre); !errors.Is(err, billing.ErrInvalid) {
+		t.Errorf("prepaid with an open invoice: %v", err)
+	}
+	topup(t, s, org2, "isp-2", inv2.TotalMinor)
+	if _, err := s.AdminUpdate(ctx, org2, pre); err != nil {
+		t.Errorf("prepaid once paid: %v", err)
+	}
 }
 
 func TestPrepaidAlertsAndZeroBalance(t *testing.T) {

@@ -569,7 +569,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/billing/settings", "PUT /api/v1/admin/billing/settings",
 		"GET /api/v1/admin/price-books", "POST /api/v1/admin/price-books", "GET /api/v1/admin/price-books/{version}",
 		"PUT /api/v1/admin/price-books/{version}", "DELETE /api/v1/admin/price-books/{version}",
-		"POST /api/v1/admin/price-books/{version}/publish", "PATCH /api/v1/admin/orgs/{org}/billing",
+		"POST /api/v1/admin/price-books/{version}/publish", "GET /api/v1/admin/orgs/{org}/billing", "PATCH /api/v1/admin/orgs/{org}/billing",
 		"POST /api/v1/admin/price-books/{version}/preview", "GET /api/v1/admin/invoices", "POST /api/v1/admin/invoices/draft",
 		"GET /api/v1/admin/invoices/{invoice_id}", "GET /api/v1/admin/invoices/{invoice_id}/pdf",
 		"POST /api/v1/admin/invoices/{invoice_id}/hold", "POST /api/v1/admin/invoices/{invoice_id}/issue",

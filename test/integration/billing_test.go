@@ -251,6 +251,13 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 	if code := e.Do("PATCH", "/api/v1/admin/orgs/"+oid+"/billing", gen.AdminBillingUpdate{Grandfathered: true, Mode: "postpaid", PaymentTermsDays: 30, PriceBookVersion: 1}, &acct); code != http.StatusOK || !acct.Grandfathered || acct.PaymentTermsDays != 30 {
 		t.Fatalf("admin update: %d %+v", code, acct)
 	}
+	var seen gen.BillingAccount
+	if code := e.Do("GET", "/api/v1/admin/orgs/"+oid+"/billing", nil, &seen); code != http.StatusOK || !seen.Grandfathered || seen.PaymentTermsDays != 30 {
+		t.Errorf("admin reads the org's billing: %d %+v", code, seen)
+	}
+	if code := fin.Do("GET", "/api/v1/admin/orgs/"+oid+"/billing", nil, nil); code != http.StatusForbidden {
+		t.Errorf("a billing member reads the admin view: %d", code)
+	}
 	if code := e.Do("PUT", "/api/v1/admin/billing/settings", map[string]any{
 		"vat_rate": "0.075", "wht_rate": "0.05", "auto_issue": true,
 		"seller": map[string]string{"legal_name": "PGDock Ltd", "address": "Lagos", "tin": "999", "vat_number": "VAT-1", "email": "billing@pgdock.test"},

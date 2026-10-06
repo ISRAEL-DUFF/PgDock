@@ -3670,7 +3670,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** An organisation's billing account, as the platform admin sees it */
+        get: operations["adminGetOrgBilling"];
         put?: never;
         post?: never;
         delete?: never;
@@ -13404,6 +13405,29 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    adminGetOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     adminUpdateOrgBilling: {
         parameters: {
             query?: never;
@@ -13827,6 +13851,8 @@ export interface operations {
                     /** Format: int64 */
                     amount_minor: number;
                     reason: string;
+                    /** @description When the organisation's credit doesn't cover the refund, take the rest back off the invoices this payment settled, which are owed again. */
+                    reopen_invoices?: boolean;
                 };
             };
         };

@@ -6455,6 +6455,9 @@ type AdminRecordPaymentJSONBody struct {
 type AdminRefundPaymentJSONBody struct {
 	AmountMinor int64  `json:"amount_minor"`
 	Reason      string `json:"reason"`
+
+	// ReopenInvoices When the organisation's credit doesn't cover the refund, take the rest back off the invoices this payment settled, which are owed again.
+	ReopenInvoices *bool `json:"reopen_invoices,omitempty"`
 }
 
 // PreviewPriceBookJSONBody defines parameters for PreviewPriceBook.
@@ -7203,6 +7206,9 @@ type ServerInterface interface {
 	// AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
 	// (PATCH /api/v1/admin/orgs/{org})
 	AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminGetOrgBilling An organisation's billing account, as the platform admin sees it
+	// (GET /api/v1/admin/orgs/{org}/billing)
+	AdminGetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminUpdateOrgBilling The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
 	// (PATCH /api/v1/admin/orgs/{org}/billing)
 	AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -8121,6 +8127,12 @@ func (_ Unimplemented) AdminGetOrg(w http.ResponseWriter, r *http.Request, org O
 // AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
 // (PATCH /api/v1/admin/orgs/{org})
 func (_ Unimplemented) AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetOrgBilling An organisation's billing account, as the platform admin sees it
+// (GET /api/v1/admin/orgs/{org}/billing)
+func (_ Unimplemented) AdminGetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10341,6 +10353,32 @@ func (siw *ServerInterfaceWrapper) AdminUpdateOrg(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminUpdateOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetOrgBilling(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -18086,6 +18124,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/price-books/{version}/publish", wrapper.PublishPriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs/{org}/billing", wrapper.AdminGetOrgBilling)
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/v1/admin/orgs/{org}/billing", wrapper.AdminUpdateOrgBilling)

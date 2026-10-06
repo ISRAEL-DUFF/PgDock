@@ -484,9 +484,63 @@ func (s *Service) AdminUpdate(ctx context.Context, orgID uuid.UUID, a AdminSetti
 	if _, ok := b.Prices.Plans[cur.Plan]; !ok {
 		return store.BillingAccount{}, invalid("price book %d has no %q plan", a.PriceBookVersion, cur.Plan)
 	}
-	return store.New(s.db).SetBillingAdmin(ctx, store.SetBillingAdminParams{
-		OrgID: orgID, Grandfathered: a.Grandfathered, Mode: a.Mode, PaymentTermsDays: a.PaymentTermsDays, PriceBookVersion: a.PriceBookVersion,
+	var out store.BillingAccount
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		cur, err := q.LockBillingAccount(ctx, orgID)
+		if err != nil {
+			return err
+		}
+		if err := s.switchMode(ctx, tx, cur, a.Mode); err != nil {
+			return err
+		}
+		out, err = q.SetBillingAdmin(ctx, store.SetBillingAdminParams{
+			OrgID: orgID, Grandfathered: a.Grandfathered, Mode: a.Mode, PaymentTermsDays: a.PaymentTermsDays, PriceBookVersion: a.PriceBookVersion,
+		})
+		return err
 	})
+	return out, err
+}
+
+// switchMode prepares a change of billing mode. To prepaid: refused while
+// issued invoices are open, since a prepaid org's payments become credit
+// and wouldn't settle them. To postpaid: deductions for months not yet
+// invoiced go back to the balance (their revenue is recognised when the
+// invoice is issued instead), so the month isn't counted twice.
+func (s *Service) switchMode(ctx context.Context, tx pgx.Tx, cur store.BillingAccount, mode string) error {
+	q := store.New(tx)
+	switch {
+	case cur.Mode == mode:
+		return nil
+	case mode == ModePrepaid:
+		invs, err := q.OpenInvoices(ctx, cur.OrgID)
+		if err != nil {
+			return err
+		}
+		var owed int64
+		for _, inv := range invs {
+			o, err := outstanding(ctx, q, inv)
+			if err != nil {
+				return err
+			}
+			owed += max(o, 0)
+		}
+		if owed > 0 {
+			return invalid("the organisation owes %s on issued invoices; settle or credit them before switching it to prepaid", Naira(owed))
+		}
+		return nil
+	default:
+		months, err := q.UninvoicedPrepaidMonths(ctx, cur.OrgID)
+		if err != nil {
+			return err
+		}
+		for _, m := range months {
+			if _, err := s.deductTo(ctx, tx, cur.OrgID, m.Time, map[string]int64{}, "Prepaid deductions returned on switching to postpaid, "+m.Time.Format("January 2006")); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 // Standing is an org's money position, for the Billing page.

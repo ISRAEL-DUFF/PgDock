@@ -6459,6 +6459,9 @@ type AdminRecordPaymentJSONBody struct {
 type AdminRefundPaymentJSONBody struct {
 	AmountMinor int64  `json:"amount_minor"`
 	Reason      string `json:"reason"`
+
+	// ReopenInvoices When the organisation's credit doesn't cover the refund, take the rest back off the invoices this payment settled, which are owed again.
+	ReopenInvoices *bool `json:"reopen_invoices,omitempty"`
 }
 
 // PreviewPriceBookJSONBody defines parameters for PreviewPriceBook.
@@ -7426,6 +7429,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/admin/orgs/{org} (the `AdminUpdateOrg` operationId).
 	AdminUpdateOrg(ctx context.Context, org OrgID, body AdminUpdateOrgJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminGetOrgBilling An organisation's billing account, as the platform admin sees it
+	//
+	// Corresponds with GET /api/v1/admin/orgs/{org}/billing (the `AdminGetOrgBilling` operationId).
+	AdminGetOrgBilling(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminUpdateOrgBillingWithBody The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
 	//
@@ -10750,6 +10758,21 @@ func (c *Client) AdminUpdateOrgWithBody(ctx context.Context, org OrgID, contentT
 // Corresponds with PATCH /api/v1/admin/orgs/{org} (the `AdminUpdateOrg` operationId).
 func (c *Client) AdminUpdateOrg(ctx context.Context, org OrgID, body AdminUpdateOrgJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminUpdateOrgRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminGetOrgBilling An organisation's billing account, as the platform admin sees it
+//
+// Corresponds with GET /api/v1/admin/orgs/{org}/billing (the `AdminGetOrgBilling` operationId).
+func (c *Client) AdminGetOrgBilling(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminGetOrgBillingRequest(c.Server, org)
 	if err != nil {
 		return nil, err
 	}
@@ -18278,6 +18301,40 @@ func NewAdminUpdateOrgRequestWithBody(server string, org OrgID, contentType stri
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminGetOrgBillingRequest constructs an http.Request for the AdminGetOrgBilling method
+func NewAdminGetOrgBillingRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/orgs/%s/billing", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -29466,6 +29523,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/v1/admin/orgs/{org} (the `AdminUpdateOrg` operationId).
 	AdminUpdateOrgWithResponse(ctx context.Context, org OrgID, body AdminUpdateOrgJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminUpdateOrgResponse, error)
 
+	// AdminGetOrgBillingWithResponse An organisation's billing account, as the platform admin sees it
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/orgs/{org}/billing (the `AdminGetOrgBilling` operationId).
+	AdminGetOrgBillingWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*AdminGetOrgBillingResponse, error)
+
 	// AdminUpdateOrgBillingWithBodyWithResponse The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -33748,6 +33812,54 @@ func (r AdminUpdateOrgResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AdminUpdateOrgResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminGetOrgBillingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BillingAccount
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminGetOrgBillingResponse) GetJSON200() *BillingAccount {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminGetOrgBillingResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminGetOrgBillingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminGetOrgBillingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminGetOrgBillingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminGetOrgBillingResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -46077,6 +46189,19 @@ func (c *ClientWithResponses) AdminUpdateOrgWithResponse(ctx context.Context, or
 	return ParseAdminUpdateOrgResponse(rsp)
 }
 
+// AdminGetOrgBillingWithResponse An organisation's billing account, as the platform admin sees it
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/orgs/{org}/billing (the `AdminGetOrgBilling` operationId).
+func (c *ClientWithResponses) AdminGetOrgBillingWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*AdminGetOrgBillingResponse, error) {
+	rsp, err := c.AdminGetOrgBilling(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminGetOrgBillingResponse(rsp)
+}
+
 // AdminUpdateOrgBillingWithBodyWithResponse The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -52119,6 +52244,39 @@ func ParseAdminUpdateOrgResponse(rsp *http.Response) (*AdminUpdateOrgResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AdminOrg
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminGetOrgBillingResponse parses an HTTP response from a AdminGetOrgBillingWithResponse call
+func ParseAdminGetOrgBillingResponse(rsp *http.Response) (*AdminGetOrgBillingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminGetOrgBillingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BillingAccount
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -350,7 +350,9 @@ func (s *Server) AdminRefundPayment(w http.ResponseWriter, r *http.Request, id g
 	au.target("payment", id.String())
 	au.set("amount_minor", req.AmountMinor)
 	au.set("reason", req.Reason)
-	rf, err := bs.Refund(r.Context(), id, req.AmountMinor, req.Reason, userID(r.Context()))
+	reopen := req.ReopenInvoices != nil && *req.ReopenInvoices
+	au.set("reopen_invoices", reopen)
+	rf, err := bs.Refund(r.Context(), id, req.AmountMinor, req.Reason, reopen, userID(r.Context()))
 	if err != nil && rf.ID == [16]byte{} {
 		s.billingError(w, "refund", err)
 		return

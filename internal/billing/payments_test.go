@@ -161,10 +161,10 @@ func TestManualPaymentAndRefund(t *testing.T) {
 	}
 
 	// Refunds come from credit.
-	if _, err := s.Refund(ctx, st.Payment.ID, 300_000, "overpaid", nil); !errors.Is(err, billing.ErrInvalid) {
+	if _, err := s.Refund(ctx, st.Payment.ID, 300_000, "overpaid", false, nil); !errors.Is(err, billing.ErrInvalid) {
 		t.Errorf("refund beyond the credit: %v", err)
 	}
-	r, err := s.Refund(ctx, st.Payment.ID, 150_000, "overpaid", nil)
+	r, err := s.Refund(ctx, st.Payment.ID, 150_000, "overpaid", false, nil)
 	if err != nil || r.Status != "completed" {
 		t.Fatalf("refund: %+v %v", r, err)
 	}
@@ -173,6 +173,66 @@ func TestManualPaymentAndRefund(t *testing.T) {
 	}
 	if b := balance(t, db, nil, "cash:bank"); b != inv.TotalMinor+50_000 {
 		t.Errorf("cash:bank after the refund %d", b)
+	}
+	mustCheck(t, db)
+}
+
+// A refund of money that paid an invoice reopens the invoice, when asked;
+// a refund the provider refuses pays it again.
+func TestRefundReopensInvoices(t *testing.T) {
+	s, db, clk, _ := newService(t)
+	ctx := context.Background()
+	q := store.New(db)
+	org := newOrg(t, db, "acme")
+	inv := issuedProInvoice(t, s, clk, org)
+	st, err := s.RecordManual(ctx, billing.ManualPayment{OrgID: org, AmountMinor: inv.TotalMinor, Reference: "GTB/0043", InvoiceID: &inv.ID})
+	if err != nil || invoiceNow(t, q, inv.ID).Status != billing.StatusPaid {
+		t.Fatalf("manual: %+v %v", st, err)
+	}
+	if _, err := s.Refund(ctx, st.Payment.ID, 300_000, "paid the wrong org", false, nil); !errors.Is(err, billing.ErrInvalid) {
+		t.Errorf("refund of applied money without reopening: %v", err)
+	}
+	r, err := s.Refund(ctx, st.Payment.ID, 300_000, "paid the wrong org", true, nil)
+	if err != nil || r.Status != "completed" {
+		t.Fatalf("refund: %+v %v", r, err)
+	}
+	now := invoiceNow(t, q, inv.ID)
+	if now.Status != billing.StatusPartiallyPaid || now.PaidMinor != inv.TotalMinor-300_000 || now.PaidAt != nil {
+		t.Errorf("reopened: %s paid %d at %v", now.Status, now.PaidMinor, now.PaidAt)
+	}
+	if b := balance(t, db, &org, "receivable"); b != 300_000 {
+		t.Errorf("receivable %d", b)
+	}
+	if b := balance(t, db, nil, "cash:bank"); b != inv.TotalMinor-300_000 {
+		t.Errorf("cash:bank %d", b)
+	}
+	if c, _ := s.CreditAvailable(ctx, db, org); c != 0 {
+		t.Errorf("credit %d", c)
+	}
+	if _, err := s.Refund(ctx, st.Payment.ID, inv.TotalMinor, "the rest", true, nil); !errors.Is(err, billing.ErrInvalid) {
+		t.Errorf("refund beyond the payment: %v", err)
+	}
+	r, err = s.Refund(ctx, st.Payment.ID, inv.TotalMinor-300_000, "the rest", true, nil)
+	if err != nil || r.Status != "completed" || invoiceNow(t, q, inv.ID).Status != billing.StatusIssued {
+		t.Fatalf("refund the rest: %+v %v %s", r, err, invoiceNow(t, q, inv.ID).Status)
+	}
+	mustCheck(t, db)
+
+	// The provider (here, not configured) refuses: the invoice is paid again.
+	org2 := newOrg(t, db, "globex")
+	inv2 := issuedProInvoice(t, s, clk, org2)
+	st2, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org2, Provider: billing.ProviderFlutterwave, Channel: billing.ChannelCard, ProviderRef: "c-ref", AmountMinor: inv2.TotalMinor})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, err := s.Refund(ctx, st2.Payment.ID, inv2.TotalMinor, "chargeback", true, nil); err == nil || r.Status != "failed" {
+		t.Fatalf("refused refund: %+v %v", r, err)
+	}
+	if now := invoiceNow(t, q, inv2.ID); now.Status != billing.StatusPaid || now.PaidMinor != inv2.TotalMinor {
+		t.Errorf("after a refused refund: %s paid %d", now.Status, now.PaidMinor)
+	}
+	if c, _ := s.CreditAvailable(ctx, db, org2); c != 0 {
+		t.Errorf("credit %d", c)
 	}
 	mustCheck(t, db)
 }

@@ -334,7 +334,7 @@ func TestRefundsAndWebhookAuthentication(t *testing.T) {
 	}
 	w.event(t)
 	pays, _ := store.New(w.db).ListOrgPayments(ctx, store.ListOrgPaymentsParams{OrgID: org, Lim: 1})
-	r, err := w.s.Refund(ctx, pays[0].ID, 200_000, "closing the account", nil)
+	r, err := w.s.Refund(ctx, pays[0].ID, 200_000, "closing the account", false, nil)
 	if err != nil || r.Status != "pending" {
 		t.Fatalf("refund: %+v %v", r, err)
 	}

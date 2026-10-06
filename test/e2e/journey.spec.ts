@@ -1211,6 +1211,17 @@ test.describe("with the saved session", () => {
     await expect(paid).toContainText("GTB-E2E-0001");
     await expect(paid).toContainText("manual");
     await shot(page, "53-admin-payments");
+
+    // The org's billing terms, on its admin page.
+    await page.goto("/admin/orgs");
+    await page.getByRole("link", { name: "Metered team" }).click();
+    const terms = page.getByTestId("org-billing");
+    await expect(terms).toContainText("In good standing");
+    await expect(terms).toContainText("Pro (monthly)");
+    await terms.getByLabel("Payment terms (days)").fill("30");
+    await terms.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(terms).toContainText("Saved.");
+    await expect(terms.getByLabel("Payment terms (days)")).toHaveValue("30");
     await page.goto("/org/billing");
     await expect(page.getByTestId("invoice-row").first()).toContainText("Paid");
     await expect(page.getByTestId("payment-row").first()).toContainText("GTB-E2E-0001");

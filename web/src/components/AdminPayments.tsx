@@ -1,7 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useState } from "react";
-import { api, errorMessage, type Payment } from "../api/client";
+import {
+  api,
+  errorMessage,
+  type BillingAccount,
+  type Payment,
+} from "../api/client";
 import { naira, parseNaira } from "../lib/billing";
 import { formatDate } from "../lib/format";
 import {
@@ -269,11 +274,13 @@ function RefundPayment({
   const qc = useQueryClient();
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
+  const [reopen, setReopen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const { busy, err, run } = useAction();
   const close = () => {
     setAmount("");
     setReason("");
+    setReopen(false);
     setDone(null);
     onClose();
   };
@@ -282,9 +289,9 @@ function RefundPayment({
       const kobo = parseNaira(amount);
       if (!p || !kobo || !reason)
         throw new Error("Enter the amount and a reason.");
-      const r = await api.refundPayment(p.id, kobo, reason);
+      const r = await api.refundPayment(p.id, kobo, reason, reopen);
       setDone(
-        r.status === "succeeded"
+        r.status === "completed"
           ? "Refunded."
           : "The refund was sent; it is posted when the provider confirms it.",
       );
@@ -295,7 +302,7 @@ function RefundPayment({
       open={!!p}
       onOpenChange={(o) => !o && close()}
       title="Refund"
-      description="Refunds come out of the organisation's credit, so only unapplied money can be refunded."
+      description="Refunds come out of the organisation's credit. To refund money that paid an invoice, issue a credit note first, or reopen the invoice so it is owed again."
       testId="refund-payment"
       footer={
         !done && (
@@ -330,6 +337,20 @@ function RefundPayment({
               />
             )}
           </Field>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={reopen}
+              onChange={(e) => setReopen(e.target.checked)}
+            />
+            <span>
+              Beyond the credit, take the money back off the invoices this
+              payment settled (newest first). They are owed again, and dunning
+              applies once they are overdue. For money returned to the payer, a
+              chargeback, or a payment to the wrong organisation.
+            </span>
+          </label>
           {done && <Alert tone="ok">{done}</Alert>}
           {err && <Alert>{err}</Alert>}
         </div>
@@ -626,7 +647,9 @@ export function GraceControl({
         org,
         v ? new Date(v + "T23:59:59Z").toISOString() : null,
       );
-      await qc.invalidateQueries({ queryKey: ["admin", "org", org] });
+      await qc.invalidateQueries({
+        queryKey: ["admin", "org", org, "billing"],
+      });
     });
   return (
     <div className="flex flex-wrap items-end gap-2" data-testid="grace">
@@ -645,7 +668,7 @@ export function GraceControl({
         )}
       </Field>
       <Button busy={busy === "grace"} onClick={() => save(date || null)}>
-        Save
+        Hold
       </Button>
       {until && (
         <Button
@@ -659,5 +682,164 @@ export function GraceControl({
       )}
       {err && <Alert>{err}</Alert>}
     </div>
+  );
+}
+
+const DUNNING_LABEL: Record<string, string> = {
+  ok: "In good standing",
+  overdue: "Overdue",
+  restricted: "Restricted",
+  suspended: "Suspended",
+};
+
+/** An organisation's billing terms and standing, for the platform admin. */
+export function OrgBillingPanel({ org }: { org: string }) {
+  const q = useQuery({
+    queryKey: ["admin", "org", org, "billing"],
+    queryFn: () => api.adminOrgBilling(org),
+  });
+  const books = useQuery({
+    queryKey: ["admin", "price-books"],
+    queryFn: api.priceBooks,
+  });
+  if (q.isError)
+    return (
+      <Panel title="Billing">
+        <Alert>{errorMessage(q.error)}</Alert>
+      </Panel>
+    );
+  if (!q.data) return null;
+  return (
+    <OrgBillingForm
+      key={org}
+      org={org}
+      a={q.data}
+      versions={(books.data?.items ?? [])
+        .filter((b) => b.published_at)
+        .map((b) => b.version)}
+    />
+  );
+}
+
+function OrgBillingForm({
+  org,
+  a,
+  versions,
+}: {
+  org: string;
+  a: BillingAccount;
+  versions: number[];
+}) {
+  const qc = useQueryClient();
+  const [mode, setMode] = useState(a.mode);
+  const [terms, setTerms] = useState(String(a.payment_terms_days ?? 14));
+  const [book, setBook] = useState(a.price_book_version);
+  const [grandfathered, setGrandfathered] = useState(a.grandfathered);
+  const [saved, setSaved] = useState(false);
+  const { busy, err, run } = useAction();
+  const save = () =>
+    run("save", async () => {
+      setSaved(false);
+      const days = Number(terms);
+      if (!Number.isInteger(days) || days < 0)
+        throw new Error("Payment terms are a whole number of days.");
+      await api.adminUpdateOrgBilling(org, {
+        mode,
+        payment_terms_days: days,
+        price_book_version: book,
+        grandfathered,
+      });
+      await qc.invalidateQueries({
+        queryKey: ["admin", "org", org, "billing"],
+      });
+      setSaved(true);
+    });
+  const state = a.dunning_state ?? "ok";
+  const bookOptions = versions.includes(a.price_book_version)
+    ? versions
+    : [a.price_book_version, ...versions];
+  return (
+    <Panel
+      title="Billing"
+      testId="org-billing"
+      description="To prepaid: the month so far is deducted from the balance at the next daily run (refused while issued invoices are open). To postpaid: deductions for months not yet invoiced go back to the balance and the month is invoiced instead."
+      actions={
+        <Badge
+          tone={state === "ok" ? "ok" : state === "overdue" ? "warn" : "danger"}
+        >
+          {DUNNING_LABEL[state] ?? state}
+        </Badge>
+      }
+      footer={
+        <Button variant="primary" busy={busy === "save"} onClick={save}>
+          Save
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted">
+          {a.plan_name} ({a.term}) · credit {naira(a.credit_minor ?? 0)} · owed{" "}
+          {naira(a.owed_minor ?? 0)}
+          {a.overdue_since && (
+            <> · overdue since {formatDate(a.overdue_since)}</>
+          )}
+          {a.deletion_scheduled_at && (
+            <> · deletion due {formatDate(a.deletion_scheduled_at)}</>
+          )}
+        </p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Billing mode">
+            {(id) => (
+              <Select
+                id={id}
+                value={mode}
+                onChange={(e) => setMode(e.target.value as typeof mode)}
+              >
+                <option value="postpaid">Postpaid (invoiced monthly)</option>
+                <option value="prepaid">Prepaid (deducted daily)</option>
+              </Select>
+            )}
+          </Field>
+          <Field label="Payment terms (days)">
+            {(id) => (
+              <Input
+                id={id}
+                inputMode="numeric"
+                value={terms}
+                onChange={(e) => setTerms(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label="Price book">
+            {(id) => (
+              <Select
+                id={id}
+                value={String(book)}
+                onChange={(e) => setBook(Number(e.target.value))}
+              >
+                {bookOptions.map((v) => (
+                  <option key={v} value={v}>
+                    Version {v}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={grandfathered}
+            onChange={(e) => setGrandfathered(e.target.checked)}
+          />
+          Grandfathered: stays on its price book when prices change
+        </label>
+        {saved && <Alert tone="ok">Saved.</Alert>}
+        {err && <Alert>{err}</Alert>}
+        <div className="border-t border-line pt-4">
+          <GraceControl org={org} until={a.grace_until} />
+        </div>
+      </div>
+    </Panel>
   );
 }

@@ -471,6 +471,11 @@ func (s *Server) PublishPriceBook(w http.ResponseWriter, r *http.Request, versio
 	}{pb, n})
 }
 
+// AdminGetOrgBilling implements GET /api/v1/admin/orgs/{org}/billing.
+func (s *Server) AdminGetOrgBilling(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
+	s.GetOrgBilling(w, r, org)
+}
+
 // AdminUpdateOrgBilling implements PATCH /api/v1/admin/orgs/{org}/billing.
 func (s *Server) AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
 	bs := s.billingSvc(w)

@@ -58,8 +58,10 @@ bundle share one version (spec §11.5).
   credit-note uploads, a dunning ladder (overdue, restricted, suspended,
   deletion only if enabled), and nightly reconciliation with each
   provider. Org → Billing, Admin → Billing → Payments / WHT / Events /
-  Reconciliation, `pgdock billing pay|transfer|payments`. See
-  docs/payments.md.
+  Reconciliation, `pgdock billing pay|transfer|payments`. Admin →
+  Organisations → an org → Billing sets its mode (postpaid or prepaid),
+  payment terms and price book. Refunds can reopen the invoices a payment
+  settled. See docs/payments.md.
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
 - New migrations 00022 and 00023 (moves, Postgres releases), 00026

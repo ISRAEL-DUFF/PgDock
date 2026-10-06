@@ -288,3 +288,28 @@ SELECT EXISTS (SELECT 1 FROM payment_intents WHERE org_id = @org_id AND automati
 SELECT i.*, o.name AS org_name, b.legal_name, b.tin FROM invoices i JOIN organizations o ON o.id = i.org_id
 LEFT JOIN billing_accounts b ON b.org_id = i.org_id
 WHERE i.wht_deducted_minor > 0 ORDER BY i.paid_at;
+
+-- name: PaymentAllocationsForUpdate :many
+-- tenant: system - what a payment settled, newest invoice first, locked for a refund.
+SELECT a.* FROM payment_allocations a JOIN invoices i ON i.id = a.invoice_id
+WHERE a.payment_id = @payment_id AND a.amount_minor > 0 AND i.status <> 'void'
+ORDER BY i.issued_at DESC, i.number DESC FOR UPDATE OF a, i;
+
+-- name: UnapplyAllocation :exec
+-- tenant: system - part of a payment taken back off an invoice for a refund.
+UPDATE payment_allocations SET amount_minor = amount_minor - @amount_minor
+WHERE payment_id = @payment_id AND invoice_id = @invoice_id;
+
+-- name: ReopenInvoice :one
+-- tenant: system - an invoice owed again after a refund of what paid it.
+UPDATE invoices SET paid_minor = paid_minor - @amount_minor,
+  status = CASE WHEN paid_minor - @amount_minor = 0 AND wht_deducted_minor = 0 THEN 'issued' ELSE 'partially_paid' END,
+  paid_at = NULL
+WHERE id = @id RETURNING *;
+
+-- name: UninvoicedPrepaidMonths :many
+-- tenant: system - months of a prepaid org's deductions its invoice hasn't trued up yet.
+SELECT d.month FROM prepaid_deductions d
+WHERE d.org_id = @org_id AND NOT EXISTS (
+  SELECT 1 FROM invoices i WHERE i.org_id = d.org_id AND i.period_start = d.month AND i.status <> 'draft')
+GROUP BY d.month HAVING bool_or(d.amount_minor <> 0) ORDER BY d.month;

@@ -1405,6 +1405,38 @@ func (q *Queries) PaymentAllocations(ctx context.Context, paymentID uuid.UUID) (
 	return items, nil
 }
 
+const paymentAllocationsForUpdate = `-- name: PaymentAllocationsForUpdate :many
+SELECT a.payment_id, a.invoice_id, a.amount_minor, a.wht_minor FROM payment_allocations a JOIN invoices i ON i.id = a.invoice_id
+WHERE a.payment_id = $1 AND a.amount_minor > 0 AND i.status <> 'void'
+ORDER BY i.issued_at DESC, i.number DESC FOR UPDATE OF a, i
+`
+
+// tenant: system - what a payment settled, newest invoice first, locked for a refund.
+func (q *Queries) PaymentAllocationsForUpdate(ctx context.Context, paymentID uuid.UUID) ([]PaymentAllocation, error) {
+	rows, err := q.db.Query(ctx, paymentAllocationsForUpdate, paymentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PaymentAllocation
+	for rows.Next() {
+		var i PaymentAllocation
+		if err := rows.Scan(
+			&i.PaymentID,
+			&i.InvoiceID,
+			&i.AmountMinor,
+			&i.WhtMinor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const paymentRefunds = `-- name: PaymentRefunds :many
 SELECT id, payment_id, amount_minor, reason, provider_ref, status, error, created_by, created_at, completed_at FROM refunds WHERE payment_id = $1 ORDER BY created_at
 `
@@ -1534,6 +1566,51 @@ func (q *Queries) RecentAutoTopup(ctx context.Context, arg RecentAutoTopupParams
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const reopenInvoice = `-- name: ReopenInvoice :one
+UPDATE invoices SET paid_minor = paid_minor - $1,
+  status = CASE WHEN paid_minor - $1 = 0 AND wht_deducted_minor = 0 THEN 'issued' ELSE 'partially_paid' END,
+  paid_at = NULL
+WHERE id = $2 RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at
+`
+
+type ReopenInvoiceParams struct {
+	AmountMinor int64
+	ID          uuid.UUID
+}
+
+// tenant: system - an invoice owed again after a refund of what paid it.
+func (q *Queries) ReopenInvoice(ctx context.Context, arg ReopenInvoiceParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, reopenInvoice, arg.AmountMinor, arg.ID)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+		&i.PaidMinor,
+		&i.WhtDeductedMinor,
+		&i.WhtEvidencedAt,
+	)
+	return i, err
 }
 
 const revokeMandateByRef = `-- name: RevokeMandateByRef :one
@@ -1842,6 +1919,51 @@ func (q *Queries) SettleInvoice(ctx context.Context, arg SettleInvoiceParams) (I
 		&i.WhtEvidencedAt,
 	)
 	return i, err
+}
+
+const unapplyAllocation = `-- name: UnapplyAllocation :exec
+UPDATE payment_allocations SET amount_minor = amount_minor - $1
+WHERE payment_id = $2 AND invoice_id = $3
+`
+
+type UnapplyAllocationParams struct {
+	AmountMinor int64
+	PaymentID   uuid.UUID
+	InvoiceID   uuid.UUID
+}
+
+// tenant: system - part of a payment taken back off an invoice for a refund.
+func (q *Queries) UnapplyAllocation(ctx context.Context, arg UnapplyAllocationParams) error {
+	_, err := q.db.Exec(ctx, unapplyAllocation, arg.AmountMinor, arg.PaymentID, arg.InvoiceID)
+	return err
+}
+
+const uninvoicedPrepaidMonths = `-- name: UninvoicedPrepaidMonths :many
+SELECT d.month FROM prepaid_deductions d
+WHERE d.org_id = $1 AND NOT EXISTS (
+  SELECT 1 FROM invoices i WHERE i.org_id = d.org_id AND i.period_start = d.month AND i.status <> 'draft')
+GROUP BY d.month HAVING bool_or(d.amount_minor <> 0) ORDER BY d.month
+`
+
+// tenant: system - months of a prepaid org's deductions its invoice hasn't trued up yet.
+func (q *Queries) UninvoicedPrepaidMonths(ctx context.Context, orgID uuid.UUID) ([]pgtype.Date, error) {
+	rows, err := q.db.Query(ctx, uninvoicedPrepaidMonths, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.Date
+	for rows.Next() {
+		var month pgtype.Date
+		if err := rows.Scan(&month); err != nil {
+			return nil, err
+		}
+		items = append(items, month)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const unmatchedPaymentEvents = `-- name: UnmatchedPaymentEvents :many

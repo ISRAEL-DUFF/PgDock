@@ -303,6 +303,7 @@ var routeRules = map[string]rule{
 	"PUT /api/v1/admin/price-books/{version}":                    {scope: scopePlatform, action: authz.PlatformManage},
 	"DELETE /api/v1/admin/price-books/{version}":                 {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/price-books/{version}/publish":           {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/orgs/{org}/billing":                       {scope: scopePlatform, action: authz.PlatformManage},
 	"PATCH /api/v1/admin/orgs/{org}/billing":                     {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/price-books/{version}/preview":           {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/invoices":                                 {scope: scopePlatform, action: authz.PlatformManage},
