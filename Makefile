@@ -214,10 +214,11 @@ test-move: test-agent-bin pg-image
 		go test -count=1 -p 1 -timeout 4h -run TestMoveUnderLoad -v ./test/integration/
 
 ## test-load: 150 shared projects, pgbench on 10 (spec §13); writes
-## tmp/load-report.md. Needs pgbench.
+## tmp/load-report.md. Needs pgbench. Then rating at 1,000 orgs (V3 M27).
 test-load: pooler-seed test-agent-bin
 	$(COMPOSE) --profile test --profile load up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 90m -v -run TestLoad ./test/load/
+	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 30m -v -run TestRatingLoad ./internal/billing/
 
 ## pg-image: the Postgres + WAL-G images instances run, one per supported
 ## major (V3 §2.4).

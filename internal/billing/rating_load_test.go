@@ -143,6 +143,15 @@ func TestRatingLoad(t *testing.T) {
 	}
 	setupTook := time.Since(setup)
 
+	set, err := s.Settings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set.AutoIssue = true
+	if err := s.SetSettings(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+
 	// Rating each org on its own (what the forecast and previews do).
 	clk.t = time.Date(2026, 11, 1, 3, 0, 0, 0, time.UTC)
 	rateTimes := make([]time.Duration, 0, orgs)

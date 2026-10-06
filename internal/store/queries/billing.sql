@@ -347,18 +347,27 @@ SELECT coalesce((SELECT dunning_state FROM billing_accounts WHERE org_id = @org_
 
 -- name: BillingAuditProblems :many
 -- tenant: system - the M27 billing audit: invariants tying the ledger to invoices, credit notes and payments.
+-- Each transaction's sums, once (joined below rather than correlated, so
+-- the audit stays linear in the ledger's size).
 WITH led AS (
-  SELECT split_part(idempotency_key, '#', 1) AS k, account, direction, amount_minor, org_id FROM ledger_entries
+  SELECT split_part(idempotency_key, '#', 1) AS k,
+    sum(CASE WHEN account = 'receivable' AND direction = 'debit' THEN amount_minor
+             WHEN account = 'credit_balance' AND direction = 'credit' THEN -amount_minor ELSE 0 END)::bigint AS billed,
+    sum(CASE WHEN account <> 'vat_payable' THEN 0 WHEN direction = 'credit' THEN amount_minor ELSE -amount_minor END)::bigint AS vat,
+    sum(CASE WHEN direction = 'credit' THEN amount_minor ELSE 0 END)::bigint AS credits,
+    sum(CASE WHEN direction = 'debit' THEN amount_minor ELSE 0 END)::bigint AS debits
+  FROM ledger_entries GROUP BY 1
 ), inv AS (
-  SELECT i.*, (SELECT coalesce(sum(amount_minor + vat_minor), 0) FROM credit_notes c WHERE c.invoice_id = i.id)::bigint AS credited,
-    EXISTS (SELECT 1 FROM led l WHERE l.k = 'invoice:' || i.id) AS posted,
-    coalesce((SELECT sum(CASE WHEN l.account = 'receivable' AND l.direction = 'debit' THEN l.amount_minor
-                              WHEN l.account = 'credit_balance' AND l.direction = 'credit' THEN -l.amount_minor ELSE 0 END)
-              FROM led l WHERE l.k = 'invoice:' || i.id), 0)::bigint AS ledger_total,
-    coalesce((SELECT sum(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM led l
-              WHERE l.k = 'invoice:' || i.id AND l.account = 'vat_payable'), 0)::bigint AS ledger_vat,
-    coalesce((SELECT sum(d.amount_minor) FROM prepaid_deductions d WHERE d.org_id = i.org_id AND d.month = i.period_start), 0)::bigint AS deducted
-  FROM invoices i WHERE i.status NOT IN ('draft', 'void')
+  SELECT i.*, coalesce(cn.credited, 0)::bigint AS credited, l.k IS NOT NULL AS posted,
+    coalesce(l.billed, 0)::bigint AS ledger_total, coalesce(l.vat, 0)::bigint AS ledger_vat,
+    coalesce(d.deducted, 0)::bigint AS deducted, coalesce(il.lines, 0)::bigint AS lines
+  FROM invoices i
+  LEFT JOIN led l ON l.k = 'invoice:' || i.id
+  LEFT JOIN (SELECT invoice_id, sum(amount_minor + vat_minor) AS credited FROM credit_notes GROUP BY 1) cn ON cn.invoice_id = i.id
+  LEFT JOIN (SELECT org_id, month, sum(amount_minor) AS deducted FROM prepaid_deductions GROUP BY 1, 2) d
+    ON d.org_id = i.org_id AND d.month = i.period_start
+  LEFT JOIN (SELECT invoice_id, sum(amount_minor) AS lines FROM invoice_lines GROUP BY 1) il ON il.invoice_id = i.id
+  WHERE i.status NOT IN ('draft', 'void')
 )
 -- An issued invoice's transaction carries its total and VAT; a prepaid
 -- org's invoice (no transaction of its own) was deducted in full.
@@ -371,10 +380,9 @@ UNION ALL
 -- An invoice's arithmetic: lines add up to the subtotal, VAT is the
 -- subtotal at the rate rounded half away from zero, total is both.
 SELECT 'invoice_arithmetic', coalesce(i.number, i.id::text),
-  format('subtotal %s, lines %s, VAT %s at %s, total %s', i.subtotal_minor,
-    (SELECT coalesce(sum(amount_minor), 0) FROM invoice_lines l WHERE l.invoice_id = i.id), i.vat_minor, i.vat_rate, i.total_minor)
+  format('subtotal %s, lines %s, VAT %s at %s, total %s', i.subtotal_minor, i.lines, i.vat_minor, i.vat_rate, i.total_minor)
 FROM inv i
-WHERE i.subtotal_minor <> (SELECT coalesce(sum(amount_minor), 0) FROM invoice_lines l WHERE l.invoice_id = i.id)
+WHERE i.subtotal_minor <> i.lines
    OR i.vat_minor <> round(i.subtotal_minor * i.vat_rate)
    OR i.total_minor <> i.subtotal_minor + i.vat_minor
 UNION ALL
@@ -397,17 +405,15 @@ WHERE i.total_minor > 0 AND (i.paid_minor + i.wht_deducted_minor > i.total_minor
 UNION ALL
 -- A credit note's transaction gives back its amount and VAT.
 SELECT 'credit_note_ledger', c.number,
-  format('note %s, ledger %s', c.amount_minor + c.vat_minor,
-    coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'credit_note:' || c.id AND l.direction = 'credit'), 0))
-FROM credit_notes c
-WHERE c.amount_minor + c.vat_minor <> coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'credit_note:' || c.id AND l.direction = 'credit'), 0)
+  format('note %s, ledger %s', c.amount_minor + c.vat_minor, coalesce(l.credits, 0))
+FROM credit_notes c LEFT JOIN led l ON l.k = 'credit_note:' || c.id
+WHERE c.amount_minor + c.vat_minor <> coalesce(l.credits, 0)
 UNION ALL
 -- A payment's transaction brings in its amount (cash and fees).
 SELECT 'payment_ledger', p.provider || ':' || p.provider_ref,
-  format('payment %s, ledger %s', p.amount_minor,
-    coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'payment:' || p.id AND l.direction = 'debit'), 0))
-FROM payments p
-WHERE p.amount_minor <> coalesce((SELECT sum(l.amount_minor) FROM led l WHERE l.k = 'payment:' || p.id AND l.direction = 'debit'), 0)
+  format('payment %s, ledger %s', p.amount_minor, coalesce(l.debits, 0))
+FROM payments p LEFT JOIN led l ON l.k = 'payment:' || p.id
+WHERE p.amount_minor <> coalesce(l.debits, 0)
 UNION ALL
 -- An organisation's receivable is what its open invoices still owe.
 SELECT 'receivable', o.org_id::text,
