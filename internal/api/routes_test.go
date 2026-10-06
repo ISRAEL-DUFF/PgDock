@@ -118,6 +118,7 @@ var expected = map[authz.Action][]string{
 	authz.OrgOwnerOnly:       {rOwner},
 	authz.OrgBillingManage:   {rOwner, rBilling}, // V3 §3.2: not admins
 	authz.ProjectExport:      {rOwner},
+	authz.ProjectResidency:   {rOwner},
 	authz.PlatformManage:     {rPlatform},
 }
 
@@ -231,7 +232,8 @@ func newMatrixWorld(t *testing.T) *matrixWorld {
 		}
 	}
 	p, err := q.InsertProject(ctx, store.InsertProjectParams{
-		ID: uuid.New(), OrgID: w.orgA, Name: "P", Slug: "p", DbName: "p_abcd", OwnerRole: "p_abcd_owner",
+		Region: "eu-central",
+		ID:     uuid.New(), OrgID: w.orgA, Name: "P", Slug: "p", DbName: "p_abcd", OwnerRole: "p_abcd_owner",
 		ScramVerifier: "x", Tier: "shared", InstanceID: inst, Settings: []byte(`{}`),
 	})
 	if err != nil {

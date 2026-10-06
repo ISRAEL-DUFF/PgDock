@@ -99,7 +99,8 @@ func (e *env) project(t *testing.T, inst store.Instance, name string, deleted bo
 		t.Fatal(err)
 	}
 	p, err := store.New(e.db).InsertProject(ctx, store.InsertProjectParams{
-		ID: uuid.New(), OrgID: org, Name: name, Slug: name, DbName: name, OwnerRole: name + "_owner",
+		Region: "eu-central",
+		ID:     uuid.New(), OrgID: org, Name: name, Slug: name, DbName: name, OwnerRole: name + "_owner",
 		ScramVerifier: "SCRAM-SHA-256$4096:x$y:z", Tier: "dedicated", InstanceID: inst.ID, Settings: []byte(`{}`),
 	})
 	if err != nil {

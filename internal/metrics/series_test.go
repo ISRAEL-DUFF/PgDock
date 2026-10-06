@@ -41,7 +41,8 @@ func TestPrometheusLabelsDoNotExposeTenantNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, err := q.InsertProject(ctx, store.InsertProjectParams{
-		ID: uuid.New(), OrgID: org, Name: projectName, Slug: "acme-takeover-plan", DbName: dbName, OwnerRole: dbName + "_owner",
+		Region: "eu-central",
+		ID:     uuid.New(), OrgID: org, Name: projectName, Slug: "acme-takeover-plan", DbName: dbName, OwnerRole: dbName + "_owner",
 		ScramVerifier: "SCRAM-SHA-256$4096:x$y:z", Tier: "shared", InstanceID: inst.ID, Settings: []byte(`{}`),
 	})
 	if err != nil {
