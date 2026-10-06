@@ -165,7 +165,7 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 				// Losing etcd's quorum doesn't demote a primary that can
 				// still reach every member (M27 chaos test).
 				"failsafe_mode": true,
-				"postgresql":       map[string]any{"use_pg_rewind": true, "use_slots": true, "parameters": dcs},
+				"postgresql":    map[string]any{"use_pg_rewind": true, "use_slots": true, "parameters": dcs},
 			},
 		},
 		"postgresql": map[string]any{
