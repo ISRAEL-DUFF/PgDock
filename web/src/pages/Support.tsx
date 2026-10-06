@@ -80,26 +80,39 @@ function dueLabel(
 function Thread({ messages }: { messages: TicketMessage[] }) {
   return (
     <ol className="flex flex-col gap-3" data-testid="ticket-thread">
-      {messages.map((m) => (
-        <li
-          key={m.id}
-          className={
-            m.direction === "note"
-              ? "rounded-md border border-warn/40 bg-warn/5 p-3"
-              : m.direction === "out"
-                ? "ml-6 rounded-md border border-accent/30 bg-accent/5 p-3"
-                : "mr-6 rounded-md border border-line bg-surface-2 p-3"
-          }
-          data-testid={`message-${m.direction}`}
-        >
-          <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className="font-medium text-fg">{m.author}</span>
-            {m.direction === "note" && <Badge tone="warn">internal note</Badge>}
-            <span>{formatDate(m.created_at)}</span>
-          </div>
-          <div className="text-[13px] whitespace-pre-wrap">{m.body}</div>
-        </li>
-      ))}
+      {messages.map((m) =>
+        m.direction === "note" && m.author === "system" ? (
+          // PGDock's own record of an email it sent (kept to thread replies).
+          <li
+            key={m.id}
+            className="text-center text-[11px] text-muted"
+            data-testid="message-system"
+          >
+            {m.body} · {formatDate(m.created_at)}
+          </li>
+        ) : (
+          <li
+            key={m.id}
+            className={
+              m.direction === "note"
+                ? "rounded-md border border-warn/40 bg-warn/5 p-3"
+                : m.direction === "out"
+                  ? "ml-6 rounded-md border border-accent/30 bg-accent/5 p-3"
+                  : "mr-6 rounded-md border border-line bg-surface-2 p-3"
+            }
+            data-testid={`message-${m.direction}`}
+          >
+            <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+              <span className="font-medium text-fg">{m.author}</span>
+              {m.direction === "note" && (
+                <Badge tone="warn">internal note</Badge>
+              )}
+              <span>{formatDate(m.created_at)}</span>
+            </div>
+            <div className="text-[13px] whitespace-pre-wrap">{m.body}</div>
+          </li>
+        ),
+      )}
     </ol>
   );
 }
