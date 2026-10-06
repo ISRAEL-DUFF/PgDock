@@ -29,6 +29,7 @@ SELECT r.id,
 FROM regions r ORDER BY r.created_at, r.id;
 
 -- name: SetProjectResidency :one
+-- tenant: system - a project the request already authorized (owners only).
 UPDATE projects SET data_residency = @data_residency WHERE id = @id AND deleted_at IS NULL RETURNING *;
 
 -- name: SetProjectRegion :exec
@@ -39,4 +40,5 @@ UPDATE projects SET forward_region = CASE WHEN region <> @region THEN region ELS
 WHERE id = @id;
 
 -- name: SetStorageTargetRegion :exec
+-- tenant: system - the platform admin marks a platform target as in a region.
 UPDATE storage_targets SET pgdock_region = sqlc.narg(pgdock_region) WHERE id = @id;

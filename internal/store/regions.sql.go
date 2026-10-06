@@ -165,6 +165,7 @@ type SetProjectResidencyParams struct {
 	ID            uuid.UUID
 }
 
+// tenant: system - a project the request already authorized (owners only).
 func (q *Queries) SetProjectResidency(ctx context.Context, arg SetProjectResidencyParams) (Project, error) {
 	row := q.db.QueryRow(ctx, setProjectResidency, arg.DataResidency, arg.ID)
 	var i Project
@@ -225,6 +226,7 @@ type SetStorageTargetRegionParams struct {
 	ID           uuid.UUID
 }
 
+// tenant: system - the platform admin marks a platform target as in a region.
 func (q *Queries) SetStorageTargetRegion(ctx context.Context, arg SetStorageTargetRegionParams) error {
 	_, err := q.db.Exec(ctx, setStorageTargetRegion, arg.PgdockRegion, arg.ID)
 	return err
