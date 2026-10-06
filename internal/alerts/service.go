@@ -37,8 +37,8 @@ const (
 	KindIsolationCheck     = "isolation_check_failed"
 	// Capacity automation (V3 §5.2): a proposal waits for approval, or a
 	// provisioning failed in the last day.
-	KindCapacityProposal = "capacity_proposal"
-	KindCapacityFailed   = "capacity_failed"
+	KindCapacityProposal   = "capacity_proposal"
+	KindCapacityFailed     = "capacity_failed"
 	SeverityWarning        = "warning"
 	SeverityCritical       = "critical"
 	defaultInterval        = 30 * time.Second
