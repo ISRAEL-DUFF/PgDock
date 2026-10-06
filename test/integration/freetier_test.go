@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/freetier"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/waker"
@@ -172,4 +173,66 @@ func busy(t *testing.T, e *testenv.Env, p gen.Project) bool {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// TestFreeTierSweepRules: paid plans are never paused (and a sleeping
+// project whose organisation starts paying wakes); an archived project
+// gets its notices, most urgent first, and is deleted when due.
+func TestFreeTierSweepRules(t *testing.T) {
+	e := testenv.Start(t, testenv.Options{})
+	ctx := context.Background()
+	c := e.CreateProject("Paid soon")
+	if _, err := e.DB.Exec(ctx, `UPDATE projects SET last_active_at = now() - interval '30 days', pause_warned_at = now() - interval '2 days' WHERE id = $1`, c.Project.Id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Billing.ChangePlan(ctx, e.OrgID, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
+		t.Fatal(err)
+	}
+	if sw, err := e.FreeTier.Sweep(ctx); err != nil || sw.Paused != 0 || sw.Warned != 0 {
+		t.Fatalf("a Pro project was swept: %+v %v", sw, err)
+	}
+
+	// Asleep while on Free, then the organisation pays: it wakes.
+	if _, err := e.DB.Exec(ctx, `UPDATE projects SET lifecycle = 'paused', paused_at = now() WHERE id = $1`, c.Project.Id); err != nil {
+		t.Fatal(err)
+	}
+	if sw, err := e.FreeTier.Sweep(ctx); err != nil || sw.Resumed != 1 {
+		t.Fatalf("waking a paid project: %+v %v", sw, err)
+	}
+	awaitPay(t, "the paid project's resume", func() bool { return lifecycle(t, e, c.Project).Lifecycle == freetier.Active && !busy(t, e, c.Project) })
+
+	// An archived Free project, 360 days in: only the 7-day notice (the
+	// 30-day one is past), then deletion once the year is up.
+	if _, err := e.Billing.ChangePlan(ctx, e.OrgID, billing.PlanRequest{Plan: billing.PlanFree, Immediately: true}); err != nil {
+		t.Fatal(err)
+	}
+	d := e.CreateProject("Long gone")
+	if _, err := e.DB.Exec(ctx, `UPDATE projects SET lifecycle = 'archived', paused_at = now() - interval '450 days', archived_at = now() - interval '360 days' WHERE id = $1`, d.Project.Id); err != nil {
+		t.Fatal(err)
+	}
+	if sw, err := e.FreeTier.Sweep(ctx); err != nil || sw.Noticed != 1 || sw.Deleted != 0 {
+		t.Fatalf("notice sweep: %+v %v", sw, err)
+	}
+	if p := lifecycle(t, e, d.Project); p.ArchiveNoticeDays == nil || *p.ArchiveNoticeDays != 7 {
+		t.Fatalf("notice recorded: %v", p.ArchiveNoticeDays)
+	}
+	if n := e.SMTP.Count(testenv.OwnerEmail, "Long gone will be deleted in 7 days"); n != 1 {
+		t.Errorf("7-day notices: %d", n)
+	}
+	if n := e.SMTP.Count(testenv.OwnerEmail, "Long gone will be deleted in 30 days"); n != 0 {
+		t.Errorf("a late 30-day notice: %d", n)
+	}
+	if sw, err := e.FreeTier.Sweep(ctx); err != nil || sw.Noticed != 0 || sw.Deleted != 0 {
+		t.Fatalf("a quiet sweep: %+v %v", sw, err)
+	}
+	if _, err := e.DB.Exec(ctx, `UPDATE projects SET archived_at = now() - interval '366 days' WHERE id = $1`, d.Project.Id); err != nil {
+		t.Fatal(err)
+	}
+	if sw, err := e.FreeTier.Sweep(ctx); err != nil || sw.Deleted != 1 {
+		t.Fatalf("deletion sweep: %+v %v", sw, err)
+	}
+	awaitPay(t, "the deletion", func() bool {
+		p, err := store.New(e.DB).GetProject(ctx, d.Project.Id)
+		return err == nil && p.DeletedAt != nil
+	})
 }

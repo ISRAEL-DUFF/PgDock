@@ -221,6 +221,8 @@ type SignupParams struct {
 	// current one.
 	TermsVersion int
 	IP           *netip.Addr
+	// Challenge is the anti-bot token from the signup page.
+	Challenge string
 }
 
 // Signup creates an unverified account (inactive until approved, in
@@ -241,6 +243,23 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 	}
 	if !policy.allows(email) {
 		return ErrDomainNotAllowed
+	}
+	if s.guard.Check != nil {
+		if err := s.guard.Check.Verify(ctx, p.Challenge, p.IP); err != nil {
+			if !errors.Is(err, ErrChallengeFailed) {
+				s.log.Warn("signup challenge", "err", err)
+			}
+			return ErrChallengeFailed
+		}
+	}
+	if s.guard.PerIP > 0 && p.IP != nil {
+		n, err := store.New(s.db).CountSignupsFrom(ctx, store.CountSignupsFromParams{Ip: p.IP, Since: s.cfg.Now().Add(-24 * time.Hour)})
+		if err != nil {
+			return err
+		}
+		if n >= int64(s.guard.PerIP) {
+			return fmt.Errorf("%w: too many accounts were created from this address today", ErrRateLimited)
+		}
 	}
 	if err := CheckPasswordPolicy(p.Password); err != nil {
 		return err
@@ -279,7 +298,7 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 		}
 		var err error
 		u, err = qt.InsertUser(ctx, store.InsertUserParams{
-			Email: email, PasswordHash: hash, Name: namePtr, PlatformRole: RoleUser, ApprovedAt: approved,
+			Email: email, PasswordHash: hash, Name: namePtr, PlatformRole: RoleUser, ApprovedAt: approved, SignupIp: p.IP,
 		})
 		if err != nil {
 			return err

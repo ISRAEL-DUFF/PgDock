@@ -50,6 +50,7 @@ export type PlanChange = S["PlanChange"];
 export type PlanChangeRequest = S["PlanChangeRequest"];
 export type PriceBook = S["PriceBook"];
 export type Prices = S["Prices"];
+export type Pricing = S["Pricing"];
 export type Invoice = S["Invoice"];
 export type InvoiceDetail = S["InvoiceDetail"];
 export type InvoiceLine = S["InvoiceLine"];
@@ -455,6 +456,8 @@ export const api = {
     request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, { action }),
   updateProject: (id: string, b: S["UpdateProjectRequest"]) =>
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
+  resumeProject: (id: string) => request<Operation>("POST", `/api/v1/projects/${id}/resume`),
+  pricing: () => getJSON<Pricing>("/api/v1/pricing"),
   rotatePassword: (id: string) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/rotate-password`),
   branches: (id: string) => getJSON<S["ProjectList"]>(`/api/v1/projects/${id}/branches`),
   webhooks: (id: string) => getJSON<S["WebhookList"]>(`/api/v1/projects/${id}/webhooks`),

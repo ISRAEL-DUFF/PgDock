@@ -4928,6 +4928,23 @@ type Prices struct {
 // PricesCurrency defines model for Prices.Currency.
 type PricesCurrency string
 
+// Pricing defines model for Pricing.
+type Pricing struct {
+	EffectiveAt time.Time `json:"effective_at"`
+	Next        *struct {
+		EffectiveAt time.Time `json:"effective_at"`
+		Prices      Prices    `json:"prices"`
+		Version     int       `json:"version"`
+	} `json:"next,omitempty"`
+	Prices Prices `json:"prices"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate Decimal `json:"vat_rate"`
+	Version int     `json:"version"`
+}
+
 // Profile defines model for Profile.
 type Profile struct {
 	Cpus     float32 `json:"cpus"`
@@ -5579,8 +5596,11 @@ type SessionState struct {
 	SignupMode    *SessionStateSignupMode `json:"signup_mode,omitempty"`
 
 	// TermsRequired A terms version the user must accept before anything else.
-	TermsRequired *int  `json:"terms_required,omitempty"`
-	User          *User `json:"user,omitempty"`
+	TermsRequired *int `json:"terms_required,omitempty"`
+
+	// TurnstileSiteKey Signing up needs a solved Cloudflare Turnstile challenge with this site key.
+	TurnstileSiteKey *string `json:"turnstile_site_key,omitempty"`
+	User             *User   `json:"user,omitempty"`
 }
 
 // SessionStateSignupMode defines model for SessionState.SignupMode.
@@ -5639,9 +5659,11 @@ type SharedClusterRequest struct {
 
 // SignupRequest defines model for SignupRequest.
 type SignupRequest struct {
-	Email    openapi_types.Email `json:"email"`
-	Name     *string             `json:"name,omitempty"`
-	Password string              `json:"password"`
+	// Challenge The Turnstile token from the signup page, when the session state names a site key (V3 §7.4).
+	Challenge *string             `json:"challenge,omitempty"`
+	Email     openapi_types.Email `json:"email"`
+	Name      *string             `json:"name,omitempty"`
+	Password  string              `json:"password"`
 
 	// TermsVersion The terms version the user accepted (the current one).
 	TermsVersion int `json:"terms_version"`
@@ -8922,6 +8944,13 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/pooler-hosts (the `GetPoolerHosts` operationId).
 	GetPoolerHosts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPricing The prices in effect, and the next price book if one is published (public)
+	//
+	// For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+	//
+	// Corresponds with GET /api/v1/pricing (the `GetPricing` operationId).
+	GetPricing(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProfiles Dedicated instance sizes
 	//
@@ -14351,6 +14380,23 @@ func (c *Client) PaymentWebhook(ctx context.Context, provider PaymentWebhookPara
 // Corresponds with GET /api/v1/pooler-hosts (the `GetPoolerHosts` operationId).
 func (c *Client) GetPoolerHosts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPoolerHostsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPricing The prices in effect, and the next price book if one is published (public)
+//
+// For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+//
+// Corresponds with GET /api/v1/pricing (the `GetPricing` operationId).
+func (c *Client) GetPricing(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPricingRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -24458,6 +24504,33 @@ func NewGetPoolerHostsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetPricingRequest constructs an http.Request for the GetPricing method
+func NewGetPricingRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/pricing")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProfilesRequest constructs an http.Request for the ListProfiles method
 func NewListProfilesRequest(server string) (*http.Request, error) {
 	var err error
@@ -31235,6 +31308,15 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/pooler-hosts (the `GetPoolerHosts` operationId).
 	GetPoolerHostsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPoolerHostsResponse, error)
+
+	// GetPricingWithResponse The prices in effect, and the next price book if one is published (public)
+	//
+	// For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/pricing (the `GetPricing` operationId).
+	GetPricingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPricingResponse, error)
 
 	// ListProfilesWithResponse Dedicated instance sizes
 	//
@@ -40691,6 +40773,54 @@ func (r GetPoolerHostsResponse) ContentType() string {
 	return ""
 }
 
+type GetPricingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Pricing
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPricingResponse) GetJSON200() *Pricing {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetPricingResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPricingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPricingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPricingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPricingResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProfilesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -49216,6 +49346,21 @@ func (c *ClientWithResponses) GetPoolerHostsWithResponse(ctx context.Context, re
 	return ParseGetPoolerHostsResponse(rsp)
 }
 
+// GetPricingWithResponse The prices in effect, and the next price book if one is published (public)
+//
+// For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/pricing (the `GetPricing` operationId).
+func (c *ClientWithResponses) GetPricingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPricingResponse, error) {
+	rsp, err := c.GetPricing(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPricingResponse(rsp)
+}
+
 // ListProfilesWithResponse Dedicated instance sizes
 //
 // Returns a wrapper object for the known response body format(s).
@@ -57087,6 +57232,39 @@ func ParseGetPoolerHostsResponse(rsp *http.Response) (*GetPoolerHostsResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PoolerHosts
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPricingResponse parses an HTTP response from a GetPricingWithResponse call
+func ParseGetPricingResponse(rsp *http.Response) (*GetPricingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPricingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Pricing
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

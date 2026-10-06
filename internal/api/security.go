@@ -585,7 +585,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		if !isAPIPath(r.URL.Path) {
+			// Cloudflare Turnstile's script and frame, for the signup page's
+			// challenge (V3 §7.4).
 			h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "+
+				"script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; "+
 				"connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		}
 		next.ServeHTTP(w, r)

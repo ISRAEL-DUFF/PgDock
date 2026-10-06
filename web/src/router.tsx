@@ -19,6 +19,7 @@ const AdminPlansPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "Ad
 const DedicatedRequestsPage = lazyRouteComponent(() => import("./pages/AdminOrgs"), "DedicatedRequestsPage");
 const UsagePage = lazyRouteComponent(() => import("./pages/Usage"), "UsagePage");
 const BillingPage = lazyRouteComponent(() => import("./pages/Billing"), "BillingPage");
+const PricingPage = lazyRouteComponent(() => import("./pages/Pricing"), "PricingPage");
 const AdminBillingPage = lazyRouteComponent(() => import("./pages/AdminBilling"), "AdminBillingPage");
 const AuditPage = lazyRouteComponent(() => import("./pages/Audit"), "AuditPage");
 const OrgAuditPage = lazyRouteComponent(() => import("./pages/Audit"), "OrgAuditPage");
@@ -175,6 +176,7 @@ const orgBilling = createRoute({
   }),
   component: BillingPage,
 });
+const pricing = createRoute({ getParentRoute: () => app, path: "/pricing", component: PricingPage });
 const adminBilling = createRoute({ getParentRoute: () => app, path: "/admin/billing", component: AdminBillingPage });
 const adminOrgs = createRoute({ getParentRoute: () => app, path: "/admin/orgs", component: AdminOrgsPage });
 const adminOrg = createRoute({ getParentRoute: () => app, path: "/admin/orgs/$id", component: AdminOrgPage });
@@ -220,6 +222,7 @@ const routeTree = root.addChildren([
     settings,
     orgUsage,
     orgBilling,
+    pricing,
     adminBilling,
     adminOrgs,
     adminOrg,

@@ -40,6 +40,7 @@ var routeRules = map[string]rule{
 	"GET /healthz":        {scope: scopePublic},
 	"GET /readyz":         {scope: scopePublic},
 	"GET /api/v1/version": {scope: scopePublic},
+	"GET /api/v1/pricing": {scope: scopePublic},
 	// Payment providers' webhooks, authenticated by their signatures.
 	"POST /api/v1/payments/webhooks/{provider}": {scope: scopePublic},
 	"GET /api/v1/session":                       {scope: scopePublic, beforeTerms: true},

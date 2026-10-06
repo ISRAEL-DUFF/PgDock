@@ -56,6 +56,11 @@ SELECT * FROM price_books WHERE version = @version;
 SELECT * FROM price_books WHERE published_at IS NOT NULL AND effective_at <= @at
 ORDER BY effective_at DESC, version DESC LIMIT 1;
 
+-- name: NextPriceBook :one
+-- tenant: platform - the published book that takes effect next, after @at.
+SELECT * FROM price_books WHERE published_at IS NOT NULL AND effective_at > @at
+ORDER BY effective_at, version LIMIT 1;
+
 -- name: CountPublishedPriceBooks :one
 -- tenant: platform - whether a first book exists.
 SELECT count(*)::int FROM price_books WHERE published_at IS NOT NULL;

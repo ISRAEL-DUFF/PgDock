@@ -4924,6 +4924,23 @@ type Prices struct {
 // PricesCurrency defines model for Prices.Currency.
 type PricesCurrency string
 
+// Pricing defines model for Pricing.
+type Pricing struct {
+	EffectiveAt time.Time `json:"effective_at"`
+	Next        *struct {
+		EffectiveAt time.Time `json:"effective_at"`
+		Prices      Prices    `json:"prices"`
+		Version     int       `json:"version"`
+	} `json:"next,omitempty"`
+	Prices Prices `json:"prices"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate Decimal `json:"vat_rate"`
+	Version int     `json:"version"`
+}
+
 // Profile defines model for Profile.
 type Profile struct {
 	Cpus     float32 `json:"cpus"`
@@ -5575,8 +5592,11 @@ type SessionState struct {
 	SignupMode    *SessionStateSignupMode `json:"signup_mode,omitempty"`
 
 	// TermsRequired A terms version the user must accept before anything else.
-	TermsRequired *int  `json:"terms_required,omitempty"`
-	User          *User `json:"user,omitempty"`
+	TermsRequired *int `json:"terms_required,omitempty"`
+
+	// TurnstileSiteKey Signing up needs a solved Cloudflare Turnstile challenge with this site key.
+	TurnstileSiteKey *string `json:"turnstile_site_key,omitempty"`
+	User             *User   `json:"user,omitempty"`
 }
 
 // SessionStateSignupMode defines model for SessionState.SignupMode.
@@ -5635,9 +5655,11 @@ type SharedClusterRequest struct {
 
 // SignupRequest defines model for SignupRequest.
 type SignupRequest struct {
-	Email    openapi_types.Email `json:"email"`
-	Name     *string             `json:"name,omitempty"`
-	Password string              `json:"password"`
+	// Challenge The Turnstile token from the signup page, when the session state names a site key (V3 §7.4).
+	Challenge *string             `json:"challenge,omitempty"`
+	Email     openapi_types.Email `json:"email"`
+	Name      *string             `json:"name,omitempty"`
+	Password  string              `json:"password"`
 
 	// TermsVersion The terms version the user accepted (the current one).
 	TermsVersion int `json:"terms_version"`
@@ -7673,6 +7695,9 @@ type ServerInterface interface {
 	// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
 	// (GET /api/v1/pooler-hosts)
 	GetPoolerHosts(w http.ResponseWriter, r *http.Request)
+	// GetPricing The prices in effect, and the next price book if one is published (public)
+	// (GET /api/v1/pricing)
+	GetPricing(w http.ResponseWriter, r *http.Request)
 	// ListProfiles Dedicated instance sizes
 	// (GET /api/v1/profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
@@ -9029,6 +9054,12 @@ func (_ Unimplemented) PaymentWebhook(w http.ResponseWriter, r *http.Request, pr
 // GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
 // (GET /api/v1/pooler-hosts)
 func (_ Unimplemented) GetPoolerHosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPricing The prices in effect, and the next price book if one is published (public)
+// (GET /api/v1/pricing)
+func (_ Unimplemented) GetPricing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14117,6 +14148,20 @@ func (siw *ServerInterfaceWrapper) GetPoolerHosts(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetPricing operation middleware
+func (siw *ServerInterfaceWrapper) GetPricing(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPricing(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProfiles operation middleware
 func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.Request) {
 
@@ -17453,6 +17498,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/version", wrapper.GetVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pricing", wrapper.GetPricing)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/auth/login", wrapper.PostAuthLogin)

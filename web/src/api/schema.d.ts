@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The prices in effect, and the next price book if one is published (public)
+         * @description For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+         */
+        get: operations["getPricing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -4359,6 +4379,8 @@ export interface components {
             user?: components["schemas"]["User"];
             /** @enum {string} */
             signup_mode?: "invite_only" | "approval" | "open";
+            /** @description Signing up needs a solved Cloudflare Turnstile challenge with this site key. */
+            turnstile_site_key?: string;
             /** @description A terms version the user must accept before anything else. */
             terms_required?: number | null;
             /** @description Set once, when this sign-in enrolled the authenticator. */
@@ -6127,6 +6149,8 @@ export interface components {
             name?: string;
             /** @description The terms version the user accepted (the current one). */
             terms_version: number;
+            /** @description The Turnstile token from the signup page, when the session state names a site key (V3 §7.4). */
+            challenge?: string;
         };
         TokenRequest: {
             token: string;
@@ -6515,6 +6539,19 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             published_at?: string | null;
+        };
+        Pricing: {
+            version: number;
+            /** Format: date-time */
+            effective_at: string;
+            prices: components["schemas"]["Prices"];
+            vat_rate: components["schemas"]["Decimal"];
+            next?: {
+                version: number;
+                /** Format: date-time */
+                effective_at: string;
+                prices: components["schemas"]["Prices"];
+            };
         };
         PriceBookInput: {
             /** Format: date-time */
@@ -7258,6 +7295,27 @@ export interface operations {
                     "application/json": components["schemas"]["Version"];
                 };
             };
+        };
+    };
+    getPricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current prices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pricing"];
+                };
+            };
+            default: components["responses"]["Error"];
         };
     };
     postAuthLogin: {

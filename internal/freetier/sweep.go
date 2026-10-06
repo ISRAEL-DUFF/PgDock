@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -124,8 +125,9 @@ func (s *Service) sweepArchived(ctx context.Context, p store.Project, now time.T
 		return 0, 0, nil
 	}
 	due := p.ArchivedAt.Add(s.cfg.DeleteAfter)
-	last := s.cfg.NoticeDays[len(s.cfg.NoticeDays)-1]
-	for _, d := range s.cfg.NoticeDays {
+	last := slices.Min(s.cfg.NoticeDays)
+	// The most urgent notice due, once: a late sweep skips the earlier one.
+	for _, d := range slices.Sorted(slices.Values(s.cfg.NoticeDays)) {
 		sent := p.ArchiveNoticeDays != nil && int(*p.ArchiveNoticeDays) <= d
 		if sent || now.Before(due.AddDate(0, 0, -d)) {
 			continue
@@ -139,7 +141,7 @@ func (s *Service) sweepArchived(ctx context.Context, p store.Project, now time.T
 		}
 		p.ArchiveNoticeDays = ptr(int32(d))
 		noticed++
-		break // one notice per sweep: the most urgent one due
+		break
 	}
 	if now.Before(due) || p.ArchiveNoticeDays == nil || int(*p.ArchiveNoticeDays) > last {
 		return noticed, 0, nil

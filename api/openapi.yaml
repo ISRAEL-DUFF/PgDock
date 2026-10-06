@@ -51,6 +51,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Version"
+  /api/v1/pricing:
+    get:
+      operationId: getPricing
+      summary: The prices in effect, and the next price book if one is published (public)
+      description: For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+      tags: [billing]
+      security: []
+      responses:
+        "200":
+          description: Current prices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pricing"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/auth/login:
     post:
       operationId: postAuthLogin
@@ -6401,6 +6417,9 @@ components:
         signup_mode:
           type: string
           enum: [invite_only, approval, open]
+        turnstile_site_key:
+          type: string
+          description: Signing up needs a solved Cloudflare Turnstile challenge with this site key.
         terms_required:
           type: integer
           nullable: true
@@ -9806,6 +9825,9 @@ components:
         terms_version:
           type: integer
           description: The terms version the user accepted (the current one).
+        challenge:
+          type: string
+          description: The Turnstile token from the signup page, when the session state names a site key (V3 §7.4).
     TokenRequest:
       type: object
       required: [token]
@@ -10512,6 +10534,30 @@ components:
           type: string
           format: date-time
           nullable: true
+    Pricing:
+      type: object
+      required: [version, effective_at, prices, vat_rate]
+      properties:
+        version:
+          type: integer
+        effective_at:
+          type: string
+          format: date-time
+        prices:
+          $ref: "#/components/schemas/Prices"
+        vat_rate:
+          $ref: "#/components/schemas/Decimal"
+        next:
+          type: object
+          required: [version, effective_at, prices]
+          properties:
+            version:
+              type: integer
+            effective_at:
+              type: string
+              format: date-time
+            prices:
+              $ref: "#/components/schemas/Prices"
     PriceBookInput:
       type: object
       required: [effective_at, prices]

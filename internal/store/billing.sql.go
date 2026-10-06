@@ -1407,6 +1407,27 @@ func (q *Queries) NextBillingNumber(ctx context.Context, arg NextBillingNumberPa
 	return last, err
 }
 
+const nextPriceBook = `-- name: NextPriceBook :one
+SELECT version, effective_at, prices, notes, created_at, published_at, published_by FROM price_books WHERE published_at IS NOT NULL AND effective_at > $1
+ORDER BY effective_at, version LIMIT 1
+`
+
+// tenant: platform - the published book that takes effect next, after @at.
+func (q *Queries) NextPriceBook(ctx context.Context, at time.Time) (PriceBook, error) {
+	row := q.db.QueryRow(ctx, nextPriceBook, at)
+	var i PriceBook
+	err := row.Scan(
+		&i.Version,
+		&i.EffectiveAt,
+		&i.Prices,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.PublishedBy,
+	)
+	return i, err
+}
+
 const orgDunningState = `-- name: OrgDunningState :one
 SELECT coalesce((SELECT dunning_state FROM billing_accounts WHERE org_id = $1), 'ok')::text
 `

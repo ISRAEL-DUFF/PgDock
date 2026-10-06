@@ -17,6 +17,7 @@ import {
   Users,
   type LucideIcon,
   Receipt,
+  Tag,
 } from "lucide-react";
 import type { Org, Project } from "../../api/client";
 
@@ -169,6 +170,13 @@ export function orgRail(org: Org | undefined): RailItem[] {
       icon: Activity,
       to: "/operations",
       match: ["/operations"],
+    },
+    {
+      key: "pricing",
+      label: "Pricing",
+      icon: Tag,
+      to: "/pricing",
+      match: ["/pricing"],
     },
   ];
   // Owners and billing members see billing (V3 §3.2).

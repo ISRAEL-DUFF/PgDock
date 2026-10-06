@@ -173,6 +173,13 @@ func run() error {
 	}
 	bg.Add(1)
 	go func() { defer bg.Done(); sweepAuth(bgCtx, authSvc, log) }()
+	// Open signup's protection (V3 §7.4).
+	guard := auth.SignupGuard{PerIP: cfg.Signup.PerIP}
+	if cfg.Signup.TurnstileSecret != "" {
+		guard.Check = auth.Turnstile{SiteKey: cfg.Signup.TurnstileSiteKey, Secret: cfg.Signup.TurnstileSecret, URL: cfg.Signup.TurnstileURL}
+		guard.SiteKey = cfg.Signup.TurnstileSiteKey
+	}
+	authSvc.SetSignupGuard(guard)
 
 	kinds := map[string]jobs.Kind{jobs.KindNoop: jobs.Noop()}
 	projects, pm, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, log)

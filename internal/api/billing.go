@@ -619,3 +619,48 @@ func (s *Server) PaymentWebhook(w http.ResponseWriter, r *http.Request, provider
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"outcome": out})
 }
+
+// GetPricing implements GET /api/v1/pricing (public): the prices in
+// effect and the next published book, without its internal notes.
+func (s *Server) GetPricing(w http.ResponseWriter, r *http.Request) {
+	bs := s.billingSvc(w)
+	if bs == nil {
+		return
+	}
+	ctx := r.Context()
+	cur, err := bs.CurrentBook(ctx)
+	if err != nil {
+		s.billingError(w, "pricing", err)
+		return
+	}
+	set, err := bs.Settings(ctx)
+	if err != nil {
+		s.billingError(w, "pricing", err)
+		return
+	}
+	prices, err := convert[gen.Prices](cur.Prices)
+	if err != nil {
+		s.internalError(w, "pricing", err)
+		return
+	}
+	out := gen.Pricing{Version: int(cur.Version), EffectiveAt: cur.EffectiveAt, Prices: prices, VatRate: set.VATRate.String()}
+	next, err := bs.NextBook(ctx)
+	if err != nil {
+		s.billingError(w, "pricing", err)
+		return
+	}
+	if next != nil {
+		np, err := convert[gen.Prices](next.Prices)
+		if err != nil {
+			s.internalError(w, "pricing", err)
+			return
+		}
+		out.Next = &struct {
+			EffectiveAt time.Time  `json:"effective_at"`
+			Prices      gen.Prices `json:"prices"`
+			Version     int        `json:"version"`
+		}{EffectiveAt: next.EffectiveAt, Prices: np, Version: int(next.Version)}
+	}
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	writeJSON(w, http.StatusOK, out)
+}

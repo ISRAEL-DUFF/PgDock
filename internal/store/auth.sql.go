@@ -126,6 +126,23 @@ func (q *Queries) CountPlatformAdmins(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countSignupsFrom = `-- name: CountSignupsFrom :one
+SELECT count(*) FROM users WHERE signup_ip = $1 AND created_at >= $2
+`
+
+type CountSignupsFromParams struct {
+	Ip    *netip.Addr
+	Since time.Time
+}
+
+// Accounts created from an IP address since a time (V3 §7.4).
+func (q *Queries) CountSignupsFrom(ctx context.Context, arg CountSignupsFromParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSignupsFrom, arg.Ip, arg.Since)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT count(*) FROM users
 `
@@ -427,8 +444,8 @@ func (q *Queries) InsertTerms(ctx context.Context, arg InsertTermsParams) (Terms
 }
 
 const insertUser = `-- name: InsertUser :one
-INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at, signup_ip)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip
 `
 
@@ -439,6 +456,7 @@ type InsertUserParams struct {
 	PlatformRole    string
 	EmailVerifiedAt *time.Time
 	ApprovedAt      *time.Time
+	SignupIp        *netip.Addr
 }
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, error) {
@@ -449,6 +467,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 		arg.PlatformRole,
 		arg.EmailVerifiedAt,
 		arg.ApprovedAt,
+		arg.SignupIp,
 	)
 	var i User
 	err := row.Scan(

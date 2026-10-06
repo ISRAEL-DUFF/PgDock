@@ -241,6 +241,19 @@ func (s *Service) CurrentBook(ctx context.Context) (Book, error) {
 	return toBook(b)
 }
 
+// NextBook is the published book that takes effect next, if any.
+func (s *Service) NextBook(ctx context.Context) (*Book, error) {
+	b, err := store.New(s.db).NextPriceBook(ctx, s.Now())
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out, err := toBook(b)
+	return &out, err
+}
+
 // GetBook returns a version.
 func (s *Service) GetBook(ctx context.Context, version int32) (Book, error) {
 	b, err := store.New(s.db).GetPriceBook(ctx, version)
