@@ -37,12 +37,12 @@ type FakeServer struct {
 }
 
 type fakeType struct {
-	Name     string
-	Cores    int
-	Memory   float64
-	Disk     int
-	Monthly  map[string]string // location → net EUR
-	Retired  bool
+	Name    string
+	Cores   int
+	Memory  float64
+	Disk    int
+	Monthly map[string]string // location → net EUR
+	Retired bool
 }
 
 // NewFakeHetzner returns a fake with a few of Hetzner's shared-vCPU types
