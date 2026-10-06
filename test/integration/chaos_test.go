@@ -3,11 +3,13 @@ package integration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +26,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/waker"
 	"github.com/israel-duff/pgdock/test/testenv"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -334,5 +337,173 @@ func TestChaosWakerFailure(t *testing.T) {
 	// 5. With the waker back, pausing resumes.
 	if sw, err := e.FreeTier.Sweep(ctx); err != nil || sw.WakerDown || sw.Paused != 1 {
 		t.Fatalf("sweep after recovery: %+v %v", sw, err)
+	}
+}
+
+// patroniConfig is a member's view of the cluster's dynamic configuration.
+func patroniConfig(t *testing.T, e *testenv.Env, instance uuid.UUID) map[string]any {
+	t.Helper()
+	for _, m := range members(t, e, instance) {
+		if m.RestHost == nil || m.RestPort == nil {
+			continue
+		}
+		res, err := http.Get(fmt.Sprintf("http://%s:%d/config", *m.RestHost, *m.RestPort))
+		if err != nil {
+			continue
+		}
+		var cfg map[string]any
+		err = json.NewDecoder(res.Body).Decode(&cfg)
+		_ = res.Body.Close()
+		if err == nil {
+			return cfg
+		}
+	}
+	return nil
+}
+
+// TestChaosEtcdMemberLoss (M27): an HA project keeps taking writes when an
+// etcd member is lost, a switchover still works, and with failsafe mode
+// even losing etcd's quorum doesn't demote the primary. Once the members
+// are back, the cluster is healthy again and every acknowledged commit is
+// there.
+func TestChaosEtcdMemberLoss(t *testing.T) {
+	needDedicated(t)
+	e := testenv.Start(t, testenv.Options{})
+	c, ns := haProject(t, e)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go e.Dedicated.RunHAWatcher(ctx, time.Second)
+
+	sync := true
+	var op gen.Operation
+	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/ha", gen.HAEnableRequest{NodeId: &ns[1].Id, Synchronous: &sync}, &op); code != http.StatusAccepted {
+		t.Fatalf("enable HA: %d", code)
+	}
+	if op = e.WaitOperation(op.Id); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("enable HA: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
+	}
+	p, err := store.New(e.DB).GetProject(ctx, c.Project.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for deadline := time.Now().Add(30 * time.Second); ; time.Sleep(time.Second) {
+		if cfg := patroniConfig(t, e, p.InstanceID); cfg != nil && cfg["failsafe_mode"] == true {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("failsafe_mode is off: %v", patroniConfig(t, e, p.InstanceID))
+		}
+	}
+
+	etcd := func(n gen.Node) string { return "pgdock-etcd-" + n.Id.String() }
+	docker := func(args ...string) {
+		t.Helper()
+		if out, err := exec.Command("docker", args...).CombinedOutput(); err != nil {
+			t.Fatalf("docker %v: %v %s", args, err, out)
+		}
+	}
+	t.Cleanup(func() {
+		for _, n := range ns {
+			_ = exec.Command("docker", "start", etcd(n)).Run()
+		}
+	})
+	cluster := func() (ready bool, down int) {
+		var ec gen.EtcdCluster
+		e.Do("GET", "/api/v1/admin/etcd", nil, &ec)
+		for _, m := range ec.Members {
+			if m.Status != gen.EtcdMemberStatusHealthy {
+				down++
+			}
+		}
+		return ec.Ready, down
+	}
+	w := startWriter(t, e, c.Connection.PooledUrl)
+	keepsWriting := func(what string, n int64, within time.Duration) {
+		t.Helper()
+		before := w.acked.Load()
+		deadline := time.Now().Add(within)
+		for w.acked.Load() < before+n {
+			if time.Now().After(deadline) {
+				t.Fatalf("%s: %d commits in %s, want %d (%d client errors)", what, w.acked.Load()-before, within, n, w.errs.Load())
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	keepsWriting("before", 20, 30*time.Second)
+
+	// 1. One etcd member is lost: quorum holds, writes go on.
+	docker("stop", "-t", "0", etcd(ns[2]))
+	if ready, down := cluster(); !ready || down != 1 {
+		t.Fatalf("etcd with a member down: ready %v, %d down", ready, down)
+	}
+	errsBefore := w.errs.Load()
+	keepsWriting("one etcd member down", 50, 20*time.Second)
+	if n := w.errs.Load() - errsBefore; n != 0 {
+		t.Errorf("%d client errors with one etcd member down", n)
+	}
+
+	// 2. A switchover still works.
+	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/switchover", gen.SwitchoverRequest{}, &op); code != http.StatusAccepted {
+		t.Fatalf("switchover: %d", code)
+	}
+	if op = e.WaitOperation(op.Id); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("switchover with an etcd member down: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
+	}
+	if l, ok := leaderOf(haStatus(t, e, c.Project.Id)); !ok || l.NodeId != ns[1].Id {
+		t.Fatalf("leader after the switchover: %+v", haStatus(t, e, c.Project.Id).Members)
+	}
+	keepsWriting("after the switchover", 20, 30*time.Second)
+
+	// 3. A second member is lost: no quorum. Failsafe mode keeps the
+	// primary, which still reaches its standby, serving past the leader
+	// key's TTL (20 s).
+	docker("stop", "-t", "0", etcd(ns[0]))
+	if ready, _ := cluster(); ready {
+		t.Fatal("etcd reports ready without a quorum")
+	}
+	lost := time.Now()
+	for time.Since(lost) < 45*time.Second {
+		keepsWriting(fmt.Sprintf("%s without etcd quorum", time.Since(lost).Round(time.Second)), 10, 15*time.Second)
+		time.Sleep(5 * time.Second)
+	}
+
+	// 4. The members come back: the cluster is healthy again, and the
+	// project still has its leader and standby.
+	docker("start", etcd(ns[0]))
+	docker("start", etcd(ns[2]))
+	for deadline := time.Now().Add(60 * time.Second); ; time.Sleep(time.Second) {
+		if ready, down := cluster(); ready && down == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			ready, down := cluster()
+			t.Fatalf("etcd after the members came back: ready %v, %d down", ready, down)
+		}
+	}
+	keepsWriting("after etcd recovered", 20, 30*time.Second)
+	for deadline := time.Now().Add(60 * time.Second); ; time.Sleep(time.Second) {
+		ok := 0
+		for _, m := range haStatus(t, e, c.Project.Id).Members {
+			if m.Role == gen.HAMemberRoleLeader || (m.Role == gen.HAMemberRoleSyncStandby && m.State != nil && *m.State == "streaming") {
+				ok++
+			}
+		}
+		if ok == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("members after etcd recovered: %+v", haStatus(t, e, c.Project.Id).Members)
+		}
+	}
+	w.Stop()
+	t.Logf("%d commits, %d client errors, longest gap between commits %d ms", w.acked.Load(), w.errs.Load(), w.paused.Load())
+	conn := e.MustConnect(c.Connection.PooledUrl)
+	defer conn.Close(ctx)
+	var count, maxN int64
+	if err := conn.QueryRow(ctx, `SELECT count(*), coalesce(max(n), 0) FROM ledger`).Scan(&count, &maxN); err != nil {
+		t.Fatal(err)
+	}
+	if maxN < w.acked.Load() || count != maxN {
+		t.Fatalf("ledger: %d rows, max %d, %d acknowledged", count, maxN, w.acked.Load())
 	}
 }

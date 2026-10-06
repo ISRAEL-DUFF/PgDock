@@ -173,6 +173,17 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   - Without billing, set `PGDOCK_INSIGHTS_PLANS=all` so shared projects
     get insights too. See [Query insights](query-insights.md).
 
+- **Hardening (M27)** (no migration):
+  - Existing HA clusters get Patroni's `failsafe_mode` from pgdock-server
+    the first time it sees their leader after the upgrade; nothing to do.
+  - `PGDOCK_WAKER_ADDR` must be reachable from pgdock-server itself as
+    well as the poolers: the server checks it for the `waker_down` alert,
+    and doesn't pause Free projects while it can't reach it.
+  - Admins are asked to confirm refunds, manual payments, credit notes,
+    event attribution, price book publishing and org billing terms with
+    their password or code.
+  - Before opening Lagos, work through [the Lagos launch](lagos-launch.md).
+
 ## Rolling back
 
 Check out the previous tag and run `./install.sh` again. If the new

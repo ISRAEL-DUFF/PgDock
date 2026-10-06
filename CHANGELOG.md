@@ -143,6 +143,30 @@ bundle share one version (spec §11.5).
   - See docs/query-insights.md.
 - New migration 00032 (query statistics). The Postgres image includes
   hypopg.
+- Hardening for the Lagos launch (M27):
+  - A billing audit: the ledger check now ties every invoice, credit note
+    and payment to its ledger entries and the receivable to what is owed
+    (docs/billing-audit.md, with questions for the accountant).
+  - Fixed: a credit note on a partly paid invoice made the receivable
+    negative, and a fully credited invoice stayed open for dunning.
+  - Fixed: a signed but forged provider event could redirect another
+    organisation's transfer. Refunds, manual payments, credit notes,
+    attributing events, publishing price books and changing an org's
+    billing terms now ask admins to confirm with a password or code.
+  - Payment provider outages: a charge that hits one is tried again when
+    the provider is back, a card retry isn't used up by one, and neither
+    counts as a decline or emails the customer.
+  - Fixed: with pooler hosts in two regions, the split-brain alert fired
+    for a MASTER in each. It is now per region.
+  - The waker restarts if it stops; a `waker_down` alert fires while it is
+    unreachable, and Free projects aren't paused or archived meanwhile.
+  - HA: Patroni's failsafe mode is on, so losing etcd's quorum doesn't
+    stop writes; existing clusters get it from pgdock-server. A
+    switchover with synchronous replication waits for the standby to be
+    synchronous instead of failing.
+  - Chaos tests (provider outage, pooler split brain, waker failure, etcd
+    member and quorum loss), a rating load test at 1,000 organisations,
+    and the Lagos launch gate (docs/lagos-launch.md).
 - Fixed: base backups of HA projects failed (WAL-G connected as
   `postgres`).
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran

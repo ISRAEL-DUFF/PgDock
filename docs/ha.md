@@ -67,6 +67,24 @@ Containers have no watchdog device, so fencing is Patroni's leader lease
 alone: a primary that can't renew its lease demotes itself, and the
 poolers only ever follow the member holding the lease.
 
+### When etcd is in trouble
+
+- **One member lost:** etcd keeps its quorum; nothing changes for projects.
+  Writes, failover and switchover all keep working. The etcd panel shows
+  the member as unhealthy; bring its node back (or replace it, below).
+- **Quorum lost** (two of three members down, or the network between
+  them): Patroni runs with **failsafe mode** (on for every cluster since
+  M27; pgdock-server turns it on for older clusters the first time it sees
+  their leader). A primary that can still reach every member of its
+  cluster over their Patroni APIs keeps serving instead of demoting itself,
+  so projects keep taking writes. Automatic failover can't happen until
+  the quorum is back: a primary that dies during an etcd outage stays down
+  until etcd recovers.
+- When the members return, etcd and the clusters pick up where they were.
+
+`TestChaosEtcdMemberLoss` covers all three, with a client writing
+throughout: no client errors, and every acknowledged commit kept.
+
 ## Switchover
 
 **Switch over** on the card, `pgdock ha switchover <p> [--to <member>]`, or
@@ -76,6 +94,12 @@ nothing is lost), the route moves, and the poolers resume. Writes paused
 about 2 seconds in the tests. The maintenance window uses the same path for
 HA projects: it restarts the standby onto a new minor release, switches
 over to it, then restarts the old primary.
+
+With synchronous replication Patroni only hands over to the synchronous
+standby. A standby that has just joined (HA just turned on, or a member
+just back) becomes it within seconds; the switchover waits up to 30
+seconds for that, before pausing anything, and otherwise asks you to try
+again.
 
 ## Backups
 

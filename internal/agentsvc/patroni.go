@@ -162,6 +162,9 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 			"dcs": map[string]any{
 				"ttl": 20, "loop_wait": 5, "retry_timeout": 5, "maximum_lag_on_failover": 1 << 20,
 				"synchronous_mode": p.Synchronous,
+				// Losing etcd's quorum doesn't demote a primary that can
+				// still reach every member (M27 chaos test).
+				"failsafe_mode": true,
 				"postgresql":       map[string]any{"use_pg_rewind": true, "use_slots": true, "parameters": dcs},
 			},
 		},

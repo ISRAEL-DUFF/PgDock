@@ -34,6 +34,9 @@ type watchState struct {
 	// event's kind and start).
 	switchover time.Time
 	polls      int
+	// failsafe: failsafe_mode is on in the cluster's dynamic configuration
+	// (clusters bootstrapped before M27 didn't have it).
+	failsafe bool
 }
 
 type watcher struct {
@@ -129,6 +132,13 @@ func (s *Service) watchOne(ctx context.Context, id uuid.UUID) error {
 	if cerr == nil {
 		if l := c.Leader(); l != nil && l.State == "running" {
 			leader = l
+		}
+	}
+	if leader != nil && !st.failsafe {
+		if err := s.ensureFailsafe(ctx, inst, members, leader.Name); err != nil {
+			s.log.Warn("HA watcher: failsafe mode", "instance", id, "err", err)
+		} else {
+			st.failsafe = true
 		}
 	}
 	if st.polls++; st.polls%5 == 0 && cerr == nil {
@@ -303,6 +313,9 @@ func (s *Service) runSwitchover(ctx context.Context, op store.Operation, log *jo
 	return log.Info(ctx, "done", "the primary is now on %s; writes paused for %s, the URL is unchanged", node, took)
 }
 
+// syncStandbyWait is how long a switchover waits for a synchronous standby.
+var syncStandbyWait = 30 * time.Second
+
 // switchOver hands the leader role to candidate (default: the most current
 // standby) and routes the project there; it returns the write pause and
 // the new leader's node.
@@ -315,28 +328,49 @@ func (s *Service) switchOver(ctx context.Context, inst store.Instance, p store.P
 	if err != nil {
 		return 0, "", err
 	}
-	c, err := s.cluster(ctx, members)
-	if err != nil {
-		return 0, "", err
-	}
-	leader := c.Leader()
-	if leader == nil {
-		return 0, "", errors.New("the cluster has no leader right now; Patroni is electing one")
-	}
-	var cand *ha.ClusterMember
-	for i, m := range c.Members {
-		if m.Name == leader.Name || (m.State != "streaming" && m.State != "running") {
-			continue
+	var leader, cand *ha.ClusterMember
+	// With synchronous replication Patroni only hands over to the
+	// synchronous standby; a standby that has just joined becomes one
+	// within seconds, so wait for it rather than fail (M27 chaos test).
+	for deadline := time.Now().Add(syncStandbyWait); ; {
+		c, err := s.cluster(ctx, members)
+		if err != nil {
+			return 0, "", err
 		}
-		if candidate != nil && m.Name != candidate.String() {
-			continue
+		if leader = c.Leader(); leader == nil {
+			return 0, "", errors.New("the cluster has no leader right now; Patroni is electing one")
 		}
-		if cand == nil || (m.LagBytes() >= 0 && m.LagBytes() < cand.LagBytes()) {
-			cand = &c.Members[i]
+		cand = nil
+		streaming := false
+		for i, m := range c.Members {
+			if m.Name == leader.Name || (m.State != "streaming" && m.State != "running") {
+				continue
+			}
+			if candidate != nil && m.Name != candidate.String() {
+				continue
+			}
+			streaming = true
+			if inst.SyncReplication && m.Role != "sync_standby" {
+				continue
+			}
+			if cand == nil || (m.LagBytes() >= 0 && m.LagBytes() < cand.LagBytes()) {
+				cand = &c.Members[i]
+			}
 		}
-	}
-	if cand == nil {
-		return 0, "", jobs.Permanent(fmt.Errorf("%w: no streaming standby to switch over to", provision.ErrConflict))
+		if cand != nil {
+			break
+		}
+		if !streaming {
+			return 0, "", jobs.Permanent(fmt.Errorf("%w: no streaming standby to switch over to", provision.ErrConflict))
+		}
+		if time.Now().After(deadline) {
+			return 0, "", jobs.Permanent(fmt.Errorf("%w: the standby isn't the synchronous standby yet; try again in a minute", provision.ErrConflict))
+		}
+		select {
+		case <-ctx.Done():
+			return 0, "", ctx.Err()
+		case <-time.After(time.Second):
+		}
 	}
 	sec, err := s.openHASecret(inst)
 	if err != nil {
@@ -396,4 +430,21 @@ func (s *Service) switchOver(ctx context.Context, inst store.Instance, p store.P
 		_ = s.refreshMembers(ctx, inst)
 	}
 	return time.Duration(took) * time.Millisecond, to.NodeName, nil
+}
+
+// ensureFailsafe turns on Patroni's failsafe_mode: when etcd loses its
+// quorum, a primary that still reaches every member keeps serving instead
+// of demoting itself, so an etcd outage isn't an outage of every HA
+// project. New clusters start with it; this catches up older ones.
+func (s *Service) ensureFailsafe(ctx context.Context, inst store.Instance, members []store.ListInstanceMembersRow, leader string) error {
+	sec, err := s.openHASecret(inst)
+	if err != nil {
+		return err
+	}
+	for _, m := range members {
+		if m.ID.String() == leader && m.RestHost != nil && m.RestPort != nil {
+			return ha.DefaultPatroni.PatchConfig(ctx, *m.RestHost, int(*m.RestPort), sec.RestPassword, map[string]any{"failsafe_mode": true})
+		}
+	}
+	return errors.New("the leader's REST address is unknown")
 }
