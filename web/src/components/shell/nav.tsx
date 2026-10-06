@@ -140,6 +140,13 @@ export function projectRail(
       icon: ChartNoAxesColumn,
       to: `${base}/metrics`,
       match: [`${base}/metrics`],
+    },
+    {
+      key: "insights",
+      label: "Query insights",
+      icon: Gauge,
+      to: `${base}/insights`,
+      match: [`${base}/insights`],
       divider: true,
     },
     {

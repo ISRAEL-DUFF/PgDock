@@ -191,6 +191,10 @@ const ProjectMetricsPage = lazyRouteComponent(
   () => import("./pages/ProjectMetrics"),
   "ProjectMetricsPage",
 );
+const ProjectInsightsPage = lazyRouteComponent(
+  () => import("./pages/ProjectInsights"),
+  "ProjectInsightsPage",
+);
 const ProjectSettingsPage = lazyRouteComponent(
   () => import("./pages/ProjectSettings"),
   "ProjectSettingsPage",
@@ -374,6 +378,11 @@ const projectMetrics = createRoute({
   getParentRoute: () => project,
   path: "/metrics",
   component: ProjectMetricsPage,
+});
+const projectInsights = createRoute({
+  getParentRoute: () => project,
+  path: "/insights",
+  component: ProjectInsightsPage,
 });
 const projectBackups = createRoute({
   getParentRoute: () => project,
@@ -629,6 +638,7 @@ const routeTree = root.addChildren([
       projectWebhooks,
       projectJobs,
       projectMetrics,
+      projectInsights,
       projectMembers,
       projectSettings,
       projectDatabaseSettings,

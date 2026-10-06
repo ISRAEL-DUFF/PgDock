@@ -203,6 +203,11 @@ func (a *App) commands() []command {
 		}},
 		{name: "promote", summary: "Move a project to a dedicated instance: promote <p> [--node <id>] [--profile]", run: (*App).promote},
 		{name: "demote", summary: "Move a dedicated project back to the shared tier: demote <p> [--node <id>] [--check] [--accept-warnings]", run: (*App).demote},
+		{name: "insights", summary: "Query insights (Pro, Team and dedicated)", sub: []command{
+			{name: "queries", summary: "Top queries: queries <p> [--range 24h] [--sort total|mean|calls|rows]", run: (*App).insightsQueries},
+			{name: "slow", summary: "Slow queries: slow <p> [--range 24h]", run: (*App).insightsSlow},
+			{name: "indexes", summary: "Index suggestions, unused and duplicate indexes: indexes <p>", run: (*App).insightsIndexes},
+		}},
 		{name: "ha", summary: "High availability for a dedicated project", sub: []command{
 			{name: "status", summary: "Members, lag, failovers and availability: status <p>", run: (*App).haStatus},
 			{name: "enable", summary: "Add a standby on another node: enable <p> [--node <id>] [--sync]", run: (*App).haEnable},

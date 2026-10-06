@@ -151,6 +151,13 @@ export type Capacity = S["Capacity"];
 export type CapacitySettings = S["CapacitySettings"];
 export type CapacityProposal = S["CapacityProposal"];
 export type Region = S["Region"];
+export type InsightQuery = S["InsightQuery"];
+export type InsightQueryDetail = S["InsightQueryDetail"];
+export type InsightPlan = S["InsightPlan"];
+export type IndexReport = S["IndexReport"];
+export type IndexSuggestion = S["IndexSuggestion"];
+export type InsightRange = "1h" | "24h" | "7d" | "30d";
+export type InsightSort = "total" | "mean" | "calls" | "rows";
 export type AdminRegion = S["AdminRegion"];
 export type AdminRegionList = S["AdminRegionList"];
 export type AdminRegionRequest = S["AdminRegionRequest"];
@@ -1274,6 +1281,30 @@ export const api = {
   publishOrderForm: (org: string, b: S["OrderFormPublish"]) =>
     request<LegalDocument>("POST", `/api/v1/admin/orgs/${org}/order-form`, b),
 
+  // Query insights (V3 §8).
+  insightQueries: (id: string, range: InsightRange, sort: InsightSort) =>
+    getJSON<S["InsightQueryList"]>(
+      `/api/v1/projects/${id}/insights/queries?range=${range}&sort=${sort}&limit=50`,
+    ),
+  insightQuery: (id: string, queryId: string, range: InsightRange) =>
+    getJSON<InsightQueryDetail>(
+      `/api/v1/projects/${id}/insights/queries/${encodeURIComponent(queryId)}?range=${range}`,
+    ),
+  explainQuery: (id: string, queryId: string, generic: boolean) =>
+    request<InsightPlan>("POST", `/api/v1/projects/${id}/insights/explain`, {
+      query_id: queryId,
+      generic,
+    }),
+  slowQueries: (id: string, range: InsightRange) =>
+    getJSON<S["SlowQueryList"]>(
+      `/api/v1/projects/${id}/insights/slow?range=${range}`,
+    ),
+  insightIndexes: (id: string) =>
+    getJSON<IndexReport>(`/api/v1/projects/${id}/insights/indexes`),
+  insightBloat: (id: string) =>
+    getJSON<S["BloatList"]>(`/api/v1/projects/${id}/insights/bloat`),
+  insightLocks: (id: string) =>
+    getJSON<S["LockList"]>(`/api/v1/projects/${id}/insights/locks`),
   // Regions and data residency (V3 §6).
   regions: () => getJSON<{ items: Region[] }>("/api/v1/regions"),
   adminRegions: () => getJSON<AdminRegionList>("/api/v1/admin/regions"),
