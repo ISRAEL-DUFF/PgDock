@@ -118,6 +118,11 @@ type Env struct {
 	// FreeTier.Sweep. Waker is its waker, reached by the test poolers.
 	FreeTier *freetier.Service
 	Waker    *waker.Server
+	// wakerLn, wakerAddr and wakerCtx let tests stop and start the waker
+	// (StopWaker).
+	wakerLn   net.Listener
+	wakerAddr string
+	wakerCtx  context.Context
 	// Support runs tickets (V3 §7.1); WhatsApp fakes the Cloud API, whose
 	// webhook reaches the API. SupportInboundSecret authenticates inbound email.
 	Support  *support.Service
@@ -380,7 +385,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	consoleSvc := console.New(db, svc, keyring, false, log)
 	insightSvc := insights.New(db, svc, consoleSvc, insights.Config{SlowQuery: 200 * time.Millisecond, Plans: []string{"all"}}, log)
-	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond}, log)
+	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond, WakerAddr: pm.WakerAddr}, log)
 	collector := metrics.NewCollector(db, svc, pm, nodeSvc, time.Second, log)
 
 	clock := &Clock{t: time.Now()}
@@ -468,7 +473,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
@@ -909,4 +914,36 @@ func (d *memDocs) Get(_ context.Context, key string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("no document %s", key)
 	}
 	return io.NopCloser(bytes.NewReader(b)), nil
+}
+
+// StopWaker stops the waker, as if it had crashed: its port refuses
+// connections until StartWaker.
+func (e *Env) StopWaker(t *testing.T) {
+	t.Helper()
+	if e.wakerLn != nil {
+		_ = e.wakerLn.Close()
+		e.wakerLn = nil
+	}
+}
+
+// StartWaker starts the waker again on the same address.
+func (e *Env) StartWaker(t *testing.T) {
+	t.Helper()
+	if e.wakerLn != nil {
+		return
+	}
+	addr := e.wakerAddr
+	var ln net.Listener
+	var err error
+	for range 50 { // the old socket may linger a moment
+		if ln, err = net.Listen("tcp", addr); err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("waker listen again on %s: %v", addr, err)
+	}
+	e.wakerLn = ln
+	go func() { _ = e.Waker.Serve(e.wakerCtx, ln) }()
 }

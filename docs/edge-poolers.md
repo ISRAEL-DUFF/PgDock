@@ -128,7 +128,12 @@ Admin → Nodes shows **Edge pooler hosts**:
 - the last pooler events.
 
 Alerts fire for a pooler host that isn't ready (`pooler_host_not_ready`) and
-for split brain (`pooler_split_brain`).
+for split brain (`pooler_split_brain`): two hosts of the same region both
+keepalived MASTER. A MASTER in each region is normal; each region's
+pair has its own floating IP. During split brain the arbiter leaves the
+floating IP on its holder while that host is healthy, keeps pushing the
+configuration to both, and moves the IP to the other host if the holder
+goes stale (`TestChaosPoolerSplitBrain`).
 
 **Rehearse a failover** before relying on it, with a client running queries
 through the floating IP:

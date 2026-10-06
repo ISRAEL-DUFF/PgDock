@@ -77,6 +77,24 @@ reachable from the poolers.
 Archiving needs backup storage and a backup key, as backups do. Without
 them, projects pause but are never archived.
 
+### If the waker is down
+
+pgdock-server restarts the waker if it stops accepting connections. While
+it is unreachable at `PGDOCK_WAKER_ADDR` (checked from pgdock-server, so
+that address must be reachable from the server too):
+
+- the `waker_down` alert fires (critical);
+- a client of a paused project is held by PgBouncer (it retries the
+  waker every 2 seconds, up to PgBouncer's `query_wait_timeout`, 120 s by
+  default) and nothing wakes; once the waker is back, a held client gets
+  the "resuming" message and its retry gets in;
+- **Resume** on the project page (or `pgdock resume`) still works: it
+  doesn't need the waker;
+- the sweep doesn't pause or archive anything, so no more projects end up
+  behind it.
+
+The chaos test `TestChaosWakerFailure` covers this.
+
 ## Open signup
 
 Signup can be open (Admin → Settings → Signup), protected by:

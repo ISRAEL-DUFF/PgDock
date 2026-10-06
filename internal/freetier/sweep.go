@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"time"
 
@@ -14,6 +15,21 @@ import (
 // Swept counts what one sweep did.
 type Swept struct {
 	Warned, Paused, Archived, Noticed, Deleted, Resumed int
+	// WakerDown: the waker didn't answer, so nothing was paused or
+	// archived (its clients could never wake it).
+	WakerDown bool
+}
+
+// WakerReachable reports whether the waker accepts connections at addr.
+func WakerReachable(ctx context.Context, addr string) bool {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	c, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return false
+	}
+	_ = c.Close()
+	return true
 }
 
 // Run sweeps every interval until ctx ends.
@@ -60,8 +76,16 @@ func (s *Service) Sweep(ctx context.Context) (Swept, error) {
 		}
 	}
 
-	// Without a waker, a paused project could only fail its clients.
-	if pm := s.projects.Pooler(); pm != nil && pm.WakerSet() {
+	// Without a waker, a paused project could only fail its clients; with
+	// one that is down, its clients couldn't wake it (M27 chaos test), so
+	// pausing and archiving wait until it is back.
+	pm := s.projects.Pooler()
+	wakerUp := pm != nil && pm.WakerSet() && WakerReachable(ctx, pm.WakerAddr())
+	if pm != nil && pm.WakerSet() && !wakerUp {
+		out.WakerDown = true
+		s.log.Warn("free tier: the waker is unreachable; not pausing or archiving", "waker", pm.WakerAddr())
+	}
+	if wakerUp {
 		idle, err := q.FreeProjectsIdleSince(ctx, ptr(now.Add(-(s.cfg.PauseAfter - s.cfg.Warn))))
 		try(err)
 		for _, p := range idle {
@@ -86,7 +110,7 @@ func (s *Service) Sweep(ctx context.Context) (Swept, error) {
 		}
 	}
 
-	if _, _, err := s.backups.StorageTarget(ctx); err == nil {
+	if _, _, err := s.backups.StorageTarget(ctx); err == nil && !out.WakerDown {
 		long, err := q.FreeProjectsPausedSince(ctx, ptr(now.Add(-s.cfg.ArchiveAfter)))
 		try(err)
 		for _, p := range long {

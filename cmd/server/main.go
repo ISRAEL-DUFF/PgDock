@@ -333,8 +333,26 @@ func run() error {
 			bg.Add(1)
 			go func() {
 				defer bg.Done()
-				if err := ws.Serve(bgCtx, ln); err != nil {
-					log.Error("waker stopped", "err", err)
+				// If accepting fails the waker listens again, so paused
+				// projects don't stay unreachable (M27 chaos test).
+				for {
+					err := ws.Serve(bgCtx, ln)
+					if bgCtx.Err() != nil {
+						return
+					}
+					log.Error("waker stopped; restarting", "err", err)
+					_ = ln.Close()
+					for {
+						select {
+						case <-bgCtx.Done():
+							return
+						case <-time.After(5 * time.Second):
+						}
+						if ln, err = net.Listen("tcp", cfg.FreeTier.WakerListen); err == nil {
+							break
+						}
+						log.Error("waker: listen again", "err", err)
+					}
 				}
 			}()
 			log.Info("waker listening", "listen", cfg.FreeTier.WakerListen, "pooler_address", cfg.FreeTier.WakerAddr)
@@ -413,7 +431,7 @@ func run() error {
 		go func() { defer bg.Done(); isoChecks.Run(bgCtx) }()
 		consoleSvc = console.New(pool, projects, keyring, cfg.Insight.ConsoleDisabled, log)
 		alertSvc = alerts.New(pool, keyring, alerts.Config{
-			Interval: cfg.Insight.AlertsInterval, PublicURL: cfg.Insight.PublicURL, Poolers: pm.Admins(),
+			Interval: cfg.Insight.AlertsInterval, PublicURL: cfg.Insight.PublicURL, Poolers: pm.Admins(), WakerAddr: pm.WakerAddr,
 		}, log)
 		bg.Add(1)
 		go func() { defer bg.Done(); alertSvc.Run(bgCtx) }()

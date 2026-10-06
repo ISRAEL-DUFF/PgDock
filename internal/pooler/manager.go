@@ -144,6 +144,15 @@ func (m *Manager) WakerSet() bool {
 	return port != 0
 }
 
+// WakerAddr is the waker as the poolers reach it, or "" when none is set.
+func (m *Manager) WakerAddr() string {
+	host, port := m.waker()
+	if port == 0 {
+		return ""
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
 func (m *Manager) waker() (string, int) {
 	m.wakerMu.Lock()
 	defer m.wakerMu.Unlock()

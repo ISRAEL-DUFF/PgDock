@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/mail"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +39,8 @@ const (
 	KindIsolationCheck     = "isolation_check_failed"
 	// Capacity automation (V3 §5.2): a proposal waits for approval, or a
 	// provisioning failed in the last day.
+	// The Free tier's waker (V3 §4.2) doesn't accept connections.
+	KindWakerDown          = "waker_down"
 	KindCapacityProposal   = "capacity_proposal"
 	KindCapacityFailed     = "capacity_failed"
 	SeverityWarning        = "warning"
@@ -59,6 +63,9 @@ type Config struct {
 	// PoolerGrace is how long a pooler must keep failing before it is down
 	// (default 1 min: at startup the poolers come up after the server).
 	PoolerGrace time.Duration
+	// WakerAddr returns the waker's address as the poolers reach it ("" when
+	// there is none); checked for "waker down" with the poolers' grace.
+	WakerAddr func() string
 }
 
 // Service evaluates conditions and delivers notifications.
@@ -301,6 +308,7 @@ func (s *Service) conditions(ctx context.Context) ([]condition, error) {
 	}
 
 	out = append(out, s.poolerConditions(ctx)...)
+	out = append(out, s.wakerConditions(ctx)...)
 	hostConds, err := s.poolerHostConditions(ctx)
 	if err != nil {
 		errs = append(errs, err)
@@ -339,6 +347,43 @@ func (s *Service) poolerConditions(ctx context.Context) []condition {
 	return out
 }
 
+// wakerConditions reports a waker that hasn't accepted connections for the
+// grace period: paused Free projects can't wake from a connection, and the
+// sweep stops pausing until it is back.
+func (s *Service) wakerConditions(ctx context.Context) []condition {
+	if s.cfg.WakerAddr == nil {
+		return nil
+	}
+	addr := s.cfg.WakerAddr()
+	if addr == "" {
+		return nil
+	}
+	dctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	c, err := (&net.Dialer{}).DialContext(dctx, "tcp", addr)
+	cancel()
+	up := err == nil
+	if up {
+		_ = c.Close()
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	since, failing := s.poolerFailing["waker"]
+	switch {
+	case up:
+		delete(s.poolerFailing, "waker")
+		return nil
+	case !failing:
+		since = time.Now()
+		s.poolerFailing["waker"] = since
+	}
+	if ctx.Err() != nil || time.Since(since) < s.cfg.PoolerGrace {
+		return nil
+	}
+	return []condition{{KindWakerDown, SeverityCritical, "control_plane", "waker", "waker",
+		fmt.Sprintf("The waker at %s doesn't accept connections: paused Free projects can't resume when a client connects (they can still be resumed from the dashboard), and pausing is on hold.", addr),
+		map[string]any{"address": addr}}}
+}
+
 // poolerHostConditions reports pooler hosts (V3 §2.1) that answer but
 // can't serve (a PgBouncer down, or a stale configuration) for the grace
 // period, and split brain: more than one host keepalived MASTER. An
@@ -350,7 +395,7 @@ func (s *Service) poolerHostConditions(ctx context.Context) ([]condition, error)
 	}
 	fresh := time.Now().Add(-2 * time.Minute)
 	var out []condition
-	var masters []string
+	masters := map[string][]string{}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, h := range hosts {
@@ -371,21 +416,36 @@ func (s *Service) poolerHostConditions(ctx context.Context) ([]condition, error)
 				map[string]any{"generation": h.PoolerGeneration, "vrrp_state": h.PoolerVrrpState}})
 		}
 		if checked && h.Status == "healthy" && h.PoolerVrrpState != nil && *h.PoolerVrrpState == "MASTER" {
-			masters = append(masters, h.Name)
+			masters[h.Region] = append(masters[h.Region], h.Name)
 		}
 	}
-	since, failing := s.poolerFailing["split"]
-	switch {
-	case len(masters) < 2:
-		delete(s.poolerFailing, "split")
-	case !failing:
-		since = time.Now()
-		s.poolerFailing["split"] = since
+	// Each region's pair has its own floating IP, so split brain is two
+	// MASTERs in one region; a MASTER in each region is normal (V3 §6.1).
+	for key := range s.poolerFailing {
+		if r, ok := strings.CutPrefix(key, "split:"); ok && len(masters[r]) < 2 {
+			delete(s.poolerFailing, key)
+		}
 	}
-	if len(masters) >= 2 && time.Since(since) >= s.cfg.PoolerGrace {
-		out = append(out, condition{KindPoolerSplitBrain, SeverityCritical, "pooler", "edge", "edge pooler",
-			fmt.Sprintf("More than one pooler host is keepalived MASTER (%s): check the network between them. pgdock-server keeps the floating IP on one healthy host.", strings.Join(masters, ", ")),
-			map[string]any{"masters": masters}})
+	regions := make([]string, 0, len(masters))
+	for r := range masters {
+		regions = append(regions, r)
+	}
+	sort.Strings(regions)
+	for _, r := range regions {
+		if len(masters[r]) < 2 {
+			continue
+		}
+		key := "split:" + r
+		since, failing := s.poolerFailing[key]
+		if !failing {
+			since = time.Now()
+			s.poolerFailing[key] = since
+		}
+		if time.Since(since) >= s.cfg.PoolerGrace {
+			out = append(out, condition{KindPoolerSplitBrain, SeverityCritical, "pooler", "edge:" + r, r + " edge pooler",
+				fmt.Sprintf("More than one pooler host in %s is keepalived MASTER (%s): check the network between them. pgdock-server keeps the floating IP on one healthy host.", r, strings.Join(masters[r], ", ")),
+				map[string]any{"masters": masters[r], "region": r}})
+		}
 	}
 	return out, nil
 }
