@@ -268,6 +268,10 @@ func TestCostAttributionMatchesManual(t *testing.T) {
 	if _, err := e.Billing.ChangePlan(ctx, e.OrgID, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
 		t.Fatal(err)
 	}
+	// Before anything is attributed: empty lists, not nulls (the page maps them).
+	if code, body := e.GetText("/api/v1/admin/costs", nil, true); code != http.StatusOK || !strings.Contains(body, `"categories":[]`) {
+		t.Errorf("empty month: %d %s", code, body)
+	}
 	a := e.CreateProject("A")
 	freeOrg := e.CreateOrg("Hobby")
 	b := e.CreateProjectIn("B", freeOrg)

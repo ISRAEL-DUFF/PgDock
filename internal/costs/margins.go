@@ -114,7 +114,7 @@ func (s *Service) Margins(ctx context.Context, month time.Time) (Margins, error)
 	if err != nil {
 		return Margins{}, err
 	}
-	out := Margins{Month: from.Format("2006-01"), Rates: now}
+	out := Margins{Month: from.Format("2006-01"), Rates: now, Categories: []CategoryCost{}, Plans: []PlanMargin{}, Orgs: []OrgMargin{}, Units: []UnitCost{}}
 	// Each day's rates, for the booked view.
 	dayRates := map[string]Rates{}
 	rateOn := func(d time.Time) (Rates, error) {
