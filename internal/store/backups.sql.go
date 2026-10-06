@@ -242,6 +242,136 @@ func (q *Queries) CopyCandidates(ctx context.Context, arg CopyCandidatesParams) 
 	return items, nil
 }
 
+const copyQueue = `-- name: CopyQueue :many
+SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, b.copy_target_id, b.copy_status, b.copied_at, b.copy_error, r.copy_target_id AS region_copy_target_id, p.region AS project_region, p.data_residency AS project_residency,
+       ct.pgdock_region AS copy_target_region
+FROM backups b
+JOIN projects p ON p.id = b.project_id
+JOIN regions r ON r.id = p.region
+JOIN storage_targets st ON st.id = b.storage_target_id
+JOIN storage_targets ct ON ct.id = r.copy_target_id
+WHERE b.status = 'succeeded' AND b.checksum IS NOT NULL AND b.copy_of IS NULL
+  AND b.kind IN ('logical', 'final', 'safety')
+  AND st.org_id IS NULL AND st.deleted_at IS NULL AND ct.deleted_at IS NULL
+  AND (b.copy_status IS NULL OR b.copy_status = 'pending'
+       OR (b.copy_status = 'failed' AND b.copied_at < now() - interval '1 hour'))
+ORDER BY b.finished_at
+LIMIT $1
+`
+
+type CopyQueueRow struct {
+	ID                 uuid.UUID
+	ProjectID          *uuid.UUID
+	Kind               string
+	ObjectKey          string
+	SizeBytes          *int64
+	Checksum           *string
+	StartedAt          time.Time
+	FinishedAt         *time.Time
+	Status             string
+	ExpiresAt          *time.Time
+	StorageTargetID    *uuid.UUID
+	OperationID        *uuid.UUID
+	KeyWrapped         []byte
+	Error              *string
+	DeletedAt          *time.Time
+	EncryptionKeyID    *uuid.UUID
+	WalgPrefix         *string
+	CopyOf             *uuid.UUID
+	CopyTargetID       *uuid.UUID
+	CopyStatus         *string
+	CopiedAt           *time.Time
+	CopyError          *string
+	RegionCopyTargetID *uuid.UUID
+	ProjectRegion      string
+	ProjectResidency   bool
+	CopyTargetRegion   *string
+}
+
+// CopyQueue lists backups on platform targets that still need their
+// cross-region copy (V3 §2.5), with the region's copy target. Org targets
+// aren't copied; base backups are WAL-G archives, copied by the copy
+// target's own replication if at all.
+// tenant: system - the cross-region copy worker.
+func (q *Queries) CopyQueue(ctx context.Context, lim int32) ([]CopyQueueRow, error) {
+	rows, err := q.db.Query(ctx, copyQueue, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CopyQueueRow
+	for rows.Next() {
+		var i CopyQueueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.ObjectKey,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.StorageTargetID,
+			&i.OperationID,
+			&i.KeyWrapped,
+			&i.Error,
+			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
+			&i.CopyTargetID,
+			&i.CopyStatus,
+			&i.CopiedAt,
+			&i.CopyError,
+			&i.RegionCopyTargetID,
+			&i.ProjectRegion,
+			&i.ProjectResidency,
+			&i.CopyTargetRegion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const copyStatusCounts = `-- name: CopyStatusCounts :many
+SELECT COALESCE(copy_status, 'none')::text AS copy_status, count(*)::int AS n
+FROM backups WHERE status = 'succeeded' AND started_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY 1
+`
+
+type CopyStatusCountsRow struct {
+	CopyStatus string
+	N          int32
+}
+
+// tenant: system - platform admin's view of cross-region copies.
+func (q *Queries) CopyStatusCounts(ctx context.Context) ([]CopyStatusCountsRow, error) {
+	rows, err := q.db.Query(ctx, copyStatusCounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CopyStatusCountsRow
+	for rows.Next() {
+		var i CopyStatusCountsRow
+		if err := rows.Scan(&i.CopyStatus, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const expireArchiveBaseBackups = `-- name: ExpireArchiveBaseBackups :exec
 UPDATE backups SET expires_at = $1::timestamptz
 WHERE project_id = $2 AND kind = 'base' AND status = 'succeeded' AND walg_prefix = $3 AND expires_at IS NULL
@@ -666,6 +796,44 @@ func (q *Queries) LastOperationOfKind(ctx context.Context, kind string) (Operati
 	return i, err
 }
 
+const latestCopiedBackup = `-- name: LatestCopiedBackup :one
+SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of, copy_target_id, copy_status, copied_at, copy_error FROM backups
+WHERE project_id = $1 AND status = 'succeeded' AND copy_status = 'copied' AND kind IN ('logical', 'final', 'safety')
+ORDER BY finished_at DESC
+LIMIT 1
+`
+
+// tenant: system - the restore test, alternating to copy targets.
+func (q *Queries) LatestCopiedBackup(ctx context.Context, projectID *uuid.UUID) (Backup, error) {
+	row := q.db.QueryRow(ctx, latestCopiedBackup, projectID)
+	var i Backup
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Kind,
+		&i.ObjectKey,
+		&i.SizeBytes,
+		&i.Checksum,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.StorageTargetID,
+		&i.OperationID,
+		&i.KeyWrapped,
+		&i.Error,
+		&i.DeletedAt,
+		&i.EncryptionKeyID,
+		&i.WalgPrefix,
+		&i.CopyOf,
+		&i.CopyTargetID,
+		&i.CopyStatus,
+		&i.CopiedAt,
+		&i.CopyError,
+	)
+	return i, err
+}
+
 const latestSucceededBackup = `-- name: LatestSucceededBackup :one
 SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of, copy_target_id, copy_status, copied_at, copy_error FROM backups
 WHERE project_id = $1 AND status = 'succeeded' AND kind IN ('logical', 'final', 'safety')
@@ -993,6 +1161,62 @@ func (q *Queries) MarkFailedBackupCleaned(ctx context.Context, id uuid.UUID) err
 	return err
 }
 
+const outOfRegionCopies = `-- name: OutOfRegionCopies :many
+SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, b.copy_target_id, b.copy_status, b.copied_at, b.copy_error FROM backups b
+JOIN storage_targets ct ON ct.id = b.copy_target_id
+WHERE b.project_id = $1 AND b.copy_status = 'copied'
+  AND (ct.pgdock_region IS NULL OR ct.pgdock_region <> $2::text)
+`
+
+type OutOfRegionCopiesParams struct {
+	ProjectID *uuid.UUID
+	Region    string
+}
+
+// tenant: system - turning data residency on removes copies outside the project's region.
+func (q *Queries) OutOfRegionCopies(ctx context.Context, arg OutOfRegionCopiesParams) ([]Backup, error) {
+	rows, err := q.db.Query(ctx, outOfRegionCopies, arg.ProjectID, arg.Region)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Backup
+	for rows.Next() {
+		var i Backup
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.ObjectKey,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.StorageTargetID,
+			&i.OperationID,
+			&i.KeyWrapped,
+			&i.Error,
+			&i.DeletedAt,
+			&i.EncryptionKeyID,
+			&i.WalgPrefix,
+			&i.CopyOf,
+			&i.CopyTargetID,
+			&i.CopyStatus,
+			&i.CopiedAt,
+			&i.CopyError,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const projectsDueForBackup = `-- name: ProjectsDueForBackup :many
 SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < $1
@@ -1139,6 +1363,66 @@ func (q *Queries) RandomProjectWithBackup(ctx context.Context) (Project, error) 
 	return i, err
 }
 
+const randomProjectWithCopiedBackup = `-- name: RandomProjectWithCopiedBackup :one
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM projects p
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'archived'
+  AND EXISTS (SELECT 1 FROM backups b WHERE b.project_id = p.id AND b.status = 'succeeded' AND b.kind = 'logical' AND b.copy_status = 'copied')
+ORDER BY random()
+LIMIT 1
+`
+
+// tenant: system - the restore test, alternating to copy targets.
+func (q *Queries) RandomProjectWithCopiedBackup(ctx context.Context) (Project, error) {
+	row := q.db.QueryRow(ctx, randomProjectWithCopiedBackup)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.DbName,
+		&i.OwnerRole,
+		&i.ScramVerifier,
+		&i.Tier,
+		&i.InstanceID,
+		&i.Status,
+		&i.Settings,
+		&i.StorageTargetID,
+		&i.Extensions,
+		&i.Description,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.DeletedAt,
+		&i.OrgID,
+		&i.AliasDbName,
+		&i.LegacyOwnerRole,
+		&i.LegacyScramVerifier,
+		&i.LegacyUntil,
+		&i.StorageState,
+		&i.StorageStateAt,
+		&i.BackupKeyID,
+		&i.ParentProjectID,
+		&i.BranchSource,
+		&i.BranchSchemaOnly,
+		&i.ExpiresAt,
+		&i.ExpiryNotifiedAt,
+		&i.BranchBackups,
+		&i.SensitiveData,
+		&i.ProbeVerifier,
+		&i.Lifecycle,
+		&i.LastActiveAt,
+		&i.PauseWarnedAt,
+		&i.PausedAt,
+		&i.ArchivedAt,
+		&i.ArchiveBackupID,
+		&i.ArchiveNoticeDays,
+		&i.Region,
+		&i.DataResidency,
+		&i.ForwardRegion,
+		&i.ForwardUntil,
+	)
+	return i, err
+}
+
 const retentionCandidates = `-- name: RetentionCandidates :many
 SELECT id, project_id, kind, object_key, size_bytes, checksum, started_at, finished_at, status, expires_at, storage_target_id, operation_id, key_wrapped, error, deleted_at, encryption_key_id, walg_prefix, copy_of, copy_target_id, copy_status, copied_at, copy_error FROM backups
 WHERE kind = $1 AND status = 'succeeded'
@@ -1195,6 +1479,30 @@ func (q *Queries) RetentionCandidates(ctx context.Context, arg RetentionCandidat
 		return nil, err
 	}
 	return items, nil
+}
+
+const setBackupCopy = `-- name: SetBackupCopy :exec
+UPDATE backups SET copy_status = $1, copy_target_id = $2,
+  copy_error = $3, copied_at = now()
+WHERE id = $4
+`
+
+type SetBackupCopyParams struct {
+	CopyStatus   *string
+	CopyTargetID *uuid.UUID
+	CopyError    *string
+	ID           uuid.UUID
+}
+
+// tenant: system - the cross-region copy worker records a copy's outcome; copied_at is the attempt's time.
+func (q *Queries) SetBackupCopy(ctx context.Context, arg SetBackupCopyParams) error {
+	_, err := q.db.Exec(ctx, setBackupCopy,
+		arg.CopyStatus,
+		arg.CopyTargetID,
+		arg.CopyError,
+		arg.ID,
+	)
+	return err
 }
 
 const setBackupFinished = `-- name: SetBackupFinished :one

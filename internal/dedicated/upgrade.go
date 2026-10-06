@@ -89,7 +89,7 @@ func (s *Service) UpgradePreflight(ctx context.Context, p store.Project, to int)
 
 	var target *pgx.Conn
 	if p.Tier == provision.TierShared {
-		clusters, err := q.SharedClustersForOrg(ctx, store.SharedClustersForOrgParams{OrgID: &p.OrgID, PgVersion: int32(to)})
+		clusters, err := q.SharedClustersForOrg(ctx, store.SharedClustersForOrgParams{OrgID: &p.OrgID, PgVersion: int32(to), Region: p.Region})
 		if err != nil {
 			return plan, err
 		}

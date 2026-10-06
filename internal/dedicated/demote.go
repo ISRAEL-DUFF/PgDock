@@ -334,7 +334,7 @@ func (s *Service) preflight(ctx context.Context, p store.Project, o DemoteOption
 		return plan, err
 	}
 	// The same Postgres version: a demotion isn't an upgrade.
-	clusters, err := q.SharedClustersForOrg(ctx, store.SharedClustersForOrgParams{OrgID: &p.OrgID, PgVersion: src.PgVersion})
+	clusters, err := q.SharedClustersForOrg(ctx, store.SharedClustersForOrgParams{OrgID: &p.OrgID, PgVersion: src.PgVersion, Region: p.Region})
 	if err != nil {
 		return plan, err
 	}

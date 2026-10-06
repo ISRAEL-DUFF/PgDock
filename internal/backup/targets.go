@@ -80,12 +80,13 @@ type Placement struct {
 	KeyID *uuid.UUID
 }
 
-// PlacementFor resolves a project's storage target (its choice, or the
-// platform default) and key.
+// PlacementFor resolves a project's storage target (its choice, or its
+// region's target, or the platform default) and key. A data-residency
+// project's backups go only to targets in its region (V3 §6.3).
 func (s *Service) PlacementFor(ctx context.Context, p store.Project) (Placement, error) {
 	pl := Placement{KeyID: p.BackupKeyID}
 	if p.StorageTargetID == nil {
-		id, t, err := s.StorageTarget(ctx)
+		id, t, err := s.regionTarget(ctx, p)
 		if err != nil {
 			return pl, err
 		}
@@ -100,12 +101,62 @@ func (s *Service) PlacementFor(ctx context.Context, p store.Project) (Placement,
 	if row.OrgID != nil && *row.OrgID != p.OrgID {
 		return pl, fmt.Errorf("project storage target %s belongs to another organisation", row.ID)
 	}
+	if err := residencyAllows(p, row); err != nil {
+		return pl, err
+	}
 	t, err := s.openTarget(row)
 	if err != nil {
 		return pl, err
 	}
 	pl.TargetID, pl.Target, pl.OrgTarget = row.ID, t, row.OrgID != nil
 	return pl, nil
+}
+
+// ErrResidency: a target outside a data-residency project's region.
+var ErrResidency = errors.New("data residency")
+
+// residencyAllows: a data-residency project may use only targets marked
+// as in its region.
+func residencyAllows(p store.Project, row store.StorageTarget) error {
+	if !p.DataResidency || (row.PgdockRegion != nil && *row.PgdockRegion == p.Region) {
+		return nil
+	}
+	return fmt.Errorf("%w: the project's data must stay in %s, and storage target %s is not marked as in that region", ErrResidency, p.Region, row.Name)
+}
+
+// regionHasTarget: region has its own storage target, so a project that
+// names none uses it rather than the platform default.
+func (s *Service) regionHasTarget(ctx context.Context, region string) bool {
+	r, err := store.New(s.db).GetRegion(ctx, region)
+	return err == nil && r.StorageTargetID != nil
+}
+
+// regionTarget is where a project that names no target backs up: its
+// region's storage target, or the platform default outside a residency
+// region.
+func (s *Service) regionTarget(ctx context.Context, p store.Project) (uuid.UUID, storage.Target, error) {
+	q := store.New(s.db)
+	r, err := q.GetRegion(ctx, p.Region)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, storage.Target{}, err
+	}
+	if err == nil && r.StorageTargetID != nil {
+		row, err := q.GetStorageTarget(ctx, *r.StorageTargetID)
+		if err != nil {
+			return uuid.Nil, storage.Target{}, fmt.Errorf("region %s storage target: %w", r.ID, err)
+		}
+		if row.DeletedAt == nil {
+			if err := residencyAllows(p, row); err != nil {
+				return uuid.Nil, storage.Target{}, err
+			}
+			t, err := s.openTarget(row)
+			return row.ID, t, err
+		}
+	}
+	if p.DataResidency {
+		return uuid.Nil, storage.Target{}, fmt.Errorf("%w: region %s has no in-country storage target, and the project's data must stay there", ErrResidency, p.Region)
+	}
+	return s.StorageTarget(ctx)
 }
 
 // ProjectWALG implements dedicated.Secrets: where a project's WAL-G

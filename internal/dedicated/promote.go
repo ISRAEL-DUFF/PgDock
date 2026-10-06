@@ -93,7 +93,18 @@ type promoteParams struct {
 // the operation. The project stays served throughout, except for the
 // write freeze while the data moves.
 func (s *Service) Promote(ctx context.Context, p PromoteParams) (store.Operation, error) {
-	cp := provision.CreateParams{NodeID: p.NodeID, Profile: p.Profile, VolumeGB: p.VolumeGB}
+	pr, err := store.New(s.db).GetProject(ctx, p.ProjectID)
+	if err != nil {
+		return store.Operation{}, err
+	}
+	// A promotion stays in the project's region; a region move is a move.
+	if p.NodeID != nil {
+		n, err := store.New(s.db).GetNode(ctx, *p.NodeID)
+		if err == nil && n.Region != pr.Region {
+			return store.Operation{}, fmt.Errorf("%w: node %s is in %s, the project in %s; promote in the project's region, then move it", provision.ErrInvalid, n.Name, n.Region, pr.Region)
+		}
+	}
+	cp := provision.CreateParams{NodeID: p.NodeID, Profile: p.Profile, VolumeGB: p.VolumeGB, Region: pr.Region}
 	prof, err := s.Validate(ctx, &cp)
 	if err != nil {
 		return store.Operation{}, err

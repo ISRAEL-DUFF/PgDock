@@ -20,4 +20,11 @@ SELECT * FROM moves WHERE project_id = @project_id ORDER BY started_at DESC LIMI
 
 -- name: MoveCutOver :exec
 -- tenant: system - move workers switch the project's instance.
-UPDATE projects SET instance_id = @instance_id WHERE id = @id;
+-- A move to another region's node moves the project's region; the old
+-- region's poolers keep routing it for 30 days (V3 §6.1).
+UPDATE projects p SET instance_id = @instance_id,
+  forward_region = CASE WHEN p.region <> n.region THEN p.region ELSE p.forward_region END,
+  forward_until = CASE WHEN p.region <> n.region THEN now() + interval '30 days' ELSE p.forward_until END,
+  region = n.region
+FROM instances i JOIN nodes n ON n.id = i.node_id
+WHERE i.id = @instance_id AND p.id = @id;

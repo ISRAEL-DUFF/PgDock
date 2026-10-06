@@ -79,6 +79,9 @@ func (s *Service) Move(ctx context.Context, mp MoveParams) (store.Operation, err
 			if src.NodeID == mp.NodeID {
 				return nil, fmt.Errorf("%w: the project is already on that node", provision.ErrInvalid)
 			}
+			if err := checkMoveRegion(ctx, q, pr, mp.NodeID); err != nil {
+				return nil, err
+			}
 			if pr.Tier == provision.TierShared {
 				target, err := q.SharedInstanceOnNode(ctx, mp.NodeID)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -121,6 +124,33 @@ func (s *Service) Move(ctx context.Context, mp MoveParams) (store.Operation, err
 			}
 			return moveParams{TargetInstance: target, SourceInstance: src.ID, NewInstance: true}, nil
 		})
+}
+
+// checkMoveRegion: a move may go to another region's node (a region
+// move), except out of a data-residency project's region (V3 §6.3).
+func checkMoveRegion(ctx context.Context, q *store.Queries, pr store.Project, nodeID uuid.UUID) error {
+	n, err := q.GetNode(ctx, nodeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("%w: no node %s", provision.ErrInvalid, nodeID)
+	}
+	if err != nil {
+		return err
+	}
+	if n.Region == pr.Region {
+		return nil
+	}
+	if pr.DataResidency {
+		return fmt.Errorf("%w: the project's data must stay in %s; turn data residency off before moving it to %s",
+			provision.ErrConflict, pr.Region, n.Region)
+	}
+	r, err := q.GetRegion(ctx, n.Region)
+	if err != nil {
+		return err
+	}
+	if r.Status != "active" {
+		return fmt.Errorf("%w: region %s is not open for projects", provision.ErrInvalid, r.ID)
+	}
+	return nil
 }
 
 // runMove moves the project's database to the target instance.

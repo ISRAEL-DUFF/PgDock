@@ -279,28 +279,65 @@ func (s *Service) failRestore(ctx context.Context, op store.Operation, log *jobs
 	return s.reopen(ctx, p, log)
 }
 
+// RestoreTestParams: FromCopy tests a backup's cross-region copy instead
+// of the primary; the weekly test alternates (V3 §2.5).
+type RestoreTestParams struct {
+	FromCopy bool `json:"from_copy,omitempty"`
+}
+
+func restoreTestParams(op store.Operation) RestoreTestParams {
+	var p RestoreTestParams
+	_ = json.Unmarshal(op.Params, &p)
+	return p
+}
+
 // runRestoreTest restores the latest backup of a random project into a
-// scratch database, counts every table, and drops it (spec §6.5).
+// scratch database, counts every table, and drops it (spec §6.5). On the
+// copy turn it reads a backup's cross-region copy; with none copied yet it
+// tests the primary.
 func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
 	q := store.New(s.db)
+	fromCopy := restoreTestParams(op).FromCopy
 	var p store.Project
 	var err error
 	if op.ProjectID != nil {
 		p, err = s.projects.ProjectFor(ctx, op)
 	} else {
-		p, err = q.RandomProjectWithBackup(ctx)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return log.Info(ctx, "done", "no project has a backup yet; nothing to test")
+		if fromCopy {
+			p, err = q.RandomProjectWithCopiedBackup(ctx)
+			if errors.Is(err, pgx.ErrNoRows) {
+				fromCopy = false
+				if err := log.Info(ctx, "pick", "no backup has a cross-region copy yet; testing a primary"); err != nil {
+					return err
+				}
+			}
+		}
+		if !fromCopy {
+			p, err = q.RandomProjectWithBackup(ctx)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return log.Info(ctx, "done", "no project has a backup yet; nothing to test")
+			}
 		}
 	}
 	if err != nil {
 		return err
 	}
-	b, err := q.LatestSucceededBackup(ctx, &p.ID)
-	if err != nil {
+	var b store.Backup
+	if fromCopy {
+		if b, err = q.LatestCopiedBackup(ctx, &p.ID); err == nil {
+			b, err = atCopy(b)
+		}
+		if err != nil {
+			return jobs.Permanent(fmt.Errorf("project %s has no copied backup: %w", p.Name, err))
+		}
+	} else if b, err = q.LatestSucceededBackup(ctx, &p.ID); err != nil {
 		return jobs.Permanent(fmt.Errorf("project %s has no backup: %w", p.Name, err))
 	}
-	if err := log.Info(ctx, "pick", "testing the %s backup of %s (%s)", b.Kind, p.Name, b.StartedAt.UTC().Format("2006-01-02 15:04 MST")); err != nil {
+	from := "primary target"
+	if fromCopy {
+		from = "cross-region copy"
+	}
+	if err := log.Info(ctx, "pick", "testing the %s backup of %s (%s) from its %s", b.Kind, p.Name, b.StartedAt.UTC().Format("2006-01-02 15:04 MST"), from); err != nil {
 		return err
 	}
 	return s.verifyRestore(ctx, p, b, log)

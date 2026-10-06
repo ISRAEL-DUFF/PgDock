@@ -57,7 +57,12 @@ func (q *Queries) LatestMoves(ctx context.Context, arg LatestMovesParams) ([]Mov
 }
 
 const moveCutOver = `-- name: MoveCutOver :exec
-UPDATE projects SET instance_id = $1 WHERE id = $2
+UPDATE projects p SET instance_id = $1,
+  forward_region = CASE WHEN p.region <> n.region THEN p.region ELSE p.forward_region END,
+  forward_until = CASE WHEN p.region <> n.region THEN now() + interval '30 days' ELSE p.forward_until END,
+  region = n.region
+FROM instances i JOIN nodes n ON n.id = i.node_id
+WHERE i.id = $1 AND p.id = $2
 `
 
 type MoveCutOverParams struct {
@@ -66,6 +71,8 @@ type MoveCutOverParams struct {
 }
 
 // tenant: system - move workers switch the project's instance.
+// A move to another region's node moves the project's region; the old
+// region's poolers keep routing it for 30 days (V3 §6.1).
 func (q *Queries) MoveCutOver(ctx context.Context, arg MoveCutOverParams) error {
 	_, err := q.db.Exec(ctx, moveCutOver, arg.InstanceID, arg.ID)
 	return err

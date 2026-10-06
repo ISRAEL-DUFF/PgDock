@@ -236,10 +236,17 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 	if err != nil {
 		return store.Node{}, err
 	}
+	// The standby stays in the primary's region (V3 §6.1).
+	region := ""
+	for _, n := range ns {
+		if n.ID == primary {
+			region = n.Region
+		}
+	}
 	var best *store.Node
 	bestCount := 1 << 30
 	for i, n := range ns {
-		if n.ID == primary || n.AgentCertFp == nil || n.Status != "healthy" || (n.Role != "dedicated" && n.Role != "both") {
+		if n.ID == primary || n.AgentCertFp == nil || n.Status != "healthy" || (n.Role != "dedicated" && n.Role != "both") || n.Region != region {
 			continue
 		}
 		if want != nil {
@@ -257,10 +264,10 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 		}
 	}
 	if want != nil {
-		return store.Node{}, fmt.Errorf("%w: the standby must go on another healthy node that takes dedicated instances", provision.ErrConflict)
+		return store.Node{}, fmt.Errorf("%w: the standby must go on another healthy node in the primary's region (%s) that takes dedicated instances", provision.ErrConflict, region)
 	}
 	if best == nil {
-		return store.Node{}, fmt.Errorf("%w: HA needs a second healthy node that takes dedicated instances", provision.ErrConflict)
+		return store.Node{}, fmt.Errorf("%w: HA needs a second healthy node in %s that takes dedicated instances", provision.ErrConflict, region)
 	}
 	return *best, nil
 }
