@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"errors"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -71,7 +72,7 @@ func TestHetznerAgainstFake(t *testing.T) {
 
 func TestManualProvider(t *testing.T) {
 	m := ManualProvider{Catalog: []ServerPrice{{Type: "colo-1u", Location: "lagos", CPUs: 32, MemoryGB: 128, DiskGB: 2000, MonthlyMinor: 45000000, Currency: "NGN"}}}
-	if _, err := m.CreateServer(context.Background(), ServerSpec{}); err != ErrManual {
+	if _, err := m.CreateServer(context.Background(), ServerSpec{}); !errors.Is(err, ErrManual) {
 		t.Errorf("create: %v", err)
 	}
 	cat, _ := m.PriceCatalog(context.Background())

@@ -37,8 +37,11 @@ import (
 	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
 	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/branching"
+	"github.com/israel-duff/pgdock/internal/capacity"
+	"github.com/israel-duff/pgdock/internal/cloud"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/console"
+	"github.com/israel-duff/pgdock/internal/costs"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/floatip"
@@ -351,6 +354,26 @@ func run() error {
 		return fmt.Errorf("legal documents: %w", err)
 	}
 
+	// Cost attribution and exchange rates (V3 §5.4), and capacity
+	// automation: proposals, provisioning, drains, rebalancing (§5.2, §5.3).
+	costSvc := costs.New(pool, billingSvc, cfg.Cloud.Region, log)
+	bg.Add(1)
+	go func() { defer bg.Done(); costSvc.Run(bgCtx, time.Hour) }()
+	var capacitySvc *capacity.Service
+	if backups != nil {
+		capacitySvc = capacity.New(pool, nodeSvc, backups.Dedicated, cloudProvider(cfg.Cloud), costSvc, capacity.Config{
+			Region: cfg.Cloud.Region, Location: cfg.Cloud.HetznerLocation, Image: cfg.Cloud.HetznerImage,
+			Network: cfg.Cloud.HetznerNetworkID, PlacementGroup: cfg.Cloud.HetznerPlacementGroup, SSHKeys: cfg.Cloud.HetznerSSHKeys,
+			Bootstrap: cloud.Bootstrap{ServerURL: cfg.Cloud.ServerURL, ServerCA: cfg.Cloud.ServerCA, AgentImage: cfg.Cloud.AgentImage,
+				PGImage: cfg.Cloud.PGImage, PrivateCIDR: cfg.Cloud.PrivateCIDR},
+		}, log)
+		for name, k := range capacitySvc.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); capacitySvc.Run(bgCtx, 30*time.Second) }()
+	}
+
 	// Database webhooks, scheduled jobs and their outbound requests (V2 §9).
 	var webhookSvc *webhooks.Service
 	var jobSvc *schedjobs.Service
@@ -469,6 +492,8 @@ func run() error {
 		FreeTier:        freeSvc,
 		Support:         supportSvc,
 		Legal:           legalSvc,
+		Capacity:        capacitySvc,
+		Costs:           costSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,
@@ -839,4 +864,13 @@ func (d billingDocs) Get(ctx context.Context, key string) (io.ReadCloser, error)
 		return nil, err
 	}
 	return c.Download(ctx, c.Target().Key("billing/"+key))
+}
+
+// cloudProvider is the provider capacity automation creates servers with
+// (V3 §5.1): Hetzner Cloud, or none (machines are registered by hand).
+func cloudProvider(c config.Cloud) cloud.Provider {
+	if c.Provider == cloud.Hetzner {
+		return &cloud.HetznerProvider{API: c.HetznerAPI, Token: c.HetznerToken}
+	}
+	return cloud.ManualProvider{}
 }

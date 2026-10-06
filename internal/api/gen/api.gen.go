@@ -401,6 +401,57 @@ func (e BranchResetRequestSource) Valid() bool {
 	}
 }
 
+// Defines values for CapacityProposalStatus.
+const (
+	CapacityProposalStatusApproved     CapacityProposalStatus = "approved"
+	CapacityProposalStatusDone         CapacityProposalStatus = "done"
+	CapacityProposalStatusFailed       CapacityProposalStatus = "failed"
+	CapacityProposalStatusPending      CapacityProposalStatus = "pending"
+	CapacityProposalStatusProvisioning CapacityProposalStatus = "provisioning"
+	CapacityProposalStatusRejected     CapacityProposalStatus = "rejected"
+	CapacityProposalStatusSuperseded   CapacityProposalStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the CapacityProposalStatus enum.
+func (e CapacityProposalStatus) Valid() bool {
+	switch e {
+	case CapacityProposalStatusApproved:
+		return true
+	case CapacityProposalStatusDone:
+		return true
+	case CapacityProposalStatusFailed:
+		return true
+	case CapacityProposalStatusPending:
+		return true
+	case CapacityProposalStatusProvisioning:
+		return true
+	case CapacityProposalStatusRejected:
+		return true
+	case CapacityProposalStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CapacityProposalTier.
+const (
+	CapacityProposalTierDedicated CapacityProposalTier = "dedicated"
+	CapacityProposalTierShared    CapacityProposalTier = "shared"
+)
+
+// Valid indicates whether the value is a known member of the CapacityProposalTier enum.
+func (e CapacityProposalTier) Valid() bool {
+	switch e {
+	case CapacityProposalTierDedicated:
+		return true
+	case CapacityProposalTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ColumnRefOnDelete.
 const (
 	ColumnRefOnDeleteCASCADE    ColumnRefOnDelete = "CASCADE"
@@ -1259,6 +1310,27 @@ func (e MovePhase) Valid() bool {
 	}
 }
 
+// Defines values for NodeLifecycle.
+const (
+	NodeLifecycleActive       NodeLifecycle = "active"
+	NodeLifecycleDraining     NodeLifecycle = "draining"
+	NodeLifecycleProvisioning NodeLifecycle = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the NodeLifecycle enum.
+func (e NodeLifecycle) Valid() bool {
+	switch e {
+	case NodeLifecycleActive:
+		return true
+	case NodeLifecycleDraining:
+		return true
+	case NodeLifecycleProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperationLogEntryLevel.
 const (
 	OperationLogEntryLevelError OperationLogEntryLevel = "error"
@@ -1598,6 +1670,57 @@ func (e ReapedSessionKind) Valid() bool {
 	case IdleInTransaction:
 		return true
 	case Statement:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RebalanceMoveKind.
+const (
+	Drain     RebalanceMoveKind = "drain"
+	Rebalance RebalanceMoveKind = "rebalance"
+)
+
+// Valid indicates whether the value is a known member of the RebalanceMoveKind enum.
+func (e RebalanceMoveKind) Valid() bool {
+	switch e {
+	case Drain:
+		return true
+	case Rebalance:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RebalanceMoveStatus.
+const (
+	RebalanceMoveStatusApproved RebalanceMoveStatus = "approved"
+	RebalanceMoveStatusDone     RebalanceMoveStatus = "done"
+	RebalanceMoveStatusFailed   RebalanceMoveStatus = "failed"
+	RebalanceMoveStatusMoving   RebalanceMoveStatus = "moving"
+	RebalanceMoveStatusProposed RebalanceMoveStatus = "proposed"
+	RebalanceMoveStatusRejected RebalanceMoveStatus = "rejected"
+	RebalanceMoveStatusSkipped  RebalanceMoveStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the RebalanceMoveStatus enum.
+func (e RebalanceMoveStatus) Valid() bool {
+	switch e {
+	case RebalanceMoveStatusApproved:
+		return true
+	case RebalanceMoveStatusDone:
+		return true
+	case RebalanceMoveStatusFailed:
+		return true
+	case RebalanceMoveStatusMoving:
+		return true
+	case RebalanceMoveStatusProposed:
+		return true
+	case RebalanceMoveStatusRejected:
+		return true
+	case RebalanceMoveStatusSkipped:
 		return true
 	default:
 		return false
@@ -2621,6 +2744,24 @@ func (e ListPlatformAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AdminCostsParamsFormat.
+const (
+	AdminCostsParamsFormatCsv  AdminCostsParamsFormat = "csv"
+	AdminCostsParamsFormatJson AdminCostsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminCostsParamsFormat enum.
+func (e AdminCostsParamsFormat) Valid() bool {
+	switch e {
+	case AdminCostsParamsFormatCsv:
+		return true
+	case AdminCostsParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListDedicatedRequestsParamsStatus.
 const (
 	ListDedicatedRequestsParamsStatusApproved  ListDedicatedRequestsParamsStatus = "approved"
@@ -3210,6 +3351,19 @@ type AlertTestResult struct {
 	} `json:"results"`
 }
 
+// AttributeRequest defines model for AttributeRequest.
+type AttributeRequest struct {
+	From openapi_types.Date `json:"from"`
+
+	// To Inclusive.
+	To openapi_types.Date `json:"to"`
+}
+
+// AttributeResult defines model for AttributeResult.
+type AttributeResult struct {
+	Days int `json:"days"`
+}
+
 // AuditEntry defines model for AuditEntry.
 type AuditEntry struct {
 	// Action Example: project.create
@@ -3333,6 +3487,11 @@ type BackupOverview struct {
 	RetentionWeekly    int           `json:"retention_weekly"`
 	StorageConfigured  bool          `json:"storage_configured"`
 	WindowHourUtc      int           `json:"window_hour_utc"`
+}
+
+// BatchDecision defines model for BatchDecision.
+type BatchDecision struct {
+	Approve bool `json:"approve"`
 }
 
 // BillingAccount defines model for BillingAccount.
@@ -3516,6 +3675,74 @@ type BreakGlassSession struct {
 	StartsAt   time.Time          `json:"starts_at"`
 }
 
+// Capacity defines model for Capacity.
+type Capacity struct {
+	// BudgetUsedMinor The nodes' monthly cost in the budget's currency (where a rate allows).
+	BudgetUsedMinor int64              `json:"budget_used_minor"`
+	CanCreate       bool               `json:"can_create"`
+	Dedicated       []RegionDedicated  `json:"dedicated"`
+	Moves           []RebalanceMove    `json:"moves"`
+	Nodes           []Node             `json:"nodes"`
+	Proposals       []CapacityProposal `json:"proposals"`
+	Provider        string             `json:"provider"`
+	Region          string             `json:"region"`
+	Settings        CapacitySettings   `json:"settings"`
+	Shared          []RegionShared     `json:"shared"`
+}
+
+// CapacityProposal defines model for CapacityProposal.
+type CapacityProposal struct {
+	Auto             bool                   `json:"auto"`
+	CreatedAt        time.Time              `json:"created_at"`
+	Currency         string                 `json:"currency"`
+	Error            *string                `json:"error,omitempty"`
+	Id               openapi_types.UUID     `json:"id"`
+	Location         string                 `json:"location"`
+	MonthlyCostMinor int64                  `json:"monthly_cost_minor"`
+	NodeId           *openapi_types.UUID    `json:"node_id,omitempty"`
+	NodeName         *string                `json:"node_name,omitempty"`
+	OperationId      *openapi_types.UUID    `json:"operation_id,omitempty"`
+	Provider         string                 `json:"provider"`
+	Reason           string                 `json:"reason"`
+	Region           string                 `json:"region"`
+	ServerType       string                 `json:"server_type"`
+	Status           CapacityProposalStatus `json:"status"`
+	Tier             CapacityProposalTier   `json:"tier"`
+	UpdatedAt        time.Time              `json:"updated_at"`
+}
+
+// CapacityProposalStatus defines model for CapacityProposal.Status.
+type CapacityProposalStatus string
+
+// CapacityProposalTier defines model for CapacityProposal.Tier.
+type CapacityProposalTier string
+
+// CapacityProposalList defines model for CapacityProposalList.
+type CapacityProposalList struct {
+	Items []CapacityProposal `json:"items"`
+}
+
+// CapacitySettings defines model for CapacitySettings.
+type CapacitySettings struct {
+	AutoApply             bool         `json:"auto_apply"`
+	AutoRebalance         bool         `json:"auto_rebalance"`
+	BudgetCurrency        string       `json:"budget_currency"`
+	Dedicated             TierSettings `json:"dedicated"`
+	DeleteEmptyAfterHours int          `json:"delete_empty_after_hours"`
+	MonthlyBudgetMinor    int64        `json:"monthly_budget_minor"`
+	RebalanceSpread       float32      `json:"rebalance_spread"`
+	Shared                TierSettings `json:"shared"`
+}
+
+// CategoryCost defines model for CategoryCost.
+type CategoryCost struct {
+	Category       string           `json:"category"`
+	NativeMinor    map[string]int64 `json:"native_minor"`
+	NgnBookedMinor int64            `json:"ngn_booked_minor"`
+	NgnMinor       int64            `json:"ngn_minor"`
+	Region         string           `json:"region"`
+}
+
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
@@ -3568,6 +3795,16 @@ type ConnectionInfo struct {
 
 	// User Example: blog_k2f9_owner
 	User string `json:"user"`
+}
+
+// CostSettings defines model for CostSettings.
+type CostSettings struct {
+	Currency                  string     `json:"currency"`
+	EgressGbMinor             float32    `json:"egress_gb_minor"`
+	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
+	FloatingIps               int        `json:"floating_ips"`
+	ObjectStorageGbMonthMinor float32    `json:"object_storage_gb_month_minor"`
+	Overheads                 []Overhead `json:"overheads"`
 }
 
 // CreateIncidentRequest defines model for CreateIncidentRequest.
@@ -3898,6 +4135,12 @@ type DnsCheck struct {
 	ServerAddresses []string `json:"server_addresses"`
 }
 
+// DrainResult defines model for DrainResult.
+type DrainResult struct {
+	Moves int  `json:"moves"`
+	Node  Node `json:"node"`
+}
+
 // EditColumn defines model for EditColumn.
 type EditColumn struct {
 	BaseType string `json:"base_type"`
@@ -3999,6 +4242,28 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FXRate defines model for FXRate.
+type FXRate struct {
+	Currency    string    `json:"currency"`
+	EffectiveAt time.Time `json:"effective_at"`
+	Id          int64     `json:"id"`
+	NgnPerUnit  float64   `json:"ngn_per_unit"`
+	Source      string    `json:"source"`
+}
+
+// FXRateInput defines model for FXRateInput.
+type FXRateInput struct {
+	Currency    string     `json:"currency"`
+	EffectiveAt *time.Time `json:"effective_at,omitempty"`
+	NgnPerUnit  float64    `json:"ngn_per_unit"`
+}
+
+// FXRateList defines model for FXRateList.
+type FXRateList struct {
+	Current []FXRate `json:"current"`
+	History []FXRate `json:"history"`
 }
 
 // FailedChange defines model for FailedChange.
@@ -4648,6 +4913,26 @@ type MaintenanceWindow struct {
 	Weekday int `json:"weekday"`
 }
 
+// Margins defines model for Margins.
+type Margins struct {
+	Categories        []CategoryCost     `json:"categories"`
+	CostBookedMinor   int64              `json:"cost_booked_minor"`
+	CostMinor         int64              `json:"cost_minor"`
+	Days              int                `json:"days"`
+	FreeTierCostMinor int64              `json:"free_tier_cost_minor"`
+	FxErosionMinor    int64              `json:"fx_erosion_minor"`
+	MarginMinor       int64              `json:"margin_minor"`
+	MarginPct         *float32           `json:"margin_pct,omitempty"`
+	MissingRates      *[]string          `json:"missing_rates,omitempty"`
+	Month             string             `json:"month"`
+	Orgs              []OrgMargin        `json:"orgs"`
+	Plans             []PlanMargin       `json:"plans"`
+	Rates             map[string]float32 `json:"rates"`
+	RevenueMinor      int64              `json:"revenue_minor"`
+	UnallocatedMinor  int64              `json:"unallocated_minor"`
+	Units             []UnitCost         `json:"units"`
+}
+
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
 	Ts    time.Time `json:"ts"`
@@ -4733,14 +5018,38 @@ type MyInvitationList struct {
 
 // Node defines model for Node.
 type Node struct {
-	Agent         AgentStatus        `json:"agent"`
-	CreatedAt     time.Time          `json:"created_at"`
-	Id            openapi_types.UUID `json:"id"`
-	LastHeartbeat *time.Time         `json:"last_heartbeat,omitempty"`
-	Name          string             `json:"name"`
-	PrivateAddr   string             `json:"private_addr"`
-	Role          string             `json:"role"`
-	Status        string             `json:"status"`
+	Agent        AgentStatus        `json:"agent"`
+	CostCurrency *string            `json:"cost_currency,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
+	EmptySince   *time.Time         `json:"empty_since,omitempty"`
+	Id           openapi_types.UUID `json:"id"`
+
+	// Keep Never deleted for being empty.
+	Keep             *bool          `json:"keep,omitempty"`
+	LastHeartbeat    *time.Time     `json:"last_heartbeat,omitempty"`
+	Lifecycle        *NodeLifecycle `json:"lifecycle,omitempty"`
+	MonthlyCostMinor *int64         `json:"monthly_cost_minor,omitempty"`
+	Name             string         `json:"name"`
+	PrivateAddr      string         `json:"private_addr"`
+
+	// Provider manual (registered by hand) or the cloud provider that created it.
+	Provider   *string `json:"provider,omitempty"`
+	Region     *string `json:"region,omitempty"`
+	Role       string  `json:"role"`
+	ServerType *string `json:"server_type,omitempty"`
+	Status     string  `json:"status"`
+}
+
+// NodeLifecycle defines model for Node.Lifecycle.
+type NodeLifecycle string
+
+// NodeCost defines model for NodeCost.
+type NodeCost struct {
+	Currency         string  `json:"currency"`
+	Keep             *bool   `json:"keep,omitempty"`
+	MonthlyCostMinor *int64  `json:"monthly_cost_minor,omitempty"`
+	Region           *string `json:"region,omitempty"`
+	ServerType       *string `json:"server_type,omitempty"`
 }
 
 // NodeCreated defines model for NodeCreated.
@@ -4890,6 +5199,18 @@ type OrgList struct {
 	Items []Org `json:"items"`
 }
 
+// OrgMargin defines model for OrgMargin.
+type OrgMargin struct {
+	CostMinor       int64              `json:"cost_minor"`
+	CostNativeMinor map[string]int64   `json:"cost_native_minor"`
+	MarginMinor     int64              `json:"margin_minor"`
+	MarginPct       *float32           `json:"margin_pct,omitempty"`
+	Name            string             `json:"name"`
+	OrgId           openapi_types.UUID `json:"org_id"`
+	Plan            string             `json:"plan"`
+	RevenueMinor    int64              `json:"revenue_minor"`
+}
+
 // OrgMember defines model for OrgMember.
 type OrgMember struct {
 	Disabled     bool                `json:"disabled"`
@@ -4963,6 +5284,13 @@ type OutstandingWht struct {
 	PaidAt    *time.Time         `json:"paid_at,omitempty"`
 	Tin       *string            `json:"tin,omitempty"`
 	WhtMinor  int64              `json:"wht_minor"`
+}
+
+// Overhead defines model for Overhead.
+type Overhead struct {
+	Currency     string `json:"currency"`
+	MonthlyMinor int64  `json:"monthly_minor"`
+	Name         string `json:"name"`
 }
 
 // PasswordResetConfirm defines model for PasswordResetConfirm.
@@ -5105,6 +5433,16 @@ type PlanList struct {
 
 	// Keys Known limit keys, in display order.
 	Keys []string `json:"keys"`
+}
+
+// PlanMargin defines model for PlanMargin.
+type PlanMargin struct {
+	CostMinor    int64    `json:"cost_minor"`
+	MarginMinor  int64    `json:"margin_minor"`
+	MarginPct    *float32 `json:"margin_pct,omitempty"`
+	Orgs         int      `json:"orgs"`
+	Plan         string   `json:"plan"`
+	RevenueMinor int64    `json:"revenue_minor"`
 }
 
 // PlanOption defines model for PlanOption.
@@ -5574,6 +5912,38 @@ type ReauthRequest struct {
 	Password string `json:"password"`
 }
 
+// RebalanceMove defines model for RebalanceMove.
+type RebalanceMove struct {
+	Batch       openapi_types.UUID  `json:"batch"`
+	CreatedAt   time.Time           `json:"created_at"`
+	Error       *string             `json:"error,omitempty"`
+	FromName    string              `json:"from_name"`
+	FromNode    openapi_types.UUID  `json:"from_node"`
+	Id          openapi_types.UUID  `json:"id"`
+	Kind        RebalanceMoveKind   `json:"kind"`
+	OperationId *openapi_types.UUID `json:"operation_id,omitempty"`
+	OrgId       openapi_types.UUID  `json:"org_id"`
+	ProjectId   openapi_types.UUID  `json:"project_id"`
+	ProjectName string              `json:"project_name"`
+	Reason      string              `json:"reason"`
+	Status      RebalanceMoveStatus `json:"status"`
+	ToName      *string             `json:"to_name,omitempty"`
+	ToNode      *openapi_types.UUID `json:"to_node,omitempty"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+}
+
+// RebalanceMoveKind defines model for RebalanceMove.Kind.
+type RebalanceMoveKind string
+
+// RebalanceMoveStatus defines model for RebalanceMove.Status.
+type RebalanceMoveStatus string
+
+// RebalancePlan defines model for RebalancePlan.
+type RebalancePlan struct {
+	Batch *openapi_types.UUID `json:"batch,omitempty"`
+	Moves int64               `json:"moves"`
+}
+
 // ReclaimSpaceRequest defines model for ReclaimSpaceRequest.
 type ReclaimSpaceRequest struct {
 	Schema string `json:"schema"`
@@ -5610,6 +5980,27 @@ type RecoveryCodes struct {
 // RecoveryCodesStatus defines model for RecoveryCodesStatus.
 type RecoveryCodesStatus struct {
 	Remaining int `json:"remaining"`
+}
+
+// RegionDedicated defines model for RegionDedicated.
+type RegionDedicated struct {
+	FitsOn    *string `json:"fits_on,omitempty"`
+	FreeCpus  float32 `json:"free_cpus"`
+	FreeMemMb int64   `json:"free_mem_mb"`
+	Largest   string  `json:"largest"`
+	Nodes     int     `json:"nodes"`
+	Region    string  `json:"region"`
+}
+
+// RegionShared defines model for RegionShared.
+type RegionShared struct {
+	HorizonDays    int     `json:"horizon_days"`
+	Nodes          int     `json:"nodes"`
+	ProjectedBytes float32 `json:"projected_bytes"`
+	Region         string  `json:"region"`
+	Threshold      float32 `json:"threshold"`
+	TotalBytes     float32 `json:"total_bytes"`
+	UsedBytes      float32 `json:"used_bytes"`
 }
 
 // RegistrationToken defines model for RegistrationToken.
@@ -5934,6 +6325,23 @@ type SchemaRiskLevel string
 type SchemaStatement struct {
 	Sql           string `json:"sql"`
 	Transactional bool   `json:"transactional"`
+}
+
+// ServerPrice defines model for ServerPrice.
+type ServerPrice struct {
+	Cpus         int     `json:"cpus"`
+	Currency     string  `json:"currency"`
+	DiskGb       int     `json:"disk_gb"`
+	Location     string  `json:"location"`
+	MemoryGb     float32 `json:"memory_gb"`
+	MonthlyMinor int64   `json:"monthly_minor"`
+	Type         string  `json:"type"`
+}
+
+// ServerPriceList defines model for ServerPriceList.
+type ServerPriceList struct {
+	Items    []ServerPrice `json:"items"`
+	Provider string        `json:"provider"`
 }
 
 // SessionInfo defines model for SessionInfo.
@@ -6466,6 +6874,18 @@ type TicketUpdatePriority string
 // TicketUpdateStatus defines model for TicketUpdate.Status.
 type TicketUpdateStatus string
 
+// TierSettings defines model for TierSettings.
+type TierSettings struct {
+	ClusterMemoryMb *int     `json:"cluster_memory_mb,omitempty"`
+	DiskThreshold   *float32 `json:"disk_threshold,omitempty"`
+	Enabled         bool     `json:"enabled"`
+	HorizonDays     *int     `json:"horizon_days,omitempty"`
+	MinCpus         *int     `json:"min_cpus,omitempty"`
+	MinDiskGb       *int     `json:"min_disk_gb,omitempty"`
+	MinMemoryGb     *float32 `json:"min_memory_gb,omitempty"`
+	ServerType      *string  `json:"server_type,omitempty"`
+}
+
 // TlsStatus defines model for TlsStatus.
 type TlsStatus struct {
 	Error    *string        `json:"error,omitempty"`
@@ -6538,6 +6958,15 @@ type TransferOwnershipRequest struct {
 // TransferProjectRequest defines model for TransferProjectRequest.
 type TransferProjectRequest struct {
 	OrgId openapi_types.UUID `json:"org_id"`
+}
+
+// UnitCost defines model for UnitCost.
+type UnitCost struct {
+	Currency        string  `json:"currency"`
+	PerUnitMinor    float32 `json:"per_unit_minor"`
+	PerUnitNgnMinor float32 `json:"per_unit_ngn_minor"`
+	Quantity        float32 `json:"quantity"`
+	Unit            string  `json:"unit"`
 }
 
 // UpdateIncidentRequest defines model for UpdateIncidentRequest.
@@ -6946,6 +7375,15 @@ type AdminUploadBillingDocumentParams struct {
 	OrgId    openapi_types.UUID `form:"org_id" json:"org_id"`
 	Filename string             `form:"filename" json:"filename"`
 }
+
+// AdminCostsParams defines parameters for AdminCosts.
+type AdminCostsParams struct {
+	Month  *string                 `form:"month,omitempty" json:"month,omitempty"`
+	Format *AdminCostsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminCostsParamsFormat defines parameters for AdminCosts.
+type AdminCostsParamsFormat string
 
 // ListDedicatedRequestsParams defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParams struct {
@@ -7382,6 +7820,18 @@ type SupportWhatsAppWebhookJSONBody map[string]interface{}
 // PutBillingSettingsJSONRequestBody defines body for PutBillingSettings for application/json ContentType.
 type PutBillingSettingsJSONRequestBody = BillingSettings
 
+// DecideRebalanceBatchJSONRequestBody defines body for DecideRebalanceBatch for application/json ContentType.
+type DecideRebalanceBatchJSONRequestBody = BatchDecision
+
+// PutCapacitySettingsJSONRequestBody defines body for PutCapacitySettings for application/json ContentType.
+type PutCapacitySettingsJSONRequestBody = CapacitySettings
+
+// AttributeCostsJSONRequestBody defines body for AttributeCosts for application/json ContentType.
+type AttributeCostsJSONRequestBody = AttributeRequest
+
+// PutCostSettingsJSONRequestBody defines body for PutCostSettings for application/json ContentType.
+type PutCostSettingsJSONRequestBody = CostSettings
+
 // ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
 type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 
@@ -7390,6 +7840,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 
 // SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
 type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
+
+// SetFXRateJSONRequestBody defines body for SetFXRate for application/json ContentType.
+type SetFXRateJSONRequestBody = FXRateInput
 
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
@@ -7567,6 +8020,9 @@ type CreateNodeJSONRequestBody = CreateNodeRequest
 
 // UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
 type UpdateNodeJSONRequestBody = UpdateNodeRequest
+
+// SetNodeCostJSONRequestBody defines body for SetNodeCost for application/json ContentType.
+type SetNodeCostJSONRequestBody = NodeCost
 
 // CreateSharedClusterJSONRequestBody defines body for CreateSharedCluster for application/json ContentType.
 type CreateSharedClusterJSONRequestBody = SharedClusterRequest
@@ -7783,6 +8239,42 @@ type ServerInterface interface {
 	// PutBillingSettings Change the billing settings
 	// (PUT /api/v1/admin/billing/settings)
 	PutBillingSettings(w http.ResponseWriter, r *http.Request)
+	// AdminCapacity Capacity automation at a glance (settings, outlook, proposals, moves)
+	// (GET /api/v1/admin/capacity)
+	AdminCapacity(w http.ResponseWriter, r *http.Request)
+	// DecideRebalanceBatch Approve or reject a proposed rebalance batch
+	// (POST /api/v1/admin/capacity/batches/{batch_id})
+	DecideRebalanceBatch(w http.ResponseWriter, r *http.Request, batchId openapi_types.UUID)
+	// EvaluateCapacity Check thresholds now (they're checked hourly)
+	// (POST /api/v1/admin/capacity/evaluate)
+	EvaluateCapacity(w http.ResponseWriter, r *http.Request)
+	// ApproveCapacityProposal Provision a proposal waiting for approval (a manual provider's is marked done)
+	// (POST /api/v1/admin/capacity/proposals/{proposal_id}/approve)
+	ApproveCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID)
+	// RejectCapacityProposal Close a proposal without provisioning
+	// (POST /api/v1/admin/capacity/proposals/{proposal_id}/reject)
+	RejectCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID)
+	// PlanRebalance Propose moves that even out shared nodes' disk (done weekly)
+	// (POST /api/v1/admin/capacity/rebalance)
+	PlanRebalance(w http.ResponseWriter, r *http.Request)
+	// PutCapacitySettings Thresholds, the server types added, the monthly infrastructure budget
+	// (PUT /api/v1/admin/capacity/settings)
+	PutCapacitySettings(w http.ResponseWriter, r *http.Request)
+	// CloudCatalog The provider's server types and prices
+	// (GET /api/v1/admin/cloud/catalog)
+	CloudCatalog(w http.ResponseWriter, r *http.Request)
+	// AdminCosts Costs and margins for a month (by region and tier, plan, organisation; FX view)
+	// (GET /api/v1/admin/costs)
+	AdminCosts(w http.ResponseWriter, r *http.Request, params AdminCostsParams)
+	// AttributeCosts Recompute cost attribution for days (done daily)
+	// (POST /api/v1/admin/costs/attribute)
+	AttributeCosts(w http.ResponseWriter, r *http.Request)
+	// GetCostSettings Costs outside the server catalog (storage, egress, floating IPs, overheads)
+	// (GET /api/v1/admin/costs/settings)
+	GetCostSettings(w http.ResponseWriter, r *http.Request)
+	// PutCostSettings Save the cost settings
+	// (PUT /api/v1/admin/costs/settings)
+	PutCostSettings(w http.ResponseWriter, r *http.Request)
 	// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 	// (GET /api/v1/admin/dedicated-requests)
 	ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams)
@@ -7798,6 +8290,12 @@ type ServerInterface interface {
 	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
 	// (POST /api/v1/admin/etcd)
 	SetupEtcdCluster(w http.ResponseWriter, r *http.Request)
+	// ListFXRates Exchange rates (naira per unit), current and history
+	// (GET /api/v1/admin/fx-rates)
+	ListFXRates(w http.ResponseWriter, r *http.Request)
+	// SetFXRate Record an exchange rate
+	// (POST /api/v1/admin/fx-rates)
+	SetFXRate(w http.ResponseWriter, r *http.Request)
 	// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
 	// (POST /api/v1/admin/instances/{instance_id}/minor-upgrade)
 	MinorUpgradeInstance(w http.ResponseWriter, r *http.Request, instanceId openapi_types.UUID)
@@ -8152,6 +8650,15 @@ type ServerInterface interface {
 	// UpdateNode Change a node's role (where new projects may go)
 	// (PATCH /api/v1/nodes/{id})
 	UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID)
+	// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
+	// (PUT /api/v1/nodes/{id}/cost)
+	SetNodeCost(w http.ResponseWriter, r *http.Request, id NodeID)
+	// StopDrain Stop draining; moves not started are dropped
+	// (DELETE /api/v1/nodes/{id}/drain)
+	StopDrain(w http.ResponseWriter, r *http.Request, id NodeID)
+	// DrainNode Move every project off a node, one at a time, and place nothing new there
+	// (POST /api/v1/nodes/{id}/drain)
+	DrainNode(w http.ResponseWriter, r *http.Request, id NodeID)
 	// GetNodeMetrics A node's metric series
 	// (GET /api/v1/nodes/{id}/metrics)
 	GetNodeMetrics(w http.ResponseWriter, r *http.Request, id NodeID, params GetNodeMetricsParams)
@@ -8713,6 +9220,78 @@ func (_ Unimplemented) PutBillingSettings(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminCapacity Capacity automation at a glance (settings, outlook, proposals, moves)
+// (GET /api/v1/admin/capacity)
+func (_ Unimplemented) AdminCapacity(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DecideRebalanceBatch Approve or reject a proposed rebalance batch
+// (POST /api/v1/admin/capacity/batches/{batch_id})
+func (_ Unimplemented) DecideRebalanceBatch(w http.ResponseWriter, r *http.Request, batchId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EvaluateCapacity Check thresholds now (they're checked hourly)
+// (POST /api/v1/admin/capacity/evaluate)
+func (_ Unimplemented) EvaluateCapacity(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveCapacityProposal Provision a proposal waiting for approval (a manual provider's is marked done)
+// (POST /api/v1/admin/capacity/proposals/{proposal_id}/approve)
+func (_ Unimplemented) ApproveCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectCapacityProposal Close a proposal without provisioning
+// (POST /api/v1/admin/capacity/proposals/{proposal_id}/reject)
+func (_ Unimplemented) RejectCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PlanRebalance Propose moves that even out shared nodes' disk (done weekly)
+// (POST /api/v1/admin/capacity/rebalance)
+func (_ Unimplemented) PlanRebalance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutCapacitySettings Thresholds, the server types added, the monthly infrastructure budget
+// (PUT /api/v1/admin/capacity/settings)
+func (_ Unimplemented) PutCapacitySettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CloudCatalog The provider's server types and prices
+// (GET /api/v1/admin/cloud/catalog)
+func (_ Unimplemented) CloudCatalog(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminCosts Costs and margins for a month (by region and tier, plan, organisation; FX view)
+// (GET /api/v1/admin/costs)
+func (_ Unimplemented) AdminCosts(w http.ResponseWriter, r *http.Request, params AdminCostsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AttributeCosts Recompute cost attribution for days (done daily)
+// (POST /api/v1/admin/costs/attribute)
+func (_ Unimplemented) AttributeCosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetCostSettings Costs outside the server catalog (storage, egress, floating IPs, overheads)
+// (GET /api/v1/admin/costs/settings)
+func (_ Unimplemented) GetCostSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutCostSettings Save the cost settings
+// (PUT /api/v1/admin/costs/settings)
+func (_ Unimplemented) PutCostSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 // (GET /api/v1/admin/dedicated-requests)
 func (_ Unimplemented) ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams) {
@@ -8740,6 +9319,18 @@ func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
 // SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
 // (POST /api/v1/admin/etcd)
 func (_ Unimplemented) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListFXRates Exchange rates (naira per unit), current and history
+// (GET /api/v1/admin/fx-rates)
+func (_ Unimplemented) ListFXRates(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetFXRate Record an exchange rate
+// (POST /api/v1/admin/fx-rates)
+func (_ Unimplemented) SetFXRate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -9448,6 +10039,24 @@ func (_ Unimplemented) GetNode(w http.ResponseWriter, r *http.Request, id NodeID
 // UpdateNode Change a node's role (where new projects may go)
 // (PATCH /api/v1/nodes/{id})
 func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
+// (PUT /api/v1/nodes/{id}/cost)
+func (_ Unimplemented) SetNodeCost(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StopDrain Stop draining; moves not started are dropped
+// (DELETE /api/v1/nodes/{id}/drain)
+func (_ Unimplemented) StopDrain(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DrainNode Move every project off a node, one at a time, and place nothing new there
+// (POST /api/v1/nodes/{id}/drain)
+func (_ Unimplemented) DrainNode(w http.ResponseWriter, r *http.Request, id NodeID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10681,6 +11290,242 @@ func (siw *ServerInterfaceWrapper) PutBillingSettings(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// AdminCapacity operation middleware
+func (siw *ServerInterfaceWrapper) AdminCapacity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminCapacity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DecideRebalanceBatch operation middleware
+func (siw *ServerInterfaceWrapper) DecideRebalanceBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batch_id" -------------
+	var batchId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batch_id", chi.URLParam(r, "batch_id"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batch_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DecideRebalanceBatch(w, r, batchId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EvaluateCapacity operation middleware
+func (siw *ServerInterfaceWrapper) EvaluateCapacity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EvaluateCapacity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveCapacityProposal operation middleware
+func (siw *ServerInterfaceWrapper) ApproveCapacityProposal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "proposal_id" -------------
+	var proposalId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposal_id", chi.URLParam(r, "proposal_id"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "proposal_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveCapacityProposal(w, r, proposalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectCapacityProposal operation middleware
+func (siw *ServerInterfaceWrapper) RejectCapacityProposal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "proposal_id" -------------
+	var proposalId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposal_id", chi.URLParam(r, "proposal_id"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "proposal_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectCapacityProposal(w, r, proposalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlanRebalance operation middleware
+func (siw *ServerInterfaceWrapper) PlanRebalance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlanRebalance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutCapacitySettings operation middleware
+func (siw *ServerInterfaceWrapper) PutCapacitySettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutCapacitySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CloudCatalog operation middleware
+func (siw *ServerInterfaceWrapper) CloudCatalog(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CloudCatalog(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminCosts operation middleware
+func (siw *ServerInterfaceWrapper) AdminCosts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminCostsParams
+
+	// ------------- Optional query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminCosts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttributeCosts operation middleware
+func (siw *ServerInterfaceWrapper) AttributeCosts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttributeCosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCostSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetCostSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCostSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutCostSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutCostSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutCostSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListDedicatedRequests operation middleware
 func (siw *ServerInterfaceWrapper) ListDedicatedRequests(w http.ResponseWriter, r *http.Request) {
 
@@ -10785,6 +11630,34 @@ func (siw *ServerInterfaceWrapper) SetupEtcdCluster(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetupEtcdCluster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFXRates operation middleware
+func (siw *ServerInterfaceWrapper) ListFXRates(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFXRates(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetFXRate operation middleware
+func (siw *ServerInterfaceWrapper) SetFXRate(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetFXRate(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13441,6 +14314,84 @@ func (siw *ServerInterfaceWrapper) UpdateNode(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateNode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetNodeCost operation middleware
+func (siw *ServerInterfaceWrapper) SetNodeCost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetNodeCost(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StopDrain operation middleware
+func (siw *ServerInterfaceWrapper) StopDrain(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StopDrain(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DrainNode operation middleware
+func (siw *ServerInterfaceWrapper) DrainNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DrainNode(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19791,6 +20742,57 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/order-form", wrapper.AdminPublishOrderForm)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/capacity", wrapper.AdminCapacity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/capacity/settings", wrapper.PutCapacitySettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/evaluate", wrapper.EvaluateCapacity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/proposals/{proposal_id}/approve", wrapper.ApproveCapacityProposal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/proposals/{proposal_id}/reject", wrapper.RejectCapacityProposal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/rebalance", wrapper.PlanRebalance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/batches/{batch_id}", wrapper.DecideRebalanceBatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/cloud/catalog", wrapper.CloudCatalog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/nodes/{id}/drain", wrapper.StopDrain)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/nodes/{id}/drain", wrapper.DrainNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/nodes/{id}/cost", wrapper.SetNodeCost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/costs", wrapper.AdminCosts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/costs/attribute", wrapper.AttributeCosts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/costs/settings", wrapper.GetCostSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/costs/settings", wrapper.PutCostSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/fx-rates", wrapper.ListFXRates)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/fx-rates", wrapper.SetFXRate)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/revenue", wrapper.AdminRevenue)

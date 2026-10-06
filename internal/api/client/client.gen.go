@@ -405,6 +405,57 @@ func (e BranchResetRequestSource) Valid() bool {
 	}
 }
 
+// Defines values for CapacityProposalStatus.
+const (
+	CapacityProposalStatusApproved     CapacityProposalStatus = "approved"
+	CapacityProposalStatusDone         CapacityProposalStatus = "done"
+	CapacityProposalStatusFailed       CapacityProposalStatus = "failed"
+	CapacityProposalStatusPending      CapacityProposalStatus = "pending"
+	CapacityProposalStatusProvisioning CapacityProposalStatus = "provisioning"
+	CapacityProposalStatusRejected     CapacityProposalStatus = "rejected"
+	CapacityProposalStatusSuperseded   CapacityProposalStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the CapacityProposalStatus enum.
+func (e CapacityProposalStatus) Valid() bool {
+	switch e {
+	case CapacityProposalStatusApproved:
+		return true
+	case CapacityProposalStatusDone:
+		return true
+	case CapacityProposalStatusFailed:
+		return true
+	case CapacityProposalStatusPending:
+		return true
+	case CapacityProposalStatusProvisioning:
+		return true
+	case CapacityProposalStatusRejected:
+		return true
+	case CapacityProposalStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CapacityProposalTier.
+const (
+	CapacityProposalTierDedicated CapacityProposalTier = "dedicated"
+	CapacityProposalTierShared    CapacityProposalTier = "shared"
+)
+
+// Valid indicates whether the value is a known member of the CapacityProposalTier enum.
+func (e CapacityProposalTier) Valid() bool {
+	switch e {
+	case CapacityProposalTierDedicated:
+		return true
+	case CapacityProposalTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ColumnRefOnDelete.
 const (
 	ColumnRefOnDeleteCASCADE    ColumnRefOnDelete = "CASCADE"
@@ -1263,6 +1314,27 @@ func (e MovePhase) Valid() bool {
 	}
 }
 
+// Defines values for NodeLifecycle.
+const (
+	NodeLifecycleActive       NodeLifecycle = "active"
+	NodeLifecycleDraining     NodeLifecycle = "draining"
+	NodeLifecycleProvisioning NodeLifecycle = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the NodeLifecycle enum.
+func (e NodeLifecycle) Valid() bool {
+	switch e {
+	case NodeLifecycleActive:
+		return true
+	case NodeLifecycleDraining:
+		return true
+	case NodeLifecycleProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperationLogEntryLevel.
 const (
 	OperationLogEntryLevelError OperationLogEntryLevel = "error"
@@ -1602,6 +1674,57 @@ func (e ReapedSessionKind) Valid() bool {
 	case IdleInTransaction:
 		return true
 	case Statement:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RebalanceMoveKind.
+const (
+	Drain     RebalanceMoveKind = "drain"
+	Rebalance RebalanceMoveKind = "rebalance"
+)
+
+// Valid indicates whether the value is a known member of the RebalanceMoveKind enum.
+func (e RebalanceMoveKind) Valid() bool {
+	switch e {
+	case Drain:
+		return true
+	case Rebalance:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RebalanceMoveStatus.
+const (
+	RebalanceMoveStatusApproved RebalanceMoveStatus = "approved"
+	RebalanceMoveStatusDone     RebalanceMoveStatus = "done"
+	RebalanceMoveStatusFailed   RebalanceMoveStatus = "failed"
+	RebalanceMoveStatusMoving   RebalanceMoveStatus = "moving"
+	RebalanceMoveStatusProposed RebalanceMoveStatus = "proposed"
+	RebalanceMoveStatusRejected RebalanceMoveStatus = "rejected"
+	RebalanceMoveStatusSkipped  RebalanceMoveStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the RebalanceMoveStatus enum.
+func (e RebalanceMoveStatus) Valid() bool {
+	switch e {
+	case RebalanceMoveStatusApproved:
+		return true
+	case RebalanceMoveStatusDone:
+		return true
+	case RebalanceMoveStatusFailed:
+		return true
+	case RebalanceMoveStatusMoving:
+		return true
+	case RebalanceMoveStatusProposed:
+		return true
+	case RebalanceMoveStatusRejected:
+		return true
+	case RebalanceMoveStatusSkipped:
 		return true
 	default:
 		return false
@@ -2625,6 +2748,24 @@ func (e ListPlatformAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AdminCostsParamsFormat.
+const (
+	AdminCostsParamsFormatCsv  AdminCostsParamsFormat = "csv"
+	AdminCostsParamsFormatJson AdminCostsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminCostsParamsFormat enum.
+func (e AdminCostsParamsFormat) Valid() bool {
+	switch e {
+	case AdminCostsParamsFormatCsv:
+		return true
+	case AdminCostsParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListDedicatedRequestsParamsStatus.
 const (
 	ListDedicatedRequestsParamsStatusApproved  ListDedicatedRequestsParamsStatus = "approved"
@@ -3214,6 +3355,19 @@ type AlertTestResult struct {
 	} `json:"results"`
 }
 
+// AttributeRequest defines model for AttributeRequest.
+type AttributeRequest struct {
+	From openapi_types.Date `json:"from"`
+
+	// To Inclusive.
+	To openapi_types.Date `json:"to"`
+}
+
+// AttributeResult defines model for AttributeResult.
+type AttributeResult struct {
+	Days int `json:"days"`
+}
+
 // AuditEntry defines model for AuditEntry.
 type AuditEntry struct {
 	// Action Example: project.create
@@ -3337,6 +3491,11 @@ type BackupOverview struct {
 	RetentionWeekly    int           `json:"retention_weekly"`
 	StorageConfigured  bool          `json:"storage_configured"`
 	WindowHourUtc      int           `json:"window_hour_utc"`
+}
+
+// BatchDecision defines model for BatchDecision.
+type BatchDecision struct {
+	Approve bool `json:"approve"`
 }
 
 // BillingAccount defines model for BillingAccount.
@@ -3520,6 +3679,74 @@ type BreakGlassSession struct {
 	StartsAt   time.Time          `json:"starts_at"`
 }
 
+// Capacity defines model for Capacity.
+type Capacity struct {
+	// BudgetUsedMinor The nodes' monthly cost in the budget's currency (where a rate allows).
+	BudgetUsedMinor int64              `json:"budget_used_minor"`
+	CanCreate       bool               `json:"can_create"`
+	Dedicated       []RegionDedicated  `json:"dedicated"`
+	Moves           []RebalanceMove    `json:"moves"`
+	Nodes           []Node             `json:"nodes"`
+	Proposals       []CapacityProposal `json:"proposals"`
+	Provider        string             `json:"provider"`
+	Region          string             `json:"region"`
+	Settings        CapacitySettings   `json:"settings"`
+	Shared          []RegionShared     `json:"shared"`
+}
+
+// CapacityProposal defines model for CapacityProposal.
+type CapacityProposal struct {
+	Auto             bool                   `json:"auto"`
+	CreatedAt        time.Time              `json:"created_at"`
+	Currency         string                 `json:"currency"`
+	Error            *string                `json:"error,omitempty"`
+	Id               openapi_types.UUID     `json:"id"`
+	Location         string                 `json:"location"`
+	MonthlyCostMinor int64                  `json:"monthly_cost_minor"`
+	NodeId           *openapi_types.UUID    `json:"node_id,omitempty"`
+	NodeName         *string                `json:"node_name,omitempty"`
+	OperationId      *openapi_types.UUID    `json:"operation_id,omitempty"`
+	Provider         string                 `json:"provider"`
+	Reason           string                 `json:"reason"`
+	Region           string                 `json:"region"`
+	ServerType       string                 `json:"server_type"`
+	Status           CapacityProposalStatus `json:"status"`
+	Tier             CapacityProposalTier   `json:"tier"`
+	UpdatedAt        time.Time              `json:"updated_at"`
+}
+
+// CapacityProposalStatus defines model for CapacityProposal.Status.
+type CapacityProposalStatus string
+
+// CapacityProposalTier defines model for CapacityProposal.Tier.
+type CapacityProposalTier string
+
+// CapacityProposalList defines model for CapacityProposalList.
+type CapacityProposalList struct {
+	Items []CapacityProposal `json:"items"`
+}
+
+// CapacitySettings defines model for CapacitySettings.
+type CapacitySettings struct {
+	AutoApply             bool         `json:"auto_apply"`
+	AutoRebalance         bool         `json:"auto_rebalance"`
+	BudgetCurrency        string       `json:"budget_currency"`
+	Dedicated             TierSettings `json:"dedicated"`
+	DeleteEmptyAfterHours int          `json:"delete_empty_after_hours"`
+	MonthlyBudgetMinor    int64        `json:"monthly_budget_minor"`
+	RebalanceSpread       float32      `json:"rebalance_spread"`
+	Shared                TierSettings `json:"shared"`
+}
+
+// CategoryCost defines model for CategoryCost.
+type CategoryCost struct {
+	Category       string           `json:"category"`
+	NativeMinor    map[string]int64 `json:"native_minor"`
+	NgnBookedMinor int64            `json:"ngn_booked_minor"`
+	NgnMinor       int64            `json:"ngn_minor"`
+	Region         string           `json:"region"`
+}
+
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
@@ -3572,6 +3799,16 @@ type ConnectionInfo struct {
 
 	// User Example: blog_k2f9_owner
 	User string `json:"user"`
+}
+
+// CostSettings defines model for CostSettings.
+type CostSettings struct {
+	Currency                  string     `json:"currency"`
+	EgressGbMinor             float32    `json:"egress_gb_minor"`
+	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
+	FloatingIps               int        `json:"floating_ips"`
+	ObjectStorageGbMonthMinor float32    `json:"object_storage_gb_month_minor"`
+	Overheads                 []Overhead `json:"overheads"`
 }
 
 // CreateIncidentRequest defines model for CreateIncidentRequest.
@@ -3902,6 +4139,12 @@ type DnsCheck struct {
 	ServerAddresses []string `json:"server_addresses"`
 }
 
+// DrainResult defines model for DrainResult.
+type DrainResult struct {
+	Moves int  `json:"moves"`
+	Node  Node `json:"node"`
+}
+
 // EditColumn defines model for EditColumn.
 type EditColumn struct {
 	BaseType string `json:"base_type"`
@@ -4003,6 +4246,28 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FXRate defines model for FXRate.
+type FXRate struct {
+	Currency    string    `json:"currency"`
+	EffectiveAt time.Time `json:"effective_at"`
+	Id          int64     `json:"id"`
+	NgnPerUnit  float64   `json:"ngn_per_unit"`
+	Source      string    `json:"source"`
+}
+
+// FXRateInput defines model for FXRateInput.
+type FXRateInput struct {
+	Currency    string     `json:"currency"`
+	EffectiveAt *time.Time `json:"effective_at,omitempty"`
+	NgnPerUnit  float64    `json:"ngn_per_unit"`
+}
+
+// FXRateList defines model for FXRateList.
+type FXRateList struct {
+	Current []FXRate `json:"current"`
+	History []FXRate `json:"history"`
 }
 
 // FailedChange defines model for FailedChange.
@@ -4652,6 +4917,26 @@ type MaintenanceWindow struct {
 	Weekday int `json:"weekday"`
 }
 
+// Margins defines model for Margins.
+type Margins struct {
+	Categories        []CategoryCost     `json:"categories"`
+	CostBookedMinor   int64              `json:"cost_booked_minor"`
+	CostMinor         int64              `json:"cost_minor"`
+	Days              int                `json:"days"`
+	FreeTierCostMinor int64              `json:"free_tier_cost_minor"`
+	FxErosionMinor    int64              `json:"fx_erosion_minor"`
+	MarginMinor       int64              `json:"margin_minor"`
+	MarginPct         *float32           `json:"margin_pct,omitempty"`
+	MissingRates      *[]string          `json:"missing_rates,omitempty"`
+	Month             string             `json:"month"`
+	Orgs              []OrgMargin        `json:"orgs"`
+	Plans             []PlanMargin       `json:"plans"`
+	Rates             map[string]float32 `json:"rates"`
+	RevenueMinor      int64              `json:"revenue_minor"`
+	UnallocatedMinor  int64              `json:"unallocated_minor"`
+	Units             []UnitCost         `json:"units"`
+}
+
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
 	Ts    time.Time `json:"ts"`
@@ -4737,14 +5022,38 @@ type MyInvitationList struct {
 
 // Node defines model for Node.
 type Node struct {
-	Agent         AgentStatus        `json:"agent"`
-	CreatedAt     time.Time          `json:"created_at"`
-	Id            openapi_types.UUID `json:"id"`
-	LastHeartbeat *time.Time         `json:"last_heartbeat,omitempty"`
-	Name          string             `json:"name"`
-	PrivateAddr   string             `json:"private_addr"`
-	Role          string             `json:"role"`
-	Status        string             `json:"status"`
+	Agent        AgentStatus        `json:"agent"`
+	CostCurrency *string            `json:"cost_currency,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
+	EmptySince   *time.Time         `json:"empty_since,omitempty"`
+	Id           openapi_types.UUID `json:"id"`
+
+	// Keep Never deleted for being empty.
+	Keep             *bool          `json:"keep,omitempty"`
+	LastHeartbeat    *time.Time     `json:"last_heartbeat,omitempty"`
+	Lifecycle        *NodeLifecycle `json:"lifecycle,omitempty"`
+	MonthlyCostMinor *int64         `json:"monthly_cost_minor,omitempty"`
+	Name             string         `json:"name"`
+	PrivateAddr      string         `json:"private_addr"`
+
+	// Provider manual (registered by hand) or the cloud provider that created it.
+	Provider   *string `json:"provider,omitempty"`
+	Region     *string `json:"region,omitempty"`
+	Role       string  `json:"role"`
+	ServerType *string `json:"server_type,omitempty"`
+	Status     string  `json:"status"`
+}
+
+// NodeLifecycle defines model for Node.Lifecycle.
+type NodeLifecycle string
+
+// NodeCost defines model for NodeCost.
+type NodeCost struct {
+	Currency         string  `json:"currency"`
+	Keep             *bool   `json:"keep,omitempty"`
+	MonthlyCostMinor *int64  `json:"monthly_cost_minor,omitempty"`
+	Region           *string `json:"region,omitempty"`
+	ServerType       *string `json:"server_type,omitempty"`
 }
 
 // NodeCreated defines model for NodeCreated.
@@ -4894,6 +5203,18 @@ type OrgList struct {
 	Items []Org `json:"items"`
 }
 
+// OrgMargin defines model for OrgMargin.
+type OrgMargin struct {
+	CostMinor       int64              `json:"cost_minor"`
+	CostNativeMinor map[string]int64   `json:"cost_native_minor"`
+	MarginMinor     int64              `json:"margin_minor"`
+	MarginPct       *float32           `json:"margin_pct,omitempty"`
+	Name            string             `json:"name"`
+	OrgId           openapi_types.UUID `json:"org_id"`
+	Plan            string             `json:"plan"`
+	RevenueMinor    int64              `json:"revenue_minor"`
+}
+
 // OrgMember defines model for OrgMember.
 type OrgMember struct {
 	Disabled     bool                `json:"disabled"`
@@ -4967,6 +5288,13 @@ type OutstandingWht struct {
 	PaidAt    *time.Time         `json:"paid_at,omitempty"`
 	Tin       *string            `json:"tin,omitempty"`
 	WhtMinor  int64              `json:"wht_minor"`
+}
+
+// Overhead defines model for Overhead.
+type Overhead struct {
+	Currency     string `json:"currency"`
+	MonthlyMinor int64  `json:"monthly_minor"`
+	Name         string `json:"name"`
 }
 
 // PasswordResetConfirm defines model for PasswordResetConfirm.
@@ -5109,6 +5437,16 @@ type PlanList struct {
 
 	// Keys Known limit keys, in display order.
 	Keys []string `json:"keys"`
+}
+
+// PlanMargin defines model for PlanMargin.
+type PlanMargin struct {
+	CostMinor    int64    `json:"cost_minor"`
+	MarginMinor  int64    `json:"margin_minor"`
+	MarginPct    *float32 `json:"margin_pct,omitempty"`
+	Orgs         int      `json:"orgs"`
+	Plan         string   `json:"plan"`
+	RevenueMinor int64    `json:"revenue_minor"`
 }
 
 // PlanOption defines model for PlanOption.
@@ -5578,6 +5916,38 @@ type ReauthRequest struct {
 	Password string `json:"password"`
 }
 
+// RebalanceMove defines model for RebalanceMove.
+type RebalanceMove struct {
+	Batch       openapi_types.UUID  `json:"batch"`
+	CreatedAt   time.Time           `json:"created_at"`
+	Error       *string             `json:"error,omitempty"`
+	FromName    string              `json:"from_name"`
+	FromNode    openapi_types.UUID  `json:"from_node"`
+	Id          openapi_types.UUID  `json:"id"`
+	Kind        RebalanceMoveKind   `json:"kind"`
+	OperationId *openapi_types.UUID `json:"operation_id,omitempty"`
+	OrgId       openapi_types.UUID  `json:"org_id"`
+	ProjectId   openapi_types.UUID  `json:"project_id"`
+	ProjectName string              `json:"project_name"`
+	Reason      string              `json:"reason"`
+	Status      RebalanceMoveStatus `json:"status"`
+	ToName      *string             `json:"to_name,omitempty"`
+	ToNode      *openapi_types.UUID `json:"to_node,omitempty"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+}
+
+// RebalanceMoveKind defines model for RebalanceMove.Kind.
+type RebalanceMoveKind string
+
+// RebalanceMoveStatus defines model for RebalanceMove.Status.
+type RebalanceMoveStatus string
+
+// RebalancePlan defines model for RebalancePlan.
+type RebalancePlan struct {
+	Batch *openapi_types.UUID `json:"batch,omitempty"`
+	Moves int64               `json:"moves"`
+}
+
 // ReclaimSpaceRequest defines model for ReclaimSpaceRequest.
 type ReclaimSpaceRequest struct {
 	Schema string `json:"schema"`
@@ -5614,6 +5984,27 @@ type RecoveryCodes struct {
 // RecoveryCodesStatus defines model for RecoveryCodesStatus.
 type RecoveryCodesStatus struct {
 	Remaining int `json:"remaining"`
+}
+
+// RegionDedicated defines model for RegionDedicated.
+type RegionDedicated struct {
+	FitsOn    *string `json:"fits_on,omitempty"`
+	FreeCpus  float32 `json:"free_cpus"`
+	FreeMemMb int64   `json:"free_mem_mb"`
+	Largest   string  `json:"largest"`
+	Nodes     int     `json:"nodes"`
+	Region    string  `json:"region"`
+}
+
+// RegionShared defines model for RegionShared.
+type RegionShared struct {
+	HorizonDays    int     `json:"horizon_days"`
+	Nodes          int     `json:"nodes"`
+	ProjectedBytes float32 `json:"projected_bytes"`
+	Region         string  `json:"region"`
+	Threshold      float32 `json:"threshold"`
+	TotalBytes     float32 `json:"total_bytes"`
+	UsedBytes      float32 `json:"used_bytes"`
 }
 
 // RegistrationToken defines model for RegistrationToken.
@@ -5938,6 +6329,23 @@ type SchemaRiskLevel string
 type SchemaStatement struct {
 	Sql           string `json:"sql"`
 	Transactional bool   `json:"transactional"`
+}
+
+// ServerPrice defines model for ServerPrice.
+type ServerPrice struct {
+	Cpus         int     `json:"cpus"`
+	Currency     string  `json:"currency"`
+	DiskGb       int     `json:"disk_gb"`
+	Location     string  `json:"location"`
+	MemoryGb     float32 `json:"memory_gb"`
+	MonthlyMinor int64   `json:"monthly_minor"`
+	Type         string  `json:"type"`
+}
+
+// ServerPriceList defines model for ServerPriceList.
+type ServerPriceList struct {
+	Items    []ServerPrice `json:"items"`
+	Provider string        `json:"provider"`
 }
 
 // SessionInfo defines model for SessionInfo.
@@ -6470,6 +6878,18 @@ type TicketUpdatePriority string
 // TicketUpdateStatus defines model for TicketUpdate.Status.
 type TicketUpdateStatus string
 
+// TierSettings defines model for TierSettings.
+type TierSettings struct {
+	ClusterMemoryMb *int     `json:"cluster_memory_mb,omitempty"`
+	DiskThreshold   *float32 `json:"disk_threshold,omitempty"`
+	Enabled         bool     `json:"enabled"`
+	HorizonDays     *int     `json:"horizon_days,omitempty"`
+	MinCpus         *int     `json:"min_cpus,omitempty"`
+	MinDiskGb       *int     `json:"min_disk_gb,omitempty"`
+	MinMemoryGb     *float32 `json:"min_memory_gb,omitempty"`
+	ServerType      *string  `json:"server_type,omitempty"`
+}
+
 // TlsStatus defines model for TlsStatus.
 type TlsStatus struct {
 	Error    *string        `json:"error,omitempty"`
@@ -6542,6 +6962,15 @@ type TransferOwnershipRequest struct {
 // TransferProjectRequest defines model for TransferProjectRequest.
 type TransferProjectRequest struct {
 	OrgId openapi_types.UUID `json:"org_id"`
+}
+
+// UnitCost defines model for UnitCost.
+type UnitCost struct {
+	Currency        string  `json:"currency"`
+	PerUnitMinor    float32 `json:"per_unit_minor"`
+	PerUnitNgnMinor float32 `json:"per_unit_ngn_minor"`
+	Quantity        float32 `json:"quantity"`
+	Unit            string  `json:"unit"`
 }
 
 // UpdateIncidentRequest defines model for UpdateIncidentRequest.
@@ -6950,6 +7379,15 @@ type AdminUploadBillingDocumentParams struct {
 	OrgId    openapi_types.UUID `form:"org_id" json:"org_id"`
 	Filename string             `form:"filename" json:"filename"`
 }
+
+// AdminCostsParams defines parameters for AdminCosts.
+type AdminCostsParams struct {
+	Month  *string                 `form:"month,omitempty" json:"month,omitempty"`
+	Format *AdminCostsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminCostsParamsFormat defines parameters for AdminCosts.
+type AdminCostsParamsFormat string
 
 // ListDedicatedRequestsParams defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParams struct {
@@ -7386,6 +7824,18 @@ type SupportWhatsAppWebhookJSONBody map[string]interface{}
 // PutBillingSettingsJSONRequestBody defines body for PutBillingSettings for application/json ContentType.
 type PutBillingSettingsJSONRequestBody = BillingSettings
 
+// DecideRebalanceBatchJSONRequestBody defines body for DecideRebalanceBatch for application/json ContentType.
+type DecideRebalanceBatchJSONRequestBody = BatchDecision
+
+// PutCapacitySettingsJSONRequestBody defines body for PutCapacitySettings for application/json ContentType.
+type PutCapacitySettingsJSONRequestBody = CapacitySettings
+
+// AttributeCostsJSONRequestBody defines body for AttributeCosts for application/json ContentType.
+type AttributeCostsJSONRequestBody = AttributeRequest
+
+// PutCostSettingsJSONRequestBody defines body for PutCostSettings for application/json ContentType.
+type PutCostSettingsJSONRequestBody = CostSettings
+
 // ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
 type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 
@@ -7394,6 +7844,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 
 // SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
 type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
+
+// SetFXRateJSONRequestBody defines body for SetFXRate for application/json ContentType.
+type SetFXRateJSONRequestBody = FXRateInput
 
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
@@ -7571,6 +8024,9 @@ type CreateNodeJSONRequestBody = CreateNodeRequest
 
 // UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
 type UpdateNodeJSONRequestBody = UpdateNodeRequest
+
+// SetNodeCostJSONRequestBody defines body for SetNodeCost for application/json ContentType.
+type SetNodeCostJSONRequestBody = NodeCost
 
 // CreateSharedClusterJSONRequestBody defines body for CreateSharedCluster for application/json ContentType.
 type CreateSharedClusterJSONRequestBody = SharedClusterRequest
@@ -7878,6 +8334,102 @@ type ClientInterface interface {
 	// Corresponds with PUT /api/v1/admin/billing/settings (the `PutBillingSettings` operationId).
 	PutBillingSettings(ctx context.Context, body PutBillingSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AdminCapacity Capacity automation at a glance (settings, outlook, proposals, moves)
+	//
+	// Corresponds with GET /api/v1/admin/capacity (the `AdminCapacity` operationId).
+	AdminCapacity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideRebalanceBatchWithBody Approve or reject a proposed rebalance batch
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+	DecideRebalanceBatchWithBody(ctx context.Context, batchId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideRebalanceBatch Approve or reject a proposed rebalance batch
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+	DecideRebalanceBatch(ctx context.Context, batchId openapi_types.UUID, body DecideRebalanceBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EvaluateCapacity Check thresholds now (they're checked hourly)
+	//
+	// Corresponds with POST /api/v1/admin/capacity/evaluate (the `EvaluateCapacity` operationId).
+	EvaluateCapacity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveCapacityProposal Provision a proposal waiting for approval (a manual provider's is marked done)
+	//
+	// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/approve (the `ApproveCapacityProposal` operationId).
+	ApproveCapacityProposal(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectCapacityProposal Close a proposal without provisioning
+	//
+	// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/reject (the `RejectCapacityProposal` operationId).
+	RejectCapacityProposal(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PlanRebalance Propose moves that even out shared nodes' disk (done weekly)
+	//
+	// Corresponds with POST /api/v1/admin/capacity/rebalance (the `PlanRebalance` operationId).
+	PlanRebalance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutCapacitySettingsWithBody Thresholds, the server types added, the monthly infrastructure budget
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+	PutCapacitySettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutCapacitySettings Thresholds, the server types added, the monthly infrastructure budget
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+	PutCapacitySettings(ctx context.Context, body PutCapacitySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CloudCatalog The provider's server types and prices
+	//
+	// Corresponds with GET /api/v1/admin/cloud/catalog (the `CloudCatalog` operationId).
+	CloudCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminCosts Costs and margins for a month (by region and tier, plan, organisation; FX view)
+	//
+	// Corresponds with GET /api/v1/admin/costs (the `AdminCosts` operationId).
+	AdminCosts(ctx context.Context, params *AdminCostsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AttributeCostsWithBody Recompute cost attribution for days (done daily)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+	AttributeCostsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AttributeCosts Recompute cost attribution for days (done daily)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+	AttributeCosts(ctx context.Context, body AttributeCostsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCostSettings Costs outside the server catalog (storage, egress, floating IPs, overheads)
+	//
+	// Corresponds with GET /api/v1/admin/costs/settings (the `GetCostSettings` operationId).
+	GetCostSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutCostSettingsWithBody Save the cost settings
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+	PutCostSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutCostSettings Save the cost settings
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+	PutCostSettings(ctx context.Context, body PutCostSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 	//
 	// Corresponds with GET /api/v1/admin/dedicated-requests (the `ListDedicatedRequests` operationId).
@@ -7929,6 +8481,25 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFXRates Exchange rates (naira per unit), current and history
+	//
+	// Corresponds with GET /api/v1/admin/fx-rates (the `ListFXRates` operationId).
+	ListFXRates(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetFXRateWithBody Record an exchange rate
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+	SetFXRateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetFXRate Record an exchange rate
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+	SetFXRate(ctx context.Context, body SetFXRateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
 	//
@@ -9183,6 +9754,30 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/nodes/{id} (the `UpdateNode` operationId).
 	UpdateNode(ctx context.Context, id NodeID, body UpdateNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetNodeCostWithBody What a node costs (manual nodes; a provider's are priced from its catalog)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+	SetNodeCostWithBody(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+	SetNodeCost(ctx context.Context, id NodeID, body SetNodeCostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StopDrain Stop draining; moves not started are dropped
+	//
+	// Corresponds with DELETE /api/v1/nodes/{id}/drain (the `StopDrain` operationId).
+	StopDrain(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DrainNode Move every project off a node, one at a time, and place nothing new there
+	//
+	// Corresponds with POST /api/v1/nodes/{id}/drain (the `DrainNode` operationId).
+	DrainNode(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetNodeMetrics A node's metric series
 	//
@@ -11117,6 +11712,262 @@ func (c *Client) PutBillingSettings(ctx context.Context, body PutBillingSettings
 	return c.Client.Do(req)
 }
 
+// AdminCapacity Capacity automation at a glance (settings, outlook, proposals, moves)
+//
+// Corresponds with GET /api/v1/admin/capacity (the `AdminCapacity` operationId).
+func (c *Client) AdminCapacity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminCapacityRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideRebalanceBatchWithBody Approve or reject a proposed rebalance batch
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+func (c *Client) DecideRebalanceBatchWithBody(ctx context.Context, batchId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideRebalanceBatchRequestWithBody(c.Server, batchId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideRebalanceBatch Approve or reject a proposed rebalance batch
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+func (c *Client) DecideRebalanceBatch(ctx context.Context, batchId openapi_types.UUID, body DecideRebalanceBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideRebalanceBatchRequest(c.Server, batchId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EvaluateCapacity Check thresholds now (they're checked hourly)
+//
+// Corresponds with POST /api/v1/admin/capacity/evaluate (the `EvaluateCapacity` operationId).
+func (c *Client) EvaluateCapacity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEvaluateCapacityRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveCapacityProposal Provision a proposal waiting for approval (a manual provider's is marked done)
+//
+// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/approve (the `ApproveCapacityProposal` operationId).
+func (c *Client) ApproveCapacityProposal(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveCapacityProposalRequest(c.Server, proposalId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RejectCapacityProposal Close a proposal without provisioning
+//
+// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/reject (the `RejectCapacityProposal` operationId).
+func (c *Client) RejectCapacityProposal(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectCapacityProposalRequest(c.Server, proposalId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PlanRebalance Propose moves that even out shared nodes' disk (done weekly)
+//
+// Corresponds with POST /api/v1/admin/capacity/rebalance (the `PlanRebalance` operationId).
+func (c *Client) PlanRebalance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlanRebalanceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutCapacitySettingsWithBody Thresholds, the server types added, the monthly infrastructure budget
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+func (c *Client) PutCapacitySettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutCapacitySettingsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutCapacitySettings Thresholds, the server types added, the monthly infrastructure budget
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+func (c *Client) PutCapacitySettings(ctx context.Context, body PutCapacitySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutCapacitySettingsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CloudCatalog The provider's server types and prices
+//
+// Corresponds with GET /api/v1/admin/cloud/catalog (the `CloudCatalog` operationId).
+func (c *Client) CloudCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCloudCatalogRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminCosts Costs and margins for a month (by region and tier, plan, organisation; FX view)
+//
+// Corresponds with GET /api/v1/admin/costs (the `AdminCosts` operationId).
+func (c *Client) AdminCosts(ctx context.Context, params *AdminCostsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminCostsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AttributeCostsWithBody Recompute cost attribution for days (done daily)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+func (c *Client) AttributeCostsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttributeCostsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AttributeCosts Recompute cost attribution for days (done daily)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+func (c *Client) AttributeCosts(ctx context.Context, body AttributeCostsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttributeCostsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCostSettings Costs outside the server catalog (storage, egress, floating IPs, overheads)
+//
+// Corresponds with GET /api/v1/admin/costs/settings (the `GetCostSettings` operationId).
+func (c *Client) GetCostSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCostSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutCostSettingsWithBody Save the cost settings
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+func (c *Client) PutCostSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutCostSettingsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutCostSettings Save the cost settings
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+func (c *Client) PutCostSettings(ctx context.Context, body PutCostSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutCostSettingsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 //
 // Corresponds with GET /api/v1/admin/dedicated-requests (the `ListDedicatedRequests` operationId).
@@ -11239,6 +12090,55 @@ func (c *Client) SetupEtcdClusterWithBody(ctx context.Context, contentType strin
 // Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 func (c *Client) SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetupEtcdClusterRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListFXRates Exchange rates (naira per unit), current and history
+//
+// Corresponds with GET /api/v1/admin/fx-rates (the `ListFXRates` operationId).
+func (c *Client) ListFXRates(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFXRatesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetFXRateWithBody Record an exchange rate
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+func (c *Client) SetFXRateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetFXRateRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetFXRate Record an exchange rate
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+func (c *Client) SetFXRate(ctx context.Context, body SetFXRateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetFXRateRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14263,6 +15163,70 @@ func (c *Client) UpdateNodeWithBody(ctx context.Context, id NodeID, contentType 
 // Corresponds with PATCH /api/v1/nodes/{id} (the `UpdateNode` operationId).
 func (c *Client) UpdateNode(ctx context.Context, id NodeID, body UpdateNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateNodeRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetNodeCostWithBody What a node costs (manual nodes; a provider's are priced from its catalog)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+func (c *Client) SetNodeCostWithBody(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetNodeCostRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+func (c *Client) SetNodeCost(ctx context.Context, id NodeID, body SetNodeCostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetNodeCostRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StopDrain Stop draining; moves not started are dropped
+//
+// Corresponds with DELETE /api/v1/nodes/{id}/drain (the `StopDrain` operationId).
+func (c *Client) StopDrain(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopDrainRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DrainNode Move every project off a node, one at a time, and place nothing new there
+//
+// Corresponds with POST /api/v1/nodes/{id}/drain (the `DrainNode` operationId).
+func (c *Client) DrainNode(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDrainNodeRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -18793,6 +19757,442 @@ func NewPutBillingSettingsRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
+// NewAdminCapacityRequest constructs an http.Request for the AdminCapacity method
+func NewAdminCapacityRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/capacity")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDecideRebalanceBatchRequest calls the generic DecideRebalanceBatch builder with application/json body
+func NewDecideRebalanceBatchRequest(server string, batchId openapi_types.UUID, body DecideRebalanceBatchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDecideRebalanceBatchRequestWithBody(server, batchId, "application/json", bodyReader)
+}
+
+// NewDecideRebalanceBatchRequestWithBody constructs an http.Request for the DecideRebalanceBatch method, with any body, and a specified content type
+func NewDecideRebalanceBatchRequestWithBody(server string, batchId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "batch_id", batchId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/capacity/batches/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEvaluateCapacityRequest constructs an http.Request for the EvaluateCapacity method
+func NewEvaluateCapacityRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/capacity/evaluate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewApproveCapacityProposalRequest constructs an http.Request for the ApproveCapacityProposal method
+func NewApproveCapacityProposalRequest(server string, proposalId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "proposal_id", proposalId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/capacity/proposals/%s/approve", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRejectCapacityProposalRequest constructs an http.Request for the RejectCapacityProposal method
+func NewRejectCapacityProposalRequest(server string, proposalId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "proposal_id", proposalId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/capacity/proposals/%s/reject", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPlanRebalanceRequest constructs an http.Request for the PlanRebalance method
+func NewPlanRebalanceRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/capacity/rebalance")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutCapacitySettingsRequest calls the generic PutCapacitySettings builder with application/json body
+func NewPutCapacitySettingsRequest(server string, body PutCapacitySettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutCapacitySettingsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPutCapacitySettingsRequestWithBody constructs an http.Request for the PutCapacitySettings method, with any body, and a specified content type
+func NewPutCapacitySettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/capacity/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCloudCatalogRequest constructs an http.Request for the CloudCatalog method
+func NewCloudCatalogRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/cloud/catalog")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminCostsRequest constructs an http.Request for the AdminCosts method
+func NewAdminCostsRequest(server string, params *AdminCostsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/costs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Month != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "month", *params.Month, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "format", *params.Format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAttributeCostsRequest calls the generic AttributeCosts builder with application/json body
+func NewAttributeCostsRequest(server string, body AttributeCostsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAttributeCostsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAttributeCostsRequestWithBody constructs an http.Request for the AttributeCosts method, with any body, and a specified content type
+func NewAttributeCostsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/costs/attribute")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetCostSettingsRequest constructs an http.Request for the GetCostSettings method
+func NewGetCostSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/costs/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutCostSettingsRequest calls the generic PutCostSettings builder with application/json body
+func NewPutCostSettingsRequest(server string, body PutCostSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutCostSettingsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPutCostSettingsRequestWithBody constructs an http.Request for the PutCostSettings method, with any body, and a specified content type
+func NewPutCostSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/costs/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListDedicatedRequestsRequest constructs an http.Request for the ListDedicatedRequests method
 func NewListDedicatedRequestsRequest(server string, params *ListDedicatedRequestsParams) (*http.Request, error) {
 	var err error
@@ -18989,6 +20389,73 @@ func NewSetupEtcdClusterRequestWithBody(server string, contentType string, body 
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/admin/etcd")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListFXRatesRequest constructs an http.Request for the ListFXRates method
+func NewListFXRatesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/fx-rates")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetFXRateRequest calls the generic SetFXRate builder with application/json body
+func NewSetFXRateRequest(server string, body SetFXRateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetFXRateRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetFXRateRequestWithBody constructs an http.Request for the SetFXRate method, with any body, and a specified content type
+func NewSetFXRateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/fx-rates")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -23820,6 +25287,121 @@ func NewUpdateNodeRequestWithBody(server string, id NodeID, contentType string, 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetNodeCostRequest calls the generic SetNodeCost builder with application/json body
+func NewSetNodeCostRequest(server string, id NodeID, body SetNodeCostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetNodeCostRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetNodeCostRequestWithBody constructs an http.Request for the SetNodeCost method, with any body, and a specified content type
+func NewSetNodeCostRequestWithBody(server string, id NodeID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/nodes/%s/cost", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStopDrainRequest constructs an http.Request for the StopDrain method
+func NewStopDrainRequest(server string, id NodeID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/nodes/%s/drain", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDrainNodeRequest constructs an http.Request for the DrainNode method
+func NewDrainNodeRequest(server string, id NodeID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/nodes/%s/drain", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -31793,6 +33375,118 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /api/v1/admin/billing/settings (the `PutBillingSettings` operationId).
 	PutBillingSettingsWithResponse(ctx context.Context, body PutBillingSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutBillingSettingsResponse, error)
 
+	// AdminCapacityWithResponse Capacity automation at a glance (settings, outlook, proposals, moves)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/capacity (the `AdminCapacity` operationId).
+	AdminCapacityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminCapacityResponse, error)
+
+	// DecideRebalanceBatchWithBodyWithResponse Approve or reject a proposed rebalance batch
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+	DecideRebalanceBatchWithBodyWithResponse(ctx context.Context, batchId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideRebalanceBatchResponse, error)
+
+	// DecideRebalanceBatchWithResponse Approve or reject a proposed rebalance batch
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+	DecideRebalanceBatchWithResponse(ctx context.Context, batchId openapi_types.UUID, body DecideRebalanceBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideRebalanceBatchResponse, error)
+
+	// EvaluateCapacityWithResponse Check thresholds now (they're checked hourly)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/capacity/evaluate (the `EvaluateCapacity` operationId).
+	EvaluateCapacityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*EvaluateCapacityResponse, error)
+
+	// ApproveCapacityProposalWithResponse Provision a proposal waiting for approval (a manual provider's is marked done)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/approve (the `ApproveCapacityProposal` operationId).
+	ApproveCapacityProposalWithResponse(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ApproveCapacityProposalResponse, error)
+
+	// RejectCapacityProposalWithResponse Close a proposal without provisioning
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/reject (the `RejectCapacityProposal` operationId).
+	RejectCapacityProposalWithResponse(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RejectCapacityProposalResponse, error)
+
+	// PlanRebalanceWithResponse Propose moves that even out shared nodes' disk (done weekly)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/capacity/rebalance (the `PlanRebalance` operationId).
+	PlanRebalanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PlanRebalanceResponse, error)
+
+	// PutCapacitySettingsWithBodyWithResponse Thresholds, the server types added, the monthly infrastructure budget
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+	PutCapacitySettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCapacitySettingsResponse, error)
+
+	// PutCapacitySettingsWithResponse Thresholds, the server types added, the monthly infrastructure budget
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+	PutCapacitySettingsWithResponse(ctx context.Context, body PutCapacitySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCapacitySettingsResponse, error)
+
+	// CloudCatalogWithResponse The provider's server types and prices
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/cloud/catalog (the `CloudCatalog` operationId).
+	CloudCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CloudCatalogResponse, error)
+
+	// AdminCostsWithResponse Costs and margins for a month (by region and tier, plan, organisation; FX view)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/costs (the `AdminCosts` operationId).
+	AdminCostsWithResponse(ctx context.Context, params *AdminCostsParams, reqEditors ...RequestEditorFn) (*AdminCostsResponse, error)
+
+	// AttributeCostsWithBodyWithResponse Recompute cost attribution for days (done daily)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+	AttributeCostsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttributeCostsResponse, error)
+
+	// AttributeCostsWithResponse Recompute cost attribution for days (done daily)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+	AttributeCostsWithResponse(ctx context.Context, body AttributeCostsJSONRequestBody, reqEditors ...RequestEditorFn) (*AttributeCostsResponse, error)
+
+	// GetCostSettingsWithResponse Costs outside the server catalog (storage, egress, floating IPs, overheads)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/costs/settings (the `GetCostSettings` operationId).
+	GetCostSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCostSettingsResponse, error)
+
+	// PutCostSettingsWithBodyWithResponse Save the cost settings
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+	PutCostSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCostSettingsResponse, error)
+
+	// PutCostSettingsWithResponse Save the cost settings
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+	PutCostSettingsWithResponse(ctx context.Context, body PutCostSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCostSettingsResponse, error)
+
 	// ListDedicatedRequestsWithResponse Dedicated instance requests from every organisation (platform admin)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -31848,6 +33542,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithResponse(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
+
+	// ListFXRatesWithResponse Exchange rates (naira per unit), current and history
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/fx-rates (the `ListFXRates` operationId).
+	ListFXRatesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFXRatesResponse, error)
+
+	// SetFXRateWithBodyWithResponse Record an exchange rate
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+	SetFXRateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFXRateResponse, error)
+
+	// SetFXRateWithResponse Record an exchange rate
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+	SetFXRateWithResponse(ctx context.Context, body SetFXRateJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFXRateResponse, error)
 
 	// MinorUpgradeInstanceWithResponse Restart an instance onto its image's newer Postgres minor release now, outside the window
 	//
@@ -33218,6 +34933,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/nodes/{id} (the `UpdateNode` operationId).
 	UpdateNodeWithResponse(ctx context.Context, id NodeID, body UpdateNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNodeResponse, error)
+
+	// SetNodeCostWithBodyWithResponse What a node costs (manual nodes; a provider's are priced from its catalog)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+	SetNodeCostWithBodyWithResponse(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetNodeCostResponse, error)
+
+	// SetNodeCostWithResponse What a node costs (manual nodes; a provider's are priced from its catalog)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+	SetNodeCostWithResponse(ctx context.Context, id NodeID, body SetNodeCostJSONRequestBody, reqEditors ...RequestEditorFn) (*SetNodeCostResponse, error)
+
+	// StopDrainWithResponse Stop draining; moves not started are dropped
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/nodes/{id}/drain (the `StopDrain` operationId).
+	StopDrainWithResponse(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*StopDrainResponse, error)
+
+	// DrainNodeWithResponse Move every project off a node, one at a time, and place nothing new there
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/nodes/{id}/drain (the `DrainNode` operationId).
+	DrainNodeWithResponse(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*DrainNodeResponse, error)
 
 	// GetNodeMetricsWithResponse A node's metric series
 	//
@@ -35485,6 +37228,582 @@ func (r PutBillingSettingsResponse) ContentType() string {
 	return ""
 }
 
+type AdminCapacityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Capacity
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminCapacityResponse) GetJSON200() *Capacity {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminCapacityResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminCapacityResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminCapacityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminCapacityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminCapacityResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DecideRebalanceBatchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RebalancePlan
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DecideRebalanceBatchResponse) GetJSON200() *RebalancePlan {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DecideRebalanceBatchResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DecideRebalanceBatchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DecideRebalanceBatchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DecideRebalanceBatchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DecideRebalanceBatchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EvaluateCapacityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CapacityProposalList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EvaluateCapacityResponse) GetJSON200() *CapacityProposalList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EvaluateCapacityResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EvaluateCapacityResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EvaluateCapacityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EvaluateCapacityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EvaluateCapacityResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApproveCapacityProposalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CapacityProposal
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveCapacityProposalResponse) GetJSON200() *CapacityProposal {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ApproveCapacityProposalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ApproveCapacityProposalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApproveCapacityProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApproveCapacityProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApproveCapacityProposalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RejectCapacityProposalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CapacityProposal
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RejectCapacityProposalResponse) GetJSON200() *CapacityProposal {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RejectCapacityProposalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RejectCapacityProposalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RejectCapacityProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RejectCapacityProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RejectCapacityProposalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PlanRebalanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RebalancePlan
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PlanRebalanceResponse) GetJSON200() *RebalancePlan {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PlanRebalanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PlanRebalanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PlanRebalanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PlanRebalanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PlanRebalanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutCapacitySettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CapacitySettings
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutCapacitySettingsResponse) GetJSON200() *CapacitySettings {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PutCapacitySettingsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PutCapacitySettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutCapacitySettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutCapacitySettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutCapacitySettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CloudCatalogResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerPriceList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CloudCatalogResponse) GetJSON200() *ServerPriceList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CloudCatalogResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CloudCatalogResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CloudCatalogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CloudCatalogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CloudCatalogResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminCostsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Margins
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminCostsResponse) GetJSON200() *Margins {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminCostsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminCostsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminCostsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminCostsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminCostsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AttributeCostsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AttributeResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AttributeCostsResponse) GetJSON200() *AttributeResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AttributeCostsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AttributeCostsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AttributeCostsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AttributeCostsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AttributeCostsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCostSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CostSettings
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCostSettingsResponse) GetJSON200() *CostSettings {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetCostSettingsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCostSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCostSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCostSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCostSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutCostSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CostSettings
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutCostSettingsResponse) GetJSON200() *CostSettings {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PutCostSettingsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PutCostSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutCostSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutCostSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutCostSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDedicatedRequestsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -35712,6 +38031,102 @@ func (r SetupEtcdClusterResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetupEtcdClusterResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFXRatesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FXRateList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListFXRatesResponse) GetJSON200() *FXRateList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListFXRatesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListFXRatesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFXRatesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFXRatesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFXRatesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetFXRateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *FXRate
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r SetFXRateResponse) GetJSON201() *FXRate {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetFXRateResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetFXRateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetFXRateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetFXRateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetFXRateResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -41324,6 +43739,150 @@ func (r UpdateNodeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateNodeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetNodeCostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Node
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetNodeCostResponse) GetJSON200() *Node {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetNodeCostResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetNodeCostResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetNodeCostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetNodeCostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetNodeCostResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StopDrainResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Node
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r StopDrainResponse) GetJSON200() *Node {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r StopDrainResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r StopDrainResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StopDrainResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StopDrainResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StopDrainResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DrainNodeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DrainResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DrainNodeResponse) GetJSON200() *DrainResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DrainNodeResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DrainNodeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DrainNodeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DrainNodeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DrainNodeResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49703,6 +52262,214 @@ func (c *ClientWithResponses) PutBillingSettingsWithResponse(ctx context.Context
 	return ParsePutBillingSettingsResponse(rsp)
 }
 
+// AdminCapacityWithResponse Capacity automation at a glance (settings, outlook, proposals, moves)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/capacity (the `AdminCapacity` operationId).
+func (c *ClientWithResponses) AdminCapacityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminCapacityResponse, error) {
+	rsp, err := c.AdminCapacity(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminCapacityResponse(rsp)
+}
+
+// DecideRebalanceBatchWithBodyWithResponse Approve or reject a proposed rebalance batch
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+func (c *ClientWithResponses) DecideRebalanceBatchWithBodyWithResponse(ctx context.Context, batchId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideRebalanceBatchResponse, error) {
+	rsp, err := c.DecideRebalanceBatchWithBody(ctx, batchId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideRebalanceBatchResponse(rsp)
+}
+
+// DecideRebalanceBatchWithResponse Approve or reject a proposed rebalance batch
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/capacity/batches/{batch_id} (the `DecideRebalanceBatch` operationId).
+func (c *ClientWithResponses) DecideRebalanceBatchWithResponse(ctx context.Context, batchId openapi_types.UUID, body DecideRebalanceBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideRebalanceBatchResponse, error) {
+	rsp, err := c.DecideRebalanceBatch(ctx, batchId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideRebalanceBatchResponse(rsp)
+}
+
+// EvaluateCapacityWithResponse Check thresholds now (they're checked hourly)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/capacity/evaluate (the `EvaluateCapacity` operationId).
+func (c *ClientWithResponses) EvaluateCapacityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*EvaluateCapacityResponse, error) {
+	rsp, err := c.EvaluateCapacity(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEvaluateCapacityResponse(rsp)
+}
+
+// ApproveCapacityProposalWithResponse Provision a proposal waiting for approval (a manual provider's is marked done)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/approve (the `ApproveCapacityProposal` operationId).
+func (c *ClientWithResponses) ApproveCapacityProposalWithResponse(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ApproveCapacityProposalResponse, error) {
+	rsp, err := c.ApproveCapacityProposal(ctx, proposalId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveCapacityProposalResponse(rsp)
+}
+
+// RejectCapacityProposalWithResponse Close a proposal without provisioning
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/capacity/proposals/{proposal_id}/reject (the `RejectCapacityProposal` operationId).
+func (c *ClientWithResponses) RejectCapacityProposalWithResponse(ctx context.Context, proposalId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RejectCapacityProposalResponse, error) {
+	rsp, err := c.RejectCapacityProposal(ctx, proposalId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectCapacityProposalResponse(rsp)
+}
+
+// PlanRebalanceWithResponse Propose moves that even out shared nodes' disk (done weekly)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/capacity/rebalance (the `PlanRebalance` operationId).
+func (c *ClientWithResponses) PlanRebalanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PlanRebalanceResponse, error) {
+	rsp, err := c.PlanRebalance(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePlanRebalanceResponse(rsp)
+}
+
+// PutCapacitySettingsWithBodyWithResponse Thresholds, the server types added, the monthly infrastructure budget
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+func (c *ClientWithResponses) PutCapacitySettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCapacitySettingsResponse, error) {
+	rsp, err := c.PutCapacitySettingsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutCapacitySettingsResponse(rsp)
+}
+
+// PutCapacitySettingsWithResponse Thresholds, the server types added, the monthly infrastructure budget
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/capacity/settings (the `PutCapacitySettings` operationId).
+func (c *ClientWithResponses) PutCapacitySettingsWithResponse(ctx context.Context, body PutCapacitySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCapacitySettingsResponse, error) {
+	rsp, err := c.PutCapacitySettings(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutCapacitySettingsResponse(rsp)
+}
+
+// CloudCatalogWithResponse The provider's server types and prices
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/cloud/catalog (the `CloudCatalog` operationId).
+func (c *ClientWithResponses) CloudCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CloudCatalogResponse, error) {
+	rsp, err := c.CloudCatalog(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCloudCatalogResponse(rsp)
+}
+
+// AdminCostsWithResponse Costs and margins for a month (by region and tier, plan, organisation; FX view)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/costs (the `AdminCosts` operationId).
+func (c *ClientWithResponses) AdminCostsWithResponse(ctx context.Context, params *AdminCostsParams, reqEditors ...RequestEditorFn) (*AdminCostsResponse, error) {
+	rsp, err := c.AdminCosts(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminCostsResponse(rsp)
+}
+
+// AttributeCostsWithBodyWithResponse Recompute cost attribution for days (done daily)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+func (c *ClientWithResponses) AttributeCostsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttributeCostsResponse, error) {
+	rsp, err := c.AttributeCostsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttributeCostsResponse(rsp)
+}
+
+// AttributeCostsWithResponse Recompute cost attribution for days (done daily)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/costs/attribute (the `AttributeCosts` operationId).
+func (c *ClientWithResponses) AttributeCostsWithResponse(ctx context.Context, body AttributeCostsJSONRequestBody, reqEditors ...RequestEditorFn) (*AttributeCostsResponse, error) {
+	rsp, err := c.AttributeCosts(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttributeCostsResponse(rsp)
+}
+
+// GetCostSettingsWithResponse Costs outside the server catalog (storage, egress, floating IPs, overheads)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/costs/settings (the `GetCostSettings` operationId).
+func (c *ClientWithResponses) GetCostSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCostSettingsResponse, error) {
+	rsp, err := c.GetCostSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCostSettingsResponse(rsp)
+}
+
+// PutCostSettingsWithBodyWithResponse Save the cost settings
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+func (c *ClientWithResponses) PutCostSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCostSettingsResponse, error) {
+	rsp, err := c.PutCostSettingsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutCostSettingsResponse(rsp)
+}
+
+// PutCostSettingsWithResponse Save the cost settings
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/costs/settings (the `PutCostSettings` operationId).
+func (c *ClientWithResponses) PutCostSettingsWithResponse(ctx context.Context, body PutCostSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCostSettingsResponse, error) {
+	rsp, err := c.PutCostSettings(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutCostSettingsResponse(rsp)
+}
+
 // ListDedicatedRequestsWithResponse Dedicated instance requests from every organisation (platform admin)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -49805,6 +52572,45 @@ func (c *ClientWithResponses) SetupEtcdClusterWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseSetupEtcdClusterResponse(rsp)
+}
+
+// ListFXRatesWithResponse Exchange rates (naira per unit), current and history
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/fx-rates (the `ListFXRates` operationId).
+func (c *ClientWithResponses) ListFXRatesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFXRatesResponse, error) {
+	rsp, err := c.ListFXRates(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFXRatesResponse(rsp)
+}
+
+// SetFXRateWithBodyWithResponse Record an exchange rate
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+func (c *ClientWithResponses) SetFXRateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFXRateResponse, error) {
+	rsp, err := c.SetFXRateWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetFXRateResponse(rsp)
+}
+
+// SetFXRateWithResponse Record an exchange rate
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/fx-rates (the `SetFXRate` operationId).
+func (c *ClientWithResponses) SetFXRateWithResponse(ctx context.Context, body SetFXRateJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFXRateResponse, error) {
+	rsp, err := c.SetFXRate(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetFXRateResponse(rsp)
 }
 
 // MinorUpgradeInstanceWithResponse Restart an instance onto its image's newer Postgres minor release now, outside the window
@@ -52237,6 +55043,58 @@ func (c *ClientWithResponses) UpdateNodeWithResponse(ctx context.Context, id Nod
 		return nil, err
 	}
 	return ParseUpdateNodeResponse(rsp)
+}
+
+// SetNodeCostWithBodyWithResponse What a node costs (manual nodes; a provider's are priced from its catalog)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+func (c *ClientWithResponses) SetNodeCostWithBodyWithResponse(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetNodeCostResponse, error) {
+	rsp, err := c.SetNodeCostWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetNodeCostResponse(rsp)
+}
+
+// SetNodeCostWithResponse What a node costs (manual nodes; a provider's are priced from its catalog)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/nodes/{id}/cost (the `SetNodeCost` operationId).
+func (c *ClientWithResponses) SetNodeCostWithResponse(ctx context.Context, id NodeID, body SetNodeCostJSONRequestBody, reqEditors ...RequestEditorFn) (*SetNodeCostResponse, error) {
+	rsp, err := c.SetNodeCost(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetNodeCostResponse(rsp)
+}
+
+// StopDrainWithResponse Stop draining; moves not started are dropped
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/nodes/{id}/drain (the `StopDrain` operationId).
+func (c *ClientWithResponses) StopDrainWithResponse(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*StopDrainResponse, error) {
+	rsp, err := c.StopDrain(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopDrainResponse(rsp)
+}
+
+// DrainNodeWithResponse Move every project off a node, one at a time, and place nothing new there
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/nodes/{id}/drain (the `DrainNode` operationId).
+func (c *ClientWithResponses) DrainNodeWithResponse(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*DrainNodeResponse, error) {
+	rsp, err := c.DrainNode(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDrainNodeResponse(rsp)
 }
 
 // GetNodeMetricsWithResponse A node's metric series
@@ -55906,6 +58764,405 @@ func ParsePutBillingSettingsResponse(rsp *http.Response) (*PutBillingSettingsRes
 	return response, nil
 }
 
+// ParseAdminCapacityResponse parses an HTTP response from a AdminCapacityWithResponse call
+func ParseAdminCapacityResponse(rsp *http.Response) (*AdminCapacityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminCapacityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Capacity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDecideRebalanceBatchResponse parses an HTTP response from a DecideRebalanceBatchWithResponse call
+func ParseDecideRebalanceBatchResponse(rsp *http.Response) (*DecideRebalanceBatchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DecideRebalanceBatchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RebalancePlan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEvaluateCapacityResponse parses an HTTP response from a EvaluateCapacityWithResponse call
+func ParseEvaluateCapacityResponse(rsp *http.Response) (*EvaluateCapacityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EvaluateCapacityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CapacityProposalList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApproveCapacityProposalResponse parses an HTTP response from a ApproveCapacityProposalWithResponse call
+func ParseApproveCapacityProposalResponse(rsp *http.Response) (*ApproveCapacityProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApproveCapacityProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CapacityProposal
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRejectCapacityProposalResponse parses an HTTP response from a RejectCapacityProposalWithResponse call
+func ParseRejectCapacityProposalResponse(rsp *http.Response) (*RejectCapacityProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RejectCapacityProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CapacityProposal
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePlanRebalanceResponse parses an HTTP response from a PlanRebalanceWithResponse call
+func ParsePlanRebalanceResponse(rsp *http.Response) (*PlanRebalanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PlanRebalanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RebalancePlan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutCapacitySettingsResponse parses an HTTP response from a PutCapacitySettingsWithResponse call
+func ParsePutCapacitySettingsResponse(rsp *http.Response) (*PutCapacitySettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutCapacitySettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CapacitySettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCloudCatalogResponse parses an HTTP response from a CloudCatalogWithResponse call
+func ParseCloudCatalogResponse(rsp *http.Response) (*CloudCatalogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CloudCatalogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerPriceList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminCostsResponse parses an HTTP response from a AdminCostsWithResponse call
+func ParseAdminCostsResponse(rsp *http.Response) (*AdminCostsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminCostsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Margins
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/csv) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParseAttributeCostsResponse parses an HTTP response from a AttributeCostsWithResponse call
+func ParseAttributeCostsResponse(rsp *http.Response) (*AttributeCostsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AttributeCostsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AttributeResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCostSettingsResponse parses an HTTP response from a GetCostSettingsWithResponse call
+func ParseGetCostSettingsResponse(rsp *http.Response) (*GetCostSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCostSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CostSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutCostSettingsResponse parses an HTTP response from a PutCostSettingsWithResponse call
+func ParsePutCostSettingsResponse(rsp *http.Response) (*PutCostSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutCostSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CostSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDedicatedRequestsResponse parses an HTTP response from a ListDedicatedRequestsWithResponse call
 func ParseListDedicatedRequestsResponse(rsp *http.Response) (*ListDedicatedRequestsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -56054,6 +59311,72 @@ func ParseSetupEtcdClusterResponse(rsp *http.Response) (*SetupEtcdClusterRespons
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFXRatesResponse parses an HTTP response from a ListFXRatesWithResponse call
+func ParseListFXRatesResponse(rsp *http.Response) (*ListFXRatesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFXRatesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FXRateList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetFXRateResponse parses an HTTP response from a SetFXRateWithResponse call
+func ParseSetFXRateResponse(rsp *http.Response) (*SetFXRateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetFXRateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FXRate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -59914,6 +63237,105 @@ func ParseUpdateNodeResponse(rsp *http.Response) (*UpdateNodeResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Node
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetNodeCostResponse parses an HTTP response from a SetNodeCostWithResponse call
+func ParseSetNodeCostResponse(rsp *http.Response) (*SetNodeCostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetNodeCostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Node
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStopDrainResponse parses an HTTP response from a StopDrainWithResponse call
+func ParseStopDrainResponse(rsp *http.Response) (*StopDrainResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StopDrainResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Node
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDrainNodeResponse parses an HTTP response from a DrainNodeWithResponse call
+func ParseDrainNodeResponse(rsp *http.Response) (*DrainNodeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DrainNodeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DrainResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

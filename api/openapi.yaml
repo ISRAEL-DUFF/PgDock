@@ -5843,6 +5843,318 @@ paths:
                 $ref: "#/components/schemas/LegalDocument"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity:
+    get:
+      operationId: adminCapacity
+      summary: Capacity automation at a glance (settings, outlook, proposals, moves)
+      tags: [capacity]
+      responses:
+        "200":
+          description: The capacity page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capacity"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/settings:
+    put:
+      operationId: putCapacitySettings
+      summary: Thresholds, the server types added, the monthly infrastructure budget
+      tags: [capacity]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapacitySettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacitySettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/evaluate:
+    post:
+      operationId: evaluateCapacity
+      summary: Check thresholds now (they're checked hourly)
+      tags: [capacity]
+      responses:
+        "200":
+          description: The proposals made.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityProposalList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/proposals/{proposal_id}/approve:
+    post:
+      operationId: approveCapacityProposal
+      summary: Provision a proposal waiting for approval (a manual provider's is marked done)
+      tags: [capacity]
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The proposal, provisioning.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityProposal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/proposals/{proposal_id}/reject:
+    post:
+      operationId: rejectCapacityProposal
+      summary: Close a proposal without provisioning
+      tags: [capacity]
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityProposal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/rebalance:
+    post:
+      operationId: planRebalance
+      summary: Propose moves that even out shared nodes' disk (done weekly)
+      tags: [capacity]
+      responses:
+        "200":
+          description: The batch, if any moves are needed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RebalancePlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/batches/{batch_id}:
+    post:
+      operationId: decideRebalanceBatch
+      summary: Approve or reject a proposed rebalance batch
+      tags: [capacity]
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchDecision"
+      responses:
+        "200":
+          description: The moves decided.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RebalancePlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/cloud/catalog:
+    get:
+      operationId: cloudCatalog
+      summary: The provider's server types and prices
+      tags: [capacity]
+      responses:
+        "200":
+          description: The catalog.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerPriceList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}/drain:
+    post:
+      operationId: drainNode
+      summary: Move every project off a node, one at a time, and place nothing new there
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      responses:
+        "200":
+          description: Draining.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrainResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: stopDrain
+      summary: Stop draining; moves not started are dropped
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      responses:
+        "200":
+          description: Back in service.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}/cost:
+    put:
+      operationId: setNodeCost
+      summary: What a node costs (manual nodes; a provider's are priced from its catalog)
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NodeCost"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/costs:
+    get:
+      operationId: adminCosts
+      summary: Costs and margins for a month (by region and tier, plan, organisation; FX view)
+      tags: [billing]
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+            example: "2026-10"
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: The month.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Margins"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/costs/attribute:
+    post:
+      operationId: attributeCosts
+      summary: Recompute cost attribution for days (done daily)
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttributeRequest"
+      responses:
+        "200":
+          description: The days attributed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttributeResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/costs/settings:
+    get:
+      operationId: getCostSettings
+      summary: Costs outside the server catalog (storage, egress, floating IPs, overheads)
+      tags: [billing]
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putCostSettings
+      summary: Save the cost settings
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostSettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/fx-rates:
+    get:
+      operationId: listFXRates
+      summary: Exchange rates (naira per unit), current and history
+      tags: [billing]
+      responses:
+        "200":
+          description: Rates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRateList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: setFXRate
+      summary: Record an exchange rate
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FXRateInput"
+      responses:
+        "201":
+          description: Recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRate"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/revenue:
     get:
       operationId: adminRevenue
@@ -7706,6 +8018,30 @@ components:
           format: date-time
         agent:
           $ref: "#/components/schemas/AgentStatus"
+        region:
+          type: string
+        provider:
+          type: string
+          description: manual (registered by hand) or the cloud provider that created it.
+        lifecycle:
+          type: string
+          enum: [active, provisioning, draining]
+        server_type:
+          type: string
+          nullable: true
+        monthly_cost_minor:
+          type: integer
+          format: int64
+          nullable: true
+        cost_currency:
+          type: string
+        empty_since:
+          type: string
+          format: date-time
+          nullable: true
+        keep:
+          type: boolean
+          description: Never deleted for being empty.
     AgentStatus:
       type: object
       required: [registered, reachable]
@@ -11767,6 +12103,518 @@ components:
           type: string
         body_md:
           type: string
+    TierSettings:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+        disk_threshold:
+          type: number
+        horizon_days:
+          type: integer
+        server_type:
+          type: string
+        min_cpus:
+          type: integer
+        min_memory_gb:
+          type: number
+        min_disk_gb:
+          type: integer
+        cluster_memory_mb:
+          type: integer
+    CapacitySettings:
+      type: object
+      required: [auto_apply, monthly_budget_minor, budget_currency, shared, dedicated, auto_rebalance, rebalance_spread, delete_empty_after_hours]
+      properties:
+        auto_apply:
+          type: boolean
+        monthly_budget_minor:
+          type: integer
+          format: int64
+        budget_currency:
+          type: string
+        shared:
+          $ref: "#/components/schemas/TierSettings"
+        dedicated:
+          $ref: "#/components/schemas/TierSettings"
+        auto_rebalance:
+          type: boolean
+        rebalance_spread:
+          type: number
+        delete_empty_after_hours:
+          type: integer
+    CapacityProposal:
+      type: object
+      required: [id, region, tier, reason, provider, server_type, location, monthly_cost_minor, currency, status, auto, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        region:
+          type: string
+        tier:
+          type: string
+          enum: [shared, dedicated]
+        reason:
+          type: string
+        provider:
+          type: string
+        server_type:
+          type: string
+        location:
+          type: string
+        monthly_cost_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, provisioning, done, rejected, failed, superseded]
+        auto:
+          type: boolean
+        node_id:
+          type: string
+          format: uuid
+          nullable: true
+        node_name:
+          type: string
+        operation_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CapacityProposalList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapacityProposal"
+    RegionShared:
+      type: object
+      required: [region, nodes, total_bytes, used_bytes, projected_bytes, horizon_days, threshold]
+      properties:
+        region:
+          type: string
+        nodes:
+          type: integer
+        total_bytes:
+          type: number
+        used_bytes:
+          type: number
+        projected_bytes:
+          type: number
+        horizon_days:
+          type: integer
+        threshold:
+          type: number
+    RegionDedicated:
+      type: object
+      required: [region, nodes, largest, free_cpus, free_mem_mb]
+      properties:
+        region:
+          type: string
+        nodes:
+          type: integer
+        largest:
+          type: string
+        fits_on:
+          type: string
+        free_cpus:
+          type: number
+        free_mem_mb:
+          type: integer
+          format: int64
+    RebalanceMove:
+      type: object
+      required: [id, batch, kind, project_id, project_name, org_id, from_node, from_name, reason, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [drain, rebalance]
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+        from_node:
+          type: string
+          format: uuid
+        from_name:
+          type: string
+        to_node:
+          type: string
+          format: uuid
+          nullable: true
+        to_name:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [proposed, approved, moving, done, failed, skipped, rejected]
+        operation_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Capacity:
+      type: object
+      required: [provider, can_create, region, settings, shared, dedicated, proposals, moves, nodes, budget_used_minor]
+      properties:
+        provider:
+          type: string
+        can_create:
+          type: boolean
+        region:
+          type: string
+        settings:
+          $ref: "#/components/schemas/CapacitySettings"
+        shared:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionShared"
+        dedicated:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionDedicated"
+        proposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapacityProposal"
+        moves:
+          type: array
+          items:
+            $ref: "#/components/schemas/RebalanceMove"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+        budget_used_minor:
+          type: integer
+          format: int64
+          description: The nodes' monthly cost in the budget's currency (where a rate allows).
+    RebalancePlan:
+      type: object
+      required: [moves]
+      properties:
+        batch:
+          type: string
+          format: uuid
+          nullable: true
+        moves:
+          type: integer
+          format: int64
+    BatchDecision:
+      type: object
+      required: [approve]
+      properties:
+        approve:
+          type: boolean
+    DrainResult:
+      type: object
+      required: [node, moves]
+      properties:
+        node:
+          $ref: "#/components/schemas/Node"
+        moves:
+          type: integer
+    NodeCost:
+      type: object
+      required: [currency]
+      properties:
+        monthly_cost_minor:
+          type: integer
+          format: int64
+          nullable: true
+        currency:
+          type: string
+        server_type:
+          type: string
+        region:
+          type: string
+        keep:
+          type: boolean
+    ServerPrice:
+      type: object
+      required: [type, location, cpus, memory_gb, disk_gb, monthly_minor, currency]
+      properties:
+        type:
+          type: string
+        location:
+          type: string
+        cpus:
+          type: integer
+        memory_gb:
+          type: number
+        disk_gb:
+          type: integer
+        monthly_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+    ServerPriceList:
+      type: object
+      required: [provider, items]
+      properties:
+        provider:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServerPrice"
+    CategoryCost:
+      type: object
+      required: [category, region, native_minor, ngn_minor, ngn_booked_minor]
+      properties:
+        category:
+          type: string
+        region:
+          type: string
+        native_minor:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        ngn_minor:
+          type: integer
+          format: int64
+        ngn_booked_minor:
+          type: integer
+          format: int64
+    OrgMargin:
+      type: object
+      required: [org_id, name, plan, revenue_minor, cost_minor, cost_native_minor, margin_minor]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        plan:
+          type: string
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        cost_native_minor:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        margin_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    PlanMargin:
+      type: object
+      required: [plan, orgs, revenue_minor, cost_minor, margin_minor]
+      properties:
+        plan:
+          type: string
+        orgs:
+          type: integer
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        margin_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    UnitCost:
+      type: object
+      required: [unit, quantity, currency, per_unit_minor, per_unit_ngn_minor]
+      properties:
+        unit:
+          type: string
+        quantity:
+          type: number
+        currency:
+          type: string
+        per_unit_minor:
+          type: number
+        per_unit_ngn_minor:
+          type: number
+    Margins:
+      type: object
+      required: [month, days, rates, categories, plans, orgs, units, revenue_minor, cost_minor, cost_booked_minor, unallocated_minor, free_tier_cost_minor, margin_minor, fx_erosion_minor]
+      properties:
+        month:
+          type: string
+        days:
+          type: integer
+        rates:
+          type: object
+          additionalProperties:
+            type: number
+        missing_rates:
+          type: array
+          items:
+            type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCost"
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanMargin"
+        orgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgMargin"
+        units:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnitCost"
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        cost_booked_minor:
+          type: integer
+          format: int64
+        unallocated_minor:
+          type: integer
+          format: int64
+        free_tier_cost_minor:
+          type: integer
+          format: int64
+        margin_minor:
+          type: integer
+          format: int64
+        fx_erosion_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    AttributeRequest:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+          description: Inclusive.
+    AttributeResult:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: integer
+    Overhead:
+      type: object
+      required: [name, monthly_minor, currency]
+      properties:
+        name:
+          type: string
+        monthly_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+    CostSettings:
+      type: object
+      required: [currency, object_storage_gb_month_minor, egress_gb_minor, floating_ips, floating_ip_monthly_minor, overheads]
+      properties:
+        currency:
+          type: string
+        object_storage_gb_month_minor:
+          type: number
+        egress_gb_minor:
+          type: number
+        floating_ips:
+          type: integer
+        floating_ip_monthly_minor:
+          type: integer
+          format: int64
+        overheads:
+          type: array
+          items:
+            $ref: "#/components/schemas/Overhead"
+    FXRate:
+      type: object
+      required: [id, currency, ngn_per_unit, effective_at, source]
+      properties:
+        id:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        ngn_per_unit:
+          type: number
+          format: double
+        effective_at:
+          type: string
+          format: date-time
+        source:
+          type: string
+    FXRateList:
+      type: object
+      required: [current, history]
+      properties:
+        current:
+          type: array
+          items:
+            $ref: "#/components/schemas/FXRate"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/FXRate"
+    FXRateInput:
+      type: object
+      required: [currency, ngn_per_unit]
+      properties:
+        currency:
+          type: string
+        ngn_per_unit:
+          type: number
+          format: double
+        effective_at:
+          type: string
+          format: date-time
     PlanChangeRequest:
       type: object
       required: [plan]

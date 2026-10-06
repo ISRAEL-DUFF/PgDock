@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -170,7 +171,7 @@ func (h *HetznerProvider) DeleteServer(ctx context.Context, id string) error {
 		return err
 	}
 	err := h.do(ctx, http.MethodDelete, "/servers/"+id, nil, nil)
-	if err == ErrNotFound {
+	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
 	return err

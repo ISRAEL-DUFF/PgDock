@@ -613,8 +613,12 @@ func (s *Server) toAPINode(n store.Node) gen.Node {
 	gn := gen.Node{
 		Id: n.ID, Name: n.Name, PrivateAddr: n.PrivateAddr, Role: n.Role, Status: n.Status,
 		LastHeartbeat: n.LastHeartbeat, CreatedAt: n.CreatedAt,
-		Agent: gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
+		Agent:  gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
+		Region: &n.Region, Provider: &n.Provider, ServerType: n.ServerType, MonthlyCostMinor: n.MonthlyCostMinor,
+		CostCurrency: &n.CostCurrency, EmptySince: n.EmptySince, Keep: &n.Keep,
 	}
+	lc := gen.NodeLifecycle(n.Lifecycle)
+	gn.Lifecycle = &lc
 	if n.AgentCertFp != nil {
 		host := n.PrivateAddr
 		if n.AgentHost != nil && *n.AgentHost != "" {

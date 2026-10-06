@@ -51,7 +51,10 @@ import (
 	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
 	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/branching"
+	"github.com/israel-duff/pgdock/internal/capacity"
+	"github.com/israel-duff/pgdock/internal/cloud"
 	"github.com/israel-duff/pgdock/internal/console"
+	"github.com/israel-duff/pgdock/internal/costs"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/freetier"
@@ -115,8 +118,13 @@ type Env struct {
 	Waker    *waker.Server
 	// Support runs tickets (V3 §7.1); WhatsApp fakes the Cloud API, whose
 	// webhook reaches the API. SupportInboundSecret authenticates inbound email.
-	Support              *support.Service
-	WhatsApp             *support.FakeGraph
+	Support  *support.Service
+	WhatsApp *support.FakeGraph
+	// Capacity, Costs and Hetzner: capacity automation, cost attribution,
+	// and the fake Hetzner Cloud servers are created in (V3 §5).
+	Capacity             *capacity.Service
+	Costs                *costs.Service
+	Hetzner              *cloud.FakeHetzner
 	SupportInboundSecret string
 	// Flutterwave and ISpend are the payment providers' fake sandboxes.
 	Flutterwave *flutterwave.Fake
@@ -320,6 +328,19 @@ func Start(t testing.TB, opts Options) *Env {
 		k.MaxAttempts = opts.MaxAttempts
 		kinds[provision.KindCreate] = k
 	}
+	// Capacity automation against a fake Hetzner Cloud (V3 §5): a test
+	// boots a created "server" by starting an agent with the token from
+	// its cloud-init.
+	hetzner := cloud.NewFakeHetzner("hetzner-test-token")
+	hetznerSrv := httptest.NewServer(hetzner)
+	t.Cleanup(hetznerSrv.Close)
+	capacitySvc := capacity.New(db, nodeSvc, ded, &cloud.HetznerProvider{API: hetznerSrv.URL + "/v1", Token: "hetzner-test-token"}, nil, capacity.Config{
+		Region: "eu-central", Location: "fsn1", Image: "ubuntu-24.04", JoinTimeout: 2 * time.Minute, Poll: 300 * time.Millisecond,
+		Bootstrap: cloud.Bootstrap{ServerURL: "https://pgdock.test", AgentImage: "pgdock-agent:test", PGImage: "pgdock-postgres:{major}", PrivateCIDR: "10.0.0.0/16"},
+	}, log)
+	for name, k := range capacitySvc.Kinds() {
+		kinds[name] = k
+	}
 	freeSvc := freetier.New(db, svc, backups, mailSvc, freetier.Config{PublicURL: "https://pgdock.test"}, log)
 	for name, k := range freeSvc.Kinds() {
 		kinds[name] = k
@@ -381,6 +402,8 @@ func Start(t testing.TB, opts Options) *Env {
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	incidentSvc := incidents.New(db, incidents.Config{URL: opts.StatusURL, Secret: opts.StatusSecret}, log)
 	billingSvc := billing.New(db, mailSvc, "https://pgdock.test", log)
+	costSvc := costs.New(db, billingSvc, "eu-central", log)
+	capacitySvc.SetConverter(costSvc)
 	if err := billingSvc.Init(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -408,7 +431,7 @@ func Start(t testing.TB, opts Options) *Env {
 	t.Cleanup(waSrv.Close)
 	supportSvc.SetWhatsApp(support.CloudAPI{BaseURL: waSrv.URL, PhoneNumberID: wa.PhoneNumberID, AccessToken: wa.AccessToken, AppSecret: wa.AppSecret, VerifyToken: "wa-verify"})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc,
+		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
@@ -433,7 +456,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789",
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

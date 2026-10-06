@@ -4193,6 +4193,247 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Capacity automation at a glance (settings, outlook, proposals, moves) */
+        get: operations["adminCapacity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Thresholds, the server types added, the monthly infrastructure budget */
+        put: operations["putCapacitySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check thresholds now (they're checked hourly) */
+        post: operations["evaluateCapacity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/proposals/{proposal_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Provision a proposal waiting for approval (a manual provider's is marked done) */
+        post: operations["approveCapacityProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/proposals/{proposal_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a proposal without provisioning */
+        post: operations["rejectCapacityProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/rebalance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Propose moves that even out shared nodes' disk (done weekly) */
+        post: operations["planRebalance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject a proposed rebalance batch */
+        post: operations["decideRebalanceBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cloud/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The provider's server types and prices */
+        get: operations["cloudCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move every project off a node, one at a time, and place nothing new there */
+        post: operations["drainNode"];
+        /** Stop draining; moves not started are dropped */
+        delete: operations["stopDrain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** What a node costs (manual nodes; a provider's are priced from its catalog) */
+        put: operations["setNodeCost"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Costs and margins for a month (by region and tier, plan, organisation; FX view) */
+        get: operations["adminCosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/costs/attribute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recompute cost attribution for days (done daily) */
+        post: operations["attributeCosts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/costs/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Costs outside the server catalog (storage, egress, floating IPs, overheads) */
+        get: operations["getCostSettings"];
+        /** Save the cost settings */
+        put: operations["putCostSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exchange rates (naira per unit), current and history */
+        get: operations["listFXRates"];
+        put?: never;
+        /** Record an exchange rate */
+        post: operations["setFXRate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/revenue": {
         parameters: {
             query?: never;
@@ -5119,6 +5360,19 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             agent: components["schemas"]["AgentStatus"];
+            region?: string;
+            /** @description manual (registered by hand) or the cloud provider that created it. */
+            provider?: string;
+            /** @enum {string} */
+            lifecycle?: "active" | "provisioning" | "draining";
+            server_type?: string | null;
+            /** Format: int64 */
+            monthly_cost_minor?: number | null;
+            cost_currency?: string;
+            /** Format: date-time */
+            empty_since?: string | null;
+            /** @description Never deleted for being empty. */
+            keep?: boolean;
         };
         AgentStatus: {
             registered: boolean;
@@ -7247,6 +7501,275 @@ export interface components {
         OrderFormPublish: {
             title: string;
             body_md: string;
+        };
+        TierSettings: {
+            enabled: boolean;
+            disk_threshold?: number;
+            horizon_days?: number;
+            server_type?: string;
+            min_cpus?: number;
+            min_memory_gb?: number;
+            min_disk_gb?: number;
+            cluster_memory_mb?: number;
+        };
+        CapacitySettings: {
+            auto_apply: boolean;
+            /** Format: int64 */
+            monthly_budget_minor: number;
+            budget_currency: string;
+            shared: components["schemas"]["TierSettings"];
+            dedicated: components["schemas"]["TierSettings"];
+            auto_rebalance: boolean;
+            rebalance_spread: number;
+            delete_empty_after_hours: number;
+        };
+        CapacityProposal: {
+            /** Format: uuid */
+            id: string;
+            region: string;
+            /** @enum {string} */
+            tier: "shared" | "dedicated";
+            reason: string;
+            provider: string;
+            server_type: string;
+            location: string;
+            /** Format: int64 */
+            monthly_cost_minor: number;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "provisioning" | "done" | "rejected" | "failed" | "superseded";
+            auto: boolean;
+            /** Format: uuid */
+            node_id?: string | null;
+            node_name?: string;
+            /** Format: uuid */
+            operation_id?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CapacityProposalList: {
+            items: components["schemas"]["CapacityProposal"][];
+        };
+        RegionShared: {
+            region: string;
+            nodes: number;
+            total_bytes: number;
+            used_bytes: number;
+            projected_bytes: number;
+            horizon_days: number;
+            threshold: number;
+        };
+        RegionDedicated: {
+            region: string;
+            nodes: number;
+            largest: string;
+            fits_on?: string;
+            free_cpus: number;
+            /** Format: int64 */
+            free_mem_mb: number;
+        };
+        RebalanceMove: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            batch: string;
+            /** @enum {string} */
+            kind: "drain" | "rebalance";
+            /** Format: uuid */
+            project_id: string;
+            project_name: string;
+            /** Format: uuid */
+            org_id: string;
+            /** Format: uuid */
+            from_node: string;
+            from_name: string;
+            /** Format: uuid */
+            to_node?: string | null;
+            to_name?: string | null;
+            reason: string;
+            /** @enum {string} */
+            status: "proposed" | "approved" | "moving" | "done" | "failed" | "skipped" | "rejected";
+            /** Format: uuid */
+            operation_id?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        Capacity: {
+            provider: string;
+            can_create: boolean;
+            region: string;
+            settings: components["schemas"]["CapacitySettings"];
+            shared: components["schemas"]["RegionShared"][];
+            dedicated: components["schemas"]["RegionDedicated"][];
+            proposals: components["schemas"]["CapacityProposal"][];
+            moves: components["schemas"]["RebalanceMove"][];
+            nodes: components["schemas"]["Node"][];
+            /**
+             * Format: int64
+             * @description The nodes' monthly cost in the budget's currency (where a rate allows).
+             */
+            budget_used_minor: number;
+        };
+        RebalancePlan: {
+            /** Format: uuid */
+            batch?: string | null;
+            /** Format: int64 */
+            moves: number;
+        };
+        BatchDecision: {
+            approve: boolean;
+        };
+        DrainResult: {
+            node: components["schemas"]["Node"];
+            moves: number;
+        };
+        NodeCost: {
+            /** Format: int64 */
+            monthly_cost_minor?: number | null;
+            currency: string;
+            server_type?: string;
+            region?: string;
+            keep?: boolean;
+        };
+        ServerPrice: {
+            type: string;
+            location: string;
+            cpus: number;
+            memory_gb: number;
+            disk_gb: number;
+            /** Format: int64 */
+            monthly_minor: number;
+            currency: string;
+        };
+        ServerPriceList: {
+            provider: string;
+            items: components["schemas"]["ServerPrice"][];
+        };
+        CategoryCost: {
+            category: string;
+            region: string;
+            native_minor: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            ngn_minor: number;
+            /** Format: int64 */
+            ngn_booked_minor: number;
+        };
+        OrgMargin: {
+            /** Format: uuid */
+            org_id: string;
+            name: string;
+            plan: string;
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            cost_native_minor: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            margin_minor: number;
+            margin_pct?: number;
+        };
+        PlanMargin: {
+            plan: string;
+            orgs: number;
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            /** Format: int64 */
+            margin_minor: number;
+            margin_pct?: number;
+        };
+        UnitCost: {
+            unit: string;
+            quantity: number;
+            currency: string;
+            per_unit_minor: number;
+            per_unit_ngn_minor: number;
+        };
+        Margins: {
+            month: string;
+            days: number;
+            rates: {
+                [key: string]: number;
+            };
+            missing_rates?: string[];
+            categories: components["schemas"]["CategoryCost"][];
+            plans: components["schemas"]["PlanMargin"][];
+            orgs: components["schemas"]["OrgMargin"][];
+            units: components["schemas"]["UnitCost"][];
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            /** Format: int64 */
+            cost_booked_minor: number;
+            /** Format: int64 */
+            unallocated_minor: number;
+            /** Format: int64 */
+            free_tier_cost_minor: number;
+            /** Format: int64 */
+            margin_minor: number;
+            /** Format: int64 */
+            fx_erosion_minor: number;
+            margin_pct?: number;
+        };
+        AttributeRequest: {
+            /** Format: date */
+            from: string;
+            /**
+             * Format: date
+             * @description Inclusive.
+             */
+            to: string;
+        };
+        AttributeResult: {
+            days: number;
+        };
+        Overhead: {
+            name: string;
+            /** Format: int64 */
+            monthly_minor: number;
+            currency: string;
+        };
+        CostSettings: {
+            currency: string;
+            object_storage_gb_month_minor: number;
+            egress_gb_minor: number;
+            floating_ips: number;
+            /** Format: int64 */
+            floating_ip_monthly_minor: number;
+            overheads: components["schemas"]["Overhead"][];
+        };
+        FXRate: {
+            /** Format: int64 */
+            id: number;
+            currency: string;
+            /** Format: double */
+            ngn_per_unit: number;
+            /** Format: date-time */
+            effective_at: string;
+            source: string;
+        };
+        FXRateList: {
+            current: components["schemas"]["FXRate"][];
+            history: components["schemas"]["FXRate"][];
+        };
+        FXRateInput: {
+            currency: string;
+            /** Format: double */
+            ngn_per_unit: number;
+            /** Format: date-time */
+            effective_at?: string;
         };
         PlanChangeRequest: {
             plan: string;
@@ -14993,6 +15516,403 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LegalDocument"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminCapacity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The capacity page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Capacity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putCapacitySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapacitySettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacitySettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    evaluateCapacity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The proposals made. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacityProposalList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    approveCapacityProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The proposal, provisioning. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacityProposal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rejectCapacityProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rejected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacityProposal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    planRebalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The batch, if any moves are needed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RebalancePlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    decideRebalanceBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchDecision"];
+            };
+        };
+        responses: {
+            /** @description The moves decided. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RebalancePlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cloudCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerPriceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    drainNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draining. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    stopDrain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back in service. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Node"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setNodeCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NodeCost"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Node"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminCosts: {
+        parameters: {
+            query?: {
+                month?: string;
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Margins"];
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    attributeCosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttributeRequest"];
+            };
+        };
+        responses: {
+            /** @description The days attributed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributeResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCostSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putCostSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listFXRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRateList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setFXRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FXRateInput"];
+            };
+        };
+        responses: {
+            /** @description Recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRate"];
                 };
             };
             default: components["responses"]["Error"];

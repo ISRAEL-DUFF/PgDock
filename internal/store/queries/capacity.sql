@@ -105,7 +105,7 @@ ORDER BY m.created_at DESC LIMIT 500;
 
 -- name: NextApprovedMove :one
 -- tenant: system - the mover takes the oldest approved move.
-SELECT * FROM rebalance_moves WHERE status = 'approved' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED;
+SELECT * FROM rebalance_moves WHERE status = 'approved' ORDER BY created_at LIMIT 1;
 
 -- name: MovingRebalanceMoves :many
 -- tenant: system - moves in flight, to see when their operations end.
@@ -140,3 +140,22 @@ SELECT p.id, p.org_id, p.tier, p.instance_id, i.pg_version, i.org_id AS cluster_
 FROM projects p JOIN instances i ON i.id = p.instance_id
 WHERE i.node_id = @node_id AND p.deleted_at IS NULL AND p.status = 'active' AND i.deleted_at IS NULL
 ORDER BY size_bytes DESC;
+
+-- name: NodeOccupancy :many
+-- tenant: system - what still holds each node: live projects, dedicated
+-- instances, and copies a move or promotion keeps for a while.
+SELECT n.id,
+  (SELECT count(*) FROM projects p JOIN instances i ON i.id = p.instance_id
+     WHERE i.node_id = n.id AND p.deleted_at IS NULL AND i.deleted_at IS NULL)::int AS projects,
+  (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL AND i.kind = 'dedicated')::int AS dedicated,
+  (SELECT count(*) FROM retired_databases r JOIN instances i ON i.id = r.instance_id
+     WHERE i.node_id = n.id AND r.dropped_at IS NULL)::int AS retired,
+  (SELECT count(*) FROM instance_members m WHERE m.node_id = n.id AND m.deleted_at IS NULL)::int AS members,
+  (SELECT count(*) FROM etcd_members e WHERE e.node_id = n.id)::int AS etcd
+FROM nodes n
+WHERE n.status <> 'removed' AND n.role <> 'pooler';
+
+-- name: RetireNodeSharedClusters :exec
+-- An empty node's shared clusters go with it.
+UPDATE instances SET deleted_at = now(), status = 'deleted'
+WHERE node_id = @node_id AND kind = 'shared' AND deleted_at IS NULL;

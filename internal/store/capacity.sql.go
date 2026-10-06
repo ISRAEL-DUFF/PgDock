@@ -562,7 +562,7 @@ func (q *Queries) MovingRebalanceMoves(ctx context.Context) ([]RebalanceMove, er
 }
 
 const nextApprovedMove = `-- name: NextApprovedMove :one
-SELECT id, batch, kind, project_id, from_node, to_node, reason, status, operation_id, error, created_at, updated_at FROM rebalance_moves WHERE status = 'approved' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED
+SELECT id, batch, kind, project_id, from_node, to_node, reason, status, operation_id, error, created_at, updated_at FROM rebalance_moves WHERE status = 'approved' ORDER BY created_at LIMIT 1
 `
 
 // tenant: system - the mover takes the oldest approved move.
@@ -664,6 +664,57 @@ func (q *Queries) NodeMetricSeries(ctx context.Context, arg NodeMetricSeriesPara
 	for rows.Next() {
 		var i NodeMetricSeriesRow
 		if err := rows.Scan(&i.Ts, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nodeOccupancy = `-- name: NodeOccupancy :many
+SELECT n.id,
+  (SELECT count(*) FROM projects p JOIN instances i ON i.id = p.instance_id
+     WHERE i.node_id = n.id AND p.deleted_at IS NULL AND i.deleted_at IS NULL)::int AS projects,
+  (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL AND i.kind = 'dedicated')::int AS dedicated,
+  (SELECT count(*) FROM retired_databases r JOIN instances i ON i.id = r.instance_id
+     WHERE i.node_id = n.id AND r.dropped_at IS NULL)::int AS retired,
+  (SELECT count(*) FROM instance_members m WHERE m.node_id = n.id AND m.deleted_at IS NULL)::int AS members,
+  (SELECT count(*) FROM etcd_members e WHERE e.node_id = n.id)::int AS etcd
+FROM nodes n
+WHERE n.status <> 'removed' AND n.role <> 'pooler'
+`
+
+type NodeOccupancyRow struct {
+	ID        uuid.UUID
+	Projects  int32
+	Dedicated int32
+	Retired   int32
+	Members   int32
+	Etcd      int32
+}
+
+// tenant: system - what still holds each node: live projects, dedicated
+// instances, and copies a move or promotion keeps for a while.
+func (q *Queries) NodeOccupancy(ctx context.Context) ([]NodeOccupancyRow, error) {
+	rows, err := q.db.Query(ctx, nodeOccupancy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NodeOccupancyRow
+	for rows.Next() {
+		var i NodeOccupancyRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Projects,
+			&i.Dedicated,
+			&i.Retired,
+			&i.Members,
+			&i.Etcd,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -822,6 +873,17 @@ func (q *Queries) OpenCapacityProposal(ctx context.Context, arg OpenCapacityProp
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const retireNodeSharedClusters = `-- name: RetireNodeSharedClusters :exec
+UPDATE instances SET deleted_at = now(), status = 'deleted'
+WHERE node_id = $1 AND kind = 'shared' AND deleted_at IS NULL
+`
+
+// An empty node's shared clusters go with it.
+func (q *Queries) RetireNodeSharedClusters(ctx context.Context, nodeID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, retireNodeSharedClusters, nodeID)
+	return err
 }
 
 const setCapacityProposalNode = `-- name: SetCapacityProposalNode :exec
