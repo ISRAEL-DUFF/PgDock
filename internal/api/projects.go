@@ -119,6 +119,14 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	if req.VolumeGb != nil {
 		cp.VolumeGB = *req.VolumeGb
 	}
+	if req.Region != nil {
+		cp.Region = *req.Region
+		a.set("region", cp.Region)
+	}
+	if req.DataResidency != nil && *req.DataResidency {
+		cp.DataResidency = true
+		a.set("data_residency", true)
+	}
 	if s.tenancy != nil {
 		if !s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), acc.OrgID)) {
 			return
@@ -260,6 +268,10 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 			ConsoleReadOnly:                 set.ConsoleReadOnly,
 		},
 		Connection:             toAPIConnection(s.projects.ConnectionFor(p), ""),
+		Region:                 &p.Region,
+		DataResidency:          &p.DataResidency,
+		ForwardRegion:          p.ForwardRegion,
+		ForwardUntil:           p.ForwardUntil,
 		StorageState:           ptrTo(gen.StorageState(p.StorageState)),
 		CanSwitchCredentials:   ptrTo(provision.CanSwitchCredentials(p)),
 		LegacyCredentialsUntil: p.LegacyUntil,

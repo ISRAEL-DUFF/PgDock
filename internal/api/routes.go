@@ -107,6 +107,7 @@ var routeRules = map[string]rule{
 	"POST /api/v1/orgs":                                  {scope: scopeSelf, action: authz.Self},
 	"GET /api/v1/settings/general":                       {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
 	"GET /api/v1/profiles":                               {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
+	"GET /api/v1/regions":                                {scope: scopeSelf, action: authz.Self, token: authz.ScopeRead},
 	"POST /api/v1/imports/preflight":                     {scope: scopeSelf, action: authz.Self},
 	// API tokens (V2 §7.2): a token may manage its user's tokens in its own
 	// organisation, never exceeding itself (the handlers check).
@@ -256,10 +257,11 @@ var routeRules = map[string]rule{
 	"GET /api/v1/projects/{id}/backup-key/download":                  {scope: scopeProject, action: authz.BackupStorage},
 	// Restoring in place needs the project admin role; the handler checks
 	// it for that mode.
-	"POST /api/v1/backups/{id}/restore":  {scope: scopeBackup, action: authz.BackupCreate},
-	"GET /api/v1/backups/{id}/download":  {scope: scopeBackup, action: authz.ProjectExport},
-	"GET /api/v1/operations/{id}":        {scope: scopeOperation, action: authz.ProjectView},
-	"GET /api/v1/operations/{id}/stream": {scope: scopeOperation, action: authz.ProjectView},
+	"POST /api/v1/backups/{id}/restore":   {scope: scopeBackup, action: authz.BackupCreate},
+	"GET /api/v1/backups/{id}/download":   {scope: scopeBackup, action: authz.ProjectExport},
+	"PUT /api/v1/projects/{id}/residency": {scope: scopeProject, action: authz.ProjectResidency},
+	"GET /api/v1/operations/{id}":         {scope: scopeOperation, action: authz.ProjectView},
+	"GET /api/v1/operations/{id}/stream":  {scope: scopeOperation, action: authz.ProjectView},
 
 	// The platform.
 	"PUT /api/v1/settings/db-host":             {scope: scopePlatform, action: authz.PlatformManage},
@@ -280,6 +282,8 @@ var routeRules = map[string]rule{
 	"DELETE /api/v1/nodes/{id}":                {scope: scopePlatform, action: authz.PlatformManage},
 	// Capacity automation and cost attribution (V3 §5, §7.2).
 	"GET /api/v1/admin/capacity":                                  {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/regions":                                   {scope: scopePlatform, action: authz.PlatformManage},
+	"PUT /api/v1/admin/regions/{region_id}":                       {scope: scopePlatform, action: authz.PlatformManage},
 	"PUT /api/v1/admin/capacity/settings":                         {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/capacity/evaluate":                        {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/capacity/proposals/{proposal_id}/approve": {scope: scopePlatform, action: authz.PlatformManage},

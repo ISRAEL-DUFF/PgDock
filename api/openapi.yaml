@@ -5857,6 +5857,86 @@ paths:
                 $ref: "#/components/schemas/Capacity"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/regions:
+    get:
+      operationId: listRegions
+      summary: The regions new projects can be created in
+      tags: [regions]
+      responses:
+        "200":
+          description: Active regions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/regions:
+    get:
+      operationId: listAdminRegions
+      summary: Every region with its pooler hostname, targets and usage
+      tags: [regions]
+      responses:
+        "200":
+          description: Regions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRegionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/regions/{region_id}:
+    put:
+      operationId: putAdminRegion
+      summary: Create or change a region
+      tags: [regions]
+      parameters:
+        - name: region_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRegionRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRegion"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/residency:
+    put:
+      operationId: setProjectResidency
+      summary: Turn data residency on or off (organisation owners; step-up)
+      description: |
+        On needs a region that offers residency and backups on a target in
+        the region; existing cross-region copies outside the region are
+        deleted. Exports stay available.
+      tags: [regions]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectResidencyRequest"
+      responses:
+        "200":
+          description: Changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResidencyResult"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/capacity/settings:
     put:
       operationId: putCapacitySettings
@@ -7060,6 +7140,20 @@ components:
       type: object
       required: [id, org_id, name, slug, db_name, owner_role, tier, status, settings, created_at, connection]
       properties:
+        region:
+          type: string
+          description: The region the project runs in (V3 §6).
+        data_residency:
+          type: boolean
+          description: Data, backups and branches stay in the project's region's country (V3 §6.3).
+        forward_region:
+          type: string
+          nullable: true
+          description: After a region move, the old region still routing the old hostname.
+        forward_until:
+          type: string
+          format: date-time
+          nullable: true
         lifecycle:
           type: string
           enum: [active, paused, archived]
@@ -7171,6 +7265,152 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Project"
+    Region:
+      type: object
+      required: [id, name, country, residency, home]
+      properties:
+        id:
+          type: string
+          example: ng-lagos
+        name:
+          type: string
+          example: Lagos
+        country:
+          type: string
+          description: ISO 3166 two-letter code; empty when not tied to one.
+        residency:
+          type: boolean
+          description: Projects here may turn data residency on.
+        home:
+          type: boolean
+          description: The platform's home region, where projects go by default.
+    RegionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Region"
+    AdminRegion:
+      type: object
+      required: [id, name, country, pooler_host, provider, location, residency, status, home, nodes, pooler_hosts, projects, residency_projects, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        pooler_host:
+          type: string
+          description: The hostname in the region's connection strings; empty is the platform's database host.
+        provider:
+          type: string
+          description: manual or hetzner.
+        location:
+          type: string
+          description: The provider's location for new servers (e.g. nbg1); empty for manual.
+        storage_target_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Where the region's projects back up (platform default when null).
+        copy_target_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Where backups on platform targets are copied (V3 §2.5).
+        floating_ip_id:
+          type: string
+          nullable: true
+          description: The region's pooler floating IP at the provider.
+        residency:
+          type: boolean
+        status:
+          type: string
+          enum: [active, hidden]
+        home:
+          type: boolean
+        nodes:
+          type: integer
+        pooler_hosts:
+          type: integer
+          description: The region's own pooler hosts; with none, the home region's poolers serve its projects.
+        projects:
+          type: integer
+        residency_projects:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    AdminRegionList:
+      type: object
+      required: [items, copies]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRegion"
+        copies:
+          type: array
+          description: Cross-region copy status of the last 7 days' backups.
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status:
+                type: string
+                enum: [none, pending, copied, failed, skipped]
+              count:
+                type: integer
+    AdminRegionRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        country:
+          type: string
+        pooler_host:
+          type: string
+        provider:
+          type: string
+          description: manual (the default) or hetzner.
+        location:
+          type: string
+        storage_target_id:
+          type: string
+          format: uuid
+          nullable: true
+        copy_target_id:
+          type: string
+          format: uuid
+          nullable: true
+        floating_ip_id:
+          type: string
+          nullable: true
+        residency:
+          type: boolean
+        hidden:
+          type: boolean
+          description: Hidden regions take no new projects.
+    ProjectResidencyRequest:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+    ProjectResidencyResult:
+      type: object
+      required: [project, removed_copies]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        removed_copies:
+          type: integer
+          description: Cross-region copies outside the region that were deleted.
     CreateProjectRequest:
       type: object
       required: [name]
@@ -7193,6 +7433,12 @@ components:
           type: string
           format: uuid
           description: Dedicated only; default is the least loaded dedicated node.
+        region:
+          type: string
+          description: The region (see /regions); the platform's home region by default. A branch is always in its parent's.
+        data_residency:
+          type: boolean
+          description: Keep the data, backups and branches in the region's country; the region must offer it.
         profile:
           type: string
           description: Dedicated only (see /profiles); default small.

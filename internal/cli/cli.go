@@ -168,6 +168,7 @@ func (a *App) commands() []command {
 			{name: "create", summary: "Create a project: create <name> [--tier shared|dedicated]", run: (*App).projectsCreate},
 			{name: "delete", summary: "Delete a project: delete <p> --confirm <name>", run: (*App).projectsDelete},
 		}},
+		{name: "regions", summary: "The regions projects can be created in", run: (*App).regionsList},
 		{name: "connect", summary: "Print a connection URL with your personal login, or --psql to open psql", run: (*App).connect},
 		{name: "creds", summary: "Your personal database login: creds <p> [--rotate]", run: (*App).creds},
 		{name: "sql", summary: "Run SQL: sql <p> -c \"select …\" | -f file.sql [--csv]", run: (*App).sql},

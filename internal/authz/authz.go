@@ -58,6 +58,7 @@ var actionScope = map[Action]string{
 	ConsoleRead:        ScopeRead,
 	ProjectAudit:       ScopeRead,
 	ProjectExport:      ScopeAdmin,
+	ProjectResidency:   ScopeAdmin,
 	ConsoleWrite:       ScopeWrite,
 	TableEdit:          ScopeWrite,
 	BackupCreate:       ScopeWrite,
@@ -171,6 +172,9 @@ const (
 	// archive, V2 §10.10): organisation owners only, and like any project
 	// action invisible to those who can't see the project.
 	ProjectExport Action = "project.export"
+	// ProjectResidency turns a project's data residency on or off (V3
+	// §6.3): organisation owners only.
+	ProjectResidency Action = "project.residency"
 )
 
 // projectMin is the least project role for each project action.
@@ -191,6 +195,7 @@ var projectMin = map[Action]string{
 	ProjectDelete:      ProjectAdmin,
 	ProjectAudit:       ProjectAdmin,
 	ProjectExport:      ProjectReadOnly, // visibility; owners only, below
+	ProjectResidency:   ProjectReadOnly, // visibility; owners only, below
 }
 
 // IsProjectAction reports whether a is checked against a project.
@@ -344,7 +349,7 @@ func can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		}
 		d.Visible = true
 		d.Allowed = projectRank[d.ProjectRole] >= projectRank[minRole]
-		if action == ProjectExport {
+		if action == ProjectExport || action == ProjectResidency {
 			d.Allowed = d.OrgRole == OrgOwner && !d.BreakGlass
 		}
 		return d, nil

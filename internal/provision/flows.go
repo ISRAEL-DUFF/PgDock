@@ -222,10 +222,18 @@ func (s *Service) syncPooler(ctx context.Context, log *jobs.StepLogger, step, ms
 
 // smokeTest connects through both poolers as the project role, which
 // proves the route and SCRAM passthrough end to end (spec §6.1 step 5).
+// A project in a region with its own pooler hosts is tested through one
+// of them.
 func (s *Service) smokeTest(ctx context.Context, p store.Project, password string, log *jobs.StepLogger) error {
+	session, pooled := s.cfg.SmokeSessionAddr, s.cfg.SmokePooledAddr
+	if s.pooler != nil {
+		if rs, rp, ok := s.pooler.SmokeAddrs(p.Region); ok {
+			session, pooled = rs, rp
+		}
+	}
 	for _, target := range []struct{ mode, addr string }{
-		{"session", s.cfg.SmokeSessionAddr},
-		{"transaction", s.cfg.SmokePooledAddr},
+		{"session", session},
+		{"transaction", pooled},
 	} {
 		if err := s.connectAsProject(ctx, target.addr, p, password); err != nil {
 			return fmt.Errorf("smoke test via %s pooler (%s): %w", target.mode, target.addr, err)

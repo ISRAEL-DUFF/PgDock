@@ -194,7 +194,9 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 	cc.Env = slices.DeleteFunc(cc.Env, func(e string) bool {
 		return strings.HasPrefix(e, "POSTGRES_") || strings.HasPrefix(e, "PGDOCK_HBA_ALLOW=")
 	})
-	cc.Env = append(cc.Env, "PGDOCK_PATRONI_CONFIG="+string(raw),
+	// PGDOCK_ADMIN_USER (not a secret) is who WAL-G and the agent's psql
+	// connect as over the local socket, as POSTGRES_USER is gone.
+	cc.Env = append(cc.Env, "PGDOCK_PATRONI_CONFIG="+string(raw), "PGDOCK_ADMIN_USER="+spec.AdminUser,
 		"PGDOCK_ETCD_CA="+p.EtcdCA, "PGDOCK_ETCD_CERT="+p.EtcdCert, "PGDOCK_ETCD_KEY="+p.EtcdKey)
 	cc.Entrypoint, cc.Cmd = []string{"/usr/local/bin/pgdock-patroni"}, nil
 	cc.StopSignal = "SIGTERM" // Patroni stops Postgres cleanly

@@ -540,6 +540,8 @@ var specMatrix = map[authz.Action][]string{
 	},
 	// §10.10 "Org owners can export any project as a pg_dump file"
 	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},
+	// V3 §6.3 the data residency setting: owners only
+	authz.ProjectResidency: {"PUT /api/v1/projects/{id}/residency"},
 	// The signed-in user's own account
 	authz.Self: {
 		"POST /api/v1/auth/reauth", "POST /api/v1/auth/logout", "GET /api/v1/me", "PATCH /api/v1/me", "POST /api/v1/me/password",
@@ -547,6 +549,8 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/me/recovery-codes", "POST /api/v1/me/terms/accept", "GET /api/v1/me/invitations",
 		"POST /api/v1/me/invitations/{invitation_id}/accept", "GET /api/v1/orgs", "POST /api/v1/orgs",
 		"GET /api/v1/settings/general", "GET /api/v1/profiles", "POST /api/v1/imports/preflight",
+		// V3 §6.1 "Projects choose a region at creation"
+		"GET /api/v1/regions",
 		// §7.2 "Users manage their own tokens", §7.1 device-login approval
 		"GET /api/v1/tokens", "POST /api/v1/tokens", "DELETE /api/v1/tokens/{token_id}",
 		"GET /api/v1/auth/device/requests/{user_code}", "POST /api/v1/auth/device/approve",
@@ -569,6 +573,8 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/settings/backup-key/export", "POST /api/v1/settings/backup-key/confirm", "GET /api/v1/nodes",
 		"POST /api/v1/nodes", "GET /api/v1/nodes/{id}", "PATCH /api/v1/nodes/{id}", "DELETE /api/v1/nodes/{id}",
 		// V3 §5 capacity automation, §5.4 and §7.2 costs and margins
+		// V3 §6.1 regions
+		"GET /api/v1/admin/regions", "PUT /api/v1/admin/regions/{region_id}",
 		"GET /api/v1/admin/capacity", "PUT /api/v1/admin/capacity/settings", "POST /api/v1/admin/capacity/evaluate", "POST /api/v1/admin/capacity/proposals/{proposal_id}/approve", "POST /api/v1/admin/capacity/proposals/{proposal_id}/reject", "POST /api/v1/admin/capacity/rebalance", "POST /api/v1/admin/capacity/batches/{batch_id}", "GET /api/v1/admin/cloud/catalog", "POST /api/v1/nodes/{id}/drain", "DELETE /api/v1/nodes/{id}/drain", "PUT /api/v1/nodes/{id}/cost", "GET /api/v1/admin/costs", "POST /api/v1/admin/costs/attribute", "GET /api/v1/admin/costs/settings", "PUT /api/v1/admin/costs/settings", "GET /api/v1/admin/fx-rates", "POST /api/v1/admin/fx-rates",
 		"POST /api/v1/nodes/{id}/shared-cluster", "POST /api/v1/nodes/{id}/registration-token", "GET /api/v1/nodes/{id}/metrics",
 		"GET /api/v1/security/isolation-checks", "POST /api/v1/security/isolation-checks", "GET /api/v1/alerts",

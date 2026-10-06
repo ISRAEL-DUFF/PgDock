@@ -344,10 +344,10 @@ func (in *instances) ensureMoveHBA(ctx context.Context, name string) error {
 		fmt.Fprintf(&rules, "host all /^pgdock_move_[0-9a-f]+$ %s scram-sha-256\n", c)
 	}
 	r, err := in.dc.Exec(ctx, name, "postgres", []string{"PGDOCK_MOVE_RULES=" + rules.String(), "PGDOCK_MOVE_MARK=" + moveHBAMark}, []string{"sh", "-c",
-		`f="$(psql -XAtq -U "$POSTGRES_USER" -h /var/run/postgresql -d postgres -c 'SHOW hba_file')" || exit 1
+		`f="$(psql -XAtq -U "${POSTGRES_USER:-${PGDOCK_ADMIN_USER:-pgdock_admin}}" -h /var/run/postgresql -d postgres -c 'SHOW hba_file')" || exit 1
 grep -qxF "$PGDOCK_MOVE_MARK" "$f" && exit 0
 printf '%s' "$PGDOCK_MOVE_RULES" >> "$f" || exit 1
-psql -XAtq -U "$POSTGRES_USER" -h /var/run/postgresql -d postgres -c 'SELECT pg_reload_conf()' >/dev/null`})
+psql -XAtq -U "${POSTGRES_USER:-${PGDOCK_ADMIN_USER:-pgdock_admin}}" -h /var/run/postgresql -d postgres -c 'SELECT pg_reload_conf()' >/dev/null`})
 	if err != nil {
 		return err
 	}
@@ -511,7 +511,7 @@ func (in *instances) Destroy(ctx context.Context, id string) error {
 func (in *instances) walgShell(ctx context.Context, id, script string) (docker.ExecResult, error) {
 	name, _, _ := names(id)
 	r, err := in.dc.Exec(ctx, name, "postgres", nil, []string{"sh", "-c",
-		`export PGUSER="$POSTGRES_USER" PGHOST=/var/run/postgresql PGDATABASE=postgres; ` + script})
+		`export PGUSER="${POSTGRES_USER:-${PGDOCK_ADMIN_USER:-pgdock_admin}}" PGHOST=/var/run/postgresql PGDATABASE=postgres; ` + script})
 	if err != nil {
 		return r, err
 	}

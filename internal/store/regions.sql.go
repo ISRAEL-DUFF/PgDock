@@ -94,6 +94,7 @@ SELECT r.id,
   (SELECT count(*) FROM nodes n WHERE n.region = r.id AND n.status <> 'removed' AND n.role <> 'pooler')::int AS nodes,
   (SELECT count(*) FROM nodes n WHERE n.region = r.id AND n.status <> 'removed' AND n.role = 'pooler')::int AS pooler_hosts,
   (SELECT count(*) FROM projects p WHERE p.region = r.id AND p.deleted_at IS NULL)::int AS projects,
+  (SELECT count(*) FROM projects p WHERE p.region = r.id AND p.deleted_at IS NULL AND p.data_residency)::int AS residency_projects,
   EXISTS (SELECT 1 FROM instances i JOIN nodes n ON n.id = i.node_id WHERE n.region = r.id AND i.kind = 'shared'
     AND i.status = 'running' AND i.deleted_at IS NULL AND i.org_id IS NULL) AS has_shared,
   EXISTS (SELECT 1 FROM nodes n WHERE n.region = r.id AND n.status = 'healthy' AND n.role IN ('dedicated', 'both')) AS has_dedicated
@@ -101,12 +102,13 @@ FROM regions r ORDER BY r.created_at, r.id
 `
 
 type RegionUsageRow struct {
-	ID           string
-	Nodes        int32
-	PoolerHosts  int32
-	Projects     int32
-	HasShared    bool
-	HasDedicated bool
+	ID                string
+	Nodes             int32
+	PoolerHosts       int32
+	Projects          int32
+	ResidencyProjects int32
+	HasShared         bool
+	HasDedicated      bool
 }
 
 // tenant: system - each region's nodes and live projects, for the regions list.
@@ -124,6 +126,7 @@ func (q *Queries) RegionUsage(ctx context.Context) ([]RegionUsageRow, error) {
 			&i.Nodes,
 			&i.PoolerHosts,
 			&i.Projects,
+			&i.ResidencyProjects,
 			&i.HasShared,
 			&i.HasDedicated,
 		); err != nil {

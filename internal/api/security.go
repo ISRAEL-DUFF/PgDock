@@ -202,6 +202,8 @@ var auditActions = map[string]string{
 	"DELETE /api/v1/nodes/{id}":                                    "node.remove",
 	"PATCH /api/v1/nodes/{id}":                                     "node.update",
 	"PUT /api/v1/admin/capacity/settings":                          "capacity.settings",
+	"PUT /api/v1/admin/regions/{region_id}":                        "region.save",
+	"PUT /api/v1/projects/{id}/residency":                          "project.residency",
 	"POST /api/v1/admin/capacity/evaluate":                         "capacity.evaluate",
 	"POST /api/v1/admin/capacity/proposals/{proposal_id}/approve":  "capacity.approve",
 	"POST /api/v1/admin/capacity/proposals/{proposal_id}/reject":   "capacity.reject",
@@ -390,6 +392,7 @@ var reauthRequired = map[string]bool{
 	// Spending money: a server, or the budget that lets PGDock buy them.
 	"POST /api/v1/admin/capacity/proposals/{proposal_id}/approve": true,
 	"PUT /api/v1/admin/capacity/settings":                         true,
+	"PUT /api/v1/projects/{id}/residency":                         true,
 	"POST /api/v1/me/recovery-codes":                              true,
 	"POST /api/v1/admin/users/{user}/reset-2fa":                   true,
 	"POST /api/v1/projects/{id}/transfer":                         true,

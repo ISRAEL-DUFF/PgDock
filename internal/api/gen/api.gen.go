@@ -98,6 +98,51 @@ func (e AdminOrgSummaryStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminRegionStatus.
+const (
+	AdminRegionStatusActive AdminRegionStatus = "active"
+	AdminRegionStatusHidden AdminRegionStatus = "hidden"
+)
+
+// Valid indicates whether the value is a known member of the AdminRegionStatus enum.
+func (e AdminRegionStatus) Valid() bool {
+	switch e {
+	case AdminRegionStatusActive:
+		return true
+	case AdminRegionStatusHidden:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminRegionListCopiesStatus.
+const (
+	AdminRegionListCopiesStatusCopied  AdminRegionListCopiesStatus = "copied"
+	AdminRegionListCopiesStatusFailed  AdminRegionListCopiesStatus = "failed"
+	AdminRegionListCopiesStatusNone    AdminRegionListCopiesStatus = "none"
+	AdminRegionListCopiesStatusPending AdminRegionListCopiesStatus = "pending"
+	AdminRegionListCopiesStatusSkipped AdminRegionListCopiesStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdminRegionListCopiesStatus enum.
+func (e AdminRegionListCopiesStatus) Valid() bool {
+	switch e {
+	case AdminRegionListCopiesStatusCopied:
+		return true
+	case AdminRegionListCopiesStatusFailed:
+		return true
+	case AdminRegionListCopiesStatusNone:
+		return true
+	case AdminRegionListCopiesStatusPending:
+		return true
+	case AdminRegionListCopiesStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminUserPlatformRole.
 const (
 	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
@@ -3210,6 +3255,74 @@ type AdminOrgSummary struct {
 // AdminOrgSummaryStatus defines model for AdminOrgSummary.Status.
 type AdminOrgSummaryStatus string
 
+// AdminRegion defines model for AdminRegion.
+type AdminRegion struct {
+	// CopyTargetId Where backups on platform targets are copied (V3 §2.5).
+	CopyTargetId *openapi_types.UUID `json:"copy_target_id,omitempty"`
+	Country      string              `json:"country"`
+	CreatedAt    time.Time           `json:"created_at"`
+
+	// FloatingIpId The region's pooler floating IP at the provider.
+	FloatingIpId *string `json:"floating_ip_id,omitempty"`
+	Home         bool    `json:"home"`
+	Id           string  `json:"id"`
+
+	// Location The provider's location for new servers (e.g. nbg1); empty for manual.
+	Location string `json:"location"`
+	Name     string `json:"name"`
+	Nodes    int    `json:"nodes"`
+
+	// PoolerHost The hostname in the region's connection strings; empty is the platform's database host.
+	PoolerHost string `json:"pooler_host"`
+
+	// PoolerHosts The region's own pooler hosts; with none, the home region's poolers serve its projects.
+	PoolerHosts int `json:"pooler_hosts"`
+	Projects    int `json:"projects"`
+
+	// Provider manual or hetzner.
+	Provider          string            `json:"provider"`
+	Residency         bool              `json:"residency"`
+	ResidencyProjects int               `json:"residency_projects"`
+	Status            AdminRegionStatus `json:"status"`
+
+	// StorageTargetId Where the region's projects back up (platform default when null).
+	StorageTargetId *openapi_types.UUID `json:"storage_target_id,omitempty"`
+}
+
+// AdminRegionStatus defines model for AdminRegion.Status.
+type AdminRegionStatus string
+
+// AdminRegionList defines model for AdminRegionList.
+type AdminRegionList struct {
+	// Copies Cross-region copy status of the last 7 days' backups.
+	Copies []struct {
+		Count  int                         `json:"count"`
+		Status AdminRegionListCopiesStatus `json:"status"`
+	} `json:"copies"`
+	Items []AdminRegion `json:"items"`
+}
+
+// AdminRegionListCopiesStatus defines model for AdminRegionList.Copies.Status.
+type AdminRegionListCopiesStatus string
+
+// AdminRegionRequest defines model for AdminRegionRequest.
+type AdminRegionRequest struct {
+	CopyTargetId *openapi_types.UUID `json:"copy_target_id,omitempty"`
+	Country      *string             `json:"country,omitempty"`
+	FloatingIpId *string             `json:"floating_ip_id,omitempty"`
+
+	// Hidden Hidden regions take no new projects.
+	Hidden     *bool   `json:"hidden,omitempty"`
+	Location   *string `json:"location,omitempty"`
+	Name       string  `json:"name"`
+	PoolerHost *string `json:"pooler_host,omitempty"`
+
+	// Provider manual (the default) or hetzner.
+	Provider        *string             `json:"provider,omitempty"`
+	Residency       *bool               `json:"residency,omitempty"`
+	StorageTargetId *openapi_types.UUID `json:"storage_target_id,omitempty"`
+}
+
 // AdminUpdateOrgRequest defines model for AdminUpdateOrgRequest.
 type AdminUpdateOrgRequest struct {
 	DedicatedAllowance *DedicatedAllowance `json:"dedicated_allowance,omitempty"`
@@ -3844,7 +3957,9 @@ type CreateOrgRequest struct {
 
 // CreateProjectRequest defines model for CreateProjectRequest.
 type CreateProjectRequest struct {
-	Description *string `json:"description,omitempty"`
+	// DataResidency Keep the data, backups and branches in the region's country; the region must offer it.
+	DataResidency *bool   `json:"data_residency,omitempty"`
+	Description   *string `json:"description,omitempty"`
 
 	// Name Example: My Blog
 	Name string `json:"name"`
@@ -3859,8 +3974,11 @@ type CreateProjectRequest struct {
 	PgVersion *int `json:"pg_version,omitempty"`
 
 	// Profile Dedicated only (see /profiles); default small.
-	Profile *string      `json:"profile,omitempty"`
-	Tier    *ProjectTier `json:"tier,omitempty"`
+	Profile *string `json:"profile,omitempty"`
+
+	// Region The region (see /regions); the platform's home region by default. A branch is always in its parent's.
+	Region *string      `json:"region,omitempty"`
+	Tier   *ProjectTier `json:"tier,omitempty"`
 
 	// VolumeGb Dedicated only; default 20.
 	VolumeGb *int `json:"volume_gb,omitempty"`
@@ -5642,13 +5760,20 @@ type Project struct {
 	BranchCount *int `json:"branch_count,omitempty"`
 
 	// CanSwitchCredentials A V1 project that still uses its V1 owner role (V2 §10.2).
-	CanSwitchCredentials *bool              `json:"can_switch_credentials,omitempty"`
-	Connection           ConnectionInfo     `json:"connection"`
-	CreatedAt            time.Time          `json:"created_at"`
-	DbName               string             `json:"db_name"`
-	Description          *string            `json:"description,omitempty"`
-	Id                   openapi_types.UUID `json:"id"`
-	Instance             *InstanceSummary   `json:"instance,omitempty"`
+	CanSwitchCredentials *bool          `json:"can_switch_credentials,omitempty"`
+	Connection           ConnectionInfo `json:"connection"`
+	CreatedAt            time.Time      `json:"created_at"`
+
+	// DataResidency Data, backups and branches stay in the project's region's country (V3 §6.3).
+	DataResidency *bool   `json:"data_residency,omitempty"`
+	DbName        string  `json:"db_name"`
+	Description   *string `json:"description,omitempty"`
+
+	// ForwardRegion After a region move, the old region still routing the old hostname.
+	ForwardRegion *string            `json:"forward_region,omitempty"`
+	ForwardUntil  *time.Time         `json:"forward_until,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	Instance      *InstanceSummary   `json:"instance,omitempty"`
 
 	// LastActiveAt The last time a client was seen through the poolers.
 	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
@@ -5672,6 +5797,9 @@ type Project struct {
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
+
+	// Region The region the project runs in (V3 §6).
+	Region *string `json:"region,omitempty"`
 
 	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped;
 	// after a demotion, when the stopped dedicated instance is
@@ -5767,6 +5895,19 @@ type ProjectMembership struct {
 	ProjectId   openapi_types.UUID `json:"project_id"`
 	ProjectName string             `json:"project_name"`
 	Role        ProjectRole        `json:"role"`
+}
+
+// ProjectResidencyRequest defines model for ProjectResidencyRequest.
+type ProjectResidencyRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// ProjectResidencyResult defines model for ProjectResidencyResult.
+type ProjectResidencyResult struct {
+	Project Project `json:"project"`
+
+	// RemovedCopies Cross-region copies outside the region that were deleted.
+	RemovedCopies int `json:"removed_copies"`
 }
 
 // ProjectRole defines model for ProjectRole.
@@ -5985,6 +6126,24 @@ type RecoveryCodesStatus struct {
 	Remaining int `json:"remaining"`
 }
 
+// Region defines model for Region.
+type Region struct {
+	// Country ISO 3166 two-letter code; empty when not tied to one.
+	Country string `json:"country"`
+
+	// Home The platform's home region, where projects go by default.
+	Home bool `json:"home"`
+
+	// Id Example: ng-lagos
+	Id string `json:"id"`
+
+	// Name Example: Lagos
+	Name string `json:"name"`
+
+	// Residency Projects here may turn data residency on.
+	Residency bool `json:"residency"`
+}
+
 // RegionDedicated defines model for RegionDedicated.
 type RegionDedicated struct {
 	FitsOn    *string `json:"fits_on,omitempty"`
@@ -5993,6 +6152,11 @@ type RegionDedicated struct {
 	Largest   string  `json:"largest"`
 	Nodes     int     `json:"nodes"`
 	Region    string  `json:"region"`
+}
+
+// RegionList defines model for RegionList.
+type RegionList struct {
+	Items []Region `json:"items"`
 }
 
 // RegionShared defines model for RegionShared.
@@ -7919,6 +8083,9 @@ type MoveProjectJSONRequestBody = MoveProjectRequest
 // AdminRunReconciliationJSONRequestBody defines body for AdminRunReconciliation for application/json ContentType.
 type AdminRunReconciliationJSONRequestBody AdminRunReconciliationJSONBody
 
+// PutAdminRegionJSONRequestBody defines body for PutAdminRegion for application/json ContentType.
+type PutAdminRegionJSONRequestBody = AdminRegionRequest
+
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
 
@@ -8143,6 +8310,9 @@ type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
 
 // ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
 type ResetBranchJSONRequestBody = BranchResetRequest
+
+// SetProjectResidencyJSONRequestBody defines body for SetProjectResidency for application/json ContentType.
+type SetProjectResidencyJSONRequestBody = ProjectResidencyRequest
 
 // ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
 type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
@@ -8446,6 +8616,12 @@ type ServerInterface interface {
 	// AdminRunReconciliation Reconcile a period now (default the previous day)
 	// (POST /api/v1/admin/reconciliation)
 	AdminRunReconciliation(w http.ResponseWriter, r *http.Request)
+	// ListAdminRegions Every region with its pooler hostname, targets and usage
+	// (GET /api/v1/admin/regions)
+	ListAdminRegions(w http.ResponseWriter, r *http.Request)
+	// PutAdminRegion Create or change a region
+	// (PUT /api/v1/admin/regions/{region_id})
+	PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string)
 	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	// (GET /api/v1/admin/revenue)
 	AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams)
@@ -9004,6 +9180,9 @@ type ServerInterface interface {
 	// ResetBranch Reset a branch from its parent
 	// (POST /api/v1/projects/{id}/reset)
 	ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SetProjectResidency Turn data residency on or off (organisation owners; step-up)
+	// (PUT /api/v1/projects/{id}/residency)
+	SetProjectResidency(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ResumeProject Resume a paused or archived Free project
 	// (POST /api/v1/projects/{id}/resume)
 	ResumeProject(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -9100,6 +9279,9 @@ type ServerInterface interface {
 	// TestWebhook Send a test event now
 	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
 	TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// ListRegions The regions new projects can be created in
+	// (GET /api/v1/regions)
+	ListRegions(w http.ResponseWriter, r *http.Request)
 	// RunRestoreTest Run the restore test now
 	// (POST /api/v1/restore-tests)
 	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
@@ -9628,6 +9810,18 @@ func (_ Unimplemented) AdminLastReconciliation(w http.ResponseWriter, r *http.Re
 // AdminRunReconciliation Reconcile a period now (default the previous day)
 // (POST /api/v1/admin/reconciliation)
 func (_ Unimplemented) AdminRunReconciliation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAdminRegions Every region with its pooler hostname, targets and usage
+// (GET /api/v1/admin/regions)
+func (_ Unimplemented) ListAdminRegions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutAdminRegion Create or change a region
+// (PUT /api/v1/admin/regions/{region_id})
+func (_ Unimplemented) PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10747,6 +10941,12 @@ func (_ Unimplemented) ResetBranch(w http.ResponseWriter, r *http.Request, id Pr
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// SetProjectResidency Turn data residency on or off (organisation owners; step-up)
+// (PUT /api/v1/projects/{id}/residency)
+func (_ Unimplemented) SetProjectResidency(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ResumeProject Resume a paused or archived Free project
 // (POST /api/v1/projects/{id}/resume)
 func (_ Unimplemented) ResumeProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -10936,6 +11136,12 @@ func (_ Unimplemented) RotateWebhookSecret(w http.ResponseWriter, r *http.Reques
 // TestWebhook Send a test event now
 // (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
 func (_ Unimplemented) TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListRegions The regions new projects can be created in
+// (GET /api/v1/regions)
+func (_ Unimplemented) ListRegions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12838,6 +13044,46 @@ func (siw *ServerInterfaceWrapper) AdminRunReconciliation(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminRunReconciliation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAdminRegions operation middleware
+func (siw *ServerInterfaceWrapper) ListAdminRegions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdminRegions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminRegion operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminRegion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminRegion(w, r, regionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -17997,6 +18243,32 @@ func (siw *ServerInterfaceWrapper) ResetBranch(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// SetProjectResidency operation middleware
+func (siw *ServerInterfaceWrapper) SetProjectResidency(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetProjectResidency(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ResumeProject operation middleware
 func (siw *ServerInterfaceWrapper) ResumeProject(w http.ResponseWriter, r *http.Request) {
 
@@ -19237,6 +19509,20 @@ func (siw *ServerInterfaceWrapper) TestWebhook(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TestWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRegions operation middleware
+func (siw *ServerInterfaceWrapper) ListRegions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRegions(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -20748,6 +21034,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/capacity", wrapper.AdminCapacity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/regions", wrapper.ListRegions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/regions", wrapper.ListAdminRegions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/regions/{region_id}", wrapper.PutAdminRegion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/residency", wrapper.SetProjectResidency)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/admin/capacity/settings", wrapper.PutCapacitySettings)

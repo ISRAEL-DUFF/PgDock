@@ -89,6 +89,7 @@ func (s *Service) PITR(ctx context.Context, p PITRParams) (provision.Created, er
 		OrgID: src.OrgID, CreatorRole: p.CreatorRole,
 		Name: strings.TrimSpace(p.Name), CreatedBy: p.CreatedBy, Kind: KindRestore,
 		Tier: provision.TierDedicated, NodeID: &inst.NodeID, PgVersion: int(inst.PgVersion),
+		Region: src.Region, DataResidency: src.DataResidency, // a restore stays in the source's region
 		Params: map[string]any{"mode": ModePITR, "pitr": plan},
 	}
 	if inst.Profile != nil {
@@ -155,6 +156,7 @@ func (s *Service) Restore(ctx context.Context, p RestoreParams) (store.Operation
 		c, err := s.projects.Create(ctx, provision.CreateParams{
 			OrgID: src.OrgID, CreatorRole: p.CreatorRole,
 			Name: name, CreatedBy: p.CreatedBy, Kind: KindRestore,
+			Region: src.Region, DataResidency: src.DataResidency, // a restore stays in the source's region
 			Params: map[string]any{"mode": params.Mode, "backup_id": params.BackupID},
 		})
 		if err != nil {

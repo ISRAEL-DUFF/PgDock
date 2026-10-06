@@ -4210,6 +4210,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The regions new projects can be created in */
+        get: operations["listRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every region with its pooler hostname, targets and usage */
+        get: operations["listAdminRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Create or change a region */
+        put: operations["putAdminRegion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/residency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Turn data residency on or off (organisation owners; step-up)
+         * @description On needs a region that offers residency and backups on a target in
+         *     the region; existing cross-region copies outside the region are
+         *     deleted. Exports stay available.
+         */
+        put: operations["setProjectResidency"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/capacity/settings": {
         parameters: {
             query?: never;
@@ -4826,6 +4899,14 @@ export interface components {
             session_url: string;
         };
         Project: {
+            /** @description The region the project runs in (V3 §6). */
+            region?: string;
+            /** @description Data, backups and branches stay in the project's region's country (V3 §6.3). */
+            data_residency?: boolean;
+            /** @description After a region move, the old region still routing the old hostname. */
+            forward_region?: string | null;
+            /** Format: date-time */
+            forward_until?: string | null;
             /**
              * @description A Free project paused or archived for inactivity (V3 §4).
              * @enum {string}
@@ -4900,6 +4981,88 @@ export interface components {
         ProjectList: {
             items: components["schemas"]["Project"][];
         };
+        Region: {
+            /** @example ng-lagos */
+            id: string;
+            /** @example Lagos */
+            name: string;
+            /** @description ISO 3166 two-letter code; empty when not tied to one. */
+            country: string;
+            /** @description Projects here may turn data residency on. */
+            residency: boolean;
+            /** @description The platform's home region, where projects go by default. */
+            home: boolean;
+        };
+        RegionList: {
+            items: components["schemas"]["Region"][];
+        };
+        AdminRegion: {
+            id: string;
+            name: string;
+            country: string;
+            /** @description The hostname in the region's connection strings; empty is the platform's database host. */
+            pooler_host: string;
+            /** @description manual or hetzner. */
+            provider: string;
+            /** @description The provider's location for new servers (e.g. nbg1); empty for manual. */
+            location: string;
+            /**
+             * Format: uuid
+             * @description Where the region's projects back up (platform default when null).
+             */
+            storage_target_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Where backups on platform targets are copied (V3 §2.5).
+             */
+            copy_target_id?: string | null;
+            /** @description The region's pooler floating IP at the provider. */
+            floating_ip_id?: string | null;
+            residency: boolean;
+            /** @enum {string} */
+            status: "active" | "hidden";
+            home: boolean;
+            nodes: number;
+            /** @description The region's own pooler hosts; with none, the home region's poolers serve its projects. */
+            pooler_hosts: number;
+            projects: number;
+            residency_projects: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AdminRegionList: {
+            items: components["schemas"]["AdminRegion"][];
+            /** @description Cross-region copy status of the last 7 days' backups. */
+            copies: {
+                /** @enum {string} */
+                status: "none" | "pending" | "copied" | "failed" | "skipped";
+                count: number;
+            }[];
+        };
+        AdminRegionRequest: {
+            name: string;
+            country?: string;
+            pooler_host?: string;
+            /** @description manual (the default) or hetzner. */
+            provider?: string;
+            location?: string;
+            /** Format: uuid */
+            storage_target_id?: string | null;
+            /** Format: uuid */
+            copy_target_id?: string | null;
+            floating_ip_id?: string | null;
+            residency?: boolean;
+            /** @description Hidden regions take no new projects. */
+            hidden?: boolean;
+        };
+        ProjectResidencyRequest: {
+            enabled: boolean;
+        };
+        ProjectResidencyResult: {
+            project: components["schemas"]["Project"];
+            /** @description Cross-region copies outside the region that were deleted. */
+            removed_copies: number;
+        };
         CreateProjectRequest: {
             /**
              * Format: uuid
@@ -4915,6 +5078,10 @@ export interface components {
              * @description Dedicated only; default is the least loaded dedicated node.
              */
             node_id?: string;
+            /** @description The region (see /regions); the platform's home region by default. A branch is always in its parent's. */
+            region?: string;
+            /** @description Keep the data, backups and branches in the region's country; the region must offer it. */
+            data_residency?: boolean;
             /** @description Dedicated only (see /profiles); default small. */
             profile?: string;
             /** @description Dedicated only; default 20. */
@@ -15539,6 +15706,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Capacity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active regions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdminRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putAdminRegion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRegionRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegion"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setProjectResidency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectResidencyRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectResidencyResult"];
                 };
             };
             default: components["responses"]["Error"];

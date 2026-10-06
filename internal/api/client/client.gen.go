@@ -102,6 +102,51 @@ func (e AdminOrgSummaryStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminRegionStatus.
+const (
+	AdminRegionStatusActive AdminRegionStatus = "active"
+	AdminRegionStatusHidden AdminRegionStatus = "hidden"
+)
+
+// Valid indicates whether the value is a known member of the AdminRegionStatus enum.
+func (e AdminRegionStatus) Valid() bool {
+	switch e {
+	case AdminRegionStatusActive:
+		return true
+	case AdminRegionStatusHidden:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminRegionListCopiesStatus.
+const (
+	AdminRegionListCopiesStatusCopied  AdminRegionListCopiesStatus = "copied"
+	AdminRegionListCopiesStatusFailed  AdminRegionListCopiesStatus = "failed"
+	AdminRegionListCopiesStatusNone    AdminRegionListCopiesStatus = "none"
+	AdminRegionListCopiesStatusPending AdminRegionListCopiesStatus = "pending"
+	AdminRegionListCopiesStatusSkipped AdminRegionListCopiesStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdminRegionListCopiesStatus enum.
+func (e AdminRegionListCopiesStatus) Valid() bool {
+	switch e {
+	case AdminRegionListCopiesStatusCopied:
+		return true
+	case AdminRegionListCopiesStatusFailed:
+		return true
+	case AdminRegionListCopiesStatusNone:
+		return true
+	case AdminRegionListCopiesStatusPending:
+		return true
+	case AdminRegionListCopiesStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminUserPlatformRole.
 const (
 	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
@@ -3214,6 +3259,74 @@ type AdminOrgSummary struct {
 // AdminOrgSummaryStatus defines model for AdminOrgSummary.Status.
 type AdminOrgSummaryStatus string
 
+// AdminRegion defines model for AdminRegion.
+type AdminRegion struct {
+	// CopyTargetId Where backups on platform targets are copied (V3 §2.5).
+	CopyTargetId *openapi_types.UUID `json:"copy_target_id,omitempty"`
+	Country      string              `json:"country"`
+	CreatedAt    time.Time           `json:"created_at"`
+
+	// FloatingIpId The region's pooler floating IP at the provider.
+	FloatingIpId *string `json:"floating_ip_id,omitempty"`
+	Home         bool    `json:"home"`
+	Id           string  `json:"id"`
+
+	// Location The provider's location for new servers (e.g. nbg1); empty for manual.
+	Location string `json:"location"`
+	Name     string `json:"name"`
+	Nodes    int    `json:"nodes"`
+
+	// PoolerHost The hostname in the region's connection strings; empty is the platform's database host.
+	PoolerHost string `json:"pooler_host"`
+
+	// PoolerHosts The region's own pooler hosts; with none, the home region's poolers serve its projects.
+	PoolerHosts int `json:"pooler_hosts"`
+	Projects    int `json:"projects"`
+
+	// Provider manual or hetzner.
+	Provider          string            `json:"provider"`
+	Residency         bool              `json:"residency"`
+	ResidencyProjects int               `json:"residency_projects"`
+	Status            AdminRegionStatus `json:"status"`
+
+	// StorageTargetId Where the region's projects back up (platform default when null).
+	StorageTargetId *openapi_types.UUID `json:"storage_target_id,omitempty"`
+}
+
+// AdminRegionStatus defines model for AdminRegion.Status.
+type AdminRegionStatus string
+
+// AdminRegionList defines model for AdminRegionList.
+type AdminRegionList struct {
+	// Copies Cross-region copy status of the last 7 days' backups.
+	Copies []struct {
+		Count  int                         `json:"count"`
+		Status AdminRegionListCopiesStatus `json:"status"`
+	} `json:"copies"`
+	Items []AdminRegion `json:"items"`
+}
+
+// AdminRegionListCopiesStatus defines model for AdminRegionList.Copies.Status.
+type AdminRegionListCopiesStatus string
+
+// AdminRegionRequest defines model for AdminRegionRequest.
+type AdminRegionRequest struct {
+	CopyTargetId *openapi_types.UUID `json:"copy_target_id,omitempty"`
+	Country      *string             `json:"country,omitempty"`
+	FloatingIpId *string             `json:"floating_ip_id,omitempty"`
+
+	// Hidden Hidden regions take no new projects.
+	Hidden     *bool   `json:"hidden,omitempty"`
+	Location   *string `json:"location,omitempty"`
+	Name       string  `json:"name"`
+	PoolerHost *string `json:"pooler_host,omitempty"`
+
+	// Provider manual (the default) or hetzner.
+	Provider        *string             `json:"provider,omitempty"`
+	Residency       *bool               `json:"residency,omitempty"`
+	StorageTargetId *openapi_types.UUID `json:"storage_target_id,omitempty"`
+}
+
 // AdminUpdateOrgRequest defines model for AdminUpdateOrgRequest.
 type AdminUpdateOrgRequest struct {
 	DedicatedAllowance *DedicatedAllowance `json:"dedicated_allowance,omitempty"`
@@ -3848,7 +3961,9 @@ type CreateOrgRequest struct {
 
 // CreateProjectRequest defines model for CreateProjectRequest.
 type CreateProjectRequest struct {
-	Description *string `json:"description,omitempty"`
+	// DataResidency Keep the data, backups and branches in the region's country; the region must offer it.
+	DataResidency *bool   `json:"data_residency,omitempty"`
+	Description   *string `json:"description,omitempty"`
 
 	// Name Example: My Blog
 	Name string `json:"name"`
@@ -3863,8 +3978,11 @@ type CreateProjectRequest struct {
 	PgVersion *int `json:"pg_version,omitempty"`
 
 	// Profile Dedicated only (see /profiles); default small.
-	Profile *string      `json:"profile,omitempty"`
-	Tier    *ProjectTier `json:"tier,omitempty"`
+	Profile *string `json:"profile,omitempty"`
+
+	// Region The region (see /regions); the platform's home region by default. A branch is always in its parent's.
+	Region *string      `json:"region,omitempty"`
+	Tier   *ProjectTier `json:"tier,omitempty"`
 
 	// VolumeGb Dedicated only; default 20.
 	VolumeGb *int `json:"volume_gb,omitempty"`
@@ -5646,13 +5764,20 @@ type Project struct {
 	BranchCount *int `json:"branch_count,omitempty"`
 
 	// CanSwitchCredentials A V1 project that still uses its V1 owner role (V2 §10.2).
-	CanSwitchCredentials *bool              `json:"can_switch_credentials,omitempty"`
-	Connection           ConnectionInfo     `json:"connection"`
-	CreatedAt            time.Time          `json:"created_at"`
-	DbName               string             `json:"db_name"`
-	Description          *string            `json:"description,omitempty"`
-	Id                   openapi_types.UUID `json:"id"`
-	Instance             *InstanceSummary   `json:"instance,omitempty"`
+	CanSwitchCredentials *bool          `json:"can_switch_credentials,omitempty"`
+	Connection           ConnectionInfo `json:"connection"`
+	CreatedAt            time.Time      `json:"created_at"`
+
+	// DataResidency Data, backups and branches stay in the project's region's country (V3 §6.3).
+	DataResidency *bool   `json:"data_residency,omitempty"`
+	DbName        string  `json:"db_name"`
+	Description   *string `json:"description,omitempty"`
+
+	// ForwardRegion After a region move, the old region still routing the old hostname.
+	ForwardRegion *string            `json:"forward_region,omitempty"`
+	ForwardUntil  *time.Time         `json:"forward_until,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	Instance      *InstanceSummary   `json:"instance,omitempty"`
 
 	// LastActiveAt The last time a client was seen through the poolers.
 	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
@@ -5676,6 +5801,9 @@ type Project struct {
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
+
+	// Region The region the project runs in (V3 §6).
+	Region *string `json:"region,omitempty"`
 
 	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped;
 	// after a demotion, when the stopped dedicated instance is
@@ -5771,6 +5899,19 @@ type ProjectMembership struct {
 	ProjectId   openapi_types.UUID `json:"project_id"`
 	ProjectName string             `json:"project_name"`
 	Role        ProjectRole        `json:"role"`
+}
+
+// ProjectResidencyRequest defines model for ProjectResidencyRequest.
+type ProjectResidencyRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// ProjectResidencyResult defines model for ProjectResidencyResult.
+type ProjectResidencyResult struct {
+	Project Project `json:"project"`
+
+	// RemovedCopies Cross-region copies outside the region that were deleted.
+	RemovedCopies int `json:"removed_copies"`
 }
 
 // ProjectRole defines model for ProjectRole.
@@ -5989,6 +6130,24 @@ type RecoveryCodesStatus struct {
 	Remaining int `json:"remaining"`
 }
 
+// Region defines model for Region.
+type Region struct {
+	// Country ISO 3166 two-letter code; empty when not tied to one.
+	Country string `json:"country"`
+
+	// Home The platform's home region, where projects go by default.
+	Home bool `json:"home"`
+
+	// Id Example: ng-lagos
+	Id string `json:"id"`
+
+	// Name Example: Lagos
+	Name string `json:"name"`
+
+	// Residency Projects here may turn data residency on.
+	Residency bool `json:"residency"`
+}
+
 // RegionDedicated defines model for RegionDedicated.
 type RegionDedicated struct {
 	FitsOn    *string `json:"fits_on,omitempty"`
@@ -5997,6 +6156,11 @@ type RegionDedicated struct {
 	Largest   string  `json:"largest"`
 	Nodes     int     `json:"nodes"`
 	Region    string  `json:"region"`
+}
+
+// RegionList defines model for RegionList.
+type RegionList struct {
+	Items []Region `json:"items"`
 }
 
 // RegionShared defines model for RegionShared.
@@ -7923,6 +8087,9 @@ type MoveProjectJSONRequestBody = MoveProjectRequest
 // AdminRunReconciliationJSONRequestBody defines body for AdminRunReconciliation for application/json ContentType.
 type AdminRunReconciliationJSONRequestBody AdminRunReconciliationJSONBody
 
+// PutAdminRegionJSONRequestBody defines body for PutAdminRegion for application/json ContentType.
+type PutAdminRegionJSONRequestBody = AdminRegionRequest
+
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
 
@@ -8147,6 +8314,9 @@ type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
 
 // ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
 type ResetBranchJSONRequestBody = BranchResetRequest
+
+// SetProjectResidencyJSONRequestBody defines body for SetProjectResidency for application/json ContentType.
+type SetProjectResidencyJSONRequestBody = ProjectResidencyRequest
 
 // ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
 type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
@@ -8992,6 +9162,25 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
 	AdminRunReconciliation(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAdminRegions Every region with its pooler hostname, targets and usage
+	//
+	// Corresponds with GET /api/v1/admin/regions (the `ListAdminRegions` operationId).
+	ListAdminRegions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAdminRegionWithBody Create or change a region
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+	PutAdminRegionWithBody(ctx context.Context, regionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAdminRegion Create or change a region
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+	PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	//
@@ -10873,6 +11062,28 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
 	ResetBranch(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetProjectResidencyWithBody Turn data residency on or off (organisation owners; step-up)
+	//
+	// On needs a region that offers residency and backups on a target in
+	// the region; existing cross-region copies outside the region are
+	// deleted. Exports stay available.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+	SetProjectResidencyWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectResidency Turn data residency on or off (organisation owners; step-up)
+	//
+	// On needs a region that offers residency and backups on a target in
+	// the region; existing cross-region copies outside the region are
+	// deleted. Exports stay available.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+	SetProjectResidency(ctx context.Context, id ProjectID, body SetProjectResidencyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ResumeProject Resume a paused or archived Free project
 	//
 	// Queues `resume_project` for a paused project (seconds) or
@@ -11306,6 +11517,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/test (the `TestWebhook` operationId).
 	TestWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRegions The regions new projects can be created in
+	//
+	// Corresponds with GET /api/v1/regions (the `ListRegions` operationId).
+	ListRegions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RunRestoreTest Run the restore test now
 	//
@@ -13361,6 +13577,55 @@ func (c *Client) AdminRunReconciliationWithBody(ctx context.Context, contentType
 // Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
 func (c *Client) AdminRunReconciliation(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminRunReconciliationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAdminRegions Every region with its pooler hostname, targets and usage
+//
+// Corresponds with GET /api/v1/admin/regions (the `ListAdminRegions` operationId).
+func (c *Client) ListAdminRegions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAdminRegionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAdminRegionWithBody Create or change a region
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+func (c *Client) PutAdminRegionWithBody(ctx context.Context, regionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAdminRegionRequestWithBody(c.Server, regionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutAdminRegion Create or change a region
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+func (c *Client) PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAdminRegionRequest(c.Server, regionId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17861,6 +18126,48 @@ func (c *Client) ResetBranch(ctx context.Context, id ProjectID, body ResetBranch
 	return c.Client.Do(req)
 }
 
+// SetProjectResidencyWithBody Turn data residency on or off (organisation owners; step-up)
+//
+// On needs a region that offers residency and backups on a target in
+// the region; existing cross-region copies outside the region are
+// deleted. Exports stay available.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+func (c *Client) SetProjectResidencyWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectResidencyRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetProjectResidency Turn data residency on or off (organisation owners; step-up)
+//
+// On needs a region that offers residency and backups on a target in
+// the region; existing cross-region copies outside the region are
+// deleted. Exports stay available.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+func (c *Client) SetProjectResidency(ctx context.Context, id ProjectID, body SetProjectResidencyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectResidencyRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ResumeProject Resume a paused or archived Free project
 //
 // Queues `resume_project` for a paused project (seconds) or
@@ -18765,6 +19072,21 @@ func (c *Client) RotateWebhookSecret(ctx context.Context, id ProjectID, webhookI
 // Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/test (the `TestWebhook` operationId).
 func (c *Client) TestWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTestWebhookRequest(c.Server, id, webhookId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListRegions The regions new projects can be created in
+//
+// Corresponds with GET /api/v1/regions (the `ListRegions` operationId).
+func (c *Client) ListRegions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRegionsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -22483,6 +22805,80 @@ func NewAdminRunReconciliationRequestWithBody(server string, contentType string,
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAdminRegionsRequest constructs an http.Request for the ListAdminRegions method
+func NewListAdminRegionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutAdminRegionRequest calls the generic PutAdminRegion builder with application/json body
+func NewPutAdminRegionRequest(server string, regionId string, body PutAdminRegionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutAdminRegionRequestWithBody(server, regionId, "application/json", bodyReader)
+}
+
+// NewPutAdminRegionRequestWithBody constructs an http.Request for the PutAdminRegion method, with any body, and a specified content type
+func NewPutAdminRegionRequestWithBody(server string, regionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "region_id", regionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -30489,6 +30885,53 @@ func NewResetBranchRequestWithBody(server string, id ProjectID, contentType stri
 	return req, nil
 }
 
+// NewSetProjectResidencyRequest calls the generic SetProjectResidency builder with application/json body
+func NewSetProjectResidencyRequest(server string, id ProjectID, body SetProjectResidencyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectResidencyRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetProjectResidencyRequestWithBody constructs an http.Request for the SetProjectResidency method, with any body, and a specified content type
+func NewSetProjectResidencyRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/residency", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewResumeProjectRequest constructs an http.Request for the ResumeProject method
 func NewResumeProjectRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -32187,6 +32630,33 @@ func NewTestWebhookRequest(server string, id ProjectID, webhookId WebhookID) (*h
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListRegionsRequest constructs an http.Request for the ListRegions method
+func NewListRegionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/regions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -34103,6 +34573,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
 	AdminRunReconciliationWithResponse(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRunReconciliationResponse, error)
+
+	// ListAdminRegionsWithResponse Every region with its pooler hostname, targets and usage
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/regions (the `ListAdminRegions` operationId).
+	ListAdminRegionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAdminRegionsResponse, error)
+
+	// PutAdminRegionWithBodyWithResponse Create or change a region
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+	PutAdminRegionWithBodyWithResponse(ctx context.Context, regionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error)
+
+	// PutAdminRegionWithResponse Create or change a region
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+	PutAdminRegionWithResponse(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error)
 
 	// AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	//
@@ -36204,6 +36695,28 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/reset (the `ResetBranch` operationId).
 	ResetBranchWithResponse(ctx context.Context, id ProjectID, body ResetBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*ResetBranchResponse, error)
 
+	// SetProjectResidencyWithBodyWithResponse Turn data residency on or off (organisation owners; step-up)
+	//
+	// On needs a region that offers residency and backups on a target in
+	// the region; existing cross-region copies outside the region are
+	// deleted. Exports stay available.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+	SetProjectResidencyWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectResidencyResponse, error)
+
+	// SetProjectResidencyWithResponse Turn data residency on or off (organisation owners; step-up)
+	//
+	// On needs a region that offers residency and backups on a target in
+	// the region; existing cross-region copies outside the region are
+	// deleted. Exports stay available.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+	SetProjectResidencyWithResponse(ctx context.Context, id ProjectID, body SetProjectResidencyJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectResidencyResponse, error)
+
 	// ResumeProjectWithResponse Resume a paused or archived Free project
 	//
 	// Queues `resume_project` for a paused project (seconds) or
@@ -36669,6 +37182,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/test (the `TestWebhook` operationId).
 	TestWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*TestWebhookResponse, error)
+
+	// ListRegionsWithResponse The regions new projects can be created in
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/regions (the `ListRegions` operationId).
+	ListRegionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRegionsResponse, error)
 
 	// RunRestoreTestWithResponse Run the restore test now
 	//
@@ -40493,6 +41013,102 @@ func (r AdminRunReconciliationResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AdminRunReconciliationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAdminRegionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AdminRegionList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAdminRegionsResponse) GetJSON200() *AdminRegionList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListAdminRegionsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAdminRegionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAdminRegionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAdminRegionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAdminRegionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutAdminRegionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AdminRegion
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutAdminRegionResponse) GetJSON200() *AdminRegion {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PutAdminRegionResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PutAdminRegionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutAdminRegionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutAdminRegionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutAdminRegionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49232,6 +49848,54 @@ func (r ResetBranchResponse) ContentType() string {
 	return ""
 }
 
+type SetProjectResidencyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ProjectResidencyResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetProjectResidencyResponse) GetJSON200() *ProjectResidencyResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetProjectResidencyResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetProjectResidencyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectResidencyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectResidencyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectResidencyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ResumeProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -50769,6 +51433,54 @@ func (r TestWebhookResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r TestWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListRegionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RegionList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListRegionsResponse) GetJSON200() *RegionList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListRegionsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListRegionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRegionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRegionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListRegionsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53589,6 +54301,45 @@ func (c *ClientWithResponses) AdminRunReconciliationWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseAdminRunReconciliationResponse(rsp)
+}
+
+// ListAdminRegionsWithResponse Every region with its pooler hostname, targets and usage
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/regions (the `ListAdminRegions` operationId).
+func (c *ClientWithResponses) ListAdminRegionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAdminRegionsResponse, error) {
+	rsp, err := c.ListAdminRegions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAdminRegionsResponse(rsp)
+}
+
+// PutAdminRegionWithBodyWithResponse Create or change a region
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+func (c *ClientWithResponses) PutAdminRegionWithBodyWithResponse(ctx context.Context, regionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error) {
+	rsp, err := c.PutAdminRegionWithBody(ctx, regionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAdminRegionResponse(rsp)
+}
+
+// PutAdminRegionWithResponse Create or change a region
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
+func (c *ClientWithResponses) PutAdminRegionWithResponse(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error) {
+	rsp, err := c.PutAdminRegion(ctx, regionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAdminRegionResponse(rsp)
 }
 
 // AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
@@ -57257,6 +58008,40 @@ func (c *ClientWithResponses) ResetBranchWithResponse(ctx context.Context, id Pr
 	return ParseResetBranchResponse(rsp)
 }
 
+// SetProjectResidencyWithBodyWithResponse Turn data residency on or off (organisation owners; step-up)
+//
+// On needs a region that offers residency and backups on a target in
+// the region; existing cross-region copies outside the region are
+// deleted. Exports stay available.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+func (c *ClientWithResponses) SetProjectResidencyWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectResidencyResponse, error) {
+	rsp, err := c.SetProjectResidencyWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectResidencyResponse(rsp)
+}
+
+// SetProjectResidencyWithResponse Turn data residency on or off (organisation owners; step-up)
+//
+// On needs a region that offers residency and backups on a target in
+// the region; existing cross-region copies outside the region are
+// deleted. Exports stay available.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/residency (the `SetProjectResidency` operationId).
+func (c *ClientWithResponses) SetProjectResidencyWithResponse(ctx context.Context, id ProjectID, body SetProjectResidencyJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectResidencyResponse, error) {
+	rsp, err := c.SetProjectResidency(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectResidencyResponse(rsp)
+}
+
 // ResumeProjectWithResponse Resume a paused or archived Free project
 //
 // Queues `resume_project` for a paused project (seconds) or
@@ -58009,6 +58794,19 @@ func (c *ClientWithResponses) TestWebhookWithResponse(ctx context.Context, id Pr
 		return nil, err
 	}
 	return ParseTestWebhookResponse(rsp)
+}
+
+// ListRegionsWithResponse The regions new projects can be created in
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/regions (the `ListRegions` operationId).
+func (c *ClientWithResponses) ListRegionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRegionsResponse, error) {
+	rsp, err := c.ListRegions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRegionsResponse(rsp)
 }
 
 // RunRestoreTestWithResponse Run the restore test now
@@ -60992,6 +61790,72 @@ func ParseAdminRunReconciliationResponse(rsp *http.Response) (*AdminRunReconcili
 		var dest struct {
 			Items []Reconciliation `json:"items"`
 		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAdminRegionsResponse parses an HTTP response from a ListAdminRegionsWithResponse call
+func ParseListAdminRegionsResponse(rsp *http.Response) (*ListAdminRegionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAdminRegionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminRegionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutAdminRegionResponse parses an HTTP response from a PutAdminRegionWithResponse call
+func ParsePutAdminRegionResponse(rsp *http.Response) (*PutAdminRegionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutAdminRegionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminRegion
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -67040,6 +67904,39 @@ func ParseResetBranchResponse(rsp *http.Response) (*ResetBranchResponse, error) 
 	return response, nil
 }
 
+// ParseSetProjectResidencyResponse parses an HTTP response from a SetProjectResidencyWithResponse call
+func ParseSetProjectResidencyResponse(rsp *http.Response) (*SetProjectResidencyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectResidencyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectResidencyResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseResumeProjectResponse parses an HTTP response from a ResumeProjectWithResponse call
 func ParseResumeProjectResponse(rsp *http.Response) (*ResumeProjectResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -68092,6 +68989,39 @@ func ParseTestWebhookResponse(rsp *http.Response) (*TestWebhookResponse, error) 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest WebhookTestResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRegionsResponse parses an HTTP response from a ListRegionsWithResponse call
+func ParseListRegionsResponse(rsp *http.Response) (*ListRegionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRegionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegionList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

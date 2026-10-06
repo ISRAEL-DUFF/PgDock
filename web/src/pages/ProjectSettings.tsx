@@ -1,7 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
-import { api, errorMessage, type Project, type ProjectCredentials } from "../api/client";
+import {
+  api,
+  errorMessage,
+  type Project,
+  type ProjectCredentials,
+} from "../api/client";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { CredentialPanel } from "../components/Credentials";
 import { DemoteCard } from "../components/DemoteCard";
@@ -11,7 +16,20 @@ import { MovesCard, UpgradeCard } from "../components/UpgradeCard";
 import { ProjectStorageCard } from "../components/StorageTargets";
 import { StorageCard, SwitchCredentialsCard } from "../components/TenancyCards";
 import { useOperationToast } from "../components/Toasts";
-import { Alert, Badge, Button, FormRow, Input, KeyValues, Page, Panel, Section, Select, Switch } from "../components/ui";
+import { useStepUp } from "../components/StepUp";
+import {
+  Alert,
+  Badge,
+  Button,
+  FormRow,
+  Input,
+  KeyValues,
+  Page,
+  Panel,
+  Section,
+  Select,
+  Switch,
+} from "../components/ui";
 import { formatBytes, parseBytes } from "../lib/format";
 import { setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { useOperationStream } from "../lib/useOperationStream";
@@ -27,8 +45,13 @@ export function ProjectSettingsPage() {
   const { data: p } = useProject();
   if (!p) return null;
   return (
-    <Page title="Project Settings" description="General settings for this project." testId="settings-general">
+    <Page
+      title="Project Settings"
+      description="General settings for this project."
+      testId="settings-general"
+    >
       <GeneralPanel p={p} />
+      <RegionPanel p={p} />
       <DataPanel p={p} />
       <TransferPanel p={p} />
       <DangerPanel p={p} />
@@ -42,7 +65,11 @@ export function ProjectDatabaseSettingsPage() {
   const { data: p } = useProject();
   if (!p) return null;
   return (
-    <Page title="Database Settings" description="Connections, timeouts, the console and the database password." testId="settings-database">
+    <Page
+      title="Database Settings"
+      description="Connections, timeouts, the console and the database password."
+      testId="settings-database"
+    >
       <GuardrailsPanel p={p} />
       <RotatePanel p={p} />
       <SwitchCredentialsCard p={p} />
@@ -57,7 +84,11 @@ export function ProjectComputePage() {
   const { data: p } = useProject();
   if (!p) return null;
   return (
-    <Page title="Compute and tier" description="Where the database runs, and moving it between the shared and dedicated tiers." testId="settings-compute">
+    <Page
+      title="Compute and tier"
+      description="Where the database runs, and moving it between the shared and dedicated tiers."
+      testId="settings-compute"
+    >
       <Panel title="Tier">
         <KeyValues
           items={[
@@ -76,7 +107,9 @@ export function ProjectComputePage() {
           ]}
         />
       </Panel>
-      {p.tier === "dedicated" && p.instance && <InstancePanel projectId={p.id} instance={p.instance} />}
+      {p.tier === "dedicated" && p.instance && (
+        <InstancePanel projectId={p.id} instance={p.instance} />
+      )}
       <HACard p={p} />
       <UpgradeCard p={p} />
       {!p.parent_project_id && <PromoteCard p={p} />}
@@ -92,7 +125,11 @@ export function ProjectStorageSettingsPage() {
   const { data: p } = useProject();
   if (!p) return null;
   return (
-    <Page title="Backup storage" description="Where this project's backups are stored and the key they are encrypted with." testId="settings-storage">
+    <Page
+      title="Backup storage"
+      description="Where this project's backups are stored and the key they are encrypted with."
+      testId="settings-storage"
+    >
       <ProjectStorageCard p={p} canManage={p.my_role === "admin"} />
     </Page>
   );
@@ -125,7 +162,17 @@ function GeneralPanel({ p }: { p: Project }) {
         title="General"
         footer={
           <>
-            {msg && <span className={msg.ok ? "mr-auto text-[12px] text-ok-text" : "mr-auto text-[12px] text-danger-text"}>{msg.text}</span>}
+            {msg && (
+              <span
+                className={
+                  msg.ok
+                    ? "mr-auto text-[12px] text-ok-text"
+                    : "mr-auto text-[12px] text-danger-text"
+                }
+              >
+                {msg.text}
+              </span>
+            )}
             <Button
               disabled={!dirty}
               onClick={() => {
@@ -135,17 +182,39 @@ function GeneralPanel({ p }: { p: Project }) {
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" busy={busy} disabled={!dirty}>
+            <Button
+              type="submit"
+              variant="primary"
+              busy={busy}
+              disabled={!dirty}
+            >
               Save
             </Button>
           </>
         }
       >
-        <FormRow label="Project name" description="Renaming keeps the database name and connection strings." htmlFor="project-name">
-          <Input id="project-name" aria-label="Name" required maxLength={64} value={name} onChange={(e) => setName(e.target.value)} />
+        <FormRow
+          label="Project name"
+          description="Renaming keeps the database name and connection strings."
+          htmlFor="project-name"
+        >
+          <Input
+            id="project-name"
+            aria-label="Name"
+            required
+            maxLength={64}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </FormRow>
         <FormRow label="Description" htmlFor="project-description">
-          <Input id="project-description" aria-label="Description" maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <Input
+            id="project-description"
+            aria-label="Description"
+            maxLength={1000}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </FormRow>
         <FormRow label="Database">
           <code className="font-mono text-[13px]">{p.db_name}</code>
@@ -156,6 +225,81 @@ function GeneralPanel({ p }: { p: Project }) {
 }
 
 /** "Contains sensitive data" and, for a branch, nightly backups (V2 §8.4, §8.5). */
+/** The project's region and its data residency setting (V3 §6.3):
+ * organisation owners turn residency on or off, after a step-up. */
+function RegionPanel({ p }: { p: Project }) {
+  const qc = useQueryClient();
+  const { org } = useCurrentOrg();
+  const owner = org?.role === "owner";
+  const regions = useQuery({ queryKey: ["regions"], queryFn: api.regions });
+  const region = regions.data?.items.find((r) => r.id === p.region);
+  const stepUp = useStepUp(
+    "Data residency changes where this project's data may go: confirm with your password and a code.",
+  );
+  const [err, setErr] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const toggle = async (on: boolean) => {
+    setErr(null);
+    setNote(null);
+    try {
+      await stepUp.run(async () => {
+        const res = await api.setResidency(p.id, on);
+        if (res.removed_copies > 0)
+          setNote(
+            `${res.removed_copies} backup cop${res.removed_copies === 1 ? "y" : "ies"} outside ${region?.name ?? p.region} deleted.`,
+          );
+        await qc.invalidateQueries({ queryKey: ["project", p.id] });
+      });
+    } catch (e) {
+      setErr(errorMessage(e));
+    }
+  };
+  return (
+    <Panel title="Region">
+      <FormRow
+        label="Region"
+        description="Where the database, its backups and its branches run."
+      >
+        <span className="text-[13px]" data-testid="project-region">
+          {region
+            ? `${region.name}${region.country ? ` (${region.country})` : ""}`
+            : p.region}
+        </span>
+      </FormRow>
+      {p.forward_region &&
+        p.forward_until &&
+        new Date(p.forward_until) > new Date() && (
+          <Alert tone="accent">
+            Moved from {p.forward_region}: the old hostname keeps working until{" "}
+            {new Date(p.forward_until).toLocaleDateString()}. Update your
+            connection strings before then.
+          </Alert>
+        )}
+      {(region?.residency || p.data_residency) && (
+        <FormRow
+          label={`Data must stay in ${region?.country || p.region}`}
+          description={
+            owner
+              ? "The database, its backups and its branches stay in this region, with no cross-region backup copies. Exports stay available."
+              : "Only organisation owners can change this."
+          }
+        >
+          <Switch
+            checked={!!p.data_residency}
+            disabled={!owner}
+            onCheckedChange={(v) => void toggle(v)}
+            aria-label="Data residency"
+            data-testid="data-residency"
+          />
+        </FormRow>
+      )}
+      {note && <Alert tone="accent">{note}</Alert>}
+      {err && <Alert>{err}</Alert>}
+      {stepUp.dialog}
+    </Panel>
+  );
+}
+
 function DataPanel({ p }: { p: Project }) {
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
@@ -170,7 +314,10 @@ function DataPanel({ p }: { p: Project }) {
   };
   return (
     <Panel title="Data">
-      <FormRow label="Contains sensitive data" description="Branches copy the schema only unless a project admin asks for the data.">
+      <FormRow
+        label="Contains sensitive data"
+        description="Branches copy the schema only unless a project admin asks for the data."
+      >
         <Switch
           checked={!!p.sensitive_data}
           onCheckedChange={(v) => void save({ sensitive_data: v })}
@@ -179,8 +326,15 @@ function DataPanel({ p }: { p: Project }) {
         />
       </FormRow>
       {p.parent_project_id && (
-        <FormRow label="Back this branch up nightly" description="Off by default: branches are disposable.">
-          <Switch checked={!!p.branch?.backups} onCheckedChange={(v) => void save({ branch_backups: v })} aria-label="Back this branch up nightly" />
+        <FormRow
+          label="Back this branch up nightly"
+          description="Off by default: branches are disposable."
+        >
+          <Switch
+            checked={!!p.branch?.backups}
+            onCheckedChange={(v) => void save({ branch_backups: v })}
+            aria-label="Back this branch up nightly"
+          />
         </FormRow>
       )}
       {err && <Alert>{err}</Alert>}
@@ -204,7 +358,14 @@ function GuardrailsPanel({ p }: { p: Project }) {
   useEffect(() => {
     setForm(initial());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.connection_limit, s.pool_size, s.statement_timeout, s.idle_in_transaction_session_timeout, s.disk_warn_bytes, s.console_read_only]);
+  }, [
+    s.connection_limit,
+    s.pool_size,
+    s.statement_timeout,
+    s.idle_in_transaction_session_timeout,
+    s.disk_warn_bytes,
+    s.console_read_only,
+  ]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const disk = parseBytes(form.disk);
@@ -226,14 +387,21 @@ function GuardrailsPanel({ p }: { p: Project }) {
       });
       if (res.operation) toast(res.operation.id, `Apply settings · ${p.name}`);
       await qc.invalidateQueries({ queryKey: ["project", p.id] });
-      setMsg({ ok: true, text: res.operation ? "Saved; applying to the database and pooler." : "Saved." });
+      setMsg({
+        ok: true,
+        text: res.operation
+          ? "Saved; applying to the database and pooler."
+          : "Saved.",
+      });
     } catch (e) {
       setMsg({ ok: false, text: errorMessage(e) });
     } finally {
       setBusy(false);
     }
   };
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set =
+    (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
     <form onSubmit={submit}>
@@ -243,18 +411,34 @@ function GuardrailsPanel({ p }: { p: Project }) {
         footer={
           <>
             {msg && (
-              <span className={msg.ok ? "mr-auto text-[12px] text-ok-text" : "mr-auto text-[12px] text-danger-text"} role="status">
+              <span
+                className={
+                  msg.ok
+                    ? "mr-auto text-[12px] text-ok-text"
+                    : "mr-auto text-[12px] text-danger-text"
+                }
+                role="status"
+              >
                 {msg.text}
               </span>
             )}
             <Button onClick={() => setForm(initial())}>Cancel</Button>
-            <Button type="submit" variant="primary" busy={busy} disabled={disk === null}>
+            <Button
+              type="submit"
+              variant="primary"
+              busy={busy}
+              disabled={disk === null}
+            >
               Save guardrails
             </Button>
           </>
         }
       >
-        <FormRow label="Max backend connections" description="Connections Postgres accepts for this database." htmlFor="g-conn">
+        <FormRow
+          label="Max backend connections"
+          description="Connections Postgres accepts for this database."
+          htmlFor="g-conn"
+        >
           <Input
             id="g-conn"
             aria-label="Max backend connections"
@@ -265,21 +449,69 @@ function GuardrailsPanel({ p }: { p: Project }) {
             onChange={set("connection_limit")}
           />
         </FormRow>
-        <FormRow label="Pooler pool size" description="Server connections the pooler keeps for transaction mode." htmlFor="g-pool">
-          <Input id="g-pool" aria-label="Pooler pool size" type="number" min={1} max={1000} value={form.pool_size} onChange={set("pool_size")} />
+        <FormRow
+          label="Pooler pool size"
+          description="Server connections the pooler keeps for transaction mode."
+          htmlFor="g-pool"
+        >
+          <Input
+            id="g-pool"
+            aria-label="Pooler pool size"
+            type="number"
+            min={1}
+            max={1000}
+            value={form.pool_size}
+            onChange={set("pool_size")}
+          />
         </FormRow>
-        <FormRow label="Statement timeout" description="e.g. 60s, 500ms, 5min; empty to unset." htmlFor="g-stmt">
-          <Input id="g-stmt" aria-label="Statement timeout" value={form.statement_timeout} onChange={set("statement_timeout")} className="font-mono" />
+        <FormRow
+          label="Statement timeout"
+          description="e.g. 60s, 500ms, 5min; empty to unset."
+          htmlFor="g-stmt"
+        >
+          <Input
+            id="g-stmt"
+            aria-label="Statement timeout"
+            value={form.statement_timeout}
+            onChange={set("statement_timeout")}
+            className="font-mono"
+          />
         </FormRow>
         <FormRow label="Idle in transaction timeout" htmlFor="g-idle">
-          <Input id="g-idle" aria-label="Idle in transaction timeout" value={form.idle} onChange={set("idle")} className="font-mono" />
+          <Input
+            id="g-idle"
+            aria-label="Idle in transaction timeout"
+            value={form.idle}
+            onChange={set("idle")}
+            className="font-mono"
+          />
         </FormRow>
-        <FormRow label="Disk warning" description="Alert when the database grows past this size." htmlFor="g-disk">
-          <Input id="g-disk" aria-label="Disk warning" value={form.disk} onChange={set("disk")} />
-          {disk === null && <span className="text-[12px] text-danger-text">Use a size like 1 GiB or 500 MB.</span>}
+        <FormRow
+          label="Disk warning"
+          description="Alert when the database grows past this size."
+          htmlFor="g-disk"
+        >
+          <Input
+            id="g-disk"
+            aria-label="Disk warning"
+            value={form.disk}
+            onChange={set("disk")}
+          />
+          {disk === null && (
+            <span className="text-[12px] text-danger-text">
+              Use a size like 1 GiB or 500 MB.
+            </span>
+          )}
         </FormRow>
-        <FormRow label="SQL console is read-only" description="Queries run one statement at a time inside a read-only transaction.">
-          <Switch checked={form.readOnly} onCheckedChange={(v) => setForm((f) => ({ ...f, readOnly: v }))} aria-label="SQL console is read-only" />
+        <FormRow
+          label="SQL console is read-only"
+          description="Queries run one statement at a time inside a read-only transaction."
+        >
+          <Switch
+            checked={form.readOnly}
+            onCheckedChange={(v) => setForm((f) => ({ ...f, readOnly: v }))}
+            aria-label="SQL console is read-only"
+          />
         </FormRow>
       </Panel>
     </form>
@@ -305,9 +537,16 @@ function RotatePanel({ p }: { p: Project }) {
   return (
     <Panel title="Database password">
       {!creds ? (
-        <FormRow label="Reset the database password" description="Issues a new password. The old one stops working as soon as the rotation finishes.">
+        <FormRow
+          label="Reset the database password"
+          description="Issues a new password. The old one stops working as soon as the rotation finishes."
+        >
           <div>
-            <Button onClick={rotate} busy={busy} disabled={p.status !== "active"}>
+            <Button
+              onClick={rotate}
+              busy={busy}
+              disabled={p.status !== "active"}
+            >
               Rotate password
             </Button>
           </div>
@@ -315,8 +554,16 @@ function RotatePanel({ p }: { p: Project }) {
         </FormRow>
       ) : (
         <div className="flex flex-col gap-3">
-          {stream.status === "failed" && <Alert title="Rotation failed">{stream.error}. The old password still works.</Alert>}
-          <CredentialPanel creds={creds} ready={stream.status === "succeeded"} onDismiss={() => setCreds(null)} />
+          {stream.status === "failed" && (
+            <Alert title="Rotation failed">
+              {stream.error}. The old password still works.
+            </Alert>
+          )}
+          <CredentialPanel
+            creds={creds}
+            ready={stream.status === "succeeded"}
+            onDismiss={() => setCreds(null)}
+          />
         </div>
       )}
     </Panel>
@@ -332,7 +579,10 @@ function DangerPanel({ p }: { p: Project }) {
   return (
     <Section title="Danger zone">
       <Panel tone="danger">
-        <FormRow label="Delete project" description="Drops the database and its role and removes the connection strings. A final backup is kept for 30 days.">
+        <FormRow
+          label="Delete project"
+          description="Drops the database and its role and removes the connection strings. A final backup is kept for 30 days."
+        >
           <div>
             <Button variant="danger" onClick={() => setOpen(true)}>
               Delete project
@@ -355,7 +605,11 @@ function DangerPanel({ p }: { p: Project }) {
         }}
       >
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={finalBackup} onChange={(e) => setFinalBackup(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={finalBackup}
+            onChange={(e) => setFinalBackup(e.target.checked)}
+          />
           Take a final backup first (kept 30 days)
         </label>
       </ConfirmDestroy>
@@ -376,9 +630,16 @@ function TransferPanel({ p }: { p: Project }) {
   const target = targets.find((o) => o.id === to);
   return (
     <Panel title="Move to another organisation">
-      <FormRow label="Destination" description="The database, its URL, and its members' logins stay as they are; members join the new organisation as members.">
+      <FormRow
+        label="Destination"
+        description="The database, its URL, and its members' logins stay as they are; members join the new organisation as members."
+      >
         <div className="flex flex-wrap gap-2">
-          <Select aria-label="Destination organisation" value={to} onChange={(e) => setTo(e.target.value)}>
+          <Select
+            aria-label="Destination organisation"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          >
             <option value="">Choose an organisation…</option>
             {targets.map((o) => (
               <option key={o.id} value={o.id}>

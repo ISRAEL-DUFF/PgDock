@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +42,8 @@ type Manager struct {
 	home      string
 	routesMu  sync.Mutex
 	dbRegions map[string]map[string]bool
+	// ownPoolers: the regions with pooler hosts of their own (and home).
+	ownPoolers map[string]bool
 
 	// The waker (V3 §4.2), as the poolers reach it: paused and archived
 	// projects route there. Empty: they keep their usual route. Its own
@@ -73,6 +77,43 @@ func (m *Manager) RegionDir(region string) string {
 		return m.dir
 	}
 	return filepath.Join(m.dir, "regions", region)
+}
+
+// PoolerRegion is the region whose poolers serve region's projects: its
+// own, or the home region's when it has no pooler hosts.
+func (m *Manager) PoolerRegion(region string) string {
+	m.routesMu.Lock()
+	defer m.routesMu.Unlock()
+	if region == "" || m.ownPoolers == nil || m.ownPoolers[region] {
+		if region == "" {
+			return m.Home()
+		}
+		return region
+	}
+	return m.Home()
+}
+
+// SmokeAddrs are the session and transaction pooler addresses of one of
+// region's own pooler hosts, for the provisioning smoke test; ok is false
+// when region is served by the home poolers (use the local addresses).
+func (m *Manager) SmokeAddrs(region string) (session, pooled string, ok bool) {
+	pr := m.PoolerRegion(region)
+	if pr == m.Home() {
+		return "", "", false
+	}
+	hs := m.hostSet()
+	if hs == nil {
+		return "", "", false
+	}
+	hs.mu.Lock()
+	defer hs.mu.Unlock()
+	for _, id := range hs.order {
+		if e := hs.entries[id]; e != nil && e.reachable && e.node.Region == pr {
+			return net.JoinHostPort(e.node.PrivateAddr, strconv.Itoa(hs.admin.SessionPort)),
+				net.JoinHostPort(e.node.PrivateAddr, strconv.Itoa(hs.admin.PooledPort)), true
+		}
+	}
+	return "", "", false
 }
 
 // routedIn reports whether region's poolers route db (true when unknown:
@@ -196,11 +237,30 @@ func (m *Manager) Sync(ctx context.Context) error {
 			cfgs[r.ID] = &Config{Users: append([]User(nil), m.static...)}
 		}
 	}
+	// A region without pooler hosts of its own (a new region, or a
+	// single-box install) is served by the home region's poolers.
+	hosts, err := q.PoolerHosts(ctx)
+	if err != nil {
+		return fmt.Errorf("pooler sync: load pooler hosts: %w", err)
+	}
+	ownPoolers := map[string]bool{home: true}
+	for _, h := range hosts {
+		ownPoolers[h.Region] = true
+	}
+	poolerRegion := func(region string) string {
+		if ownPoolers[region] {
+			return region
+		}
+		return home
+	}
+	m.routesMu.Lock()
+	m.ownPoolers = ownPoolers
+	m.routesMu.Unlock()
 	now := time.Now()
 	served := func(region string, fwd *string, until *time.Time) []string {
-		out := []string{region}
-		if fwd != nil && until != nil && until.After(now) && *fwd != region {
-			out = append(out, *fwd)
+		out := []string{poolerRegion(region)}
+		if fwd != nil && until != nil && until.After(now) && poolerRegion(*fwd) != out[0] {
+			out = append(out, poolerRegion(*fwd))
 		}
 		return out
 	}
