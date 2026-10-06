@@ -61,6 +61,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/statusapi"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/support"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tlscert"
 	"github.com/israel-duff/pgdock/internal/tokens"
@@ -331,6 +332,17 @@ func run() error {
 		go func() { defer bg.Done(); freeSvc.Run(bgCtx, time.Hour) }()
 	}
 
+	// Support (V3 §7.1): tickets from the dashboard, email and WhatsApp.
+	supportSvc := support.New(pool, mailSvc, support.Config{
+		Address: cfg.Support.Email, PublicURL: cfg.Insight.PublicURL, InboundSecret: cfg.Support.InboundSecret,
+	}, log)
+	if cfg.Support.WhatsAppOn() {
+		supportSvc.SetWhatsApp(support.CloudAPI{
+			BaseURL: cfg.Support.WhatsAppGraphURL, PhoneNumberID: cfg.Support.WhatsAppPhoneNumberID, AccessToken: cfg.Support.WhatsAppAccessToken,
+			AppSecret: cfg.Support.WhatsAppAppSecret, VerifyToken: cfg.Support.WhatsAppVerifyToken,
+		})
+	}
+
 	// Database webhooks, scheduled jobs and their outbound requests (V2 §9).
 	var webhookSvc *webhooks.Service
 	var jobSvc *schedjobs.Service
@@ -447,6 +459,7 @@ func run() error {
 		Tenancy:         tenancySvc,
 		Branches:        branchSvc,
 		FreeTier:        freeSvc,
+		Support:         supportSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,

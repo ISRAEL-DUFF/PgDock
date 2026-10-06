@@ -101,6 +101,7 @@ func (e AdminOrgSummaryStatus) Valid() bool {
 // Defines values for AdminUserPlatformRole.
 const (
 	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
+	AdminUserPlatformRoleSupport       AdminUserPlatformRole = "support"
 	AdminUserPlatformRoleUser          AdminUserPlatformRole = "user"
 )
 
@@ -108,6 +109,8 @@ const (
 func (e AdminUserPlatformRole) Valid() bool {
 	switch e {
 	case AdminUserPlatformRolePlatformAdmin:
+		return true
+	case AdminUserPlatformRoleSupport:
 		return true
 	case AdminUserPlatformRoleUser:
 		return true
@@ -2054,6 +2057,168 @@ func (e TablePageOrder) Valid() bool {
 	}
 }
 
+// Defines values for TicketChannel.
+const (
+	Dashboard TicketChannel = "dashboard"
+	Email     TicketChannel = "email"
+	Whatsapp  TicketChannel = "whatsapp"
+)
+
+// Valid indicates whether the value is a known member of the TicketChannel enum.
+func (e TicketChannel) Valid() bool {
+	switch e {
+	case Dashboard:
+		return true
+	case Email:
+		return true
+	case Whatsapp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketPriority.
+const (
+	TicketPriorityHigh   TicketPriority = "high"
+	TicketPriorityLow    TicketPriority = "low"
+	TicketPriorityNormal TicketPriority = "normal"
+	TicketPriorityUrgent TicketPriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketPriority enum.
+func (e TicketPriority) Valid() bool {
+	switch e {
+	case TicketPriorityHigh:
+		return true
+	case TicketPriorityLow:
+		return true
+	case TicketPriorityNormal:
+		return true
+	case TicketPriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketStatus.
+const (
+	TicketStatusClosed  TicketStatus = "closed"
+	TicketStatusOpen    TicketStatus = "open"
+	TicketStatusPending TicketStatus = "pending"
+	TicketStatusSolved  TicketStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the TicketStatus enum.
+func (e TicketStatus) Valid() bool {
+	switch e {
+	case TicketStatusClosed:
+		return true
+	case TicketStatusOpen:
+		return true
+	case TicketStatusPending:
+		return true
+	case TicketStatusSolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketMessageDirection.
+const (
+	In   TicketMessageDirection = "in"
+	Note TicketMessageDirection = "note"
+	Out  TicketMessageDirection = "out"
+)
+
+// Valid indicates whether the value is a known member of the TicketMessageDirection enum.
+func (e TicketMessageDirection) Valid() bool {
+	switch e {
+	case In:
+		return true
+	case Note:
+		return true
+	case Out:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketOpenPriority.
+const (
+	TicketOpenPriorityHigh   TicketOpenPriority = "high"
+	TicketOpenPriorityLow    TicketOpenPriority = "low"
+	TicketOpenPriorityNormal TicketOpenPriority = "normal"
+	TicketOpenPriorityUrgent TicketOpenPriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketOpenPriority enum.
+func (e TicketOpenPriority) Valid() bool {
+	switch e {
+	case TicketOpenPriorityHigh:
+		return true
+	case TicketOpenPriorityLow:
+		return true
+	case TicketOpenPriorityNormal:
+		return true
+	case TicketOpenPriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketUpdatePriority.
+const (
+	TicketUpdatePriorityHigh   TicketUpdatePriority = "high"
+	TicketUpdatePriorityLow    TicketUpdatePriority = "low"
+	TicketUpdatePriorityNormal TicketUpdatePriority = "normal"
+	TicketUpdatePriorityUrgent TicketUpdatePriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketUpdatePriority enum.
+func (e TicketUpdatePriority) Valid() bool {
+	switch e {
+	case TicketUpdatePriorityHigh:
+		return true
+	case TicketUpdatePriorityLow:
+		return true
+	case TicketUpdatePriorityNormal:
+		return true
+	case TicketUpdatePriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketUpdateStatus.
+const (
+	TicketUpdateStatusClosed  TicketUpdateStatus = "closed"
+	TicketUpdateStatusOpen    TicketUpdateStatus = "open"
+	TicketUpdateStatusPending TicketUpdateStatus = "pending"
+	TicketUpdateStatusSolved  TicketUpdateStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the TicketUpdateStatus enum.
+func (e TicketUpdateStatus) Valid() bool {
+	switch e {
+	case TicketUpdateStatusClosed:
+		return true
+	case TicketUpdateStatusOpen:
+		return true
+	case TicketUpdateStatusPending:
+		return true
+	case TicketUpdateStatusSolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TlsStatusMode.
 const (
 	TlsStatusModeAcme       TlsStatusMode = "acme"
@@ -2147,6 +2312,7 @@ func (e UpdateNodeRequestRole) Valid() bool {
 // Defines values for UpdateUserRequestPlatformRole.
 const (
 	UpdateUserRequestPlatformRolePlatformAdmin UpdateUserRequestPlatformRole = "platform_admin"
+	UpdateUserRequestPlatformRoleSupport       UpdateUserRequestPlatformRole = "support"
 	UpdateUserRequestPlatformRoleUser          UpdateUserRequestPlatformRole = "user"
 )
 
@@ -2154,6 +2320,8 @@ const (
 func (e UpdateUserRequestPlatformRole) Valid() bool {
 	switch e {
 	case UpdateUserRequestPlatformRolePlatformAdmin:
+		return true
+	case UpdateUserRequestPlatformRoleSupport:
 		return true
 	case UpdateUserRequestPlatformRoleUser:
 		return true
@@ -2267,6 +2435,7 @@ func (e UsageRecordGranularity) Valid() bool {
 // Defines values for UserPlatformRole.
 const (
 	UserPlatformRolePlatformAdmin UserPlatformRole = "platform_admin"
+	UserPlatformRoleSupport       UserPlatformRole = "support"
 	UserPlatformRoleUser          UserPlatformRole = "user"
 )
 
@@ -2274,6 +2443,8 @@ const (
 func (e UserPlatformRole) Valid() bool {
 	switch e {
 	case UserPlatformRolePlatformAdmin:
+		return true
+	case UserPlatformRoleSupport:
 		return true
 	case UserPlatformRoleUser:
 		return true
@@ -2489,6 +2660,30 @@ func (e AdminListPaymentEventsParamsOutcome) Valid() bool {
 	case AdminListPaymentEventsParamsOutcomeRejected:
 		return true
 	case AdminListPaymentEventsParamsOutcomeUnmatched:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminListTicketsParamsStatus.
+const (
+	AdminListTicketsParamsStatusClosed  AdminListTicketsParamsStatus = "closed"
+	AdminListTicketsParamsStatusOpen    AdminListTicketsParamsStatus = "open"
+	AdminListTicketsParamsStatusPending AdminListTicketsParamsStatus = "pending"
+	AdminListTicketsParamsStatusSolved  AdminListTicketsParamsStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the AdminListTicketsParamsStatus enum.
+func (e AdminListTicketsParamsStatus) Valid() bool {
+	switch e {
+	case AdminListTicketsParamsStatusClosed:
+		return true
+	case AdminListTicketsParamsStatusOpen:
+		return true
+	case AdminListTicketsParamsStatusPending:
+		return true
+	case AdminListTicketsParamsStatusSolved:
 		return true
 	default:
 		return false
@@ -5851,6 +6046,59 @@ type StorageTestStep struct {
 	TookMs int     `json:"took_ms"`
 }
 
+// SupportContext What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+type SupportContext struct {
+	BillingMode      *string            `json:"billing_mode,omitempty"`
+	CreditMinor      *int64             `json:"credit_minor,omitempty"`
+	DunningState     *string            `json:"dunning_state,omitempty"`
+	Incidents        []SupportIncident  `json:"incidents"`
+	Members          int                `json:"members"`
+	OrgId            openapi_types.UUID `json:"org_id"`
+	OrgName          string             `json:"org_name"`
+	OrgStatus        string             `json:"org_status"`
+	OwedMinor        *int64             `json:"owed_minor,omitempty"`
+	Plan             string             `json:"plan"`
+	Projects         []SupportProject   `json:"projects"`
+	Quotas           []QuotaItem        `json:"quotas"`
+	RecentOperations []SupportOperation `json:"recent_operations"`
+	Term             *string            `json:"term,omitempty"`
+}
+
+// SupportIncident defines model for SupportIncident.
+type SupportIncident struct {
+	Id        openapi_types.UUID `json:"id"`
+	Severity  string             `json:"severity"`
+	StartedAt time.Time          `json:"started_at"`
+	Status    string             `json:"status"`
+	Title     string             `json:"title"`
+}
+
+// SupportOperation defines model for SupportOperation.
+type SupportOperation struct {
+	CreatedAt time.Time           `json:"created_at"`
+	Error     *string             `json:"error,omitempty"`
+	Id        openapi_types.UUID  `json:"id"`
+	Kind      string              `json:"kind"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Status    string              `json:"status"`
+}
+
+// SupportPhone defines model for SupportPhone.
+type SupportPhone struct {
+	CreatedAt time.Time `json:"created_at"`
+	Phone     string    `json:"phone"`
+}
+
+// SupportProject defines model for SupportProject.
+type SupportProject struct {
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	Lifecycle string             `json:"lifecycle"`
+	Name      string             `json:"name"`
+	Status    string             `json:"status"`
+	Tier      string             `json:"tier"`
+}
+
 // SwitchCredentialsRequest defines model for SwitchCredentialsRequest.
 type SwitchCredentialsRequest struct {
 	// GraceDays How long the V1 credentials keep working (default 7).
@@ -5943,6 +6191,99 @@ type Terms struct {
 	TermsMd     string    `json:"terms_md"`
 	Version     int       `json:"version"`
 }
+
+// Ticket defines model for Ticket.
+type Ticket struct {
+	Assignee        *openapi_types.UUID `json:"assignee,omitempty"`
+	Channel         TicketChannel       `json:"channel"`
+	CreatedAt       time.Time           `json:"created_at"`
+	FirstResponseAt *time.Time          `json:"first_response_at,omitempty"`
+	Id              openapi_types.UUID  `json:"id"`
+	Messages        *int64              `json:"messages,omitempty"`
+	Number          int64               `json:"number"`
+	OrgId           *openapi_types.UUID `json:"org_id,omitempty"`
+	OrgName         *string             `json:"org_name,omitempty"`
+	Plan            *string             `json:"plan,omitempty"`
+	Priority        TicketPriority      `json:"priority"`
+
+	// Ref The reference people quote, e.g. T-1042.
+	Ref           string  `json:"ref"`
+	Requester     string  `json:"requester"`
+	RequesterName *string `json:"requester_name,omitempty"`
+
+	// RespondBy The plan's response target; null is best effort.
+	RespondBy *time.Time   `json:"respond_by,omitempty"`
+	Status    TicketStatus `json:"status"`
+	Subject   string       `json:"subject"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// TicketChannel defines model for Ticket.Channel.
+type TicketChannel string
+
+// TicketPriority defines model for Ticket.Priority.
+type TicketPriority string
+
+// TicketStatus defines model for Ticket.Status.
+type TicketStatus string
+
+// TicketDetail defines model for TicketDetail.
+type TicketDetail struct {
+	// Context What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+	Context  *SupportContext `json:"context,omitempty"`
+	Messages []TicketMessage `json:"messages"`
+	Ticket   Ticket          `json:"ticket"`
+}
+
+// TicketList defines model for TicketList.
+type TicketList struct {
+	Items []Ticket `json:"items"`
+}
+
+// TicketMessage defines model for TicketMessage.
+type TicketMessage struct {
+	Author    string                 `json:"author"`
+	Body      string                 `json:"body"`
+	CreatedAt time.Time              `json:"created_at"`
+	Direction TicketMessageDirection `json:"direction"`
+	Id        int64                  `json:"id"`
+}
+
+// TicketMessageDirection defines model for TicketMessage.Direction.
+type TicketMessageDirection string
+
+// TicketOpen defines model for TicketOpen.
+type TicketOpen struct {
+	Body     string              `json:"body"`
+	Priority *TicketOpenPriority `json:"priority,omitempty"`
+	Subject  string              `json:"subject"`
+}
+
+// TicketOpenPriority defines model for TicketOpen.Priority.
+type TicketOpenPriority string
+
+// TicketReply defines model for TicketReply.
+type TicketReply struct {
+	Body string `json:"body"`
+
+	// Note An internal note (support console only), not sent to the customer.
+	Note *bool `json:"note,omitempty"`
+}
+
+// TicketUpdate defines model for TicketUpdate.
+type TicketUpdate struct {
+	Assignee      *openapi_types.UUID   `json:"assignee,omitempty"`
+	ClearAssignee *bool                 `json:"clear_assignee,omitempty"`
+	OrgId         *openapi_types.UUID   `json:"org_id,omitempty"`
+	Priority      *TicketUpdatePriority `json:"priority,omitempty"`
+	Status        *TicketUpdateStatus   `json:"status,omitempty"`
+}
+
+// TicketUpdatePriority defines model for TicketUpdate.Priority.
+type TicketUpdatePriority string
+
+// TicketUpdateStatus defines model for TicketUpdate.Status.
+type TicketUpdateStatus string
 
 // TlsStatus defines model for TlsStatus.
 type TlsStatus struct {
@@ -6392,6 +6733,9 @@ type TableName = string
 // TargetID defines model for TargetID.
 type TargetID = openapi_types.UUID
 
+// TicketID defines model for TicketID.
+type TicketID = openapi_types.UUID
+
 // TokenID defines model for TokenID.
 type TokenID = openapi_types.UUID
 
@@ -6535,6 +6879,16 @@ type DeletePlatformStorageTargetParams struct {
 	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
 }
 
+// AdminListTicketsParams defines parameters for AdminListTickets.
+type AdminListTicketsParams struct {
+	Status   *AdminListTicketsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Assignee *openapi_types.UUID           `form:"assignee,omitempty" json:"assignee,omitempty"`
+	OrgId    *openapi_types.UUID           `form:"org_id,omitempty" json:"org_id,omitempty"`
+}
+
+// AdminListTicketsParamsStatus defines parameters for AdminListTickets.
+type AdminListTicketsParamsStatus string
+
 // PlatformUsageParams defines parameters for PlatformUsage.
 type PlatformUsageParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
@@ -6660,6 +7014,11 @@ type UploadWhtCertificateParams struct {
 type DeleteOrgStorageTargetParams struct {
 	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
 	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
+}
+
+// AddSupportPhoneJSONBody defines parameters for AddSupportPhone.
+type AddSupportPhoneJSONBody struct {
+	Phone string `json:"phone"`
 }
 
 // GetOrgUsageParams defines parameters for GetOrgUsage.
@@ -6817,6 +7176,19 @@ type TestStorageTargetParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// SupportInboundEmailJSONBody defines parameters for SupportInboundEmail.
+type SupportInboundEmailJSONBody map[string]interface{}
+
+// SupportWhatsAppVerifyParams defines parameters for SupportWhatsAppVerify.
+type SupportWhatsAppVerifyParams struct {
+	HubMode        *string `form:"hub.mode,omitempty" json:"hub.mode,omitempty"`
+	HubVerifyToken *string `form:"hub.verify_token,omitempty" json:"hub.verify_token,omitempty"`
+	HubChallenge   *string `form:"hub.challenge,omitempty" json:"hub.challenge,omitempty"`
+}
+
+// SupportWhatsAppWebhookJSONBody defines parameters for SupportWhatsAppWebhook.
+type SupportWhatsAppWebhookJSONBody map[string]interface{}
+
 // PutBillingSettingsJSONRequestBody defines body for PutBillingSettings for application/json ContentType.
 type PutBillingSettingsJSONRequestBody = BillingSettings
 
@@ -6912,6 +7284,12 @@ type CreatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
 
 // UpdatePlatformStorageTargetJSONRequestBody defines body for UpdatePlatformStorageTarget for application/json ContentType.
 type UpdatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
+
+// AdminUpdateTicketJSONRequestBody defines body for AdminUpdateTicket for application/json ContentType.
+type AdminUpdateTicketJSONRequestBody = TicketUpdate
+
+// AdminReplyTicketJSONRequestBody defines body for AdminReplyTicket for application/json ContentType.
+type AdminReplyTicketJSONRequestBody = TicketReply
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUserRequest
@@ -7035,6 +7413,15 @@ type CreateOrgStorageTargetJSONRequestBody = StorageTargetRequest
 
 // UpdateOrgStorageTargetJSONRequestBody defines body for UpdateOrgStorageTarget for application/json ContentType.
 type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
+// AddSupportPhoneJSONRequestBody defines body for AddSupportPhone for application/json ContentType.
+type AddSupportPhoneJSONRequestBody AddSupportPhoneJSONBody
+
+// OpenOrgTicketJSONRequestBody defines body for OpenOrgTicket for application/json ContentType.
+type OpenOrgTicketJSONRequestBody = TicketOpen
+
+// ReplyOrgTicketJSONRequestBody defines body for ReplyOrgTicket for application/json ContentType.
+type ReplyOrgTicketJSONRequestBody = TicketReply
 
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
@@ -7176,6 +7563,12 @@ type CompleteSetupJSONRequestBody = SetupCompleteRequest
 
 // TestStorageTargetJSONRequestBody defines body for TestStorageTarget for application/json ContentType.
 type TestStorageTargetJSONRequestBody = StorageTargetTestRequest
+
+// SupportInboundEmailJSONRequestBody defines body for SupportInboundEmail for application/json ContentType.
+type SupportInboundEmailJSONRequestBody SupportInboundEmailJSONBody
+
+// SupportWhatsAppWebhookJSONRequestBody defines body for SupportWhatsAppWebhook for application/json ContentType.
+type SupportWhatsAppWebhookJSONRequestBody SupportWhatsAppWebhookJSONBody
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateTokenRequest
@@ -7383,6 +7776,21 @@ type ServerInterface interface {
 	// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
 	// (PATCH /api/v1/admin/storage-targets/{target_id})
 	UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID)
+	// AdminSupportStaff Support staff and platform admins, to assign tickets to
+	// (GET /api/v1/admin/support/staff)
+	AdminSupportStaff(w http.ResponseWriter, r *http.Request)
+	// AdminListTickets The support console's tickets (support staff and platform admins)
+	// (GET /api/v1/admin/support/tickets)
+	AdminListTickets(w http.ResponseWriter, r *http.Request, params AdminListTicketsParams)
+	// AdminGetTicket A ticket with internal notes and the organisation's context (no tenant data)
+	// (GET /api/v1/admin/support/tickets/{ticket_id})
+	AdminGetTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID)
+	// AdminUpdateTicket Change a ticket's status, priority, assignee or organisation
+	// (PATCH /api/v1/admin/support/tickets/{ticket_id})
+	AdminUpdateTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID)
+	// AdminReplyTicket Answer the customer (by the ticket's channel) or add an internal note
+	// (POST /api/v1/admin/support/tickets/{ticket_id}/messages)
+	AdminReplyTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID)
 	// PlatformUsage Usage totals per organisation (platform admin)
 	// (GET /api/v1/admin/usage)
 	PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams)
@@ -7677,6 +8085,27 @@ type ServerInterface interface {
 	// UpdateOrgStorageTarget Change an org target after a live test
 	// (PATCH /api/v1/orgs/{org}/storage-targets/{target_id})
 	UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID)
+	// ListSupportPhones WhatsApp numbers registered for support (Pro and Team)
+	// (GET /api/v1/orgs/{org}/support/phones)
+	ListSupportPhones(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AddSupportPhone Register a WhatsApp number (E.164) for the organisation's support
+	// (POST /api/v1/orgs/{org}/support/phones)
+	AddSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RemoveSupportPhone Remove a WhatsApp number
+	// (DELETE /api/v1/orgs/{org}/support/phones/{phone})
+	RemoveSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID, phone string)
+	// ListOrgTickets The organisation's support tickets (admins see all; members their own)
+	// (GET /api/v1/orgs/{org}/support/tickets)
+	ListOrgTickets(w http.ResponseWriter, r *http.Request, org OrgID)
+	// OpenOrgTicket Open a support ticket for the organisation
+	// (POST /api/v1/orgs/{org}/support/tickets)
+	OpenOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgTicket A ticket and its conversation
+	// (GET /api/v1/orgs/{org}/support/tickets/{ticket_id})
+	GetOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID)
+	// ReplyOrgTicket Add to a ticket
+	// (POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages)
+	ReplyOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID)
 	// ListOrgTokens Every token scoped to the organisation (owners and admins)
 	// (GET /api/v1/orgs/{org}/tokens)
 	ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -8001,6 +8430,15 @@ type ServerInterface interface {
 	// TestStorageTarget Run the live write/read/list/delete test without saving
 	// (POST /api/v1/storage-targets/test)
 	TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams)
+	// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
+	// (POST /api/v1/support/inbound/email)
+	SupportInboundEmail(w http.ResponseWriter, r *http.Request)
+	// SupportWhatsAppVerify The WhatsApp Business Platform's webhook verification
+	// (GET /api/v1/support/whatsapp)
+	SupportWhatsAppVerify(w http.ResponseWriter, r *http.Request, params SupportWhatsAppVerifyParams)
+	// SupportWhatsAppWebhook WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+	// (POST /api/v1/support/whatsapp)
+	SupportWhatsAppWebhook(w http.ResponseWriter, r *http.Request)
 	// GetTerms The current terms of use and privacy notice (public)
 	// (GET /api/v1/terms)
 	GetTerms(w http.ResponseWriter, r *http.Request)
@@ -8430,6 +8868,36 @@ func (_ Unimplemented) GetPlatformStorageTarget(w http.ResponseWriter, r *http.R
 // UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
 // (PATCH /api/v1/admin/storage-targets/{target_id})
 func (_ Unimplemented) UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSupportStaff Support staff and platform admins, to assign tickets to
+// (GET /api/v1/admin/support/staff)
+func (_ Unimplemented) AdminSupportStaff(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListTickets The support console's tickets (support staff and platform admins)
+// (GET /api/v1/admin/support/tickets)
+func (_ Unimplemented) AdminListTickets(w http.ResponseWriter, r *http.Request, params AdminListTicketsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetTicket A ticket with internal notes and the organisation's context (no tenant data)
+// (GET /api/v1/admin/support/tickets/{ticket_id})
+func (_ Unimplemented) AdminGetTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminUpdateTicket Change a ticket's status, priority, assignee or organisation
+// (PATCH /api/v1/admin/support/tickets/{ticket_id})
+func (_ Unimplemented) AdminUpdateTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminReplyTicket Answer the customer (by the ticket's channel) or add an internal note
+// (POST /api/v1/admin/support/tickets/{ticket_id}/messages)
+func (_ Unimplemented) AdminReplyTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -9018,6 +9486,48 @@ func (_ Unimplemented) GetOrgStorageTarget(w http.ResponseWriter, r *http.Reques
 // UpdateOrgStorageTarget Change an org target after a live test
 // (PATCH /api/v1/orgs/{org}/storage-targets/{target_id})
 func (_ Unimplemented) UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSupportPhones WhatsApp numbers registered for support (Pro and Team)
+// (GET /api/v1/orgs/{org}/support/phones)
+func (_ Unimplemented) ListSupportPhones(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AddSupportPhone Register a WhatsApp number (E.164) for the organisation's support
+// (POST /api/v1/orgs/{org}/support/phones)
+func (_ Unimplemented) AddSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveSupportPhone Remove a WhatsApp number
+// (DELETE /api/v1/orgs/{org}/support/phones/{phone})
+func (_ Unimplemented) RemoveSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID, phone string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgTickets The organisation's support tickets (admins see all; members their own)
+// (GET /api/v1/orgs/{org}/support/tickets)
+func (_ Unimplemented) ListOrgTickets(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// OpenOrgTicket Open a support ticket for the organisation
+// (POST /api/v1/orgs/{org}/support/tickets)
+func (_ Unimplemented) OpenOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgTicket A ticket and its conversation
+// (GET /api/v1/orgs/{org}/support/tickets/{ticket_id})
+func (_ Unimplemented) GetOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReplyOrgTicket Add to a ticket
+// (POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages)
+func (_ Unimplemented) ReplyOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -9666,6 +10176,24 @@ func (_ Unimplemented) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 // TestStorageTarget Run the live write/read/list/delete test without saving
 // (POST /api/v1/storage-targets/test)
 func (_ Unimplemented) TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
+// (POST /api/v1/support/inbound/email)
+func (_ Unimplemented) SupportInboundEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SupportWhatsAppVerify The WhatsApp Business Platform's webhook verification
+// (GET /api/v1/support/whatsapp)
+func (_ Unimplemented) SupportWhatsAppVerify(w http.ResponseWriter, r *http.Request, params SupportWhatsAppVerifyParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SupportWhatsAppWebhook WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+// (POST /api/v1/support/whatsapp)
+func (_ Unimplemented) SupportWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11320,6 +11848,157 @@ func (siw *ServerInterfaceWrapper) UpdatePlatformStorageTarget(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdatePlatformStorageTarget(w, r, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSupportStaff operation middleware
+func (siw *ServerInterfaceWrapper) AdminSupportStaff(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSupportStaff(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListTickets operation middleware
+func (siw *ServerInterfaceWrapper) AdminListTickets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListTicketsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "assignee" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "assignee", r.URL.Query(), &params.Assignee, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "assignee"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "assignee", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "org_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org_id", r.URL.Query(), &params.OrgId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListTickets(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetTicket operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetTicket(w, r, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminUpdateTicket operation middleware
+func (siw *ServerInterfaceWrapper) AdminUpdateTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUpdateTicket(w, r, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminReplyTicket operation middleware
+func (siw *ServerInterfaceWrapper) AdminReplyTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminReplyTicket(w, r, ticketId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13931,6 +14610,215 @@ func (siw *ServerInterfaceWrapper) UpdateOrgStorageTarget(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateOrgStorageTarget(w, r, org, targetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSupportPhones operation middleware
+func (siw *ServerInterfaceWrapper) ListSupportPhones(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSupportPhones(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddSupportPhone operation middleware
+func (siw *ServerInterfaceWrapper) AddSupportPhone(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddSupportPhone(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveSupportPhone operation middleware
+func (siw *ServerInterfaceWrapper) RemoveSupportPhone(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "phone" -------------
+	var phone string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "phone", chi.URLParam(r, "phone"), &phone, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "phone", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveSupportPhone(w, r, org, phone)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgTickets operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgTickets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgTickets(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OpenOrgTicket operation middleware
+func (siw *ServerInterfaceWrapper) OpenOrgTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenOrgTicket(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgTicket operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgTicket(w, r, org, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplyOrgTicket operation middleware
+func (siw *ServerInterfaceWrapper) ReplyOrgTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplyOrgTicket(w, r, org, ticketId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -17253,6 +18141,93 @@ func (siw *ServerInterfaceWrapper) TestStorageTarget(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// SupportInboundEmail operation middleware
+func (siw *ServerInterfaceWrapper) SupportInboundEmail(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SupportInboundEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SupportWhatsAppVerify operation middleware
+func (siw *ServerInterfaceWrapper) SupportWhatsAppVerify(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SupportWhatsAppVerifyParams
+
+	// ------------- Optional query parameter "hub.mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.mode", r.URL.Query(), &params.HubMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hub.verify_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.verify_token", r.URL.Query(), &params.HubVerifyToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.verify_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.verify_token", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hub.challenge" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.challenge", r.URL.Query(), &params.HubChallenge, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.challenge"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.challenge", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SupportWhatsAppVerify(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SupportWhatsAppWebhook operation middleware
+func (siw *ServerInterfaceWrapper) SupportWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SupportWhatsAppWebhook(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTerms operation middleware
 func (siw *ServerInterfaceWrapper) GetTerms(w http.ResponseWriter, r *http.Request) {
 
@@ -18281,6 +19256,51 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/payments/webhooks/{provider}", wrapper.PaymentWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/support/tickets", wrapper.ListOrgTickets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/support/tickets", wrapper.OpenOrgTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/support/tickets/{ticket_id}", wrapper.GetOrgTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/support/tickets/{ticket_id}/messages", wrapper.ReplyOrgTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/support/phones", wrapper.ListSupportPhones)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/support/phones", wrapper.AddSupportPhone)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/support/phones/{phone}", wrapper.RemoveSupportPhone)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/support/inbound/email", wrapper.SupportInboundEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/support/whatsapp", wrapper.SupportWhatsAppVerify)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/support/whatsapp", wrapper.SupportWhatsAppWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/support/tickets", wrapper.AdminListTickets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/support/tickets/{ticket_id}", wrapper.AdminGetTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/support/tickets/{ticket_id}", wrapper.AdminUpdateTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/support/tickets/{ticket_id}/messages", wrapper.AdminReplyTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/support/staff", wrapper.AdminSupportStaff)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/payments", wrapper.AdminListPayments)

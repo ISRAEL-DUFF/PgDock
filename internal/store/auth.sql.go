@@ -421,7 +421,7 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 const insertTerms = `-- name: InsertTerms :one
 INSERT INTO terms_versions (version, terms_md, privacy_md, published_by)
 VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), $1, $2, $3)
-RETURNING version, terms_md, privacy_md, published_by, published_at
+RETURNING version, terms_md, privacy_md, published_by, published_at, aup_md
 `
 
 type InsertTermsParams struct {
@@ -439,6 +439,7 @@ func (q *Queries) InsertTerms(ctx context.Context, arg InsertTermsParams) (Terms
 		&i.PrivacyMd,
 		&i.PublishedBy,
 		&i.PublishedAt,
+		&i.AupMd,
 	)
 	return i, err
 }
@@ -506,7 +507,7 @@ func (q *Queries) InvalidateEmailTokens(ctx context.Context, arg InvalidateEmail
 }
 
 const latestTerms = `-- name: LatestTerms :one
-SELECT version, terms_md, privacy_md, published_by, published_at FROM terms_versions ORDER BY version DESC LIMIT 1
+SELECT version, terms_md, privacy_md, published_by, published_at, aup_md FROM terms_versions ORDER BY version DESC LIMIT 1
 `
 
 func (q *Queries) LatestTerms(ctx context.Context) (TermsVersion, error) {
@@ -518,6 +519,7 @@ func (q *Queries) LatestTerms(ctx context.Context) (TermsVersion, error) {
 		&i.PrivacyMd,
 		&i.PublishedBy,
 		&i.PublishedAt,
+		&i.AupMd,
 	)
 	return i, err
 }

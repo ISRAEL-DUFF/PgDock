@@ -43,6 +43,9 @@ var (
 const (
 	RolePlatformAdmin = "platform_admin"
 	RoleUser          = "user"
+	// RoleSupport is support staff (V3 §7.1): the support console and
+	// organisations' metadata, nothing else.
+	RoleSupport = "support"
 )
 
 // Config tunes the service.
@@ -169,6 +172,12 @@ type TokenGrant struct {
 
 // PlatformAdmin reports whether the session's user runs the platform.
 func (s Session) PlatformAdmin() bool { return s.Token == nil && s.PlatformRole == RolePlatformAdmin }
+
+// SupportStaff reports whether the session may use the support console:
+// support staff and platform admins.
+func (s Session) SupportStaff() bool {
+	return s.Token == nil && (s.PlatformRole == RoleSupport || s.PlatformRole == RolePlatformAdmin)
+}
 
 // RecentlyReauthenticated reports whether a step-up auth is still valid.
 func (s *Service) RecentlyReauthenticated(sess Session) bool {

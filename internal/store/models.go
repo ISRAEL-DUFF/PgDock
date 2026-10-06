@@ -446,6 +446,25 @@ type LedgerEntry struct {
 	CreatedAt      time.Time
 }
 
+type LegalAcceptance struct {
+	DocumentID uuid.UUID
+	OrgID      uuid.UUID
+	UserID     *uuid.UUID
+	AcceptedAt time.Time
+	Ip         *netip.Addr
+}
+
+type LegalDocument struct {
+	ID          uuid.UUID
+	Kind        string
+	OrgID       *uuid.UUID
+	Version     int32
+	Title       string
+	BodyMd      string
+	PublishedBy *uuid.UUID
+	PublishedAt time.Time
+}
+
 type MetricPoint struct {
 	Scope      string
 	ScopeID    uuid.UUID
@@ -481,6 +500,15 @@ type Move struct {
 	FreezeMs       *int32
 	StartedAt      time.Time
 	FinishedAt     *time.Time
+}
+
+type MrrSnapshot struct {
+	Month     pgtype.Date
+	OrgID     uuid.UUID
+	Plan      string
+	Term      string
+	MrrMinor  int64
+	UpdatedAt time.Time
 }
 
 type Node struct {
@@ -529,6 +557,13 @@ type OrgMember struct {
 	OrgID     uuid.UUID
 	UserID    uuid.UUID
 	Role      string
+	CreatedAt time.Time
+}
+
+type OrgSupportPhone struct {
+	Phone     string
+	OrgID     uuid.UUID
+	AddedBy   *uuid.UUID
 	CreatedAt time.Time
 }
 
@@ -864,6 +899,38 @@ type TermsVersion struct {
 	PrivacyMd   string
 	PublishedBy *uuid.UUID
 	PublishedAt time.Time
+	AupMd       string
+}
+
+type Ticket struct {
+	ID              uuid.UUID
+	Number          int64
+	OrgID           *uuid.UUID
+	Requester       string
+	RequesterName   *string
+	RequesterUserID *uuid.UUID
+	Channel         string
+	Subject         string
+	Status          string
+	Priority        string
+	Plan            *string
+	Assignee        *uuid.UUID
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	FirstResponseAt *time.Time
+	RespondBy       *time.Time
+}
+
+type TicketMessage struct {
+	ID           int64
+	TicketID     uuid.UUID
+	Direction    string
+	Author       string
+	AuthorUserID *uuid.UUID
+	Body         string
+	Attachments  json.RawMessage
+	ExternalID   *string
+	CreatedAt    time.Time
 }
 
 type UsageRecord struct {

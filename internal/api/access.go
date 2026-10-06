@@ -42,7 +42,8 @@ func accessFrom(ctx context.Context) access {
 }
 
 func actorFor(sess auth.Session) authz.Actor {
-	a := authz.Actor{Kind: authz.ActorSession, UserID: sess.UserID, PlatformAdmin: sess.PlatformAdmin()}
+	a := authz.Actor{Kind: authz.ActorSession, UserID: sess.UserID, PlatformAdmin: sess.PlatformAdmin(),
+		Support: sess.Token == nil && sess.PlatformRole == auth.RoleSupport}
 	if t := sess.Token; t != nil {
 		a.Kind = authz.ActorToken
 		a.TokenID, a.TokenOrg = &t.ID, &t.OrgID

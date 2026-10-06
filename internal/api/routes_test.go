@@ -490,6 +490,10 @@ var specMatrix = map[authz.Action][]string{
 	authz.ProjectAudit: {"GET /api/v1/projects/{id}/audit"},
 	// Seeing the organisation and its lists
 	authz.OrgView: {
+		// V3 §7.1 "Tickets can also be opened from the dashboard": members see their own, admins the org's
+		"GET /api/v1/orgs/{org}/support/tickets", "POST /api/v1/orgs/{org}/support/tickets",
+		"GET /api/v1/orgs/{org}/support/tickets/{ticket_id}", "POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages",
+		"GET /api/v1/orgs/{org}/support/phones",
 		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "POST /api/v1/orgs/{org}/leave",
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
 		// §13 "projects list ... with quota usage bars": every member sees the limits
@@ -501,6 +505,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgCreateProject: {"POST /api/v1/projects", "POST /api/v1/imports"},
 	// "Manage org members and invitations", "org settings"
 	authz.OrgManage: {
+		// V3 §7.1 WhatsApp "linked to the org by the registered phone number"
+		"POST /api/v1/orgs/{org}/support/phones", "DELETE /api/v1/orgs/{org}/support/phones/{phone}",
 		"PATCH /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/members", "PATCH /api/v1/orgs/{org}/members/{user}",
 		"DELETE /api/v1/orgs/{org}/members/{user}", "GET /api/v1/orgs/{org}/invitations", "DELETE /api/v1/orgs/{org}/invitations/{invitation_id}",
 		// §2.3 "See and revoke any token scoped to the org"
@@ -542,6 +548,12 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/auth/device/requests/{user_code}", "POST /api/v1/auth/device/approve",
 	},
 	// §2.4: the platform admin's
+	// V3 §7.1 "Support staff role ... can see the support console and org metadata"
+	authz.SupportConsole: {
+		"GET /api/v1/admin/support/tickets", "GET /api/v1/admin/support/tickets/{ticket_id}",
+		"PATCH /api/v1/admin/support/tickets/{ticket_id}", "POST /api/v1/admin/support/tickets/{ticket_id}/messages",
+		"GET /api/v1/admin/support/staff",
+	},
 	authz.PlatformManage: {
 		"PUT /api/v1/settings/db-host", "POST /api/v1/settings/db-host/check", "POST /api/v1/dev/operations",
 		"POST /api/v1/restore-tests", "GET /api/v1/settings/storage", "PUT /api/v1/settings/storage",

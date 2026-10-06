@@ -58,6 +58,8 @@ type Config struct {
 	FreeTier FreeTier
 	// Signup configures open signup's protections (V3 §7.4).
 	Signup Signup
+	// Support configures support's channels (V3 §7.1).
+	Support Support
 	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
 	// majors projects may run (V3 §2.4); the newest is the default.
 	PGVersions []int
@@ -164,6 +166,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadStatus(getenv, readFile, &cfg)...)
 	errs = append(errs, loadPayments(getenv, readFile, &cfg)...)
 	errs = append(errs, loadFreeTier(getenv, readFile, &cfg)...)
+	errs = append(errs, loadSupport(getenv, readFile, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err

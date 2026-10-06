@@ -3894,6 +3894,202 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's support tickets (admins see all; members their own) */
+        get: operations["listOrgTickets"];
+        put?: never;
+        /** Open a support ticket for the organisation */
+        post: operations["openOrgTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/tickets/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A ticket and its conversation */
+        get: operations["getOrgTicket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/tickets/{ticket_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add to a ticket */
+        post: operations["replyOrgTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/phones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** WhatsApp numbers registered for support (Pro and Team) */
+        get: operations["listSupportPhones"];
+        put?: never;
+        /** Register a WhatsApp number (E.164) for the organisation's support */
+        post: operations["addSupportPhone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/phones/{phone}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a WhatsApp number */
+        delete: operations["removeSupportPhone"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/inbound/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An email to the support address, from the email provider's inbound webhook
+         * @description Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+         *     password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+         *     inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+         */
+        post: operations["supportInboundEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/whatsapp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The WhatsApp Business Platform's webhook verification */
+        get: operations["supportWhatsAppVerify"];
+        put?: never;
+        /** WhatsApp messages, signed with the app secret (X-Hub-Signature-256) */
+        post: operations["supportWhatsAppWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The support console's tickets (support staff and platform admins) */
+        get: operations["adminListTickets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/tickets/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A ticket with internal notes and the organisation's context (no tenant data) */
+        get: operations["adminGetTicket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a ticket's status, priority, assignee or organisation */
+        patch: operations["adminUpdateTicket"];
+        trace?: never;
+    };
+    "/api/v1/admin/support/tickets/{ticket_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer the customer (by the ticket's channel) or add an internal note */
+        post: operations["adminReplyTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Support staff and platform admins, to assign tickets to */
+        get: operations["adminSupportStaff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments": {
         parameters: {
             query?: never;
@@ -6135,7 +6331,7 @@ export interface components {
             email: string;
             name?: string | null;
             /** @enum {string} */
-            platform_role: "platform_admin" | "user";
+            platform_role: "platform_admin" | "support" | "user";
             token?: components["schemas"]["TokenGrant"];
         };
         UpdateMeRequest: {
@@ -6407,7 +6603,7 @@ export interface components {
             email: string;
             name?: string | null;
             /** @enum {string} */
-            platform_role: "platform_admin" | "user";
+            platform_role: "platform_admin" | "support" | "user";
             email_verified: boolean;
             approved: boolean;
             disabled: boolean;
@@ -6433,7 +6629,7 @@ export interface components {
              *     end, and it is emailed.
              * @enum {string}
              */
-            platform_role?: "platform_admin" | "user";
+            platform_role?: "platform_admin" | "support" | "user";
         };
         SignupSettings: {
             /** @enum {string} */
@@ -6552,6 +6748,137 @@ export interface components {
                 effective_at: string;
                 prices: components["schemas"]["Prices"];
             };
+        };
+        Ticket: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            number: number;
+            /** @description The reference people quote, e.g. T-1042. */
+            ref: string;
+            /** Format: uuid */
+            org_id?: string | null;
+            org_name?: string | null;
+            requester: string;
+            requester_name?: string | null;
+            /** @enum {string} */
+            channel: "dashboard" | "email" | "whatsapp";
+            subject: string;
+            /** @enum {string} */
+            status: "open" | "pending" | "solved" | "closed";
+            /** @enum {string} */
+            priority: "low" | "normal" | "high" | "urgent";
+            plan?: string | null;
+            /** Format: uuid */
+            assignee?: string | null;
+            /** Format: int64 */
+            messages?: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            first_response_at?: string | null;
+            /**
+             * Format: date-time
+             * @description The plan's response target; null is best effort.
+             */
+            respond_by?: string | null;
+        };
+        TicketList: {
+            items: components["schemas"]["Ticket"][];
+        };
+        TicketMessage: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            direction: "in" | "out" | "note";
+            author: string;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        TicketDetail: {
+            ticket: components["schemas"]["Ticket"];
+            messages: components["schemas"]["TicketMessage"][];
+            context?: components["schemas"]["SupportContext"];
+        };
+        /** @description What the support console shows about the organisation. Metadata only; tenant data needs break-glass. */
+        SupportContext: {
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            org_status: string;
+            plan: string;
+            term?: string | null;
+            billing_mode?: string | null;
+            dunning_state?: string | null;
+            /** Format: int64 */
+            owed_minor?: number | null;
+            /** Format: int64 */
+            credit_minor?: number | null;
+            members: number;
+            projects: components["schemas"]["SupportProject"][];
+            recent_operations: components["schemas"]["SupportOperation"][];
+            incidents: components["schemas"]["SupportIncident"][];
+            quotas: components["schemas"]["QuotaItem"][];
+        };
+        SupportProject: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            tier: string;
+            status: string;
+            lifecycle: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        SupportOperation: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            status: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SupportIncident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            status: string;
+            severity: string;
+            /** Format: date-time */
+            started_at: string;
+        };
+        TicketOpen: {
+            subject: string;
+            body: string;
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high" | "urgent";
+        };
+        TicketReply: {
+            body: string;
+            /** @description An internal note (support console only), not sent to the customer. */
+            note?: boolean;
+        };
+        TicketUpdate: {
+            /** @enum {string} */
+            status?: "open" | "pending" | "solved" | "closed";
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high" | "urgent";
+            /** Format: uuid */
+            assignee?: string | null;
+            clear_assignee?: boolean;
+            /** Format: uuid */
+            org_id?: string;
+        };
+        SupportPhone: {
+            phone: string;
+            /** Format: date-time */
+            created_at: string;
         };
         PriceBookInput: {
             /** Format: date-time */
@@ -7199,6 +7526,7 @@ export interface components {
         RequestID: string;
         OrgID: string;
         MethodID: string;
+        TicketID: string;
         PaymentID: string;
         InvoiceID: string;
         PriceBookVersion: number;
@@ -13856,6 +14184,414 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgTickets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tickets, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    openOrgTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketOpen"];
+            };
+        };
+        responses: {
+            /** @description Opened. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ticket. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replyOrgTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketReply"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSupportPhones: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Numbers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description WhatsApp support is set up on this server and the plan includes it. */
+                        available: boolean;
+                        items: components["schemas"]["SupportPhone"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addSupportPhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    phone: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Registered. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportPhone"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeSupportPhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                phone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    supportInboundEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Threaded into a ticket (or ignored as a duplicate). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    supportWhatsAppVerify: {
+        parameters: {
+            query?: {
+                "hub.mode"?: string;
+                "hub.verify_token"?: string;
+                "hub.challenge"?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenge, echoed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong verify token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    supportWhatsAppWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signature didn't verify. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListTickets: {
+        parameters: {
+            query?: {
+                status?: "open" | "pending" | "solved" | "closed";
+                assignee?: string;
+                org_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open tickets first, by response target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        open: number;
+                        /** Format: int64 */
+                        pending: number;
+                        /** Format: int64 */
+                        overdue: number;
+                        items: components["schemas"]["Ticket"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ticket. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUpdateTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketUpdate"];
+            };
+        };
+        responses: {
+            /** @description The ticket. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminReplyTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketReply"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSupportStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Staff. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            email: string;
+                            name?: string | null;
+                            role: string;
+                        }[];
+                    };
+                };
             };
             default: components["responses"]["Error"];
         };

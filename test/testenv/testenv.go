@@ -71,6 +71,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/pgdock/internal/support"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/waker"
@@ -111,6 +112,11 @@ type Env struct {
 	// FreeTier.Sweep. Waker is its waker, reached by the test poolers.
 	FreeTier *freetier.Service
 	Waker    *waker.Server
+	// Support runs tickets (V3 §7.1); WhatsApp fakes the Cloud API, whose
+	// webhook reaches the API. SupportInboundSecret authenticates inbound email.
+	Support              *support.Service
+	WhatsApp             *support.FakeGraph
+	SupportInboundSecret string
 	// Flutterwave and ISpend are the payment providers' fake sandboxes.
 	Flutterwave *flutterwave.Fake
 	ISpend      *ispend.Fake
@@ -391,8 +397,13 @@ func Start(t testing.TB, opts Options) *Env {
 	}, billing.Routing{Cards: billing.ProviderFlutterwave, VAPrimary: billing.ProviderISpend, VAFallback: billing.ProviderFlutterwave, Wallet: billing.ProviderISpend}, keyring)
 	billingSvc.SetDunning(tenancySvc, nil)
 	billingSvc.SetDocStore(&memDocs{m: map[string][]byte{}})
+	supportSvc := support.New(db, mailSvc, support.Config{Address: "support@pgdock.test", PublicURL: "https://pgdock.test", InboundSecret: "inbound-secret-0123456789"}, log)
+	wa := support.NewFakeGraph()
+	waSrv := httptest.NewServer(wa)
+	t.Cleanup(waSrv.Close)
+	supportSvc.SetWhatsApp(support.CloudAPI{BaseURL: waSrv.URL, PhoneNumberID: wa.PhoneNumberID, AccessToken: wa.AccessToken, AppSecret: wa.AppSecret, VerifyToken: "wa-verify"})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc,
+		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
@@ -412,11 +423,12 @@ func Start(t testing.TB, opts Options) *Env {
 	ts.Start()
 	flw.WebhookURL = ts.URL + "/api/v1/payments/webhooks/flutterwave"
 	isp.WebhookURL = ts.URL + "/api/v1/payments/webhooks/ispend"
+	wa.WebhookURL = ts.URL + "/api/v1/support/whatsapp"
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789",
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

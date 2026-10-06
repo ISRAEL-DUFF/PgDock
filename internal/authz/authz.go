@@ -30,6 +30,8 @@ type Actor struct {
 	Kind          string
 	UserID        uuid.UUID
 	PlatformAdmin bool
+	// Support is support staff (V3 §7.1).
+	Support bool
 	// TokenID and TokenOrg are set for API tokens (V2 §7.2), which act
 	// only in their organisation, within their scopes, and (when
 	// TokenProjects is not nil) only on those projects.
@@ -138,6 +140,9 @@ const (
 	// signup, users, platform invitations, isolation checks, alerts,
 	// platform audit, /metrics.
 	PlatformManage Action = "platform.manage"
+	// SupportConsole is support staff and platform admins (V3 §7.1): the
+	// ticket console and organisations' metadata, never tenant data.
+	SupportConsole Action = "support.console"
 
 	OrgView          Action = "org.view"           // member
 	OrgCreateProject Action = "org.create_project" // admin; member when the org allows it
@@ -242,6 +247,9 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 	case PlatformManage:
 		ok := actor.PlatformAdmin && actor.Kind == ActorSession
 		// Platform routes are not tenant resources: refusing them is 403.
+		return Decision{Visible: true, Allowed: ok}, nil
+	case SupportConsole:
+		ok := (actor.PlatformAdmin || actor.Support) && actor.Kind == ActorSession
 		return Decision{Visible: true, Allowed: ok}, nil
 	}
 	if actor.Kind == ActorSystem {

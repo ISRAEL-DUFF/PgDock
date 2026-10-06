@@ -5376,6 +5376,345 @@ paths:
           description: The signature didn't verify.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/tickets:
+    get:
+      operationId: listOrgTickets
+      summary: The organisation's support tickets (admins see all; members their own)
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Tickets, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: openOrgTicket
+      summary: Open a support ticket for the organisation
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketOpen"
+      responses:
+        "201":
+          description: Opened.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/tickets/{ticket_id}:
+    get:
+      operationId: getOrgTicket
+      summary: A ticket and its conversation
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TicketID"
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages:
+    post:
+      operationId: replyOrgTicket
+      summary: Add to a ticket
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TicketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketReply"
+      responses:
+        "201":
+          description: Added.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/phones:
+    get:
+      operationId: listSupportPhones
+      summary: WhatsApp numbers registered for support (Pro and Team)
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Numbers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, available]
+                properties:
+                  available:
+                    type: boolean
+                    description: WhatsApp support is set up on this server and the plan includes it.
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SupportPhone"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: addSupportPhone
+      summary: Register a WhatsApp number (E.164) for the organisation's support
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+      responses:
+        "201":
+          description: Registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportPhone"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/phones/{phone}:
+    delete:
+      operationId: removeSupportPhone
+      summary: Remove a WhatsApp number
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: phone
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/support/inbound/email:
+    post:
+      operationId: supportInboundEmail
+      summary: An email to the support address, from the email provider's inbound webhook
+      description: |
+        Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+        password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+        inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+      tags: [support]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Threaded into a ticket (or ignored as a duplicate).
+        "401":
+          description: Not authenticated.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/support/whatsapp:
+    get:
+      operationId: supportWhatsAppVerify
+      summary: The WhatsApp Business Platform's webhook verification
+      tags: [support]
+      security: []
+      parameters:
+        - name: hub.mode
+          in: query
+          schema:
+            type: string
+        - name: hub.verify_token
+          in: query
+          schema:
+            type: string
+        - name: hub.challenge
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The challenge, echoed.
+        "403":
+          description: Wrong verify token.
+    post:
+      operationId: supportWhatsAppWebhook
+      summary: WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+      tags: [support]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Accepted.
+        "401":
+          description: The signature didn't verify.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/tickets:
+    get:
+      operationId: adminListTickets
+      summary: The support console's tickets (support staff and platform admins)
+      tags: [support]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, pending, solved, closed]
+        - name: assignee
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: org_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Open tickets first, by response target.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, open, pending, overdue]
+                properties:
+                  open:
+                    type: integer
+                    format: int64
+                  pending:
+                    type: integer
+                    format: int64
+                  overdue:
+                    type: integer
+                    format: int64
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Ticket"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/tickets/{ticket_id}:
+    get:
+      operationId: adminGetTicket
+      summary: A ticket with internal notes and the organisation's context (no tenant data)
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketDetail"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: adminUpdateTicket
+      summary: Change a ticket's status, priority, assignee or organisation
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketUpdate"
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/tickets/{ticket_id}/messages:
+    post:
+      operationId: adminReplyTicket
+      summary: Answer the customer (by the ticket's channel) or add an internal note
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketReply"
+      responses:
+        "201":
+          description: Added.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/staff:
+    get:
+      operationId: adminSupportStaff
+      summary: Support staff and platform admins, to assign tickets to
+      tags: [support]
+      responses:
+        "200":
+          description: Staff.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, email, role]
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        email:
+                          type: string
+                        name:
+                          type: string
+                          nullable: true
+                        role:
+                          type: string
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/payments:
     get:
       operationId: adminListPayments
@@ -5887,6 +6226,13 @@ components:
         format: uuid
     MethodID:
       name: method_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TicketID:
+      name: ticket_id
       in: path
       required: true
       schema:
@@ -9799,7 +10145,7 @@ components:
           nullable: true
         platform_role:
           type: string
-          enum: [platform_admin, user]
+          enum: [platform_admin, support, user]
         token:
           $ref: "#/components/schemas/TokenGrant"
     UpdateMeRequest:
@@ -10326,7 +10672,7 @@ components:
           nullable: true
         platform_role:
           type: string
-          enum: [platform_admin, user]
+          enum: [platform_admin, support, user]
         email_verified:
           type: boolean
         approved:
@@ -10362,7 +10708,7 @@ components:
           type: boolean
         platform_role:
           type: string
-          enum: [platform_admin, user]
+          enum: [platform_admin, support, user]
           description: |
             Makes the account a platform admin, or an ordinary user again.
             Needs a recent step-up authentication. The account must be
@@ -10558,6 +10904,258 @@ components:
               format: date-time
             prices:
               $ref: "#/components/schemas/Prices"
+    Ticket:
+      type: object
+      required: [id, number, ref, requester, channel, subject, status, priority, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+          format: int64
+        ref:
+          type: string
+          description: The reference people quote, e.g. T-1042.
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+        org_name:
+          type: string
+          nullable: true
+        requester:
+          type: string
+        requester_name:
+          type: string
+          nullable: true
+        channel:
+          type: string
+          enum: [dashboard, email, whatsapp]
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [open, pending, solved, closed]
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        plan:
+          type: string
+          nullable: true
+        assignee:
+          type: string
+          format: uuid
+          nullable: true
+        messages:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        first_response_at:
+          type: string
+          format: date-time
+          nullable: true
+        respond_by:
+          type: string
+          format: date-time
+          nullable: true
+          description: The plan's response target; null is best effort.
+    TicketList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ticket"
+    TicketMessage:
+      type: object
+      required: [id, direction, author, body, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        direction:
+          type: string
+          enum: [in, out, note]
+        author:
+          type: string
+        body:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    TicketDetail:
+      type: object
+      required: [ticket, messages]
+      properties:
+        ticket:
+          $ref: "#/components/schemas/Ticket"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketMessage"
+        context:
+          $ref: "#/components/schemas/SupportContext"
+    SupportContext:
+      type: object
+      description: What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+      required: [org_id, org_name, org_status, plan, members, projects, recent_operations, incidents, quotas]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        org_status:
+          type: string
+        plan:
+          type: string
+        term:
+          type: string
+          nullable: true
+        billing_mode:
+          type: string
+          nullable: true
+        dunning_state:
+          type: string
+          nullable: true
+        owed_minor:
+          type: integer
+          format: int64
+          nullable: true
+        credit_minor:
+          type: integer
+          format: int64
+          nullable: true
+        members:
+          type: integer
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportProject"
+        recent_operations:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportOperation"
+        incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportIncident"
+        quotas:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuotaItem"
+    SupportProject:
+      type: object
+      required: [id, name, tier, status, lifecycle]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tier:
+          type: string
+        status:
+          type: string
+        lifecycle:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    SupportOperation:
+      type: object
+      required: [id, kind, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        status:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    SupportIncident:
+      type: object
+      required: [id, title, status, severity, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+        severity:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+    TicketOpen:
+      type: object
+      required: [subject, body]
+      properties:
+        subject:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+          maxLength: 20000
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+    TicketReply:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          maxLength: 20000
+        note:
+          type: boolean
+          description: An internal note (support console only), not sent to the customer.
+    TicketUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, pending, solved, closed]
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        assignee:
+          type: string
+          format: uuid
+          nullable: true
+        clear_assignee:
+          type: boolean
+        org_id:
+          type: string
+          format: uuid
+    SupportPhone:
+      type: object
+      required: [phone, created_at]
+      properties:
+        phone:
+          type: string
+        created_at:
+          type: string
+          format: date-time
     PriceBookInput:
       type: object
       required: [effective_at, prices]

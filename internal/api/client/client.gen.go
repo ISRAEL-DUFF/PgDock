@@ -105,6 +105,7 @@ func (e AdminOrgSummaryStatus) Valid() bool {
 // Defines values for AdminUserPlatformRole.
 const (
 	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
+	AdminUserPlatformRoleSupport       AdminUserPlatformRole = "support"
 	AdminUserPlatformRoleUser          AdminUserPlatformRole = "user"
 )
 
@@ -112,6 +113,8 @@ const (
 func (e AdminUserPlatformRole) Valid() bool {
 	switch e {
 	case AdminUserPlatformRolePlatformAdmin:
+		return true
+	case AdminUserPlatformRoleSupport:
 		return true
 	case AdminUserPlatformRoleUser:
 		return true
@@ -2058,6 +2061,168 @@ func (e TablePageOrder) Valid() bool {
 	}
 }
 
+// Defines values for TicketChannel.
+const (
+	Dashboard TicketChannel = "dashboard"
+	Email     TicketChannel = "email"
+	Whatsapp  TicketChannel = "whatsapp"
+)
+
+// Valid indicates whether the value is a known member of the TicketChannel enum.
+func (e TicketChannel) Valid() bool {
+	switch e {
+	case Dashboard:
+		return true
+	case Email:
+		return true
+	case Whatsapp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketPriority.
+const (
+	TicketPriorityHigh   TicketPriority = "high"
+	TicketPriorityLow    TicketPriority = "low"
+	TicketPriorityNormal TicketPriority = "normal"
+	TicketPriorityUrgent TicketPriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketPriority enum.
+func (e TicketPriority) Valid() bool {
+	switch e {
+	case TicketPriorityHigh:
+		return true
+	case TicketPriorityLow:
+		return true
+	case TicketPriorityNormal:
+		return true
+	case TicketPriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketStatus.
+const (
+	TicketStatusClosed  TicketStatus = "closed"
+	TicketStatusOpen    TicketStatus = "open"
+	TicketStatusPending TicketStatus = "pending"
+	TicketStatusSolved  TicketStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the TicketStatus enum.
+func (e TicketStatus) Valid() bool {
+	switch e {
+	case TicketStatusClosed:
+		return true
+	case TicketStatusOpen:
+		return true
+	case TicketStatusPending:
+		return true
+	case TicketStatusSolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketMessageDirection.
+const (
+	In   TicketMessageDirection = "in"
+	Note TicketMessageDirection = "note"
+	Out  TicketMessageDirection = "out"
+)
+
+// Valid indicates whether the value is a known member of the TicketMessageDirection enum.
+func (e TicketMessageDirection) Valid() bool {
+	switch e {
+	case In:
+		return true
+	case Note:
+		return true
+	case Out:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketOpenPriority.
+const (
+	TicketOpenPriorityHigh   TicketOpenPriority = "high"
+	TicketOpenPriorityLow    TicketOpenPriority = "low"
+	TicketOpenPriorityNormal TicketOpenPriority = "normal"
+	TicketOpenPriorityUrgent TicketOpenPriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketOpenPriority enum.
+func (e TicketOpenPriority) Valid() bool {
+	switch e {
+	case TicketOpenPriorityHigh:
+		return true
+	case TicketOpenPriorityLow:
+		return true
+	case TicketOpenPriorityNormal:
+		return true
+	case TicketOpenPriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketUpdatePriority.
+const (
+	TicketUpdatePriorityHigh   TicketUpdatePriority = "high"
+	TicketUpdatePriorityLow    TicketUpdatePriority = "low"
+	TicketUpdatePriorityNormal TicketUpdatePriority = "normal"
+	TicketUpdatePriorityUrgent TicketUpdatePriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketUpdatePriority enum.
+func (e TicketUpdatePriority) Valid() bool {
+	switch e {
+	case TicketUpdatePriorityHigh:
+		return true
+	case TicketUpdatePriorityLow:
+		return true
+	case TicketUpdatePriorityNormal:
+		return true
+	case TicketUpdatePriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketUpdateStatus.
+const (
+	TicketUpdateStatusClosed  TicketUpdateStatus = "closed"
+	TicketUpdateStatusOpen    TicketUpdateStatus = "open"
+	TicketUpdateStatusPending TicketUpdateStatus = "pending"
+	TicketUpdateStatusSolved  TicketUpdateStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the TicketUpdateStatus enum.
+func (e TicketUpdateStatus) Valid() bool {
+	switch e {
+	case TicketUpdateStatusClosed:
+		return true
+	case TicketUpdateStatusOpen:
+		return true
+	case TicketUpdateStatusPending:
+		return true
+	case TicketUpdateStatusSolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TlsStatusMode.
 const (
 	TlsStatusModeAcme       TlsStatusMode = "acme"
@@ -2151,6 +2316,7 @@ func (e UpdateNodeRequestRole) Valid() bool {
 // Defines values for UpdateUserRequestPlatformRole.
 const (
 	UpdateUserRequestPlatformRolePlatformAdmin UpdateUserRequestPlatformRole = "platform_admin"
+	UpdateUserRequestPlatformRoleSupport       UpdateUserRequestPlatformRole = "support"
 	UpdateUserRequestPlatformRoleUser          UpdateUserRequestPlatformRole = "user"
 )
 
@@ -2158,6 +2324,8 @@ const (
 func (e UpdateUserRequestPlatformRole) Valid() bool {
 	switch e {
 	case UpdateUserRequestPlatformRolePlatformAdmin:
+		return true
+	case UpdateUserRequestPlatformRoleSupport:
 		return true
 	case UpdateUserRequestPlatformRoleUser:
 		return true
@@ -2271,6 +2439,7 @@ func (e UsageRecordGranularity) Valid() bool {
 // Defines values for UserPlatformRole.
 const (
 	UserPlatformRolePlatformAdmin UserPlatformRole = "platform_admin"
+	UserPlatformRoleSupport       UserPlatformRole = "support"
 	UserPlatformRoleUser          UserPlatformRole = "user"
 )
 
@@ -2278,6 +2447,8 @@ const (
 func (e UserPlatformRole) Valid() bool {
 	switch e {
 	case UserPlatformRolePlatformAdmin:
+		return true
+	case UserPlatformRoleSupport:
 		return true
 	case UserPlatformRoleUser:
 		return true
@@ -2493,6 +2664,30 @@ func (e AdminListPaymentEventsParamsOutcome) Valid() bool {
 	case AdminListPaymentEventsParamsOutcomeRejected:
 		return true
 	case AdminListPaymentEventsParamsOutcomeUnmatched:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminListTicketsParamsStatus.
+const (
+	AdminListTicketsParamsStatusClosed  AdminListTicketsParamsStatus = "closed"
+	AdminListTicketsParamsStatusOpen    AdminListTicketsParamsStatus = "open"
+	AdminListTicketsParamsStatusPending AdminListTicketsParamsStatus = "pending"
+	AdminListTicketsParamsStatusSolved  AdminListTicketsParamsStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the AdminListTicketsParamsStatus enum.
+func (e AdminListTicketsParamsStatus) Valid() bool {
+	switch e {
+	case AdminListTicketsParamsStatusClosed:
+		return true
+	case AdminListTicketsParamsStatusOpen:
+		return true
+	case AdminListTicketsParamsStatusPending:
+		return true
+	case AdminListTicketsParamsStatusSolved:
 		return true
 	default:
 		return false
@@ -5855,6 +6050,59 @@ type StorageTestStep struct {
 	TookMs int     `json:"took_ms"`
 }
 
+// SupportContext What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+type SupportContext struct {
+	BillingMode      *string            `json:"billing_mode,omitempty"`
+	CreditMinor      *int64             `json:"credit_minor,omitempty"`
+	DunningState     *string            `json:"dunning_state,omitempty"`
+	Incidents        []SupportIncident  `json:"incidents"`
+	Members          int                `json:"members"`
+	OrgId            openapi_types.UUID `json:"org_id"`
+	OrgName          string             `json:"org_name"`
+	OrgStatus        string             `json:"org_status"`
+	OwedMinor        *int64             `json:"owed_minor,omitempty"`
+	Plan             string             `json:"plan"`
+	Projects         []SupportProject   `json:"projects"`
+	Quotas           []QuotaItem        `json:"quotas"`
+	RecentOperations []SupportOperation `json:"recent_operations"`
+	Term             *string            `json:"term,omitempty"`
+}
+
+// SupportIncident defines model for SupportIncident.
+type SupportIncident struct {
+	Id        openapi_types.UUID `json:"id"`
+	Severity  string             `json:"severity"`
+	StartedAt time.Time          `json:"started_at"`
+	Status    string             `json:"status"`
+	Title     string             `json:"title"`
+}
+
+// SupportOperation defines model for SupportOperation.
+type SupportOperation struct {
+	CreatedAt time.Time           `json:"created_at"`
+	Error     *string             `json:"error,omitempty"`
+	Id        openapi_types.UUID  `json:"id"`
+	Kind      string              `json:"kind"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Status    string              `json:"status"`
+}
+
+// SupportPhone defines model for SupportPhone.
+type SupportPhone struct {
+	CreatedAt time.Time `json:"created_at"`
+	Phone     string    `json:"phone"`
+}
+
+// SupportProject defines model for SupportProject.
+type SupportProject struct {
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	Lifecycle string             `json:"lifecycle"`
+	Name      string             `json:"name"`
+	Status    string             `json:"status"`
+	Tier      string             `json:"tier"`
+}
+
 // SwitchCredentialsRequest defines model for SwitchCredentialsRequest.
 type SwitchCredentialsRequest struct {
 	// GraceDays How long the V1 credentials keep working (default 7).
@@ -5947,6 +6195,99 @@ type Terms struct {
 	TermsMd     string    `json:"terms_md"`
 	Version     int       `json:"version"`
 }
+
+// Ticket defines model for Ticket.
+type Ticket struct {
+	Assignee        *openapi_types.UUID `json:"assignee,omitempty"`
+	Channel         TicketChannel       `json:"channel"`
+	CreatedAt       time.Time           `json:"created_at"`
+	FirstResponseAt *time.Time          `json:"first_response_at,omitempty"`
+	Id              openapi_types.UUID  `json:"id"`
+	Messages        *int64              `json:"messages,omitempty"`
+	Number          int64               `json:"number"`
+	OrgId           *openapi_types.UUID `json:"org_id,omitempty"`
+	OrgName         *string             `json:"org_name,omitempty"`
+	Plan            *string             `json:"plan,omitempty"`
+	Priority        TicketPriority      `json:"priority"`
+
+	// Ref The reference people quote, e.g. T-1042.
+	Ref           string  `json:"ref"`
+	Requester     string  `json:"requester"`
+	RequesterName *string `json:"requester_name,omitempty"`
+
+	// RespondBy The plan's response target; null is best effort.
+	RespondBy *time.Time   `json:"respond_by,omitempty"`
+	Status    TicketStatus `json:"status"`
+	Subject   string       `json:"subject"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// TicketChannel defines model for Ticket.Channel.
+type TicketChannel string
+
+// TicketPriority defines model for Ticket.Priority.
+type TicketPriority string
+
+// TicketStatus defines model for Ticket.Status.
+type TicketStatus string
+
+// TicketDetail defines model for TicketDetail.
+type TicketDetail struct {
+	// Context What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+	Context  *SupportContext `json:"context,omitempty"`
+	Messages []TicketMessage `json:"messages"`
+	Ticket   Ticket          `json:"ticket"`
+}
+
+// TicketList defines model for TicketList.
+type TicketList struct {
+	Items []Ticket `json:"items"`
+}
+
+// TicketMessage defines model for TicketMessage.
+type TicketMessage struct {
+	Author    string                 `json:"author"`
+	Body      string                 `json:"body"`
+	CreatedAt time.Time              `json:"created_at"`
+	Direction TicketMessageDirection `json:"direction"`
+	Id        int64                  `json:"id"`
+}
+
+// TicketMessageDirection defines model for TicketMessage.Direction.
+type TicketMessageDirection string
+
+// TicketOpen defines model for TicketOpen.
+type TicketOpen struct {
+	Body     string              `json:"body"`
+	Priority *TicketOpenPriority `json:"priority,omitempty"`
+	Subject  string              `json:"subject"`
+}
+
+// TicketOpenPriority defines model for TicketOpen.Priority.
+type TicketOpenPriority string
+
+// TicketReply defines model for TicketReply.
+type TicketReply struct {
+	Body string `json:"body"`
+
+	// Note An internal note (support console only), not sent to the customer.
+	Note *bool `json:"note,omitempty"`
+}
+
+// TicketUpdate defines model for TicketUpdate.
+type TicketUpdate struct {
+	Assignee      *openapi_types.UUID   `json:"assignee,omitempty"`
+	ClearAssignee *bool                 `json:"clear_assignee,omitempty"`
+	OrgId         *openapi_types.UUID   `json:"org_id,omitempty"`
+	Priority      *TicketUpdatePriority `json:"priority,omitempty"`
+	Status        *TicketUpdateStatus   `json:"status,omitempty"`
+}
+
+// TicketUpdatePriority defines model for TicketUpdate.Priority.
+type TicketUpdatePriority string
+
+// TicketUpdateStatus defines model for TicketUpdate.Status.
+type TicketUpdateStatus string
 
 // TlsStatus defines model for TlsStatus.
 type TlsStatus struct {
@@ -6396,6 +6737,9 @@ type TableName = string
 // TargetID defines model for TargetID.
 type TargetID = openapi_types.UUID
 
+// TicketID defines model for TicketID.
+type TicketID = openapi_types.UUID
+
 // TokenID defines model for TokenID.
 type TokenID = openapi_types.UUID
 
@@ -6539,6 +6883,16 @@ type DeletePlatformStorageTargetParams struct {
 	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
 }
 
+// AdminListTicketsParams defines parameters for AdminListTickets.
+type AdminListTicketsParams struct {
+	Status   *AdminListTicketsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Assignee *openapi_types.UUID           `form:"assignee,omitempty" json:"assignee,omitempty"`
+	OrgId    *openapi_types.UUID           `form:"org_id,omitempty" json:"org_id,omitempty"`
+}
+
+// AdminListTicketsParamsStatus defines parameters for AdminListTickets.
+type AdminListTicketsParamsStatus string
+
 // PlatformUsageParams defines parameters for PlatformUsage.
 type PlatformUsageParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
@@ -6664,6 +7018,11 @@ type UploadWhtCertificateParams struct {
 type DeleteOrgStorageTargetParams struct {
 	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
 	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
+}
+
+// AddSupportPhoneJSONBody defines parameters for AddSupportPhone.
+type AddSupportPhoneJSONBody struct {
+	Phone string `json:"phone"`
 }
 
 // GetOrgUsageParams defines parameters for GetOrgUsage.
@@ -6821,6 +7180,19 @@ type TestStorageTargetParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// SupportInboundEmailJSONBody defines parameters for SupportInboundEmail.
+type SupportInboundEmailJSONBody map[string]interface{}
+
+// SupportWhatsAppVerifyParams defines parameters for SupportWhatsAppVerify.
+type SupportWhatsAppVerifyParams struct {
+	HubMode        *string `form:"hub.mode,omitempty" json:"hub.mode,omitempty"`
+	HubVerifyToken *string `form:"hub.verify_token,omitempty" json:"hub.verify_token,omitempty"`
+	HubChallenge   *string `form:"hub.challenge,omitempty" json:"hub.challenge,omitempty"`
+}
+
+// SupportWhatsAppWebhookJSONBody defines parameters for SupportWhatsAppWebhook.
+type SupportWhatsAppWebhookJSONBody map[string]interface{}
+
 // PutBillingSettingsJSONRequestBody defines body for PutBillingSettings for application/json ContentType.
 type PutBillingSettingsJSONRequestBody = BillingSettings
 
@@ -6916,6 +7288,12 @@ type CreatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
 
 // UpdatePlatformStorageTargetJSONRequestBody defines body for UpdatePlatformStorageTarget for application/json ContentType.
 type UpdatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
+
+// AdminUpdateTicketJSONRequestBody defines body for AdminUpdateTicket for application/json ContentType.
+type AdminUpdateTicketJSONRequestBody = TicketUpdate
+
+// AdminReplyTicketJSONRequestBody defines body for AdminReplyTicket for application/json ContentType.
+type AdminReplyTicketJSONRequestBody = TicketReply
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUserRequest
@@ -7039,6 +7417,15 @@ type CreateOrgStorageTargetJSONRequestBody = StorageTargetRequest
 
 // UpdateOrgStorageTargetJSONRequestBody defines body for UpdateOrgStorageTarget for application/json ContentType.
 type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
+
+// AddSupportPhoneJSONRequestBody defines body for AddSupportPhone for application/json ContentType.
+type AddSupportPhoneJSONRequestBody AddSupportPhoneJSONBody
+
+// OpenOrgTicketJSONRequestBody defines body for OpenOrgTicket for application/json ContentType.
+type OpenOrgTicketJSONRequestBody = TicketOpen
+
+// ReplyOrgTicketJSONRequestBody defines body for ReplyOrgTicket for application/json ContentType.
+type ReplyOrgTicketJSONRequestBody = TicketReply
 
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
@@ -7180,6 +7567,12 @@ type CompleteSetupJSONRequestBody = SetupCompleteRequest
 
 // TestStorageTargetJSONRequestBody defines body for TestStorageTarget for application/json ContentType.
 type TestStorageTargetJSONRequestBody = StorageTargetTestRequest
+
+// SupportInboundEmailJSONRequestBody defines body for SupportInboundEmail for application/json ContentType.
+type SupportInboundEmailJSONRequestBody SupportInboundEmailJSONBody
+
+// SupportWhatsAppWebhookJSONRequestBody defines body for SupportWhatsAppWebhook for application/json ContentType.
+type SupportWhatsAppWebhookJSONRequestBody SupportWhatsAppWebhookJSONBody
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateTokenRequest
@@ -7930,6 +8323,49 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
 	UpdatePlatformStorageTarget(ctx context.Context, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminSupportStaff Support staff and platform admins, to assign tickets to
+	//
+	// Corresponds with GET /api/v1/admin/support/staff (the `AdminSupportStaff` operationId).
+	AdminSupportStaff(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminListTickets The support console's tickets (support staff and platform admins)
+	//
+	// Corresponds with GET /api/v1/admin/support/tickets (the `AdminListTickets` operationId).
+	AdminListTickets(ctx context.Context, params *AdminListTicketsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminGetTicket A ticket with internal notes and the organisation's context (no tenant data)
+	//
+	// Corresponds with GET /api/v1/admin/support/tickets/{ticket_id} (the `AdminGetTicket` operationId).
+	AdminGetTicket(ctx context.Context, ticketId TicketID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminUpdateTicketWithBody Change a ticket's status, priority, assignee or organisation
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+	AdminUpdateTicketWithBody(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminUpdateTicket Change a ticket's status, priority, assignee or organisation
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+	AdminUpdateTicket(ctx context.Context, ticketId TicketID, body AdminUpdateTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminReplyTicketWithBody Answer the customer (by the ticket's channel) or add an internal note
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+	AdminReplyTicketWithBody(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminReplyTicket Answer the customer (by the ticket's channel) or add an internal note
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+	AdminReplyTicket(ctx context.Context, ticketId TicketID, body AdminReplyTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PlatformUsage Usage totals per organisation (platform admin)
 	//
@@ -8896,6 +9332,68 @@ type ClientInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
 	UpdateOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSupportPhones WhatsApp numbers registered for support (Pro and Team)
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/support/phones (the `ListSupportPhones` operationId).
+	ListSupportPhones(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddSupportPhoneWithBody Register a WhatsApp number (E.164) for the organisation's support
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+	AddSupportPhoneWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddSupportPhone Register a WhatsApp number (E.164) for the organisation's support
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+	AddSupportPhone(ctx context.Context, org OrgID, body AddSupportPhoneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveSupportPhone Remove a WhatsApp number
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/support/phones/{phone} (the `RemoveSupportPhone` operationId).
+	RemoveSupportPhone(ctx context.Context, org OrgID, phone string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOrgTickets The organisation's support tickets (admins see all; members their own)
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/support/tickets (the `ListOrgTickets` operationId).
+	ListOrgTickets(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenOrgTicketWithBody Open a support ticket for the organisation
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+	OpenOrgTicketWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenOrgTicket Open a support ticket for the organisation
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+	OpenOrgTicket(ctx context.Context, org OrgID, body OpenOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgTicket A ticket and its conversation
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/support/tickets/{ticket_id} (the `GetOrgTicket` operationId).
+	GetOrgTicket(ctx context.Context, org OrgID, ticketId TicketID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplyOrgTicketWithBody Add to a ticket
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+	ReplyOrgTicketWithBody(ctx context.Context, org OrgID, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplyOrgTicket Add to a ticket
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+	ReplyOrgTicket(ctx context.Context, org OrgID, ticketId TicketID, body ReplyOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrgTokens Every token scoped to the organisation (owners and admins)
 	//
@@ -10177,6 +10675,47 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
 	TestStorageTarget(ctx context.Context, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SupportInboundEmailWithBody An email to the support address, from the email provider's inbound webhook
+	//
+	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+	SupportInboundEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
+	//
+	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+	SupportInboundEmail(ctx context.Context, body SupportInboundEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SupportWhatsAppVerify The WhatsApp Business Platform's webhook verification
+	//
+	// Corresponds with GET /api/v1/support/whatsapp (the `SupportWhatsAppVerify` operationId).
+	SupportWhatsAppVerify(ctx context.Context, params *SupportWhatsAppVerifyParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SupportWhatsAppWebhookWithBody WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+	SupportWhatsAppWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SupportWhatsAppWebhook WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+	SupportWhatsAppWebhook(ctx context.Context, body SupportWhatsAppWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTerms The current terms of use and privacy notice (public)
 	//
@@ -11896,6 +12435,119 @@ func (c *Client) UpdatePlatformStorageTargetWithBody(ctx context.Context, target
 // Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
 func (c *Client) UpdatePlatformStorageTarget(ctx context.Context, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdatePlatformStorageTargetRequest(c.Server, targetId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminSupportStaff Support staff and platform admins, to assign tickets to
+//
+// Corresponds with GET /api/v1/admin/support/staff (the `AdminSupportStaff` operationId).
+func (c *Client) AdminSupportStaff(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminSupportStaffRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminListTickets The support console's tickets (support staff and platform admins)
+//
+// Corresponds with GET /api/v1/admin/support/tickets (the `AdminListTickets` operationId).
+func (c *Client) AdminListTickets(ctx context.Context, params *AdminListTicketsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminListTicketsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminGetTicket A ticket with internal notes and the organisation's context (no tenant data)
+//
+// Corresponds with GET /api/v1/admin/support/tickets/{ticket_id} (the `AdminGetTicket` operationId).
+func (c *Client) AdminGetTicket(ctx context.Context, ticketId TicketID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminGetTicketRequest(c.Server, ticketId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminUpdateTicketWithBody Change a ticket's status, priority, assignee or organisation
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+func (c *Client) AdminUpdateTicketWithBody(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminUpdateTicketRequestWithBody(c.Server, ticketId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminUpdateTicket Change a ticket's status, priority, assignee or organisation
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+func (c *Client) AdminUpdateTicket(ctx context.Context, ticketId TicketID, body AdminUpdateTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminUpdateTicketRequest(c.Server, ticketId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminReplyTicketWithBody Answer the customer (by the ticket's channel) or add an internal note
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+func (c *Client) AdminReplyTicketWithBody(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminReplyTicketRequestWithBody(c.Server, ticketId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminReplyTicket Answer the customer (by the ticket's channel) or add an internal note
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+func (c *Client) AdminReplyTicket(ctx context.Context, ticketId TicketID, body AdminReplyTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminReplyTicketRequest(c.Server, ticketId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14252,6 +14904,168 @@ func (c *Client) UpdateOrgStorageTargetWithBody(ctx context.Context, org OrgID, 
 // Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
 func (c *Client) UpdateOrgStorageTarget(ctx context.Context, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateOrgStorageTargetRequest(c.Server, org, targetId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListSupportPhones WhatsApp numbers registered for support (Pro and Team)
+//
+// Corresponds with GET /api/v1/orgs/{org}/support/phones (the `ListSupportPhones` operationId).
+func (c *Client) ListSupportPhones(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSupportPhonesRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddSupportPhoneWithBody Register a WhatsApp number (E.164) for the organisation's support
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+func (c *Client) AddSupportPhoneWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddSupportPhoneRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddSupportPhone Register a WhatsApp number (E.164) for the organisation's support
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+func (c *Client) AddSupportPhone(ctx context.Context, org OrgID, body AddSupportPhoneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddSupportPhoneRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemoveSupportPhone Remove a WhatsApp number
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/support/phones/{phone} (the `RemoveSupportPhone` operationId).
+func (c *Client) RemoveSupportPhone(ctx context.Context, org OrgID, phone string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveSupportPhoneRequest(c.Server, org, phone)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListOrgTickets The organisation's support tickets (admins see all; members their own)
+//
+// Corresponds with GET /api/v1/orgs/{org}/support/tickets (the `ListOrgTickets` operationId).
+func (c *Client) ListOrgTickets(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgTicketsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OpenOrgTicketWithBody Open a support ticket for the organisation
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+func (c *Client) OpenOrgTicketWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenOrgTicketRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OpenOrgTicket Open a support ticket for the organisation
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+func (c *Client) OpenOrgTicket(ctx context.Context, org OrgID, body OpenOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenOrgTicketRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgTicket A ticket and its conversation
+//
+// Corresponds with GET /api/v1/orgs/{org}/support/tickets/{ticket_id} (the `GetOrgTicket` operationId).
+func (c *Client) GetOrgTicket(ctx context.Context, org OrgID, ticketId TicketID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgTicketRequest(c.Server, org, ticketId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplyOrgTicketWithBody Add to a ticket
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+func (c *Client) ReplyOrgTicketWithBody(ctx context.Context, org OrgID, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplyOrgTicketRequestWithBody(c.Server, org, ticketId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplyOrgTicket Add to a ticket
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+func (c *Client) ReplyOrgTicket(ctx context.Context, org OrgID, ticketId TicketID, body ReplyOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplyOrgTicketRequest(c.Server, org, ticketId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17083,6 +17897,97 @@ func (c *Client) TestStorageTargetWithBody(ctx context.Context, params *TestStor
 // Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
 func (c *Client) TestStorageTarget(ctx context.Context, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTestStorageTargetRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SupportInboundEmailWithBody An email to the support address, from the email provider's inbound webhook
+//
+// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+func (c *Client) SupportInboundEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSupportInboundEmailRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
+//
+// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+func (c *Client) SupportInboundEmail(ctx context.Context, body SupportInboundEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSupportInboundEmailRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SupportWhatsAppVerify The WhatsApp Business Platform's webhook verification
+//
+// Corresponds with GET /api/v1/support/whatsapp (the `SupportWhatsAppVerify` operationId).
+func (c *Client) SupportWhatsAppVerify(ctx context.Context, params *SupportWhatsAppVerifyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSupportWhatsAppVerifyRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SupportWhatsAppWebhookWithBody WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+func (c *Client) SupportWhatsAppWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSupportWhatsAppWebhookRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SupportWhatsAppWebhook WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+func (c *Client) SupportWhatsAppWebhook(ctx context.Context, body SupportWhatsAppWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSupportWhatsAppWebhookRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20025,6 +20930,239 @@ func NewUpdatePlatformStorageTargetRequestWithBody(server string, targetId Targe
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminSupportStaffRequest constructs an http.Request for the AdminSupportStaff method
+func NewAdminSupportStaffRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/support/staff")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminListTicketsRequest constructs an http.Request for the AdminListTickets method
+func NewAdminListTicketsRequest(server string, params *AdminListTicketsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/support/tickets")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Assignee != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "assignee", *params.Assignee, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.OrgId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "org_id", *params.OrgId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminGetTicketRequest constructs an http.Request for the AdminGetTicket method
+func NewAdminGetTicketRequest(server string, ticketId TicketID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ticket_id", ticketId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/support/tickets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminUpdateTicketRequest calls the generic AdminUpdateTicket builder with application/json body
+func NewAdminUpdateTicketRequest(server string, ticketId TicketID, body AdminUpdateTicketJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminUpdateTicketRequestWithBody(server, ticketId, "application/json", bodyReader)
+}
+
+// NewAdminUpdateTicketRequestWithBody constructs an http.Request for the AdminUpdateTicket method, with any body, and a specified content type
+func NewAdminUpdateTicketRequestWithBody(server string, ticketId TicketID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ticket_id", ticketId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/support/tickets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminReplyTicketRequest calls the generic AdminReplyTicket builder with application/json body
+func NewAdminReplyTicketRequest(server string, ticketId TicketID, body AdminReplyTicketJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminReplyTicketRequestWithBody(server, ticketId, "application/json", bodyReader)
+}
+
+// NewAdminReplyTicketRequestWithBody constructs an http.Request for the AdminReplyTicket method, with any body, and a specified content type
+func NewAdminReplyTicketRequestWithBody(server string, ticketId TicketID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ticket_id", ticketId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/support/tickets/%s/messages", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -24202,6 +25340,304 @@ func NewUpdateOrgStorageTargetRequestWithBody(server string, org OrgID, targetId
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListSupportPhonesRequest constructs an http.Request for the ListSupportPhones method
+func NewListSupportPhonesRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/support/phones", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddSupportPhoneRequest calls the generic AddSupportPhone builder with application/json body
+func NewAddSupportPhoneRequest(server string, org OrgID, body AddSupportPhoneJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddSupportPhoneRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewAddSupportPhoneRequestWithBody constructs an http.Request for the AddSupportPhone method, with any body, and a specified content type
+func NewAddSupportPhoneRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/support/phones", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRemoveSupportPhoneRequest constructs an http.Request for the RemoveSupportPhone method
+func NewRemoveSupportPhoneRequest(server string, org OrgID, phone string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "phone", phone, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/support/phones/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListOrgTicketsRequest constructs an http.Request for the ListOrgTickets method
+func NewListOrgTicketsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/support/tickets", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewOpenOrgTicketRequest calls the generic OpenOrgTicket builder with application/json body
+func NewOpenOrgTicketRequest(server string, org OrgID, body OpenOrgTicketJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewOpenOrgTicketRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewOpenOrgTicketRequestWithBody constructs an http.Request for the OpenOrgTicket method, with any body, and a specified content type
+func NewOpenOrgTicketRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/support/tickets", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetOrgTicketRequest constructs an http.Request for the GetOrgTicket method
+func NewGetOrgTicketRequest(server string, org OrgID, ticketId TicketID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ticket_id", ticketId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/support/tickets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReplyOrgTicketRequest calls the generic ReplyOrgTicket builder with application/json body
+func NewReplyOrgTicketRequest(server string, org OrgID, ticketId TicketID, body ReplyOrgTicketJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplyOrgTicketRequestWithBody(server, org, ticketId, "application/json", bodyReader)
+}
+
+// NewReplyOrgTicketRequestWithBody constructs an http.Request for the ReplyOrgTicket method, with any body, and a specified content type
+func NewReplyOrgTicketRequestWithBody(server string, org OrgID, ticketId TicketID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ticket_id", ticketId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/support/tickets/%s/messages", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -29156,6 +30592,164 @@ func NewTestStorageTargetRequestWithBody(server string, params *TestStorageTarge
 	return req, nil
 }
 
+// NewSupportInboundEmailRequest calls the generic SupportInboundEmail builder with application/json body
+func NewSupportInboundEmailRequest(server string, body SupportInboundEmailJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSupportInboundEmailRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSupportInboundEmailRequestWithBody constructs an http.Request for the SupportInboundEmail method, with any body, and a specified content type
+func NewSupportInboundEmailRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/support/inbound/email")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSupportWhatsAppVerifyRequest constructs an http.Request for the SupportWhatsAppVerify method
+func NewSupportWhatsAppVerifyRequest(server string, params *SupportWhatsAppVerifyParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/support/whatsapp")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.HubMode != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "hub.mode", *params.HubMode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.HubVerifyToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "hub.verify_token", *params.HubVerifyToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.HubChallenge != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "hub.challenge", *params.HubChallenge, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSupportWhatsAppWebhookRequest calls the generic SupportWhatsAppWebhook builder with application/json body
+func NewSupportWhatsAppWebhookRequest(server string, body SupportWhatsAppWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSupportWhatsAppWebhookRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSupportWhatsAppWebhookRequestWithBody constructs an http.Request for the SupportWhatsAppWebhook method, with any body, and a specified content type
+func NewSupportWhatsAppWebhookRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/support/whatsapp")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetTermsRequest constructs an http.Request for the GetTerms method
 func NewGetTermsRequest(server string) (*http.Request, error) {
 	var err error
@@ -30174,6 +31768,55 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/admin/storage-targets/{target_id} (the `UpdatePlatformStorageTarget` operationId).
 	UpdatePlatformStorageTargetWithResponse(ctx context.Context, targetId TargetID, body UpdatePlatformStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlatformStorageTargetResponse, error)
+
+	// AdminSupportStaffWithResponse Support staff and platform admins, to assign tickets to
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/support/staff (the `AdminSupportStaff` operationId).
+	AdminSupportStaffWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminSupportStaffResponse, error)
+
+	// AdminListTicketsWithResponse The support console's tickets (support staff and platform admins)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/support/tickets (the `AdminListTickets` operationId).
+	AdminListTicketsWithResponse(ctx context.Context, params *AdminListTicketsParams, reqEditors ...RequestEditorFn) (*AdminListTicketsResponse, error)
+
+	// AdminGetTicketWithResponse A ticket with internal notes and the organisation's context (no tenant data)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/support/tickets/{ticket_id} (the `AdminGetTicket` operationId).
+	AdminGetTicketWithResponse(ctx context.Context, ticketId TicketID, reqEditors ...RequestEditorFn) (*AdminGetTicketResponse, error)
+
+	// AdminUpdateTicketWithBodyWithResponse Change a ticket's status, priority, assignee or organisation
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+	AdminUpdateTicketWithBodyWithResponse(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminUpdateTicketResponse, error)
+
+	// AdminUpdateTicketWithResponse Change a ticket's status, priority, assignee or organisation
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+	AdminUpdateTicketWithResponse(ctx context.Context, ticketId TicketID, body AdminUpdateTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminUpdateTicketResponse, error)
+
+	// AdminReplyTicketWithBodyWithResponse Answer the customer (by the ticket's channel) or add an internal note
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+	AdminReplyTicketWithBodyWithResponse(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminReplyTicketResponse, error)
+
+	// AdminReplyTicketWithResponse Answer the customer (by the ticket's channel) or add an internal note
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+	AdminReplyTicketWithResponse(ctx context.Context, ticketId TicketID, body AdminReplyTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminReplyTicketResponse, error)
 
 	// PlatformUsageWithResponse Usage totals per organisation (platform admin)
 	//
@@ -31252,6 +32895,76 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/orgs/{org}/storage-targets/{target_id} (the `UpdateOrgStorageTarget` operationId).
 	UpdateOrgStorageTargetWithResponse(ctx context.Context, org OrgID, targetId TargetID, body UpdateOrgStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrgStorageTargetResponse, error)
+
+	// ListSupportPhonesWithResponse WhatsApp numbers registered for support (Pro and Team)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/support/phones (the `ListSupportPhones` operationId).
+	ListSupportPhonesWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListSupportPhonesResponse, error)
+
+	// AddSupportPhoneWithBodyWithResponse Register a WhatsApp number (E.164) for the organisation's support
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+	AddSupportPhoneWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddSupportPhoneResponse, error)
+
+	// AddSupportPhoneWithResponse Register a WhatsApp number (E.164) for the organisation's support
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+	AddSupportPhoneWithResponse(ctx context.Context, org OrgID, body AddSupportPhoneJSONRequestBody, reqEditors ...RequestEditorFn) (*AddSupportPhoneResponse, error)
+
+	// RemoveSupportPhoneWithResponse Remove a WhatsApp number
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/support/phones/{phone} (the `RemoveSupportPhone` operationId).
+	RemoveSupportPhoneWithResponse(ctx context.Context, org OrgID, phone string, reqEditors ...RequestEditorFn) (*RemoveSupportPhoneResponse, error)
+
+	// ListOrgTicketsWithResponse The organisation's support tickets (admins see all; members their own)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/support/tickets (the `ListOrgTickets` operationId).
+	ListOrgTicketsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgTicketsResponse, error)
+
+	// OpenOrgTicketWithBodyWithResponse Open a support ticket for the organisation
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+	OpenOrgTicketWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenOrgTicketResponse, error)
+
+	// OpenOrgTicketWithResponse Open a support ticket for the organisation
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+	OpenOrgTicketWithResponse(ctx context.Context, org OrgID, body OpenOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenOrgTicketResponse, error)
+
+	// GetOrgTicketWithResponse A ticket and its conversation
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/support/tickets/{ticket_id} (the `GetOrgTicket` operationId).
+	GetOrgTicketWithResponse(ctx context.Context, org OrgID, ticketId TicketID, reqEditors ...RequestEditorFn) (*GetOrgTicketResponse, error)
+
+	// ReplyOrgTicketWithBodyWithResponse Add to a ticket
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+	ReplyOrgTicketWithBodyWithResponse(ctx context.Context, org OrgID, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplyOrgTicketResponse, error)
+
+	// ReplyOrgTicketWithResponse Add to a ticket
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+	ReplyOrgTicketWithResponse(ctx context.Context, org OrgID, ticketId TicketID, body ReplyOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplyOrgTicketResponse, error)
 
 	// ListOrgTokensWithResponse Every token scoped to the organisation (owners and admins)
 	//
@@ -32655,6 +34368,49 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/storage-targets/test (the `TestStorageTarget` operationId).
 	TestStorageTargetWithResponse(ctx context.Context, params *TestStorageTargetParams, body TestStorageTargetJSONRequestBody, reqEditors ...RequestEditorFn) (*TestStorageTargetResponse, error)
+
+	// SupportInboundEmailWithBodyWithResponse An email to the support address, from the email provider's inbound webhook
+	//
+	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+	SupportInboundEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SupportInboundEmailResponse, error)
+
+	// SupportInboundEmailWithResponse An email to the support address, from the email provider's inbound webhook
+	//
+	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+	SupportInboundEmailWithResponse(ctx context.Context, body SupportInboundEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*SupportInboundEmailResponse, error)
+
+	// SupportWhatsAppVerifyWithResponse The WhatsApp Business Platform's webhook verification
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/support/whatsapp (the `SupportWhatsAppVerify` operationId).
+	SupportWhatsAppVerifyWithResponse(ctx context.Context, params *SupportWhatsAppVerifyParams, reqEditors ...RequestEditorFn) (*SupportWhatsAppVerifyResponse, error)
+
+	// SupportWhatsAppWebhookWithBodyWithResponse WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+	SupportWhatsAppWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SupportWhatsAppWebhookResponse, error)
+
+	// SupportWhatsAppWebhookWithResponse WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+	SupportWhatsAppWebhookWithResponse(ctx context.Context, body SupportWhatsAppWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*SupportWhatsAppWebhookResponse, error)
 
 	// GetTermsWithResponse The current terms of use and privacy notice (public)
 	//
@@ -35953,6 +37709,263 @@ func (r UpdatePlatformStorageTargetResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdatePlatformStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminSupportStaffResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []struct {
+			Email string             `json:"email"`
+			Id    openapi_types.UUID `json:"id"`
+			Name  *string            `json:"name,omitempty"`
+			Role  string             `json:"role"`
+		} `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminSupportStaffResponse) GetJSON200() *struct {
+	Items []struct {
+		Email string             `json:"email"`
+		Id    openapi_types.UUID `json:"id"`
+		Name  *string            `json:"name,omitempty"`
+		Role  string             `json:"role"`
+	} `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminSupportStaffResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminSupportStaffResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminSupportStaffResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminSupportStaffResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminSupportStaffResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminListTicketsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items   []Ticket `json:"items"`
+		Open    int64    `json:"open"`
+		Overdue int64    `json:"overdue"`
+		Pending int64    `json:"pending"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminListTicketsResponse) GetJSON200() *struct {
+	Items   []Ticket `json:"items"`
+	Open    int64    `json:"open"`
+	Overdue int64    `json:"overdue"`
+	Pending int64    `json:"pending"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminListTicketsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminListTicketsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminListTicketsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminListTicketsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminListTicketsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminGetTicketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TicketDetail
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminGetTicketResponse) GetJSON200() *TicketDetail {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminGetTicketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminGetTicketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminGetTicketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminGetTicketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminGetTicketResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminUpdateTicketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Ticket
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminUpdateTicketResponse) GetJSON200() *Ticket {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminUpdateTicketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminUpdateTicketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminUpdateTicketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminUpdateTicketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminUpdateTicketResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminReplyTicketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminReplyTicketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminReplyTicketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminReplyTicketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminReplyTicketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminReplyTicketResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -40500,6 +42513,336 @@ func (r UpdateOrgStorageTargetResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateOrgStorageTargetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSupportPhonesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Available WhatsApp support is set up on this server and the plan includes it.
+		Available bool           `json:"available"`
+		Items     []SupportPhone `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListSupportPhonesResponse) GetJSON200() *struct {
+	// Available WhatsApp support is set up on this server and the plan includes it.
+	Available bool           `json:"available"`
+	Items     []SupportPhone `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListSupportPhonesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListSupportPhonesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSupportPhonesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSupportPhonesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSupportPhonesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AddSupportPhoneResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *SupportPhone
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AddSupportPhoneResponse) GetJSON201() *SupportPhone {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AddSupportPhoneResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AddSupportPhoneResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AddSupportPhoneResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddSupportPhoneResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddSupportPhoneResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemoveSupportPhoneResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RemoveSupportPhoneResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RemoveSupportPhoneResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveSupportPhoneResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveSupportPhoneResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemoveSupportPhoneResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListOrgTicketsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TicketList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgTicketsResponse) GetJSON200() *TicketList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListOrgTicketsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgTicketsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgTicketsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgTicketsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgTicketsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OpenOrgTicketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Ticket
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r OpenOrgTicketResponse) GetJSON201() *Ticket {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r OpenOrgTicketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r OpenOrgTicketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r OpenOrgTicketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OpenOrgTicketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OpenOrgTicketResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgTicketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TicketDetail
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgTicketResponse) GetJSON200() *TicketDetail {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgTicketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgTicketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgTicketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgTicketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgTicketResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReplyOrgTicketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ReplyOrgTicketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ReplyOrgTicketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplyOrgTicketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplyOrgTicketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReplyOrgTicketResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -45641,6 +47984,122 @@ func (r TestStorageTargetResponse) ContentType() string {
 	return ""
 }
 
+type SupportInboundEmailResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SupportInboundEmailResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SupportInboundEmailResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SupportInboundEmailResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SupportInboundEmailResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SupportInboundEmailResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SupportWhatsAppVerifyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r SupportWhatsAppVerifyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SupportWhatsAppVerifyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SupportWhatsAppVerifyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SupportWhatsAppVerifyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SupportWhatsAppWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SupportWhatsAppWebhookResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SupportWhatsAppWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SupportWhatsAppWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SupportWhatsAppWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SupportWhatsAppWebhookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetTermsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -47328,6 +49787,97 @@ func (c *ClientWithResponses) UpdatePlatformStorageTargetWithResponse(ctx contex
 		return nil, err
 	}
 	return ParseUpdatePlatformStorageTargetResponse(rsp)
+}
+
+// AdminSupportStaffWithResponse Support staff and platform admins, to assign tickets to
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/support/staff (the `AdminSupportStaff` operationId).
+func (c *ClientWithResponses) AdminSupportStaffWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminSupportStaffResponse, error) {
+	rsp, err := c.AdminSupportStaff(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminSupportStaffResponse(rsp)
+}
+
+// AdminListTicketsWithResponse The support console's tickets (support staff and platform admins)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/support/tickets (the `AdminListTickets` operationId).
+func (c *ClientWithResponses) AdminListTicketsWithResponse(ctx context.Context, params *AdminListTicketsParams, reqEditors ...RequestEditorFn) (*AdminListTicketsResponse, error) {
+	rsp, err := c.AdminListTickets(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminListTicketsResponse(rsp)
+}
+
+// AdminGetTicketWithResponse A ticket with internal notes and the organisation's context (no tenant data)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/support/tickets/{ticket_id} (the `AdminGetTicket` operationId).
+func (c *ClientWithResponses) AdminGetTicketWithResponse(ctx context.Context, ticketId TicketID, reqEditors ...RequestEditorFn) (*AdminGetTicketResponse, error) {
+	rsp, err := c.AdminGetTicket(ctx, ticketId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminGetTicketResponse(rsp)
+}
+
+// AdminUpdateTicketWithBodyWithResponse Change a ticket's status, priority, assignee or organisation
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+func (c *ClientWithResponses) AdminUpdateTicketWithBodyWithResponse(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminUpdateTicketResponse, error) {
+	rsp, err := c.AdminUpdateTicketWithBody(ctx, ticketId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminUpdateTicketResponse(rsp)
+}
+
+// AdminUpdateTicketWithResponse Change a ticket's status, priority, assignee or organisation
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/support/tickets/{ticket_id} (the `AdminUpdateTicket` operationId).
+func (c *ClientWithResponses) AdminUpdateTicketWithResponse(ctx context.Context, ticketId TicketID, body AdminUpdateTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminUpdateTicketResponse, error) {
+	rsp, err := c.AdminUpdateTicket(ctx, ticketId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminUpdateTicketResponse(rsp)
+}
+
+// AdminReplyTicketWithBodyWithResponse Answer the customer (by the ticket's channel) or add an internal note
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+func (c *ClientWithResponses) AdminReplyTicketWithBodyWithResponse(ctx context.Context, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminReplyTicketResponse, error) {
+	rsp, err := c.AdminReplyTicketWithBody(ctx, ticketId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminReplyTicketResponse(rsp)
+}
+
+// AdminReplyTicketWithResponse Answer the customer (by the ticket's channel) or add an internal note
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/support/tickets/{ticket_id}/messages (the `AdminReplyTicket` operationId).
+func (c *ClientWithResponses) AdminReplyTicketWithResponse(ctx context.Context, ticketId TicketID, body AdminReplyTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminReplyTicketResponse, error) {
+	rsp, err := c.AdminReplyTicket(ctx, ticketId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminReplyTicketResponse(rsp)
 }
 
 // PlatformUsageWithResponse Usage totals per organisation (platform admin)
@@ -49240,6 +51790,136 @@ func (c *ClientWithResponses) UpdateOrgStorageTargetWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseUpdateOrgStorageTargetResponse(rsp)
+}
+
+// ListSupportPhonesWithResponse WhatsApp numbers registered for support (Pro and Team)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/support/phones (the `ListSupportPhones` operationId).
+func (c *ClientWithResponses) ListSupportPhonesWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListSupportPhonesResponse, error) {
+	rsp, err := c.ListSupportPhones(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSupportPhonesResponse(rsp)
+}
+
+// AddSupportPhoneWithBodyWithResponse Register a WhatsApp number (E.164) for the organisation's support
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+func (c *ClientWithResponses) AddSupportPhoneWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddSupportPhoneResponse, error) {
+	rsp, err := c.AddSupportPhoneWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddSupportPhoneResponse(rsp)
+}
+
+// AddSupportPhoneWithResponse Register a WhatsApp number (E.164) for the organisation's support
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/phones (the `AddSupportPhone` operationId).
+func (c *ClientWithResponses) AddSupportPhoneWithResponse(ctx context.Context, org OrgID, body AddSupportPhoneJSONRequestBody, reqEditors ...RequestEditorFn) (*AddSupportPhoneResponse, error) {
+	rsp, err := c.AddSupportPhone(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddSupportPhoneResponse(rsp)
+}
+
+// RemoveSupportPhoneWithResponse Remove a WhatsApp number
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/support/phones/{phone} (the `RemoveSupportPhone` operationId).
+func (c *ClientWithResponses) RemoveSupportPhoneWithResponse(ctx context.Context, org OrgID, phone string, reqEditors ...RequestEditorFn) (*RemoveSupportPhoneResponse, error) {
+	rsp, err := c.RemoveSupportPhone(ctx, org, phone, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveSupportPhoneResponse(rsp)
+}
+
+// ListOrgTicketsWithResponse The organisation's support tickets (admins see all; members their own)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/support/tickets (the `ListOrgTickets` operationId).
+func (c *ClientWithResponses) ListOrgTicketsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgTicketsResponse, error) {
+	rsp, err := c.ListOrgTickets(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgTicketsResponse(rsp)
+}
+
+// OpenOrgTicketWithBodyWithResponse Open a support ticket for the organisation
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+func (c *ClientWithResponses) OpenOrgTicketWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenOrgTicketResponse, error) {
+	rsp, err := c.OpenOrgTicketWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenOrgTicketResponse(rsp)
+}
+
+// OpenOrgTicketWithResponse Open a support ticket for the organisation
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets (the `OpenOrgTicket` operationId).
+func (c *ClientWithResponses) OpenOrgTicketWithResponse(ctx context.Context, org OrgID, body OpenOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenOrgTicketResponse, error) {
+	rsp, err := c.OpenOrgTicket(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenOrgTicketResponse(rsp)
+}
+
+// GetOrgTicketWithResponse A ticket and its conversation
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/support/tickets/{ticket_id} (the `GetOrgTicket` operationId).
+func (c *ClientWithResponses) GetOrgTicketWithResponse(ctx context.Context, org OrgID, ticketId TicketID, reqEditors ...RequestEditorFn) (*GetOrgTicketResponse, error) {
+	rsp, err := c.GetOrgTicket(ctx, org, ticketId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgTicketResponse(rsp)
+}
+
+// ReplyOrgTicketWithBodyWithResponse Add to a ticket
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+func (c *ClientWithResponses) ReplyOrgTicketWithBodyWithResponse(ctx context.Context, org OrgID, ticketId TicketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplyOrgTicketResponse, error) {
+	rsp, err := c.ReplyOrgTicketWithBody(ctx, org, ticketId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplyOrgTicketResponse(rsp)
+}
+
+// ReplyOrgTicketWithResponse Add to a ticket
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages (the `ReplyOrgTicket` operationId).
+func (c *ClientWithResponses) ReplyOrgTicketWithResponse(ctx context.Context, org OrgID, ticketId TicketID, body ReplyOrgTicketJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplyOrgTicketResponse, error) {
+	rsp, err := c.ReplyOrgTicket(ctx, org, ticketId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplyOrgTicketResponse(rsp)
 }
 
 // ListOrgTokensWithResponse Every token scoped to the organisation (owners and admins)
@@ -51575,6 +54255,79 @@ func (c *ClientWithResponses) TestStorageTargetWithResponse(ctx context.Context,
 	return ParseTestStorageTargetResponse(rsp)
 }
 
+// SupportInboundEmailWithBodyWithResponse An email to the support address, from the email provider's inbound webhook
+//
+// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+func (c *ClientWithResponses) SupportInboundEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SupportInboundEmailResponse, error) {
+	rsp, err := c.SupportInboundEmailWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSupportInboundEmailResponse(rsp)
+}
+
+// SupportInboundEmailWithResponse An email to the support address, from the email provider's inbound webhook
+//
+// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/support/inbound/email (the `SupportInboundEmail` operationId).
+func (c *ClientWithResponses) SupportInboundEmailWithResponse(ctx context.Context, body SupportInboundEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*SupportInboundEmailResponse, error) {
+	rsp, err := c.SupportInboundEmail(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSupportInboundEmailResponse(rsp)
+}
+
+// SupportWhatsAppVerifyWithResponse The WhatsApp Business Platform's webhook verification
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/support/whatsapp (the `SupportWhatsAppVerify` operationId).
+func (c *ClientWithResponses) SupportWhatsAppVerifyWithResponse(ctx context.Context, params *SupportWhatsAppVerifyParams, reqEditors ...RequestEditorFn) (*SupportWhatsAppVerifyResponse, error) {
+	rsp, err := c.SupportWhatsAppVerify(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSupportWhatsAppVerifyResponse(rsp)
+}
+
+// SupportWhatsAppWebhookWithBodyWithResponse WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+func (c *ClientWithResponses) SupportWhatsAppWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SupportWhatsAppWebhookResponse, error) {
+	rsp, err := c.SupportWhatsAppWebhookWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSupportWhatsAppWebhookResponse(rsp)
+}
+
+// SupportWhatsAppWebhookWithResponse WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/support/whatsapp (the `SupportWhatsAppWebhook` operationId).
+func (c *ClientWithResponses) SupportWhatsAppWebhookWithResponse(ctx context.Context, body SupportWhatsAppWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*SupportWhatsAppWebhookResponse, error) {
+	rsp, err := c.SupportWhatsAppWebhook(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSupportWhatsAppWebhookResponse(rsp)
+}
+
 // GetTermsWithResponse The current terms of use and privacy notice (public)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -53905,6 +56658,179 @@ func ParseUpdatePlatformStorageTargetResponse(rsp *http.Response) (*UpdatePlatfo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminSupportStaffResponse parses an HTTP response from a AdminSupportStaffWithResponse call
+func ParseAdminSupportStaffResponse(rsp *http.Response) (*AdminSupportStaffResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminSupportStaffResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []struct {
+				Email string             `json:"email"`
+				Id    openapi_types.UUID `json:"id"`
+				Name  *string            `json:"name,omitempty"`
+				Role  string             `json:"role"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminListTicketsResponse parses an HTTP response from a AdminListTicketsWithResponse call
+func ParseAdminListTicketsResponse(rsp *http.Response) (*AdminListTicketsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminListTicketsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items   []Ticket `json:"items"`
+			Open    int64    `json:"open"`
+			Overdue int64    `json:"overdue"`
+			Pending int64    `json:"pending"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminGetTicketResponse parses an HTTP response from a AdminGetTicketWithResponse call
+func ParseAdminGetTicketResponse(rsp *http.Response) (*AdminGetTicketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminGetTicketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TicketDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminUpdateTicketResponse parses an HTTP response from a AdminUpdateTicketWithResponse call
+func ParseAdminUpdateTicketResponse(rsp *http.Response) (*AdminUpdateTicketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminUpdateTicketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Ticket
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminReplyTicketResponse parses an HTTP response from a AdminReplyTicketWithResponse call
+func ParseAdminReplyTicketResponse(rsp *http.Response) (*AdminReplyTicketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminReplyTicketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -57044,6 +59970,233 @@ func ParseUpdateOrgStorageTargetResponse(rsp *http.Response) (*UpdateOrgStorageT
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSupportPhonesResponse parses an HTTP response from a ListSupportPhonesWithResponse call
+func ParseListSupportPhonesResponse(rsp *http.Response) (*ListSupportPhonesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSupportPhonesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Available WhatsApp support is set up on this server and the plan includes it.
+			Available bool           `json:"available"`
+			Items     []SupportPhone `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddSupportPhoneResponse parses an HTTP response from a AddSupportPhoneWithResponse call
+func ParseAddSupportPhoneResponse(rsp *http.Response) (*AddSupportPhoneResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddSupportPhoneResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SupportPhone
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveSupportPhoneResponse parses an HTTP response from a RemoveSupportPhoneWithResponse call
+func ParseRemoveSupportPhoneResponse(rsp *http.Response) (*RemoveSupportPhoneResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveSupportPhoneResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOrgTicketsResponse parses an HTTP response from a ListOrgTicketsWithResponse call
+func ParseListOrgTicketsResponse(rsp *http.Response) (*ListOrgTicketsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgTicketsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TicketList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOpenOrgTicketResponse parses an HTTP response from a OpenOrgTicketWithResponse call
+func ParseOpenOrgTicketResponse(rsp *http.Response) (*OpenOrgTicketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OpenOrgTicketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Ticket
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgTicketResponse parses an HTTP response from a GetOrgTicketWithResponse call
+func ParseGetOrgTicketResponse(rsp *http.Response) (*GetOrgTicketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgTicketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TicketDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReplyOrgTicketResponse parses an HTTP response from a ReplyOrgTicketWithResponse call
+func ParseReplyOrgTicketResponse(rsp *http.Response) (*ReplyOrgTicketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplyOrgTicketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -60592,6 +63745,86 @@ func ParseTestStorageTargetResponse(rsp *http.Response) (*TestStorageTargetRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSupportInboundEmailResponse parses an HTTP response from a SupportInboundEmailWithResponse call
+func ParseSupportInboundEmailResponse(rsp *http.Response) (*SupportInboundEmailResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SupportInboundEmailResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSupportWhatsAppVerifyResponse parses an HTTP response from a SupportWhatsAppVerifyWithResponse call
+func ParseSupportWhatsAppVerifyResponse(rsp *http.Response) (*SupportWhatsAppVerifyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SupportWhatsAppVerifyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseSupportWhatsAppWebhookResponse parses an HTTP response from a SupportWhatsAppWebhookWithResponse call
+func ParseSupportWhatsAppWebhookResponse(rsp *http.Response) (*SupportWhatsAppWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SupportWhatsAppWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
