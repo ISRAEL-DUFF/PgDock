@@ -116,6 +116,23 @@ bundle share one version (spec §11.5).
 - New migration 00030 (node provider, region, cost and lifecycle;
   capacity proposals; drain and rebalance moves; exchange rates; daily
   cost allocations).
+- Regions:
+  - Projects choose a region at creation (New project → Region,
+    `pgdock projects create --region`, `pgdock regions`). Each region
+    has its own pooler hosts and hostname, backup target and copy target.
+  - Moving a project to another region is a zero-downtime move; the old
+    hostname keeps working for 30 days.
+  - Data residency (owners, with step-up): backups only in the region, no
+    cross-region copies, no moves out, branches stay. Exports stay
+    available.
+  - Backups on platform targets are copied to a second region, verified
+    by checksum, and the weekly restore test alternates between primary
+    and copy.
+  - Platform → Regions. See docs/regions.md.
+- New migration 00031 (regions, project region and residency, per-region
+  pooler generations, backup copies).
+- Fixed: base backups of HA projects failed (WAL-G connected as
+  `postgres`).
 - Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
   18), and recreating an agent-run shared cluster failed.
 - New migrations 00022 and 00023 (moves, Postgres releases), 00026

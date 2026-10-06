@@ -154,6 +154,16 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
     its variables) and a monthly budget.
   - See [Capacity and costs](capacity.md).
 
+- **Regions** (migration 00031):
+  - A `regions` table is created from the nodes' regions plus
+    `eu-central`; every project is placed in its node's region.
+  - The pooler generation moves to a per-region table; pooler hosts in
+    the home region carry on with the same generation.
+  - Nothing changes for a single-region install. To add one, see
+    [Regions and data residency](regions.md).
+  - Upgrade the agents with the server: HA members get
+    `PGDOCK_ADMIN_USER`, which base backups of HA projects need.
+
 ## Rolling back
 
 Check out the previous tag and run `./install.sh` again. If the new

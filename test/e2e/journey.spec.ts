@@ -1323,6 +1323,34 @@ test.describe("with the saved session", () => {
     await shot(page, "60-costs");
   });
 
+  test("regions: a Lagos region, offered at project creation", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/admin/regions");
+    await expect(page.getByTestId("region-eu-central")).toContainText("home");
+    await page.getByRole("button", { name: "Add region" }).click();
+    await page.getByLabel("ID", { exact: true }).fill("ng-lagos");
+    await page.getByLabel("Name", { exact: true }).fill("Lagos");
+    await page.getByLabel("Country (two letters)").fill("NG");
+    await page.getByLabel("Pooler hostname").fill("db.ng.example.test");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    const lagos = page.getByTestId("region-ng-lagos");
+    await expect(lagos).toContainText("Lagos");
+    await expect(lagos).toContainText("db.ng.example.test");
+    await expect(lagos).toContainText("served by the home poolers");
+    await shot(page, "61-regions");
+
+    // New projects can choose it; the default stays the home region.
+    await page.goto("/projects/new");
+    const picker = page.getByLabel("Region");
+    await expect(picker).toContainText("Lagos (NG)");
+    await expect(picker).toContainText("(default)");
+
+    // An existing project shows its region in Settings.
+    const mine = (await page.evaluate(async () => (await fetch("/api/v1/projects")).json())) as { items: { id: string; region: string }[] };
+    await page.goto(`/projects/${mine.items[0].id}/settings`);
+    await expect(page.getByTestId("project-region")).toContainText(mine.items[0].region);
+  });
+
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
     await signedIn(page);
     // Calls the API as a CI job would: a bearer token, no cookies.

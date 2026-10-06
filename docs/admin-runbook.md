@@ -67,6 +67,9 @@ people (V2 §14 M16):
   wait (an alert fires). When one fails, read its operation log and the
   server's `/var/log/cloud-init-output.log`. See
   [capacity and costs](capacity.md).
+- **Regions** (Platform → Regions): the copy status should show no
+  *failed* copies; a failure says why on the backup (`copy_error`) and is
+  retried after an hour. See [regions](regions.md).
 - **Support** (Platform → Support): answer what's overdue first. The
   queue is ordered by when each ticket is due an answer. Set tickets that
   wait on the customer to *pending*. See [support](support.md).
