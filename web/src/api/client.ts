@@ -77,6 +77,20 @@ export type PricePreview = {
   projected_total_minor: number;
   items: { org_id: string; org_name: string; plan: string; current_minor: number; projected_minor: number }[];
 };
+export type Ticket = S["Ticket"];
+export type TicketDetail = S["TicketDetail"];
+export type TicketMessage = S["TicketMessage"];
+export type TicketUpdate = S["TicketUpdate"];
+export type SupportContext = S["SupportContext"];
+export type SupportPhone = S["SupportPhone"];
+export type SupportStaff = { id: string; email: string; role: string; name?: string };
+export type TicketQueue = { items: Ticket[]; open: number; pending: number; overdue: number };
+export type Revenue = S["Revenue"];
+export type RevenueMonth = S["RevenueMonth"];
+export type LegalDocument = S["LegalDocument"];
+export type OrgLegal = S["OrgLegal"];
+export type LegalVersion = S["LegalVersion"];
+export type LegalDocumentDetail = S["LegalDocumentDetail"];
 export type APIToken = S["APIToken"];
 export type Incident = S["Incident"];
 export type IncidentSeverity = S["IncidentSeverity"];
@@ -629,6 +643,32 @@ export const api = {
     request<CreditNote>("POST", `/api/v1/admin/invoices/${id}/credit-notes`, { amount_minor, reason }),
   ledgerCheck: () => getJSON<LedgerCheck>("/api/v1/admin/ledger/check"),
   adminUpdateOrgBilling: (org: string, b: S["AdminBillingUpdate"]) => request<BillingAccount>("PATCH", `/api/v1/admin/orgs/${org}/billing`, b),
+
+  // Support (V3 §7.1): the organisation's tickets and WhatsApp numbers.
+  orgTickets: (org: string) => getJSON<S["TicketList"]>(`/api/v1/orgs/${org}/support/tickets`),
+  openTicket: (org: string, b: S["TicketOpen"]) => request<Ticket>("POST", `/api/v1/orgs/${org}/support/tickets`, b),
+  orgTicket: (org: string, id: string) => getJSON<TicketDetail>(`/api/v1/orgs/${org}/support/tickets/${id}`),
+  replyTicket: (org: string, id: string, body: string) => request<void>("POST", `/api/v1/orgs/${org}/support/tickets/${id}/messages`, { body }),
+  supportPhones: (org: string) => getJSON<{ items: SupportPhone[]; available: boolean }>(`/api/v1/orgs/${org}/support/phones`),
+  addSupportPhone: (org: string, phone: string) => request<SupportPhone>("POST", `/api/v1/orgs/${org}/support/phones`, { phone }),
+  removeSupportPhone: (org: string, phone: string) => request<void>("DELETE", `/api/v1/orgs/${org}/support/phones/${encodeURIComponent(phone)}`),
+  // The support console (support staff and platform admins).
+  supportQueue: (p: { status?: Ticket["status"]; assignee?: string; org_id?: string } = {}) => getJSON<TicketQueue>(`/api/v1/admin/support/tickets${qs(p)}`),
+  supportTicket: (id: string) => getJSON<TicketDetail>(`/api/v1/admin/support/tickets/${id}`),
+  updateTicket: (id: string, b: TicketUpdate) => request<Ticket>("PATCH", `/api/v1/admin/support/tickets/${id}`, b),
+  staffReply: (id: string, body: string, note: boolean) => request<void>("POST", `/api/v1/admin/support/tickets/${id}/messages`, { body, note }),
+  supportStaff: () => getJSON<{ items: SupportStaff[] }>("/api/v1/admin/support/staff"),
+  // The revenue dashboard (V3 §7.2).
+  revenue: (months = 12) => getJSON<Revenue>(`/api/v1/admin/revenue${qs({ months: String(months) })}`),
+  revenueCsvUrl: (months = 12) => `/api/v1/admin/revenue${qs({ months: String(months), format: "csv" })}`,
+  // Legal documents (V3 §7.3).
+  legal: () => getJSON<{ items: LegalDocument[] }>("/api/v1/legal"),
+  orgLegal: (org: string) => getJSON<OrgLegal>(`/api/v1/orgs/${org}/legal`),
+  acceptLegal: (org: string, id: string) => request<OrgLegal>("POST", `/api/v1/orgs/${org}/legal/${id}/accept`),
+  legalVersions: () => getJSON<{ items: LegalVersion[] }>("/api/v1/admin/legal"),
+  legalDocument: (id: string) => getJSON<LegalDocumentDetail>(`/api/v1/admin/legal/${id}`),
+  publishLegal: (b: S["LegalPublish"]) => request<LegalDocument>("POST", "/api/v1/admin/legal", b),
+  publishOrderForm: (org: string, b: S["OrderFormPublish"]) => request<LegalDocument>("POST", `/api/v1/admin/orgs/${org}/order-form`, b),
 
   generalSettings: () => getJSON<GeneralSettings>("/api/v1/settings/general"),
   setDbHost: (db_host: string) => request<GeneralSettings>("PUT", "/api/v1/settings/db-host", { db_host }),

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -36,6 +36,7 @@ import {
   PaymentsPanel,
   StandingBanner,
 } from "../components/BillingPayments";
+import { LegalBanner } from "./Legal";
 
 /** Owners and billing members see billing (V3 §3.2). */
 export function canSeeBilling(role: string | undefined): boolean {
@@ -127,6 +128,7 @@ export function BillingPage() {
       description={`${org.name}'s plan, spend and invoices. Amounts are before VAT unless they say otherwise.`}
       testId="billing"
     >
+      {org.role === "owner" && a.plan !== "free" && <LegalBanner orgId={org.id} />}
       <StandingBanner a={a} />
       {a.capped && (
         <Alert tone="warn" title="Spend cap reached">
@@ -136,7 +138,7 @@ export function BillingPage() {
         </Alert>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
-        <PlanPanel org={org.id} a={a} />
+        <PlanPanel org={org.id} a={a} owner={org.role === "owner"} />
         <Panel
           title={f ? `${periodLabel(f.month)} so far` : "This month"}
           testId="forecast"
@@ -244,8 +246,10 @@ export function BillingPage() {
   );
 }
 
-function PlanPanel({ org, a }: { org: string; a: BillingAccount }) {
+function PlanPanel({ org, a, owner }: { org: string; a: BillingAccount; owner: boolean }) {
   const qc = useQueryClient();
+  const legal = useQuery({ queryKey: ["org", org, "legal"], queryFn: () => api.orgLegal(org), enabled: owner });
+  const [acceptLegal, setAcceptLegal] = useState(false);
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState(a.plan);
   const [term, setTerm] = useState<"monthly" | "annual">(a.term);
@@ -275,8 +279,9 @@ function PlanPanel({ org, a }: { org: string; a: BillingAccount }) {
     setBusy(true);
     setErr(null);
     try {
-      await api.changePlan(org, { plan, term, immediately });
+      await api.changePlan(org, { plan, term, immediately, accept_legal: acceptLegal || undefined });
       setOpen(false);
+      if (acceptLegal) await qc.invalidateQueries({ queryKey: ["org", org, "legal"] });
       await qc.invalidateQueries({ queryKey: ["billing", org] });
       await qc.invalidateQueries({ queryKey: ["forecast", org] });
     } catch (e) {
@@ -385,6 +390,23 @@ function PlanPanel({ org, a }: { org: string; a: BillingAccount }) {
                 </Select>
               )}
             </Field>
+          )}
+          {owner && plan !== "free" && legal.data?.outstanding && (
+            <label className="flex items-start gap-2" data-testid="accept-legal">
+              <input type="checkbox" className="mt-1" checked={acceptLegal} onChange={(e) => setAcceptLegal(e.target.checked)} />
+              <span>
+                Accept the{" "}
+                {legal.data.items
+                  .filter((d) => !d.accepted_at)
+                  .map((d) => d.document.title.toLowerCase())
+                  .join(", ")}{" "}
+                for the organisation (on the{" "}
+                <Link to="/org/legal" className="underline">
+                  Legal page
+                </Link>
+                )
+              </span>
+            </label>
           )}
           {preview && !preview.upgrade && (
             <label className="flex items-center gap-2">

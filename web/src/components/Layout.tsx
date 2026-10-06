@@ -49,6 +49,7 @@ export function TermsText({ terms }: { terms: Terms }) {
       {terms.terms_md}
       {"\n\n"}
       {terms.privacy_md}
+      {terms.aup_md ? `\n\n${terms.aup_md}` : ""}
     </div>
   );
 }

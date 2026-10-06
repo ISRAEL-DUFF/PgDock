@@ -8,6 +8,9 @@ import {
   Gauge,
   House,
   Inbox,
+  LifeBuoy,
+  Scale,
+  TrendingUp,
   Megaphone,
   ScrollText,
   Server,
@@ -172,6 +175,20 @@ export function orgRail(org: Org | undefined): RailItem[] {
       match: ["/operations"],
     },
     {
+      key: "support",
+      label: "Support",
+      icon: LifeBuoy,
+      to: "/org/support",
+      match: ["/org/support"],
+    },
+    {
+      key: "legal",
+      label: "Legal",
+      icon: Scale,
+      to: "/org/legal",
+      match: ["/org/legal"],
+    },
+    {
       key: "pricing",
       label: "Pricing",
       icon: Tag,
@@ -218,8 +235,18 @@ export function orgRail(org: Org | undefined): RailItem[] {
   return items;
 }
 
-/** The platform admin's sections. */
-export function platformRail(): RailItem[] {
+const supportItem: RailItem = {
+  key: "support-console",
+  label: "Support",
+  icon: LifeBuoy,
+  to: "/admin/support",
+  match: ["/admin/support"],
+};
+
+/** The platform's sections: everything for a platform admin, the support
+ * console alone for support staff (V3 §7.1). */
+export function platformRail(role: string = "platform_admin"): RailItem[] {
+  if (role === "support") return [supportItem];
   return [
     {
       key: "nodes",
@@ -256,6 +283,21 @@ export function platformRail(): RailItem[] {
       to: "/admin/billing",
       match: ["/admin/billing"],
     },
+    {
+      key: "revenue",
+      label: "Revenue",
+      icon: TrendingUp,
+      to: "/admin/revenue",
+      match: ["/admin/revenue"],
+    },
+    {
+      key: "legal",
+      label: "Legal documents",
+      icon: Scale,
+      to: "/admin/legal",
+      match: ["/admin/legal"],
+    },
+    supportItem,
     {
       key: "requests",
       label: "Dedicated requests",

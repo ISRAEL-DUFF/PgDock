@@ -21,6 +21,11 @@ const UsagePage = lazyRouteComponent(() => import("./pages/Usage"), "UsagePage")
 const BillingPage = lazyRouteComponent(() => import("./pages/Billing"), "BillingPage");
 const PricingPage = lazyRouteComponent(() => import("./pages/Pricing"), "PricingPage");
 const AdminBillingPage = lazyRouteComponent(() => import("./pages/AdminBilling"), "AdminBillingPage");
+const AdminRevenuePage = lazyRouteComponent(() => import("./pages/AdminRevenue"), "AdminRevenuePage");
+const SupportPage = lazyRouteComponent(() => import("./pages/Support"), "SupportPage");
+const SupportConsolePage = lazyRouteComponent(() => import("./pages/Support"), "SupportConsolePage");
+const OrgLegalPage = lazyRouteComponent(() => import("./pages/Legal"), "OrgLegalPage");
+const AdminLegalPage = lazyRouteComponent(() => import("./pages/Legal"), "AdminLegalPage");
 const AuditPage = lazyRouteComponent(() => import("./pages/Audit"), "AuditPage");
 const OrgAuditPage = lazyRouteComponent(() => import("./pages/Audit"), "OrgAuditPage");
 const OrgMembersPage = lazyRouteComponent(() => import("./pages/Org"), "OrgMembersPage");
@@ -181,6 +186,11 @@ const adminBilling = createRoute({ getParentRoute: () => app, path: "/admin/bill
 const adminOrgs = createRoute({ getParentRoute: () => app, path: "/admin/orgs", component: AdminOrgsPage });
 const adminOrg = createRoute({ getParentRoute: () => app, path: "/admin/orgs/$id", component: AdminOrgPage });
 const adminPlans = createRoute({ getParentRoute: () => app, path: "/admin/plans", component: AdminPlansPage });
+const adminRevenue = createRoute({ getParentRoute: () => app, path: "/admin/revenue", component: AdminRevenuePage });
+const adminSupport = createRoute({ getParentRoute: () => app, path: "/admin/support", component: SupportConsolePage });
+const adminLegal = createRoute({ getParentRoute: () => app, path: "/admin/legal", component: AdminLegalPage });
+const orgSupport = createRoute({ getParentRoute: () => app, path: "/org/support", component: SupportPage });
+const orgLegal = createRoute({ getParentRoute: () => app, path: "/org/legal", component: OrgLegalPage });
 const adminRequests = createRoute({ getParentRoute: () => app, path: "/admin/dedicated-requests", component: DedicatedRequestsPage });
 
 // The component gallery, in development builds only.
@@ -228,6 +238,11 @@ const routeTree = root.addChildren([
     adminOrg,
     adminPlans,
     adminRequests,
+    adminRevenue,
+    adminSupport,
+    adminLegal,
+    orgSupport,
+    orgLegal,
   ]),
 ]);
 
