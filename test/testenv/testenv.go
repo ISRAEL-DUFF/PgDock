@@ -59,6 +59,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
@@ -398,12 +399,16 @@ func Start(t testing.TB, opts Options) *Env {
 	billingSvc.SetDunning(tenancySvc, nil)
 	billingSvc.SetDocStore(&memDocs{m: map[string][]byte{}})
 	supportSvc := support.New(db, mailSvc, support.Config{Address: "support@pgdock.test", PublicURL: "https://pgdock.test", InboundSecret: "inbound-secret-0123456789"}, log)
+	legalSvc := legal.New(db)
+	if err := legalSvc.EnsureDefaults(ctx); err != nil {
+		t.Fatal(err)
+	}
 	wa := support.NewFakeGraph()
 	waSrv := httptest.NewServer(wa)
 	t.Cleanup(waSrv.Close)
 	supportSvc.SetWhatsApp(support.CloudAPI{BaseURL: waSrv.URL, PhoneNumberID: wa.PhoneNumberID, AccessToken: wa.AccessToken, AppSecret: wa.AppSecret, VerifyToken: "wa-verify"})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc,
+		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",

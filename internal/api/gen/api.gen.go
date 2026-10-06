@@ -1094,6 +1094,45 @@ func (e JobUpdateOverlap) Valid() bool {
 	}
 }
 
+// Defines values for LegalDocumentKind.
+const (
+	LegalDocumentKindDpa       LegalDocumentKind = "dpa"
+	LegalDocumentKindOrderForm LegalDocumentKind = "order_form"
+	LegalDocumentKindSla       LegalDocumentKind = "sla"
+)
+
+// Valid indicates whether the value is a known member of the LegalDocumentKind enum.
+func (e LegalDocumentKind) Valid() bool {
+	switch e {
+	case LegalDocumentKindDpa:
+		return true
+	case LegalDocumentKindOrderForm:
+		return true
+	case LegalDocumentKindSla:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LegalPublishKind.
+const (
+	LegalPublishKindDpa LegalPublishKind = "dpa"
+	LegalPublishKindSla LegalPublishKind = "sla"
+)
+
+// Valid indicates whether the value is a known member of the LegalPublishKind enum.
+func (e LegalPublishKind) Valid() bool {
+	switch e {
+	case LegalPublishKindDpa:
+		return true
+	case LegalPublishKindSla:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MailSettingsTls.
 const (
 	MailSettingsTlsNone     MailSettingsTls = "none"
@@ -4476,6 +4515,64 @@ type LedgerCheck struct {
 	Transactions int `json:"transactions"`
 }
 
+// LegalAcceptance defines model for LegalAcceptance.
+type LegalAcceptance struct {
+	AcceptedAt time.Time          `json:"accepted_at"`
+	AcceptedBy *string            `json:"accepted_by,omitempty"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	OrgName    string             `json:"org_name"`
+}
+
+// LegalDocument defines model for LegalDocument.
+type LegalDocument struct {
+	BodyMd      string              `json:"body_md"`
+	Id          openapi_types.UUID  `json:"id"`
+	Kind        LegalDocumentKind   `json:"kind"`
+	OrgId       *openapi_types.UUID `json:"org_id,omitempty"`
+	PublishedAt time.Time           `json:"published_at"`
+	Title       string              `json:"title"`
+	Version     int32               `json:"version"`
+}
+
+// LegalDocumentKind defines model for LegalDocument.Kind.
+type LegalDocumentKind string
+
+// LegalDocumentDetail defines model for LegalDocumentDetail.
+type LegalDocumentDetail struct {
+	Acceptances []LegalAcceptance `json:"acceptances"`
+	Document    LegalDocument     `json:"document"`
+}
+
+// LegalDocumentList defines model for LegalDocumentList.
+type LegalDocumentList struct {
+	Items []LegalDocument `json:"items"`
+}
+
+// LegalPublish defines model for LegalPublish.
+type LegalPublish struct {
+	BodyMd string           `json:"body_md"`
+	Kind   LegalPublishKind `json:"kind"`
+	Title  string           `json:"title"`
+}
+
+// LegalPublishKind defines model for LegalPublish.Kind.
+type LegalPublishKind string
+
+// LegalVersion defines model for LegalVersion.
+type LegalVersion struct {
+	Acceptances int64              `json:"acceptances"`
+	Id          openapi_types.UUID `json:"id"`
+	Kind        string             `json:"kind"`
+	PublishedAt time.Time          `json:"published_at"`
+	Title       string             `json:"title"`
+	Version     int32              `json:"version"`
+}
+
+// LegalVersionList defines model for LegalVersionList.
+type LegalVersionList struct {
+	Items []LegalVersion `json:"items"`
+}
+
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
 	ChallengeId string `json:"challenge_id"`
@@ -4733,6 +4830,12 @@ type OperationLogEntryLevel string
 // OperationStatus defines model for OperationStatus.
 type OperationStatus string
 
+// OrderFormPublish defines model for OrderFormPublish.
+type OrderFormPublish struct {
+	BodyMd string `json:"body_md"`
+	Title  string `json:"title"`
+}
+
 // Org defines model for Org.
 type Org struct {
 	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
@@ -4765,6 +4868,21 @@ type OrgStatus string
 // OrgDeletion defines model for OrgDeletion.
 type OrgDeletion struct {
 	DeleteAfter time.Time `json:"delete_after"`
+}
+
+// OrgLegal defines model for OrgLegal.
+type OrgLegal struct {
+	Items []OrgLegalDocument `json:"items"`
+
+	// Outstanding Some document in effect isn't accepted yet.
+	Outstanding bool `json:"outstanding"`
+}
+
+// OrgLegalDocument defines model for OrgLegalDocument.
+type OrgLegalDocument struct {
+	AcceptedAt *time.Time    `json:"accepted_at,omitempty"`
+	AcceptedBy *string       `json:"accepted_by,omitempty"`
+	Document   LegalDocument `json:"document"`
 }
 
 // OrgList defines model for OrgList.
@@ -4968,7 +5086,9 @@ type PlanChange struct {
 
 // PlanChangeRequest defines model for PlanChangeRequest.
 type PlanChangeRequest struct {
-	DryRun *bool `json:"dry_run,omitempty"`
+	// AcceptLegal Accept the SLA, DPA and order form in effect on the organisation's behalf (owners).
+	AcceptLegal *bool `json:"accept_legal,omitempty"`
+	DryRun      *bool `json:"dry_run,omitempty"`
 
 	// Immediately Apply a downgrade now, with a credit for the unused part.
 	Immediately *bool                  `json:"immediately,omitempty"`
@@ -7283,6 +7403,9 @@ type AdminCreateCreditNoteJSONRequestBody AdminCreateCreditNoteJSONBody
 // AdminHoldInvoiceJSONRequestBody defines body for AdminHoldInvoice for application/json ContentType.
 type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
 
+// AdminPublishLegalJSONRequestBody defines body for AdminPublishLegal for application/json ContentType.
+type AdminPublishLegalJSONRequestBody = LegalPublish
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -7300,6 +7423,9 @@ type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 
 // AdminSetOrgClusterJSONRequestBody defines body for AdminSetOrgCluster for application/json ContentType.
 type AdminSetOrgClusterJSONRequestBody = SetOrgClusterRequest
+
+// AdminPublishOrderFormJSONRequestBody defines body for AdminPublishOrderForm for application/json ContentType.
+type AdminPublishOrderFormJSONRequestBody = OrderFormPublish
 
 // AdminSetOrgOutboundAllowlistJSONRequestBody defines body for AdminSetOrgOutboundAllowlist for application/json ContentType.
 type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
@@ -7711,6 +7837,15 @@ type ServerInterface interface {
 	// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
 	// (GET /api/v1/admin/ledger/check)
 	AdminLedgerCheck(w http.ResponseWriter, r *http.Request)
+	// AdminListLegal Every version of the platform-wide documents, with their acceptance counts
+	// (GET /api/v1/admin/legal)
+	AdminListLegal(w http.ResponseWriter, r *http.Request)
+	// AdminPublishLegal Publish a new version of the SLA or DPA
+	// (POST /api/v1/admin/legal)
+	AdminPublishLegal(w http.ResponseWriter, r *http.Request)
+	// AdminGetLegal A document version and the organisations that accepted it
+	// (GET /api/v1/admin/legal/{document_id})
+	AdminGetLegal(w http.ResponseWriter, r *http.Request, documentId openapi_types.UUID)
 	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	// (GET /api/v1/admin/maintenance)
 	GetMaintenance(w http.ResponseWriter, r *http.Request)
@@ -7741,6 +7876,9 @@ type ServerInterface interface {
 	// AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
 	// (POST /api/v1/admin/orgs/{org}/cluster)
 	AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminPublishOrderForm Publish a new version of an organisation's order form
+	// (POST /api/v1/admin/orgs/{org}/order-form)
+	AdminPublishOrderForm(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
 	// (GET /api/v1/admin/orgs/{org}/outbound)
 	AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -7966,6 +8104,9 @@ type ServerInterface interface {
 	// PreviewInvitation What an invitation link offers (public, token-gated)
 	// (POST /api/v1/invitations/preview)
 	PreviewInvitation(w http.ResponseWriter, r *http.Request)
+	// GetLegal The service level agreement and data processing agreement in effect (public)
+	// (GET /api/v1/legal)
+	GetLegal(w http.ResponseWriter, r *http.Request)
 	// GetMe The signed-in user
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
@@ -8128,6 +8269,12 @@ type ServerInterface interface {
 	// LeaveOrg Leave an organisation
 	// (POST /api/v1/orgs/{org}/leave)
 	LeaveOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgLegal The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+	// (GET /api/v1/orgs/{org}/legal)
+	GetOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AcceptOrgLegal Accept a document on the organisation's behalf (owners)
+	// (POST /api/v1/orgs/{org}/legal/{document_id}/accept)
+	AcceptOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID, documentId openapi_types.UUID)
 	// ListOrgMembers Members, their roles and project memberships
 	// (GET /api/v1/orgs/{org}/members)
 	ListOrgMembers(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -8674,6 +8821,24 @@ func (_ Unimplemented) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminListLegal Every version of the platform-wide documents, with their acceptance counts
+// (GET /api/v1/admin/legal)
+func (_ Unimplemented) AdminListLegal(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminPublishLegal Publish a new version of the SLA or DPA
+// (POST /api/v1/admin/legal)
+func (_ Unimplemented) AdminPublishLegal(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetLegal A document version and the organisations that accepted it
+// (GET /api/v1/admin/legal/{document_id})
+func (_ Unimplemented) AdminGetLegal(w http.ResponseWriter, r *http.Request, documentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 // (GET /api/v1/admin/maintenance)
 func (_ Unimplemented) GetMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -8731,6 +8896,12 @@ func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Reque
 // AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
 // (POST /api/v1/admin/orgs/{org}/cluster)
 func (_ Unimplemented) AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminPublishOrderForm Publish a new version of an organisation's order form
+// (POST /api/v1/admin/orgs/{org}/order-form)
+func (_ Unimplemented) AdminPublishOrderForm(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -9184,6 +9355,12 @@ func (_ Unimplemented) PreviewInvitation(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetLegal The service level agreement and data processing agreement in effect (public)
+// (GET /api/v1/legal)
+func (_ Unimplemented) GetLegal(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetMe The signed-in user
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -9505,6 +9682,18 @@ func (_ Unimplemented) RevokeOrgInvitation(w http.ResponseWriter, r *http.Reques
 // LeaveOrg Leave an organisation
 // (POST /api/v1/orgs/{org}/leave)
 func (_ Unimplemented) LeaveOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgLegal The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+// (GET /api/v1/orgs/{org}/legal)
+func (_ Unimplemented) GetOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AcceptOrgLegal Accept a document on the organisation's behalf (owners)
+// (POST /api/v1/orgs/{org}/legal/{document_id}/accept)
+func (_ Unimplemented) AcceptOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID, documentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10931,6 +11120,60 @@ func (siw *ServerInterfaceWrapper) AdminLedgerCheck(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// AdminListLegal operation middleware
+func (siw *ServerInterfaceWrapper) AdminListLegal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListLegal(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminPublishLegal operation middleware
+func (siw *ServerInterfaceWrapper) AdminPublishLegal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminPublishLegal(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetLegal operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetLegal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "document_id" -------------
+	var documentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "document_id", chi.URLParam(r, "document_id"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "document_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetLegal(w, r, documentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMaintenance operation middleware
 func (siw *ServerInterfaceWrapper) GetMaintenance(w http.ResponseWriter, r *http.Request) {
 
@@ -11165,6 +11408,32 @@ func (siw *ServerInterfaceWrapper) AdminSetOrgCluster(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminSetOrgCluster(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminPublishOrderForm operation middleware
+func (siw *ServerInterfaceWrapper) AdminPublishOrderForm(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminPublishOrderForm(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12897,6 +13166,20 @@ func (siw *ServerInterfaceWrapper) PreviewInvitation(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// GetLegal operation middleware
+func (siw *ServerInterfaceWrapper) GetLegal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLegal(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
@@ -14414,6 +14697,67 @@ func (siw *ServerInterfaceWrapper) LeaveOrg(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.LeaveOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgLegal operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgLegal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgLegal(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptOrgLegal operation middleware
+func (siw *ServerInterfaceWrapper) AcceptOrgLegal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "document_id" -------------
+	var documentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "document_id", chi.URLParam(r, "document_id"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "document_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptOrgLegal(w, r, org, documentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19426,6 +19770,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/support/staff", wrapper.AdminSupportStaff)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/legal", wrapper.GetLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/legal", wrapper.GetOrgLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/legal/{document_id}/accept", wrapper.AcceptOrgLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/legal", wrapper.AdminListLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/legal", wrapper.AdminPublishLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/legal/{document_id}", wrapper.AdminGetLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/order-form", wrapper.AdminPublishOrderForm)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/revenue", wrapper.AdminRevenue)

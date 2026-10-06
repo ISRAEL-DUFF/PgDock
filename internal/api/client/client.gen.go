@@ -1098,6 +1098,45 @@ func (e JobUpdateOverlap) Valid() bool {
 	}
 }
 
+// Defines values for LegalDocumentKind.
+const (
+	LegalDocumentKindDpa       LegalDocumentKind = "dpa"
+	LegalDocumentKindOrderForm LegalDocumentKind = "order_form"
+	LegalDocumentKindSla       LegalDocumentKind = "sla"
+)
+
+// Valid indicates whether the value is a known member of the LegalDocumentKind enum.
+func (e LegalDocumentKind) Valid() bool {
+	switch e {
+	case LegalDocumentKindDpa:
+		return true
+	case LegalDocumentKindOrderForm:
+		return true
+	case LegalDocumentKindSla:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LegalPublishKind.
+const (
+	LegalPublishKindDpa LegalPublishKind = "dpa"
+	LegalPublishKindSla LegalPublishKind = "sla"
+)
+
+// Valid indicates whether the value is a known member of the LegalPublishKind enum.
+func (e LegalPublishKind) Valid() bool {
+	switch e {
+	case LegalPublishKindDpa:
+		return true
+	case LegalPublishKindSla:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MailSettingsTls.
 const (
 	MailSettingsTlsNone     MailSettingsTls = "none"
@@ -4480,6 +4519,64 @@ type LedgerCheck struct {
 	Transactions int `json:"transactions"`
 }
 
+// LegalAcceptance defines model for LegalAcceptance.
+type LegalAcceptance struct {
+	AcceptedAt time.Time          `json:"accepted_at"`
+	AcceptedBy *string            `json:"accepted_by,omitempty"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	OrgName    string             `json:"org_name"`
+}
+
+// LegalDocument defines model for LegalDocument.
+type LegalDocument struct {
+	BodyMd      string              `json:"body_md"`
+	Id          openapi_types.UUID  `json:"id"`
+	Kind        LegalDocumentKind   `json:"kind"`
+	OrgId       *openapi_types.UUID `json:"org_id,omitempty"`
+	PublishedAt time.Time           `json:"published_at"`
+	Title       string              `json:"title"`
+	Version     int32               `json:"version"`
+}
+
+// LegalDocumentKind defines model for LegalDocument.Kind.
+type LegalDocumentKind string
+
+// LegalDocumentDetail defines model for LegalDocumentDetail.
+type LegalDocumentDetail struct {
+	Acceptances []LegalAcceptance `json:"acceptances"`
+	Document    LegalDocument     `json:"document"`
+}
+
+// LegalDocumentList defines model for LegalDocumentList.
+type LegalDocumentList struct {
+	Items []LegalDocument `json:"items"`
+}
+
+// LegalPublish defines model for LegalPublish.
+type LegalPublish struct {
+	BodyMd string           `json:"body_md"`
+	Kind   LegalPublishKind `json:"kind"`
+	Title  string           `json:"title"`
+}
+
+// LegalPublishKind defines model for LegalPublish.Kind.
+type LegalPublishKind string
+
+// LegalVersion defines model for LegalVersion.
+type LegalVersion struct {
+	Acceptances int64              `json:"acceptances"`
+	Id          openapi_types.UUID `json:"id"`
+	Kind        string             `json:"kind"`
+	PublishedAt time.Time          `json:"published_at"`
+	Title       string             `json:"title"`
+	Version     int32              `json:"version"`
+}
+
+// LegalVersionList defines model for LegalVersionList.
+type LegalVersionList struct {
+	Items []LegalVersion `json:"items"`
+}
+
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
 	ChallengeId string `json:"challenge_id"`
@@ -4737,6 +4834,12 @@ type OperationLogEntryLevel string
 // OperationStatus defines model for OperationStatus.
 type OperationStatus string
 
+// OrderFormPublish defines model for OrderFormPublish.
+type OrderFormPublish struct {
+	BodyMd string `json:"body_md"`
+	Title  string `json:"title"`
+}
+
 // Org defines model for Org.
 type Org struct {
 	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
@@ -4769,6 +4872,21 @@ type OrgStatus string
 // OrgDeletion defines model for OrgDeletion.
 type OrgDeletion struct {
 	DeleteAfter time.Time `json:"delete_after"`
+}
+
+// OrgLegal defines model for OrgLegal.
+type OrgLegal struct {
+	Items []OrgLegalDocument `json:"items"`
+
+	// Outstanding Some document in effect isn't accepted yet.
+	Outstanding bool `json:"outstanding"`
+}
+
+// OrgLegalDocument defines model for OrgLegalDocument.
+type OrgLegalDocument struct {
+	AcceptedAt *time.Time    `json:"accepted_at,omitempty"`
+	AcceptedBy *string       `json:"accepted_by,omitempty"`
+	Document   LegalDocument `json:"document"`
 }
 
 // OrgList defines model for OrgList.
@@ -4972,7 +5090,9 @@ type PlanChange struct {
 
 // PlanChangeRequest defines model for PlanChangeRequest.
 type PlanChangeRequest struct {
-	DryRun *bool `json:"dry_run,omitempty"`
+	// AcceptLegal Accept the SLA, DPA and order form in effect on the organisation's behalf (owners).
+	AcceptLegal *bool `json:"accept_legal,omitempty"`
+	DryRun      *bool `json:"dry_run,omitempty"`
 
 	// Immediately Apply a downgrade now, with a credit for the unused part.
 	Immediately *bool                  `json:"immediately,omitempty"`
@@ -7287,6 +7407,9 @@ type AdminCreateCreditNoteJSONRequestBody AdminCreateCreditNoteJSONBody
 // AdminHoldInvoiceJSONRequestBody defines body for AdminHoldInvoice for application/json ContentType.
 type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
 
+// AdminPublishLegalJSONRequestBody defines body for AdminPublishLegal for application/json ContentType.
+type AdminPublishLegalJSONRequestBody = LegalPublish
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -7304,6 +7427,9 @@ type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 
 // AdminSetOrgClusterJSONRequestBody defines body for AdminSetOrgCluster for application/json ContentType.
 type AdminSetOrgClusterJSONRequestBody = SetOrgClusterRequest
+
+// AdminPublishOrderFormJSONRequestBody defines body for AdminPublishOrderForm for application/json ContentType.
+type AdminPublishOrderFormJSONRequestBody = OrderFormPublish
 
 // AdminSetOrgOutboundAllowlistJSONRequestBody defines body for AdminSetOrgOutboundAllowlist for application/json ContentType.
 type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
@@ -7907,6 +8033,30 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
 	AdminLedgerCheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AdminListLegal Every version of the platform-wide documents, with their acceptance counts
+	//
+	// Corresponds with GET /api/v1/admin/legal (the `AdminListLegal` operationId).
+	AdminListLegal(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminPublishLegalWithBody Publish a new version of the SLA or DPA
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+	AdminPublishLegalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminPublishLegal Publish a new version of the SLA or DPA
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+	AdminPublishLegal(ctx context.Context, body AdminPublishLegalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminGetLegal A document version and the organisations that accepted it
+	//
+	// Corresponds with GET /api/v1/admin/legal/{document_id} (the `AdminGetLegal` operationId).
+	AdminGetLegal(ctx context.Context, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	//
 	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
@@ -8010,6 +8160,20 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/orgs/{org}/cluster (the `AdminSetOrgCluster` operationId).
 	AdminSetOrgCluster(ctx context.Context, org OrgID, body AdminSetOrgClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminPublishOrderFormWithBody Publish a new version of an organisation's order form
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+	AdminPublishOrderFormWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminPublishOrderForm Publish a new version of an organisation's order form
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+	AdminPublishOrderForm(ctx context.Context, org OrgID, body AdminPublishOrderFormJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
 	//
@@ -8893,6 +9057,11 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/invitations/preview (the `PreviewInvitation` operationId).
 	PreviewInvitation(ctx context.Context, body PreviewInvitationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetLegal The service level agreement and data processing agreement in effect (public)
+	//
+	// Corresponds with GET /api/v1/legal (the `GetLegal` operationId).
+	GetLegal(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMe The signed-in user
 	//
 	// Corresponds with GET /api/v1/me (the `GetMe` operationId).
@@ -9307,6 +9476,16 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/leave (the `LeaveOrg` operationId).
 	LeaveOrg(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgLegal The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/legal (the `GetOrgLegal` operationId).
+	GetOrgLegal(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptOrgLegal Accept a document on the organisation's behalf (owners)
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/legal/{document_id}/accept (the `AcceptOrgLegal` operationId).
+	AcceptOrgLegal(ctx context.Context, org OrgID, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrgMembers Members, their roles and project memberships
 	//
@@ -11343,6 +11522,70 @@ func (c *Client) AdminLedgerCheck(ctx context.Context, reqEditors ...RequestEdit
 	return c.Client.Do(req)
 }
 
+// AdminListLegal Every version of the platform-wide documents, with their acceptance counts
+//
+// Corresponds with GET /api/v1/admin/legal (the `AdminListLegal` operationId).
+func (c *Client) AdminListLegal(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminListLegalRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminPublishLegalWithBody Publish a new version of the SLA or DPA
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+func (c *Client) AdminPublishLegalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminPublishLegalRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminPublishLegal Publish a new version of the SLA or DPA
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+func (c *Client) AdminPublishLegal(ctx context.Context, body AdminPublishLegalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminPublishLegalRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminGetLegal A document version and the organisations that accepted it
+//
+// Corresponds with GET /api/v1/admin/legal/{document_id} (the `AdminGetLegal` operationId).
+func (c *Client) AdminGetLegal(ctx context.Context, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminGetLegalRequest(c.Server, documentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 //
 // Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
@@ -11597,6 +11840,40 @@ func (c *Client) AdminSetOrgClusterWithBody(ctx context.Context, org OrgID, cont
 // Corresponds with POST /api/v1/admin/orgs/{org}/cluster (the `AdminSetOrgCluster` operationId).
 func (c *Client) AdminSetOrgCluster(ctx context.Context, org OrgID, body AdminSetOrgClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminSetOrgClusterRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminPublishOrderFormWithBody Publish a new version of an organisation's order form
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+func (c *Client) AdminPublishOrderFormWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminPublishOrderFormRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminPublishOrderForm Publish a new version of an organisation's order form
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+func (c *Client) AdminPublishOrderForm(ctx context.Context, org OrgID, body AdminPublishOrderFormJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminPublishOrderFormRequest(c.Server, org, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13659,6 +13936,21 @@ func (c *Client) PreviewInvitation(ctx context.Context, body PreviewInvitationJS
 	return c.Client.Do(req)
 }
 
+// GetLegal The service level agreement and data processing agreement in effect (public)
+//
+// Corresponds with GET /api/v1/legal (the `GetLegal` operationId).
+func (c *Client) GetLegal(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLegalRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetMe The signed-in user
 //
 // Corresponds with GET /api/v1/me (the `GetMe` operationId).
@@ -14754,6 +15046,36 @@ func (c *Client) RevokeOrgInvitation(ctx context.Context, org OrgID, invitationI
 // Corresponds with POST /api/v1/orgs/{org}/leave (the `LeaveOrg` operationId).
 func (c *Client) LeaveOrg(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewLeaveOrgRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgLegal The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+//
+// Corresponds with GET /api/v1/orgs/{org}/legal (the `GetOrgLegal` operationId).
+func (c *Client) GetOrgLegal(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgLegalRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptOrgLegal Accept a document on the organisation's behalf (owners)
+//
+// Corresponds with POST /api/v1/orgs/{org}/legal/{document_id}/accept (the `AcceptOrgLegal` operationId).
+func (c *Client) AcceptOrgLegal(ctx context.Context, org OrgID, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptOrgLegalRequest(c.Server, org, documentId)
 	if err != nil {
 		return nil, err
 	}
@@ -19209,6 +19531,107 @@ func NewAdminLedgerCheckRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewAdminListLegalRequest constructs an http.Request for the AdminListLegal method
+func NewAdminListLegalRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/legal")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdminPublishLegalRequest calls the generic AdminPublishLegal builder with application/json body
+func NewAdminPublishLegalRequest(server string, body AdminPublishLegalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminPublishLegalRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAdminPublishLegalRequestWithBody constructs an http.Request for the AdminPublishLegal method, with any body, and a specified content type
+func NewAdminPublishLegalRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/legal")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminGetLegalRequest constructs an http.Request for the AdminGetLegal method
+func NewAdminGetLegalRequest(server string, documentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "document_id", documentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/legal/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetMaintenanceRequest constructs an http.Request for the GetMaintenance method
 func NewGetMaintenanceRequest(server string) (*http.Request, error) {
 	var err error
@@ -19614,6 +20037,53 @@ func NewAdminSetOrgClusterRequestWithBody(server string, org OrgID, contentType 
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/admin/orgs/%s/cluster", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminPublishOrderFormRequest calls the generic AdminPublishOrderForm builder with application/json body
+func NewAdminPublishOrderFormRequest(server string, org OrgID, body AdminPublishOrderFormJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminPublishOrderFormRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewAdminPublishOrderFormRequestWithBody constructs an http.Request for the AdminPublishOrderForm method, with any body, and a specified content type
+func NewAdminPublishOrderFormRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/orgs/%s/order-form", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -22822,6 +23292,33 @@ func NewPreviewInvitationRequestWithBody(server string, contentType string, body
 	return req, nil
 }
 
+// NewGetLegalRequest constructs an http.Request for the GetLegal method
+func NewGetLegalRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/legal")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetMeRequest constructs an http.Request for the GetMe method
 func NewGetMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -25034,6 +25531,81 @@ func NewLeaveOrgRequest(server string, org OrgID) (*http.Request, error) {
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/orgs/%s/leave", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrgLegalRequest constructs an http.Request for the GetOrgLegal method
+func NewGetOrgLegalRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/legal", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAcceptOrgLegalRequest constructs an http.Request for the AcceptOrgLegal method
+func NewAcceptOrgLegalRequest(server string, org OrgID, documentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "document_id", documentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/legal/%s/accept", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -31396,6 +31968,34 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/admin/ledger/check (the `AdminLedgerCheck` operationId).
 	AdminLedgerCheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminLedgerCheckResponse, error)
 
+	// AdminListLegalWithResponse Every version of the platform-wide documents, with their acceptance counts
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/legal (the `AdminListLegal` operationId).
+	AdminListLegalWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminListLegalResponse, error)
+
+	// AdminPublishLegalWithBodyWithResponse Publish a new version of the SLA or DPA
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+	AdminPublishLegalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminPublishLegalResponse, error)
+
+	// AdminPublishLegalWithResponse Publish a new version of the SLA or DPA
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+	AdminPublishLegalWithResponse(ctx context.Context, body AdminPublishLegalJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminPublishLegalResponse, error)
+
+	// AdminGetLegalWithResponse A document version and the organisations that accepted it
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/legal/{document_id} (the `AdminGetLegal` operationId).
+	AdminGetLegalWithResponse(ctx context.Context, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AdminGetLegalResponse, error)
+
 	// GetMaintenanceWithResponse The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -31507,6 +32107,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/orgs/{org}/cluster (the `AdminSetOrgCluster` operationId).
 	AdminSetOrgClusterWithResponse(ctx context.Context, org OrgID, body AdminSetOrgClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminSetOrgClusterResponse, error)
+
+	// AdminPublishOrderFormWithBodyWithResponse Publish a new version of an organisation's order form
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+	AdminPublishOrderFormWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminPublishOrderFormResponse, error)
+
+	// AdminPublishOrderFormWithResponse Publish a new version of an organisation's order form
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+	AdminPublishOrderFormWithResponse(ctx context.Context, org OrgID, body AdminPublishOrderFormJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminPublishOrderFormResponse, error)
 
 	// AdminGetOrgOutboundWithResponse An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
 	//
@@ -32456,6 +33070,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/invitations/preview (the `PreviewInvitation` operationId).
 	PreviewInvitationWithResponse(ctx context.Context, body PreviewInvitationJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewInvitationResponse, error)
 
+	// GetLegalWithResponse The service level agreement and data processing agreement in effect (public)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/legal (the `GetLegal` operationId).
+	GetLegalWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLegalResponse, error)
+
 	// GetMeWithResponse The signed-in user
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -32946,6 +33567,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/leave (the `LeaveOrg` operationId).
 	LeaveOrgWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*LeaveOrgResponse, error)
+
+	// GetOrgLegalWithResponse The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/legal (the `GetOrgLegal` operationId).
+	GetOrgLegalWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgLegalResponse, error)
+
+	// AcceptOrgLegalWithResponse Accept a document on the organisation's behalf (owners)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/legal/{document_id}/accept (the `AcceptOrgLegal` operationId).
+	AcceptOrgLegalWithResponse(ctx context.Context, org OrgID, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AcceptOrgLegalResponse, error)
 
 	// ListOrgMembersWithResponse Members, their roles and project memberships
 	//
@@ -35690,6 +36325,150 @@ func (r AdminLedgerCheckResponse) ContentType() string {
 	return ""
 }
 
+type AdminListLegalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LegalVersionList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminListLegalResponse) GetJSON200() *LegalVersionList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminListLegalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminListLegalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminListLegalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminListLegalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminListLegalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminPublishLegalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *LegalDocument
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AdminPublishLegalResponse) GetJSON201() *LegalDocument {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminPublishLegalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminPublishLegalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminPublishLegalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminPublishLegalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminPublishLegalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminGetLegalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LegalDocumentDetail
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminGetLegalResponse) GetJSON200() *LegalDocumentDetail {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminGetLegalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminGetLegalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminGetLegalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminGetLegalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminGetLegalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMaintenanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36157,6 +36936,54 @@ func (r AdminSetOrgClusterResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AdminSetOrgClusterResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminPublishOrderFormResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *LegalDocument
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AdminPublishOrderFormResponse) GetJSON201() *LegalDocument {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminPublishOrderFormResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminPublishOrderFormResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminPublishOrderFormResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminPublishOrderFormResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminPublishOrderFormResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -39763,6 +40590,54 @@ func (r PreviewInvitationResponse) ContentType() string {
 	return ""
 }
 
+type GetLegalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LegalDocumentList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetLegalResponse) GetJSON200() *LegalDocumentList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetLegalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetLegalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLegalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLegalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLegalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -42258,6 +43133,102 @@ func (r LeaveOrgResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r LeaveOrgResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgLegalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *OrgLegal
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgLegalResponse) GetJSON200() *OrgLegal {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgLegalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgLegalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgLegalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgLegalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgLegalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AcceptOrgLegalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *OrgLegal
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcceptOrgLegalResponse) GetJSON200() *OrgLegal {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AcceptOrgLegalResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AcceptOrgLegalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AcceptOrgLegalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcceptOrgLegalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AcceptOrgLegalResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49057,6 +50028,58 @@ func (c *ClientWithResponses) AdminLedgerCheckWithResponse(ctx context.Context, 
 	return ParseAdminLedgerCheckResponse(rsp)
 }
 
+// AdminListLegalWithResponse Every version of the platform-wide documents, with their acceptance counts
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/legal (the `AdminListLegal` operationId).
+func (c *ClientWithResponses) AdminListLegalWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminListLegalResponse, error) {
+	rsp, err := c.AdminListLegal(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminListLegalResponse(rsp)
+}
+
+// AdminPublishLegalWithBodyWithResponse Publish a new version of the SLA or DPA
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+func (c *ClientWithResponses) AdminPublishLegalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminPublishLegalResponse, error) {
+	rsp, err := c.AdminPublishLegalWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminPublishLegalResponse(rsp)
+}
+
+// AdminPublishLegalWithResponse Publish a new version of the SLA or DPA
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/legal (the `AdminPublishLegal` operationId).
+func (c *ClientWithResponses) AdminPublishLegalWithResponse(ctx context.Context, body AdminPublishLegalJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminPublishLegalResponse, error) {
+	rsp, err := c.AdminPublishLegal(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminPublishLegalResponse(rsp)
+}
+
+// AdminGetLegalWithResponse A document version and the organisations that accepted it
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/legal/{document_id} (the `AdminGetLegal` operationId).
+func (c *ClientWithResponses) AdminGetLegalWithResponse(ctx context.Context, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AdminGetLegalResponse, error) {
+	rsp, err := c.AdminGetLegal(ctx, documentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminGetLegalResponse(rsp)
+}
+
 // GetMaintenanceWithResponse The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 //
 // Returns a wrapper object for the known response body format(s).
@@ -49263,6 +50286,32 @@ func (c *ClientWithResponses) AdminSetOrgClusterWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseAdminSetOrgClusterResponse(rsp)
+}
+
+// AdminPublishOrderFormWithBodyWithResponse Publish a new version of an organisation's order form
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+func (c *ClientWithResponses) AdminPublishOrderFormWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminPublishOrderFormResponse, error) {
+	rsp, err := c.AdminPublishOrderFormWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminPublishOrderFormResponse(rsp)
+}
+
+// AdminPublishOrderFormWithResponse Publish a new version of an organisation's order form
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/orgs/{org}/order-form (the `AdminPublishOrderForm` operationId).
+func (c *ClientWithResponses) AdminPublishOrderFormWithResponse(ctx context.Context, org OrgID, body AdminPublishOrderFormJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminPublishOrderFormResponse, error) {
+	rsp, err := c.AdminPublishOrderForm(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminPublishOrderFormResponse(rsp)
 }
 
 // AdminGetOrgOutboundWithResponse An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
@@ -50915,6 +51964,19 @@ func (c *ClientWithResponses) PreviewInvitationWithResponse(ctx context.Context,
 	return ParsePreviewInvitationResponse(rsp)
 }
 
+// GetLegalWithResponse The service level agreement and data processing agreement in effect (public)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/legal (the `GetLegal` operationId).
+func (c *ClientWithResponses) GetLegalWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLegalResponse, error) {
+	rsp, err := c.GetLegal(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLegalResponse(rsp)
+}
+
 // GetMeWithResponse The signed-in user
 //
 // Returns a wrapper object for the known response body format(s).
@@ -51818,6 +52880,32 @@ func (c *ClientWithResponses) LeaveOrgWithResponse(ctx context.Context, org OrgI
 		return nil, err
 	}
 	return ParseLeaveOrgResponse(rsp)
+}
+
+// GetOrgLegalWithResponse The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/legal (the `GetOrgLegal` operationId).
+func (c *ClientWithResponses) GetOrgLegalWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgLegalResponse, error) {
+	rsp, err := c.GetOrgLegal(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgLegalResponse(rsp)
+}
+
+// AcceptOrgLegalWithResponse Accept a document on the organisation's behalf (owners)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/legal/{document_id}/accept (the `AcceptOrgLegal` operationId).
+func (c *ClientWithResponses) AcceptOrgLegalWithResponse(ctx context.Context, org OrgID, documentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AcceptOrgLegalResponse, error) {
+	rsp, err := c.AcceptOrgLegal(ctx, org, documentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptOrgLegalResponse(rsp)
 }
 
 // ListOrgMembersWithResponse Members, their roles and project memberships
@@ -55395,6 +56483,105 @@ func ParseAdminLedgerCheckResponse(rsp *http.Response) (*AdminLedgerCheckRespons
 	return response, nil
 }
 
+// ParseAdminListLegalResponse parses an HTTP response from a AdminListLegalWithResponse call
+func ParseAdminListLegalResponse(rsp *http.Response) (*AdminListLegalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminListLegalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LegalVersionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminPublishLegalResponse parses an HTTP response from a AdminPublishLegalWithResponse call
+func ParseAdminPublishLegalResponse(rsp *http.Response) (*AdminPublishLegalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminPublishLegalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LegalDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminGetLegalResponse parses an HTTP response from a AdminGetLegalWithResponse call
+func ParseAdminGetLegalResponse(rsp *http.Response) (*AdminGetLegalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminGetLegalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LegalDocumentDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetMaintenanceResponse parses an HTTP response from a GetMaintenanceWithResponse call
 func ParseGetMaintenanceResponse(rsp *http.Response) (*GetMaintenanceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -55708,6 +56895,39 @@ func ParseAdminSetOrgClusterResponse(rsp *http.Response) (*AdminSetOrgClusterRes
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminPublishOrderFormResponse parses an HTTP response from a AdminPublishOrderFormWithResponse call
+func ParseAdminPublishOrderFormResponse(rsp *http.Response) (*AdminPublishOrderFormResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminPublishOrderFormResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LegalDocument
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -58199,6 +59419,39 @@ func ParsePreviewInvitationResponse(rsp *http.Response) (*PreviewInvitationRespo
 	return response, nil
 }
 
+// ParseGetLegalResponse parses an HTTP response from a GetLegalWithResponse call
+func ParseGetLegalResponse(rsp *http.Response) (*GetLegalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLegalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LegalDocumentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetMeResponse parses an HTTP response from a GetMeWithResponse call
 func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -59905,6 +61158,72 @@ func ParseLeaveOrgResponse(rsp *http.Response) (*LeaveOrgResponse, error) {
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgLegalResponse parses an HTTP response from a GetOrgLegalWithResponse call
+func ParseGetOrgLegalResponse(rsp *http.Response) (*GetOrgLegalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgLegalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrgLegal
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAcceptOrgLegalResponse parses an HTTP response from a AcceptOrgLegalWithResponse call
+func ParseAcceptOrgLegalResponse(rsp *http.Response) (*AcceptOrgLegalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcceptOrgLegalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrgLegal
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

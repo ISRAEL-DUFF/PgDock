@@ -494,6 +494,8 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/orgs/{org}/support/tickets", "POST /api/v1/orgs/{org}/support/tickets",
 		"GET /api/v1/orgs/{org}/support/tickets/{ticket_id}", "POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages",
 		"GET /api/v1/orgs/{org}/support/phones",
+		// V3 §7.3: members read the documents in effect
+		"GET /api/v1/orgs/{org}/legal",
 		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "POST /api/v1/orgs/{org}/leave",
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
 		// §13 "projects list ... with quota usage bars": every member sees the limits
@@ -523,6 +525,8 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/orgs/{org}/transfer-ownership", "DELETE /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/cancel-deletion",
 		// §2.4 "any org owner can end the session early"
 		"POST /api/v1/orgs/{org}/break-glass/{session_id}/end",
+		// V3 §7.3 legal documents "accepted" by the organisation
+		"POST /api/v1/orgs/{org}/legal/{document_id}/accept",
 	},
 	// V3 §3.2 "Only org owners and members with a new billing org role can see or change billing"
 	authz.OrgBillingManage: {
@@ -557,6 +561,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.PlatformManage: {
 		// V3 §7.2 "Revenue and cost dashboard ... For the platform admin"
 		"GET /api/v1/admin/revenue",
+		// V3 §7.3 versioned legal documents and order forms
+		"GET /api/v1/admin/legal", "POST /api/v1/admin/legal", "GET /api/v1/admin/legal/{document_id}", "POST /api/v1/admin/orgs/{org}/order-form",
 		"PUT /api/v1/settings/db-host", "POST /api/v1/settings/db-host/check", "POST /api/v1/dev/operations",
 		"POST /api/v1/restore-tests", "GET /api/v1/settings/storage", "PUT /api/v1/settings/storage",
 		"POST /api/v1/settings/storage/test", "GET /api/v1/settings/backup-key", "POST /api/v1/settings/backup-key",

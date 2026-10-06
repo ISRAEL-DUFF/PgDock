@@ -47,6 +47,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/metrics"
@@ -343,6 +344,13 @@ func run() error {
 		})
 	}
 
+	// Legal documents (V3 §7.3): the default SLA and DPA until the
+	// company publishes its own.
+	legalSvc := legal.New(pool)
+	if err := legalSvc.EnsureDefaults(ctx); err != nil {
+		return fmt.Errorf("legal documents: %w", err)
+	}
+
 	// Database webhooks, scheduled jobs and their outbound requests (V2 §9).
 	var webhookSvc *webhooks.Service
 	var jobSvc *schedjobs.Service
@@ -460,6 +468,7 @@ func run() error {
 		Branches:        branchSvc,
 		FreeTier:        freeSvc,
 		Support:         supportSvc,
+		Legal:           legalSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,

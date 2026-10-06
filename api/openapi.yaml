@@ -5715,6 +5715,134 @@ paths:
                           type: string
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/legal:
+    get:
+      operationId: getLegal
+      summary: The service level agreement and data processing agreement in effect (public)
+      tags: [legal]
+      responses:
+        "200":
+          description: The documents in effect.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocumentList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/legal:
+    get:
+      operationId: getOrgLegal
+      summary: The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+      tags: [legal]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The documents.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgLegal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/legal/{document_id}/accept:
+    post:
+      operationId: acceptOrgLegal
+      summary: Accept a document on the organisation's behalf (owners)
+      tags: [legal]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The documents, with the acceptance recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgLegal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/legal:
+    get:
+      operationId: adminListLegal
+      summary: Every version of the platform-wide documents, with their acceptance counts
+      tags: [legal]
+      responses:
+        "200":
+          description: Versions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalVersionList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: adminPublishLegal
+      summary: Publish a new version of the SLA or DPA
+      tags: [legal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegalPublish"
+      responses:
+        "201":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocument"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/legal/{document_id}:
+    get:
+      operationId: adminGetLegal
+      summary: A document version and the organisations that accepted it
+      tags: [legal]
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocumentDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/order-form:
+    post:
+      operationId: adminPublishOrderForm
+      summary: Publish a new version of an organisation's order form
+      tags: [legal]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderFormPublish"
+      responses:
+        "201":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocument"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/revenue:
     get:
       operationId: adminRevenue
@@ -11515,6 +11643,130 @@ components:
         name:
           type: string
           nullable: true
+    LegalDocument:
+      type: object
+      required: [id, kind, version, title, body_md, published_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [sla, dpa, order_form]
+        org_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int32
+        title:
+          type: string
+        body_md:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+    LegalDocumentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalDocument"
+    OrgLegalDocument:
+      type: object
+      required: [document]
+      properties:
+        document:
+          $ref: "#/components/schemas/LegalDocument"
+        accepted_at:
+          type: string
+          format: date-time
+        accepted_by:
+          type: string
+    OrgLegal:
+      type: object
+      required: [items, outstanding]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgLegalDocument"
+        outstanding:
+          type: boolean
+          description: Some document in effect isn't accepted yet.
+    LegalVersion:
+      type: object
+      required: [id, kind, version, title, published_at, acceptances]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        version:
+          type: integer
+          format: int32
+        title:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+        acceptances:
+          type: integer
+          format: int64
+    LegalVersionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalVersion"
+    LegalAcceptance:
+      type: object
+      required: [org_id, org_name, accepted_at]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        accepted_by:
+          type: string
+    LegalDocumentDetail:
+      type: object
+      required: [document, acceptances]
+      properties:
+        document:
+          $ref: "#/components/schemas/LegalDocument"
+        acceptances:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalAcceptance"
+    LegalPublish:
+      type: object
+      required: [kind, title, body_md]
+      properties:
+        kind:
+          type: string
+          enum: [sla, dpa]
+        title:
+          type: string
+        body_md:
+          type: string
+    OrderFormPublish:
+      type: object
+      required: [title, body_md]
+      properties:
+        title:
+          type: string
+        body_md:
+          type: string
     PlanChangeRequest:
       type: object
       required: [plan]
@@ -11529,6 +11781,9 @@ components:
           description: Apply a downgrade now, with a credit for the unused part.
         dry_run:
           type: boolean
+        accept_legal:
+          type: boolean
+          description: Accept the SLA, DPA and order form in effect on the organisation's behalf (owners).
     PlanChange:
       type: object
       required: [from_plan, from_term, to_plan, to_term, effective_at, upgrade, applied, lines, total_minor]

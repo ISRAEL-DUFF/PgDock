@@ -4090,6 +4090,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The service level agreement and data processing agreement in effect (public) */
+        get: operations["getLegal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances */
+        get: operations["getOrgLegal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/legal/{document_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept a document on the organisation's behalf (owners) */
+        post: operations["acceptOrgLegal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every version of the platform-wide documents, with their acceptance counts */
+        get: operations["adminListLegal"];
+        put?: never;
+        /** Publish a new version of the SLA or DPA */
+        post: operations["adminPublishLegal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/legal/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A document version and the organisations that accepted it */
+        get: operations["adminGetLegal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/order-form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a new version of an organisation's order form */
+        post: operations["adminPublishOrderForm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/revenue": {
         parameters: {
             query?: never;
@@ -7080,6 +7183,71 @@ export interface components {
             email: string;
             name?: string | null;
         };
+        LegalDocument: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "sla" | "dpa" | "order_form";
+            /** Format: uuid */
+            org_id?: string;
+            /** Format: int32 */
+            version: number;
+            title: string;
+            body_md: string;
+            /** Format: date-time */
+            published_at: string;
+        };
+        LegalDocumentList: {
+            items: components["schemas"]["LegalDocument"][];
+        };
+        OrgLegalDocument: {
+            document: components["schemas"]["LegalDocument"];
+            /** Format: date-time */
+            accepted_at?: string;
+            accepted_by?: string;
+        };
+        OrgLegal: {
+            items: components["schemas"]["OrgLegalDocument"][];
+            /** @description Some document in effect isn't accepted yet. */
+            outstanding: boolean;
+        };
+        LegalVersion: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            /** Format: int32 */
+            version: number;
+            title: string;
+            /** Format: date-time */
+            published_at: string;
+            /** Format: int64 */
+            acceptances: number;
+        };
+        LegalVersionList: {
+            items: components["schemas"]["LegalVersion"][];
+        };
+        LegalAcceptance: {
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            /** Format: date-time */
+            accepted_at: string;
+            accepted_by?: string;
+        };
+        LegalDocumentDetail: {
+            document: components["schemas"]["LegalDocument"];
+            acceptances: components["schemas"]["LegalAcceptance"][];
+        };
+        LegalPublish: {
+            /** @enum {string} */
+            kind: "sla" | "dpa";
+            title: string;
+            body_md: string;
+        };
+        OrderFormPublish: {
+            title: string;
+            body_md: string;
+        };
         PlanChangeRequest: {
             plan: string;
             /** @enum {string} */
@@ -7087,6 +7255,8 @@ export interface components {
             /** @description Apply a downgrade now, with a credit for the unused part. */
             immediately?: boolean;
             dry_run?: boolean;
+            /** @description Accept the SLA, DPA and order form in effect on the organisation's behalf (owners). */
+            accept_legal?: boolean;
         };
         PlanChange: {
             from_plan: string;
@@ -14659,6 +14829,170 @@ export interface operations {
                             role: string;
                         }[];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents in effect. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgLegal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptOrgLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents, with the acceptance recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgLegal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalVersionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminPublishLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalPublish"];
+            };
+        };
+        responses: {
+            /** @description Published. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocument"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminPublishOrderForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderFormPublish"];
+            };
+        };
+        responses: {
+            /** @description Published. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocument"];
                 };
             };
             default: components["responses"]["Error"];

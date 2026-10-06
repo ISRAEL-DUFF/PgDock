@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -186,10 +187,22 @@ func (s *Server) ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org gen.O
 	if req.DryRun != nil {
 		pr.DryRun = *req.DryRun
 	}
+	accept := req.AcceptLegal != nil && *req.AcceptLegal && !pr.DryRun
+	if accept && (s.legal == nil || accessFrom(r.Context()).OrgRole != authz.OrgOwner) {
+		writeError(w, http.StatusForbidden, "forbidden", "only an organisation owner accepts the legal documents")
+		return
+	}
 	c, err := bs.ChangePlan(r.Context(), org, pr)
 	if err != nil {
 		s.billingError(w, "plan change", err)
 		return
+	}
+	if accept {
+		if err := s.legal.AcceptAll(r.Context(), org, userID(r.Context()), ipFrom(r.Context())); err != nil {
+			s.internalError(w, "accept legal documents", err)
+			return
+		}
+		auditFrom(r.Context()).set("accepted_legal", true)
 	}
 	au := auditFrom(r.Context())
 	if pr.DryRun {
