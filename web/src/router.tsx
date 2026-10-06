@@ -22,6 +22,8 @@ const BillingPage = lazyRouteComponent(() => import("./pages/Billing"), "Billing
 const PricingPage = lazyRouteComponent(() => import("./pages/Pricing"), "PricingPage");
 const AdminBillingPage = lazyRouteComponent(() => import("./pages/AdminBilling"), "AdminBillingPage");
 const AdminRevenuePage = lazyRouteComponent(() => import("./pages/AdminRevenue"), "AdminRevenuePage");
+const AdminCostsPage = lazyRouteComponent(() => import("./pages/AdminCosts"), "AdminCostsPage");
+const AdminCapacityPage = lazyRouteComponent(() => import("./pages/AdminCapacity"), "AdminCapacityPage");
 const SupportPage = lazyRouteComponent(() => import("./pages/Support"), "SupportPage");
 const SupportConsolePage = lazyRouteComponent(() => import("./pages/Support"), "SupportConsolePage");
 const OrgLegalPage = lazyRouteComponent(() => import("./pages/Legal"), "OrgLegalPage");
@@ -186,6 +188,8 @@ const adminBilling = createRoute({ getParentRoute: () => app, path: "/admin/bill
 const adminOrgs = createRoute({ getParentRoute: () => app, path: "/admin/orgs", component: AdminOrgsPage });
 const adminOrg = createRoute({ getParentRoute: () => app, path: "/admin/orgs/$id", component: AdminOrgPage });
 const adminPlans = createRoute({ getParentRoute: () => app, path: "/admin/plans", component: AdminPlansPage });
+const adminCosts = createRoute({ getParentRoute: () => app, path: "/admin/costs", component: AdminCostsPage });
+const adminCapacity = createRoute({ getParentRoute: () => app, path: "/admin/capacity", component: AdminCapacityPage });
 const adminRevenue = createRoute({ getParentRoute: () => app, path: "/admin/revenue", component: AdminRevenuePage });
 const adminSupport = createRoute({ getParentRoute: () => app, path: "/admin/support", component: SupportConsolePage });
 const adminLegal = createRoute({ getParentRoute: () => app, path: "/admin/legal", component: AdminLegalPage });
@@ -239,6 +243,8 @@ const routeTree = root.addChildren([
     adminPlans,
     adminRequests,
     adminRevenue,
+    adminCosts,
+    adminCapacity,
     adminSupport,
     adminLegal,
     orgSupport,

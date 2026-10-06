@@ -91,6 +91,14 @@ export type LegalDocument = S["LegalDocument"];
 export type OrgLegal = S["OrgLegal"];
 export type LegalVersion = S["LegalVersion"];
 export type LegalDocumentDetail = S["LegalDocumentDetail"];
+export type Capacity = S["Capacity"];
+export type CapacitySettings = S["CapacitySettings"];
+export type CapacityProposal = S["CapacityProposal"];
+export type RebalanceMove = S["RebalanceMove"];
+export type Margins = S["Margins"];
+export type CostSettings = S["CostSettings"];
+export type FXRate = S["FXRate"];
+export type ServerPrice = S["ServerPrice"];
 export type APIToken = S["APIToken"];
 export type Incident = S["Incident"];
 export type IncidentSeverity = S["IncidentSeverity"];
@@ -669,6 +677,27 @@ export const api = {
   legalDocument: (id: string) => getJSON<LegalDocumentDetail>(`/api/v1/admin/legal/${id}`),
   publishLegal: (b: S["LegalPublish"]) => request<LegalDocument>("POST", "/api/v1/admin/legal", b),
   publishOrderForm: (org: string, b: S["OrderFormPublish"]) => request<LegalDocument>("POST", `/api/v1/admin/orgs/${org}/order-form`, b),
+
+  // Capacity automation (V3 §5).
+  capacity: () => getJSON<Capacity>("/api/v1/admin/capacity"),
+  saveCapacitySettings: (b: CapacitySettings) => request<CapacitySettings>("PUT", "/api/v1/admin/capacity/settings", b),
+  evaluateCapacity: () => request<{ items: CapacityProposal[] }>("POST", "/api/v1/admin/capacity/evaluate"),
+  approveProposal: (id: string) => request<CapacityProposal>("POST", `/api/v1/admin/capacity/proposals/${id}/approve`),
+  rejectProposal: (id: string) => request<CapacityProposal>("POST", `/api/v1/admin/capacity/proposals/${id}/reject`),
+  planRebalance: () => request<{ batch?: string | null; moves: number }>("POST", "/api/v1/admin/capacity/rebalance"),
+  decideBatch: (batch: string, approve: boolean) => request<{ moves: number }>("POST", `/api/v1/admin/capacity/batches/${batch}`, { approve }),
+  cloudCatalog: () => getJSON<{ provider: string; items: ServerPrice[] }>("/api/v1/admin/cloud/catalog"),
+  drainNode: (id: string) => request<{ node: Node; moves: number }>("POST", `/api/v1/nodes/${id}/drain`),
+  stopDrain: (id: string) => request<Node>("DELETE", `/api/v1/nodes/${id}/drain`),
+  setNodeCost: (id: string, b: S["NodeCost"]) => request<Node>("PUT", `/api/v1/nodes/${id}/cost`, b),
+  // Costs and margins (V3 §5.4, §7.2).
+  costs: (month?: string) => getJSON<Margins>(`/api/v1/admin/costs${qs({ month })}`),
+  costsCsvUrl: (month?: string) => `/api/v1/admin/costs${qs({ month, format: "csv" })}`,
+  attributeCosts: (from: string, to: string) => request<{ days: number }>("POST", "/api/v1/admin/costs/attribute", { from, to }),
+  costSettings: () => getJSON<CostSettings>("/api/v1/admin/costs/settings"),
+  saveCostSettings: (b: CostSettings) => request<CostSettings>("PUT", "/api/v1/admin/costs/settings", b),
+  fxRates: () => getJSON<{ current: FXRate[]; history: FXRate[] }>("/api/v1/admin/fx-rates"),
+  setFxRate: (currency: string, ngn_per_unit: number) => request<FXRate>("POST", "/api/v1/admin/fx-rates", { currency, ngn_per_unit }),
 
   generalSettings: () => getJSON<GeneralSettings>("/api/v1/settings/general"),
   setDbHost: (db_host: string) => request<GeneralSettings>("PUT", "/api/v1/settings/db-host", { db_host }),

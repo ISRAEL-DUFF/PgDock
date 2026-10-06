@@ -23,8 +23,8 @@ function change(cur: number, prev: number | undefined): string | undefined {
 
 /** Platform → Revenue (V3 §7.2, first version): recurring revenue and its
  * movements, paying organisations and conversion from Free, metered
- * revenue, collections, and receivables by age. Costs and margin follow
- * with cost attribution. */
+ * revenue, collections, and receivables by age. Costs and margins are on
+ * their own page (AdminCosts). */
 export function AdminRevenuePage() {
   const [months, setMonths] = useState(12);
   const q = useQuery({

@@ -8,6 +8,8 @@ import {
   Gauge,
   House,
   Inbox,
+  Coins,
+  Layers,
   LifeBuoy,
   Scale,
   TrendingUp,
@@ -256,6 +258,13 @@ export function platformRail(role: string = "platform_admin"): RailItem[] {
       match: ["/nodes"],
     },
     {
+      key: "capacity",
+      label: "Capacity",
+      icon: Layers,
+      to: "/admin/capacity",
+      match: ["/admin/capacity"],
+    },
+    {
       key: "orgs",
       label: "Organisations",
       icon: Building2,
@@ -289,6 +298,13 @@ export function platformRail(role: string = "platform_admin"): RailItem[] {
       icon: TrendingUp,
       to: "/admin/revenue",
       match: ["/admin/revenue"],
+    },
+    {
+      key: "costs",
+      label: "Costs & margins",
+      icon: Coins,
+      to: "/admin/costs",
+      match: ["/admin/costs"],
     },
     {
       key: "legal",
