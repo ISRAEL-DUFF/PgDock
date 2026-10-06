@@ -141,6 +141,11 @@ func (s *Service) Resolve(ctx context.Context, p CreateParams) (Resolved, error)
 	default:
 		return r, fmt.Errorf("%w: source must be backup or live", ErrInvalid)
 	}
+	// A sleeping Free project's database refuses connections (V3 §4); its
+	// backups still branch.
+	if r.Source == SourceLive && parent.Lifecycle != "" && parent.Lifecycle != "active" {
+		return r, fmt.Errorf("%w: %s is %s for inactivity; resume it to branch from live, or branch from its backup", ErrConflict, parent.Name, parent.Lifecycle)
+	}
 	r.SchemaOnly = parent.SensitiveData
 	if p.SchemaOnly != nil {
 		r.SchemaOnly = *p.SchemaOnly
