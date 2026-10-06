@@ -2666,6 +2666,24 @@ func (e AdminListPaymentEventsParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AdminRevenueParamsFormat.
+const (
+	AdminRevenueParamsFormatCsv  AdminRevenueParamsFormat = "csv"
+	AdminRevenueParamsFormatJson AdminRevenueParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminRevenueParamsFormat enum.
+func (e AdminRevenueParamsFormat) Valid() bool {
+	switch e {
+	case AdminRevenueParamsFormatCsv:
+		return true
+	case AdminRevenueParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminListTicketsParamsStatus.
 const (
 	AdminListTicketsParamsStatusClosed  AdminListTicketsParamsStatus = "closed"
@@ -5392,8 +5410,10 @@ type PromotionEstimateCopyMode string
 
 // PublishTermsRequest defines model for PublishTermsRequest.
 type PublishTermsRequest struct {
-	PrivacyMd string `json:"privacy_md"`
-	TermsMd   string `json:"terms_md"`
+	// AupMd The acceptable use policy; left out, the current one is kept.
+	AupMd     *string `json:"aup_md,omitempty"`
+	PrivacyMd string  `json:"privacy_md"`
+	TermsMd   string  `json:"terms_md"`
 }
 
 // QuotaItem defines model for QuotaItem.
@@ -5509,6 +5529,45 @@ type RestoreResponse struct {
 	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
+}
+
+// Revenue defines model for Revenue.
+type Revenue struct {
+	Ageing []struct {
+		AmountMinor int64  `json:"amount_minor"`
+		Invoices    int    `json:"invoices"`
+		Label       string `json:"label"`
+	} `json:"ageing"`
+	AsOf                time.Time      `json:"as_of"`
+	Months              []RevenueMonth `json:"months"`
+	OutstandingWhtMinor int64          `json:"outstanding_wht_minor"`
+}
+
+// RevenueMonth defines model for RevenueMonth.
+type RevenueMonth struct {
+	ArpaMinor        int64 `json:"arpa_minor"`
+	ArrMinor         int64 `json:"arr_minor"`
+	ChurnedMinor     int64 `json:"churned_minor"`
+	CollectedMinor   int64 `json:"collected_minor"`
+	ContractionMinor int64 `json:"contraction_minor"`
+
+	// Conversions Organisations that moved from Free to a paid plan this month.
+	Conversions    int   `json:"conversions"`
+	ExpansionMinor int64 `json:"expansion_minor"`
+
+	// FreeOrgs Organisations on Free at the start of the month.
+	FreeOrgs      int   `json:"free_orgs"`
+	InvoicedMinor int64 `json:"invoiced_minor"`
+	Invoices      int64 `json:"invoices"`
+
+	// Month Example: 2026-10
+	Month      string `json:"month"`
+	MrrMinor   int64  `json:"mrr_minor"`
+	NewMinor   int64  `json:"new_minor"`
+	PayingOrgs int    `json:"paying_orgs"`
+
+	// UsageRevenueMinor Metered charges (overage, dedicated, add-ons) on the month's invoices.
+	UsageRevenueMinor int64 `json:"usage_revenue_minor"`
 }
 
 // RowChange defines model for RowChange.
@@ -6186,6 +6245,8 @@ type TablePageOrder string
 
 // Terms defines model for Terms.
 type Terms struct {
+	// AupMd The acceptable use policy, accepted with the terms (V3 §7.3).
+	AupMd       *string   `json:"aup_md,omitempty"`
 	PrivacyMd   string    `json:"privacy_md"`
 	PublishedAt time.Time `json:"published_at"`
 	TermsMd     string    `json:"terms_md"`
@@ -6872,6 +6933,15 @@ type AdminRunReconciliationJSONBody struct {
 	From *time.Time `json:"from,omitempty"`
 	To   *time.Time `json:"to,omitempty"`
 }
+
+// AdminRevenueParams defines parameters for AdminRevenue.
+type AdminRevenueParams struct {
+	Months *int                      `form:"months,omitempty" json:"months,omitempty"`
+	Format *AdminRevenueParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminRevenueParamsFormat defines parameters for AdminRevenue.
+type AdminRevenueParamsFormat string
 
 // DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
 type DeletePlatformStorageTargetParams struct {
@@ -7737,6 +7807,9 @@ type ServerInterface interface {
 	// AdminRunReconciliation Reconcile a period now (default the previous day)
 	// (POST /api/v1/admin/reconciliation)
 	AdminRunReconciliation(w http.ResponseWriter, r *http.Request)
+	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+	// (GET /api/v1/admin/revenue)
+	AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams)
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	// (GET /api/v1/admin/settings/mail)
 	GetMailSettings(w http.ResponseWriter, r *http.Request)
@@ -8790,6 +8863,12 @@ func (_ Unimplemented) AdminLastReconciliation(w http.ResponseWriter, r *http.Re
 // AdminRunReconciliation Reconcile a period now (default the previous day)
 // (POST /api/v1/admin/reconciliation)
 func (_ Unimplemented) AdminRunReconciliation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+// (GET /api/v1/admin/revenue)
+func (_ Unimplemented) AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11614,6 +11693,52 @@ func (siw *ServerInterfaceWrapper) AdminRunReconciliation(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminRunReconciliation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRevenue operation middleware
+func (siw *ServerInterfaceWrapper) AdminRevenue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminRevenueParams
+
+	// ------------- Optional query parameter "months" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "months", r.URL.Query(), &params.Months, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "months"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "months", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRevenue(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19301,6 +19426,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/support/staff", wrapper.AdminSupportStaff)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/revenue", wrapper.AdminRevenue)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/payments", wrapper.AdminListPayments)

@@ -383,7 +383,7 @@ func (s *Server) GetTerms(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, "terms", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, PublishedAt: t.PublishedAt})
+	writeJSON(w, http.StatusOK, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, AupMd: &t.AupMd, PublishedAt: t.PublishedAt})
 }
 
 // valueOr is *p, or def when p is nil.

@@ -419,19 +419,25 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 }
 
 const insertTerms = `-- name: InsertTerms :one
-INSERT INTO terms_versions (version, terms_md, privacy_md, published_by)
-VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), $1, $2, $3)
+INSERT INTO terms_versions (version, terms_md, privacy_md, aup_md, published_by)
+VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), $1, $2, $3, $4)
 RETURNING version, terms_md, privacy_md, published_by, published_at, aup_md
 `
 
 type InsertTermsParams struct {
 	TermsMd     string
 	PrivacyMd   string
+	AupMd       string
 	PublishedBy *uuid.UUID
 }
 
 func (q *Queries) InsertTerms(ctx context.Context, arg InsertTermsParams) (TermsVersion, error) {
-	row := q.db.QueryRow(ctx, insertTerms, arg.TermsMd, arg.PrivacyMd, arg.PublishedBy)
+	row := q.db.QueryRow(ctx, insertTerms,
+		arg.TermsMd,
+		arg.PrivacyMd,
+		arg.AupMd,
+		arg.PublishedBy,
+	)
 	var i TermsVersion
 	err := row.Scan(
 		&i.Version,

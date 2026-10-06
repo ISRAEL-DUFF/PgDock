@@ -2670,6 +2670,24 @@ func (e AdminListPaymentEventsParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AdminRevenueParamsFormat.
+const (
+	AdminRevenueParamsFormatCsv  AdminRevenueParamsFormat = "csv"
+	AdminRevenueParamsFormatJson AdminRevenueParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminRevenueParamsFormat enum.
+func (e AdminRevenueParamsFormat) Valid() bool {
+	switch e {
+	case AdminRevenueParamsFormatCsv:
+		return true
+	case AdminRevenueParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminListTicketsParamsStatus.
 const (
 	AdminListTicketsParamsStatusClosed  AdminListTicketsParamsStatus = "closed"
@@ -5396,8 +5414,10 @@ type PromotionEstimateCopyMode string
 
 // PublishTermsRequest defines model for PublishTermsRequest.
 type PublishTermsRequest struct {
-	PrivacyMd string `json:"privacy_md"`
-	TermsMd   string `json:"terms_md"`
+	// AupMd The acceptable use policy; left out, the current one is kept.
+	AupMd     *string `json:"aup_md,omitempty"`
+	PrivacyMd string  `json:"privacy_md"`
+	TermsMd   string  `json:"terms_md"`
 }
 
 // QuotaItem defines model for QuotaItem.
@@ -5513,6 +5533,45 @@ type RestoreResponse struct {
 	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
+}
+
+// Revenue defines model for Revenue.
+type Revenue struct {
+	Ageing []struct {
+		AmountMinor int64  `json:"amount_minor"`
+		Invoices    int    `json:"invoices"`
+		Label       string `json:"label"`
+	} `json:"ageing"`
+	AsOf                time.Time      `json:"as_of"`
+	Months              []RevenueMonth `json:"months"`
+	OutstandingWhtMinor int64          `json:"outstanding_wht_minor"`
+}
+
+// RevenueMonth defines model for RevenueMonth.
+type RevenueMonth struct {
+	ArpaMinor        int64 `json:"arpa_minor"`
+	ArrMinor         int64 `json:"arr_minor"`
+	ChurnedMinor     int64 `json:"churned_minor"`
+	CollectedMinor   int64 `json:"collected_minor"`
+	ContractionMinor int64 `json:"contraction_minor"`
+
+	// Conversions Organisations that moved from Free to a paid plan this month.
+	Conversions    int   `json:"conversions"`
+	ExpansionMinor int64 `json:"expansion_minor"`
+
+	// FreeOrgs Organisations on Free at the start of the month.
+	FreeOrgs      int   `json:"free_orgs"`
+	InvoicedMinor int64 `json:"invoiced_minor"`
+	Invoices      int64 `json:"invoices"`
+
+	// Month Example: 2026-10
+	Month      string `json:"month"`
+	MrrMinor   int64  `json:"mrr_minor"`
+	NewMinor   int64  `json:"new_minor"`
+	PayingOrgs int    `json:"paying_orgs"`
+
+	// UsageRevenueMinor Metered charges (overage, dedicated, add-ons) on the month's invoices.
+	UsageRevenueMinor int64 `json:"usage_revenue_minor"`
 }
 
 // RowChange defines model for RowChange.
@@ -6190,6 +6249,8 @@ type TablePageOrder string
 
 // Terms defines model for Terms.
 type Terms struct {
+	// AupMd The acceptable use policy, accepted with the terms (V3 §7.3).
+	AupMd       *string   `json:"aup_md,omitempty"`
 	PrivacyMd   string    `json:"privacy_md"`
 	PublishedAt time.Time `json:"published_at"`
 	TermsMd     string    `json:"terms_md"`
@@ -6876,6 +6937,15 @@ type AdminRunReconciliationJSONBody struct {
 	From *time.Time `json:"from,omitempty"`
 	To   *time.Time `json:"to,omitempty"`
 }
+
+// AdminRevenueParams defines parameters for AdminRevenue.
+type AdminRevenueParams struct {
+	Months *int                      `form:"months,omitempty" json:"months,omitempty"`
+	Format *AdminRevenueParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminRevenueParamsFormat defines parameters for AdminRevenue.
+type AdminRevenueParamsFormat string
 
 // DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
 type DeletePlatformStorageTargetParams struct {
@@ -8184,6 +8254,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
 	AdminRunReconciliation(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+	//
+	// Corresponds with GET /api/v1/admin/revenue (the `AdminRevenue` operationId).
+	AdminRevenue(ctx context.Context, params *AdminRevenueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	//
@@ -12106,6 +12181,21 @@ func (c *Client) AdminRunReconciliationWithBody(ctx context.Context, contentType
 // Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
 func (c *Client) AdminRunReconciliation(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminRunReconciliationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+//
+// Corresponds with GET /api/v1/admin/revenue (the `AdminRevenue` operationId).
+func (c *Client) AdminRevenue(ctx context.Context, params *AdminRevenueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRevenueRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -20458,6 +20548,72 @@ func NewAdminRunReconciliationRequestWithBody(server string, contentType string,
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdminRevenueRequest constructs an http.Request for the AdminRevenue method
+func NewAdminRevenueRequest(server string, params *AdminRevenueParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/revenue")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Months != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "months", *params.Months, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "format", *params.Format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -31616,6 +31772,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/reconciliation (the `AdminRunReconciliation` operationId).
 	AdminRunReconciliationWithResponse(ctx context.Context, body AdminRunReconciliationJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRunReconciliationResponse, error)
 
+	// AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/revenue (the `AdminRevenue` operationId).
+	AdminRevenueWithResponse(ctx context.Context, params *AdminRevenueParams, reqEditors ...RequestEditorFn) (*AdminRevenueResponse, error)
+
 	// GetMailSettingsWithResponse Platform SMTP settings (platform admin; no password)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -37085,6 +37248,54 @@ func (r AdminRunReconciliationResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AdminRunReconciliationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AdminRevenueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Revenue
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdminRevenueResponse) GetJSON200() *Revenue {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AdminRevenueResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AdminRevenueResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminRevenueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminRevenueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdminRevenueResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49522,6 +49733,19 @@ func (c *ClientWithResponses) AdminRunReconciliationWithResponse(ctx context.Con
 	return ParseAdminRunReconciliationResponse(rsp)
 }
 
+// AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/revenue (the `AdminRevenue` operationId).
+func (c *ClientWithResponses) AdminRevenueWithResponse(ctx context.Context, params *AdminRevenueParams, reqEditors ...RequestEditorFn) (*AdminRevenueResponse, error) {
+	rsp, err := c.AdminRevenue(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRevenueResponse(rsp)
+}
+
 // GetMailSettingsWithResponse Platform SMTP settings (platform admin; no password)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -56233,6 +56457,42 @@ func ParseAdminRunReconciliationResponse(rsp *http.Response) (*AdminRunReconcili
 			return nil, err
 		}
 		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdminRevenueResponse parses an HTTP response from a AdminRevenueWithResponse call
+func ParseAdminRevenueResponse(rsp *http.Response) (*AdminRevenueResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminRevenueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Revenue
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/csv) unsupported
 
 	}
 

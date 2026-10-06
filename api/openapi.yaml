@@ -5715,6 +5715,35 @@ paths:
                           type: string
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/revenue:
+    get:
+      operationId: adminRevenue
+      summary: The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+      tags: [billing]
+      parameters:
+        - name: months
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 36
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: The dashboard (CSV for the accountant with format=csv).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Revenue"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/payments:
     get:
       operationId: adminListPayments
@@ -10227,6 +10256,9 @@ components:
           type: string
         privacy_md:
           type: string
+        aup_md:
+          type: string
+          description: The acceptable use policy, accepted with the terms (V3 §7.3).
         published_at:
           type: string
           format: date-time
@@ -10244,6 +10276,9 @@ components:
           type: string
         privacy_md:
           type: string
+        aup_md:
+          type: string
+          description: The acceptable use policy; left out, the current one is kept.
     SessionInfo:
       type: object
       required: [id, created_at, last_seen_at, current]
@@ -11154,6 +11189,83 @@ components:
         phone:
           type: string
         created_at:
+          type: string
+          format: date-time
+    RevenueMonth:
+      type: object
+      required: [month, mrr_minor, arr_minor, new_minor, expansion_minor, contraction_minor, churned_minor, paying_orgs, arpa_minor,
+                 conversions, free_orgs, usage_revenue_minor, invoiced_minor, invoices, collected_minor]
+      properties:
+        month:
+          type: string
+          example: "2026-10"
+        mrr_minor:
+          type: integer
+          format: int64
+        arr_minor:
+          type: integer
+          format: int64
+        new_minor:
+          type: integer
+          format: int64
+        expansion_minor:
+          type: integer
+          format: int64
+        contraction_minor:
+          type: integer
+          format: int64
+        churned_minor:
+          type: integer
+          format: int64
+        paying_orgs:
+          type: integer
+        arpa_minor:
+          type: integer
+          format: int64
+        conversions:
+          type: integer
+          description: Organisations that moved from Free to a paid plan this month.
+        free_orgs:
+          type: integer
+          description: Organisations on Free at the start of the month.
+        usage_revenue_minor:
+          type: integer
+          format: int64
+          description: Metered charges (overage, dedicated, add-ons) on the month's invoices.
+        invoiced_minor:
+          type: integer
+          format: int64
+        invoices:
+          type: integer
+          format: int64
+        collected_minor:
+          type: integer
+          format: int64
+    Revenue:
+      type: object
+      required: [months, ageing, outstanding_wht_minor, as_of]
+      properties:
+        months:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevenueMonth"
+        ageing:
+          type: array
+          items:
+            type: object
+            required: [label, amount_minor, invoices]
+            properties:
+              label:
+                type: string
+              amount_minor:
+                type: integer
+                format: int64
+              invoices:
+                type: integer
+        outstanding_wht_minor:
+          type: integer
+          format: int64
+        as_of:
           type: string
           format: date-time
     PriceBookInput:

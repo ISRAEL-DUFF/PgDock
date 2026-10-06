@@ -555,6 +555,8 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/support/staff",
 	},
 	authz.PlatformManage: {
+		// V3 §7.2 "Revenue and cost dashboard ... For the platform admin"
+		"GET /api/v1/admin/revenue",
 		"PUT /api/v1/settings/db-host", "POST /api/v1/settings/db-host/check", "POST /api/v1/dev/operations",
 		"POST /api/v1/restore-tests", "GET /api/v1/settings/storage", "PUT /api/v1/settings/storage",
 		"POST /api/v1/settings/storage/test", "GET /api/v1/settings/backup-key", "POST /api/v1/settings/backup-key",

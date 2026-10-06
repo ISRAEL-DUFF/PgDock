@@ -250,7 +250,7 @@ func TestTermsVersions(t *testing.T) {
 	if pending, _, err := s.TermsOutstanding(ctx, sess.UserID); err != nil || pending {
 		t.Fatalf("setup accepted version 1: %v %v", pending, err)
 	}
-	v2, err := s.PublishTerms(ctx, "# Terms v2", "# Privacy v2", sess.UserID)
+	v2, err := s.PublishTerms(ctx, "# Terms v2", "# Privacy v2", "", sess.UserID)
 	if err != nil || v2.Version != 2 {
 		t.Fatalf("publish: %+v %v", v2, err)
 	}

@@ -60,6 +60,7 @@ var routeRules = map[string]rule{
 	"GET /api/v1/admin/support/tickets/{ticket_id}":                {scope: scopePlatform, action: authz.SupportConsole},
 	"PATCH /api/v1/admin/support/tickets/{ticket_id}":              {scope: scopePlatform, action: authz.SupportConsole},
 	"POST /api/v1/admin/support/tickets/{ticket_id}/messages":      {scope: scopePlatform, action: authz.SupportConsole},
+	"GET /api/v1/admin/revenue":                                    {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/support/staff":                              {scope: scopePlatform, action: authz.SupportConsole},
 	"GET /api/v1/session":                                          {scope: scopePublic, beforeTerms: true},
 	"POST /api/v1/auth/login":                                      {scope: scopePublic, beforeTerms: true},

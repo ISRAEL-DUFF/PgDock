@@ -78,8 +78,8 @@ RETURNING user_id;
 SELECT * FROM terms_versions ORDER BY version DESC LIMIT 1;
 
 -- name: InsertTerms :one
-INSERT INTO terms_versions (version, terms_md, privacy_md, published_by)
-VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), @terms_md, @privacy_md, sqlc.narg(published_by))
+INSERT INTO terms_versions (version, terms_md, privacy_md, aup_md, published_by)
+VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), @terms_md, @privacy_md, @aup_md, sqlc.narg(published_by))
 RETURNING *;
 
 -- name: AcceptTerms :exec

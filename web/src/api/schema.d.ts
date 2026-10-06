@@ -4090,6 +4090,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/revenue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables) */
+        get: operations["adminRevenue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments": {
         parameters: {
             query?: never;
@@ -6375,6 +6392,8 @@ export interface components {
             version: number;
             terms_md: string;
             privacy_md: string;
+            /** @description The acceptable use policy, accepted with the terms (V3 §7.3). */
+            aup_md?: string;
             /** Format: date-time */
             published_at: string;
         };
@@ -6384,6 +6403,8 @@ export interface components {
         PublishTermsRequest: {
             terms_md: string;
             privacy_md: string;
+            /** @description The acceptable use policy; left out, the current one is kept. */
+            aup_md?: string;
         };
         SessionInfo: {
             id: string;
@@ -6879,6 +6900,53 @@ export interface components {
             phone: string;
             /** Format: date-time */
             created_at: string;
+        };
+        RevenueMonth: {
+            /** @example 2026-10 */
+            month: string;
+            /** Format: int64 */
+            mrr_minor: number;
+            /** Format: int64 */
+            arr_minor: number;
+            /** Format: int64 */
+            new_minor: number;
+            /** Format: int64 */
+            expansion_minor: number;
+            /** Format: int64 */
+            contraction_minor: number;
+            /** Format: int64 */
+            churned_minor: number;
+            paying_orgs: number;
+            /** Format: int64 */
+            arpa_minor: number;
+            /** @description Organisations that moved from Free to a paid plan this month. */
+            conversions: number;
+            /** @description Organisations on Free at the start of the month. */
+            free_orgs: number;
+            /**
+             * Format: int64
+             * @description Metered charges (overage, dedicated, add-ons) on the month's invoices.
+             */
+            usage_revenue_minor: number;
+            /** Format: int64 */
+            invoiced_minor: number;
+            /** Format: int64 */
+            invoices: number;
+            /** Format: int64 */
+            collected_minor: number;
+        };
+        Revenue: {
+            months: components["schemas"]["RevenueMonth"][];
+            ageing: {
+                label: string;
+                /** Format: int64 */
+                amount_minor: number;
+                invoices: number;
+            }[];
+            /** Format: int64 */
+            outstanding_wht_minor: number;
+            /** Format: date-time */
+            as_of: string;
         };
         PriceBookInput: {
             /** Format: date-time */
@@ -14591,6 +14659,31 @@ export interface operations {
                             role: string;
                         }[];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRevenue: {
+        parameters: {
+            query?: {
+                months?: number;
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dashboard (CSV for the accountant with format=csv). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revenue"];
+                    "text/csv": string;
                 };
             };
             default: components["responses"]["Error"];

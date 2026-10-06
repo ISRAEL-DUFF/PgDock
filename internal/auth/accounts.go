@@ -561,21 +561,30 @@ func (s *Service) EnsureTerms(ctx context.Context) error {
 	if err != nil || cur.Version != 0 {
 		return err
 	}
-	_, err = store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: DefaultTerms, PrivacyMd: DefaultPrivacy})
+	_, err = store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: DefaultTerms, PrivacyMd: DefaultPrivacy, AupMd: DefaultAUP})
 	return err
 }
 
 // PublishTerms publishes a new version; every user accepts it at their
 // next request.
-func (s *Service) PublishTerms(ctx context.Context, terms, privacy string, by uuid.UUID) (store.TermsVersion, error) {
-	terms, privacy = strings.TrimSpace(terms), strings.TrimSpace(privacy)
+func (s *Service) PublishTerms(ctx context.Context, terms, privacy, aup string, by uuid.UUID) (store.TermsVersion, error) {
+	terms, privacy, aup = strings.TrimSpace(terms), strings.TrimSpace(privacy), strings.TrimSpace(aup)
 	if terms == "" || privacy == "" {
 		return store.TermsVersion{}, errors.New("both the terms of use and the privacy notice are required")
 	}
-	if len(terms) > 200_000 || len(privacy) > 200_000 {
+	if len(terms) > 200_000 || len(privacy) > 200_000 || len(aup) > 200_000 {
 		return store.TermsVersion{}, errors.New("terms text is too long")
 	}
-	return store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: terms, PrivacyMd: privacy, PublishedBy: &by})
+	if aup == "" {
+		// Unchanged unless given: the acceptable use policy of the version
+		// in effect (V3 §7.3).
+		cur, err := s.CurrentTerms(ctx)
+		if err != nil {
+			return store.TermsVersion{}, err
+		}
+		aup = cur.AupMd
+	}
+	return store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: terms, PrivacyMd: privacy, AupMd: aup, PublishedBy: &by})
 }
 
 // ---- Account administration ---------------------------------------------------

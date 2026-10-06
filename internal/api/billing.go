@@ -664,3 +664,34 @@ func (s *Server) GetPricing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	writeJSON(w, http.StatusOK, out)
 }
+
+// AdminRevenue implements GET /api/v1/admin/revenue: the dashboard, with
+// this month's snapshot brought up to date first.
+func (s *Server) AdminRevenue(w http.ResponseWriter, r *http.Request, params gen.AdminRevenueParams) {
+	bs := s.billingSvc(w)
+	if bs == nil {
+		return
+	}
+	if err := bs.SnapshotMRR(r.Context()); err != nil {
+		s.internalError(w, "revenue", err)
+		return
+	}
+	months := 12
+	if params.Months != nil {
+		months = *params.Months
+	}
+	rev, err := bs.Revenue(r.Context(), months)
+	if err != nil {
+		s.internalError(w, "revenue", err)
+		return
+	}
+	if params.Format != nil && *params.Format == gen.AdminRevenueParamsFormatCsv {
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="revenue-`+time.Now().UTC().Format("20060102")+`.csv"`)
+		if err := billing.WriteRevenueCSV(w, rev); err != nil {
+			s.log.Warn("revenue CSV", "err", err)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, rev)
+}
