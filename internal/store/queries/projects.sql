@@ -37,7 +37,8 @@ UPDATE projects SET status = @status, deleted_at = now() WHERE id = @id;
 -- name: PoolerRoutes :many
 -- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 SELECT p.db_name, p.alias_db_name, p.owner_role, p.scram_verifier, p.legacy_owner_role, p.legacy_scram_verifier,
-       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port, p.lifecycle
+       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port, p.lifecycle,
+       p.region, p.forward_region, p.forward_until
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id

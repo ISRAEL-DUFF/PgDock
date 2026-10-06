@@ -261,6 +261,7 @@ func Start(t testing.TB, opts Options) *Env {
 	if err != nil {
 		t.Fatal(err)
 	}
+	pm.SetHome("eu-central")
 
 	host, sport, _ := net.SplitHostPort(sessionAddr)
 	_, pport, _ := net.SplitHostPort(pooledAddr)

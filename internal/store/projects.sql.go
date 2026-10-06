@@ -335,7 +335,8 @@ func (q *Queries) ListLiveProjects(ctx context.Context, arg ListLiveProjectsPara
 
 const poolerRoutes = `-- name: PoolerRoutes :many
 SELECT p.db_name, p.alias_db_name, p.owner_role, p.scram_verifier, p.legacy_owner_role, p.legacy_scram_verifier,
-       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port, p.lifecycle
+       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port, p.lifecycle,
+       p.region, p.forward_region, p.forward_until
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id
@@ -357,6 +358,9 @@ type PoolerRoutesRow struct {
 	Host                string
 	Port                int32
 	Lifecycle           string
+	Region              string
+	ForwardRegion       *string
+	ForwardUntil        *time.Time
 }
 
 // PoolerRoutes lists every project the pooler should route to, with the
@@ -383,6 +387,9 @@ func (q *Queries) PoolerRoutes(ctx context.Context) ([]PoolerRoutesRow, error) {
 			&i.Host,
 			&i.Port,
 			&i.Lifecycle,
+			&i.Region,
+			&i.ForwardRegion,
+			&i.ForwardUntil,
 		); err != nil {
 			return nil, err
 		}

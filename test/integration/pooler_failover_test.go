@@ -87,7 +87,7 @@ func TestPoolerHostFailover(t *testing.T) {
 		}
 		removeEdge()
 		_, _ = e.DB.Exec(context.Background(), `DELETE FROM nodes WHERE role = 'pooler'`)
-		_, _ = e.DB.Exec(context.Background(), `DELETE FROM pooler_config`)
+		_, _ = e.DB.Exec(context.Background(), `DELETE FROM pooler_generations`)
 	})
 
 	keepalivedScript, err := os.ReadFile("../../deploy/pooler-host/keepalived.sh")

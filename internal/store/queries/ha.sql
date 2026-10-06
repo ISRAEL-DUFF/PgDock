@@ -103,7 +103,7 @@ UPDATE projects SET probe_verifier = sqlc.narg(probe_verifier) WHERE id = @id;
 
 -- name: PoolerProbeUsers :many
 -- tenant: system - the SLA probe logins the poolers must accept.
-SELECT db_name, probe_verifier::text AS probe_verifier FROM projects
+SELECT db_name, probe_verifier::text AS probe_verifier, region, forward_region, forward_until FROM projects
 WHERE deleted_at IS NULL AND probe_verifier IS NOT NULL
   AND status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
 ORDER BY db_name;

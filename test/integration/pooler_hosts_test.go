@@ -121,7 +121,7 @@ func TestPoolerHostsSyncAndArbiter(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		_, _ = e.DB.Exec(context.Background(), `DELETE FROM nodes WHERE role = 'pooler'`)
-		_, _ = e.DB.Exec(context.Background(), `DELETE FROM pooler_config`)
+		_, _ = e.DB.Exec(context.Background(), `DELETE FROM pooler_generations`)
 	})
 
 	dir := t.TempDir()

@@ -13,22 +13,27 @@ import (
 	"github.com/google/uuid"
 )
 
-const advancePoolerConfig = `-- name: AdvancePoolerConfig :one
-INSERT INTO pooler_config (id, generation, hash) VALUES (1, 1, $1)
-ON CONFLICT (id) DO UPDATE
-  SET generation = pooler_config.generation + CASE WHEN pooler_config.hash = EXCLUDED.hash THEN 0 ELSE 1 END,
+const advancePoolerGeneration = `-- name: AdvancePoolerGeneration :one
+INSERT INTO pooler_generations (region, generation, hash) VALUES ($1, 1, $2)
+ON CONFLICT (region) DO UPDATE
+  SET generation = pooler_generations.generation + CASE WHEN pooler_generations.hash = EXCLUDED.hash THEN 0 ELSE 1 END,
       hash = EXCLUDED.hash,
-      updated_at = CASE WHEN pooler_config.hash = EXCLUDED.hash THEN pooler_config.updated_at ELSE now() END
-RETURNING id, generation, hash, updated_at
+      updated_at = CASE WHEN pooler_generations.hash = EXCLUDED.hash THEN pooler_generations.updated_at ELSE now() END
+RETURNING region, generation, hash, updated_at
 `
 
-// Records the rendered configuration's hash, moving to the next
+type AdvancePoolerGenerationParams struct {
+	Region string
+	Hash   string
+}
+
+// Records a region's rendered configuration's hash, moving to the next
 // generation only when the content changed.
-func (q *Queries) AdvancePoolerConfig(ctx context.Context, hash string) (PoolerConfig, error) {
-	row := q.db.QueryRow(ctx, advancePoolerConfig, hash)
-	var i PoolerConfig
+func (q *Queries) AdvancePoolerGeneration(ctx context.Context, arg AdvancePoolerGenerationParams) (PoolerGeneration, error) {
+	row := q.db.QueryRow(ctx, advancePoolerGeneration, arg.Region, arg.Hash)
+	var i PoolerGeneration
 	err := row.Scan(
-		&i.ID,
+		&i.Region,
 		&i.Generation,
 		&i.Hash,
 		&i.UpdatedAt,
@@ -36,15 +41,15 @@ func (q *Queries) AdvancePoolerConfig(ctx context.Context, hash string) (PoolerC
 	return i, err
 }
 
-const getPoolerConfig = `-- name: GetPoolerConfig :one
-SELECT id, generation, hash, updated_at FROM pooler_config WHERE id = 1
+const getPoolerGeneration = `-- name: GetPoolerGeneration :one
+SELECT region, generation, hash, updated_at FROM pooler_generations WHERE region = $1
 `
 
-func (q *Queries) GetPoolerConfig(ctx context.Context) (PoolerConfig, error) {
-	row := q.db.QueryRow(ctx, getPoolerConfig)
-	var i PoolerConfig
+func (q *Queries) GetPoolerGeneration(ctx context.Context, region string) (PoolerGeneration, error) {
+	row := q.db.QueryRow(ctx, getPoolerGeneration, region)
+	var i PoolerGeneration
 	err := row.Scan(
-		&i.ID,
+		&i.Region,
 		&i.Generation,
 		&i.Hash,
 		&i.UpdatedAt,

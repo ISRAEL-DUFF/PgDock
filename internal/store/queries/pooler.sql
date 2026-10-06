@@ -12,17 +12,17 @@ WHERE id = @id;
 -- name: SetProviderServerID :exec
 UPDATE nodes SET provider_server_id = @provider_server_id WHERE id = @id;
 
--- name: GetPoolerConfig :one
-SELECT * FROM pooler_config WHERE id = 1;
+-- name: GetPoolerGeneration :one
+SELECT * FROM pooler_generations WHERE region = @region;
 
--- name: AdvancePoolerConfig :one
--- Records the rendered configuration's hash, moving to the next
+-- name: AdvancePoolerGeneration :one
+-- Records a region's rendered configuration's hash, moving to the next
 -- generation only when the content changed.
-INSERT INTO pooler_config (id, generation, hash) VALUES (1, 1, @hash)
-ON CONFLICT (id) DO UPDATE
-  SET generation = pooler_config.generation + CASE WHEN pooler_config.hash = EXCLUDED.hash THEN 0 ELSE 1 END,
+INSERT INTO pooler_generations (region, generation, hash) VALUES (@region, 1, @hash)
+ON CONFLICT (region) DO UPDATE
+  SET generation = pooler_generations.generation + CASE WHEN pooler_generations.hash = EXCLUDED.hash THEN 0 ELSE 1 END,
       hash = EXCLUDED.hash,
-      updated_at = CASE WHEN pooler_config.hash = EXCLUDED.hash THEN pooler_config.updated_at ELSE now() END
+      updated_at = CASE WHEN pooler_generations.hash = EXCLUDED.hash THEN pooler_generations.updated_at ELSE now() END
 RETURNING *;
 
 -- name: InsertPoolerEvent :exec

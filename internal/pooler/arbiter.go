@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 
@@ -83,12 +84,13 @@ func Decide(hosts []HostView, holder string, manageIP bool) Decision {
 }
 
 // Arbiter checks the pooler hosts and the floating IP every few seconds,
-// keeps stale hosts caught up, and moves the IP when keepalived can't.
+// keeps stale hosts caught up, and moves the IP when keepalived can't. Each
+// region's pair has its own floating IP and is judged on its own (V3 §6.1).
 type Arbiter struct {
-	m        *Manager
-	fip      floatip.Provider
-	manageIP bool
-	log      *slog.Logger
+	m      *Manager
+	fip    floatip.Provider // the home region's
+	fipFor func(region string) floatip.Provider
+	log    *slog.Logger
 	// Grace is how many consecutive checks the holder must be unhealthy
 	// before the arbiter moves the IP itself (default 2), so keepalived's
 	// own failover goes first.
@@ -96,17 +98,23 @@ type Arbiter struct {
 	// RepushEvery limits re-pushes to stale hosts (default 15s).
 	RepushEvery time.Duration
 
-	mu         sync.Mutex
+	mu       sync.Mutex
+	states   map[string]*regionState
+	wasReady map[uuid.UUID]bool
+}
+
+// regionState is what the arbiter remembers about one region's pair.
+type regionState struct {
 	snapshot   ArbiterSnapshot
 	badChecks  int
 	lastHolder string
 	split      bool
-	wasReady   map[uuid.UUID]bool
 	lastRepush time.Time
 }
 
 // ArbiterSnapshot is the arbiter's latest view, for the admin console.
 type ArbiterSnapshot struct {
+	Region     string     `json:"region"`
 	CheckedAt  time.Time  `json:"checked_at"`
 	Generation int64      `json:"generation"`
 	Hosts      []HostView `json:"hosts"`
@@ -120,24 +128,72 @@ type ArbiterSnapshot struct {
 	NoHealthy      bool   `json:"no_healthy"`
 }
 
-// NewArbiter returns an arbiter for m's pooler hosts. fip nil means no
-// floating IP is managed (keepalived alone moves the address).
+// NewArbiter returns an arbiter for m's pooler hosts. fip is the home
+// region's floating IP; nil means none is managed (keepalived alone moves
+// the address).
 func NewArbiter(m *Manager, fip floatip.Provider, log *slog.Logger) *Arbiter {
-	_, none := fip.(floatip.None)
-	manage := fip != nil && !none
 	if fip == nil {
 		fip = floatip.None{}
 	}
-	return &Arbiter{m: m, fip: fip, manageIP: manage, log: log, Grace: 2, RepushEvery: 15 * time.Second, wasReady: map[uuid.UUID]bool{}}
+	return &Arbiter{m: m, fip: fip, log: log, Grace: 2, RepushEvery: 15 * time.Second, states: map[string]*regionState{}, wasReady: map[uuid.UUID]bool{}}
 }
 
-// Snapshot returns the latest check.
-func (a *Arbiter) Snapshot() ArbiterSnapshot {
+// SetRegionIPs supplies other regions' floating IPs (nil or floatip.None:
+// that region's IP isn't managed).
+func (a *Arbiter) SetRegionIPs(f func(region string) floatip.Provider) { a.fipFor = f }
+
+func (a *Arbiter) provider(region string) (floatip.Provider, bool) {
+	fip := a.fip
+	if region != a.m.Home() {
+		fip = nil
+		if a.fipFor != nil {
+			fip = a.fipFor(region)
+		}
+	}
+	if fip == nil {
+		return floatip.None{}, false
+	}
+	_, none := fip.(floatip.None)
+	return fip, !none
+}
+
+func (a *Arbiter) state(region string) *regionState {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	s := a.snapshot
+	st := a.states[region]
+	if st == nil {
+		st = &regionState{}
+		a.states[region] = st
+	}
+	return st
+}
+
+// Snapshot returns the home region's latest check.
+func (a *Arbiter) Snapshot() ArbiterSnapshot { return a.SnapshotFor(a.m.Home()) }
+
+// SnapshotFor returns a region's latest check.
+func (a *Arbiter) SnapshotFor(region string) ArbiterSnapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	st := a.states[region]
+	if st == nil {
+		return ArbiterSnapshot{Region: region}
+	}
+	s := st.snapshot
 	s.Hosts = append([]HostView(nil), s.Hosts...)
 	return s
+}
+
+// Regions lists the regions the arbiter has checked.
+func (a *Arbiter) Regions() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := make([]string, 0, len(a.states))
+	for r := range a.states {
+		out = append(out, r)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Run checks every interval until ctx ends.
@@ -156,7 +212,7 @@ func (a *Arbiter) Run(ctx context.Context, interval time.Duration) {
 	}
 }
 
-// Tick runs one check.
+// Tick runs one check of every region's pair.
 func (a *Arbiter) Tick(ctx context.Context) error {
 	hs := a.m.hostSet()
 	if hs == nil {
@@ -166,14 +222,28 @@ func (a *Arbiter) Tick(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	byRegion := map[string][]*poolerHostEntry{a.m.Home(): nil}
+	for _, e := range entries {
+		byRegion[e.node.Region] = append(byRegion[e.node.Region], e)
+	}
+	var errs []error
+	for region, group := range byRegion {
+		errs = append(errs, a.tickRegion(ctx, hs, region, group))
+	}
+	return errors.Join(errs...)
+}
+
+func (a *Arbiter) tickRegion(ctx context.Context, hs *hostSet, region string, entries []*poolerHostEntry) error {
+	fip, manageIP := a.provider(region)
+	rs := a.state(region)
 	if len(entries) == 0 {
 		a.mu.Lock()
-		a.snapshot = ArbiterSnapshot{CheckedAt: time.Now(), ManagesIP: a.manageIP}
+		rs.snapshot = ArbiterSnapshot{Region: region, CheckedAt: time.Now(), ManagesIP: manageIP}
 		a.mu.Unlock()
 		return nil
 	}
 	q := store.New(a.m.db)
-	cfg, err := q.GetPoolerConfig(ctx)
+	cfg, err := q.GetPoolerGeneration(ctx, region)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -223,8 +293,8 @@ func (a *Arbiter) Tick(ctx context.Context) error {
 	// again (at most every RepushEvery).
 	for _, v := range views {
 		behind := v.Stale || v.Generation == 0 || v.Generation < cfg.Generation
-		if v.Reachable && behind && time.Since(a.lastRepush) >= a.RepushEvery {
-			a.lastRepush = time.Now()
+		if v.Reachable && behind && time.Since(rs.lastRepush) >= a.RepushEvery {
+			rs.lastRepush = time.Now()
 			a.log.Info("pooler host is stale; pushing the configuration again", "host", v.Name, "serving", v.Generation, "expected", cfg.Generation)
 			if err := a.m.Reload(ctx); err != nil {
 				a.log.Warn("re-push to stale pooler host", "err", err)
@@ -234,18 +304,18 @@ func (a *Arbiter) Tick(ctx context.Context) error {
 	}
 
 	holder, herr := "", error(nil)
-	if a.manageIP {
+	if manageIP {
 		hctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		holder, herr = a.fip.Holder(hctx)
+		holder, herr = fip.Holder(hctx)
 		cancel()
 	}
-	d := Decide(views, holder, a.manageIP && herr == nil)
-	a.observe(ctx, views, d, holder)
+	d := Decide(views, holder, manageIP && herr == nil)
+	a.observe(ctx, rs, views, d, holder)
 
 	if d.AssignTo != nil {
 		a.mu.Lock()
-		a.badChecks++
-		bad := a.badChecks
+		rs.badChecks++
+		bad := rs.badChecks
 		a.mu.Unlock()
 		if bad >= a.Grace {
 			to := *d.AssignTo
@@ -254,7 +324,7 @@ func (a *Arbiter) Tick(ctx context.Context) error {
 				from = d.Holder.Name
 			}
 			actx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			err := a.fip.Assign(actx, to.ServerID)
+			err := fip.Assign(actx, to.ServerID)
 			cancel()
 			if err != nil {
 				a.log.Error("could not move the floating IP", "to", to.Name, "err", err)
@@ -263,20 +333,20 @@ func (a *Arbiter) Tick(ctx context.Context) error {
 				a.m.event(ctx, &to.ID, "reassigned", map[string]any{"from": from, "to": to.Name, "by": "arbiter"})
 				holder = to.ServerID
 				a.mu.Lock()
-				a.badChecks = 0
-				a.lastHolder = holder
+				rs.badChecks = 0
+				rs.lastHolder = holder
 				a.mu.Unlock()
 			}
 		}
 	} else {
 		a.mu.Lock()
-		a.badChecks = 0
+		rs.badChecks = 0
 		a.mu.Unlock()
 	}
 
 	snap := ArbiterSnapshot{
-		CheckedAt: time.Now(), Generation: cfg.Generation, Hosts: views, HolderServerID: holder,
-		ManagesIP: a.manageIP, SplitBrain: d.SplitBrain, NoHealthy: d.NoHealthy,
+		Region: region, CheckedAt: time.Now(), Generation: cfg.Generation, Hosts: views, HolderServerID: holder,
+		ManagesIP: manageIP, SplitBrain: d.SplitBrain, NoHealthy: d.NoHealthy,
 	}
 	if herr != nil {
 		snap.HolderError = herr.Error()
@@ -287,17 +357,17 @@ func (a *Arbiter) Tick(ctx context.Context) error {
 		}
 	}
 	a.mu.Lock()
-	a.snapshot = snap
+	rs.snapshot = snap
 	a.mu.Unlock()
 	return nil
 }
 
 // observe records transitions as pooler events: the IP changing hands,
 // split brain starting, hosts going stale or recovering.
-func (a *Arbiter) observe(ctx context.Context, views []HostView, d Decision, holder string) {
+func (a *Arbiter) observe(ctx context.Context, rs *regionState, views []HostView, d Decision, holder string) {
 	a.mu.Lock()
-	prevHolder, prevSplit := a.lastHolder, a.split
-	a.lastHolder, a.split = holder, d.SplitBrain
+	prevHolder, prevSplit := rs.lastHolder, rs.split
+	rs.lastHolder, rs.split = holder, d.SplitBrain
 	type change struct {
 		v    HostView
 		kind string

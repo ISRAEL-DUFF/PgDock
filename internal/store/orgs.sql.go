@@ -1424,7 +1424,7 @@ func (q *Queries) OrphanOrgs(ctx context.Context) ([]uuid.UUID, error) {
 }
 
 const poolerDBUsers = `-- name: PoolerDBUsers :many
-SELECT d.role_name, d.scram_verifier
+SELECT d.role_name, d.scram_verifier, p.region, p.forward_region, p.forward_until
 FROM project_db_users d JOIN projects p ON p.id = d.project_id
 WHERE p.deleted_at IS NULL AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
 ORDER BY d.role_name
@@ -1433,6 +1433,9 @@ ORDER BY d.role_name
 type PoolerDBUsersRow struct {
 	RoleName      string
 	ScramVerifier string
+	Region        string
+	ForwardRegion *string
+	ForwardUntil  *time.Time
 }
 
 // tenant: system - every personal login the poolers must accept.
@@ -1445,7 +1448,13 @@ func (q *Queries) PoolerDBUsers(ctx context.Context) ([]PoolerDBUsersRow, error)
 	var items []PoolerDBUsersRow
 	for rows.Next() {
 		var i PoolerDBUsersRow
-		if err := rows.Scan(&i.RoleName, &i.ScramVerifier); err != nil {
+		if err := rows.Scan(
+			&i.RoleName,
+			&i.ScramVerifier,
+			&i.Region,
+			&i.ForwardRegion,
+			&i.ForwardUntil,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

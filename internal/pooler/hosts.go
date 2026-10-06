@@ -130,25 +130,30 @@ func (h *hostSet) setReachable(id uuid.UUID, ok bool, st agentapi.PoolerStatus) 
 	}
 }
 
-// reachableAdmins are the admin consoles of hosts last seen reachable.
-func (h *hostSet) reachableAdmins() []*Admin {
+// reachableAdmins are the admin consoles of hosts last seen reachable, in
+// region (any region when empty).
+func (h *hostSet) reachableAdmins(region string) []*Admin {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	var out []*Admin
 	for _, id := range h.order {
-		if e := h.entries[id]; e != nil && e.reachable {
+		if e := h.entries[id]; e != nil && e.reachable && (region == "" || e.node.Region == region) {
 			out = append(out, e.session, e.pooled)
 		}
 	}
 	return out
 }
 
-// readBundle collects the pooler files from the config directory: the
-// routes and auth file Sync writes, and the TLS pair tlscert writes.
-func readBundle(dir string) (map[string][]byte, error) {
+// readBundle collects a region's pooler files: the routes and auth file
+// Sync writes in its directory, and the TLS pair there (a region with its
+// own hostname) or else the one tlscert writes in the main directory.
+func readBundle(dir, fallback string) (map[string][]byte, error) {
 	files := map[string][]byte{}
 	for _, name := range agentapi.PoolerFiles {
 		b, err := os.ReadFile(filepath.Join(dir, name))
+		if errors.Is(err, fs.ErrNotExist) && dir != fallback && (name == "server.crt" || name == "server.key") {
+			b, err = os.ReadFile(filepath.Join(fallback, name))
+		}
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -192,48 +197,54 @@ func (m *Manager) pushHosts(ctx context.Context) error {
 	if len(entries) == 0 {
 		return nil
 	}
-	files, err := readBundle(m.dir)
-	if err != nil {
-		return fmt.Errorf("pooler bundle: %w", err)
+	// Each region's hosts get that region's configuration and generation.
+	byRegion := map[string][]*poolerHostEntry{}
+	for _, e := range entries {
+		byRegion[e.node.Region] = append(byRegion[e.node.Region], e)
 	}
-	hash := agentapi.PoolerHash(files)
-	cfg, err := store.New(m.db).AdvancePoolerConfig(ctx, hash)
-	if err != nil {
-		return fmt.Errorf("pooler generation: %w", err)
-	}
-	b := agentapi.PoolerBundle{Generation: cfg.Generation, Hash: hash, Files: files}
-
 	type result struct {
 		e   *poolerHostEntry
 		st  agentapi.PoolerStatus
 		err error
 	}
-	results := make(chan result, len(entries))
-	for _, e := range entries {
-		go func() {
-			pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			defer cancel()
-			st, err := hs.driver.Push(pctx, e.node, b)
-			results <- result{e, st, err}
-		}()
-	}
 	failed := map[string]error{}
-	for range entries {
-		r := <-results
-		hs.setReachable(r.e.node.ID, r.err == nil, r.st)
-		if r.err != nil {
-			failed[r.e.node.Name] = r.err
-			m.event(ctx, &r.e.node.ID, "push_failed", map[string]any{"generation": b.Generation, "error": r.err.Error()})
+	for region, group := range byRegion {
+		files, err := readBundle(m.RegionDir(region), m.dir)
+		if err != nil {
+			return fmt.Errorf("pooler bundle for %s: %w", region, err)
 		}
-	}
-	// Every host learns the generation, including any that just failed,
-	// so a host that missed this push knows it is stale.
-	for _, e := range entries {
-		ectx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		st, err := hs.driver.Expect(ectx, e.node, agentapi.PoolerExpected{Generation: b.Generation, Hash: hash})
-		cancel()
-		if err == nil {
-			hs.setReachable(e.node.ID, true, st)
+		hash := agentapi.PoolerHash(files)
+		cfg, err := store.New(m.db).AdvancePoolerGeneration(ctx, store.AdvancePoolerGenerationParams{Region: region, Hash: hash})
+		if err != nil {
+			return fmt.Errorf("pooler generation: %w", err)
+		}
+		b := agentapi.PoolerBundle{Generation: cfg.Generation, Hash: hash, Files: files}
+		results := make(chan result, len(group))
+		for _, e := range group {
+			go func() {
+				pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				st, err := hs.driver.Push(pctx, e.node, b)
+				results <- result{e, st, err}
+			}()
+		}
+		for range group {
+			r := <-results
+			hs.setReachable(r.e.node.ID, r.err == nil, r.st)
+			if r.err != nil {
+				failed[r.e.node.Name] = r.err
+				m.event(ctx, &r.e.node.ID, "push_failed", map[string]any{"generation": b.Generation, "region": region, "error": r.err.Error()})
+			}
+		}
+		// Every host learns the generation, including any that just failed,
+		// so a host that missed this push knows it is stale.
+		for _, e := range group {
+			ectx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			st, err := hs.driver.Expect(ectx, e.node, agentapi.PoolerExpected{Generation: b.Generation, Hash: hash})
+			cancel()
+			if err == nil {
+				hs.setReachable(e.node.ID, true, st)
+			}
 		}
 	}
 	if len(failed) == 0 {

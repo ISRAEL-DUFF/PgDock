@@ -398,7 +398,7 @@ func (q *Queries) ListPatroniInstances(ctx context.Context) ([]Instance, error) 
 }
 
 const poolerProbeUsers = `-- name: PoolerProbeUsers :many
-SELECT db_name, probe_verifier::text AS probe_verifier FROM projects
+SELECT db_name, probe_verifier::text AS probe_verifier, region, forward_region, forward_until FROM projects
 WHERE deleted_at IS NULL AND probe_verifier IS NOT NULL
   AND status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
 ORDER BY db_name
@@ -407,6 +407,9 @@ ORDER BY db_name
 type PoolerProbeUsersRow struct {
 	DbName        string
 	ProbeVerifier string
+	Region        string
+	ForwardRegion *string
+	ForwardUntil  *time.Time
 }
 
 // tenant: system - the SLA probe logins the poolers must accept.
@@ -419,7 +422,13 @@ func (q *Queries) PoolerProbeUsers(ctx context.Context) ([]PoolerProbeUsersRow, 
 	var items []PoolerProbeUsersRow
 	for rows.Next() {
 		var i PoolerProbeUsersRow
-		if err := rows.Scan(&i.DbName, &i.ProbeVerifier); err != nil {
+		if err := rows.Scan(
+			&i.DbName,
+			&i.ProbeVerifier,
+			&i.Region,
+			&i.ForwardRegion,
+			&i.ForwardUntil,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

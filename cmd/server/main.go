@@ -231,7 +231,7 @@ func run() error {
 		go func() { defer bg.Done(); backups.Dedicated.RunHAWatcher(bgCtx, time.Second) }()
 		// The standby edge pooler (V3 §2.1): push the configuration to the
 		// pooler hosts and keep the floating IP on a healthy one.
-		poolerArbiter = setupPoolerHosts(cfg, pm, nodeSvc, log)
+		poolerArbiter = setupPoolerHosts(cfg, pm, nodeSvc, regionSvc, log)
 		if poolerArbiter != nil {
 			bg.Add(1)
 			go func() { defer bg.Done(); poolerArbiter.Run(bgCtx, 3*time.Second) }()
@@ -707,6 +707,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 	if err != nil {
 		return nil, nil, err
 	}
+	pm.SetHome(rs.Home())
 	// Bring the poolers in line with the metadata DB (e.g. after a restore
 	// or a lost reload). Failure is not fatal: every flow syncs again.
 	syncCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -735,7 +736,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 
 // setupPoolerHosts connects the pooler manager to the pooler hosts and
 // returns the arbiter that watches them and the floating IP.
-func setupPoolerHosts(cfg config.Config, pm *pooler.Manager, ns *nodes.Service, log *slog.Logger) *pooler.Arbiter {
+func setupPoolerHosts(cfg config.Config, pm *pooler.Manager, ns *nodes.Service, rs *regions.Service, log *slog.Logger) *pooler.Arbiter {
 	if pm == nil || ns == nil {
 		return nil
 	}
@@ -749,7 +750,17 @@ func setupPoolerHosts(cfg config.Config, pm *pooler.Manager, ns *nodes.Service, 
 		fip = &floatip.Hetzner{API: pc.FloatingIP.API, Token: pc.FloatingIP.Token, IPID: pc.FloatingIP.ID}
 		log.Info("managing the edge pooler's floating IP", "floating_ip", pc.FloatingIP.ID)
 	}
-	return pooler.NewArbiter(pm, fip, log)
+	a := pooler.NewArbiter(pm, fip, log)
+	// Other regions' pairs have their own floating IPs (V3 §6.1), in the
+	// same Hetzner project.
+	a.SetRegionIPs(func(region string) floatip.Provider {
+		r, ok := rs.Cached(region)
+		if !ok || r.FloatingIpID == nil || *r.FloatingIpID == "" || pc.FloatingIP.Token == "" {
+			return nil
+		}
+		return &floatip.Hetzner{API: pc.FloatingIP.API, Token: pc.FloatingIP.Token, IPID: *r.FloatingIpID}
+	})
+	return a
 }
 
 // setupBackups builds the agent CA, the nodes service, and the backup
