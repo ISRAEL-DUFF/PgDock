@@ -303,7 +303,12 @@ scripts written against V3.
 Same rules as V3 (`docs/v3-plan.md`): one milestone at a time, each
 finished with its done-when test, docs, decisions and CI green.
 
-### M28 — Failure domains (Week 1)
+**Numbering.** V3.1's milestones are numbered `V3.1-M1` to `V3.1-M3`, not
+after V3's M27: M28 onwards stays free for V4, which begins where V3
+stops. Any later point release does the same (`V3.2-M1`, …), and its
+decisions go under its own heading in `docs/decisions.md`.
+
+### V3.1-M1 — Failure domains (Week 1)
 
 Node failure domains (data model, API, UI, manual entry), per-region
 Hetzner placement groups replacing the global variable, the rule enforced
@@ -314,7 +319,7 @@ refused when only same-rack nodes are free; draining the standby's node
 moves it only to the other rack; capacity provisioning in a test region
 creates a spread group and records it on each server (fake Hetzner).
 
-### M29 — etcd per region and member replacement (Weeks 2–3)
+### V3.1-M2 — etcd per region and member replacement (Weeks 2–3)
 
 Per-region clusters and CAs, the home cluster migrated, HA enable and
 Patroni configuration by region, member replacement (dead and alive), drain
@@ -327,7 +332,7 @@ the replacement still works; an HA project on the home cluster moves to
 the Lagos cluster with under 10 seconds of paused writes and no lost
 commits.
 
-### M30 — Announced maintenance and the SLA (Week 4)
+### V3.1-M3 — Announced maintenance and the SLA (Week 4)
 
 Announcements (incidents with schedule, scope and `announced_at`),
 emails, the status page's upcoming maintenance, SLA exclusion with the
@@ -343,9 +348,9 @@ announcement.
 
 | Week | Milestone | Outcome |
 | --- | --- | --- |
-| 1 | M28 Failure domains | HA pairs and etcd can't share a rack or host |
-| 2–3 | M29 etcd per region | Lagos failover depends only on Lagos; a dead etcd node is a routine repair |
-| 4 | M30 Announced maintenance | The SLA record matches the terms |
+| 1 | V3.1-M1 Failure domains | HA pairs and etcd can't share a rack or host |
+| 2–3 | V3.1-M2 etcd per region | Lagos failover depends only on Lagos; a dead etcd node is a routine repair |
+| 4 | V3.1-M3 Announced maintenance | The SLA record matches the terms |
 
 ## 9. Risks
 
