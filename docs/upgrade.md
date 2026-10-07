@@ -184,6 +184,30 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
     their password or code.
   - Before opening Lagos, work through [the Lagos launch](lagos-launch.md).
 
+## Upgrading to V3.1
+
+- **Failure domains** (migration 00033): nothing changes until you
+  record domains. Then record each node's rack (Platform → Nodes → the
+  node → Failure domain) and look for the banner on the Nodes page (or a
+  `failure_domain` alert) listing HA pairs, etcd members or pooler hosts
+  that share one. New Hetzner servers go into `pgdock-<region>` spread
+  placement groups that PGDock creates; the API token needs to be able to
+  manage placement groups (a read-and-write token can). See
+  [Failure domains](failure-domains.md).
+- **etcd per region** (migration 00034): the existing etcd cluster becomes
+  its nodes' region's cluster, and every HA instance is recorded as using
+  it. Set up a cluster in each other region with HA projects (Platform →
+  Nodes → etcd cluster for HA, pick the region), then use **Move to the
+  region's etcd** on each of those projects' HA cards. Upgrade the agents
+  with the server: member replacement uses a new agent endpoint.
+- **Announced maintenance** (migration 00035): from this release the
+  weekly window's minor upgrades **wait for an announcement** before
+  switching over an HA project. Announce the next window (Admin →
+  Incidents → Schedule maintenance) at least 72 hours ahead, or set
+  `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false` to keep upgrading HA
+  projects in every window, as V3 did. Announcements email organisation
+  owners and admins, so check the SMTP settings first.
+
 ## Rolling back
 
 Check out the previous tag and run `./install.sh` again. If the new

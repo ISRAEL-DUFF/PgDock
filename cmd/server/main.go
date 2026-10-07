@@ -460,6 +460,7 @@ func run() error {
 	incidentSvc := incidents.New(pool, incidents.Config{
 		URL: cfg.Status.URL, Secret: cfg.Status.PushSecret, Components: cfg.Status.Components, Region: cfg.Status.Region,
 	}, log)
+	incidentSvc.SetMailer(mailSvc, cfg.Insight.PublicURL)
 	if cfg.Status.URL != "" {
 		log.Info("pushing heartbeats and incidents to the status page", "url", cfg.Status.URL)
 		bg.Add(1)
@@ -812,7 +813,8 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 		bc.MetadataPG = pg
 	}
 	bs := backup.NewService(pool, keyring, ns, projects, bc, log)
-	ds := dedicated.New(pool, keyring, ns, projects, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia}, log)
+	ds := dedicated.New(pool, keyring, ns, projects, bs, dedicated.Config{AdminVia: cfg.Backups.DedicatedAdminVia,
+		RequireAnnouncement: cfg.Backups.RequireMaintenanceAnnouncement}, log)
 	ds.Snapshot = bs.Snapshot
 	projects.Instances = ds
 	bs.Dedicated = ds

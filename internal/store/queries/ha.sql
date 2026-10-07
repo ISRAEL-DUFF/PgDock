@@ -1,18 +1,39 @@
 -- name: ListEtcdMembers :many
+-- tenant: system - platform infrastructure (the etcd clusters, every region).
+SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id ORDER BY e.region, e.created_at, e.name;
+
+-- name: ListRegionEtcdMembers :many
+-- tenant: system - platform infrastructure (one region's etcd cluster).
+SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id
+WHERE e.region = @region ORDER BY e.created_at, e.name;
+
+-- name: GetEtcdMember :one
 -- tenant: system - platform infrastructure (the etcd cluster).
-SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id ORDER BY e.created_at, e.name;
+SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id WHERE e.node_id = @node_id;
 
 -- name: InsertEtcdMember :exec
 -- tenant: system - platform infrastructure (the etcd cluster).
-INSERT INTO etcd_members (node_id, name, client_url, peer_url) VALUES (@node_id, @name, @client_url, @peer_url);
+INSERT INTO etcd_members (node_id, name, client_url, peer_url, region) VALUES (@node_id, @name, @client_url, @peer_url, @region);
 
 -- name: SetEtcdMemberStatus :exec
 -- tenant: system - platform infrastructure (the etcd cluster).
 UPDATE etcd_members SET status = @status, error = sqlc.narg(error), checked_at = now() WHERE node_id = @node_id;
 
--- name: DeleteEtcdMembers :exec
--- tenant: system - platform infrastructure (the etcd cluster).
-DELETE FROM etcd_members;
+-- name: DeleteRegionEtcdMembers :exec
+-- tenant: system - platform infrastructure (one region's etcd cluster).
+DELETE FROM etcd_members WHERE region = @region;
+
+-- name: DeleteEtcdMember :exec
+-- tenant: system - platform infrastructure (a replaced etcd member).
+DELETE FROM etcd_members WHERE node_id = @node_id;
+
+-- name: SetInstanceEtcdRegion :exec
+-- tenant: system - which region's etcd cluster an HA instance's Patroni uses.
+UPDATE instances SET etcd_region = sqlc.narg(etcd_region) WHERE id = @id;
+
+-- name: EtcdRegionInstances :many
+-- tenant: system - the instances under Patroni whose state is in a region's etcd cluster.
+SELECT * FROM instances WHERE patroni AND deleted_at IS NULL AND etcd_region = @region ORDER BY created_at;
 
 -- name: InsertInstanceMember :one
 -- tenant: system - HA members of an instance the caller already resolved.
@@ -125,3 +146,21 @@ ON CONFLICT (project_id, minute) DO UPDATE SET
   external_ok = CASE WHEN EXCLUDED.external_ok IS NULL THEN availability_minutes.external_ok
                      ELSE coalesce(availability_minutes.external_ok, true) AND EXCLUDED.external_ok END,
   excluded = availability_minutes.excluded OR EXCLUDED.excluded;
+
+-- name: ApplyMaintenanceExclusions :execrows
+-- tenant: system - the SLA prober: minutes inside maintenance announced 72 hours ahead are excluded (V3.1 4.2).
+UPDATE availability_minutes a SET excluded = true, excluded_by = i.id
+FROM incidents i, projects p
+WHERE a.project_id = p.id AND a.minute >= @from_ts AND a.minute < @to_ts AND a.excluded_by IS NULL
+  AND i.severity = 'maintenance' AND i.announced_at IS NOT NULL
+  AND a.minute >= i.scheduled_start AND a.minute < i.scheduled_end
+  AND i.announced_at <= a.minute - interval '72 hours'
+  AND (i.cancelled_at IS NULL OR i.cancelled_at > a.minute)
+  AND maintenance_covers(i, p);
+
+-- name: AvailabilityExclusions :many
+-- tenant: system - a project the request already authorized: excluded minutes by announcement.
+SELECT i.id, i.title, i.scheduled_start, i.scheduled_end, count(*)::int AS minutes
+FROM availability_minutes a JOIN incidents i ON i.id = a.excluded_by
+WHERE a.project_id = @project_id AND a.minute >= @from_ts AND a.minute < @to_ts
+GROUP BY i.id, i.title, i.scheduled_start, i.scheduled_end ORDER BY i.scheduled_start;

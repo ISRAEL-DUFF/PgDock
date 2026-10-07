@@ -91,6 +91,7 @@ type snapshot struct {
 	StatusLabel  string               `json:"status_label"`
 	Components   []componentView      `json:"components"`
 	Active       []statusapi.Incident `json:"active_incidents"`
+	Upcoming     []statusapi.Incident `json:"upcoming_maintenance"`
 	Recent       []statusapi.Incident `json:"recent_incidents"`
 	Regions      []regionView         `json:"-"`
 	Names        map[string]string    `json:"-"`
@@ -126,6 +127,12 @@ func (s *Service) snapshot(ctx context.Context, recentDays int) (*snapshot, erro
 	snap := &snapshot{Title: s.cfg.Title, URL: s.cfg.PublicURL, UpdatedAt: now, Names: map[string]string{},
 		Subscribable: s.subscriptions(), Version: version.Version}
 	for _, in := range incidents {
+		// Announced maintenance starts at its window (V3.1 §4.1): until
+		// then it is upcoming, and leaves the components alone.
+		if in.ResolvedAt == nil && in.StartedAt.After(now) {
+			snap.Upcoming = append([]statusapi.Incident{in}, snap.Upcoming...)
+			continue
+		}
 		if in.ResolvedAt == nil {
 			snap.Active = append(snap.Active, in)
 		} else {

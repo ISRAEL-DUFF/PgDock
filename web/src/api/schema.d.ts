@@ -960,6 +960,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/ha/etcd-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+         * @description The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+         */
+        post: operations["moveProjectEtcd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/switchover": {
         parameters: {
             query?: never;
@@ -1114,7 +1134,7 @@ export interface paths {
         delete: operations["removeNode"];
         options?: never;
         head?: never;
-        /** Change a node's role (where new projects may go) */
+        /** Change a node's role (where new projects may go) or failure domain */
         patch: operations["updateNode"];
         trace?: never;
     };
@@ -4803,6 +4823,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/maintenance/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Announced maintenance windows not yet over, and the last month's (V3.1 §4) */
+        get: operations["listMaintenanceAnnouncements"];
+        put?: never;
+        /** Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA */
+        post: operations["announceMaintenance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel an announced maintenance window */
+        delete: operations["cancelMaintenance"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/maintenance": {
         parameters: {
             query?: never;
@@ -4854,6 +4909,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/failure-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4) */
+        get: operations["listFailureDomainProblems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/etcd": {
         parameters: {
             query?: never;
@@ -4861,11 +4933,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The etcd cluster HA instances keep their state in, and each member's health */
+        /** A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1) */
         get: operations["getEtcdCluster"];
         put?: never;
-        /** Set up the etcd cluster, one member on each of three nodes */
+        /** Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains */
         post: operations["setupEtcdCluster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/etcd/members/{node_id}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+         * @description The other members must be healthy. The cluster keeps its quorum throughout.
+         */
+        post: operations["replaceEtcdMember"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5664,6 +5756,27 @@ export interface components {
             empty_since?: string | null;
             /** @description Never deleted for being empty. */
             keep?: boolean;
+            /** @description What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded. */
+            failure_domain?: string | null;
+            /** @description The provider's spread placement group the server is in (Hetzner). */
+            placement_group?: string | null;
+            /** @description The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone). */
+            failure_domain_label?: string;
+        };
+        FailureDomainProblems: {
+            items: components["schemas"]["FailureDomainProblem"][];
+        };
+        FailureDomainProblem: {
+            /** @enum {string} */
+            group: "ha_pair" | "etcd" | "pooler_pair";
+            region: string;
+            /** @description The group's identity (the HA instance, etcd, or the region's pooler pair). */
+            key: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            /** @description The nodes that share a domain. */
+            nodes: string[];
+            detail: string;
         };
         AgentStatus: {
             registered: boolean;
@@ -5754,8 +5867,19 @@ export interface components {
             error?: string | null;
             /** Format: date-time */
             checked_at?: string | null;
+            region?: string;
+        };
+        EtcdReplaceRequest: {
+            /**
+             * Format: uuid
+             * @description Where the new member goes (default the least loaded eligible node in the region).
+             */
+            node_id?: string;
         };
         EtcdCluster: {
+            region?: string;
+            /** @description Regions that have an etcd cluster. */
+            regions?: string[];
             members: components["schemas"]["EtcdMember"][];
             /** @description Set up, with a quorum of healthy members. */
             ready: boolean;
@@ -5812,6 +5936,63 @@ export interface components {
             /** @description Available share of measured minutes, or null before the first probe. */
             percent?: number | null;
             recent_outages?: components["schemas"]["OutageMinute"][];
+            /** @description Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2). */
+            excluded_minutes?: number;
+            exclusions?: components["schemas"]["AvailabilityExclusion"][];
+        };
+        AvailabilityExclusion: {
+            /** Format: uuid */
+            incident_id: string;
+            title: string;
+            /** Format: date-time */
+            scheduled_start?: string | null;
+            /** Format: date-time */
+            scheduled_end?: string | null;
+            minutes: number;
+        };
+        MaintenanceAnnouncementRequest: {
+            title?: string;
+            /** @description What will happen; the window and region are added. */
+            body?: string;
+            /** @description The region it covers (empty for all). */
+            region?: string;
+            /** Format: date-time */
+            start: string;
+            /** Format: date-time */
+            end: string;
+            /** @description Only these projects (with node_ids, either covers). */
+            project_ids?: string[];
+            /** @description Only projects with a member on these nodes. */
+            node_ids?: string[];
+            /**
+             * Format: uuid
+             * @description An announcement this one reschedules; it is cancelled.
+             */
+            replaces?: string;
+        };
+        MaintenanceAnnouncement: {
+            incident: components["schemas"]["Incident"];
+            /** Format: date-time */
+            scheduled_start?: string;
+            /** Format: date-time */
+            scheduled_end?: string;
+            /** Format: date-time */
+            announced_at?: string;
+            /** Format: date-time */
+            cancelled_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+             */
+            excluded_from?: string;
+            /** @description Announced less than 72 hours ahead, so minutes before excluded_from count. */
+            short_notice?: boolean;
+            emailed?: number;
+            scope_projects: string[];
+            scope_nodes: string[];
+        };
+        MaintenanceAnnouncementList: {
+            items: components["schemas"]["MaintenanceAnnouncement"][];
         };
         OutageMinute: {
             /** Format: date-time */
@@ -5820,6 +6001,10 @@ export interface components {
             external_ok?: boolean | null;
         };
         HAStatus: {
+            /** @description The region whose etcd cluster holds the project's Patroni state. */
+            etcd_region?: string | null;
+            /** @description The project's region has its own ready etcd cluster that the project doesn't use yet. */
+            etcd_move_available?: boolean;
             enabled: boolean;
             synchronous: boolean;
             members: components["schemas"]["HAMember"][];
@@ -5901,8 +6086,12 @@ export interface components {
             role: "shared" | "dedicated" | "both" | "pooler";
             /** @description The region the node is in (default the home region). A pooler host serves that region's projects. */
             region?: string;
+            /** @description What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores. */
+            failure_domain?: string;
         };
         NodeCreated: {
+            /** @description E.g. a second pooler host in the same failure domain as the first. */
+            warnings?: string[];
             node: components["schemas"]["Node"];
             token: string;
             /** Format: date-time */
@@ -5940,7 +6129,9 @@ export interface components {
         };
         UpdateNodeRequest: {
             /** @enum {string} */
-            role: "shared" | "dedicated" | "both";
+            role?: "shared" | "dedicated" | "both";
+            /** @description The node's failure domain; an empty string clears it. */
+            failure_domain?: string;
         };
         PromotionEstimate: {
             /** Format: int64 */
@@ -7921,6 +8112,13 @@ export interface components {
         DrainResult: {
             node: components["schemas"]["Node"];
             moves: number;
+            /**
+             * Format: uuid
+             * @description The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+             */
+            etcd_replacement?: string;
+            /** @description E.g. the node holds an etcd member that couldn't be moved yet. */
+            warning?: string;
         };
         NodeCost: {
             /** Format: int64 */
@@ -10200,6 +10398,29 @@ export interface operations {
         };
     };
     resumeProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveProjectEtcd: {
         parameters: {
             query?: never;
             header?: never;
@@ -17034,6 +17255,75 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listMaintenanceAnnouncements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Announcements, newest window first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncementList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    announceMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceAnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description Announced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getMaintenance: {
         parameters: {
             query?: never;
@@ -17103,9 +17393,33 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    getEtcdCluster: {
+    listFailureDomainProblems: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The groups that break the rule; empty when none do. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailureDomainProblems"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEtcdCluster: {
+        parameters: {
+            query?: {
+                /** @description The region (default the home region). */
+                region?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17138,6 +17452,33 @@ export interface operations {
         };
         responses: {
             /** @description The setup operation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replaceEtcdMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EtcdReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description The replacement operation. */
             202: {
                 headers: {
                     [name: string]: unknown;

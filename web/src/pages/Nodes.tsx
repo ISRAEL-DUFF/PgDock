@@ -50,6 +50,7 @@ function usage(used: number, total: number) {
 /** Nodes list with "Add node" (spec §8.1 /nodes). */
 export function NodesPage() {
   const q = useQuery({ queryKey: ["nodes"], queryFn: api.nodes, refetchInterval: 5000 });
+  const problems = useQuery({ queryKey: ["failure-domains"], queryFn: api.failureDomainProblems, refetchInterval: 30000 });
   const [adding, setAdding] = useState(false);
   return (
     <>
@@ -65,13 +66,25 @@ export function NodesPage() {
         }
       />
       {adding && <AddNode onClose={() => setAdding(false)} />}
+      {(problems.data?.items.length ?? 0) > 0 && (
+        <div className="mb-4" data-testid="failure-domain-problems">
+          <Alert tone="warn">
+            <p className="font-medium">Some groups share a failure domain: one rack or host failure could take them all.</p>
+            <ul className="mt-1 list-disc pl-5">
+              {problems.data!.items.map((p) => (
+                <li key={p.key}>{p.detail}</li>
+              ))}
+            </ul>
+          </Alert>
+        </div>
+      )}
       <PoolerHostsPanel />
       <MaintenancePanel />
       <EtcdPanel />
       {q.isPending && <TableSkeleton cols={6} />}
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
       {q.data && (
-        <Table head={["Node", "Role", "Address", "Agent", "Disk", "Last seen"]}>
+        <Table head={["Node", "Role", "Failure domain", "Address", "Agent", "Disk", "Last seen"]}>
           {q.data.items.map((n) => {
             const m = (n.agent.metrics ?? {}) as Metrics;
             return (
@@ -83,6 +96,9 @@ export function NodesPage() {
                 </td>
                 <td className="px-3 py-2">
                   <Badge>{n.role}</Badge>
+                </td>
+                <td className="px-3 py-2 text-xs" data-testid="node-domain">
+                  {n.failure_domain ? <span className="font-mono">{n.failure_domain}</span> : <span className="text-muted">{n.failure_domain_label}</span>}
                 </td>
                 <td className="px-3 py-2 font-mono text-xs text-muted">{n.private_addr}</td>
                 <td className="px-3 py-2" data-testid="agent-status">
@@ -104,6 +120,7 @@ function AddNode({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [addr, setAddr] = useState("");
   const [role, setRole] = useState<Role>("dedicated");
+  const [domain, setDomain] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [created, setCreated] = useState<NodeCreated | null>(null);
@@ -112,7 +129,7 @@ function AddNode({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setErr(null);
     try {
-      setCreated(await api.createNode({ name, private_addr: addr, role }));
+      setCreated(await api.createNode({ name, private_addr: addr, role, failure_domain: domain || undefined }));
       await qc.invalidateQueries({ queryKey: ["nodes"] });
     } catch (e) {
       setErr(errorMessage(e));
@@ -130,6 +147,11 @@ function AddNode({ onClose }: { onClose: () => void }) {
         </Button>
       }
     >
+      {created?.warnings?.map((w) => (
+        <div key={w} className="mb-3">
+          <Alert tone="warn">{w}</Alert>
+        </div>
+      ))}
       {created && created.node.role === "pooler" ? (
         <div className="flex flex-col gap-3 text-sm">
           <p>
@@ -152,7 +174,7 @@ function AddNode({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <form className="flex flex-col gap-3" onSubmit={submit}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <Field label="Node name" hint="Lowercase, e.g. node-b">
               {(id) => <Input id={id} required value={name} onChange={(e) => setName(e.target.value)} className="font-mono" />}
             </Field>
@@ -168,6 +190,9 @@ function AddNode({ onClose }: { onClose: () => void }) {
                   <option value="pooler">pooler (edge pooler host)</option>
                 </Select>
               )}
+            </Field>
+            <Field label="Failure domain" hint="Rack or host, e.g. lagos-dc1-r3">
+              {(id) => <Input id={id} value={domain} onChange={(e) => setDomain(e.target.value)} className="font-mono" placeholder="optional" />}
             </Field>
           </div>
           {err && <Alert>{err}</Alert>}
@@ -291,6 +316,16 @@ export function NodeDetailPage() {
   const m = (n.agent.metrics ?? {}) as Metrics;
   const hasShared = instances.some((i) => i.kind === "shared");
 
+  const saveDomain = async (d: string) => {
+    setErr(null);
+    try {
+      await api.setFailureDomain(n.id, d);
+      await qc.invalidateQueries({ queryKey: ["node", id] });
+      await qc.invalidateQueries({ queryKey: ["failure-domains"] });
+    } catch (e) {
+      setErr(errorMessage(e));
+    }
+  };
   const setRole = async (role: Exclude<Role, "pooler">) => {
     setErr(null);
     try {
@@ -356,6 +391,7 @@ export function NodeDetailPage() {
         </Panel>
         <Panel title="Placement">
           <div className="flex flex-col gap-3 text-sm">
+            <FailureDomainField key={n.failure_domain ?? ""} node={n} onSave={saveDomain} />
             {n.role === "pooler" ? (
               <p className="text-muted">
                 An edge pooler host: it runs both PgBouncers and keepalived for the floating IP, never databases. Its state is under Edge pooler hosts on the
@@ -475,5 +511,36 @@ export function NodeDetailPage() {
         }}
       />
     </>
+  );
+}
+
+/** A node's failure domain (V3.1 §2): HA pairs, etcd members and pooler
+ * hosts are kept in different ones. */
+function FailureDomainField({ node, onSave }: { node: Node; onSave: (d: string) => Promise<void> }) {
+  const [value, setValue] = useState(node.failure_domain ?? "");
+  const [busy, setBusy] = useState(false);
+  const changed = value !== (node.failure_domain ?? "");
+  return (
+    <Field
+      label="Failure domain"
+      hint={`What fails with this node: a rack, host or power feed. ${node.placement_group ? `Placement group ${node.placement_group}. ` : ""}PGDock keeps HA pairs, etcd members and pooler hosts in different ones. Now: ${node.failure_domain_label ?? "—"}.`}
+    >
+      {(fid) => (
+        <div className="flex gap-2">
+          <Input id={fid} value={value} onChange={(e) => setValue(e.target.value)} className="w-56 font-mono" placeholder="e.g. lagos-dc1-r3" />
+          <Button
+            disabled={!changed}
+            busy={busy}
+            onClick={async () => {
+              setBusy(true);
+              await onSave(value.trim());
+              setBusy(false);
+            }}
+          >
+            Save
+          </Button>
+        </div>
+      )}
+    </Field>
   );
 }

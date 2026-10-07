@@ -489,6 +489,8 @@ var specMatrix = map[authz.Action][]string{
 		// V3 §2.2 HA: enable/disable, settings, planned switchover, visibility.
 		"POST /api/v1/projects/{id}/ha", "PATCH /api/v1/projects/{id}/ha",
 		"DELETE /api/v1/projects/{id}/ha", "POST /api/v1/projects/{id}/switchover",
+		// V3.1 §3.3 moving its Patroni state to its region's etcd cluster
+		"POST /api/v1/projects/{id}/ha/etcd-move",
 	},
 	// "Delete project" (transfer also needs owner of both orgs, checked in the handler)
 	authz.ProjectDelete: {"DELETE /api/v1/projects/{id}", "POST /api/v1/projects/{id}/transfer"},
@@ -599,6 +601,13 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
 		// V3 §2.2 "a 3-member etcd cluster spread across the control node and two other nodes"
 		"GET /api/v1/admin/etcd", "POST /api/v1/admin/etcd",
+		// V3.1 §2.4 groups that share a failure domain
+		"GET /api/v1/admin/failure-domains",
+		// V3.1 §4 announced maintenance
+		"GET /api/v1/admin/maintenance/announcements", "POST /api/v1/admin/maintenance/announcements",
+		"DELETE /api/v1/admin/maintenance/announcements/{incident_id}",
+		// V3.1 §3.2 replacing an etcd member
+		"POST /api/v1/admin/etcd/members/{node_id}/replace",
 		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"
 		"GET /api/v1/admin/maintenance", "PUT /api/v1/admin/maintenance/window",
 		// V3 §3.6, §3.9: billing settings, price books, an org's billing terms

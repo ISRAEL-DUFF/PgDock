@@ -93,6 +93,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("PUT "+agentapi.PathEtcd, s.runEtcd)
 	mux.HandleFunc("GET "+agentapi.PathEtcd, s.getEtcd)
 	mux.HandleFunc("DELETE "+agentapi.PathEtcd, s.removeEtcd)
+	mux.HandleFunc("POST "+agentapi.PathEtcdMembers, s.etcdMembers)
 	mux.HandleFunc("PUT "+agentapi.PathPoolerConfig, s.poolerConfig)
 	mux.HandleFunc("PUT "+agentapi.PathPoolerExpected, s.poolerExpected)
 	mux.HandleFunc("GET "+agentapi.PathPoolerStatus, s.poolerStatus)

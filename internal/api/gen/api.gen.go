@@ -794,6 +794,27 @@ func (e FailoverEventKind) Valid() bool {
 	}
 }
 
+// Defines values for FailureDomainProblemGroup.
+const (
+	Etcd       FailureDomainProblemGroup = "etcd"
+	HaPair     FailureDomainProblemGroup = "ha_pair"
+	PoolerPair FailureDomainProblemGroup = "pooler_pair"
+)
+
+// Valid indicates whether the value is a known member of the FailureDomainProblemGroup enum.
+func (e FailureDomainProblemGroup) Valid() bool {
+	switch e {
+	case Etcd:
+		return true
+	case HaPair:
+		return true
+	case PoolerPair:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HAMemberRole.
 const (
 	HAMemberRoleLeader      HAMemberRole = "leader"
@@ -3697,7 +3718,10 @@ type AutoTopup struct {
 
 // Availability defines model for Availability.
 type Availability struct {
-	MeasuredMinutes int `json:"measured_minutes"`
+	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
+	ExcludedMinutes *int                     `json:"excluded_minutes,omitempty"`
+	Exclusions      *[]AvailabilityExclusion `json:"exclusions,omitempty"`
+	MeasuredMinutes int                      `json:"measured_minutes"`
 
 	// Month The calendar month (UTC), YYYY-MM.
 	Month string `json:"month"`
@@ -3706,6 +3730,15 @@ type Availability struct {
 	Percent            *float32        `json:"percent,omitempty"`
 	RecentOutages      *[]OutageMinute `json:"recent_outages,omitempty"`
 	UnavailableMinutes int             `json:"unavailable_minutes"`
+}
+
+// AvailabilityExclusion defines model for AvailabilityExclusion.
+type AvailabilityExclusion struct {
+	IncidentId     openapi_types.UUID `json:"incident_id"`
+	Minutes        int                `json:"minutes"`
+	ScheduledEnd   *time.Time         `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time         `json:"scheduled_start,omitempty"`
+	Title          string             `json:"title"`
 }
 
 // Backup defines model for Backup.
@@ -4117,6 +4150,9 @@ type CreateIncidentRequest struct {
 
 // CreateNodeRequest defines model for CreateNodeRequest.
 type CreateNodeRequest struct {
+	// FailureDomain What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
 	// Name Example: node-b
 	Name string `json:"name"`
 
@@ -4457,8 +4493,13 @@ type DnsCheck struct {
 
 // DrainResult defines model for DrainResult.
 type DrainResult struct {
-	Moves int  `json:"moves"`
-	Node  Node `json:"node"`
+	// EtcdReplacement The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+	EtcdReplacement *openapi_types.UUID `json:"etcd_replacement,omitempty"`
+	Moves           int                 `json:"moves"`
+	Node            Node                `json:"node"`
+
+	// Warning E.g. the node holds an etcd member that couldn't be moved yet.
+	Warning *string `json:"warning,omitempty"`
 }
 
 // DuplicateIndex defines model for DuplicateIndex.
@@ -4531,6 +4572,10 @@ type EtcdCluster struct {
 
 	// Reason Why it isn't ready.
 	Reason *string `json:"reason,omitempty"`
+	Region *string `json:"region,omitempty"`
+
+	// Regions Regions that have an etcd cluster.
+	Regions *[]string `json:"regions,omitempty"`
 }
 
 // EtcdMember defines model for EtcdMember.
@@ -4541,11 +4586,18 @@ type EtcdMember struct {
 	Name      string             `json:"name"`
 	NodeId    openapi_types.UUID `json:"node_id"`
 	NodeName  string             `json:"node_name"`
+	Region    *string            `json:"region,omitempty"`
 	Status    EtcdMemberStatus   `json:"status"`
 }
 
 // EtcdMemberStatus defines model for EtcdMember.Status.
 type EtcdMemberStatus string
+
+// EtcdReplaceRequest defines model for EtcdReplaceRequest.
+type EtcdReplaceRequest struct {
+	// NodeId Where the new member goes (default the least loaded eligible node in the region).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+}
 
 // EtcdSetupRequest defines model for EtcdSetupRequest.
 type EtcdSetupRequest struct {
@@ -4618,6 +4670,28 @@ type FailoverEvent struct {
 // FailoverEventKind defines model for FailoverEvent.Kind.
 type FailoverEventKind string
 
+// FailureDomainProblem defines model for FailureDomainProblem.
+type FailureDomainProblem struct {
+	Detail string                    `json:"detail"`
+	Group  FailureDomainProblemGroup `json:"group"`
+
+	// Key The group's identity (the HA instance, etcd, or the region's pooler pair).
+	Key string `json:"key"`
+
+	// Nodes The nodes that share a domain.
+	Nodes     []string            `json:"nodes"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Region    string              `json:"region"`
+}
+
+// FailureDomainProblemGroup defines model for FailureDomainProblem.Group.
+type FailureDomainProblemGroup string
+
+// FailureDomainProblems defines model for FailureDomainProblems.
+type FailureDomainProblems struct {
+	Items []FailureDomainProblem `json:"items"`
+}
+
 // ForeignKey defines model for ForeignKey.
 type ForeignKey struct {
 	Columns    []string `json:"columns"`
@@ -4662,11 +4736,17 @@ type HAMemberRole string
 
 // HAStatus defines model for HAStatus.
 type HAStatus struct {
-	Availability *Availability   `json:"availability,omitempty"`
-	Enabled      bool            `json:"enabled"`
-	Failovers    []FailoverEvent `json:"failovers"`
-	Members      []HAMember      `json:"members"`
-	Synchronous  bool            `json:"synchronous"`
+	Availability *Availability `json:"availability,omitempty"`
+	Enabled      bool          `json:"enabled"`
+
+	// EtcdMoveAvailable The project's region has its own ready etcd cluster that the project doesn't use yet.
+	EtcdMoveAvailable *bool `json:"etcd_move_available,omitempty"`
+
+	// EtcdRegion The region whose etcd cluster holds the project's Patroni state.
+	EtcdRegion  *string         `json:"etcd_region,omitempty"`
+	Failovers   []FailoverEvent `json:"failovers"`
+	Members     []HAMember      `json:"members"`
+	Synchronous bool            `json:"synchronous"`
 }
 
 // HAUpdateRequest defines model for HAUpdateRequest.
@@ -5361,6 +5441,50 @@ type MailSettingsRequest struct {
 // MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
 type MailSettingsRequestTls string
 
+// MaintenanceAnnouncement defines model for MaintenanceAnnouncement.
+type MaintenanceAnnouncement struct {
+	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
+	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
+	Emailed     *int       `json:"emailed,omitempty"`
+
+	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
+	Incident       Incident             `json:"incident"`
+	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
+	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
+	ScopeProjects  []openapi_types.UUID `json:"scope_projects"`
+
+	// ShortNotice Announced less than 72 hours ahead, so minutes before excluded_from count.
+	ShortNotice *bool `json:"short_notice,omitempty"`
+}
+
+// MaintenanceAnnouncementList defines model for MaintenanceAnnouncementList.
+type MaintenanceAnnouncementList struct {
+	Items []MaintenanceAnnouncement `json:"items"`
+}
+
+// MaintenanceAnnouncementRequest defines model for MaintenanceAnnouncementRequest.
+type MaintenanceAnnouncementRequest struct {
+	// Body What will happen; the window and region are added.
+	Body *string   `json:"body,omitempty"`
+	End  time.Time `json:"end"`
+
+	// NodeIds Only projects with a member on these nodes.
+	NodeIds *[]openapi_types.UUID `json:"node_ids,omitempty"`
+
+	// ProjectIds Only these projects (with node_ids, either covers).
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+
+	// Region The region it covers (empty for all).
+	Region *string `json:"region,omitempty"`
+
+	// Replaces An announcement this one reschedules; it is cancelled.
+	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
+	Start    time.Time           `json:"start"`
+	Title    *string             `json:"title,omitempty"`
+}
+
 // MaintenanceStatus defines model for MaintenanceStatus.
 type MaintenanceStatus struct {
 	// Behind Running instances whose image has a newer minor release.
@@ -5488,11 +5612,17 @@ type MyInvitationList struct {
 
 // Node defines model for Node.
 type Node struct {
-	Agent        AgentStatus        `json:"agent"`
-	CostCurrency *string            `json:"cost_currency,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	EmptySince   *time.Time         `json:"empty_since,omitempty"`
-	Id           openapi_types.UUID `json:"id"`
+	Agent        AgentStatus `json:"agent"`
+	CostCurrency *string     `json:"cost_currency,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	EmptySince   *time.Time  `json:"empty_since,omitempty"`
+
+	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
+	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
+	Id                 openapi_types.UUID `json:"id"`
 
 	// Keep Never deleted for being empty.
 	Keep             *bool          `json:"keep,omitempty"`
@@ -5500,7 +5630,10 @@ type Node struct {
 	Lifecycle        *NodeLifecycle `json:"lifecycle,omitempty"`
 	MonthlyCostMinor *int64         `json:"monthly_cost_minor,omitempty"`
 	Name             string         `json:"name"`
-	PrivateAddr      string         `json:"private_addr"`
+
+	// PlacementGroup The provider's spread placement group the server is in (Hetzner).
+	PlacementGroup *string `json:"placement_group,omitempty"`
+	PrivateAddr    string  `json:"private_addr"`
 
 	// Provider manual (registered by hand) or the cloud provider that created it.
 	Provider   *string `json:"provider,omitempty"`
@@ -5528,6 +5661,9 @@ type NodeCreated struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Node      Node      `json:"node"`
 	Token     string    `json:"token"`
+
+	// Warnings E.g. a second pooler host in the same failure domain as the first.
+	Warnings *[]string `json:"warnings,omitempty"`
 }
 
 // NodeDetail defines model for NodeDetail.
@@ -7544,7 +7680,9 @@ type UpdateMeRequest struct {
 
 // UpdateNodeRequest defines model for UpdateNodeRequest.
 type UpdateNodeRequest struct {
-	Role UpdateNodeRequestRole `json:"role"`
+	// FailureDomain The node's failure domain; an empty string clears it.
+	FailureDomain *string                `json:"failure_domain,omitempty"`
+	Role          *UpdateNodeRequestRole `json:"role,omitempty"`
 }
 
 // UpdateNodeRequestRole defines model for UpdateNodeRequest.Role.
@@ -7959,6 +8097,12 @@ type ListDedicatedRequestsParams struct {
 
 // ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParamsStatus string
+
+// GetEtcdClusterParams defines parameters for GetEtcdCluster.
+type GetEtcdClusterParams struct {
+	// Region The region (default the home region).
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
 
 // AdminListInvoicesParams defines parameters for AdminListInvoices.
 type AdminListInvoicesParams struct {
@@ -8437,6 +8581,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 // SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
 type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
 
+// ReplaceEtcdMemberJSONRequestBody defines body for ReplaceEtcdMember for application/json ContentType.
+type ReplaceEtcdMemberJSONRequestBody = EtcdReplaceRequest
+
 // SetFXRateJSONRequestBody defines body for SetFXRate for application/json ContentType.
 type SetFXRateJSONRequestBody = FXRateInput
 
@@ -8454,6 +8601,9 @@ type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
 
 // AdminPublishLegalJSONRequestBody defines body for AdminPublishLegal for application/json ContentType.
 type AdminPublishLegalJSONRequestBody = LegalPublish
+
+// AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
+type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
 
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
@@ -8889,12 +9039,18 @@ type ServerInterface interface {
 	// RejectDedicatedRequest Reject a dedicated request (platform admin)
 	// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
 	RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
-	// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+	// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 	// (GET /api/v1/admin/etcd)
-	GetEtcdCluster(w http.ResponseWriter, r *http.Request)
-	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+	GetEtcdCluster(w http.ResponseWriter, r *http.Request, params GetEtcdClusterParams)
+	// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	// (POST /api/v1/admin/etcd)
 	SetupEtcdCluster(w http.ResponseWriter, r *http.Request)
+	// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	// (POST /api/v1/admin/etcd/members/{node_id}/replace)
+	ReplaceEtcdMember(w http.ResponseWriter, r *http.Request, nodeId openapi_types.UUID)
+	// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+	// (GET /api/v1/admin/failure-domains)
+	ListFailureDomainProblems(w http.ResponseWriter, r *http.Request)
 	// ListFXRates Exchange rates (naira per unit), current and history
 	// (GET /api/v1/admin/fx-rates)
 	ListFXRates(w http.ResponseWriter, r *http.Request)
@@ -8952,6 +9108,15 @@ type ServerInterface interface {
 	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	// (GET /api/v1/admin/maintenance)
 	GetMaintenance(w http.ResponseWriter, r *http.Request)
+	// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+	// (GET /api/v1/admin/maintenance/announcements)
+	ListMaintenanceAnnouncements(w http.ResponseWriter, r *http.Request)
+	// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	// (POST /api/v1/admin/maintenance/announcements)
+	AnnounceMaintenance(w http.ResponseWriter, r *http.Request)
+	// CancelMaintenance Cancel an announced maintenance window
+	// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
+	CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
 	// PutMaintenanceWindow Change the weekly maintenance window (UTC)
 	// (PUT /api/v1/admin/maintenance/window)
 	PutMaintenanceWindow(w http.ResponseWriter, r *http.Request)
@@ -9258,7 +9423,7 @@ type ServerInterface interface {
 	// GetNode A node, its agent's health, and what runs on it
 	// (GET /api/v1/nodes/{id})
 	GetNode(w http.ResponseWriter, r *http.Request, id NodeID)
-	// UpdateNode Change a node's role (where new projects may go)
+	// UpdateNode Change a node's role (where new projects may go) or failure domain
 	// (PATCH /api/v1/nodes/{id})
 	UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID)
 	// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
@@ -9534,6 +9699,9 @@ type ServerInterface interface {
 	// EnableProjectHA Turn HA on
 	// (POST /api/v1/projects/{id}/ha)
 	EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+	// (POST /api/v1/projects/{id}/ha/etcd-move)
+	MoveProjectEtcd(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
 	// (GET /api/v1/projects/{id}/insights/bloat)
 	GetInsightBloat(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -9948,15 +10116,27 @@ func (_ Unimplemented) RejectDedicatedRequest(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 // (GET /api/v1/admin/etcd)
-func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request, params GetEtcdClusterParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 // (POST /api/v1/admin/etcd)
 func (_ Unimplemented) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+// (POST /api/v1/admin/etcd/members/{node_id}/replace)
+func (_ Unimplemented) ReplaceEtcdMember(w http.ResponseWriter, r *http.Request, nodeId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+// (GET /api/v1/admin/failure-domains)
+func (_ Unimplemented) ListFailureDomainProblems(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10071,6 +10251,24 @@ func (_ Unimplemented) AdminGetLegal(w http.ResponseWriter, r *http.Request, doc
 // GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 // (GET /api/v1/admin/maintenance)
 func (_ Unimplemented) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+// (GET /api/v1/admin/maintenance/announcements)
+func (_ Unimplemented) ListMaintenanceAnnouncements(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+// (POST /api/v1/admin/maintenance/announcements)
+func (_ Unimplemented) AnnounceMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CancelMaintenance Cancel an announced maintenance window
+// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
+func (_ Unimplemented) CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10686,7 +10884,7 @@ func (_ Unimplemented) GetNode(w http.ResponseWriter, r *http.Request, id NodeID
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// UpdateNode Change a node's role (where new projects may go)
+// UpdateNode Change a node's role (where new projects may go) or failure domain
 // (PATCH /api/v1/nodes/{id})
 func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -11235,6 +11433,12 @@ func (_ Unimplemented) UpdateProjectHA(w http.ResponseWriter, r *http.Request, i
 // EnableProjectHA Turn HA on
 // (POST /api/v1/projects/{id}/ha)
 func (_ Unimplemented) EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+// (POST /api/v1/projects/{id}/ha/etcd-move)
+func (_ Unimplemented) MoveProjectEtcd(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12318,8 +12522,27 @@ func (siw *ServerInterfaceWrapper) RejectDedicatedRequest(w http.ResponseWriter,
 // GetEtcdCluster operation middleware
 func (siw *ServerInterfaceWrapper) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEtcdClusterParams
+
+	// ------------- Optional query parameter "region" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "region", r.URL.Query(), &params.Region, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "region"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetEtcdCluster(w, r)
+		siw.Handler.GetEtcdCluster(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12334,6 +12557,46 @@ func (siw *ServerInterfaceWrapper) SetupEtcdCluster(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetupEtcdCluster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplaceEtcdMember operation middleware
+func (siw *ServerInterfaceWrapper) ReplaceEtcdMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "node_id" -------------
+	var nodeId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "node_id", chi.URLParam(r, "node_id"), &nodeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "node_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplaceEtcdMember(w, r, nodeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFailureDomainProblems operation middleware
+func (siw *ServerInterfaceWrapper) ListFailureDomainProblems(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFailureDomainProblems(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12756,6 +13019,60 @@ func (siw *ServerInterfaceWrapper) GetMaintenance(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMaintenanceAnnouncements operation middleware
+func (siw *ServerInterfaceWrapper) ListMaintenanceAnnouncements(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMaintenanceAnnouncements(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AnnounceMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) AnnounceMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnnounceMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) CancelMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "incident_id" -------------
+	var incidentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "incident_id", chi.URLParam(r, "incident_id"), &incidentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "incident_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelMaintenance(w, r, incidentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -17918,6 +18235,32 @@ func (siw *ServerInterfaceWrapper) EnableProjectHA(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// MoveProjectEtcd operation middleware
+func (siw *ServerInterfaceWrapper) MoveProjectEtcd(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveProjectEtcd(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetInsightBloat operation middleware
 func (siw *ServerInterfaceWrapper) GetInsightBloat(w http.ResponseWriter, r *http.Request) {
 
@@ -21109,6 +21452,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/resume", wrapper.ResumeProject)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/ha/etcd-move", wrapper.MoveProjectEtcd)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/switchover", wrapper.SwitchoverProject)
 	})
 	r.Group(func(r chi.Router) {
@@ -21913,6 +22259,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/api/v1/admin/orgs/{org}/billing/grace", wrapper.AdminSetGrace)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/maintenance/announcements", wrapper.ListMaintenanceAnnouncements)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements", wrapper.AnnounceMaintenance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}", wrapper.CancelMaintenance)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)
 	})
 	r.Group(func(r chi.Router) {
@@ -21922,10 +22277,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/admin/instances/{instance_id}/minor-upgrade", wrapper.MinorUpgradeInstance)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/failure-domains", wrapper.ListFailureDomainProblems)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/etcd", wrapper.GetEtcdCluster)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/etcd", wrapper.SetupEtcdCluster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/etcd/members/{node_id}/replace", wrapper.ReplaceEtcdMember)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/shared-clusters", wrapper.ListSharedClusters)

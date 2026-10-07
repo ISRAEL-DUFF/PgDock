@@ -1,12 +1,44 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Megaphone } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { api, errorMessage, type Incident, type IncidentSeverity, type IncidentStatus } from "../api/client";
-import { Alert, Badge, Button, Checkbox, Dialog, EmptyState, Field, Input, PageHeading, Panel, Select, Spinner, Table, type Tone } from "../components/ui";
+import {
+  api,
+  errorMessage,
+  type Incident,
+  type IncidentSeverity,
+  type IncidentStatus,
+} from "../api/client";
+import {
+  Alert,
+  Badge,
+  Button,
+  Checkbox,
+  Dialog,
+  EmptyState,
+  Field,
+  Input,
+  PageHeading,
+  Panel,
+  Select,
+  Spinner,
+  Table,
+  type Tone,
+} from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
+import { MaintenancePanel } from "./IncidentsMaintenance";
 
-const severities: IncidentSeverity[] = ["minor", "major", "critical", "maintenance"];
-const statuses: IncidentStatus[] = ["investigating", "identified", "monitoring", "resolved"];
+const severities: IncidentSeverity[] = [
+  "minor",
+  "major",
+  "critical",
+  "maintenance",
+];
+const statuses: IncidentStatus[] = [
+  "investigating",
+  "identified",
+  "monitoring",
+  "resolved",
+];
 
 const severityTone: Record<IncidentSeverity, Tone> = {
   minor: "warn",
@@ -23,7 +55,13 @@ function title(s: string) {
 }
 
 /** Where the status page stands on this version of the incident. */
-function PushState({ inc, configured }: { inc: Incident; configured: boolean }) {
+function PushState({
+  inc,
+  configured,
+}: {
+  inc: Incident;
+  configured: boolean;
+}) {
   if (!configured) return null;
   if (inc.push_error)
     return (
@@ -31,7 +69,8 @@ function PushState({ inc, configured }: { inc: Incident; configured: boolean }) 
         <Badge tone="danger">push failed, retrying</Badge>
       </span>
     );
-  if (!inc.pushed_at) return <Badge tone="muted">sending to status page…</Badge>;
+  if (!inc.pushed_at)
+    return <Badge tone="muted">sending to status page…</Badge>;
   return <Badge tone="ok">on status page</Badge>;
 }
 
@@ -54,18 +93,28 @@ export function IncidentsPage() {
           q.data?.status_page_url ? (
             <>
               Posted to{" "}
-              <a href={q.data.status_page_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent-text hover:underline">
+              <a
+                href={q.data.status_page_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-accent-text hover:underline"
+              >
                 {q.data.status_page_url.replace(/^https?:\/\//, "")}
                 <ExternalLink className="size-3" />
               </a>{" "}
-              within seconds. Outages it detects from outside open and resolve there by themselves.
+              within seconds. Outages it detects from outside open and resolve
+              there by themselves.
             </>
           ) : (
             "Incidents for the public status page."
           )
         }
         actions={
-          <Button variant="primary" onClick={() => setCreating(true)} disabled={!q.data}>
+          <Button
+            variant="primary"
+            onClick={() => setCreating(true)}
+            disabled={!q.data}
+          >
             New incident
           </Button>
         }
@@ -73,7 +122,8 @@ export function IncidentsPage() {
       {q.data && !q.data.status_page_configured && (
         <div className="mb-4">
           <Alert tone="warn" title="No status page connected">
-            Incidents stay in PGDock until you set PGDOCK_STATUS_URL and PGDOCK_STATUS_PUSH_SECRET (docs/status-page.md).
+            Incidents stay in PGDock until you set PGDOCK_STATUS_URL and
+            PGDOCK_STATUS_PUSH_SECRET (docs/status-page.md).
           </Alert>
         </div>
       )}
@@ -85,29 +135,60 @@ export function IncidentsPage() {
         <div className="flex flex-col gap-4">
           {open.length === 0 ? (
             <EmptyState title="No open incidents" icon={<Megaphone />}>
-              Open one when customers should know about a problem or planned maintenance.
+              Open one when customers should know about a problem or planned
+              maintenance.
             </EmptyState>
           ) : (
-            open.map((inc) => <OpenIncident key={inc.id} inc={inc} configured={q.data.status_page_configured} components={q.data.components} />)
+            open.map((inc) => (
+              <OpenIncident
+                key={inc.id}
+                inc={inc}
+                configured={q.data.status_page_configured}
+                components={q.data.components}
+              />
+            ))
           )}
+          <MaintenancePanel />
           {past.length > 0 && (
             <Panel title="Resolved">
-              <Table head={["Incident", "Severity", "Components", "Started", "Resolved", ""]}>
+              <Table
+                head={[
+                  "Incident",
+                  "Severity",
+                  "Components",
+                  "Started",
+                  "Resolved",
+                  "",
+                ]}
+              >
                 {past.map((inc) => (
                   <tr key={inc.id} data-testid="past-incident">
                     <td className="px-3 py-2 font-medium">{inc.title}</td>
                     <td className="px-3 py-2">
-                      <Badge tone={severityTone[inc.severity]}>{inc.severity}</Badge>
+                      <Badge tone={severityTone[inc.severity]}>
+                        {inc.severity}
+                      </Badge>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted">{inc.components.join(", ")}</td>
-                    <td className="px-3 py-2 text-xs text-muted" title={formatDate(inc.started_at)}>
+                    <td className="px-3 py-2 text-xs text-muted">
+                      {inc.components.join(", ")}
+                    </td>
+                    <td
+                      className="px-3 py-2 text-xs text-muted"
+                      title={formatDate(inc.started_at)}
+                    >
                       {relativeTime(inc.started_at)}
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted" title={formatDate(inc.resolved_at)}>
+                    <td
+                      className="px-3 py-2 text-xs text-muted"
+                      title={formatDate(inc.resolved_at)}
+                    >
                       {relativeTime(inc.resolved_at)}
                     </td>
                     <td className="px-3 py-2">
-                      <PushState inc={inc} configured={q.data.status_page_configured} />
+                      <PushState
+                        inc={inc}
+                        configured={q.data.status_page_configured}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -116,17 +197,36 @@ export function IncidentsPage() {
           )}
         </div>
       )}
-      {q.data && <CreateIncident open={creating} onOpenChange={setCreating} components={q.data.components} />}
+      {q.data && (
+        <CreateIncident
+          open={creating}
+          onOpenChange={setCreating}
+          components={q.data.components}
+        />
+      )}
     </>
   );
 }
 
-function ComponentPicker({ all, value, onChange }: { all: string[]; value: string[]; onChange: (v: string[]) => void }) {
+function ComponentPicker({
+  all,
+  value,
+  onChange,
+}: {
+  all: string[];
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
   return (
     <div className="grid grid-cols-2 gap-1.5">
       {all.map((c) => (
         <label key={c} className="flex items-center gap-2 text-[13px]">
-          <Checkbox checked={value.includes(c)} onCheckedChange={(on) => onChange(on ? [...value, c] : value.filter((x) => x !== c))} />
+          <Checkbox
+            checked={value.includes(c)}
+            onCheckedChange={(on) =>
+              onChange(on ? [...value, c] : value.filter((x) => x !== c))
+            }
+          />
           <span className="font-mono text-xs">{c}</span>
         </label>
       ))}
@@ -134,7 +234,15 @@ function ComponentPicker({ all, value, onChange }: { all: string[]; value: strin
   );
 }
 
-function CreateIncident({ open, onOpenChange, components }: { open: boolean; onOpenChange: (o: boolean) => void; components: string[] }) {
+function CreateIncident({
+  open,
+  onOpenChange,
+  components,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  components: string[];
+}) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
@@ -178,24 +286,62 @@ function CreateIncident({ open, onOpenChange, components }: { open: boolean; onO
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" form="create-incident-form" variant="primary" busy={busy} disabled={picked.length === 0}>
+          <Button
+            type="submit"
+            form="create-incident-form"
+            variant="primary"
+            busy={busy}
+            disabled={picked.length === 0}
+          >
             Publish
           </Button>
         </>
       }
     >
-      <form id="create-incident-form" className="flex flex-col gap-3" onSubmit={submit}>
-        <Field label="Title" hint="What customers see, e.g. “Elevated connection errors in eu-central”">
-          {(id) => <Input id={id} required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />}
+      <form
+        id="create-incident-form"
+        className="flex flex-col gap-3"
+        onSubmit={submit}
+      >
+        <Field
+          label="Title"
+          hint="What customers see, e.g. “Elevated connection errors in eu-central”"
+        >
+          {(id) => (
+            <Input
+              id={id}
+              required
+              maxLength={200}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
         </Field>
         <div className="flex flex-col gap-1">
           <span className="text-[13px] text-fg-light">Affected components</span>
-          <ComponentPicker all={components} value={picked} onChange={setPicked} />
+          <ComponentPicker
+            all={components}
+            value={picked}
+            onChange={setPicked}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Severity" hint={severity === "minor" || severity === "maintenance" ? "Shows as degraded" : "Shows as an outage"}>
+          <Field
+            label="Severity"
+            hint={
+              severity === "minor" || severity === "maintenance"
+                ? "Shows as degraded"
+                : "Shows as an outage"
+            }
+          >
             {(id) => (
-              <Select id={id} value={severity} onChange={(e) => setSeverity(e.target.value as IncidentSeverity)}>
+              <Select
+                id={id}
+                value={severity}
+                onChange={(e) =>
+                  setSeverity(e.target.value as IncidentSeverity)
+                }
+              >
                 {severities.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -206,7 +352,11 @@ function CreateIncident({ open, onOpenChange, components }: { open: boolean; onO
           </Field>
           <Field label="Status">
             {(id) => (
-              <Select id={id} value={status} onChange={(e) => setStatus(e.target.value as IncidentStatus)}>
+              <Select
+                id={id}
+                value={status}
+                onChange={(e) => setStatus(e.target.value as IncidentStatus)}
+              >
                 {statuses.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -235,9 +385,18 @@ function CreateIncident({ open, onOpenChange, components }: { open: boolean; onO
   );
 }
 
-function OpenIncident({ inc, configured, components }: { inc: Incident; configured: boolean; components: string[] }) {
+function OpenIncident({
+  inc,
+  configured,
+  components,
+}: {
+  inc: Incident;
+  configured: boolean;
+  components: string[];
+}) {
   const qc = useQueryClient();
-  const next = statuses[Math.min(statuses.indexOf(inc.status) + 1, statuses.length - 1)];
+  const next =
+    statuses[Math.min(statuses.indexOf(inc.status) + 1, statuses.length - 1)];
   const [status, setStatus] = useState<IncidentStatus>(next);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -271,7 +430,11 @@ function OpenIncident({ inc, configured, components }: { inc: Incident; configur
       actions={
         <div className="flex items-center gap-2">
           <PushState inc={inc} configured={configured} />
-          <Button variant="ghost" className="text-xs" onClick={() => setEditing(true)}>
+          <Button
+            variant="ghost"
+            className="text-xs"
+            onClick={() => setEditing(true)}
+          >
             Edit
           </Button>
         </div>
@@ -282,7 +445,10 @@ function OpenIncident({ inc, configured, components }: { inc: Incident; configur
           <li key={u.id} className="text-[13px]">
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="font-medium">{title(u.status)}</span>
-              <span className="text-xs text-muted" title={formatDate(u.posted_at)}>
+              <span
+                className="text-xs text-muted"
+                title={formatDate(u.posted_at)}
+              >
                 {relativeTime(u.posted_at)}
                 {u.posted_by ? ` · ${u.posted_by}` : ""}
               </span>
@@ -297,30 +463,58 @@ function OpenIncident({ inc, configured, components }: { inc: Incident; configur
           required
           maxLength={5000}
           className={textareaClass}
-          placeholder={status === "resolved" ? "What was fixed, and whether anything is still affected." : "What you know now and what happens next."}
+          placeholder={
+            status === "resolved"
+              ? "What was fixed, and whether anything is still affected."
+              : "What you know now and what happens next."
+          }
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Select aria-label="Status" className="w-40" value={status} onChange={(e) => setStatus(e.target.value as IncidentStatus)}>
+          <Select
+            aria-label="Status"
+            className="w-40"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as IncidentStatus)}
+          >
             {statuses.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
           </Select>
-          <Button type="submit" variant={status === "resolved" ? "primary" : "default"} busy={busy}>
+          <Button
+            type="submit"
+            variant={status === "resolved" ? "primary" : "default"}
+            busy={busy}
+          >
             {status === "resolved" ? "Post and resolve" : "Post update"}
           </Button>
         </div>
         {err && <Alert>{err}</Alert>}
       </form>
-      <EditIncident inc={inc} components={components} open={editing} onOpenChange={setEditing} />
+      <EditIncident
+        inc={inc}
+        components={components}
+        open={editing}
+        onOpenChange={setEditing}
+      />
     </Panel>
   );
 }
 
-function EditIncident({ inc, components, open, onOpenChange }: { inc: Incident; components: string[]; open: boolean; onOpenChange: (o: boolean) => void }) {
+function EditIncident({
+  inc,
+  components,
+  open,
+  onOpenChange,
+}: {
+  inc: Incident;
+  components: string[];
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
   const qc = useQueryClient();
   const [name, setName] = useState(inc.title);
   const [picked, setPicked] = useState<string[]>(inc.components);
@@ -355,21 +549,49 @@ function EditIncident({ inc, components, open, onOpenChange }: { inc: Incident; 
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" form={`edit-${inc.id}`} variant="primary" busy={busy} disabled={picked.length === 0}>
+          <Button
+            type="submit"
+            form={`edit-${inc.id}`}
+            variant="primary"
+            busy={busy}
+            disabled={picked.length === 0}
+          >
             Save
           </Button>
         </>
       }
     >
-      <form id={`edit-${inc.id}`} className="flex flex-col gap-3" onSubmit={save}>
-        <Field label="Title">{(id) => <Input id={id} required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
+      <form
+        id={`edit-${inc.id}`}
+        className="flex flex-col gap-3"
+        onSubmit={save}
+      >
+        <Field label="Title">
+          {(id) => (
+            <Input
+              id={id}
+              required
+              maxLength={200}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
+        </Field>
         <div className="flex flex-col gap-1">
           <span className="text-[13px] text-fg-light">Affected components</span>
-          <ComponentPicker all={components} value={picked} onChange={setPicked} />
+          <ComponentPicker
+            all={components}
+            value={picked}
+            onChange={setPicked}
+          />
         </div>
         <Field label="Severity">
           {(id) => (
-            <Select id={id} value={severity} onChange={(e) => setSeverity(e.target.value as IncidentSeverity)}>
+            <Select
+              id={id}
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as IncidentSeverity)}
+            >
               {severities.map((s) => (
                 <option key={s} value={s}>
                   {s}

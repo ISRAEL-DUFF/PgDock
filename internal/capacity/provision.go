@@ -106,9 +106,13 @@ func (s *Service) runProvision(ctx context.Context, op store.Operation, log *job
 			if err != nil {
 				return jobs.Permanent(err)
 			}
+			group, err := s.placementGroup(ctx, p.Region)
+			if err != nil {
+				return err
+			}
 			srv, err = s.provider.CreateServer(ctx, cloud.ServerSpec{
 				Name: node.Name, Type: p.ServerType, Location: p.Location, Image: s.cfg.Image, UserData: userData,
-				PlacementGroup: s.cfg.PlacementGroup, Network: s.cfg.Network, SSHKeys: s.cfg.SSHKeys, Labels: labels(node.Name, p.Region),
+				PlacementGroup: group, Network: s.cfg.Network, SSHKeys: s.cfg.SSHKeys, Labels: labels(node.Name, p.Region),
 			})
 			if errors.Is(err, cloud.ErrManual) {
 				return jobs.Permanent(err)
@@ -117,6 +121,13 @@ func (s *Service) runProvision(ctx context.Context, op store.Operation, log *job
 				return err
 			}
 			_ = log.Info(ctx, "server", "created %s server %s (%s) in %s", s.provider.Name(), srv.ID, p.ServerType, srv.Location)
+			if group != "" {
+				// Its failure domain (V3.1 §2.1): apart from the others in the group.
+				if err := q.SetNodePlacementGroup(ctx, store.SetNodePlacementGroupParams{ID: node.ID, PlacementGroup: &group}); err != nil {
+					return err
+				}
+				_ = log.Info(ctx, "server", "in spread placement group %s", group)
+			}
 		}
 		addr := srv.PrivateIP
 		if addr == "" {
@@ -267,4 +278,32 @@ func (s *Service) failProvision(ctx context.Context, op store.Operation, log *jo
 	msg := cause.Error()
 	errs = append(errs, q.FinishCapacityProposal(ctx, store.FinishCapacityProposalParams{ID: p.ID, Status: ProposalFailed, Error: &msg}))
 	return errors.Join(errs...)
+}
+
+// placementGroup is the spread group a new server in region goes into
+// (V3.1 §2.3): pgdock-<region>, then pgdock-<region>-2 and on as each
+// fills (a spread group holds 10 servers). Only servers within one group
+// are known to be on different hosts, so groups are filled in order. The
+// legacy PGDOCK_HETZNER_PLACEMENT_GROUP_ID stays the home region's group.
+func (s *Service) placementGroup(ctx context.Context, region string) (string, error) {
+	if s.cfg.PlacementGroup != "" && region == s.cfg.Region {
+		return s.cfg.PlacementGroup, nil
+	}
+	for i := 1; i <= 50; i++ {
+		name := "pgdock-" + region
+		if i > 1 {
+			name = fmt.Sprintf("%s-%d", name, i)
+		}
+		g, err := s.provider.EnsurePlacementGroup(ctx, name, map[string]string{"pgdock-region": region})
+		if errors.Is(err, cloud.ErrManual) {
+			return "", nil
+		}
+		if err != nil {
+			return "", fmt.Errorf("placement group %s: %w", name, err)
+		}
+		if g.Servers < cloud.SpreadGroupLimit {
+			return g.ID, nil
+		}
+	}
+	return "", errors.New("every placement group for the region is full")
 }

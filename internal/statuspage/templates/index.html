@@ -10,6 +10,14 @@
 </article>
 {{end}}
 
+{{range .Upcoming}}
+<article class="incident upcoming maintenance" data-upcoming>
+  <h2><a href="/incidents/{{.ID}}">{{.Title}}</a></h2>
+  <p class="muted">Scheduled maintenance · starts {{when .StartedAt}}</p>
+  {{template "latest" .}}
+</article>
+{{end}}
+
 {{range .Regions}}
 <section class="region">
   {{if .Name}}<h2>{{.Name}}</h2>{{end}}

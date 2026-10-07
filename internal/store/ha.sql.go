@@ -13,6 +13,79 @@ import (
 	"github.com/google/uuid"
 )
 
+const applyMaintenanceExclusions = `-- name: ApplyMaintenanceExclusions :execrows
+UPDATE availability_minutes a SET excluded = true, excluded_by = i.id
+FROM incidents i, projects p
+WHERE a.project_id = p.id AND a.minute >= $1 AND a.minute < $2 AND a.excluded_by IS NULL
+  AND i.severity = 'maintenance' AND i.announced_at IS NOT NULL
+  AND a.minute >= i.scheduled_start AND a.minute < i.scheduled_end
+  AND i.announced_at <= a.minute - interval '72 hours'
+  AND (i.cancelled_at IS NULL OR i.cancelled_at > a.minute)
+  AND maintenance_covers(i, p)
+`
+
+type ApplyMaintenanceExclusionsParams struct {
+	FromTs time.Time
+	ToTs   time.Time
+}
+
+// tenant: system - the SLA prober: minutes inside maintenance announced 72 hours ahead are excluded (V3.1 4.2).
+func (q *Queries) ApplyMaintenanceExclusions(ctx context.Context, arg ApplyMaintenanceExclusionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, applyMaintenanceExclusions, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const availabilityExclusions = `-- name: AvailabilityExclusions :many
+SELECT i.id, i.title, i.scheduled_start, i.scheduled_end, count(*)::int AS minutes
+FROM availability_minutes a JOIN incidents i ON i.id = a.excluded_by
+WHERE a.project_id = $1 AND a.minute >= $2 AND a.minute < $3
+GROUP BY i.id, i.title, i.scheduled_start, i.scheduled_end ORDER BY i.scheduled_start
+`
+
+type AvailabilityExclusionsParams struct {
+	ProjectID uuid.UUID
+	FromTs    time.Time
+	ToTs      time.Time
+}
+
+type AvailabilityExclusionsRow struct {
+	ID             uuid.UUID
+	Title          string
+	ScheduledStart *time.Time
+	ScheduledEnd   *time.Time
+	Minutes        int32
+}
+
+// tenant: system - a project the request already authorized: excluded minutes by announcement.
+func (q *Queries) AvailabilityExclusions(ctx context.Context, arg AvailabilityExclusionsParams) ([]AvailabilityExclusionsRow, error) {
+	rows, err := q.db.Query(ctx, availabilityExclusions, arg.ProjectID, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AvailabilityExclusionsRow
+	for rows.Next() {
+		var i AvailabilityExclusionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.ScheduledStart,
+			&i.ScheduledEnd,
+			&i.Minutes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const availabilitySummary = `-- name: AvailabilitySummary :one
 SELECT count(*) FILTER (WHERE NOT excluded)::int AS measured,
        count(*) FILTER (WHERE NOT available AND NOT excluded)::int AS unavailable
@@ -38,13 +111,13 @@ func (q *Queries) AvailabilitySummary(ctx context.Context, arg AvailabilitySumma
 	return i, err
 }
 
-const deleteEtcdMembers = `-- name: DeleteEtcdMembers :exec
-DELETE FROM etcd_members
+const deleteEtcdMember = `-- name: DeleteEtcdMember :exec
+DELETE FROM etcd_members WHERE node_id = $1
 `
 
-// tenant: system - platform infrastructure (the etcd cluster).
-func (q *Queries) DeleteEtcdMembers(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, deleteEtcdMembers)
+// tenant: system - platform infrastructure (a replaced etcd member).
+func (q *Queries) DeleteEtcdMember(ctx context.Context, nodeID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteEtcdMember, nodeID)
 	return err
 }
 
@@ -58,8 +131,111 @@ func (q *Queries) DeleteInstanceMember(ctx context.Context, id uuid.UUID) error 
 	return err
 }
 
+const deleteRegionEtcdMembers = `-- name: DeleteRegionEtcdMembers :exec
+DELETE FROM etcd_members WHERE region = $1
+`
+
+// tenant: system - platform infrastructure (one region's etcd cluster).
+func (q *Queries) DeleteRegionEtcdMembers(ctx context.Context, region string) error {
+	_, err := q.db.Exec(ctx, deleteRegionEtcdMembers, region)
+	return err
+}
+
+const etcdRegionInstances = `-- name: EtcdRegionInstances :many
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret, etcd_region FROM instances WHERE patroni AND deleted_at IS NULL AND etcd_region = $1 ORDER BY created_at
+`
+
+// tenant: system - the instances under Patroni whose state is in a region's etcd cluster.
+func (q *Queries) EtcdRegionInstances(ctx context.Context, region *string) ([]Instance, error) {
+	rows, err := q.db.Query(ctx, etcdRegionInstances, region)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Instance
+	for rows.Next() {
+		var i Instance
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.Kind,
+			&i.PgVersion,
+			&i.Port,
+			&i.ContainerID,
+			&i.CpuLimit,
+			&i.MemLimitMb,
+			&i.VolumeGb,
+			&i.Status,
+			&i.CreatedAt,
+			&i.AdminHost,
+			&i.AdminPort,
+			&i.Host,
+			&i.AdminSecret,
+			&i.Profile,
+			&i.WalgPrefix,
+			&i.Error,
+			&i.DeletedAt,
+			&i.OrgID,
+			&i.WalgTargetID,
+			&i.WalgKeyID,
+			&i.PgRelease,
+			&i.PgReleaseAvailable,
+			&i.ReleaseCheckedAt,
+			&i.HaEnabled,
+			&i.SyncReplication,
+			&i.Patroni,
+			&i.LeaderMember,
+			&i.PatroniSecret,
+			&i.EtcdRegion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getEtcdMember = `-- name: GetEtcdMember :one
+SELECT e.node_id, e.name, e.client_url, e.peer_url, e.status, e.error, e.checked_at, e.created_at, e.region, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id WHERE e.node_id = $1
+`
+
+type GetEtcdMemberRow struct {
+	NodeID    uuid.UUID
+	Name      string
+	ClientUrl string
+	PeerUrl   string
+	Status    string
+	Error     *string
+	CheckedAt *time.Time
+	CreatedAt time.Time
+	Region    string
+	NodeName  string
+}
+
+// tenant: system - platform infrastructure (the etcd cluster).
+func (q *Queries) GetEtcdMember(ctx context.Context, nodeID uuid.UUID) (GetEtcdMemberRow, error) {
+	row := q.db.QueryRow(ctx, getEtcdMember, nodeID)
+	var i GetEtcdMemberRow
+	err := row.Scan(
+		&i.NodeID,
+		&i.Name,
+		&i.ClientUrl,
+		&i.PeerUrl,
+		&i.Status,
+		&i.Error,
+		&i.CheckedAt,
+		&i.CreatedAt,
+		&i.Region,
+		&i.NodeName,
+	)
+	return i, err
+}
+
 const insertEtcdMember = `-- name: InsertEtcdMember :exec
-INSERT INTO etcd_members (node_id, name, client_url, peer_url) VALUES ($1, $2, $3, $4)
+INSERT INTO etcd_members (node_id, name, client_url, peer_url, region) VALUES ($1, $2, $3, $4, $5)
 `
 
 type InsertEtcdMemberParams struct {
@@ -67,6 +243,7 @@ type InsertEtcdMemberParams struct {
 	Name      string
 	ClientUrl string
 	PeerUrl   string
+	Region    string
 }
 
 // tenant: system - platform infrastructure (the etcd cluster).
@@ -76,6 +253,7 @@ func (q *Queries) InsertEtcdMember(ctx context.Context, arg InsertEtcdMemberPara
 		arg.Name,
 		arg.ClientUrl,
 		arg.PeerUrl,
+		arg.Region,
 	)
 	return err
 }
@@ -167,7 +345,7 @@ func (q *Queries) InsertInstanceMember(ctx context.Context, arg InsertInstanceMe
 }
 
 const listEtcdMembers = `-- name: ListEtcdMembers :many
-SELECT e.node_id, e.name, e.client_url, e.peer_url, e.status, e.error, e.checked_at, e.created_at, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id ORDER BY e.created_at, e.name
+SELECT e.node_id, e.name, e.client_url, e.peer_url, e.status, e.error, e.checked_at, e.created_at, e.region, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id ORDER BY e.region, e.created_at, e.name
 `
 
 type ListEtcdMembersRow struct {
@@ -179,10 +357,11 @@ type ListEtcdMembersRow struct {
 	Error     *string
 	CheckedAt *time.Time
 	CreatedAt time.Time
+	Region    string
 	NodeName  string
 }
 
-// tenant: system - platform infrastructure (the etcd cluster).
+// tenant: system - platform infrastructure (the etcd clusters, every region).
 func (q *Queries) ListEtcdMembers(ctx context.Context) ([]ListEtcdMembersRow, error) {
 	rows, err := q.db.Query(ctx, listEtcdMembers)
 	if err != nil {
@@ -201,6 +380,7 @@ func (q *Queries) ListEtcdMembers(ctx context.Context) ([]ListEtcdMembersRow, er
 			&i.Error,
 			&i.CheckedAt,
 			&i.CreatedAt,
+			&i.Region,
 			&i.NodeName,
 		); err != nil {
 			return nil, err
@@ -342,7 +522,7 @@ func (q *Queries) ListInstanceMembers(ctx context.Context, instanceID uuid.UUID)
 }
 
 const listPatroniInstances = `-- name: ListPatroniInstances :many
-SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret FROM instances WHERE patroni AND deleted_at IS NULL ORDER BY created_at
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret, etcd_region FROM instances WHERE patroni AND deleted_at IS NULL ORDER BY created_at
 `
 
 // tenant: system - the HA leader watcher.
@@ -386,6 +566,57 @@ func (q *Queries) ListPatroniInstances(ctx context.Context) ([]Instance, error) 
 			&i.Patroni,
 			&i.LeaderMember,
 			&i.PatroniSecret,
+			&i.EtcdRegion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRegionEtcdMembers = `-- name: ListRegionEtcdMembers :many
+SELECT e.node_id, e.name, e.client_url, e.peer_url, e.status, e.error, e.checked_at, e.created_at, e.region, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id
+WHERE e.region = $1 ORDER BY e.created_at, e.name
+`
+
+type ListRegionEtcdMembersRow struct {
+	NodeID    uuid.UUID
+	Name      string
+	ClientUrl string
+	PeerUrl   string
+	Status    string
+	Error     *string
+	CheckedAt *time.Time
+	CreatedAt time.Time
+	Region    string
+	NodeName  string
+}
+
+// tenant: system - platform infrastructure (one region's etcd cluster).
+func (q *Queries) ListRegionEtcdMembers(ctx context.Context, region string) ([]ListRegionEtcdMembersRow, error) {
+	rows, err := q.db.Query(ctx, listRegionEtcdMembers, region)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRegionEtcdMembersRow
+	for rows.Next() {
+		var i ListRegionEtcdMembersRow
+		if err := rows.Scan(
+			&i.NodeID,
+			&i.Name,
+			&i.ClientUrl,
+			&i.PeerUrl,
+			&i.Status,
+			&i.Error,
+			&i.CheckedAt,
+			&i.CreatedAt,
+			&i.Region,
+			&i.NodeName,
 		); err != nil {
 			return nil, err
 		}
@@ -496,7 +727,7 @@ func (q *Queries) ProjectOnInstance(ctx context.Context, instanceID uuid.UUID) (
 }
 
 const recentOutageMinutes = `-- name: RecentOutageMinutes :many
-SELECT project_id, minute, internal_ok, external_ok, excluded, available FROM availability_minutes
+SELECT project_id, minute, internal_ok, external_ok, excluded, available, excluded_by FROM availability_minutes
 WHERE project_id = $1 AND NOT available AND NOT excluded AND minute >= $2
 ORDER BY minute DESC LIMIT $3
 `
@@ -524,6 +755,7 @@ func (q *Queries) RecentOutageMinutes(ctx context.Context, arg RecentOutageMinut
 			&i.ExternalOk,
 			&i.Excluded,
 			&i.Available,
+			&i.ExcludedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -701,6 +933,21 @@ type SetEtcdMemberStatusParams struct {
 // tenant: system - platform infrastructure (the etcd cluster).
 func (q *Queries) SetEtcdMemberStatus(ctx context.Context, arg SetEtcdMemberStatusParams) error {
 	_, err := q.db.Exec(ctx, setEtcdMemberStatus, arg.Status, arg.Error, arg.NodeID)
+	return err
+}
+
+const setInstanceEtcdRegion = `-- name: SetInstanceEtcdRegion :exec
+UPDATE instances SET etcd_region = $1 WHERE id = $2
+`
+
+type SetInstanceEtcdRegionParams struct {
+	EtcdRegion *string
+	ID         uuid.UUID
+}
+
+// tenant: system - which region's etcd cluster an HA instance's Patroni uses.
+func (q *Queries) SetInstanceEtcdRegion(ctx context.Context, arg SetInstanceEtcdRegionParams) error {
+	_, err := q.db.Exec(ctx, setInstanceEtcdRegion, arg.EtcdRegion, arg.ID)
 	return err
 }
 

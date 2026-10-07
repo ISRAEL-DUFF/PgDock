@@ -5,6 +5,36 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V3.1 (on feature/pgdock3)
+- Failure domains (V3.1-M1): each node can record what fails with it (a
+  rack, host or power feed); servers PGDock creates on Hetzner go into a
+  per-region spread placement group. An HA project's standby, the etcd
+  members and a region's pooler hosts are kept in different domains:
+  enabling HA and setting up etcd refuse otherwise, a second pooler host
+  in the same rack is warned about, and a `failure_domain` alert reports
+  existing groups that share one. Platform → Nodes. See
+  docs/failure-domains.md.
+- New migration 00033 (failure domains).
+- etcd per region (V3.1-M2): each region gets its own etcd cluster, so a
+  region's HA failover depends only on that region. Platform → Nodes → etcd
+  cluster for HA has a region picker and **Replace…** on each member: a
+  dead or live member moves to another node in the region while the
+  cluster keeps its quorum, and draining a node moves its member
+  automatically. An HA project whose state is in another region's
+  cluster gets **Move to the region's etcd** on its HA card (one restart,
+  writes paused a few seconds). See docs/ha.md.
+- New migration 00034 (etcd per region).
+- Announced maintenance (V3.1-M3): Admin → Incidents → **Schedule
+  maintenance** announces a window for a region or some projects. It
+  shows on the status page as upcoming, is emailed to the owners and
+  admins of the organisations it covers, and resolves by itself. HA
+  projects' availability minutes inside a window announced at least 72
+  hours ahead are excluded from the SLA, listed per announcement on the
+  HA card. The weekly minor-upgrade sweep waits for an announced window
+  before switching over an HA project
+  (`PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, on by default).
+- New migration 00035 (announced maintenance).
+
 ### V3 (in progress, on feature/pgdock3)
 - Standby edge pooler: two pooler hosts behind a floating IP with
   keepalived. pgdock-server pushes the PgBouncer configuration to both and

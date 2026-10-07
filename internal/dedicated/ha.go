@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
@@ -96,9 +97,16 @@ func (s *Service) memberSpec(ctx context.Context, inst store.Instance, member uu
 	if err != nil {
 		return spec, jobs.Permanent(err)
 	}
-	endpoints, err := s.Etcd.Endpoints(ctx)
+	region, err := s.etcdRegion(ctx, inst)
 	if err != nil {
 		return spec, err
+	}
+	endpoints, err := s.Etcd.Endpoints(ctx, region)
+	if err != nil {
+		return spec, err
+	}
+	if len(endpoints) == 0 {
+		return spec, fmt.Errorf("%w: %s has no etcd cluster", provision.ErrConflict, region)
 	}
 	ca, err := s.Etcd.CA(ctx)
 	if err != nil {
@@ -229,7 +237,8 @@ type haParams struct {
 }
 
 // standbyNode picks where the standby goes: a healthy dedicated-capable
-// node other than the primary's (V3 §2.2 "on different nodes").
+// node other than the primary's (V3 §2.2 "on different nodes"), in another
+// failure domain (V3.1 §2.2).
 func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid.UUID) (store.Node, error) {
 	q := store.New(s.db)
 	ns, err := q.ListNodes(ctx)
@@ -237,16 +246,26 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 		return store.Node{}, err
 	}
 	// The standby stays in the primary's region (V3 §6.1).
-	region := ""
+	var prim store.Node
 	for _, n := range ns {
 		if n.ID == primary {
-			region = n.Region
+			prim = n
 		}
 	}
+	region := prim.Region
 	var best *store.Node
 	bestCount := 1 << 30
+	var together []store.Node // eligible, but in the primary's failure domain
 	for i, n := range ns {
 		if n.ID == primary || n.AgentCertFp == nil || n.Status != "healthy" || (n.Role != "dedicated" && n.Role != "both") || n.Region != region {
+			continue
+		}
+		// And in another failure domain from the primary (V3.1 §2.2).
+		if !faildomain.Separated(prim, n) {
+			together = append(together, n)
+			if want != nil && n.ID == *want {
+				return store.Node{}, fmt.Errorf("%w: %s is in the primary's failure domain (%s); the standby must go where a single rack or host failure can't take both", provision.ErrConflict, n.Name, faildomain.Label(n))
+			}
 			continue
 		}
 		if want != nil {
@@ -266,6 +285,10 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 	if want != nil {
 		return store.Node{}, fmt.Errorf("%w: the standby must go on another healthy node in the primary's region (%s) that takes dedicated instances", provision.ErrConflict, region)
 	}
+	if best == nil && len(together) > 0 {
+		return store.Node{}, fmt.Errorf("%w: HA needs a node in %s outside the primary's failure domain; the free ones share it (%s)", provision.ErrConflict, region,
+			faildomain.Describe(append([]store.Node{prim}, together...)))
+	}
 	if best == nil {
 		return store.Node{}, fmt.Errorf("%w: HA needs a second healthy node in %s that takes dedicated instances", provision.ErrConflict, region)
 	}
@@ -276,9 +299,6 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 func (s *Service) EnableHA(ctx context.Context, p HAParams) (store.Operation, error) {
 	if s.Etcd == nil {
 		return store.Operation{}, fmt.Errorf("%w: HA is not available on this server", provision.ErrNoDedicated)
-	}
-	if err := s.Etcd.Ready(ctx); err != nil {
-		return store.Operation{}, err
 	}
 	return s.projects.EnqueueExclusiveTx(ctx, p.ProjectID, []string{provision.StatusActive}, "", KindHAEnable, p.CreatedBy,
 		func(tx pgx.Tx, pr store.Project) (any, error) {
@@ -294,6 +314,14 @@ func (s *Service) EnableHA(ctx context.Context, p HAParams) (store.Operation, er
 			}
 			if inst.Status != "running" {
 				return nil, fmt.Errorf("%w: the instance is %s", provision.ErrConflict, inst.Status)
+			}
+			// Its region's etcd cluster (V3.1 §3.1), or the one it already uses.
+			region, err := s.etcdRegion(ctx, inst)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.Etcd.Ready(ctx, region); err != nil {
+				return nil, err
 			}
 			primaryNode := inst.NodeID
 			n, err := s.standbyNode(ctx, primaryNode, p.NodeID)
@@ -322,6 +350,16 @@ func (s *Service) runHAEnable(ctx context.Context, op store.Operation, log *jobs
 	// 1. Credentials: the replication role, Patroni's REST password, and
 	// an etcd client certificate for this cluster.
 	if !inst.Patroni {
+		if inst.EtcdRegion == nil {
+			region, err := s.etcdRegion(ctx, inst)
+			if err != nil {
+				return err
+			}
+			if err := q.SetInstanceEtcdRegion(ctx, store.SetInstanceEtcdRegionParams{ID: inst.ID, EtcdRegion: &region}); err != nil {
+				return err
+			}
+			inst.EtcdRegion = &region
+		}
 		if err := s.preparePatroni(ctx, &inst, params.Synchronous, log); err != nil {
 			return err
 		}
@@ -336,33 +374,9 @@ func (s *Service) runHAEnable(ctx context.Context, op store.Operation, log *jobs
 	}
 
 	// 3. The standby, on another node, from the newest base backup.
-	if _, err := q.InsertInstanceMember(ctx, store.InsertInstanceMemberParams{ID: params.Standby, InstanceID: inst.ID, NodeID: params.StandbyNode, Role: "starting"}); err != nil {
-		return err
-	}
-	agent, err := s.nodes.ForNode(ctx, params.StandbyNode)
-	if err != nil {
-		return err
-	}
-	spec, err := s.memberSpec(ctx, inst, params.Standby)
-	if err != nil {
-		return err
-	}
-	if err := log.Info(ctx, "standby", "starting a standby on node %s from the newest base backup", agent.Node.Name); err != nil {
-		return err
-	}
 	start := time.Now()
-	res, err := agent.CreateInstance(ctx, spec)
+	agent, m, err := s.addStandby(ctx, inst, params.Standby, params.StandbyNode, log)
 	if err != nil {
-		return fmt.Errorf("standby on %s: %w", agent.Node.Name, err)
-	}
-	if err := s.recordMember(ctx, params.Standby, agent, res); err != nil {
-		return err
-	}
-	m, err := s.waitMember(ctx, inst.ID, params.Standby, false, s.standbyTimeout(), log)
-	if err != nil {
-		return err
-	}
-	if err := s.refreshMembers(ctx, inst); err != nil {
 		return err
 	}
 	if err := q.SetInstanceHAEnabled(ctx, store.SetInstanceHAEnabledParams{ID: inst.ID, HaEnabled: true}); err != nil {
@@ -376,6 +390,51 @@ func (s *Service) runHAEnable(ctx context.Context, op store.Operation, log *jobs
 	}
 	return log.Info(ctx, "done", "HA is on: standby on %s is %s (%s behind) after %s; the primary is on its original node",
 		agent.Node.Name, m.State, lagText(m.LagBytes()), time.Since(start).Round(time.Second))
+}
+
+// addStandby starts a standby member on node from the newest base backup
+// and waits until it streams.
+func (s *Service) addStandby(ctx context.Context, inst store.Instance, member, node uuid.UUID, log *jobs.StepLogger) (*nodes.Agent, ha.ClusterMember, error) {
+	q := store.New(s.db)
+	if _, err := q.InsertInstanceMember(ctx, store.InsertInstanceMemberParams{ID: member, InstanceID: inst.ID, NodeID: node, Role: "starting"}); err != nil {
+		return nil, ha.ClusterMember{}, err
+	}
+	agent, err := s.nodes.ForNode(ctx, node)
+	if err != nil {
+		return nil, ha.ClusterMember{}, err
+	}
+	spec, err := s.memberSpec(ctx, inst, member)
+	if err != nil {
+		return nil, ha.ClusterMember{}, err
+	}
+	if err := log.Info(ctx, "standby", "starting a standby on node %s from the newest base backup", agent.Node.Name); err != nil {
+		return nil, ha.ClusterMember{}, err
+	}
+	res, err := agent.CreateInstance(ctx, spec)
+	if err != nil {
+		return nil, ha.ClusterMember{}, fmt.Errorf("standby on %s: %w", agent.Node.Name, err)
+	}
+	if err := s.recordMember(ctx, member, agent, res); err != nil {
+		return nil, ha.ClusterMember{}, err
+	}
+	m, err := s.waitMember(ctx, inst.ID, member, false, s.standbyTimeout(), log)
+	if err != nil {
+		return nil, ha.ClusterMember{}, err
+	}
+	return agent, m, s.refreshMembers(ctx, inst)
+}
+
+// etcdRegion is the region whose etcd cluster holds inst's Patroni state:
+// the one recorded, or (not under Patroni yet) its node's.
+func (s *Service) etcdRegion(ctx context.Context, inst store.Instance) (string, error) {
+	if inst.EtcdRegion != nil && *inst.EtcdRegion != "" {
+		return *inst.EtcdRegion, nil
+	}
+	n, err := store.New(s.db).GetNode(ctx, inst.NodeID)
+	if err != nil {
+		return "", err
+	}
+	return n.Region, nil
 }
 
 func lagText(n int64) string {

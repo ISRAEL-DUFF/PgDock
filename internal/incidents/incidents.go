@@ -45,10 +45,12 @@ type Config struct {
 
 // Service manages incidents.
 type Service struct {
-	db     *pgxpool.Pool
-	cfg    Config
-	client *statusapi.Client
-	log    *slog.Logger
+	db        *pgxpool.Pool
+	cfg       Config
+	client    *statusapi.Client
+	log       *slog.Logger
+	mailer    Mailer
+	publicURL string
 }
 
 // New returns the incidents service.
@@ -344,7 +346,19 @@ func (s *Service) Heartbeat(ctx context.Context) error {
 // until ctx ends.
 func (s *Service) Run(ctx context.Context, heartbeatEvery time.Duration) {
 	if s.client == nil {
-		return
+		// No status page: only announced maintenance needs closing.
+		t := time.NewTicker(time.Minute)
+		defer t.Stop()
+		for {
+			if err := s.EndMaintenance(ctx, time.Now()); err != nil && ctx.Err() == nil {
+				s.log.Warn("ending maintenance windows", "err", err)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+		}
 	}
 	push := time.NewTicker(10 * time.Second)
 	defer push.Stop()
@@ -371,6 +385,9 @@ func (s *Service) Run(ctx context.Context, heartbeatEvery time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-push.C:
+			if err := s.EndMaintenance(ctx, time.Now()); err != nil && ctx.Err() == nil {
+				s.log.Warn("ending maintenance windows", "err", err)
+			}
 			report("incident push", s.Push(ctx), &lastPushErr)
 		case <-beat.C:
 			report("heartbeat", s.Heartbeat(ctx), &lastBeatErr)

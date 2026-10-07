@@ -187,6 +187,9 @@ func (s *Service) MaintenanceSweep(ctx context.Context, now time.Time) (*store.I
 		if busy {
 			continue // next sweep, once the move or restore is done
 		}
+		if inst.HaEnabled && s.cfg.RequireAnnouncement && !s.announced(ctx, inst, now) {
+			continue // the SLA covers it: wait for an announced window
+		}
 		_, err = s.MinorUpgrade(ctx, inst)
 		return &inst, err
 	}
@@ -389,3 +392,21 @@ func (s *Service) minorUpgradeHA(ctx context.Context, inst store.Instance, p sto
 	}
 	return res, &pause, nil
 }
+
+// announced reports whether inst's project is inside maintenance announced
+// to it at least 72 hours before now (V3.1 §4.3).
+func (s *Service) announced(ctx context.Context, inst store.Instance, now time.Time) bool {
+	q := store.New(s.db)
+	p, err := q.ProjectOnInstance(ctx, inst.ID)
+	if err != nil {
+		return false
+	}
+	_, err = q.AnnouncedMaintenanceFor(ctx, store.AnnouncedMaintenanceForParams{At: now, ProjectID: p.ID})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.log.Warn("maintenance announcement check", "project", p.ID, "err", err)
+	}
+	return err == nil
+}
+
+// SetRequireAnnouncement turns the HA announcement gate on or off (tests).
+func (s *Service) SetRequireAnnouncement(on bool) { s.cfg.RequireAnnouncement = on }

@@ -86,9 +86,23 @@ type ServerPrice struct {
 	Currency     string `json:"currency"`
 }
 
+// PlacementGroup is a spread placement group: its servers are on
+// different physical hosts (V3.1 §2.3).
+type PlacementGroup struct {
+	ID      string
+	Name    string
+	Servers int
+}
+
+// SpreadGroupLimit is how many servers a Hetzner spread group holds.
+const SpreadGroupLimit = 10
+
 // Provider is a source of machines (V3 §5.1).
 type Provider interface {
 	Name() string
+	// EnsurePlacementGroup returns the spread group called name, creating
+	// it if it doesn't exist.
+	EnsurePlacementGroup(ctx context.Context, name string, labels map[string]string) (PlacementGroup, error)
 	CreateServer(ctx context.Context, spec ServerSpec) (Server, error)
 	DeleteServer(ctx context.Context, id string) error
 	ListServers(ctx context.Context, f Filter) ([]Server, error)
@@ -111,6 +125,12 @@ func (ManualProvider) Name() string { return Manual }
 // CreateServer can't: a proposal for a manual region waits for a machine.
 func (ManualProvider) CreateServer(context.Context, ServerSpec) (Server, error) {
 	return Server{}, ErrManual
+}
+
+// EnsurePlacementGroup can't: manual nodes carry the domain the operator
+// recorded instead.
+func (ManualProvider) EnsurePlacementGroup(context.Context, string, map[string]string) (PlacementGroup, error) {
+	return PlacementGroup{}, ErrManual
 }
 
 // DeleteServer can't: the operator decommissions the machine.

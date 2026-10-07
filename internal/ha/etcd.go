@@ -21,14 +21,19 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
-// KindEtcdSetup bootstraps the etcd cluster on three nodes.
-const KindEtcdSetup = "etcd_setup"
+// Operation kinds: bootstrap a region's cluster on three nodes, and
+// replace one member (V3.1 §3.2).
+const (
+	KindEtcdSetup   = "etcd_setup"
+	KindEtcdReplace = "etcd_replace"
+)
 
 // Members is the size of the etcd cluster: it keeps a quorum when any one
 // node is lost (V3 §2.2).
@@ -52,7 +57,10 @@ func New(db *pgxpool.Pool, keyring *crypto.Keyring, ns *nodes.Service, log *slog
 
 // Kinds returns the operation kinds this service runs.
 func (s *Service) Kinds() map[string]jobs.Kind {
-	return map[string]jobs.Kind{KindEtcdSetup: {Handler: s.runSetup, MaxAttempts: 2, Timeout: 15 * time.Minute}}
+	return map[string]jobs.Kind{
+		KindEtcdSetup:   {Handler: s.runSetup, MaxAttempts: 2, Timeout: 15 * time.Minute},
+		KindEtcdReplace: {Handler: s.runReplace, MaxAttempts: 3, Timeout: 15 * time.Minute},
+	}
 }
 
 // CA returns the etcd certificate authority.
@@ -71,18 +79,22 @@ func (s *Service) CA(ctx context.Context) (*CA, error) {
 }
 
 type setupParams struct {
-	Nodes []uuid.UUID `json:"nodes"`
-	Token string      `json:"token"`
+	Region string      `json:"region"`
+	Nodes  []uuid.UUID `json:"nodes"`
+	Token  string      `json:"token"`
 }
 
-// Setup checks nodeIDs (three distinct nodes with reachable agents) and
-// queues the cluster's bootstrap. There is one cluster per platform.
+// Setup checks nodeIDs (three distinct nodes with reachable agents, in one
+// region and three failure domains) and queues the bootstrap of that
+// region's cluster (V3.1 §3.1). Each region has its own.
 func (s *Service) Setup(ctx context.Context, nodeIDs []uuid.UUID, by *uuid.UUID) (store.Operation, error) {
 	if len(nodeIDs) != Members {
 		return store.Operation{}, fmt.Errorf("%w: the etcd cluster needs exactly %d nodes, one member on each", provision.ErrInvalid, Members)
 	}
 	seen := map[uuid.UUID]bool{}
 	q := store.New(s.db)
+	var picked []store.Node
+	region := ""
 	for _, id := range nodeIDs {
 		if seen[id] {
 			return store.Operation{}, fmt.Errorf("%w: the %d nodes must be different", provision.ErrInvalid, Members)
@@ -98,32 +110,55 @@ func (s *Service) Setup(ctx context.Context, nodeIDs []uuid.UUID, by *uuid.UUID)
 		if n.AgentCertFp == nil || n.Status != "healthy" {
 			return store.Operation{}, fmt.Errorf("%w: node %s has no healthy agent (%s)", provision.ErrConflict, n.Name, n.Status)
 		}
+		if region != "" && n.Region != region {
+			return store.Operation{}, fmt.Errorf("%w: a cluster's members are in one region: %s is in %s, not %s", provision.ErrInvalid, n.Name, n.Region, region)
+		}
+		region = n.Region
+		if m, err := q.GetEtcdMember(ctx, id); err == nil {
+			return store.Operation{}, fmt.Errorf("%w: %s already holds a member of %s's cluster", provision.ErrConflict, n.Name, m.Region)
+		}
+		picked = append(picked, n)
 	}
-	existing, err := q.ListEtcdMembers(ctx)
+	// One member per failure domain (V3.1 §2.2): two that fail together
+	// would take the quorum with them.
+	if ok, pair := faildomain.AllSeparated(picked); !ok {
+		return store.Operation{}, fmt.Errorf("%w: %s and %s are in the same failure domain; pick nodes in three different ones (%s)",
+			provision.ErrConflict, pair[0].Name, pair[1].Name, faildomain.Describe(picked))
+	}
+	existing, err := q.ListRegionEtcdMembers(ctx, region)
 	if err != nil {
 		return store.Operation{}, err
 	}
 	if len(existing) > 0 {
-		return store.Operation{}, fmt.Errorf("%w: the etcd cluster is already set up", provision.ErrConflict)
+		return store.Operation{}, fmt.Errorf("%w: %s's etcd cluster is already set up; replace a member instead", provision.ErrConflict, region)
 	}
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	var op store.Operation
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		// One setup at a time.
-		var running int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM operations WHERE kind = $1 AND status IN ('queued', 'running')`, KindEtcdSetup).Scan(&running); err != nil {
+		// One change to etcd at a time, platform-wide.
+		if err := s.noEtcdOperation(ctx, tx); err != nil {
 			return err
-		}
-		if running > 0 {
-			return fmt.Errorf("%w: the etcd cluster is being set up", provision.ErrConflict)
 		}
 		var err error
 		op, err = jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindEtcdSetup, CreatedBy: by,
-			Params: setupParams{Nodes: nodeIDs, Token: "pgdock-" + hex.EncodeToString(b)}})
+			Params: setupParams{Region: region, Nodes: nodeIDs, Token: "pgdock-" + hex.EncodeToString(b)}})
 		return err
 	})
 	return op, err
+}
+
+// noEtcdOperation refuses while an etcd setup or replacement runs.
+func (s *Service) noEtcdOperation(ctx context.Context, tx pgx.Tx) error {
+	var running int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM operations WHERE kind = ANY($1) AND status IN ('queued', 'running')`,
+		[]string{KindEtcdSetup, KindEtcdReplace}).Scan(&running); err != nil {
+		return err
+	}
+	if running > 0 {
+		return fmt.Errorf("%w: an etcd cluster is being set up or repaired; try again when it finishes", provision.ErrConflict)
+	}
+	return nil
 }
 
 // memberName is a node's member name in the cluster.
@@ -167,11 +202,11 @@ func (s *Service) runSetup(ctx context.Context, op store.Operation, log *jobs.St
 	}
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
-		if err := q.DeleteEtcdMembers(ctx); err != nil {
+		if err := q.DeleteRegionEtcdMembers(ctx, p.Region); err != nil {
 			return err
 		}
 		for _, pl := range plans {
-			if err := q.InsertEtcdMember(ctx, store.InsertEtcdMemberParams{NodeID: pl.node, Name: pl.name,
+			if err := q.InsertEtcdMember(ctx, store.InsertEtcdMemberParams{NodeID: pl.node, Name: pl.name, Region: p.Region,
 				ClientUrl: url(pl.addr.Host, pl.addr.ClientPort), PeerUrl: url(pl.addr.Host, pl.addr.PeerPort)}); err != nil {
 				return err
 			}
@@ -197,27 +232,10 @@ func (s *Service) runSetup(ctx context.Context, op store.Operation, log *jobs.St
 			return err
 		}
 	}
-	deadline := time.Now().Add(3 * time.Minute)
-	for {
-		st, err := s.Refresh(ctx)
-		if err != nil {
-			return err
-		}
-		healthy := 0
-		for _, m := range st {
-			if m.Status == "healthy" {
-				healthy++
-			}
-		}
-		if healthy == len(plans) {
-			break
-		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("the etcd cluster didn't become healthy: %d of %d members healthy", healthy, len(plans))
-		}
-		time.Sleep(time.Second)
+	if err := s.waitHealthy(ctx, p.Region, len(plans), 3*time.Minute); err != nil {
+		return err
 	}
-	return log.Info(ctx, "done", "etcd cluster of %d members is healthy; HA can now be enabled on dedicated projects", len(plans))
+	return log.Info(ctx, "done", "%s's etcd cluster of %d members is healthy; HA can now be enabled on its dedicated projects", p.Region, len(plans))
 }
 
 // Member is an etcd member and its last known health.
@@ -270,9 +288,45 @@ func (s *Service) Refresh(ctx context.Context) ([]Member, error) {
 	return ms, nil
 }
 
-// Endpoints are the members' client URLs, for Patroni.
-func (s *Service) Endpoints(ctx context.Context) ([]string, error) {
-	ms, err := store.New(s.db).ListEtcdMembers(ctx)
+// waitHealthy waits until region's cluster has want healthy members.
+func (s *Service) waitHealthy(ctx context.Context, region string, want int, within time.Duration) error {
+	deadline := time.Now().Add(within)
+	for {
+		if _, err := s.Refresh(ctx); err != nil {
+			return err
+		}
+		ms, err := store.New(s.db).ListRegionEtcdMembers(ctx, region)
+		if err != nil {
+			return err
+		}
+		healthy := 0
+		for _, m := range ms {
+			if m.Status == "healthy" {
+				healthy++
+			}
+		}
+		if healthy >= want {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%s's etcd cluster didn't become healthy: %d of %d members healthy", region, healthy, want)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// Members are region's cluster's members, with their last known health.
+func (s *Service) Members(ctx context.Context, region string) ([]store.ListRegionEtcdMembersRow, error) {
+	return store.New(s.db).ListRegionEtcdMembers(ctx, region)
+}
+
+// Endpoints are region's members' client URLs, for Patroni.
+func (s *Service) Endpoints(ctx context.Context, region string) ([]string, error) {
+	ms, err := store.New(s.db).ListRegionEtcdMembers(ctx, region)
 	if err != nil {
 		return nil, err
 	}
@@ -284,15 +338,15 @@ func (s *Service) Endpoints(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-// Ready reports whether HA instances can use the cluster: all members
-// set up and a quorum of them healthy at the last check.
-func (s *Service) Ready(ctx context.Context) error {
-	ms, err := store.New(s.db).ListEtcdMembers(ctx)
+// Ready reports whether HA instances in region can use its cluster: all
+// members set up and a quorum of them healthy at the last check.
+func (s *Service) Ready(ctx context.Context, region string) error {
+	ms, err := store.New(s.db).ListRegionEtcdMembers(ctx, region)
 	if err != nil {
 		return err
 	}
 	if len(ms) < Members {
-		return fmt.Errorf("%w: the etcd cluster isn't set up (Admin → Nodes → etcd)", provision.ErrConflict)
+		return fmt.Errorf("%w: %s has no etcd cluster yet (Platform → Nodes → etcd cluster for HA, region %s)", provision.ErrConflict, region, region)
 	}
 	healthy := 0
 	for _, m := range ms {

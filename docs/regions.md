@@ -24,7 +24,9 @@ Regions are managed under **Platform → Regions** (or
    storage target (Settings → Platform storage targets) and choose it as the
    region's **backup target**. Choose a **copy target** in another region
    or provider for cross-region copies (below).
-3. **Nodes.** Add the region's nodes (`POST /api/v1/nodes` with
+3. **Nodes.** Record each node's [failure domain](failure-domains.md)
+   (its rack) as you add it. HA standbys, etcd members and pooler hosts
+   are kept in different ones. Add the region's nodes (`POST /api/v1/nodes` with
    `"region": "ng-lagos"`, or Platform → Nodes) and start their agents.
    Give one a shared cluster if the region offers the shared tier.
 4. **Poolers.** Add two pooler hosts in the region (see

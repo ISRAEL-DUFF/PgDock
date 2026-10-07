@@ -29,7 +29,7 @@ func (q *Queries) CancelNodeDrain(ctx context.Context, fromNode uuid.UUID) (int6
 
 const capacityNodes = `-- name: CapacityNodes :many
 
-SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at, n.last_reachable_at, n.provider_server_id, n.pooler_generation, n.pooler_hash, n.pooler_vrrp_state, n.pooler_ready, n.pooler_checked_at, n.provider, n.region, n.server_type, n.monthly_cost_minor, n.cost_currency, n.lifecycle, n.empty_since, n.keep,
+SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at, n.last_reachable_at, n.provider_server_id, n.pooler_generation, n.pooler_hash, n.pooler_vrrp_state, n.pooler_ready, n.pooler_checked_at, n.provider, n.region, n.server_type, n.monthly_cost_minor, n.cost_currency, n.lifecycle, n.empty_since, n.keep, n.failure_domain, n.placement_group,
   (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL)::int AS instances,
   (SELECT count(*) FROM instances i JOIN projects p ON p.instance_id = i.id AND p.deleted_at IS NULL
      WHERE i.node_id = n.id AND i.deleted_at IS NULL)::int AS projects,
@@ -73,6 +73,8 @@ type CapacityNodesRow struct {
 	Lifecycle             string
 	EmptySince            *time.Time
 	Keep                  bool
+	FailureDomain         *string
+	PlacementGroup        *string
 	Instances             int32
 	Projects              int32
 	DedicatedCpus         float64
@@ -125,6 +127,8 @@ func (q *Queries) CapacityNodes(ctx context.Context) ([]CapacityNodesRow, error)
 			&i.Lifecycle,
 			&i.EmptySince,
 			&i.Keep,
+			&i.FailureDomain,
+			&i.PlacementGroup,
 			&i.Instances,
 			&i.Projects,
 			&i.DedicatedCpus,
@@ -302,7 +306,7 @@ INSERT INTO nodes (name, private_addr, role, capacity, registration_token, regis
   provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle)
 VALUES ($1, $2, $3, '{}', $4, $5,
   $6, $7, $8, $9, $10, 'provisioning')
-RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep
+RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group
 `
 
 type InsertProvisionedNodeParams struct {
@@ -365,6 +369,8 @@ func (q *Queries) InsertProvisionedNode(ctx context.Context, arg InsertProvision
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
@@ -908,7 +914,7 @@ const setNodeCost = `-- name: SetNodeCost :one
 UPDATE nodes SET monthly_cost_minor = $1, cost_currency = $2,
   server_type = coalesce($3, server_type), region = coalesce($4, region),
   keep = coalesce($5, keep)
-WHERE id = $6 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep
+WHERE id = $6 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group
 `
 
 type SetNodeCostParams struct {
@@ -961,6 +967,8 @@ func (q *Queries) SetNodeCost(ctx context.Context, arg SetNodeCostParams) (Node,
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
@@ -980,7 +988,7 @@ func (q *Queries) SetNodeEmptySince(ctx context.Context, arg SetNodeEmptySincePa
 }
 
 const setNodeLifecycle = `-- name: SetNodeLifecycle :one
-UPDATE nodes SET lifecycle = $1 WHERE id = $2 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep
+UPDATE nodes SET lifecycle = $1 WHERE id = $2 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group
 `
 
 type SetNodeLifecycleParams struct {
@@ -1022,6 +1030,8 @@ func (q *Queries) SetNodeLifecycle(ctx context.Context, arg SetNodeLifecyclePara
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }

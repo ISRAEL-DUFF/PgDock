@@ -115,7 +115,7 @@ func (q *Queries) ListPoolerEvents(ctx context.Context, lim int32) ([]ListPooler
 }
 
 const poolerHosts = `-- name: PoolerHosts :many
-SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep FROM nodes
+SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group FROM nodes
 WHERE role = 'pooler' AND status <> 'removed' AND agent_cert_fp IS NOT NULL
 ORDER BY name
 `
@@ -161,6 +161,8 @@ func (q *Queries) PoolerHosts(ctx context.Context) ([]Node, error) {
 			&i.Lifecycle,
 			&i.EmptySince,
 			&i.Keep,
+			&i.FailureDomain,
+			&i.PlacementGroup,
 		); err != nil {
 			return nil, err
 		}

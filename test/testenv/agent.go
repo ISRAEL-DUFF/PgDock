@@ -51,6 +51,13 @@ func (e *Env) StartThirdAgent(name, token string) {
 	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT3_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT3_ADDR"), name, token)
 }
 
+// StartFourthAgent runs a fourth agent (the agent-test-4 container) for
+// the node named name, registered with token.
+func (e *Env) StartFourthAgent(name, token string) {
+	e.t.Helper()
+	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT4_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT4_ADDR"), name, token)
+}
+
 func (e *Env) runAgent(container, agentAddr, nodeName, token string) {
 	e.t.Helper()
 	ctx := context.Background()

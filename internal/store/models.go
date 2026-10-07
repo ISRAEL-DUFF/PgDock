@@ -88,6 +88,7 @@ type AvailabilityMinute struct {
 	ExternalOk *bool
 	Excluded   bool
 	Available  *bool
+	ExcludedBy *uuid.UUID
 }
 
 type Backup struct {
@@ -306,6 +307,7 @@ type EtcdMember struct {
 	Error     *string
 	CheckedAt *time.Time
 	CreatedAt time.Time
+	Region    string
 }
 
 type FailoverEvent struct {
@@ -331,18 +333,29 @@ type FxRate struct {
 }
 
 type Incident struct {
-	ID         uuid.UUID
-	Title      string
-	Components []string
-	RegionID   *string
-	Severity   string
-	Status     string
-	StartedAt  time.Time
-	ResolvedAt *time.Time
-	CreatedBy  *uuid.UUID
-	PushedAt   *time.Time
-	PushError  *string
-	UpdatedAt  time.Time
+	ID             uuid.UUID
+	Title          string
+	Components     []string
+	RegionID       *string
+	Severity       string
+	Status         string
+	StartedAt      time.Time
+	ResolvedAt     *time.Time
+	CreatedBy      *uuid.UUID
+	PushedAt       *time.Time
+	PushError      *string
+	UpdatedAt      time.Time
+	ScheduledStart *time.Time
+	ScheduledEnd   *time.Time
+	AnnouncedAt    *time.Time
+	CancelledAt    *time.Time
+	Replaces       *uuid.UUID
+}
+
+type IncidentScope struct {
+	IncidentID uuid.UUID
+	ProjectID  *uuid.UUID
+	NodeID     *uuid.UUID
 }
 
 type IncidentUpdate struct {
@@ -385,6 +398,7 @@ type Instance struct {
 	Patroni            bool
 	LeaderMember       *uuid.UUID
 	PatroniSecret      []byte
+	EtcdRegion         *string
 }
 
 type InstanceMember struct {
@@ -587,6 +601,8 @@ type Node struct {
 	Lifecycle             string
 	EmptySince            *time.Time
 	Keep                  bool
+	FailureDomain         *string
+	PlacementGroup        *string
 }
 
 type Operation struct {

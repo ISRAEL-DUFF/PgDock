@@ -709,7 +709,16 @@ export const api = {
     request<Operation>("POST", `/api/v1/projects/${id}/switchover`, {
       candidate,
     }),
-  etcd: () => getJSON<EtcdCluster>("/api/v1/admin/etcd"),
+  etcd: (region?: string) =>
+    getJSON<EtcdCluster>(`/api/v1/admin/etcd${qs({ region })}`),
+  replaceEtcdMember: (node: string, to?: string) =>
+    request<Operation>(
+      "POST",
+      `/api/v1/admin/etcd/members/${node}/replace`,
+      to ? { node_id: to } : {},
+    ),
+  moveProjectEtcd: (id: string) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/ha/etcd-move`),
   setupEtcd: (node_ids: string[]) =>
     request<Operation>("POST", "/api/v1/admin/etcd", { node_ids }),
   maintenance: () => getJSON<MaintenanceStatus>("/api/v1/admin/maintenance"),
@@ -1040,6 +1049,10 @@ export const api = {
   removeNode: (id: string) => request<void>("DELETE", `/api/v1/nodes/${id}`),
   updateNode: (id: string, role: "shared" | "dedicated" | "both") =>
     request<Node>("PATCH", `/api/v1/nodes/${id}`, { role }),
+  setFailureDomain: (id: string, failure_domain: string) =>
+    request<Node>("PATCH", `/api/v1/nodes/${id}`, { failure_domain }),
+  failureDomainProblems: () =>
+    getJSON<S["FailureDomainProblems"]>("/api/v1/admin/failure-domains"),
   createSharedCluster: (id: string, memory_mb: number, pg_version?: number) =>
     request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, {
       memory_mb,
@@ -1072,6 +1085,21 @@ export const api = {
     request<Incident>("PATCH", `/api/v1/incidents/${id}`, b),
   postIncidentUpdate: (id: string, b: S["IncidentUpdateRequest"]) =>
     request<Incident>("POST", `/api/v1/incidents/${id}/updates`, b),
+  maintenanceAnnouncements: () =>
+    getJSON<S["MaintenanceAnnouncementList"]>(
+      "/api/v1/admin/maintenance/announcements",
+    ),
+  announceMaintenance: (b: S["MaintenanceAnnouncementRequest"]) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "POST",
+      "/api/v1/admin/maintenance/announcements",
+      b,
+    ),
+  cancelMaintenance: (id: string) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "DELETE",
+      `/api/v1/admin/maintenance/announcements/${id}`,
+    ),
   poolerHosts: () => getJSON<S["PoolerHosts"]>("/api/v1/pooler-hosts"),
   isolationChecks: () =>
     getJSON<S["IsolationCheckList"]>("/api/v1/security/isolation-checks"),

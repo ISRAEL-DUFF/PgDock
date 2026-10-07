@@ -798,6 +798,27 @@ func (e FailoverEventKind) Valid() bool {
 	}
 }
 
+// Defines values for FailureDomainProblemGroup.
+const (
+	Etcd       FailureDomainProblemGroup = "etcd"
+	HaPair     FailureDomainProblemGroup = "ha_pair"
+	PoolerPair FailureDomainProblemGroup = "pooler_pair"
+)
+
+// Valid indicates whether the value is a known member of the FailureDomainProblemGroup enum.
+func (e FailureDomainProblemGroup) Valid() bool {
+	switch e {
+	case Etcd:
+		return true
+	case HaPair:
+		return true
+	case PoolerPair:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HAMemberRole.
 const (
 	HAMemberRoleLeader      HAMemberRole = "leader"
@@ -3701,7 +3722,10 @@ type AutoTopup struct {
 
 // Availability defines model for Availability.
 type Availability struct {
-	MeasuredMinutes int `json:"measured_minutes"`
+	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
+	ExcludedMinutes *int                     `json:"excluded_minutes,omitempty"`
+	Exclusions      *[]AvailabilityExclusion `json:"exclusions,omitempty"`
+	MeasuredMinutes int                      `json:"measured_minutes"`
 
 	// Month The calendar month (UTC), YYYY-MM.
 	Month string `json:"month"`
@@ -3710,6 +3734,15 @@ type Availability struct {
 	Percent            *float32        `json:"percent,omitempty"`
 	RecentOutages      *[]OutageMinute `json:"recent_outages,omitempty"`
 	UnavailableMinutes int             `json:"unavailable_minutes"`
+}
+
+// AvailabilityExclusion defines model for AvailabilityExclusion.
+type AvailabilityExclusion struct {
+	IncidentId     openapi_types.UUID `json:"incident_id"`
+	Minutes        int                `json:"minutes"`
+	ScheduledEnd   *time.Time         `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time         `json:"scheduled_start,omitempty"`
+	Title          string             `json:"title"`
 }
 
 // Backup defines model for Backup.
@@ -4121,6 +4154,9 @@ type CreateIncidentRequest struct {
 
 // CreateNodeRequest defines model for CreateNodeRequest.
 type CreateNodeRequest struct {
+	// FailureDomain What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
 	// Name Example: node-b
 	Name string `json:"name"`
 
@@ -4461,8 +4497,13 @@ type DnsCheck struct {
 
 // DrainResult defines model for DrainResult.
 type DrainResult struct {
-	Moves int  `json:"moves"`
-	Node  Node `json:"node"`
+	// EtcdReplacement The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+	EtcdReplacement *openapi_types.UUID `json:"etcd_replacement,omitempty"`
+	Moves           int                 `json:"moves"`
+	Node            Node                `json:"node"`
+
+	// Warning E.g. the node holds an etcd member that couldn't be moved yet.
+	Warning *string `json:"warning,omitempty"`
 }
 
 // DuplicateIndex defines model for DuplicateIndex.
@@ -4535,6 +4576,10 @@ type EtcdCluster struct {
 
 	// Reason Why it isn't ready.
 	Reason *string `json:"reason,omitempty"`
+	Region *string `json:"region,omitempty"`
+
+	// Regions Regions that have an etcd cluster.
+	Regions *[]string `json:"regions,omitempty"`
 }
 
 // EtcdMember defines model for EtcdMember.
@@ -4545,11 +4590,18 @@ type EtcdMember struct {
 	Name      string             `json:"name"`
 	NodeId    openapi_types.UUID `json:"node_id"`
 	NodeName  string             `json:"node_name"`
+	Region    *string            `json:"region,omitempty"`
 	Status    EtcdMemberStatus   `json:"status"`
 }
 
 // EtcdMemberStatus defines model for EtcdMember.Status.
 type EtcdMemberStatus string
+
+// EtcdReplaceRequest defines model for EtcdReplaceRequest.
+type EtcdReplaceRequest struct {
+	// NodeId Where the new member goes (default the least loaded eligible node in the region).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+}
 
 // EtcdSetupRequest defines model for EtcdSetupRequest.
 type EtcdSetupRequest struct {
@@ -4622,6 +4674,28 @@ type FailoverEvent struct {
 // FailoverEventKind defines model for FailoverEvent.Kind.
 type FailoverEventKind string
 
+// FailureDomainProblem defines model for FailureDomainProblem.
+type FailureDomainProblem struct {
+	Detail string                    `json:"detail"`
+	Group  FailureDomainProblemGroup `json:"group"`
+
+	// Key The group's identity (the HA instance, etcd, or the region's pooler pair).
+	Key string `json:"key"`
+
+	// Nodes The nodes that share a domain.
+	Nodes     []string            `json:"nodes"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Region    string              `json:"region"`
+}
+
+// FailureDomainProblemGroup defines model for FailureDomainProblem.Group.
+type FailureDomainProblemGroup string
+
+// FailureDomainProblems defines model for FailureDomainProblems.
+type FailureDomainProblems struct {
+	Items []FailureDomainProblem `json:"items"`
+}
+
 // ForeignKey defines model for ForeignKey.
 type ForeignKey struct {
 	Columns    []string `json:"columns"`
@@ -4666,11 +4740,17 @@ type HAMemberRole string
 
 // HAStatus defines model for HAStatus.
 type HAStatus struct {
-	Availability *Availability   `json:"availability,omitempty"`
-	Enabled      bool            `json:"enabled"`
-	Failovers    []FailoverEvent `json:"failovers"`
-	Members      []HAMember      `json:"members"`
-	Synchronous  bool            `json:"synchronous"`
+	Availability *Availability `json:"availability,omitempty"`
+	Enabled      bool          `json:"enabled"`
+
+	// EtcdMoveAvailable The project's region has its own ready etcd cluster that the project doesn't use yet.
+	EtcdMoveAvailable *bool `json:"etcd_move_available,omitempty"`
+
+	// EtcdRegion The region whose etcd cluster holds the project's Patroni state.
+	EtcdRegion  *string         `json:"etcd_region,omitempty"`
+	Failovers   []FailoverEvent `json:"failovers"`
+	Members     []HAMember      `json:"members"`
+	Synchronous bool            `json:"synchronous"`
 }
 
 // HAUpdateRequest defines model for HAUpdateRequest.
@@ -5365,6 +5445,50 @@ type MailSettingsRequest struct {
 // MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
 type MailSettingsRequestTls string
 
+// MaintenanceAnnouncement defines model for MaintenanceAnnouncement.
+type MaintenanceAnnouncement struct {
+	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
+	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
+	Emailed     *int       `json:"emailed,omitempty"`
+
+	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
+	Incident       Incident             `json:"incident"`
+	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
+	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
+	ScopeProjects  []openapi_types.UUID `json:"scope_projects"`
+
+	// ShortNotice Announced less than 72 hours ahead, so minutes before excluded_from count.
+	ShortNotice *bool `json:"short_notice,omitempty"`
+}
+
+// MaintenanceAnnouncementList defines model for MaintenanceAnnouncementList.
+type MaintenanceAnnouncementList struct {
+	Items []MaintenanceAnnouncement `json:"items"`
+}
+
+// MaintenanceAnnouncementRequest defines model for MaintenanceAnnouncementRequest.
+type MaintenanceAnnouncementRequest struct {
+	// Body What will happen; the window and region are added.
+	Body *string   `json:"body,omitempty"`
+	End  time.Time `json:"end"`
+
+	// NodeIds Only projects with a member on these nodes.
+	NodeIds *[]openapi_types.UUID `json:"node_ids,omitempty"`
+
+	// ProjectIds Only these projects (with node_ids, either covers).
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+
+	// Region The region it covers (empty for all).
+	Region *string `json:"region,omitempty"`
+
+	// Replaces An announcement this one reschedules; it is cancelled.
+	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
+	Start    time.Time           `json:"start"`
+	Title    *string             `json:"title,omitempty"`
+}
+
 // MaintenanceStatus defines model for MaintenanceStatus.
 type MaintenanceStatus struct {
 	// Behind Running instances whose image has a newer minor release.
@@ -5492,11 +5616,17 @@ type MyInvitationList struct {
 
 // Node defines model for Node.
 type Node struct {
-	Agent        AgentStatus        `json:"agent"`
-	CostCurrency *string            `json:"cost_currency,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	EmptySince   *time.Time         `json:"empty_since,omitempty"`
-	Id           openapi_types.UUID `json:"id"`
+	Agent        AgentStatus `json:"agent"`
+	CostCurrency *string     `json:"cost_currency,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	EmptySince   *time.Time  `json:"empty_since,omitempty"`
+
+	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
+	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
+	Id                 openapi_types.UUID `json:"id"`
 
 	// Keep Never deleted for being empty.
 	Keep             *bool          `json:"keep,omitempty"`
@@ -5504,7 +5634,10 @@ type Node struct {
 	Lifecycle        *NodeLifecycle `json:"lifecycle,omitempty"`
 	MonthlyCostMinor *int64         `json:"monthly_cost_minor,omitempty"`
 	Name             string         `json:"name"`
-	PrivateAddr      string         `json:"private_addr"`
+
+	// PlacementGroup The provider's spread placement group the server is in (Hetzner).
+	PlacementGroup *string `json:"placement_group,omitempty"`
+	PrivateAddr    string  `json:"private_addr"`
 
 	// Provider manual (registered by hand) or the cloud provider that created it.
 	Provider   *string `json:"provider,omitempty"`
@@ -5532,6 +5665,9 @@ type NodeCreated struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Node      Node      `json:"node"`
 	Token     string    `json:"token"`
+
+	// Warnings E.g. a second pooler host in the same failure domain as the first.
+	Warnings *[]string `json:"warnings,omitempty"`
 }
 
 // NodeDetail defines model for NodeDetail.
@@ -7548,7 +7684,9 @@ type UpdateMeRequest struct {
 
 // UpdateNodeRequest defines model for UpdateNodeRequest.
 type UpdateNodeRequest struct {
-	Role UpdateNodeRequestRole `json:"role"`
+	// FailureDomain The node's failure domain; an empty string clears it.
+	FailureDomain *string                `json:"failure_domain,omitempty"`
+	Role          *UpdateNodeRequestRole `json:"role,omitempty"`
 }
 
 // UpdateNodeRequestRole defines model for UpdateNodeRequest.Role.
@@ -7963,6 +8101,12 @@ type ListDedicatedRequestsParams struct {
 
 // ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParamsStatus string
+
+// GetEtcdClusterParams defines parameters for GetEtcdCluster.
+type GetEtcdClusterParams struct {
+	// Region The region (default the home region).
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
 
 // AdminListInvoicesParams defines parameters for AdminListInvoices.
 type AdminListInvoicesParams struct {
@@ -8441,6 +8585,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 // SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
 type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
 
+// ReplaceEtcdMemberJSONRequestBody defines body for ReplaceEtcdMember for application/json ContentType.
+type ReplaceEtcdMemberJSONRequestBody = EtcdReplaceRequest
+
 // SetFXRateJSONRequestBody defines body for SetFXRate for application/json ContentType.
 type SetFXRateJSONRequestBody = FXRateInput
 
@@ -8458,6 +8605,9 @@ type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
 
 // AdminPublishLegalJSONRequestBody defines body for AdminPublishLegal for application/json ContentType.
 type AdminPublishLegalJSONRequestBody = LegalPublish
+
+// AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
+type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
 
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
@@ -9068,24 +9218,47 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequest(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+	// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 	//
 	// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-	GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetEtcdCluster(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SetupEtcdClusterWithBody Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdClusterWithBody Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceEtcdMemberWithBody Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMemberWithBody(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMember(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+	//
+	// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+	ListFailureDomainProblems(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFXRates Exchange rates (naira per unit), current and history
 	//
@@ -9237,6 +9410,30 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
 	GetMaintenance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+	//
+	// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+	ListMaintenanceAnnouncements(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AnnounceMaintenanceWithBody Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenanceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenance(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelMaintenance Cancel an announced maintenance window
+	//
+	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+	CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutMaintenanceWindowWithBody Change the weekly maintenance window (UTC)
 	//
@@ -10365,14 +10562,14 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/nodes/{id} (the `GetNode` operationId).
 	GetNode(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateNodeWithBody Change a node's role (where new projects may go)
+	// UpdateNodeWithBody Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /api/v1/nodes/{id} (the `UpdateNode` operationId).
 	UpdateNodeWithBody(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateNode Change a node's role (where new projects may go)
+	// UpdateNode Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -11211,6 +11408,13 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 	EnableProjectHA(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+	//
+	// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+	MoveProjectEtcd(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
 	//
@@ -12754,11 +12958,11 @@ func (c *Client) RejectDedicatedRequest(ctx context.Context, requestId RequestID
 	return c.Client.Do(req)
 }
 
-// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 //
 // Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-func (c *Client) GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetEtcdClusterRequest(c.Server)
+func (c *Client) GetEtcdCluster(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEtcdClusterRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12769,7 +12973,7 @@ func (c *Client) GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
-// SetupEtcdClusterWithBody Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdClusterWithBody Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes any type of body and a specified content type.
 //
@@ -12786,13 +12990,66 @@ func (c *Client) SetupEtcdClusterWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 func (c *Client) SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetupEtcdClusterRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceEtcdMemberWithBody Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *Client) ReplaceEtcdMemberWithBody(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceEtcdMemberRequestWithBody(c.Server, nodeId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *Client) ReplaceEtcdMember(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceEtcdMemberRequest(c.Server, nodeId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+//
+// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+func (c *Client) ListFailureDomainProblems(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFailureDomainProblemsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -13194,6 +13451,70 @@ func (c *Client) AdminGetLegal(ctx context.Context, documentId openapi_types.UUI
 // Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
 func (c *Client) GetMaintenance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMaintenanceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+//
+// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+func (c *Client) ListMaintenanceAnnouncements(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMaintenanceAnnouncementsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AnnounceMaintenanceWithBody Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *Client) AnnounceMaintenanceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAnnounceMaintenanceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *Client) AnnounceMaintenance(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAnnounceMaintenanceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelMaintenance Cancel an announced maintenance window
+//
+// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+func (c *Client) CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelMaintenanceRequest(c.Server, incidentId)
 	if err != nil {
 		return nil, err
 	}
@@ -15891,7 +16212,7 @@ func (c *Client) GetNode(ctx context.Context, id NodeID, reqEditors ...RequestEd
 	return c.Client.Do(req)
 }
 
-// UpdateNodeWithBody Change a node's role (where new projects may go)
+// UpdateNodeWithBody Change a node's role (where new projects may go) or failure domain
 //
 // Takes any type of body and a specified content type.
 //
@@ -15908,7 +16229,7 @@ func (c *Client) UpdateNodeWithBody(ctx context.Context, id NodeID, contentType 
 	return c.Client.Do(req)
 }
 
-// UpdateNode Change a node's role (where new projects may go)
+// UpdateNode Change a node's role (where new projects may go) or failure domain
 //
 // Takes a body of the `application/json` content type.
 //
@@ -17938,6 +18259,23 @@ func (c *Client) EnableProjectHAWithBody(ctx context.Context, id ProjectID, cont
 // Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 func (c *Client) EnableProjectHA(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEnableProjectHARequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+//
+// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+//
+// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+func (c *Client) MoveProjectEtcd(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveProjectEtcdRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -21283,7 +21621,7 @@ func NewRejectDedicatedRequestRequestWithBody(server string, requestId RequestID
 }
 
 // NewGetEtcdClusterRequest constructs an http.Request for the GetEtcdCluster method
-func NewGetEtcdClusterRequest(server string) (*http.Request, error) {
+func NewGetEtcdClusterRequest(server string, params *GetEtcdClusterParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -21299,6 +21637,33 @@ func NewGetEtcdClusterRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -21345,6 +21710,80 @@ func NewSetupEtcdClusterRequestWithBody(server string, contentType string, body 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReplaceEtcdMemberRequest calls the generic ReplaceEtcdMember builder with application/json body
+func NewReplaceEtcdMemberRequest(server string, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceEtcdMemberRequestWithBody(server, nodeId, "application/json", bodyReader)
+}
+
+// NewReplaceEtcdMemberRequestWithBody constructs an http.Request for the ReplaceEtcdMember method, with any body, and a specified content type
+func NewReplaceEtcdMemberRequestWithBody(server string, nodeId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "node_id", nodeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/etcd/members/%s/replace", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListFailureDomainProblemsRequest constructs an http.Request for the ListFailureDomainProblems method
+func NewListFailureDomainProblemsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/failure-domains")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -22060,6 +22499,107 @@ func NewGetMaintenanceRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListMaintenanceAnnouncementsRequest constructs an http.Request for the ListMaintenanceAnnouncements method
+func NewListMaintenanceAnnouncementsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAnnounceMaintenanceRequest calls the generic AnnounceMaintenance builder with application/json body
+func NewAnnounceMaintenanceRequest(server string, body AnnounceMaintenanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAnnounceMaintenanceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAnnounceMaintenanceRequestWithBody constructs an http.Request for the AnnounceMaintenance method, with any body, and a specified content type
+func NewAnnounceMaintenanceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCancelMaintenanceRequest constructs an http.Request for the CancelMaintenance method
+func NewCancelMaintenanceRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "incident_id", incidentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -30318,6 +30858,40 @@ func NewEnableProjectHARequestWithBody(server string, id ProjectID, contentType 
 	return req, nil
 }
 
+// NewMoveProjectEtcdRequest constructs an http.Request for the MoveProjectEtcd method
+func NewMoveProjectEtcdRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/ha/etcd-move", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetInsightBloatRequest constructs an http.Request for the GetInsightBloat method
 func NewGetInsightBloatRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -34974,26 +35548,51 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequestWithResponse(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectDedicatedRequestResponse, error)
 
-	// GetEtcdClusterWithResponse The etcd cluster HA instances keep their state in, and each member's health
+	// GetEtcdClusterWithResponse A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-	GetEtcdClusterWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error)
+	GetEtcdClusterWithResponse(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error)
 
-	// SetupEtcdClusterWithBodyWithResponse Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdClusterWithBodyWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
 
-	// SetupEtcdClusterWithResponse Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdClusterWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithResponse(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
+
+	// ReplaceEtcdMemberWithBodyWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMemberWithBodyWithResponse(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error)
+
+	// ReplaceEtcdMemberWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMemberWithResponse(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error)
+
+	// ListFailureDomainProblemsWithResponse HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+	ListFailureDomainProblemsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFailureDomainProblemsResponse, error)
 
 	// ListFXRatesWithResponse Exchange rates (naira per unit), current and history
 	//
@@ -35169,6 +35768,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
 	GetMaintenanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMaintenanceResponse, error)
+
+	// ListMaintenanceAnnouncementsWithResponse Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+	ListMaintenanceAnnouncementsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMaintenanceAnnouncementsResponse, error)
+
+	// AnnounceMaintenanceWithBodyWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenanceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error)
+
+	// AnnounceMaintenanceWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenanceWithResponse(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error)
+
+	// CancelMaintenanceWithResponse Cancel an announced maintenance window
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+	CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error)
 
 	// PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
 	//
@@ -36393,14 +37020,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/nodes/{id} (the `GetNode` operationId).
 	GetNodeWithResponse(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*GetNodeResponse, error)
 
-	// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go)
+	// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /api/v1/nodes/{id} (the `UpdateNode` operationId).
 	UpdateNodeWithBodyWithResponse(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNodeResponse, error)
 
-	// UpdateNodeWithResponse Change a node's role (where new projects may go)
+	// UpdateNodeWithResponse Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -37363,6 +37990,15 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 	EnableProjectHAWithResponse(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectHAResponse, error)
+
+	// MoveProjectEtcdWithResponse Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+	//
+	// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+	MoveProjectEtcdWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*MoveProjectEtcdResponse, error)
 
 	// GetInsightBloatWithResponse Estimated table bloat (reclaim it with reclaim-space)
 	//
@@ -39603,6 +40239,102 @@ func (r SetupEtcdClusterResponse) ContentType() string {
 	return ""
 }
 
+type ReplaceEtcdMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ReplaceEtcdMemberResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ReplaceEtcdMemberResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ReplaceEtcdMemberResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplaceEtcdMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplaceEtcdMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReplaceEtcdMemberResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFailureDomainProblemsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FailureDomainProblems
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListFailureDomainProblemsResponse) GetJSON200() *FailureDomainProblems {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListFailureDomainProblemsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListFailureDomainProblemsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFailureDomainProblemsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFailureDomainProblemsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFailureDomainProblemsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListFXRatesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -40492,6 +41224,150 @@ func (r GetMaintenanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMaintenanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListMaintenanceAnnouncementsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncementList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListMaintenanceAnnouncementsResponse) GetJSON200() *MaintenanceAnnouncementList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListMaintenanceAnnouncementsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListMaintenanceAnnouncementsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMaintenanceAnnouncementsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMaintenanceAnnouncementsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListMaintenanceAnnouncementsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AnnounceMaintenanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AnnounceMaintenanceResponse) GetJSON201() *MaintenanceAnnouncement {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AnnounceMaintenanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AnnounceMaintenanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AnnounceMaintenanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AnnounceMaintenanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AnnounceMaintenanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelMaintenanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelMaintenanceResponse) GetJSON200() *MaintenanceAnnouncement {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CancelMaintenanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelMaintenanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelMaintenanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelMaintenanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelMaintenanceResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49664,6 +50540,54 @@ func (r EnableProjectHAResponse) ContentType() string {
 	return ""
 }
 
+type MoveProjectEtcdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r MoveProjectEtcdResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r MoveProjectEtcdResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r MoveProjectEtcdResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MoveProjectEtcdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MoveProjectEtcdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MoveProjectEtcdResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetInsightBloatResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54629,20 +55553,20 @@ func (c *ClientWithResponses) RejectDedicatedRequestWithResponse(ctx context.Con
 	return ParseRejectDedicatedRequestResponse(rsp)
 }
 
-// GetEtcdClusterWithResponse The etcd cluster HA instances keep their state in, and each member's health
+// GetEtcdClusterWithResponse A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 //
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-func (c *ClientWithResponses) GetEtcdClusterWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error) {
-	rsp, err := c.GetEtcdCluster(ctx, reqEditors...)
+func (c *ClientWithResponses) GetEtcdClusterWithResponse(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error) {
+	rsp, err := c.GetEtcdCluster(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseGetEtcdClusterResponse(rsp)
 }
 
-// SetupEtcdClusterWithBodyWithResponse Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdClusterWithBodyWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -54655,7 +55579,7 @@ func (c *ClientWithResponses) SetupEtcdClusterWithBodyWithResponse(ctx context.C
 	return ParseSetupEtcdClusterResponse(rsp)
 }
 
-// SetupEtcdClusterWithResponse Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdClusterWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -54666,6 +55590,49 @@ func (c *ClientWithResponses) SetupEtcdClusterWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseSetupEtcdClusterResponse(rsp)
+}
+
+// ReplaceEtcdMemberWithBodyWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *ClientWithResponses) ReplaceEtcdMemberWithBodyWithResponse(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error) {
+	rsp, err := c.ReplaceEtcdMemberWithBody(ctx, nodeId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceEtcdMemberResponse(rsp)
+}
+
+// ReplaceEtcdMemberWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *ClientWithResponses) ReplaceEtcdMemberWithResponse(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error) {
+	rsp, err := c.ReplaceEtcdMember(ctx, nodeId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceEtcdMemberResponse(rsp)
+}
+
+// ListFailureDomainProblemsWithResponse HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+func (c *ClientWithResponses) ListFailureDomainProblemsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFailureDomainProblemsResponse, error) {
+	rsp, err := c.ListFailureDomainProblems(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFailureDomainProblemsResponse(rsp)
 }
 
 // ListFXRatesWithResponse Exchange rates (naira per unit), current and history
@@ -54991,6 +55958,58 @@ func (c *ClientWithResponses) GetMaintenanceWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParseGetMaintenanceResponse(rsp)
+}
+
+// ListMaintenanceAnnouncementsWithResponse Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+func (c *ClientWithResponses) ListMaintenanceAnnouncementsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMaintenanceAnnouncementsResponse, error) {
+	rsp, err := c.ListMaintenanceAnnouncements(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMaintenanceAnnouncementsResponse(rsp)
+}
+
+// AnnounceMaintenanceWithBodyWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *ClientWithResponses) AnnounceMaintenanceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error) {
+	rsp, err := c.AnnounceMaintenanceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAnnounceMaintenanceResponse(rsp)
+}
+
+// AnnounceMaintenanceWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *ClientWithResponses) AnnounceMaintenanceWithResponse(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error) {
+	rsp, err := c.AnnounceMaintenance(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAnnounceMaintenanceResponse(rsp)
+}
+
+// CancelMaintenanceWithResponse Cancel an announced maintenance window
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+func (c *ClientWithResponses) CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error) {
+	rsp, err := c.CancelMaintenance(ctx, incidentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelMaintenanceResponse(rsp)
 }
 
 // PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
@@ -57152,7 +58171,7 @@ func (c *ClientWithResponses) GetNodeWithResponse(ctx context.Context, id NodeID
 	return ParseGetNodeResponse(rsp)
 }
 
-// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go)
+// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go) or failure domain
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -57165,7 +58184,7 @@ func (c *ClientWithResponses) UpdateNodeWithBodyWithResponse(ctx context.Context
 	return ParseUpdateNodeResponse(rsp)
 }
 
-// UpdateNodeWithResponse Change a node's role (where new projects may go)
+// UpdateNodeWithResponse Change a node's role (where new projects may go) or failure domain
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -58847,6 +59866,21 @@ func (c *ClientWithResponses) EnableProjectHAWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseEnableProjectHAResponse(rsp)
+}
+
+// MoveProjectEtcdWithResponse Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+//
+// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+func (c *ClientWithResponses) MoveProjectEtcdWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*MoveProjectEtcdResponse, error) {
+	rsp, err := c.MoveProjectEtcd(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveProjectEtcdResponse(rsp)
 }
 
 // GetInsightBloatWithResponse Estimated table bloat (reclaim it with reclaim-space)
@@ -61616,6 +62650,72 @@ func ParseSetupEtcdClusterResponse(rsp *http.Response) (*SetupEtcdClusterRespons
 	return response, nil
 }
 
+// ParseReplaceEtcdMemberResponse parses an HTTP response from a ReplaceEtcdMemberWithResponse call
+func ParseReplaceEtcdMemberResponse(rsp *http.Response) (*ReplaceEtcdMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplaceEtcdMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFailureDomainProblemsResponse parses an HTTP response from a ListFailureDomainProblemsWithResponse call
+func ParseListFailureDomainProblemsResponse(rsp *http.Response) (*ListFailureDomainProblemsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFailureDomainProblemsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FailureDomainProblems
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListFXRatesResponse parses an HTTP response from a ListFXRatesWithResponse call
 func ParseListFXRatesResponse(rsp *http.Response) (*ListFXRatesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -62213,6 +63313,105 @@ func ParseGetMaintenanceResponse(rsp *http.Response) (*GetMaintenanceResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MaintenanceStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListMaintenanceAnnouncementsResponse parses an HTTP response from a ListMaintenanceAnnouncementsWithResponse call
+func ParseListMaintenanceAnnouncementsResponse(rsp *http.Response) (*ListMaintenanceAnnouncementsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMaintenanceAnnouncementsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncementList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAnnounceMaintenanceResponse parses an HTTP response from a AnnounceMaintenanceWithResponse call
+func ParseAnnounceMaintenanceResponse(rsp *http.Response) (*AnnounceMaintenanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AnnounceMaintenanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest MaintenanceAnnouncement
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelMaintenanceResponse parses an HTTP response from a CancelMaintenanceWithResponse call
+func ParseCancelMaintenanceResponse(rsp *http.Response) (*CancelMaintenanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelMaintenanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncement
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -68522,6 +69721,39 @@ func ParseEnableProjectHAResponse(rsp *http.Response) (*EnableProjectHAResponse,
 	}
 
 	response := &EnableProjectHAResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMoveProjectEtcdResponse parses an HTTP response from a MoveProjectEtcdWithResponse call
+func ParseMoveProjectEtcdResponse(rsp *http.Response) (*MoveProjectEtcdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MoveProjectEtcdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

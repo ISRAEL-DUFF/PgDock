@@ -118,6 +118,10 @@ pgdock-server, as in V2. Nothing changes until you add them.
    `PGDOCK_POOLER_LOCAL=false` on pgdock-server, restart it, and stop the
    `pooler-session` and `pooler-tx` services in the install bundle.
 
+Put the two hosts in different racks (or Hetzner spread placement groups),
+and record each one's [failure domain](failure-domains.md) when you add it.
+PGDock warns when the second host shares the first's domain.
+
 ## Check it
 
 Admin → Nodes shows **Edge pooler hosts**:

@@ -20,6 +20,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -39,6 +40,8 @@ const (
 	KindIsolationCheck     = "isolation_check_failed"
 	// Capacity automation (V3 §5.2): a proposal waits for approval, or a
 	// provisioning failed in the last day.
+	// HA members, etcd members or pooler hosts share a failure domain (V3.1 §2.4).
+	KindFailureDomain = "failure_domain"
 	// The Free tier's waker (V3 §4.2) doesn't accept connections.
 	KindWakerDown          = "waker_down"
 	KindCapacityProposal   = "capacity_proposal"
@@ -314,6 +317,16 @@ func (s *Service) conditions(ctx context.Context) ([]condition, error) {
 		errs = append(errs, err)
 	}
 	out = append(out, hostConds...)
+	// Groups that must be apart but share a failure domain (V3.1 §2.4).
+	if probs, err := faildomain.Check(ctx, q); err == nil {
+		for _, p := range probs {
+			out = append(out, condition{KindFailureDomain, SeverityWarning, "failure_domain", p.Key, p.Region + " " + p.Group,
+				p.Detail + ". One failure could take them all: move one, or correct the domains (Platform → Nodes).",
+				map[string]any{"group": p.Group, "region": p.Region, "nodes": p.Nodes}})
+		}
+	} else {
+		errs = append(errs, err)
+	}
 	// A partial evaluation must not resolve alerts it could not check.
 	if err := errors.Join(errs...); err != nil {
 		return nil, err

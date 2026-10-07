@@ -165,6 +165,16 @@ export function HACard({ p }: { p: Project }) {
               </span>
             </label>
             <div className="ml-auto flex gap-2">
+              {st.etcd_move_available && (
+                <Button
+                  onClick={() => run("etcd", () => api.moveProjectEtcd(p.id))}
+                  busy={busy === "etcd"}
+                  disabled={busyStatus}
+                  title={`Its Patroni state is in ${st.etcd_region}'s etcd cluster; move it to its own region's (writes pause once, for a few seconds).`}
+                >
+                  Move to the region's etcd
+                </Button>
+              )}
               <Button
                 onClick={() => run("switchover", () => api.switchover(p.id))}
                 busy={busy === "switchover"}
@@ -194,6 +204,22 @@ export function HACard({ p }: { p: Project }) {
               ({a.unavailable_minutes} unavailable of {a.measured_minutes}{" "}
               measured minutes; the SLA is 99.9%)
             </span>
+            {a.exclusions && a.exclusions.length > 0 && (
+              <ul
+                className="mt-1 text-xs text-muted"
+                data-testid="ha-exclusions"
+              >
+                {a.exclusions.map((x) => (
+                  <li key={x.incident_id}>
+                    {x.minutes} minutes excluded for announced maintenance:{" "}
+                    {x.title}
+                    {x.scheduled_start
+                      ? ` (${formatDate(x.scheduled_start)})`
+                      : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         {st && st.failovers.length > 0 && (
@@ -303,7 +329,13 @@ export function HACard({ p }: { p: Project }) {
             what="HA"
             req={
               p.instance?.cpus != null
-                ? { cpus: p.instance.cpus, memory_mb: p.instance.memory_mb ?? 0, disk_gb: p.instance.volume_gb ?? 0, standby_only: true, synchronous: sync }
+                ? {
+                    cpus: p.instance.cpus,
+                    memory_mb: p.instance.memory_mb ?? 0,
+                    disk_gb: p.instance.volume_gb ?? 0,
+                    standby_only: true,
+                    synchronous: sync,
+                  }
                 : null
             }
           />

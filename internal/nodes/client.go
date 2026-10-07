@@ -91,12 +91,18 @@ func (a *Agent) do(ctx context.Context, method, path string, in, out any) error 
 	}
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
+	if res.StatusCode == http.StatusNoContent {
+		return nil
+	}
 	if res.StatusCode != http.StatusOK {
 		var e agentapi.Error
 		if json.Unmarshal(raw, &e) == nil && e.Error != "" {
 			return fmt.Errorf("agent %s: %s", a.Node.Name, e.Error)
 		}
 		return fmt.Errorf("agent %s: %s", a.Node.Name, res.Status)
+	}
+	if out == nil {
+		return nil
 	}
 	return json.Unmarshal(raw, out)
 }
@@ -155,6 +161,12 @@ func (a *Agent) RunEtcd(ctx context.Context, spec agentapi.EtcdSpec) (agentapi.E
 func (a *Agent) Etcd(ctx context.Context) (agentapi.Etcd, error) {
 	var r agentapi.Etcd
 	return r, a.do(ctx, http.MethodGet, agentapi.PathEtcd, nil, &r)
+}
+
+// EtcdMembers calls POST /v1/etcd/members.
+func (a *Agent) EtcdMembers(ctx context.Context, req agentapi.EtcdMembersRequest) (agentapi.EtcdMembers, error) {
+	var r agentapi.EtcdMembers
+	return r, a.do(ctx, http.MethodPost, agentapi.PathEtcdMembers, req, &r)
 }
 
 // RemoveEtcd calls DELETE /v1/etcd: the container and its data.

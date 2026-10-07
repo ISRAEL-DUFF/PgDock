@@ -109,6 +109,12 @@ use, and refused if they are more than 5 minutes old.
   Post updates as you learn more. Posting one with status **resolved**
   closes the incident; posting any other status reopens it.
 
+- **Scheduled maintenance:** Admin → Incidents → Scheduled maintenance.
+  An announcement is shown as **upcoming** until its window starts, and
+  leaves its components alone until then; it resolves itself when the
+  window ends. See [HA → Announced maintenance](ha.md#announced-maintenance)
+  for what it does to the SLA.
+
 Confirmed subscribers get an email for every new update, automatic or
 posted.
 
