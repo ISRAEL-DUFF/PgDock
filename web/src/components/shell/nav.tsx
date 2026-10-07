@@ -97,6 +97,7 @@ export function projectRail(
           { label: "Database", to: `${base}/settings/database` },
           { label: "Compute and tier", to: `${base}/settings/compute` },
           { label: "Backup storage", to: `${base}/settings/storage` },
+          { label: "API", to: `${base}/settings/api` },
         ]
       : []),
     { label: "Members", to: `${base}/members` },

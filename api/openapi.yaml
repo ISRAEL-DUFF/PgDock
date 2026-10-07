@@ -3437,6 +3437,277 @@ paths:
                 $ref: "#/components/schemas/PersonalCredentials"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services:
+    get:
+      operationId: getBackendServices
+      summary: The project's backend services (V4 §2.4) - URL, keys, settings
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The project's backend services, or enabled false with nothing else when they were never turned on.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackendServices"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: enableBackendServices
+      summary: Turn backend services on; the first publishable and secret keys are returned once
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Enabling; the keys are live once the operation succeeds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackendServicesEnabled"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateBackendServices
+      summary: Change allowed origins and gateway settings
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackendServicesUpdate"
+      responses:
+        "200":
+          description: Updated; the edge applies it within seconds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackendServices"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: disableBackendServices
+      summary: Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Disabling.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/keys:
+    post:
+      operationId: createAPIKey
+      summary: Make another API key (for rotation); a secret key is shown once
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "201":
+          description: The key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApiKey"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/keys/{key_id}:
+    delete:
+      operationId: revokeAPIKey
+      summary: Revoke an API key; the edge refuses it within seconds
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/logs:
+    get:
+      operationId: listAPIRequestLogs
+      summary: The API's request logs (7 days), newest first
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: before
+          in: query
+          description: A log id from the previous page.
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: Logs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiRequestLogList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/types:
+    get:
+      operationId: getServiceTypes
+      summary: Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ts, dart, go]
+        - name: package
+          in: query
+          description: Go's package name (default pgdtypes).
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The source.
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/advisor:
+    get:
+      operationId: getSecurityAdvisor
+      summary: What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Findings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdvisorFindings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/explore:
+    post:
+      operationId: exploreDataAPI
+      summary: Run a data API request as anon, a user or service (the request explorer)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExploreRequest"
+      responses:
+        "200":
+          description: The data API's response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/edge/config:
+    get:
+      operationId: edgeConfig
+      summary: pgdock-edge's configuration feed (signed with the edge secret; internal)
+      tags: [edge]
+      security: []
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: wait
+          in: query
+          description: Seconds to wait for a change (at most 30).
+          schema:
+            type: integer
+        - name: region
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A page of the feed (see internal/edgeapi).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/edge/report:
+    post:
+      operationId: edgeReport
+      summary: pgdock-edge's usage and request logs (signed; internal)
+      tags: [edge]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "204":
+          description: Recorded (or already recorded).
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/edge/wake:
+    post:
+      operationId: edgeWake
+      summary: pgdock-edge asks for a paused project to resume (signed; internal)
+      tags: [edge]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "204":
+          description: Resuming.
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/transfer:
     post:
       operationId: transferProject
@@ -9005,6 +9276,251 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MaintenanceAnnouncement"
+    BackendServices:
+      type: object
+      required: [enabled, keys, cors_origins, exposed_schemas, public_tables, settings, feed_configured]
+      properties:
+        enabled:
+          type: boolean
+        ref:
+          type: string
+          description: The project reference in the API hostname.
+          example: k7f3m2q9
+        url:
+          type: string
+          description: The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
+        enabled_at:
+          type: string
+          format: date-time
+          nullable: true
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKey"
+        cors_origins:
+          type: array
+          description: Origins browsers may call from; empty allows any.
+          items:
+            type: string
+        exposed_schemas:
+          type: array
+          description: The schemas the data API serves (default public).
+          items:
+            type: string
+        public_tables:
+          type: array
+          description: Tables and views anon and signed-in users may read without row-level security ("table" in public, or "schema.table").
+          items:
+            type: string
+        settings:
+          $ref: "#/components/schemas/BackendServicesSettings"
+        feed_configured:
+          type: boolean
+          description: pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+        roles:
+          type: object
+          description: The project's request roles, for row-level security policies.
+          properties:
+            anon:
+              type: string
+            user:
+              type: string
+            service:
+              type: string
+    BackendServicesSettings:
+      type: object
+      properties:
+        statement_timeout_ms:
+          type: integer
+          description: Each request's statement timeout (0 for the default, 8000).
+        rate_per_ip:
+          type: integer
+          description: Requests per minute from one IP address (0 for the default, 600).
+        rate_per_key:
+          type: integer
+          description: Requests per minute with one key (0 for the default, 12000).
+        allow_secret_in_browser:
+          type: boolean
+          description: Accept the secret key from a page (a request with an Origin header). Off by default.
+        max_query_cost:
+          type: integer
+          description: Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
+    BackendServicesUpdate:
+      type: object
+      properties:
+        cors_origins:
+          type: array
+          items:
+            type: string
+        exposed_schemas:
+          type: array
+          items:
+            type: string
+        public_tables:
+          type: array
+          items:
+            type: string
+        settings:
+          $ref: "#/components/schemas/BackendServicesSettings"
+    BackendServicesEnabled:
+      type: object
+      required: [services, operation, keys]
+      properties:
+        services:
+          $ref: "#/components/schemas/BackendServices"
+        operation:
+          $ref: "#/components/schemas/Operation"
+        keys:
+          type: array
+          description: The keys made now (the first time, or after a disable); the secret key is never shown again.
+          items:
+            $ref: "#/components/schemas/CreatedApiKey"
+    AdvisorFinding:
+      type: object
+      required: [level, code, object, message]
+      properties:
+        level:
+          type: string
+          enum: [danger, warn, info]
+        code:
+          type: string
+        object:
+          type: string
+        message:
+          type: string
+        fix:
+          type: string
+    AdvisorFindings:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdvisorFinding"
+    ExploreRequest:
+      type: object
+      required: [method, path, role]
+      properties:
+        method:
+          type: string
+          enum: [GET, POST, PATCH, DELETE]
+        path:
+          type: string
+          example: /data/v1/todos?select=id,title
+        body:
+          type: string
+          description: The request body (JSON), for POST and PATCH.
+        role:
+          type: string
+          enum: [anon, user, service]
+        user_id:
+          type: string
+          format: uuid
+          description: With role user, the signed-in user to act as (their id is the sub claim).
+    ExploreResponse:
+      type: object
+      required: [status, body]
+      properties:
+        status:
+          type: integer
+        content_type:
+          type: string
+        body:
+          type: string
+    ApiKey:
+      type: object
+      required: [id, kind, name, prefix, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [publishable, secret]
+        name:
+          type: string
+        prefix:
+          type: string
+          description: The start of the key, to tell keys apart.
+        key:
+          type: string
+          description: The whole publishable key (secret keys are only shown when made).
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    CreateApiKeyRequest:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          type: string
+          enum: [publishable, secret]
+        name:
+          type: string
+          maxLength: 64
+    CreatedApiKey:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          $ref: "#/components/schemas/ApiKey"
+        value:
+          type: string
+          description: The key itself. For a secret key this is the only time it is shown.
+    ApiRequestLog:
+      type: object
+      required: [id, at, request_id, method, path, status, latency_ms, bytes_out]
+      properties:
+        id:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        status:
+          type: integer
+        latency_ms:
+          type: integer
+        role:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        key_id:
+          type: string
+          format: uuid
+          nullable: true
+        ip:
+          type: string
+          nullable: true
+        bytes_out:
+          type: integer
+          format: int64
+    ApiRequestLogList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiRequestLog"
     OutageMinute:
       type: object
       required: [minute]

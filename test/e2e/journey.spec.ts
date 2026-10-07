@@ -1824,6 +1824,76 @@ test.describe("with the saved session", () => {
     await db.end();
   });
 
+  test("backend services: enable a project's API, keys shown once, a key made and revoked", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Storefront API");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const dbURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+
+    await page.goto(`/projects/${id}/settings/api`);
+    await page.getByRole("button", { name: "Enable backend services" }).click();
+    const keys = page.getByTestId("new-api-keys");
+    await expect(keys.getByTestId("key-secret")).toContainText("pgd_sec_");
+    await expect(keys.getByTestId("key-publishable")).toContainText("pgd_pub_");
+    await shot(page, "70-api-keys-once");
+    await keys.getByRole("button", { name: "I've copied them" }).click();
+    await expect(page.getByTestId("services-url")).toContainText(/[a-z][a-z0-9]{7}/, { timeout: 30_000 });
+    const rows = page.getByTestId("api-key-row");
+    await expect(rows).toHaveCount(2);
+
+    // Rotation: a second secret key, then the first one revoked.
+    await page.getByTestId("services-keys").getByRole("button", { name: "New key" }).click();
+    await page.getByLabel("Name").fill("rotated");
+    await page.getByLabel("Kind").selectOption("secret");
+    await page.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByTestId("new-api-keys").getByTestId("key-secret")).toContainText("pgd_sec_");
+    await page.getByRole("button", { name: "I've copied them" }).click();
+    await expect(rows).toHaveCount(3);
+    const first = rows.filter({ hasText: "default" }).filter({ hasText: "secret" });
+    await first.getByRole("button", { name: "Revoke" }).click();
+    await expect(first).toContainText("revoked");
+    await shot(page, "71-api-settings");
+
+    // M30: the advisor flags a table without row-level security, the
+    // explorer shows anon is refused, and the policy helper fixes it.
+    const db = await connect(dbURL);
+    await db.query("CREATE TABLE notes (id serial PRIMARY KEY, owner_id uuid NOT NULL, body text NOT NULL)");
+    await db.end();
+    const advisor = page.getByTestId("services-advisor");
+    await expect(async () => {
+      await advisor.getByRole("button", { name: "Check again" }).click();
+      await expect(advisor.getByTestId("advisor-finding").filter({ hasText: "public.notes" })).toContainText(/row-level security is off/i, { timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    const explorer = page.getByTestId("services-explorer");
+    await explorer.getByLabel("Path").fill("/data/v1/notes");
+    await explorer.getByRole("button", { name: "Send" }).click();
+    await expect(explorer.getByTestId("explorer-result")).toContainText("rls_required");
+    await shot(page, "72-api-advisor-explorer");
+
+    await page.goto(`/projects/${id}/tables`);
+    await page.getByTestId("schema-tree").getByRole("button", { name: "notes", exact: true }).click();
+    await page.getByTestId("policy-helper").click();
+    const pd = page.getByTestId("policy-dialog");
+    await expect(pd.getByTestId("policy-sql")).toContainText("owner_id = pgd_auth.uid()");
+    await shot(page, "73-policy-helper");
+    await pd.getByTestId("policy-apply").click();
+    await expect(pd).toBeHidden();
+
+    await page.goto(`/projects/${id}/settings/api`);
+    await expect(page.getByTestId("services-advisor")).toBeVisible();
+    await expect(page.getByTestId("advisor-finding").filter({ hasText: "public.notes" })).toHaveCount(0);
+    await explorer.getByLabel("Path").fill("/data/v1/notes");
+    await explorer.getByRole("button", { name: "Send" }).click();
+    await expect(explorer.getByTestId("explorer-result")).toContainText("200");
+  });
+
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {
     await signedIn(page);
     await page.goto("/projects");

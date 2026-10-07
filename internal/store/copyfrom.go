@@ -52,3 +52,47 @@ func (r iteratorForInsertQuerySnapshots) Err() error {
 func (q *Queries) InsertQuerySnapshots(ctx context.Context, arg []InsertQuerySnapshotsParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"query_snapshots"}, []string{"instance_id", "dbid", "userid", "queryid", "toplevel", "calls", "total_ms", "rows", "shared_blks_hit", "shared_blks_read", "max_ms", "taken_at"}, &iteratorForInsertQuerySnapshots{rows: arg})
 }
+
+// iteratorForInsertRequestLogs implements pgx.CopyFromSource.
+type iteratorForInsertRequestLogs struct {
+	rows                 []InsertRequestLogsParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForInsertRequestLogs) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForInsertRequestLogs) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].ProjectID,
+		r.rows[0].At,
+		r.rows[0].RequestID,
+		r.rows[0].Method,
+		r.rows[0].Path,
+		r.rows[0].Status,
+		r.rows[0].LatencyMs,
+		r.rows[0].Role,
+		r.rows[0].UserID,
+		r.rows[0].KeyID,
+		r.rows[0].Ip,
+		r.rows[0].BytesOut,
+	}, nil
+}
+
+func (r iteratorForInsertRequestLogs) Err() error {
+	return nil
+}
+
+// tenant: system - pgdock-edge's request logs.
+func (q *Queries) InsertRequestLogs(ctx context.Context, arg []InsertRequestLogsParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"api_request_logs"}, []string{"project_id", "at", "request_id", "method", "path", "status", "latency_ms", "role", "user_id", "key_id", "ip", "bytes_out"}, &iteratorForInsertRequestLogs{rows: arg})
+}

@@ -71,6 +71,8 @@ var actionScope = map[Action]string{
 	BranchManage:       ScopeWrite,
 	AutomationManage:   ScopeWrite,
 	ProjectSettings:    ScopeAdmin,
+	ServicesManage:     ScopeAdmin,
+	ServicesLogs:       ScopeRead,
 	ProjectMembers:     ScopeAdmin,
 	ProjectPromote:     ScopeAdmin,
 	ProjectDelete:      ScopeAdmin,
@@ -168,6 +170,11 @@ const (
 	ProjectPromote     Action = "project.promote"         // admin
 	ProjectDelete      Action = "project.delete"          // admin
 	ProjectAudit       Action = "project.audit"           // admin
+	// ServicesManage turns backend services on and off and manages their
+	// API keys and settings (V4 §2.2, §2.4); ServicesLogs reads the API
+	// request logs.
+	ServicesManage Action = "project.services"      // admin
+	ServicesLogs   Action = "project.services_logs" // developer
 	// ProjectExport downloads a project's data (a backup as a pg_dump
 	// archive, V2 §10.10): organisation owners only, and like any project
 	// action invisible to those who can't see the project.
@@ -190,6 +197,8 @@ var projectMin = map[Action]string{
 	BranchManage:       ProjectDeveloper,
 	AutomationManage:   ProjectDeveloper,
 	ProjectSettings:    ProjectAdmin,
+	ServicesManage:     ProjectAdmin,
+	ServicesLogs:       ProjectDeveloper,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,
 	ProjectDelete:      ProjectAdmin,

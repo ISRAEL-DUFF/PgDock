@@ -208,6 +208,16 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   projects in every window, as V3 did. Announcements email organisation
   owners and admins, so check the SMTP settings first.
 
+## Upgrading to V4
+
+- **Backend services' foundation** (migration 00036): nothing changes for
+  existing projects; backend services are off until a project turns them
+  on. To serve them, set `PGDOCK_API_DOMAIN` and `PGDOCK_EDGE_SECRET` on
+  pgdock-server, point a wildcard DNS record and certificate for
+  `*.<domain>` at each region's pgdock-edge, and run pgdock-edge there with
+  the same secret ([Backend services](backend-services.md)). Rotating the
+  master key also re-seals the projects' signing keys.
+
 ## Rolling back
 
 Check out the previous tag and run `./install.sh` again. If the new

@@ -43,6 +43,11 @@ var routeRules = map[string]rule{
 	"GET /api/v1/pricing": {scope: scopePublic},
 	// Payment providers' webhooks, authenticated by their signatures.
 	"POST /api/v1/payments/webhooks/{provider}": {scope: scopePublic},
+	// pgdock-edge's feed (V4 §2.1): signed with the edge secret, checked in
+	// the handler.
+	"GET /api/v1/edge/config":  {scope: scopePublic},
+	"POST /api/v1/edge/report": {scope: scopePublic},
+	"POST /api/v1/edge/wake":   {scope: scopePublic},
 	// Support's inbound channels (V3 §7.1), authenticated per channel.
 	"POST /api/v1/support/inbound/email": {scope: scopePublic},
 	"GET /api/v1/support/whatsapp":       {scope: scopePublic},
@@ -174,9 +179,20 @@ var routeRules = map[string]rule{
 	"POST /api/v1/imports":                                  {scope: scopeBody, action: authz.OrgCreateProject},
 
 	// Projects.
-	"GET /api/v1/projects/{id}":                                    {scope: scopeProject, action: authz.ProjectView},
-	"DELETE /api/v1/projects/{id}":                                 {scope: scopeProject, action: authz.ProjectDelete, branchAction: authz.BranchManage},
-	"PATCH /api/v1/projects/{id}/settings":                         {scope: scopeProject, action: authz.ProjectSettings},
+	"GET /api/v1/projects/{id}":            {scope: scopeProject, action: authz.ProjectView},
+	"DELETE /api/v1/projects/{id}":         {scope: scopeProject, action: authz.ProjectDelete, branchAction: authz.BranchManage},
+	"PATCH /api/v1/projects/{id}/settings": {scope: scopeProject, action: authz.ProjectSettings},
+	// Backend services (V4 §2.2, §2.4, §8.3).
+	"GET /api/v1/projects/{id}/services":                           {scope: scopeProject, action: authz.ProjectView},
+	"POST /api/v1/projects/{id}/services":                          {scope: scopeProject, action: authz.ServicesManage},
+	"PATCH /api/v1/projects/{id}/services":                         {scope: scopeProject, action: authz.ServicesManage},
+	"DELETE /api/v1/projects/{id}/services":                        {scope: scopeProject, action: authz.ServicesManage},
+	"POST /api/v1/projects/{id}/services/keys":                     {scope: scopeProject, action: authz.ServicesManage},
+	"DELETE /api/v1/projects/{id}/services/keys/{key_id}":          {scope: scopeProject, action: authz.ServicesManage},
+	"GET /api/v1/projects/{id}/services/logs":                      {scope: scopeProject, action: authz.ServicesLogs},
+	"GET /api/v1/projects/{id}/services/types":                     {scope: scopeProject, action: authz.ConsoleRead},
+	"GET /api/v1/projects/{id}/services/advisor":                   {scope: scopeProject, action: authz.ConsoleRead},
+	"POST /api/v1/projects/{id}/services/explore":                  {scope: scopeProject, action: authz.ConsoleWrite},
 	"POST /api/v1/projects/{id}/rotate-password":                   {scope: scopeProject, action: authz.ProjectSettings},
 	"POST /api/v1/projects/{id}/backups":                           {scope: scopeProject, action: authz.BackupCreate},
 	"POST /api/v1/projects/{id}/pitr":                              {scope: scopeProject, action: authz.BackupCreate},

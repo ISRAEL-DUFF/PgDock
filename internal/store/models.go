@@ -34,6 +34,22 @@ type Alert struct {
 	DeliveryLock       *time.Time
 }
 
+type ApiRequestLog struct {
+	ID        int64
+	ProjectID uuid.UUID
+	At        time.Time
+	RequestID string
+	Method    string
+	Path      string
+	Status    int32
+	LatencyMs int32
+	Role      *string
+	UserID    *uuid.UUID
+	KeyID     *uuid.UUID
+	Ip        *string
+	BytesOut  int64
+}
+
 type ApiToken struct {
 	ID               uuid.UUID
 	UserID           uuid.UUID
@@ -279,6 +295,12 @@ type DunningStep struct {
 	Step    string
 	Detail  *string
 	TakenAt time.Time
+}
+
+type EdgeReport struct {
+	BatchID    string
+	Edge       string
+	ReceivedAt time.Time
 }
 
 type EditorPreference struct {
@@ -833,6 +855,20 @@ type Project struct {
 	ForwardUntil        *time.Time
 }
 
+type ProjectApiKey struct {
+	ID         uuid.UUID
+	ProjectID  uuid.UUID
+	Kind       string
+	Name       string
+	KeyHash    string
+	Prefix     string
+	Display    *string
+	LastUsedAt *time.Time
+	RevokedAt  *time.Time
+	CreatedBy  *uuid.UUID
+	CreatedAt  time.Time
+}
+
 type ProjectDbUser struct {
 	ProjectID     uuid.UUID
 	UserID        uuid.UUID
@@ -844,6 +880,18 @@ type ProjectDbUser struct {
 	RotatedAt     *time.Time
 }
 
+type ProjectJwtKey struct {
+	ID         uuid.UUID
+	ProjectID  uuid.UUID
+	Kid        string
+	Algorithm  string
+	PublicJwk  json.RawMessage
+	PrivateEnc []byte
+	Status     string
+	CreatedAt  time.Time
+	RetiredAt  *time.Time
+}
+
 type ProjectMember struct {
 	ProjectID uuid.UUID
 	UserID    uuid.UUID
@@ -851,6 +899,23 @@ type ProjectMember struct {
 	Role      string
 	AddedBy   *uuid.UUID
 	CreatedAt time.Time
+}
+
+type ProjectService struct {
+	ProjectID      uuid.UUID
+	Ref            string
+	Enabled        bool
+	ExposedSchemas []string
+	PublicTables   []string
+	CorsOrigins    []string
+	Settings       json.RawMessage
+	EdgeVerifier   *string
+	SchemaVersion  int32
+	RolesInstance  *uuid.UUID
+	ConfigVersion  int64
+	ChangedSeq     int64
+	EnabledAt      *time.Time
+	CreatedAt      time.Time
 }
 
 type QuerySnapshot struct {

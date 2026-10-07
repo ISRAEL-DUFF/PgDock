@@ -156,6 +156,10 @@ type Service struct {
 	// false while its storage is hard-locked or its organisation is
 	// suspended (V2 §10.4, §10.8). The tenancy service sets it.
 	LoginGate func(ctx context.Context, p store.Project) (bool, error)
+	// DatabaseRecreated, when set, hears that p's database was dropped and
+	// made again empty (a restore in place, a branch reset, a move's
+	// target): backend services re-apply their schemas once it is filled.
+	DatabaseRecreated func(ctx context.Context, p store.Project)
 }
 
 // ErrNoDedicated means the dedicated tier is not available.

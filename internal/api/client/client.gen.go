@@ -168,6 +168,27 @@ func (e AdminUserPlatformRole) Valid() bool {
 	}
 }
 
+// Defines values for AdvisorFindingLevel.
+const (
+	AdvisorFindingLevelDanger AdvisorFindingLevel = "danger"
+	AdvisorFindingLevelInfo   AdvisorFindingLevel = "info"
+	AdvisorFindingLevelWarn   AdvisorFindingLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the AdvisorFindingLevel enum.
+func (e AdvisorFindingLevel) Valid() bool {
+	switch e {
+	case AdvisorFindingLevelDanger:
+		return true
+	case AdvisorFindingLevelInfo:
+		return true
+	case AdvisorFindingLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertSeverity.
 const (
 	AlertSeverityCritical AlertSeverity = "critical"
@@ -240,6 +261,24 @@ func (e AlertSmtpTls) Valid() bool {
 	case AlertSmtpTlsStarttls:
 		return true
 	case AlertSmtpTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApiKeyKind.
+const (
+	ApiKeyKindPublishable ApiKeyKind = "publishable"
+	ApiKeyKindSecret      ApiKeyKind = "secret"
+)
+
+// Valid indicates whether the value is a known member of the ApiKeyKind enum.
+func (e ApiKeyKind) Valid() bool {
+	switch e {
+	case ApiKeyKindPublishable:
+		return true
+	case ApiKeyKindSecret:
 		return true
 	default:
 		return false
@@ -555,6 +594,24 @@ func (e ColumnRefOnUpdate) Valid() bool {
 	}
 }
 
+// Defines values for CreateApiKeyRequestKind.
+const (
+	CreateApiKeyRequestKindPublishable CreateApiKeyRequestKind = "publishable"
+	CreateApiKeyRequestKindSecret      CreateApiKeyRequestKind = "secret"
+)
+
+// Valid indicates whether the value is a known member of the CreateApiKeyRequestKind enum.
+func (e CreateApiKeyRequestKind) Valid() bool {
+	switch e {
+	case CreateApiKeyRequestKindPublishable:
+		return true
+	case CreateApiKeyRequestKindSecret:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateNodeRequestRole.
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
@@ -756,6 +813,51 @@ func (e EtcdMemberStatus) Valid() bool {
 	case EtcdMemberStatusStarting:
 		return true
 	case EtcdMemberStatusUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExploreRequestMethod.
+const (
+	ExploreRequestMethodDELETE ExploreRequestMethod = "DELETE"
+	ExploreRequestMethodGET    ExploreRequestMethod = "GET"
+	ExploreRequestMethodPATCH  ExploreRequestMethod = "PATCH"
+	ExploreRequestMethodPOST   ExploreRequestMethod = "POST"
+)
+
+// Valid indicates whether the value is a known member of the ExploreRequestMethod enum.
+func (e ExploreRequestMethod) Valid() bool {
+	switch e {
+	case ExploreRequestMethodDELETE:
+		return true
+	case ExploreRequestMethodGET:
+		return true
+	case ExploreRequestMethodPATCH:
+		return true
+	case ExploreRequestMethodPOST:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExploreRequestRole.
+const (
+	ExploreRequestRoleAnon    ExploreRequestRole = "anon"
+	ExploreRequestRoleService ExploreRequestRole = "service"
+	ExploreRequestRoleUser    ExploreRequestRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the ExploreRequestRole enum.
+func (e ExploreRequestRole) Valid() bool {
+	switch e {
+	case ExploreRequestRoleAnon:
+		return true
+	case ExploreRequestRoleService:
+		return true
+	case ExploreRequestRoleUser:
 		return true
 	default:
 		return false
@@ -3336,6 +3438,27 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for GetServiceTypesParamsLang.
+const (
+	Dart GetServiceTypesParamsLang = "dart"
+	Go   GetServiceTypesParamsLang = "go"
+	Ts   GetServiceTypesParamsLang = "ts"
+)
+
+// Valid indicates whether the value is a known member of the GetServiceTypesParamsLang enum.
+func (e GetServiceTypesParamsLang) Valid() bool {
+	switch e {
+	case Dart:
+		return true
+	case Go:
+		return true
+	case Ts:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExportTableRowsParamsFormat.
 const (
 	ExportTableRowsParamsFormatCsv  ExportTableRowsParamsFormat = "csv"
@@ -3556,6 +3679,23 @@ type AdminUser struct {
 // AdminUserPlatformRole defines model for AdminUser.PlatformRole.
 type AdminUserPlatformRole string
 
+// AdvisorFinding defines model for AdvisorFinding.
+type AdvisorFinding struct {
+	Code    string              `json:"code"`
+	Fix     *string             `json:"fix,omitempty"`
+	Level   AdvisorFindingLevel `json:"level"`
+	Message string              `json:"message"`
+	Object  string              `json:"object"`
+}
+
+// AdvisorFindingLevel defines model for AdvisorFinding.Level.
+type AdvisorFindingLevel string
+
+// AdvisorFindings defines model for AdvisorFindings.
+type AdvisorFindings struct {
+	Items []AdvisorFinding `json:"items"`
+}
+
 // AgentRegisterRequest defines model for AgentRegisterRequest.
 type AgentRegisterRequest struct {
 	AdvertiseHost *string `json:"advertise_host,omitempty"`
@@ -3669,6 +3809,46 @@ type AlertTestResult struct {
 	} `json:"results"`
 }
 
+// ApiKey defines model for ApiKey.
+type ApiKey struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Key The whole publishable key (secret keys are only shown when made).
+	Key        *string    `json:"key,omitempty"`
+	Kind       ApiKeyKind `json:"kind"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	Name       string     `json:"name"`
+
+	// Prefix The start of the key, to tell keys apart.
+	Prefix    string     `json:"prefix"`
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+}
+
+// ApiKeyKind defines model for ApiKey.Kind.
+type ApiKeyKind string
+
+// ApiRequestLog defines model for ApiRequestLog.
+type ApiRequestLog struct {
+	At        time.Time           `json:"at"`
+	BytesOut  int64               `json:"bytes_out"`
+	Id        int64               `json:"id"`
+	Ip        *string             `json:"ip,omitempty"`
+	KeyId     *openapi_types.UUID `json:"key_id,omitempty"`
+	LatencyMs int                 `json:"latency_ms"`
+	Method    string              `json:"method"`
+	Path      string              `json:"path"`
+	RequestId string              `json:"request_id"`
+	Role      *string             `json:"role,omitempty"`
+	Status    int                 `json:"status"`
+	UserId    *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// ApiRequestLogList defines model for ApiRequestLogList.
+type ApiRequestLogList struct {
+	Items []ApiRequestLog `json:"items"`
+}
+
 // AttributeRequest defines model for AttributeRequest.
 type AttributeRequest struct {
 	From openapi_types.Date `json:"from"`
@@ -3743,6 +3923,74 @@ type AvailabilityExclusion struct {
 	ScheduledEnd   *time.Time         `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time         `json:"scheduled_start,omitempty"`
 	Title          string             `json:"title"`
+}
+
+// BackendServices defines model for BackendServices.
+type BackendServices struct {
+	// CorsOrigins Origins browsers may call from; empty allows any.
+	CorsOrigins []string   `json:"cors_origins"`
+	Enabled     bool       `json:"enabled"`
+	EnabledAt   *time.Time `json:"enabled_at,omitempty"`
+
+	// ExposedSchemas The schemas the data API serves (default public).
+	ExposedSchemas []string `json:"exposed_schemas"`
+
+	// FeedConfigured pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+	FeedConfigured bool     `json:"feed_configured"`
+	Keys           []ApiKey `json:"keys"`
+
+	// PublicTables Tables and views anon and signed-in users may read without row-level security ("table" in public, or "schema.table").
+	PublicTables []string `json:"public_tables"`
+
+	// Ref The project reference in the API hostname.
+	//
+	// Example: k7f3m2q9
+	Ref *string `json:"ref,omitempty"`
+
+	// Roles The project's request roles, for row-level security policies.
+	Roles *struct {
+		Anon    *string `json:"anon,omitempty"`
+		Service *string `json:"service,omitempty"`
+		User    *string `json:"user,omitempty"`
+	} `json:"roles,omitempty"`
+	Settings BackendServicesSettings `json:"settings"`
+
+	// Url The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
+	Url *string `json:"url,omitempty"`
+}
+
+// BackendServicesEnabled defines model for BackendServicesEnabled.
+type BackendServicesEnabled struct {
+	// Keys The keys made now (the first time, or after a disable); the secret key is never shown again.
+	Keys      []CreatedApiKey `json:"keys"`
+	Operation Operation       `json:"operation"`
+	Services  BackendServices `json:"services"`
+}
+
+// BackendServicesSettings defines model for BackendServicesSettings.
+type BackendServicesSettings struct {
+	// AllowSecretInBrowser Accept the secret key from a page (a request with an Origin header). Off by default.
+	AllowSecretInBrowser *bool `json:"allow_secret_in_browser,omitempty"`
+
+	// MaxQueryCost Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
+	MaxQueryCost *int `json:"max_query_cost,omitempty"`
+
+	// RatePerIp Requests per minute from one IP address (0 for the default, 600).
+	RatePerIp *int `json:"rate_per_ip,omitempty"`
+
+	// RatePerKey Requests per minute with one key (0 for the default, 12000).
+	RatePerKey *int `json:"rate_per_key,omitempty"`
+
+	// StatementTimeoutMs Each request's statement timeout (0 for the default, 8000).
+	StatementTimeoutMs *int `json:"statement_timeout_ms,omitempty"`
+}
+
+// BackendServicesUpdate defines model for BackendServicesUpdate.
+type BackendServicesUpdate struct {
+	CorsOrigins    *[]string                `json:"cors_origins,omitempty"`
+	ExposedSchemas *[]string                `json:"exposed_schemas,omitempty"`
+	PublicTables   *[]string                `json:"public_tables,omitempty"`
+	Settings       *BackendServicesSettings `json:"settings,omitempty"`
 }
 
 // Backup defines model for Backup.
@@ -4142,6 +4390,15 @@ type CostSettings struct {
 	Overheads                 []Overhead `json:"overheads"`
 }
 
+// CreateApiKeyRequest defines model for CreateApiKeyRequest.
+type CreateApiKeyRequest struct {
+	Kind CreateApiKeyRequestKind `json:"kind"`
+	Name string                  `json:"name"`
+}
+
+// CreateApiKeyRequestKind defines model for CreateApiKeyRequest.Kind.
+type CreateApiKeyRequestKind string
+
 // CreateIncidentRequest defines model for CreateIncidentRequest.
 type CreateIncidentRequest struct {
 	Body       string           `json:"body"`
@@ -4217,6 +4474,14 @@ type CreateTokenRequest struct {
 	OrgId         openapi_types.UUID    `json:"org_id"`
 	ProjectIds    *[]openapi_types.UUID `json:"project_ids,omitempty"`
 	Scopes        []TokenScope          `json:"scopes"`
+}
+
+// CreatedApiKey defines model for CreatedApiKey.
+type CreatedApiKey struct {
+	Key ApiKey `json:"key"`
+
+	// Value The key itself. For a secret key this is the only time it is shown.
+	Value string `json:"value"`
 }
 
 // CreatedToken defines model for CreatedToken.
@@ -4606,6 +4871,33 @@ type EtcdReplaceRequest struct {
 // EtcdSetupRequest defines model for EtcdSetupRequest.
 type EtcdSetupRequest struct {
 	NodeIds []openapi_types.UUID `json:"node_ids"`
+}
+
+// ExploreRequest defines model for ExploreRequest.
+type ExploreRequest struct {
+	// Body The request body (JSON), for POST and PATCH.
+	Body   *string              `json:"body,omitempty"`
+	Method ExploreRequestMethod `json:"method"`
+
+	// Path Example: /data/v1/todos?select=id,title
+	Path string             `json:"path"`
+	Role ExploreRequestRole `json:"role"`
+
+	// UserId With role user, the signed-in user to act as (their id is the sub claim).
+	UserId *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// ExploreRequestMethod defines model for ExploreRequest.Method.
+type ExploreRequestMethod string
+
+// ExploreRequestRole defines model for ExploreRequest.Role.
+type ExploreRequestRole string
+
+// ExploreResponse defines model for ExploreResponse.
+type ExploreResponse struct {
+	Body        string  `json:"body"`
+	ContentType *string `json:"content_type,omitempty"`
+	Status      int     `json:"status"`
 }
 
 // Extension defines model for Extension.
@@ -8279,6 +8571,21 @@ type GetBackupOverviewParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// EdgeConfigParams defines parameters for EdgeConfig.
+type EdgeConfigParams struct {
+	Since *int64 `form:"since,omitempty" json:"since,omitempty"`
+
+	// Wait Seconds to wait for a change (at most 30).
+	Wait   *int    `form:"wait,omitempty" json:"wait,omitempty"`
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
+
+// EdgeReportJSONBody defines parameters for EdgeReport.
+type EdgeReportJSONBody map[string]interface{}
+
+// EdgeWakeJSONBody defines parameters for EdgeWake.
+type EdgeWakeJSONBody map[string]interface{}
+
 // GetNodeMetricsParams defines parameters for GetNodeMetrics.
 type GetNodeMetricsParams struct {
 	Range *GetNodeMetricsParamsRange `form:"range,omitempty" json:"range,omitempty"`
@@ -8462,6 +8769,24 @@ type GetProjectMetricsParamsRange string
 type SetSavedQueryFavoriteJSONBody struct {
 	Favorite bool `json:"favorite"`
 }
+
+// ListAPIRequestLogsParams defines parameters for ListAPIRequestLogs.
+type ListAPIRequestLogsParams struct {
+	// Before A log id from the previous page.
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetServiceTypesParams defines parameters for GetServiceTypes.
+type GetServiceTypesParams struct {
+	Lang GetServiceTypesParamsLang `form:"lang" json:"lang"`
+
+	// Package Go's package name (default pgdtypes).
+	Package *string `form:"package,omitempty" json:"package,omitempty"`
+}
+
+// GetServiceTypesParamsLang defines parameters for GetServiceTypes.
+type GetServiceTypesParamsLang string
 
 // CountTableRowsParams defines parameters for CountTableRows.
 type CountTableRowsParams struct {
@@ -8738,6 +9063,12 @@ type RestoreBackupJSONRequestBody = RestoreRequest
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
 
+// EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
+type EdgeReportJSONRequestBody EdgeReportJSONBody
+
+// EdgeWakeJSONRequestBody defines body for EdgeWake for application/json ContentType.
+type EdgeWakeJSONRequestBody EdgeWakeJSONBody
+
 // CreateImportJSONRequestBody defines body for CreateImport for application/json ContentType.
 type CreateImportJSONRequestBody = ImportRequest
 
@@ -8908,6 +9239,15 @@ type SchemaMigrationJSONRequestBody = SchemaMigrationRequest
 
 // PreviewSchemaChangeJSONRequestBody defines body for PreviewSchemaChange for application/json ContentType.
 type PreviewSchemaChangeJSONRequestBody = SchemaPreviewRequest
+
+// UpdateBackendServicesJSONRequestBody defines body for UpdateBackendServices for application/json ContentType.
+type UpdateBackendServicesJSONRequestBody = BackendServicesUpdate
+
+// ExploreDataAPIJSONRequestBody defines body for ExploreDataAPI for application/json ContentType.
+type ExploreDataAPIJSONRequestBody = ExploreRequest
+
+// CreateAPIKeyJSONRequestBody defines body for CreateAPIKey for application/json ContentType.
+type CreateAPIKeyJSONRequestBody = CreateApiKeyRequest
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
@@ -10318,6 +10658,39 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperation(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+	//
+	// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
+	EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeReportWithBody pgdock-edge's usage and request logs (signed; internal)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+	EdgeReportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+	EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+	EdgeWakeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+	EdgeWake(ctx context.Context, body EdgeWakeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateImportWithBody Import an existing database into a new project
 	//
@@ -11848,6 +12221,83 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
 	PreviewSchemaChange(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
+	DisableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBackendServices The project's backend services (V4 §2.4) - URL, keys, settings
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services (the `GetBackendServices` operationId).
+	GetBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateBackendServicesWithBody Change allowed origins and gateway settings
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+	UpdateBackendServicesWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateBackendServices Change allowed origins and gateway settings
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+	UpdateBackendServices(ctx context.Context, id ProjectID, body UpdateBackendServicesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableBackendServices Turn backend services on; the first publishable and secret keys are returned once
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services (the `EnableBackendServices` operationId).
+	EnableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+	GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPIWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPI(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAPIKeyWithBody Make another API key (for rotation); a secret key is shown once
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+	CreateAPIKeyWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAPIKey Make another API key (for rotation); a secret key is shown once
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+	CreateAPIKey(ctx context.Context, id ProjectID, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeAPIKey Revoke an API key; the edge refuses it within seconds
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
+	RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAPIRequestLogs The API's request logs (7 days), newest first
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
+	ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+	GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateProjectWithBody Update a project's name, description, or guardrails
 	//
@@ -15619,6 +16069,89 @@ func (c *Client) CreateDevOperation(ctx context.Context, body CreateDevOperation
 	return c.Client.Do(req)
 }
 
+// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+//
+// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
+func (c *Client) EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeConfigRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeReportWithBody pgdock-edge's usage and request logs (signed; internal)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+func (c *Client) EdgeReportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeReportRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+func (c *Client) EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeReportRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+func (c *Client) EdgeWakeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeWakeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+func (c *Client) EdgeWake(ctx context.Context, body EdgeWakeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeWakeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CreateImportWithBody Import an existing database into a new project
 //
 // Creates the project and queues an `import` operation. The source
@@ -19279,6 +19812,213 @@ func (c *Client) PreviewSchemaChangeWithBody(ctx context.Context, id ProjectID, 
 // Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
 func (c *Client) PreviewSchemaChange(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewSchemaChangeRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+//
+// Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
+func (c *Client) DisableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDisableBackendServicesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetBackendServices The project's backend services (V4 §2.4) - URL, keys, settings
+//
+// Corresponds with GET /api/v1/projects/{id}/services (the `GetBackendServices` operationId).
+func (c *Client) GetBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBackendServicesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateBackendServicesWithBody Change allowed origins and gateway settings
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+func (c *Client) UpdateBackendServicesWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBackendServicesRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateBackendServices Change allowed origins and gateway settings
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+func (c *Client) UpdateBackendServices(ctx context.Context, id ProjectID, body UpdateBackendServicesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBackendServicesRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnableBackendServices Turn backend services on; the first publishable and secret keys are returned once
+//
+// Corresponds with POST /api/v1/projects/{id}/services (the `EnableBackendServices` operationId).
+func (c *Client) EnableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableBackendServicesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+//
+// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+func (c *Client) GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSecurityAdvisorRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *Client) ExploreDataAPIWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExploreDataAPIRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *Client) ExploreDataAPI(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExploreDataAPIRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAPIKeyWithBody Make another API key (for rotation); a secret key is shown once
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+func (c *Client) CreateAPIKeyWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAPIKeyRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAPIKey Make another API key (for rotation); a secret key is shown once
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+func (c *Client) CreateAPIKey(ctx context.Context, id ProjectID, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAPIKeyRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevokeAPIKey Revoke an API key; the edge refuses it within seconds
+//
+// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
+func (c *Client) RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeAPIKeyRequest(c.Server, id, keyId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAPIRequestLogs The API's request logs (7 days), newest first
+//
+// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
+func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAPIRequestLogsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+//
+// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+func (c *Client) GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServiceTypesRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -25940,6 +26680,164 @@ func NewCreateDevOperationRequestWithBody(server string, contentType string, bod
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/dev/operations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEdgeConfigRequest constructs an http.Request for the EdgeConfig method
+func NewEdgeConfigRequest(server string, params *EdgeConfigParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/edge/config")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Since != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Wait != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "wait", *params.Wait, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewEdgeReportRequest calls the generic EdgeReport builder with application/json body
+func NewEdgeReportRequest(server string, body EdgeReportJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEdgeReportRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEdgeReportRequestWithBody constructs an http.Request for the EdgeReport method, with any body, and a specified content type
+func NewEdgeReportRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/edge/report")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEdgeWakeRequest calls the generic EdgeWake builder with application/json body
+func NewEdgeWakeRequest(server string, body EdgeWakeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEdgeWakeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEdgeWakeRequestWithBody constructs an http.Request for the EdgeWake method, with any body, and a specified content type
+func NewEdgeWakeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/edge/wake")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -32728,6 +33626,466 @@ func NewPreviewSchemaChangeRequestWithBody(server string, id ProjectID, contentT
 	return req, nil
 }
 
+// NewDisableBackendServicesRequest constructs an http.Request for the DisableBackendServices method
+func NewDisableBackendServicesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBackendServicesRequest constructs an http.Request for the GetBackendServices method
+func NewGetBackendServicesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateBackendServicesRequest calls the generic UpdateBackendServices builder with application/json body
+func NewUpdateBackendServicesRequest(server string, id ProjectID, body UpdateBackendServicesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateBackendServicesRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateBackendServicesRequestWithBody constructs an http.Request for the UpdateBackendServices method, with any body, and a specified content type
+func NewUpdateBackendServicesRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEnableBackendServicesRequest constructs an http.Request for the EnableBackendServices method
+func NewEnableBackendServicesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSecurityAdvisorRequest constructs an http.Request for the GetSecurityAdvisor method
+func NewGetSecurityAdvisorRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/advisor", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewExploreDataAPIRequest calls the generic ExploreDataAPI builder with application/json body
+func NewExploreDataAPIRequest(server string, id ProjectID, body ExploreDataAPIJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExploreDataAPIRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewExploreDataAPIRequestWithBody constructs an http.Request for the ExploreDataAPI method, with any body, and a specified content type
+func NewExploreDataAPIRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/explore", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateAPIKeyRequest calls the generic CreateAPIKey builder with application/json body
+func NewCreateAPIKeyRequest(server string, id ProjectID, body CreateAPIKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAPIKeyRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateAPIKeyRequestWithBody constructs an http.Request for the CreateAPIKey method, with any body, and a specified content type
+func NewCreateAPIKeyRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/keys", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRevokeAPIKeyRequest constructs an http.Request for the RevokeAPIKey method
+func NewRevokeAPIKeyRequest(server string, id ProjectID, keyId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "key_id", keyId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/keys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAPIRequestLogsRequest constructs an http.Request for the ListAPIRequestLogs method
+func NewListAPIRequestLogsRequest(server string, id ProjectID, params *ListAPIRequestLogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/logs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Before != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "before", *params.Before, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetServiceTypesRequest constructs an http.Request for the GetServiceTypes method
+func NewGetServiceTypesRequest(server string, id ProjectID, params *GetServiceTypesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/types", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "lang", params.Lang, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Package != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "package", *params.Package, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewUpdateProjectRequest calls the generic UpdateProject builder with application/json body
 func NewUpdateProjectRequest(server string, id ProjectID, body UpdateProjectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -36751,6 +38109,41 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperationWithResponse(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDevOperationResponse, error)
 
+	// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
+	EdgeConfigWithResponse(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*EdgeConfigResponse, error)
+
+	// EdgeReportWithBodyWithResponse pgdock-edge's usage and request logs (signed; internal)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+	EdgeReportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error)
+
+	// EdgeReportWithResponse pgdock-edge's usage and request logs (signed; internal)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+	EdgeReportWithResponse(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error)
+
+	// EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+	EdgeWakeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeWakeResponse, error)
+
+	// EdgeWakeWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+	EdgeWakeWithResponse(ctx context.Context, body EdgeWakeJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeWakeResponse, error)
+
 	// CreateImportWithBodyWithResponse Import an existing database into a new project
 	//
 	// Creates the project and queues an `import` operation. The source
@@ -38478,6 +39871,97 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
 	PreviewSchemaChangeWithResponse(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSchemaChangeResponse, error)
+
+	// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
+	DisableBackendServicesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DisableBackendServicesResponse, error)
+
+	// GetBackendServicesWithResponse The project's backend services (V4 §2.4) - URL, keys, settings
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services (the `GetBackendServices` operationId).
+	GetBackendServicesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetBackendServicesResponse, error)
+
+	// UpdateBackendServicesWithBodyWithResponse Change allowed origins and gateway settings
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+	UpdateBackendServicesWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBackendServicesResponse, error)
+
+	// UpdateBackendServicesWithResponse Change allowed origins and gateway settings
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+	UpdateBackendServicesWithResponse(ctx context.Context, id ProjectID, body UpdateBackendServicesJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBackendServicesResponse, error)
+
+	// EnableBackendServicesWithResponse Turn backend services on; the first publishable and secret keys are returned once
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services (the `EnableBackendServices` operationId).
+	EnableBackendServicesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*EnableBackendServicesResponse, error)
+
+	// GetSecurityAdvisorWithResponse What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+	GetSecurityAdvisorWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetSecurityAdvisorResponse, error)
+
+	// ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPIWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error)
+
+	// ExploreDataAPIWithResponse Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPIWithResponse(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error)
+
+	// CreateAPIKeyWithBodyWithResponse Make another API key (for rotation); a secret key is shown once
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+	CreateAPIKeyWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error)
+
+	// CreateAPIKeyWithResponse Make another API key (for rotation); a secret key is shown once
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+	CreateAPIKeyWithResponse(ctx context.Context, id ProjectID, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error)
+
+	// RevokeAPIKeyWithResponse Revoke an API key; the edge refuses it within seconds
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
+	RevokeAPIKeyWithResponse(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RevokeAPIKeyResponse, error)
+
+	// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
+	ListAPIRequestLogsWithResponse(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*ListAPIRequestLogsResponse, error)
+
+	// GetServiceTypesWithResponse Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+	GetServiceTypesWithResponse(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*GetServiceTypesResponse, error)
 
 	// UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
 	//
@@ -45105,6 +46589,136 @@ func (r CreateDevOperationResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CreateDevOperationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EdgeConfigResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *map[string]interface{}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EdgeConfigResponse) GetJSON200() *map[string]interface{} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EdgeConfigResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EdgeConfigResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EdgeConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EdgeConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EdgeConfigResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EdgeReportResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EdgeReportResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EdgeReportResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EdgeReportResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EdgeReportResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EdgeReportResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EdgeWakeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EdgeWakeResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EdgeWakeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EdgeWakeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EdgeWakeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EdgeWakeResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -52487,6 +54101,479 @@ func (r PreviewSchemaChangeResponse) ContentType() string {
 	return ""
 }
 
+type DisableBackendServicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r DisableBackendServicesResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DisableBackendServicesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DisableBackendServicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DisableBackendServicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DisableBackendServicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DisableBackendServicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetBackendServicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BackendServices
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetBackendServicesResponse) GetJSON200() *BackendServices {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetBackendServicesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetBackendServicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBackendServicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBackendServicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetBackendServicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateBackendServicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BackendServices
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateBackendServicesResponse) GetJSON200() *BackendServices {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateBackendServicesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateBackendServicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateBackendServicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateBackendServicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateBackendServicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnableBackendServicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *BackendServicesEnabled
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r EnableBackendServicesResponse) GetJSON202() *BackendServicesEnabled {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EnableBackendServicesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnableBackendServicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnableBackendServicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnableBackendServicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnableBackendServicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetSecurityAdvisorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AdvisorFindings
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSecurityAdvisorResponse) GetJSON200() *AdvisorFindings {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetSecurityAdvisorResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetSecurityAdvisorResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSecurityAdvisorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSecurityAdvisorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSecurityAdvisorResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExploreDataAPIResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ExploreResponse
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExploreDataAPIResponse) GetJSON200() *ExploreResponse {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ExploreDataAPIResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ExploreDataAPIResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExploreDataAPIResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExploreDataAPIResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExploreDataAPIResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateAPIKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CreatedApiKey
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateAPIKeyResponse) GetJSON201() *CreatedApiKey {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateAPIKeyResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateAPIKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAPIKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAPIKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAPIKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeAPIKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ApiKey
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RevokeAPIKeyResponse) GetJSON200() *ApiKey {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RevokeAPIKeyResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RevokeAPIKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeAPIKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeAPIKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeAPIKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAPIRequestLogsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ApiRequestLogList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAPIRequestLogsResponse) GetJSON200() *ApiRequestLogList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListAPIRequestLogsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAPIRequestLogsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAPIRequestLogsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAPIRequestLogsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAPIRequestLogsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetServiceTypesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetServiceTypesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetServiceTypesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServiceTypesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServiceTypesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetServiceTypesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type UpdateProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -57692,6 +59779,71 @@ func (c *ClientWithResponses) CreateDevOperationWithResponse(ctx context.Context
 	return ParseCreateDevOperationResponse(rsp)
 }
 
+// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
+func (c *ClientWithResponses) EdgeConfigWithResponse(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*EdgeConfigResponse, error) {
+	rsp, err := c.EdgeConfig(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeConfigResponse(rsp)
+}
+
+// EdgeReportWithBodyWithResponse pgdock-edge's usage and request logs (signed; internal)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+func (c *ClientWithResponses) EdgeReportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error) {
+	rsp, err := c.EdgeReportWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeReportResponse(rsp)
+}
+
+// EdgeReportWithResponse pgdock-edge's usage and request logs (signed; internal)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
+func (c *ClientWithResponses) EdgeReportWithResponse(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error) {
+	rsp, err := c.EdgeReport(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeReportResponse(rsp)
+}
+
+// EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+func (c *ClientWithResponses) EdgeWakeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeWakeResponse, error) {
+	rsp, err := c.EdgeWakeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeWakeResponse(rsp)
+}
+
+// EdgeWakeWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
+func (c *ClientWithResponses) EdgeWakeWithResponse(ctx context.Context, body EdgeWakeJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeWakeResponse, error) {
+	rsp, err := c.EdgeWake(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeWakeResponse(rsp)
+}
+
 // CreateImportWithBodyWithResponse Import an existing database into a new project
 //
 // Creates the project and queues an `import` operation. The source
@@ -60702,6 +62854,175 @@ func (c *ClientWithResponses) PreviewSchemaChangeWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParsePreviewSchemaChangeResponse(rsp)
+}
+
+// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
+func (c *ClientWithResponses) DisableBackendServicesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*DisableBackendServicesResponse, error) {
+	rsp, err := c.DisableBackendServices(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDisableBackendServicesResponse(rsp)
+}
+
+// GetBackendServicesWithResponse The project's backend services (V4 §2.4) - URL, keys, settings
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services (the `GetBackendServices` operationId).
+func (c *ClientWithResponses) GetBackendServicesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetBackendServicesResponse, error) {
+	rsp, err := c.GetBackendServices(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBackendServicesResponse(rsp)
+}
+
+// UpdateBackendServicesWithBodyWithResponse Change allowed origins and gateway settings
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+func (c *ClientWithResponses) UpdateBackendServicesWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBackendServicesResponse, error) {
+	rsp, err := c.UpdateBackendServicesWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBackendServicesResponse(rsp)
+}
+
+// UpdateBackendServicesWithResponse Change allowed origins and gateway settings
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/services (the `UpdateBackendServices` operationId).
+func (c *ClientWithResponses) UpdateBackendServicesWithResponse(ctx context.Context, id ProjectID, body UpdateBackendServicesJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBackendServicesResponse, error) {
+	rsp, err := c.UpdateBackendServices(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBackendServicesResponse(rsp)
+}
+
+// EnableBackendServicesWithResponse Turn backend services on; the first publishable and secret keys are returned once
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/services (the `EnableBackendServices` operationId).
+func (c *ClientWithResponses) EnableBackendServicesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*EnableBackendServicesResponse, error) {
+	rsp, err := c.EnableBackendServices(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableBackendServicesResponse(rsp)
+}
+
+// GetSecurityAdvisorWithResponse What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+func (c *ClientWithResponses) GetSecurityAdvisorWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetSecurityAdvisorResponse, error) {
+	rsp, err := c.GetSecurityAdvisor(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSecurityAdvisorResponse(rsp)
+}
+
+// ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *ClientWithResponses) ExploreDataAPIWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error) {
+	rsp, err := c.ExploreDataAPIWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExploreDataAPIResponse(rsp)
+}
+
+// ExploreDataAPIWithResponse Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *ClientWithResponses) ExploreDataAPIWithResponse(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error) {
+	rsp, err := c.ExploreDataAPI(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExploreDataAPIResponse(rsp)
+}
+
+// CreateAPIKeyWithBodyWithResponse Make another API key (for rotation); a secret key is shown once
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+func (c *ClientWithResponses) CreateAPIKeyWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error) {
+	rsp, err := c.CreateAPIKeyWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAPIKeyResponse(rsp)
+}
+
+// CreateAPIKeyWithResponse Make another API key (for rotation); a secret key is shown once
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/services/keys (the `CreateAPIKey` operationId).
+func (c *ClientWithResponses) CreateAPIKeyWithResponse(ctx context.Context, id ProjectID, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error) {
+	rsp, err := c.CreateAPIKey(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAPIKeyResponse(rsp)
+}
+
+// RevokeAPIKeyWithResponse Revoke an API key; the edge refuses it within seconds
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
+func (c *ClientWithResponses) RevokeAPIKeyWithResponse(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RevokeAPIKeyResponse, error) {
+	rsp, err := c.RevokeAPIKey(ctx, id, keyId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeAPIKeyResponse(rsp)
+}
+
+// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
+func (c *ClientWithResponses) ListAPIRequestLogsWithResponse(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*ListAPIRequestLogsResponse, error) {
+	rsp, err := c.ListAPIRequestLogs(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAPIRequestLogsResponse(rsp)
+}
+
+// GetServiceTypesWithResponse Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+func (c *ClientWithResponses) GetServiceTypesWithResponse(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*GetServiceTypesResponse, error) {
+	rsp, err := c.GetServiceTypes(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServiceTypesResponse(rsp)
 }
 
 // UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
@@ -66002,6 +68323,97 @@ func ParseCreateDevOperationResponse(rsp *http.Response) (*CreateDevOperationRes
 	return response, nil
 }
 
+// ParseEdgeConfigResponse parses an HTTP response from a EdgeConfigWithResponse call
+func ParseEdgeConfigResponse(rsp *http.Response) (*EdgeConfigResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EdgeConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEdgeReportResponse parses an HTTP response from a EdgeReportWithResponse call
+func ParseEdgeReportResponse(rsp *http.Response) (*EdgeReportResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EdgeReportResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEdgeWakeResponse parses an HTTP response from a EdgeWakeWithResponse call
+func ParseEdgeWakeResponse(rsp *http.Response) (*EdgeWakeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EdgeWakeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateImportResponse parses an HTTP response from a CreateImportWithResponse call
 func ParseCreateImportResponse(rsp *http.Response) (*CreateImportResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -71077,6 +73489,329 @@ func ParsePreviewSchemaChangeResponse(rsp *http.Response) (*PreviewSchemaChangeR
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDisableBackendServicesResponse parses an HTTP response from a DisableBackendServicesWithResponse call
+func ParseDisableBackendServicesResponse(rsp *http.Response) (*DisableBackendServicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DisableBackendServicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBackendServicesResponse parses an HTTP response from a GetBackendServicesWithResponse call
+func ParseGetBackendServicesResponse(rsp *http.Response) (*GetBackendServicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBackendServicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackendServices
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateBackendServicesResponse parses an HTTP response from a UpdateBackendServicesWithResponse call
+func ParseUpdateBackendServicesResponse(rsp *http.Response) (*UpdateBackendServicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateBackendServicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackendServices
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnableBackendServicesResponse parses an HTTP response from a EnableBackendServicesWithResponse call
+func ParseEnableBackendServicesResponse(rsp *http.Response) (*EnableBackendServicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnableBackendServicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest BackendServicesEnabled
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSecurityAdvisorResponse parses an HTTP response from a GetSecurityAdvisorWithResponse call
+func ParseGetSecurityAdvisorResponse(rsp *http.Response) (*GetSecurityAdvisorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSecurityAdvisorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdvisorFindings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExploreDataAPIResponse parses an HTTP response from a ExploreDataAPIWithResponse call
+func ParseExploreDataAPIResponse(rsp *http.Response) (*ExploreDataAPIResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExploreDataAPIResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ExploreResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAPIKeyResponse parses an HTTP response from a CreateAPIKeyWithResponse call
+func ParseCreateAPIKeyResponse(rsp *http.Response) (*CreateAPIKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAPIKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CreatedApiKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeAPIKeyResponse parses an HTTP response from a RevokeAPIKeyWithResponse call
+func ParseRevokeAPIKeyResponse(rsp *http.Response) (*RevokeAPIKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeAPIKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAPIRequestLogsResponse parses an HTTP response from a ListAPIRequestLogsWithResponse call
+func ParseListAPIRequestLogsResponse(rsp *http.Response) (*ListAPIRequestLogsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAPIRequestLogsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiRequestLogList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetServiceTypesResponse parses an HTTP response from a GetServiceTypesWithResponse call
+func ParseGetServiceTypesResponse(rsp *http.Response) (*GetServiceTypesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServiceTypesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

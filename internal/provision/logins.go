@@ -40,7 +40,8 @@ func (s *Service) loginAttr(ctx context.Context, p store.Project) (string, error
 }
 
 // ProjectLogins are the login roles apps and members use for p: the owner,
-// the V1 owner during a switch to opaque credentials, and personal logins.
+// the V1 owner during a switch to opaque credentials, personal logins, and
+// the backend services' edge login.
 // The console role is not one of them: it keeps working through locks so
 // a team can clean up (V2 §10.4).
 func (s *Service) ProjectLogins(ctx context.Context, p store.Project) ([]string, error) {
@@ -55,6 +56,8 @@ func (s *Service) ProjectLogins(ctx context.Context, p store.Project) ([]string,
 	for _, u := range users {
 		roles = append(roles, u.RoleName)
 	}
+	// Backend services' edge login (V4 §2.3), when there is one.
+	roles = append(roles, store.EdgeRole(p.DbName))
 	return roles, nil
 }
 

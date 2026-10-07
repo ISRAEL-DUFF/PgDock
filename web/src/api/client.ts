@@ -1085,6 +1085,66 @@ export const api = {
     request<Incident>("PATCH", `/api/v1/incidents/${id}`, b),
   postIncidentUpdate: (id: string, b: S["IncidentUpdateRequest"]) =>
     request<Incident>("POST", `/api/v1/incidents/${id}/updates`, b),
+  // Backend services (V4 §2).
+  backendServices: (id: string) =>
+    getJSON<S["BackendServices"]>(`/api/v1/projects/${id}/services`),
+  enableBackendServices: (id: string) =>
+    request<S["BackendServicesEnabled"]>(
+      "POST",
+      `/api/v1/projects/${id}/services`,
+    ),
+  disableBackendServices: (id: string) =>
+    request<Operation>("DELETE", `/api/v1/projects/${id}/services`),
+  updateBackendServices: (id: string, b: S["BackendServicesUpdate"]) =>
+    request<S["BackendServices"]>(
+      "PATCH",
+      `/api/v1/projects/${id}/services`,
+      b,
+    ),
+  createAPIKey: (id: string, b: S["CreateApiKeyRequest"]) =>
+    request<S["CreatedApiKey"]>(
+      "POST",
+      `/api/v1/projects/${id}/services/keys`,
+      b,
+    ),
+  revokeAPIKey: (id: string, keyId: string) =>
+    request<S["ApiKey"]>(
+      "DELETE",
+      `/api/v1/projects/${id}/services/keys/${keyId}`,
+    ),
+  apiRequestLogs: (id: string, before?: number) =>
+    getJSON<S["ApiRequestLogList"]>(
+      `/api/v1/projects/${id}/services/logs${qs({ before, limit: 100 })}`,
+    ),
+  /** Typed definitions of the exposed tables, views and functions. */
+  serviceTypes: async (
+    id: string,
+    lang: "ts" | "dart" | "go",
+    pkg?: string,
+  ): Promise<string> => {
+    const res = await fetch(
+      `/api/v1/projects/${id}/services/types${qs({ lang, package: pkg })}`,
+      { credentials: "same-origin" },
+    );
+    if (!res.ok) {
+      let err: ApiErrorBody | undefined;
+      try {
+        err = (await res.json()) as ApiErrorBody;
+      } catch {
+        err = undefined;
+      }
+      throw new ApiRequestError(res.status, err);
+    }
+    return res.text();
+  },
+  securityAdvisor: (id: string) =>
+    getJSON<S["AdvisorFindings"]>(`/api/v1/projects/${id}/services/advisor`),
+  exploreDataAPI: (id: string, b: S["ExploreRequest"]) =>
+    request<S["ExploreResponse"]>(
+      "POST",
+      `/api/v1/projects/${id}/services/explore`,
+      b,
+    ),
   maintenanceAnnouncements: () =>
     getJSON<S["MaintenanceAnnouncementList"]>(
       "/api/v1/admin/maintenance/announcements",

@@ -60,3 +60,16 @@ func TestOpaqueNames(t *testing.T) {
 		}
 	}
 }
+
+func TestOpaqueRoles(t *testing.T) {
+	for _, s := range []string{"_owner", "_ro", "_console", "_u_ab12cd", "_anon", "_user", "_service", "_edge"} {
+		if !IsOpaqueRole("p_abcdefghij" + s) {
+			t.Errorf("IsOpaqueRole(%q) = false", "p_abcdefghij"+s)
+		}
+	}
+	for _, r := range []string{"p_abcdefghij", "p_abcdefghij_admin", "blog_anon", "p_abcdefghij_anonx"} {
+		if IsOpaqueRole(r) {
+			t.Errorf("IsOpaqueRole(%q) = true", r)
+		}
+	}
+}

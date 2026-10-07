@@ -208,6 +208,10 @@ const ProjectComputePage = lazyRouteComponent(
   () => import("./pages/ProjectSettings"),
   "ProjectComputePage",
 );
+const ProjectAPIPage = lazyRouteComponent(
+  () => import("./pages/ProjectAPI"),
+  "ProjectAPIPage",
+);
 const ProjectStorageSettingsPage = lazyRouteComponent(
   () => import("./pages/ProjectSettings"),
   "ProjectStorageSettingsPage",
@@ -420,6 +424,11 @@ const projectCompute = createRoute({
   getParentRoute: () => project,
   path: "/settings/compute",
   component: ProjectComputePage,
+});
+const projectAPISettings = createRoute({
+  getParentRoute: () => project,
+  path: "/settings/api",
+  component: ProjectAPIPage,
 });
 const projectStorageSettings = createRoute({
   getParentRoute: () => project,
@@ -646,6 +655,7 @@ const routeTree = root.addChildren([
       projectDatabaseSettings,
       projectCompute,
       projectStorageSettings,
+      projectAPISettings,
       projectExtensions,
       projectMigrations,
       projectLogs,

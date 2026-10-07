@@ -1,0 +1,348 @@
+# Backend services
+
+Backend services (V4) let an app talk to its project over HTTPS, straight
+from a browser or a phone, without a server of its own: the data API, auth,
+storage and realtime. This page covers what is in place now: the edge gateway, project API
+hostnames, API keys and the per-request roles and claims (V4-M28), and the
+data API's reads (V4-M29). Writes, auth, storage and realtime arrive in the
+milestones after them.
+
+## How a request is served
+
+```
+app ──HTTPS──▶ <ref>.<domain> ──▶ pgdock-edge (per region)
+                                    │ key, token, CORS, rate limit
+                                    ▼
+                        transaction pooler ──▶ the project's database
+                        BEGIN; SET LOCAL ROLE <db>_anon|_user|_service;
+                        set_config('pgd.claims', …, true); …; COMMIT
+```
+
+- Each project with backend services has a **reference**, eight letters and
+  digits starting with a letter (`k7f3m2q9`), and is served at
+  `https://<ref>.<domain>`, where the domain is `PGDOCK_API_DOMAIN`.
+- **pgdock-edge** resolves exactly one project per request from the
+  hostname, checks the API key against that project's keys only, and runs
+  the request in one transaction through the transaction pooler. It logs
+  in as the project's `<db>_edge` role, which owns nothing and can only
+  `SET ROLE` to the three request roles.
+- The claims of the request are set for that transaction only, so nothing
+  carries over to the next request on the same pooled connection.
+
+## Keys
+
+| Key | Prefix | Used from | Requests run as |
+| --- | --- | --- | --- |
+| Publishable | `pgd_pub_` | Browsers and mobile apps; meant to be embedded | `<db>_anon`, or `<db>_user` with a signed-in user's token |
+| Secret | `pgd_sec_` | Servers only | `<db>_service` (bypasses row-level security) |
+
+- Send the key in the `apikey` header. A signed-in user's access token goes
+  in `Authorization: Bearer …`; it is an ES256 JWT for this project
+  (`aud` is the reference), verified with the project's public keys.
+- Keys are stored hashed. The publishable key stays visible in the
+  dashboard; a **secret key is shown once**, when it is made.
+- A secret key sent from a page (a request with an `Origin` header) is
+  refused unless the project allows it.
+- Make a second key and move your apps to it before revoking the first:
+  revoking takes effect at the edge within seconds.
+
+## Turning it on
+
+Project → Settings → **API** → **Enable backend services**, or
+`pgdock services enable <project>`. Enabling:
+
+1. creates `<db>_edge`, `<db>_anon`, `<db>_user` and `<db>_service` and lets
+   the pooler accept the edge login;
+2. adds the `pgd_auth`, `pgd_storage` and `pgd_realtime` schemas, owned by
+   the platform, with `pgd_auth.uid()`, `role()`, `claims()` and
+   `claim(text)` for your row-level security policies;
+3. grants the three request roles use of what the owner creates in
+   `public` (row-level security decides which rows);
+4. makes the first publishable and secret keys and the project's signing
+   key.
+
+```sql
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY own_todos ON todos FOR ALL TO "<db>_user"
+  USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid());
+```
+
+Turning it off revokes the keys and switches the edge login off. The
+`pgd_*` schemas and their data stay, so turning it on again restores
+everything except the keys, which are new.
+
+The `pgd_*` schemas are part of the database: backups, restores and
+branches carry them. After a restore or a move, PGDock takes them back from
+the project's owner (a restore recreates them as the owner's) and re-applies
+the request roles' grants, within seconds. A promotion or demotion creates
+the request roles on the new instance before copying.
+
+Check that it works:
+
+```sh
+curl -H "apikey: pgd_pub_…" https://k7f3m2q9.api.pgdock.ng/data/v1/health
+# {"status":"ok","project":"k7f3m2q9","role":"anon","region":"ng-lagos"}
+```
+
+## Reading data
+
+`https://<ref>.<domain>/data/v1/<table>` reads a table or view in the
+exposed schemas (`public` unless you choose others). Name a table in another
+exposed schema as `schema.table`.
+
+```sh
+curl -G https://k7f3m2q9.api.pgdock.ng/data/v1/todos \
+  -H "apikey: pgd_pub_…" -H "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-urlencode "select=id,title,done,owner:profiles(name)" \
+  --data-urlencode "where=done:eq:false" \
+  --data-urlencode "order=created_at:desc" --data-urlencode "limit=20"
+# {"data":[{"id":3,"title":"c","done":false,"owner":{"name":"Ada"}}, …],"next_cursor":"eyJr…"}
+```
+
+| Parameter | |
+| --- | --- |
+| `select` | Columns (`*` by default), `alias:column`, JSON paths (`meta->plan`), and related rows through foreign keys: `author(name)` gives an object (or `null`) when this table points at it, and `comments(id,body)` an array when it points at this table. Name a relation by its table (or by the foreign key column without `_id`); when two foreign keys reach the same table, say which: `editor:profiles!editor_id(name)`. Up to 3 levels; arrays hold up to 1,000 rows. |
+| `where` | `column:operator:value`, repeatable (all must hold). Operators: `eq`, `neq`, `lt`, `lte`, `gt`, `gte`, `in` (`a,b,"c,d"`), `like`, `ilike` (`%` wildcards), `is` (`null`, `true`, `false`), `contains`, `contained_by` (arrays, jsonb), `search` (full text, `websearch_to_tsquery`). JSON paths compare as text: `where=meta->tag:eq:work`. |
+| `or` | One group of conditions any of which may hold: `or=status:eq:draft,owner_id:eq:…`. Repeatable; each group must hold. |
+| `order` | `column:asc` or `column:desc`, comma-separated. The primary key is added so pages are stable. |
+| `limit` | Default 100, at most 1,000. |
+| `cursor` | The `next_cursor` of the previous page (keyset pagination, for any depth). `offset` also works, up to 10,000. |
+| `count` | `exact` (capped at 2 seconds, `null` if it ran out) or `estimated` (the planner's). |
+
+- **One row:** `GET /data/v1/todos/42` (single-column primary keys) returns
+  `{"data":{…}}`, or `404` when it doesn't exist or the caller can't see it.
+- **Complex queries:** `POST /data/v1/todos/query` with
+  `{"select":"…","where":{"or":[{"column":"done","op":"eq","value":true},{"not":{…}}]},"order":"title:desc","limit":50}`;
+  `and`, `or` and `not` nest.
+- **The project's OpenAPI document:** `GET /data/v1/openapi.json` with the
+  secret key, generated from the current schema.
+
+### Row-level security comes first
+
+With the publishable key, requests run as `<db>_anon` (or `<db>_user` with a
+signed-in user's token), and **a table without row-level security is not
+readable**: the API answers `403 rls_required`. Enable it and write policies,
+or, for data anyone may read, list the table under **Public tables**.
+Views must run as the caller (`CREATE VIEW … WITH (security_invoker = true)`)
+so the underlying tables' policies apply; embedded tables are checked the
+same way. The secret key bypasses row-level security entirely.
+
+```sql
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY readable ON posts FOR SELECT
+  USING (published OR author_id = pgd_auth.uid());
+```
+
+Column privileges hold too: `REVOKE SELECT (email) ON profiles FROM "<db>_anon"`
+hides a column from anonymous callers.
+
+### Guardrails
+
+- Each request has its statement timeout (8 s by default), at most 30
+  filters and 3 levels of relations, and a 10 MB result.
+- Every new shape of query is planned once (`EXPLAIN`) and refused with
+  `400 query_too_expensive` when its estimated cost is over the project's
+  limit (1,000,000 by default: a scan of a few million rows). Add an index or
+  a filter, or raise the limit in the settings.
+- Schema changes are picked up within about two seconds, with no restart.
+
+### Errors
+
+```json
+{"error":{"code":"unknown_column","message":"todos has no column \"nope\"","request_id":"req_…"}}
+```
+
+| Status | Codes |
+| --- | --- |
+| 400 | `invalid_filter`, `invalid_select`, `invalid_value`, `unknown_column`, `unknown_relation`, `ambiguous_relation`, `invalid_cursor`, `invalid_limit`, `query_too_expensive`, `filter_required`, `too_many_rows`, `invalid_body`, `no_matching_function`, `ambiguous_function`, … |
+| 401 | `key_required`, `invalid_key`, `invalid_token` |
+| 403 | `rls_required`, `permission_denied`, `secret_key_in_browser`, `origin_not_allowed`, `project_suspended` |
+| 404 | `unknown_table`, `unknown_function`, `not_found` |
+| 409, 422 | `unique_violation`, `foreign_key_violation`; `not_null_violation`, `check_violation` |
+| 405 | `method_not_allowed`, `volatile_function` |
+| 413 | `result_too_large` |
+| 429 | `rate_limited` |
+| 503, 504 | `project_resuming`, `database_unavailable`, `statement_timeout` |
+
+## Writing data
+
+Writes run as the caller's role in one transaction, so row-level security's
+`USING` and `WITH CHECK` decide what each caller may change. With the
+publishable key, a table is writable only with row-level security on (a
+view only with `security_invoker`); **public tables are readable, never
+writable, without it**.
+
+```sh
+# Insert one row or a list (up to 1,000); the new rows come back.
+curl -X POST https://k7f3m2q9.api.pgdock.ng/data/v1/todos \
+  -H "apikey: pgd_pub_…" -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{"owner_id":"…","title":"Buy milk"}'
+# {"affected":1,"data":[{"id":7,"owner_id":"…","title":"Buy milk","done":false}]}
+
+# Update the rows a filter matches, or one row by key.
+curl -X PATCH ".../data/v1/todos?where=done:eq:false" -d '{"done":true}'
+curl -X PATCH ".../data/v1/todos/7" -d '{"title":"Buy oat milk"}'
+
+# Delete.
+curl -X DELETE ".../data/v1/todos?where=title:eq:Buy%20milk"
+curl -X DELETE ".../data/v1/todos/7"
+```
+
+| Parameter | |
+| --- | --- |
+| `on_conflict` | Upsert: the columns of a unique constraint (`on_conflict=email`). Conflicting rows are updated with the sent columns; with `resolution=ignore` they are left alone. |
+| `select` | Which columns of the written rows come back (the read API's `select`, without relations). |
+| `return` | `representation` (default) or `minimal` (only `affected`). |
+| `where`, `or` | Which rows an update or delete changes, as for reads. **An update or delete needs a filter or a key**: `400 filter_required` otherwise. |
+| `max_affected` | Refuse (`400 too_many_rows`, nothing changed) when more rows would change; 1,000 by default, at most 100,000. |
+
+`PUT` isn't used: insert or upsert with `POST`, change with `PATCH`.
+
+### Batches
+
+`POST /data/v1/batch` runs up to 50 writes in one transaction: all of them
+happen or none do.
+
+```json
+{"operations":[
+  {"op":"insert","table":"orders","rows":[{"item":"tea"}]},
+  {"op":"upsert","table":"stock","rows":{"item":"tea","n":9},"on_conflict":["item"]},
+  {"op":"update","table":"carts","where":{"column":"id","op":"eq","value":4},"set":{"closed":true}},
+  {"op":"delete","table":"cart_items","key":4,"return":"minimal"}]}
+```
+
+The answer is `{"results":[…]}`, one per operation. When one fails, the error
+names it (`details.operation`, counted from 0) and says nothing was changed.
+
+## Functions
+
+`/data/v1/rpc/<function>` calls a function in the exposed schemas as the
+caller, with named arguments:
+
+```sh
+curl -X POST .../data/v1/rpc/close_cart -d '{"cart_id": 4}'
+curl ".../data/v1/rpc/search_todos?q=milk&limit=5"   # STABLE or IMMUTABLE only
+```
+
+- `POST` takes the arguments as a JSON object; `GET` takes them as query
+  parameters and works only for `STABLE` or `IMMUTABLE` functions
+  (`405 volatile_function` otherwise).
+- A scalar result comes back as `{"data": 42}`; a set or a table as a list,
+  with the read API's `select`, `where`, `order` and `limit` applied to its
+  rows.
+- Overloads are chosen by the argument names given; `400
+  ambiguous_function` when more than one fits.
+- `SECURITY DEFINER` functions run as their owner and skip row-level
+  security: the security advisor lists them.
+
+## Generated types
+
+Typed rows, inserts and updates for every table, view and function the data
+API exposes:
+
+```sh
+pgdock gen types --lang ts --project my-app > src/database.types.ts
+pgdock gen types --lang dart --project my-app -o lib/database_types.dart
+pgdock gen types --lang go --project my-app --package db -o db/types.go
+```
+
+- **TypeScript:** a `Database` interface (`Database["public"]["Tables"]["todos"]["Row" | "Insert" | "Update"]`, `Views`, `Functions` with `Args` and `Returns`) and `Tables<"todos">`-style helpers. Columns with a default or that accept null are optional in `Insert`; generated columns are left out.
+- **Dart:** a class per table and view with `fromJson` and `toJson`.
+- **Go:** a struct per table and view, `…Insert` and `…Update` structs (pointers with `omitempty` for what may be left out) and a `…Table` constant per name.
+
+The same files download from Project → Settings → API → Generate types, or
+`GET /api/v1/projects/{id}/services/types?lang=ts|dart|go`.
+
+## Security advisor
+
+Project → Settings → API → Security advisor (or
+`GET /api/v1/projects/{id}/services/advisor`) checks the exposed schemas:
+
+| Level | Finding |
+| --- | --- |
+| danger | A table without row-level security (`rls_disabled`); a write policy open to anon (or `PUBLIC`) with no condition (`policy_allows_everything`). |
+| warn | `SECURITY DEFINER` functions (`security_definer_function`); views that don't run as the caller (`view_not_invoker`); columns named like secrets (password, token, secret…) readable by anon or user (`secret_column`). |
+| info | Public tables; row-level security with no policies (only the secret key gets in); read policies open to everyone. |
+
+Each finding says what to do and, where one statement fixes it, gives it.
+
+**The policy helper:** in the Table Editor, **Policies** on a table turns on
+row-level security and writes the policies for one of three templates
+(owner only, members of an organisation through a membership table, public
+read with owner writes), showing the SQL before it runs.
+
+## Request explorer
+
+Project → Settings → API → Request explorer sends a data API request as
+anon, as a user (by their id, which becomes the token's `sub`) or as the
+service role and shows the answer, without handing out a key or token
+(`POST /api/v1/projects/{id}/services/explore`; developers and up). Writes
+made there are real.
+
+## Settings
+
+- **Allowed origins**: the pages that may call the API. Empty allows any
+  origin, which is fine for the publishable key; list your app's origins
+  once you go live.
+- **Statement timeout**: each request's limit, 8 seconds by default and 15
+  at most.
+- **Rate limits**: requests per minute per IP address (600) and per key
+  (12,000). Over the limit, the edge answers `429` with `Retry-After`.
+- **Exposed schemas**: the schemas the data API serves (`public`). Exposing
+  another grants the request roles use of what the owner makes there.
+  Platform schemas (`pgd_*`, `pg_*`, `pgdock`) can't be exposed.
+- **Public tables**: tables and views the publishable key may read without
+  row-level security. Anyone with your app can read them.
+- **Maximum query cost**: the cost guard's limit (above).
+
+A paused Free project answers `503 project_resuming` with `Retry-After` and
+is woken, as a database connection would wake it. A suspended
+organisation's projects answer `403 project_suspended`.
+
+## Usage and logs
+
+The edge counts each request that passed the key check (`api_requests`)
+and the bytes it returned (`api_egress_gb`), per project and hour, and
+sends them to pgdock-server every few seconds with the request log. A
+report is recorded once even if it is retried. The request log (method,
+path, status, latency, role, user, key, IP) is on the API page and at
+`GET /api/v1/projects/{id}/services/logs`, kept 7 days.
+
+## Running pgdock-edge
+
+Run one pgdock-edge per region, on the region's nodes. It keeps no state.
+
+| Setting | |
+| --- | --- |
+| `PGDOCK_API_DOMAIN` (server) | The API domain: projects are at `<ref>.<domain>`. |
+| `PGDOCK_EDGE_SECRET` (server and edges) | At least 32 characters, the same everywhere. Without it pgdock-server serves no edge. |
+| `PGDOCK_EDGE_CONTROL_URL` | pgdock-server's URL as the edge reaches it. |
+| `PGDOCK_EDGE_DOMAIN` | The same as `PGDOCK_API_DOMAIN`. |
+| `PGDOCK_EDGE_REGION` | The region it serves (empty for all). |
+| `PGDOCK_EDGE_TLS_CERT`, `PGDOCK_EDGE_TLS_KEY` | A wildcard certificate for `*.<domain>`. |
+| `PGDOCK_EDGE_LISTEN` | Default `:8443`. |
+| `PGDOCK_EDGE_POOLER_ADDR` | Optional: the transaction pooler as the edge reaches it. |
+| `PGDOCK_EDGE_TRUSTED_PROXIES` | Optional: CIDRs allowed to set `X-Forwarded-For`. |
+
+`deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
+lists the settings.
+
+- **DNS:** a wildcard record `*.<domain>` pointing at the region's edge.
+- **TLS:** get the wildcard certificate with a DNS-01 client for your DNS
+  provider (certbot, lego, acme.sh) and point the two settings at its
+  files. The edge re-reads them when they change. Behind a TLS terminator,
+  leave them empty and the edge serves plain HTTP.
+
+The edge follows pgdock-server's configuration feed. A change, such as a
+key revoked, an origin added, a project paused or an organisation
+suspended, reaches it within a second or two, and it re-reads everything
+every minute in case a change was missed. While pgdock-server is down, the
+edge keeps serving from what it has and holds its reports, retrying them
+later. `GET /healthz` on any host that isn't a project answers once the
+first configuration has loaded.
+
+## Not yet
+
+These come in the next milestones (V4 §14): auth (M31–M32), storage (M33), realtime (M34) and
+read replicas (M35). Rating the new usage on invoices and per-plan limits come
+with billing (M37).

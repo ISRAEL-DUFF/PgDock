@@ -668,13 +668,19 @@ Milestones continue from V3 (M17–M27). One engineer, roughly full time: about 
 
 `pgdock-edge` skeleton; per-region deployment; wildcard DNS and TLS; project refs; API keys; config cache and push channel; per-request transaction with role and claims; `pgd_auth` helper functions; enable/disable services operation; gateway rate limiting, CORS, request logs, and usage metering. **Done when:** a project with services enabled answers `GET /data/v1/health` at its own hostname, rejects keys from another project, and records request usage.
 
+*(As built: the push channel is a signed long-poll feed with a full re-read every minute, and the edge never reads the metadata DB; the wildcard certificate comes from files an operator's DNS-01 client renews; user tokens are already verified. See `docs/decisions.md`, V4-M28, and `docs/backend-services.md`.)*
+
 ### M29 — Data API: reads (Weeks 3–5)
 
 Schema introspection and DDL-driven refresh; select with embeds, filters, JSON paths, ordering, cursor pagination, counts; single-row and POST query; RLS gate; error mapping; cost guard; OpenAPI per project. **Done when:** the RLS test suite's read cases pass for `anon`, two users, and `service`, and a table without RLS returns `rls_required`.
 
+*(As built: schema changes are detected by a catalog fingerprint checked inside requests, not an event trigger, which a restore by the project's owner couldn't recreate; materialized views need listing as public. See `docs/decisions.md`, V4-M29.)*
+
 ### M30 — Data API: writes, RPC, types (Weeks 6–7)
 
 Insert, upsert, update/delete with required filters and `max_affected`, batch transactions, RPC (GET for stable functions), type generation for TS/Dart/Go, request explorer, security advisor (first version), RLS policy helper in the table editor. **Done when:** a sample todo app runs end to end with only the publishable key and generated types.
+
+*(As built: public tables are never writable without row-level security; functions take named arguments only; the explorer is in Project → Settings → API with the advisor and type downloads. See `docs/decisions.md`, V4-M30.)*
 
 ### M31 — Auth core (Weeks 8–10)
 

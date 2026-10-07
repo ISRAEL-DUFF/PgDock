@@ -22,6 +22,7 @@ import { Grid, type GridActions, type GridRow } from "../components/tableEditor/
 import { ColumnPanel, RowPanel, TablePanel } from "../components/tableEditor/Panels";
 import { SchemaReview } from "../components/tableEditor/SchemaReview";
 import { Sidebar } from "../components/tableEditor/Sidebar";
+import { PolicyDialog } from "../components/tableEditor/Policies";
 import { Toolbar } from "../components/tableEditor/Toolbar";
 import { WhereBar, type WhereError } from "../components/tableEditor/WhereBar";
 import { Alert, Button, Spinner, cx, toast } from "../components/ui";
@@ -411,6 +412,7 @@ function TableView({
     | { kind: "json"; row: GridRow; column: string }
     | { kind: "fk"; column: string; value: string }
     | { kind: "delete-rows"; rows: GridRow[] }
+    | { kind: "policies" }
   >(null);
 
   const info = useQuery({ queryKey: ["table-info", p.id, schema, table], queryFn: () => api.tableInfo(p.id, schema, table) });
@@ -560,6 +562,7 @@ function TableView({
           }}
           onInsertRow={() => setPanel({ kind: "row" })}
           onInsertColumn={() => setPanel({ kind: "column" })}
+          onPolicies={() => setPanel({ kind: "policies" })}
           onDeleteSelected={() => setPanel({ kind: "delete-rows", rows: selectedRows })}
           onCopySelected={() => {
             void navigator.clipboard
@@ -683,6 +686,18 @@ function TableView({
           onOpenTable={() => {
             setPanel(null);
             onOpen({ schema: fk.ref_schema, table: fk.ref_table });
+          }}
+        />
+      )}
+      {panel?.kind === "policies" && (
+        <PolicyDialog
+          projectId={p.id}
+          info={t}
+          onClose={() => setPanel(null)}
+          onApplied={() => {
+            setPanel(null);
+            void qc.invalidateQueries({ queryKey: ["services-advisor", p.id] });
+            toast.success(`Row-level security is on for ${table}`);
           }}
         />
       )}

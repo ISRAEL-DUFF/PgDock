@@ -141,6 +141,10 @@ pgdock jobs pause|resume|run|history <p> <job>
 
 pgdock resume <p>   # wake a paused Free project, or restore an archived one
 
+pgdock services status <p> | enable <p> | disable <p>   # backend services: the project's API (docs/backend-services.md)
+pgdock keys list <p> | create <p> --name … [--kind publishable|secret] | revoke <p> <key id>
+pgdock gen types --lang ts|dart|go --project <p> [-o file] [--package name]   # types for the data API
+
 pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
 pgdock billing invoices | invoice <number|id> [--pdf file.pdf]
 pgdock billing pay <number|id> [--wallet] | transfer | payments   # a link to pay, the bank account to transfer to, payments received

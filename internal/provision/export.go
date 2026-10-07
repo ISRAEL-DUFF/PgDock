@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -122,6 +123,9 @@ func (s *Service) RecreateDatabase(ctx context.Context, p store.Project, log *jo
 	if err := s.ensureDatabase(ctx, p, log); err != nil {
 		return err
 	}
+	if s.DatabaseRecreated != nil {
+		s.DatabaseRecreated(ctx, p)
+	}
 	return s.hardenDatabase(ctx, p, log)
 }
 
@@ -164,3 +168,17 @@ func (s *Service) DropAutomation(ctx context.Context, p store.Project) error {
 	}
 	return q.DeleteProjectJobs(ctx, p.ID)
 }
+
+// PooledAddr is host:port of a transaction-mode pooler serving region, as
+// pgdock-server reaches it (the provisioning smoke test's address).
+func (s *Service) PooledAddr(region string) string {
+	if s.pooler != nil {
+		if _, rp, ok := s.pooler.SmokeAddrs(region); ok {
+			return rp
+		}
+	}
+	return s.cfg.SmokePooledAddr
+}
+
+// Keyring is the master keyring.
+func (s *Service) Keyring() *crypto.Keyring { return s.keyring }

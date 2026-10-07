@@ -5,6 +5,37 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V4 (on feature/pgdock4)
+- Backend services' edge foundation (V4-M28): a project can turn on backend
+  services (Project → Settings → API, `pgdock services enable`) and gets an
+  API hostname, `https://<ref>.<domain>`, with a publishable key for apps
+  and a secret key for servers. `pgdock-edge`, a new binary run in each
+  region, serves them: it checks the key (and a signed-in user's ES256
+  token) against that project only, applies the allowed origins and rate
+  limits, and runs each request in one transaction through the pooler as
+  the project's anon, user or service role. Requests are metered
+  (`api_requests`, `api_egress_gb`) and logged for 7 days.
+  `GET /data/v1/health` is the first endpoint; the data API, auth, storage
+  and realtime follow. See docs/backend-services.md.
+- New migration 00036 (backend services).
+- Data API reads (V4-M29): `GET https://<ref>.<domain>/data/v1/<table>`
+  with `select` (columns, JSON paths, related rows through foreign keys),
+  `where`/`or` filters, ordering, cursor pages and counts; one row by key;
+  `POST …/query` for nested filters; a per-project OpenAPI document. Tables
+  are readable with the publishable key only with row-level security (or
+  listed as public), so a forgotten policy fails closed. Schema changes are
+  picked up within seconds. Exposed schemas and public tables are in
+  Project → Settings → API. Backups, restores and promotions of projects
+  with backend services keep their `pgd_*` schemas and grants.
+- Data API writes, functions and types (V4-M30): insert and upsert
+  (`POST /data/v1/<table>`, `on_conflict`), update and delete with a
+  required filter and `max_affected`, all-or-nothing batches
+  (`POST /data/v1/batch`), and function calls (`/data/v1/rpc/<fn>`, GET for
+  stable functions). Typed clients for TypeScript, Dart and Go
+  (`pgdock gen types`, or a download on the API page), a security advisor,
+  a request explorer that runs as anon, a user or the service role, and a
+  row-level security policy helper in the Table Editor.
+
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a
   rack, host or power feed); servers PGDock creates on Hetzner go into a
