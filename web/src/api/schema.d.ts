@@ -2635,6 +2635,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/services/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go) */
+        get: operations["getServiceTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/advisor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…) */
+        get: operations["getSecurityAdvisor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/explore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a data API request as anon, a user or service (the request explorer) */
+        post: operations["exploreDataAPI"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/edge/config": {
         parameters: {
             query?: never;
@@ -6137,6 +6188,12 @@ export interface components {
             settings: components["schemas"]["BackendServicesSettings"];
             /** @description pgdock-server has an edge secret, so a pgdock-edge can serve the project. */
             feed_configured: boolean;
+            /** @description The project's request roles, for row-level security policies. */
+            roles?: {
+                anon?: string;
+                user?: string;
+                service?: string;
+            };
         };
         BackendServicesSettings: {
             /** @description Each request's statement timeout (0 for the default, 8000). */
@@ -6161,6 +6218,37 @@ export interface components {
             operation: components["schemas"]["Operation"];
             /** @description The keys made now (the first time, or after a disable); the secret key is never shown again. */
             keys: components["schemas"]["CreatedApiKey"][];
+        };
+        AdvisorFinding: {
+            /** @enum {string} */
+            level: "danger" | "warn" | "info";
+            code: string;
+            object: string;
+            message: string;
+            fix?: string;
+        };
+        AdvisorFindings: {
+            items: components["schemas"]["AdvisorFinding"][];
+        };
+        ExploreRequest: {
+            /** @enum {string} */
+            method: "GET" | "POST" | "PATCH" | "DELETE";
+            /** @example /data/v1/todos?select=id,title */
+            path: string;
+            /** @description The request body (JSON), for POST and PATCH. */
+            body?: string;
+            /** @enum {string} */
+            role: "anon" | "user" | "service";
+            /**
+             * Format: uuid
+             * @description With role user, the signed-in user to act as (their id is the sub claim).
+             */
+            user_id?: string;
+        };
+        ExploreResponse: {
+            status: number;
+            content_type?: string;
+            body: string;
         };
         ApiKey: {
             /** Format: uuid */
@@ -13608,6 +13696,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiRequestLogList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServiceTypes: {
+        parameters: {
+            query: {
+                lang: "ts" | "dart" | "go";
+                /** @description Go's package name (default pgdtypes). */
+                package?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The source. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSecurityAdvisor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Findings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdvisorFindings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exploreDataAPI: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExploreRequest"];
+            };
+        };
+        responses: {
+            /** @description The data API's response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExploreResponse"];
                 };
             };
             default: components["responses"]["Error"];

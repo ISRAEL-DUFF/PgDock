@@ -1116,6 +1116,35 @@ export const api = {
     getJSON<S["ApiRequestLogList"]>(
       `/api/v1/projects/${id}/services/logs${qs({ before, limit: 100 })}`,
     ),
+  /** Typed definitions of the exposed tables, views and functions. */
+  serviceTypes: async (
+    id: string,
+    lang: "ts" | "dart" | "go",
+    pkg?: string,
+  ): Promise<string> => {
+    const res = await fetch(
+      `/api/v1/projects/${id}/services/types${qs({ lang, package: pkg })}`,
+      { credentials: "same-origin" },
+    );
+    if (!res.ok) {
+      let err: ApiErrorBody | undefined;
+      try {
+        err = (await res.json()) as ApiErrorBody;
+      } catch {
+        err = undefined;
+      }
+      throw new ApiRequestError(res.status, err);
+    }
+    return res.text();
+  },
+  securityAdvisor: (id: string) =>
+    getJSON<S["AdvisorFindings"]>(`/api/v1/projects/${id}/services/advisor`),
+  exploreDataAPI: (id: string, b: S["ExploreRequest"]) =>
+    request<S["ExploreResponse"]>(
+      "POST",
+      `/api/v1/projects/${id}/services/explore`,
+      b,
+    ),
   maintenanceAnnouncements: () =>
     getJSON<S["MaintenanceAnnouncementList"]>(
       "/api/v1/admin/maintenance/announcements",

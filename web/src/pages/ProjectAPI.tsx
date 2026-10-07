@@ -25,6 +25,8 @@ import { useProject } from "./ProjectOverview";
 
 type Services = components["schemas"]["BackendServices"];
 type CreatedKey = components["schemas"]["CreatedApiKey"];
+type ExploreRequest = components["schemas"]["ExploreRequest"];
+type ExploreResponse = components["schemas"]["ExploreResponse"];
 
 /** Project Settings → API: backend services (V4 §2) - the project's API
  * URL, its publishable and secret keys, allowed origins and limits, and
@@ -59,6 +61,9 @@ function ServicesPanels({ p }: { p: Project }) {
         <>
           <KeysPanel p={p} svc={svc} />
           <SettingsPanel p={p} svc={svc} />
+          <AdvisorPanel p={p} />
+          <ExplorerPanel p={p} />
+          <TypesPanel p={p} />
           <LogsPanel p={p} />
         </>
       )}
@@ -545,6 +550,260 @@ function LogsPanel({ p }: { p: Project }) {
             </tr>
           ))}
         </Table>
+      )}
+    </Panel>
+  );
+}
+
+/** The security advisor (V4 §3.5): what an app's users could reach that
+ * they perhaps shouldn't. */
+function AdvisorPanel({ p }: { p: Project }) {
+  const q = useQuery({
+    queryKey: ["services-advisor", p.id],
+    queryFn: () => api.securityAdvisor(p.id),
+    retry: false,
+  });
+  return (
+    <Panel
+      title="Security advisor"
+      testId="services-advisor"
+      description="Checks the exposed schemas for tables without row-level security, policies that let everyone in, and functions that skip it."
+      actions={
+        <Button
+          variant="ghost"
+          busy={q.isFetching}
+          onClick={() => void q.refetch()}
+        >
+          Check again
+        </Button>
+      }
+    >
+      {q.isPending ? (
+        <Spinner />
+      ) : q.isError ? (
+        <Alert>{errorMessage(q.error)}</Alert>
+      ) : q.data.items.length === 0 ? (
+        <p className="text-[13px] text-muted" data-testid="advisor-clear">
+          Nothing to flag.
+        </p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-line">
+          {q.data.items.map((f) => (
+            <li
+              key={`${f.code} ${f.object}`}
+              className="flex flex-col gap-1 py-2"
+              data-testid="advisor-finding"
+            >
+              <span className="flex items-center gap-2">
+                <Badge
+                  tone={
+                    f.level === "danger"
+                      ? "danger"
+                      : f.level === "warn"
+                        ? "warn"
+                        : "muted"
+                  }
+                >
+                  {f.level}
+                </Badge>
+                <span className="font-mono text-xs">{f.object}</span>
+              </span>
+              <span className="text-[13px]">{f.message}</span>
+              {f.fix && (
+                <span className="flex items-start gap-2">
+                  <code className="flex-1 rounded bg-surface-2 p-1.5 font-mono text-[11px] break-all">
+                    {f.fix}
+                  </code>
+                  <CopyButton value={f.fix} />
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+/** The request explorer (V4 §3.4): send a data API request as anon, a
+ * user or the service role and see what that caller would get. */
+function ExplorerPanel({ p }: { p: Project }) {
+  const [method, setMethod] = useState<ExploreRequest["method"]>("GET");
+  const [path, setPath] = useState("/data/v1/");
+  const [role, setRole] = useState<ExploreRequest["role"]>("anon");
+  const [userId, setUserId] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [res, setRes] = useState<ExploreResponse | null>(null);
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      setRes(
+        await api.exploreDataAPI(p.id, {
+          method,
+          path,
+          role,
+          user_id: role === "user" && userId ? userId : undefined,
+          body: method === "POST" || method === "PATCH" ? body : undefined,
+        }),
+      );
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  let pretty = res?.body ?? "";
+  if (res?.content_type?.includes("json")) {
+    try {
+      pretty = JSON.stringify(JSON.parse(res.body), null, 2);
+    } catch {
+      /* not JSON after all */
+    }
+  }
+  return (
+    <Panel
+      title="Request explorer"
+      testId="services-explorer"
+      description="Try a data API request as a visitor (anon), a signed-in user or the service role. Writes are real."
+    >
+      <form className="flex flex-col gap-3" onSubmit={send}>
+        <div className="flex flex-wrap gap-2">
+          <Select
+            aria-label="Method"
+            value={method}
+            onChange={(e) =>
+              setMethod(e.target.value as ExploreRequest["method"])
+            }
+            className="w-28"
+          >
+            {["GET", "POST", "PATCH", "DELETE"].map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </Select>
+          <Input
+            aria-label="Path"
+            className="min-w-60 flex-1 font-mono text-xs"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            placeholder="/data/v1/todos?select=id,title"
+          />
+          <Select
+            aria-label="Role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as ExploreRequest["role"])}
+            className="w-36"
+          >
+            <option value="anon">anon</option>
+            <option value="user">a user</option>
+            <option value="service">service</option>
+          </Select>
+          <Button type="submit" variant="primary" busy={busy}>
+            Send
+          </Button>
+        </div>
+        {role === "user" && (
+          <Input
+            aria-label="User id"
+            className="font-mono text-xs"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            placeholder="The user's id (the sub claim), a uuid"
+          />
+        )}
+        {(method === "POST" || method === "PATCH") && (
+          <textarea
+            aria-label="Body"
+            className="min-h-20 w-full rounded-md border border-line-strong bg-surface-2 p-2.5 font-mono text-xs"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder='{"title": "Buy milk"}'
+          />
+        )}
+      </form>
+      {err && (
+        <div className="mt-3">
+          <Alert>{err}</Alert>
+        </div>
+      )}
+      {res && (
+        <div className="mt-3 flex flex-col gap-1" data-testid="explorer-result">
+          <Badge
+            tone={
+              res.status < 300 ? "ok" : res.status < 500 ? "warn" : "danger"
+            }
+          >
+            {res.status}
+          </Badge>
+          <pre className="max-h-80 overflow-auto rounded bg-surface-2 p-2.5 font-mono text-[11px] whitespace-pre-wrap">
+            {pretty}
+          </pre>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+const typeLangs = [
+  { id: "ts", label: "TypeScript", file: "database.types.ts" },
+  { id: "dart", label: "Dart", file: "database_types.dart" },
+  { id: "go", label: "Go", file: "database_types.go" },
+] as const;
+
+/** Generated types (V4 §3.3) for the exposed schemas. */
+function TypesPanel({ p }: { p: Project }) {
+  const [lang, setLang] = useState<(typeof typeLangs)[number]["id"]>("ts");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const download = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const text = await api.serviceTypes(p.id, lang);
+      const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = typeLangs.find((l) => l.id === lang)!.file;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Panel
+      title="Generate types"
+      testId="services-types"
+      description="Typed rows, inserts and updates for your tables, views and functions. Or run pgdock gen types --lang ts."
+    >
+      <div className="flex items-center gap-2">
+        <Select
+          aria-label="Language"
+          value={lang}
+          onChange={(e) =>
+            setLang(e.target.value as (typeof typeLangs)[number]["id"])
+          }
+          className="w-40"
+        >
+          {typeLangs.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </Select>
+        <Button busy={busy} onClick={() => void download()}>
+          Download
+        </Button>
+      </div>
+      {err && (
+        <div className="mt-3">
+          <Alert>{err}</Alert>
+        </div>
       )}
     </Panel>
   );
