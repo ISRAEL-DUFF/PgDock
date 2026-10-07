@@ -423,6 +423,7 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
             type="number"
             min={0}
             max={15000}
+            aria-label="Statement timeout (ms)"
             value={timeout}
             onChange={(e) => setTimeoutMs(Number(e.target.value))}
           />
@@ -436,6 +437,7 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
             min={0}
             value={perIP}
             onChange={(e) => setPerIP(Number(e.target.value))}
+            aria-label="Requests per minute per IP"
           />
         </FormRow>
         <FormRow
@@ -443,6 +445,7 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
           description="Off: requests with a secret key and an Origin header are refused."
         >
           <Switch
+            aria-label="Allow the secret key from browsers"
             checked={secretInBrowser}
             onCheckedChange={setSecretInBrowser}
           />
