@@ -28,7 +28,12 @@ import {
   TabsTrigger,
 } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
-import { HooksTab, PhoneTab, ProvidersTab, SecurityTab } from "./ProjectAuthMore";
+import {
+  HooksTab,
+  PhoneTab,
+  ProvidersTab,
+  SecurityTab,
+} from "./ProjectAuthMore";
 import { useProject } from "./ProjectOverview";
 
 type S = components["schemas"];
