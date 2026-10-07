@@ -390,6 +390,8 @@ func Start(t testing.TB, opts Options) *Env {
 	for name, k := range servicesSvc.Kinds() {
 		kinds[name] = k
 	}
+	svc.DatabaseRecreated = servicesSvc.MarkForReconcile
+	ded.ServiceRoles = servicesSvc.EnsureRolesOn
 	notifier := jobs.NewNotifier(db, log)
 	runner := jobs.NewRunner(db, notifier, log, jobs.RunnerConfig{
 		PollInterval: 100 * time.Millisecond, RetryBase: 50 * time.Millisecond, RetryMax: 200 * time.Millisecond,

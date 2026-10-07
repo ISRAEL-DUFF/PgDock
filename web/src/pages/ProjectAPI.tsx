@@ -370,6 +370,10 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
     svc.settings.statement_timeout_ms ?? 0,
   );
   const [perIP, setPerIP] = useState(svc.settings.rate_per_ip ?? 0);
+  const [exposed, setExposed] = useState(svc.exposed_schemas.join(", "));
+  const [publicTables, setPublicTables] = useState(
+    svc.public_tables.join("\n"),
+  );
   const [secretInBrowser, setSecretInBrowser] = useState(
     svc.settings.allow_secret_in_browser ?? false,
   );
@@ -384,6 +388,14 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
     try {
       await api.updateBackendServices(p.id, {
         cors_origins: origins
+          .split(/[\s,]+/)
+          .map((o) => o.trim())
+          .filter(Boolean),
+        exposed_schemas: exposed
+          .split(/[\s,]+/)
+          .map((o) => o.trim())
+          .filter(Boolean),
+        public_tables: publicTables
           .split(/[\s,]+/)
           .map((o) => o.trim())
           .filter(Boolean),
@@ -413,6 +425,27 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
             className="min-h-20 w-full rounded-md border border-line-strong bg-surface-2 p-2.5 font-mono text-xs"
             value={origins}
             onChange={(e) => setOrigins(e.target.value)}
+          />
+        </FormRow>
+        <FormRow
+          label="Exposed schemas"
+          description="The schemas the data API serves, comma separated (public by default)."
+        >
+          <Input
+            aria-label="Exposed schemas"
+            value={exposed}
+            onChange={(e) => setExposed(e.target.value)}
+          />
+        </FormRow>
+        <FormRow
+          label="Public tables"
+          description="Tables the publishable key may read without row-level security, one per line. Anyone with your app can read them."
+        >
+          <textarea
+            aria-label="Public tables"
+            className="min-h-16 w-full rounded-md border border-line-strong bg-surface-2 p-2.5 font-mono text-xs"
+            value={publicTables}
+            onChange={(e) => setPublicTables(e.target.value)}
           />
         </FormRow>
         <FormRow

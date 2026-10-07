@@ -275,7 +275,9 @@ func (e *Edge) route(c *call, req Request) {
 	switch {
 	case path == "/data/v1/health" && (c.r.Method == http.MethodGet || c.r.Method == http.MethodHead):
 		e.health(c, req)
-	case strings.HasPrefix(path, "/data/v1/"), strings.HasPrefix(path, "/auth/v1/"),
+	case strings.HasPrefix(path, "/data/v1/"):
+		e.data(c, req)
+	case strings.HasPrefix(path, "/auth/v1/"),
 		strings.HasPrefix(path, "/storage/v1/"), strings.HasPrefix(path, "/realtime/v1"):
 		c.fail(http.StatusNotFound, "not_available", "this endpoint isn't available yet")
 	default:

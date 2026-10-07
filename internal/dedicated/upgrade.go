@@ -217,7 +217,7 @@ func (s *Service) schemaTrial(ctx context.Context, p store.Project, src *pgx.Con
 		return nil, err
 	}
 	res, err := agent.Copy(ctx, agentapi.CopyRequest{
-		Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"pgdock", logical.Schema}, ExcludeExtensions: exts, SchemaOnly: true, NoOwner: true, NoACL: true},
+		Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"pgdock", logical.Schema, "pgd_auth", "pgd_storage", "pgd_realtime"}, ExcludeExtensions: exts, SchemaOnly: true, NoOwner: true, NoACL: true},
 		Target: to, Restore: agentapi.RestoreOptions{Role: scratch, AllowErrors: true},
 	})
 	if err != nil {

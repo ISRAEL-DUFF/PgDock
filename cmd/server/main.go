@@ -381,8 +381,12 @@ func run() error {
 		for name, k := range servicesSvc.Kinds() {
 			kinds[name] = k
 		}
+		projects.DatabaseRecreated = servicesSvc.MarkForReconcile
+		if backups != nil && backups.Dedicated != nil {
+			backups.Dedicated.ServiceRoles = servicesSvc.EnsureRolesOn
+		}
 		bg.Add(1)
-		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, time.Minute) }()
+		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, 15*time.Second) }()
 	}
 
 	// Support (V3 §7.1): tickets from the dashboard, email and WhatsApp.

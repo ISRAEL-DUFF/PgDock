@@ -101,9 +101,10 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		p.PoolerHost, p.PoolerPort = host, port
 		p.AnonRole, p.UserRole, p.ServiceRole = store.AnonRole(r.DbName), store.UserRole(r.DbName), store.ServiceRole(r.DbName)
 		p.Keys, p.JWKs, p.CORSOrigins = keys[r.ProjectID], jwks[r.ProjectID], r.CorsOrigins
+		p.ExposedSchemas, p.PublicTables = r.ExposedSchemas, r.PublicTables
 		p.Settings = edgeapi.Settings{StatementTimeoutMs: or(st.StatementTimeoutMs, DefaultStatementTimeoutMs),
 			RatePerIP: or(st.RatePerIP, DefaultRatePerIP), RatePerKey: or(st.RatePerKey, DefaultRatePerKey),
-			AllowSecretInBrowser: st.AllowSecretInBrowser}
+			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost))}
 		out.Projects = append(out.Projects, p)
 	}
 	return out, nil

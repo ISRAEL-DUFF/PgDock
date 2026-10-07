@@ -42,6 +42,26 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 	if err := src.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'pgdock')`).Scan(&hooks); err != nil {
 		return 0, err
 	}
+	// Backend services' schemas (V4 §11.2), superuser-owned like the
+	// webhook schema, and copied with it; their grants name the project's
+	// request roles, which the target needs first.
+	rowsS, err := src.Query(ctx, `SELECT nspname FROM pg_namespace WHERE nspname IN ('pgd_auth', 'pgd_storage', 'pgd_realtime') ORDER BY nspname`)
+	if err != nil {
+		return 0, err
+	}
+	svcSchemas, err := pgx.CollectRows(rowsS, pgx.RowTo[string])
+	if err != nil {
+		return 0, err
+	}
+	if len(svcSchemas) > 0 && s.ServiceRoles != nil {
+		if err := s.ServiceRoles(ctx, p, target); err != nil {
+			return 0, fmt.Errorf("backend services roles on the target: %w", err)
+		}
+	}
+	platform := svcSchemas
+	if hooks {
+		platform = append([]string{"pgdock"}, platform...)
+	}
 	rows, err := src.Query(ctx, `SELECT extname, n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
 		WHERE extname <> 'plpgsql' ORDER BY extname`)
 	if err != nil {
@@ -85,13 +105,13 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 	}
 
 	var took time.Duration
-	if hooks {
+	if len(platform) > 0 {
 		res, err := agent.Copy(ctx, agentapi.CopyRequest{
-			Source: from, Dump: agentapi.DumpOptions{Schemas: []string{"pgdock"}, SchemaOnly: schemaOnly},
+			Source: from, Dump: agentapi.DumpOptions{Schemas: platform, SchemaOnly: schemaOnly},
 			Target: to, Restore: agentapi.RestoreOptions{KeepOwners: true},
 		})
 		if err != nil {
-			return 0, fmt.Errorf("webhook schema: %w", err)
+			return 0, fmt.Errorf("platform schemas (%v): %w", platform, err)
 		}
 		took += time.Duration(res.DurationMS) * time.Millisecond
 	}
@@ -105,7 +125,7 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 			}
 		}
 		res, err := agent.Copy(ctx, agentapi.CopyRequest{
-			Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"pgdock", logical.Schema}, ExcludeExtensions: names, SchemaOnly: schemaOnly},
+			Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: append([]string{"pgdock", logical.Schema}, svcSchemas...), ExcludeExtensions: names, SchemaOnly: schemaOnly},
 			Target: c, Restore: agentapi.RestoreOptions{KeepOwners: true},
 		})
 		took += time.Duration(res.DurationMS) * time.Millisecond

@@ -94,8 +94,27 @@ type project struct {
 	keys map[string]edgeapi.Key // by hash
 	jwks map[string]*ecdsa.PublicKey
 	// db is shared with the next copy of the configuration while how it
-	// connects doesn't change.
-	db *dbconn
+	// connects doesn't change; catalog always is.
+	db      *dbconn
+	catalog *catalogState
+}
+
+// exposed are the schemas the data API serves.
+func (p *project) exposed() []string {
+	if len(p.cfg.ExposedSchemas) == 0 {
+		return []string{"public"}
+	}
+	return p.cfg.ExposedSchemas
+}
+
+// publicTable reports whether t may be read without row-level security.
+func (p *project) publicTable(t *Table) bool {
+	for _, n := range p.cfg.PublicTables {
+		if n == t.Schema+"."+t.Name || (t.Schema == "public" && n == t.Name) {
+			return true
+		}
+	}
+	return false
 }
 
 type dbconn struct {
@@ -231,7 +250,8 @@ func (e *Edge) apply(ps []edgeapi.Project) {
 			}
 			continue
 		}
-		np := &project{cfg: pc, keys: map[string]edgeapi.Key{}, jwks: map[string]*ecdsa.PublicKey{}, db: &dbconn{}}
+		np := &project{cfg: pc, keys: map[string]edgeapi.Key{}, jwks: map[string]*ecdsa.PublicKey{}, db: &dbconn{},
+			catalog: &catalogState{}}
 		for _, k := range pc.Keys {
 			np.keys[k.Hash] = k
 		}
@@ -245,6 +265,7 @@ func (e *Edge) apply(ps []edgeapi.Project) {
 			}
 		}
 		if old != nil {
+			np.catalog = old.catalog
 			if sameConn(old.cfg, pc) {
 				np.db = old.db
 			} else {

@@ -123,6 +123,9 @@ func (s *Service) RecreateDatabase(ctx context.Context, p store.Project, log *jo
 	if err := s.ensureDatabase(ctx, p, log); err != nil {
 		return err
 	}
+	if s.DatabaseRecreated != nil {
+		s.DatabaseRecreated(ctx, p)
+	}
 	return s.hardenDatabase(ctx, p, log)
 }
 

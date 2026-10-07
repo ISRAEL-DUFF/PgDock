@@ -91,6 +91,9 @@ type Service struct {
 	// Snapshot, when set, takes a logical backup of a project (the backup
 	// service): a demoted project's first (V2 §5.3 step 7).
 	Snapshot func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
+	// ServiceRoles, when set, creates a project's backend services roles on
+	// another instance before its database is copied there (V4 §2.5).
+	ServiceRoles func(ctx context.Context, p store.Project, instance uuid.UUID) error
 }
 
 // New returns a Service.

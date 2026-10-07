@@ -57,6 +57,42 @@ var schemaVersions = []schemaVersion{
 	}},
 }
 
+// exposureStmts let the request roles use what the owner makes in an
+// exposed schema other than public (public's are in version 1).
+var exposureStmts = []string{
+	`GRANT USAGE ON SCHEMA {{schema}} TO {{anon}}, {{user}}, {{service}}`,
+	`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {{schema}} TO {{anon}}, {{user}}, {{service}}`,
+	`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {{schema}} TO {{anon}}, {{user}}, {{service}}`,
+	`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA {{schema}} TO {{anon}}, {{user}}, {{service}}`,
+	`ALTER DEFAULT PRIVILEGES FOR ROLE {{owner}} IN SCHEMA {{schema}} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {{anon}}, {{user}}, {{service}}`,
+	`ALTER DEFAULT PRIVILEGES FOR ROLE {{owner}} IN SCHEMA {{schema}} GRANT USAGE, SELECT ON SEQUENCES TO {{anon}}, {{user}}, {{service}}`,
+	`ALTER DEFAULT PRIVILEGES FOR ROLE {{owner}} IN SCHEMA {{schema}} GRANT EXECUTE ON FUNCTIONS TO {{anon}}, {{user}}, {{service}}`,
+}
+
+// reownSQL gives the platform's admin (the session's user) the pgd_*
+// schemas and everything in them.
+const reownSQL = `DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT nspname FROM pg_namespace WHERE nspname IN ('pgd_auth', 'pgd_storage', 'pgd_realtime') LOOP
+    EXECUTE format('ALTER SCHEMA %I OWNER TO CURRENT_USER', r.nspname);
+  END LOOP;
+  FOR r IN SELECT c.oid::regclass AS rel, c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname IN ('pgd_auth', 'pgd_storage', 'pgd_realtime') AND c.relkind IN ('r', 'v', 'm', 'S', 'p', 'f') LOOP
+    EXECUTE format(CASE r.relkind WHEN 'v' THEN 'ALTER VIEW %s OWNER TO CURRENT_USER' WHEN 'm' THEN 'ALTER MATERIALIZED VIEW %s OWNER TO CURRENT_USER'
+      WHEN 'S' THEN 'ALTER SEQUENCE %s OWNER TO CURRENT_USER' WHEN 'f' THEN 'ALTER FOREIGN TABLE %s OWNER TO CURRENT_USER'
+      ELSE 'ALTER TABLE %s OWNER TO CURRENT_USER' END, r.rel);
+  END LOOP;
+  FOR r IN SELECT p.oid::regprocedure AS fn, p.prokind FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname IN ('pgd_auth', 'pgd_storage', 'pgd_realtime') LOOP
+    EXECUTE format(CASE r.prokind WHEN 'p' THEN 'ALTER PROCEDURE %s OWNER TO CURRENT_USER' ELSE 'ALTER FUNCTION %s OWNER TO CURRENT_USER' END, r.fn);
+  END LOOP;
+  FOR r IN SELECT t.oid::regtype AS typ FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname IN ('pgd_auth', 'pgd_storage', 'pgd_realtime') AND t.typtype IN ('e', 'd', 'c') AND t.typrelid = 0 LOOP
+    EXECUTE format('ALTER TYPE %s OWNER TO CURRENT_USER', r.typ);
+  END LOOP;
+END $$`
+
 func expand(stmt string, p store.Project) string {
 	q := func(s string) string { return pgx.Identifier{s}.Sanitize() }
 	return strings.NewReplacer(

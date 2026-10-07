@@ -826,20 +826,29 @@ func (q *Queries) TouchAPIKeys(ctx context.Context, arg TouchAPIKeysParams) erro
 }
 
 const updateServicesSettings = `-- name: UpdateServicesSettings :one
-UPDATE project_services SET cors_origins = $1, settings = $2
-WHERE project_id = $3
+UPDATE project_services SET cors_origins = $1, settings = $2,
+  exposed_schemas = $3, public_tables = $4
+WHERE project_id = $5
 RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at
 `
 
 type UpdateServicesSettingsParams struct {
-	CorsOrigins []string
-	Settings    json.RawMessage
-	ProjectID   uuid.UUID
+	CorsOrigins    []string
+	Settings       json.RawMessage
+	ExposedSchemas []string
+	PublicTables   []string
+	ProjectID      uuid.UUID
 }
 
 // tenant: system - a project the request already authorized.
 func (q *Queries) UpdateServicesSettings(ctx context.Context, arg UpdateServicesSettingsParams) (ProjectService, error) {
-	row := q.db.QueryRow(ctx, updateServicesSettings, arg.CorsOrigins, arg.Settings, arg.ProjectID)
+	row := q.db.QueryRow(ctx, updateServicesSettings,
+		arg.CorsOrigins,
+		arg.Settings,
+		arg.ExposedSchemas,
+		arg.PublicTables,
+		arg.ProjectID,
+	)
 	var i ProjectService
 	err := row.Scan(
 		&i.ProjectID,

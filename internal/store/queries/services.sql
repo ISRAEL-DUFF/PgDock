@@ -25,7 +25,8 @@ WHERE project_id = @project_id;
 
 -- name: UpdateServicesSettings :one
 -- tenant: system - a project the request already authorized.
-UPDATE project_services SET cors_origins = @cors_origins, settings = @settings
+UPDATE project_services SET cors_origins = @cors_origins, settings = @settings,
+  exposed_schemas = @exposed_schemas, public_tables = @public_tables
 WHERE project_id = @project_id
 RETURNING *;
 

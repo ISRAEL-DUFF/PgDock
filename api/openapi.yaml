@@ -9213,7 +9213,7 @@ components:
             $ref: "#/components/schemas/MaintenanceAnnouncement"
     BackendServices:
       type: object
-      required: [enabled, keys, cors_origins, settings, feed_configured]
+      required: [enabled, keys, cors_origins, exposed_schemas, public_tables, settings, feed_configured]
       properties:
         enabled:
           type: boolean
@@ -9237,6 +9237,16 @@ components:
           description: Origins browsers may call from; empty allows any.
           items:
             type: string
+        exposed_schemas:
+          type: array
+          description: The schemas the data API serves (default public).
+          items:
+            type: string
+        public_tables:
+          type: array
+          description: Tables and views anon and signed-in users may read without row-level security ("table" in public, or "schema.table").
+          items:
+            type: string
         settings:
           $ref: "#/components/schemas/BackendServicesSettings"
         feed_configured:
@@ -9257,10 +9267,21 @@ components:
         allow_secret_in_browser:
           type: boolean
           description: Accept the secret key from a page (a request with an Origin header). Off by default.
+        max_query_cost:
+          type: integer
+          description: Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
     BackendServicesUpdate:
       type: object
       properties:
         cors_origins:
+          type: array
+          items:
+            type: string
+        exposed_schemas:
+          type: array
+          items:
+            type: string
+        public_tables:
           type: array
           items:
             type: string

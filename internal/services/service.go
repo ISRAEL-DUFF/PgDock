@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -276,6 +277,7 @@ type Settings struct {
 	RatePerIP            int  `json:"rate_per_ip,omitempty"`
 	RatePerKey           int  `json:"rate_per_key,omitempty"`
 	AllowSecretInBrowser bool `json:"allow_secret_in_browser,omitempty"`
+	MaxQueryCost         int  `json:"max_query_cost,omitempty"`
 }
 
 // Defaults.
@@ -284,6 +286,9 @@ const (
 	DefaultRatePerIP          = 600   // per minute
 	DefaultRatePerKey         = 12000 // per minute
 	MaxStatementTimeoutMs     = 15000
+	// DefaultMaxQueryCost is the planner cost above which a data API read
+	// is refused (a sequential scan of a few million rows).
+	DefaultMaxQueryCost = 1_000_000
 )
 
 // DecodeSettings reads stored settings.
@@ -302,13 +307,55 @@ func (st Settings) Validate() error {
 		return fmt.Errorf("%w: statement_timeout_ms must be up to %d", ErrInvalid, MaxStatementTimeoutMs)
 	case st.RatePerIP < 0 || st.RatePerIP > 1_000_000, st.RatePerKey < 0 || st.RatePerKey > 10_000_000:
 		return fmt.Errorf("%w: rate limits are requests per minute", ErrInvalid)
+	case st.MaxQueryCost < 0:
+		return fmt.Errorf("%w: max_query_cost can't be negative", ErrInvalid)
+	}
+	return nil
+}
+
+var schemaNameRe = regexp.MustCompile(`^[a-z_][a-z0-9_]{0,62}$`)
+
+// validExposure checks exposed schemas and public tables' names.
+func validExposure(schemas, public []string) error {
+	if len(schemas) == 0 || len(schemas) > 10 {
+		return fmt.Errorf("%w: expose 1 to 10 schemas", ErrInvalid)
+	}
+	for _, sc := range schemas {
+		if !schemaNameRe.MatchString(sc) || strings.HasPrefix(sc, "pg_") || strings.HasPrefix(sc, "pgd_") ||
+			sc == "information_schema" || sc == "pgdock" {
+			return fmt.Errorf("%w: %q can't be exposed", ErrInvalid, sc)
+		}
+	}
+	if len(public) > 200 {
+		return fmt.Errorf("%w: at most 200 public tables", ErrInvalid)
+	}
+	for _, t := range public {
+		if t == "" || len(t) > 130 || strings.ContainsAny(t, " ,\\\"'") {
+			return fmt.Errorf("%w: %q is not a table name (schema.table)", ErrInvalid, t)
+		}
 	}
 	return nil
 }
 
 // UpdateSettings changes CORS origins and gateway settings.
 func (s *Service) UpdateSettings(ctx context.Context, projectID uuid.UUID, origins []string, st Settings) (store.ProjectService, error) {
+	cur, err := store.New(s.db).GetProjectServices(ctx, projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return cur, fmt.Errorf("%w: backend services were never enabled", ErrNotFound)
+	} else if err != nil {
+		return cur, err
+	}
+	return s.UpdateExposure(ctx, projectID, origins, st, cur.ExposedSchemas, cur.PublicTables)
+}
+
+// UpdateExposure changes CORS origins, gateway settings, the exposed
+// schemas and the tables anon and user may read without row-level
+// security. A newly exposed schema gets the request roles' grants.
+func (s *Service) UpdateExposure(ctx context.Context, projectID uuid.UUID, origins []string, st Settings, schemas, public []string) (store.ProjectService, error) {
 	if err := st.Validate(); err != nil {
+		return store.ProjectService{}, err
+	}
+	if err := validExposure(schemas, public); err != nil {
 		return store.ProjectService{}, err
 	}
 	clean := []string{}
@@ -327,11 +374,70 @@ func (s *Service) UpdateSettings(ctx context.Context, projectID uuid.UUID, origi
 	if err != nil {
 		return store.ProjectService{}, err
 	}
-	svc, err := store.New(s.db).UpdateServicesSettings(ctx, store.UpdateServicesSettingsParams{ProjectID: projectID, CorsOrigins: clean, Settings: raw})
+	q := store.New(s.db)
+	svc, err := q.GetProjectServices(ctx, projectID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return svc, fmt.Errorf("%w: backend services were never enabled", ErrNotFound)
+	} else if err != nil {
+		return svc, err
 	}
-	return svc, err
+	if svc.Enabled && !sameSet(svc.ExposedSchemas, schemas) {
+		p, err := q.GetProject(ctx, projectID)
+		if err != nil {
+			return svc, err
+		}
+		if err := s.applyExposure(ctx, p, schemas); err != nil {
+			return svc, err
+		}
+	}
+	return q.UpdateServicesSettings(ctx, store.UpdateServicesSettingsParams{ProjectID: projectID, CorsOrigins: clean, Settings: raw,
+		ExposedSchemas: schemas, PublicTables: public})
+}
+
+func sameSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	m := map[string]bool{}
+	for _, x := range a {
+		m[x] = true
+	}
+	for _, x := range b {
+		if !m[x] {
+			return false
+		}
+	}
+	return true
+}
+
+// applyExposure grants the request roles the exposed schemas besides
+// public; a schema that doesn't exist is refused.
+func (s *Service) applyExposure(ctx context.Context, p store.Project, schemas []string) error {
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+	return pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+		for _, sc := range schemas {
+			if sc == "public" {
+				continue
+			}
+			var ok bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = $1)`, sc).Scan(&ok); err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("%w: there is no schema %q", ErrInvalid, sc)
+			}
+			for _, st := range exposureStmts {
+				if _, err := tx.Exec(ctx, strings.ReplaceAll(expand(st, p), "{{schema}}", provision.Ident(sc))); err != nil {
+					return fmt.Errorf("expose %s: %w", sc, err)
+				}
+			}
+		}
+		return nil
+	})
 }
 
 // ---- Operations -------------------------------------------------------------
@@ -411,8 +517,33 @@ func (s *Service) edgePassword(role string) string {
 	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("pgdock edge role "+role, 32))
 }
 
-// ensureRoles creates or repairs the four roles on p's instance (V4 §2.3).
+// ensureRoles creates or repairs the four roles on p's instance (V4 §2.3)
+// and records it.
 func (s *Service) ensureRoles(ctx context.Context, p store.Project) error {
+	return s.ensureRolesOn(ctx, p, p.InstanceID, true)
+}
+
+// EnsureRolesOn creates p's roles on another instance, if p has backend
+// services: a promotion, demotion or move copies grants to them, which
+// fail without them (the dedicated service calls it before copying).
+func (s *Service) EnsureRolesOn(ctx context.Context, p store.Project, instance uuid.UUID) error {
+	if _, err := store.New(s.db).GetProjectServices(ctx, p.ID); errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return s.ensureRolesOn(ctx, p, instance, false)
+}
+
+// MarkForReconcile has the reconciler re-apply p's roles and every schema
+// version (its database was replaced: a restore in place, a branch reset).
+func (s *Service) MarkForReconcile(ctx context.Context, p store.Project) {
+	if _, err := s.db.Exec(ctx, `UPDATE project_services SET roles_instance = NULL WHERE project_id = $1 AND roles_instance IS NOT NULL`, p.ID); err != nil {
+		s.log.Warn("backend services: mark for reconcile", "project_id", p.ID, "err", err)
+	}
+}
+
+func (s *Service) ensureRolesOn(ctx context.Context, p store.Project, instance uuid.UUID, record bool) error {
 	q := store.New(s.db)
 	svc, err := q.GetProjectServices(ctx, p.ID)
 	if err != nil {
@@ -425,7 +556,7 @@ func (s *Service) ensureRoles(ctx context.Context, p store.Project) error {
 	} else if verifier, err = crypto.SCRAMVerifier(s.edgePassword(edge)); err != nil {
 		return err
 	}
-	conn, err := s.projects.AdminConn(ctx, p.InstanceID, "postgres")
+	conn, err := s.projects.AdminConn(ctx, instance, "postgres")
 	if err != nil {
 		return err
 	}
@@ -473,6 +604,9 @@ func (s *Service) ensureRoles(ctx context.Context, p store.Project) error {
 			return fmt.Errorf("%s: %w", st, err)
 		}
 	}
+	if !record {
+		return nil
+	}
 	return q.SetServicesRoles(ctx, store.SetServicesRolesParams{ProjectID: p.ID, EdgeVerifier: &verifier,
 		SchemaVersion: svc.SchemaVersion, RolesInstance: &p.InstanceID})
 }
@@ -494,6 +628,16 @@ func (s *Service) applySchema(ctx context.Context, p store.Project, all bool) er
 	if all {
 		from = 0
 	}
+	if all {
+		// A restore by the project's owner (a backup, a branch) recreates the
+		// pgd_* schemas as the owner's: take them back.
+		if err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, reownSQL)
+			return err
+		}); err != nil {
+			return fmt.Errorf("re-own the pgd schemas: %w", err)
+		}
+	}
 	for _, v := range schemaVersions {
 		if v.n <= from {
 			continue
@@ -506,6 +650,11 @@ func (s *Service) applySchema(ctx context.Context, p store.Project, all bool) er
 			}
 			return nil
 		}); err != nil {
+			return err
+		}
+	}
+	if all {
+		if err := s.applyExposure(ctx, p, svc.ExposedSchemas); err != nil {
 			return err
 		}
 	}

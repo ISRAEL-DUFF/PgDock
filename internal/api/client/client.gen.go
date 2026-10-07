@@ -3828,9 +3828,15 @@ type BackendServices struct {
 	Enabled     bool       `json:"enabled"`
 	EnabledAt   *time.Time `json:"enabled_at,omitempty"`
 
+	// ExposedSchemas The schemas the data API serves (default public).
+	ExposedSchemas []string `json:"exposed_schemas"`
+
 	// FeedConfigured pgdock-server has an edge secret, so a pgdock-edge can serve the project.
 	FeedConfigured bool     `json:"feed_configured"`
 	Keys           []ApiKey `json:"keys"`
+
+	// PublicTables Tables and views anon and signed-in users may read without row-level security ("table" in public, or "schema.table").
+	PublicTables []string `json:"public_tables"`
 
 	// Ref The project reference in the API hostname.
 	//
@@ -3855,6 +3861,9 @@ type BackendServicesSettings struct {
 	// AllowSecretInBrowser Accept the secret key from a page (a request with an Origin header). Off by default.
 	AllowSecretInBrowser *bool `json:"allow_secret_in_browser,omitempty"`
 
+	// MaxQueryCost Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
+	MaxQueryCost *int `json:"max_query_cost,omitempty"`
+
 	// RatePerIp Requests per minute from one IP address (0 for the default, 600).
 	RatePerIp *int `json:"rate_per_ip,omitempty"`
 
@@ -3867,8 +3876,10 @@ type BackendServicesSettings struct {
 
 // BackendServicesUpdate defines model for BackendServicesUpdate.
 type BackendServicesUpdate struct {
-	CorsOrigins *[]string                `json:"cors_origins,omitempty"`
-	Settings    *BackendServicesSettings `json:"settings,omitempty"`
+	CorsOrigins    *[]string                `json:"cors_origins,omitempty"`
+	ExposedSchemas *[]string                `json:"exposed_schemas,omitempty"`
+	PublicTables   *[]string                `json:"public_tables,omitempty"`
+	Settings       *BackendServicesSettings `json:"settings,omitempty"`
 }
 
 // Backup defines model for Backup.

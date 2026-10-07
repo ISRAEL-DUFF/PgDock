@@ -46,7 +46,8 @@ func apiKeyOut(k store.ProjectApiKey) gen.ApiKey {
 }
 
 func (s *Server) backendServicesOut(r *http.Request, p store.Project, svc *store.ProjectService) (gen.BackendServices, error) {
-	out := gen.BackendServices{Keys: []gen.ApiKey{}, CorsOrigins: []string{}, FeedConfigured: s.services.FeedEnabled()}
+	out := gen.BackendServices{Keys: []gen.ApiKey{}, CorsOrigins: []string{}, ExposedSchemas: []string{"public"}, PublicTables: []string{},
+		FeedConfigured: s.services.FeedEnabled()}
 	if svc == nil {
 		return out, nil
 	}
@@ -56,8 +57,9 @@ func (s *Server) backendServicesOut(r *http.Request, p store.Project, svc *store
 	}
 	ref, url := svc.Ref, s.services.URL(svc.Ref, p.Region)
 	out.Enabled, out.Ref, out.Url, out.EnabledAt, out.CorsOrigins = svc.Enabled, &ref, &url, svc.EnabledAt, svc.CorsOrigins
+	out.ExposedSchemas, out.PublicTables = svc.ExposedSchemas, svc.PublicTables
 	out.Settings = gen.BackendServicesSettings{StatementTimeoutMs: &st.StatementTimeoutMs, RatePerIp: &st.RatePerIP,
-		RatePerKey: &st.RatePerKey, AllowSecretInBrowser: &st.AllowSecretInBrowser}
+		RatePerKey: &st.RatePerKey, AllowSecretInBrowser: &st.AllowSecretInBrowser, MaxQueryCost: &st.MaxQueryCost}
 	keys, err := store.New(s.db).ListAPIKeys(r.Context(), p.ID)
 	if err != nil {
 		return out, err
@@ -165,12 +167,24 @@ func (s *Server) UpdateBackendServices(w http.ResponseWriter, r *http.Request, i
 		if v.AllowSecretInBrowser != nil {
 			st.AllowSecretInBrowser = *v.AllowSecretInBrowser
 		}
+		if v.MaxQueryCost != nil {
+			st.MaxQueryCost = *v.MaxQueryCost
+		}
+	}
+	exposed, public := cur.ExposedSchemas, cur.PublicTables
+	if req.ExposedSchemas != nil {
+		exposed = *req.ExposedSchemas
+	}
+	if req.PublicTables != nil {
+		public = *req.PublicTables
 	}
 	a := auditFrom(r.Context())
 	a.target("project", id.String())
 	a.set("cors_origins", origins)
 	a.set("settings", st)
-	if _, err := s.services.UpdateSettings(r.Context(), id, origins, st); err != nil {
+	a.set("exposed_schemas", exposed)
+	a.set("public_tables", public)
+	if _, err := s.services.UpdateExposure(r.Context(), id, origins, st, exposed, public); err != nil {
 		s.servicesError(w, "backend services", err)
 		return
 	}

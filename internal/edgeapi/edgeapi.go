@@ -74,6 +74,9 @@ type Settings struct {
 	// AllowSecretInBrowser lets a secret key be used from a page (a
 	// request with an Origin header).
 	AllowSecretInBrowser bool `json:"allow_secret_in_browser"`
+	// MaxQueryCost refuses data API reads whose estimated cost (EXPLAIN)
+	// is higher (V4 §3.6).
+	MaxQueryCost float64 `json:"max_query_cost"`
 }
 
 // Project is one project's configuration on the edge.
@@ -97,7 +100,12 @@ type Project struct {
 	ServiceRole string   `json:"service_role,omitempty"`
 	Keys        []Key    `json:"keys,omitempty"`
 	CORSOrigins []string `json:"cors_origins,omitempty"`
-	Settings    Settings `json:"settings"`
+	// ExposedSchemas are the schemas the data API serves; PublicTables
+	// ("schema.table") may be read by anon and user without row-level
+	// security (V4 §3.6).
+	ExposedSchemas []string `json:"exposed_schemas,omitempty"`
+	PublicTables   []string `json:"public_tables,omitempty"`
+	Settings       Settings `json:"settings"`
 	// JWKs are the public keys user tokens are verified with (JWK JSON).
 	JWKs []json.RawMessage `json:"jwks,omitempty"`
 }

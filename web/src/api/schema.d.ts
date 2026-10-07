@@ -6130,6 +6130,10 @@ export interface components {
             keys: components["schemas"]["ApiKey"][];
             /** @description Origins browsers may call from; empty allows any. */
             cors_origins: string[];
+            /** @description The schemas the data API serves (default public). */
+            exposed_schemas: string[];
+            /** @description Tables and views anon and signed-in users may read without row-level security ("table" in public, or "schema.table"). */
+            public_tables: string[];
             settings: components["schemas"]["BackendServicesSettings"];
             /** @description pgdock-server has an edge secret, so a pgdock-edge can serve the project. */
             feed_configured: boolean;
@@ -6143,9 +6147,13 @@ export interface components {
             rate_per_key?: number;
             /** @description Accept the secret key from a page (a request with an Origin header). Off by default. */
             allow_secret_in_browser?: boolean;
+            /** @description Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000). */
+            max_query_cost?: number;
         };
         BackendServicesUpdate: {
             cors_origins?: string[];
+            exposed_schemas?: string[];
+            public_tables?: string[];
             settings?: components["schemas"]["BackendServicesSettings"];
         };
         BackendServicesEnabled: {
