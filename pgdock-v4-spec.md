@@ -674,6 +674,8 @@ Milestones continue from V3 (M17–M27). One engineer, roughly full time: about 
 
 Schema introspection and DDL-driven refresh; select with embeds, filters, JSON paths, ordering, cursor pagination, counts; single-row and POST query; RLS gate; error mapping; cost guard; OpenAPI per project. **Done when:** the RLS test suite's read cases pass for `anon`, two users, and `service`, and a table without RLS returns `rls_required`.
 
+*(As built: schema changes are detected by a catalog fingerprint checked inside requests, not an event trigger, which a restore by the project's owner couldn't recreate; materialized views need listing as public. See `docs/decisions.md`, V4-M29.)*
+
 ### M30 — Data API: writes, RPC, types (Weeks 6–7)
 
 Insert, upsert, update/delete with required filters and `max_affected`, batch transactions, RPC (GET for stable functions), type generation for TS/Dart/Go, request explorer, security advisor (first version), RLS policy helper in the table editor. **Done when:** a sample todo app runs end to end with only the publishable key and generated types.

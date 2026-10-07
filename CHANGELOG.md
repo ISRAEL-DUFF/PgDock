@@ -18,6 +18,15 @@ bundle share one version (spec §11.5).
   `GET /data/v1/health` is the first endpoint; the data API, auth, storage
   and realtime follow. See docs/backend-services.md.
 - New migration 00036 (backend services).
+- Data API reads (V4-M29): `GET https://<ref>.<domain>/data/v1/<table>`
+  with `select` (columns, JSON paths, related rows through foreign keys),
+  `where`/`or` filters, ordering, cursor pages and counts; one row by key;
+  `POST …/query` for nested filters; a per-project OpenAPI document. Tables
+  are readable with the publishable key only with row-level security (or
+  listed as public), so a forgotten policy fails closed. Schema changes are
+  picked up within seconds. Exposed schemas and public tables are in
+  Project → Settings → API. Backups, restores and promotions of projects
+  with backend services keep their `pgd_*` schemas and grants.
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a
