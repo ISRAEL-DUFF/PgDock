@@ -72,6 +72,47 @@ cd pgdock
 git checkout v2.1.0
 ```
 
+## Check the server first
+
+Before the installer, run the pre-flight check from the checkout. It changes
+nothing; it tells you what would stop the install:
+
+```sh
+cd deploy/compose
+./preflight.sh pgdock.example.com db.example.com
+```
+
+It checks the machine (Linux, CPUs, RAM, disk, clock), Docker and Compose,
+that both names resolve to this server's public address, that ports 80, 443,
+5432 and 6543 are free, and that the server can reach Let's Encrypt, Docker
+Hub and the package registries. To also test your backup bucket and mail
+server from here:
+
+```sh
+PGDOCK_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com \
+PGDOCK_SMTP_HOST=smtp.example.com PGDOCK_SMTP_PORT=587 \
+./preflight.sh pgdock.example.com db.example.com
+```
+
+Fix every **FAIL** and read each **WARN**. It can't see your cloud
+provider's firewall from inside the server: once PGDock is running, check
+from your laptop with `nc -vz <server address> 80 443 5432 6543`.
+
+**Small servers (4 GB RAM).** The shared cluster's defaults assume 8 GB.
+Lower them in `.env` before the first real use, and add swap so the image
+build can't run out of memory:
+
+```sh
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+# in deploy/compose/.env:
+SHARED_PG_SHARED_BUFFERS=768MB
+SHARED_PG_EFFECTIVE_CACHE_SIZE=2GB
+```
+
+Run the installer inside `tmux` or `screen`: on one CPU the first build takes
+10–25 minutes, and a dropped SSH session would stop it.
+
 ## 5. Run the installer
 
 <!-- docs-test -->
@@ -107,7 +148,12 @@ Every service should be `running` or `healthy`.
 Open `https://<your UI hostname>`. Caddy gets the UI's certificate on the
 first visit, which can take a few seconds. Then:
 
-1. **Setup code**: paste the code from the installer.
+1. **Setup code**: paste the code from the installer. It changes every time
+   `pgdock-server` restarts (including when you recreate it after editing
+   `.env`); the current one is always
+   `docker compose logs pgdock-server | grep setup_code | tail -1`. To keep
+   it fixed, set `PGDOCK_SETUP_CODE` in `.env`. (Before v2.1.1 the installer
+   printed the code without its trailing `=`: use the one from the log.)
 2. **Platform admin account**: your email and a long password, then scan
    the QR code with your authenticator app and enter a code. Every sign-in
    needs one.
@@ -123,6 +169,16 @@ first visit, which can take a few seconds. Then:
    `https://<account-id>.r2.cloudflarestorage.com`), bucket, region (`auto`
    for R2), access key, and secret. PGDock writes, reads, and deletes a test
    object before saving.
+   **Getting R2 credentials:** in Cloudflare, R2 Object Storage → API →
+   *Manage API tokens* → *Create API token*, permission **Object Read &
+   Write**, scoped to your backup bucket only. Copy the **Access Key ID** and
+   **Secret Access Key** it shows once (not the long "token value"). The
+   endpoint is the account's, `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`
+   (with `.eu.` for an EU-jurisdiction bucket), with no bucket name on the end
+   and not the public `r2.dev` address. A `403 AccessDenied` on "write" means
+   the token can't write to that bucket (read-only, or scoped elsewhere). If
+   you create a general API token instead, the Access Key ID is the token's ID
+   and the Secret Access Key is the SHA-256 of the token value.
 7. **Backup key**: PGDock generates the key that encrypts every backup.
    **Download it and store it offline**, then paste it back to confirm.
    Without it no backup can be restored, by you or anyone else.

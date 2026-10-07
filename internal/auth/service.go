@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -238,7 +239,7 @@ type setupPayload struct {
 // TOTP enrolment. Nothing is created until CompleteSetup proves the
 // authenticator works ("TOTP is enforced at first login").
 func (s *Service) BeginSetup(ctx context.Context, setupCode, email, password string) (Enrollment, error) {
-	if setupCode != s.setupCode {
+	if !SetupCodeMatches(setupCode, s.setupCode) {
 		return Enrollment{}, ErrBadSetupCode
 	}
 	needed, err := s.SetupNeeded(ctx)
@@ -695,4 +696,16 @@ func (s *Service) Sweep(ctx context.Context) error {
 		return err
 	}
 	return q.DeleteExpiredChallenges(ctx)
+}
+
+// normalizeSetupCode makes a typed or pasted setup code comparable: spaces,
+// "=" padding and letter case don't matter.
+func normalizeSetupCode(c string) string {
+	return strings.ToUpper(strings.NewReplacer("=", "", " ", "", "\t", "", "\n", "", "\r", "").Replace(c))
+}
+
+// SetupCodeMatches reports whether got is the setup code, in constant time.
+func SetupCodeMatches(got, want string) bool {
+	g, w := normalizeSetupCode(got), normalizeSetupCode(want)
+	return w != "" && subtle.ConstantTimeCompare([]byte(g), []byte(w)) == 1
 }
