@@ -242,7 +242,6 @@ func TestLagosHAResidency(t *testing.T) {
 	e.ConfigureBackups()
 	e.SetNodeRole("test", "dedicated")
 	ns := threeNodes(t, e, gen.CreateNodeRequestRoleDedicated)
-	setupEtcd(t, e, ns)
 	ctx := context.Background()
 	q := store.New(e.DB)
 
@@ -260,6 +259,8 @@ func TestLagosHAResidency(t *testing.T) {
 	if _, err := e.DB.Exec(ctx, `UPDATE nodes SET region = 'ng-lagos' WHERE id = ANY($1)`, ids); err != nil {
 		t.Fatal(err)
 	}
+	// Lagos's own etcd cluster (V3.1 §3.1).
+	setupEtcd(t, e, ns)
 	t.Cleanup(func() {
 		bg := context.Background()
 		_, _ = e.DB.Exec(bg, `UPDATE nodes SET region = 'eu-central' WHERE region = 'ng-lagos'`)

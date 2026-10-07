@@ -1,7 +1,10 @@
 package agentsvc
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -287,4 +290,101 @@ func (s *Service) removeEtcd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// etcdMembers lists, adds or removes cluster members through this node's
+// member (V3.1 §3.2), over etcd's JSON gateway with the client
+// certificate pgdock-server sends.
+func (s *Service) etcdMembers(w http.ResponseWriter, r *http.Request) {
+	var req agentapi.EtcdMembersRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	out, err := s.etcdMemberAction(r.Context(), req)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+type gwMember struct {
+	ID         string   `json:"ID"`
+	Name       string   `json:"name"`
+	PeerURLs   []string `json:"peerURLs"`
+	ClientURLs []string `json:"clientURLs"`
+}
+
+func (m gwMember) member() agentapi.EtcdClusterMember {
+	return agentapi.EtcdClusterMember{ID: m.ID, Name: m.Name, PeerURLs: m.PeerURLs, ClientURLs: m.ClientURLs}
+}
+
+func (s *Service) etcdMemberAction(ctx context.Context, req agentapi.EtcdMembersRequest) (agentapi.EtcdMembers, error) {
+	var body any
+	path := ""
+	switch req.Action {
+	case "list":
+		path, body = "/v3/cluster/member/list", map[string]any{}
+	case "add":
+		if !strings.HasPrefix(req.PeerURL, "https://") {
+			return agentapi.EtcdMembers{}, errors.New("add: an https peer URL is required")
+		}
+		path, body = "/v3/cluster/member/add", map[string]any{"peerURLs": []string{req.PeerURL}}
+	case "remove":
+		if _, err := strconv.ParseUint(req.MemberID, 10, 64); err != nil {
+			return agentapi.EtcdMembers{}, errors.New("remove: a member ID is required")
+		}
+		path, body = "/v3/cluster/member/remove", map[string]any{"ID": req.MemberID}
+	default:
+		return agentapi.EtcdMembers{}, fmt.Errorf("unknown action %q", req.Action)
+	}
+	pair, err := tls.X509KeyPair([]byte(req.CertPEM), []byte(req.KeyPEM))
+	if err != nil {
+		return agentapi.EtcdMembers{}, fmt.Errorf("client certificate: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM([]byte(req.CAPEM)) {
+		return agentapi.EtcdMembers{}, errors.New("bad CA certificate")
+	}
+	addr, err := s.etcdAddress()
+	if err != nil {
+		return agentapi.EtcdMembers{}, err
+	}
+	client := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{
+		Proxy:           nil,
+		TLSClientConfig: &tls.Config{RootCAs: pool, Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
+	}}
+	b, _ := json.Marshal(body)
+	u := "https://" + net.JoinHostPort(addr.Host, strconv.Itoa(addr.ClientPort)) + path
+	hreq, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(b))
+	if err != nil {
+		return agentapi.EtcdMembers{}, err
+	}
+	hreq.Header.Set("Content-Type", "application/json")
+	res, err := client.Do(hreq)
+	if err != nil {
+		return agentapi.EtcdMembers{}, fmt.Errorf("etcd %s: %w", req.Action, err)
+	}
+	defer res.Body.Close()
+	data, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if res.StatusCode != http.StatusOK {
+		return agentapi.EtcdMembers{}, fmt.Errorf("etcd %s: HTTP %d: %s", req.Action, res.StatusCode, strings.TrimSpace(string(data)))
+	}
+	var gw struct {
+		Member  *gwMember  `json:"member"`
+		Members []gwMember `json:"members"`
+	}
+	if err := json.Unmarshal(data, &gw); err != nil {
+		return agentapi.EtcdMembers{}, fmt.Errorf("etcd %s: %w", req.Action, err)
+	}
+	out := agentapi.EtcdMembers{Members: []agentapi.EtcdClusterMember{}}
+	for _, m := range gw.Members {
+		out.Members = append(out.Members, m.member())
+	}
+	if gw.Member != nil {
+		m := gw.Member.member()
+		out.Added = &m
+	}
+	return out, nil
 }

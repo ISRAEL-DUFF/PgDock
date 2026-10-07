@@ -15,6 +15,15 @@ bundle share one version (spec §11.5).
   existing groups that share one. Platform → Nodes. See
   docs/failure-domains.md.
 - New migration 00033 (failure domains).
+- etcd per region (V3.1-M2): each region gets its own etcd cluster, so a
+  region's HA failover depends only on that region. Platform → Nodes → etcd
+  cluster for HA has a region picker and **Replace…** on each member: a
+  dead or live member moves to another node in the region while the
+  cluster keeps its quorum, and draining a node moves its member
+  automatically. An HA project whose state is in another region's
+  cluster gets **Move to the region's etcd** on its HA card (one restart,
+  writes paused a few seconds). See docs/ha.md.
+- New migration 00034 (etcd per region).
 
 ### V3 (in progress, on feature/pgdock3)
 - Standby edge pooler: two pooler hosts behind a floating IP with

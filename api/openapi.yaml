@@ -1198,6 +1198,23 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/ha/etcd-move:
+    post:
+      operationId: moveProjectEtcd
+      summary: Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+      description: The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/switchover:
     post:
       operationId: switchoverProject
@@ -6810,8 +6827,15 @@ paths:
   /api/v1/admin/etcd:
     get:
       operationId: getEtcdCluster
-      summary: The etcd cluster HA instances keep their state in, and each member's health
+      summary: A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
       tags: [admin]
+      parameters:
+        - name: region
+          in: query
+          required: false
+          description: The region (default the home region).
+          schema:
+            type: string
       responses:
         "200":
           description: The cluster.
@@ -6823,7 +6847,7 @@ paths:
           $ref: "#/components/responses/Error"
     post:
       operationId: setupEtcdCluster
-      summary: Set up the etcd cluster, one member on each of three nodes
+      summary: Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
       tags: [admin]
       requestBody:
         required: true
@@ -6834,6 +6858,34 @@ paths:
       responses:
         "202":
           description: The setup operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/etcd/members/{node_id}/replace:
+    post:
+      operationId: replaceEtcdMember
+      summary: Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+      description: The other members must be healthy. The cluster keeps its quorum throughout.
+      tags: [admin]
+      parameters:
+        - name: node_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EtcdReplaceRequest"
+      responses:
+        "202":
+          description: The replacement operation.
           content:
             application/json:
               schema:
@@ -8675,10 +8727,26 @@ components:
           type: string
           format: date-time
           nullable: true
+        region:
+          type: string
+    EtcdReplaceRequest:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+          description: Where the new member goes (default the least loaded eligible node in the region).
     EtcdCluster:
       type: object
       required: [members, ready]
       properties:
+        region:
+          type: string
+        regions:
+          type: array
+          items:
+            type: string
+          description: Regions that have an etcd cluster.
         members:
           type: array
           items:
@@ -8794,6 +8862,13 @@ components:
       type: object
       required: [enabled, synchronous, members, failovers]
       properties:
+        etcd_region:
+          type: string
+          nullable: true
+          description: The region whose etcd cluster holds the project's Patroni state.
+        etcd_move_available:
+          type: boolean
+          description: The project's region has its own ready etcd cluster that the project doesn't use yet.
         enabled:
           type: boolean
         synchronous:
@@ -12812,6 +12887,13 @@ components:
           $ref: "#/components/schemas/Node"
         moves:
           type: integer
+        etcd_replacement:
+          type: string
+          format: uuid
+          description: The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+        warning:
+          type: string
+          description: E.g. the node holds an etcd member that couldn't be moved yet.
     NodeCost:
       type: object
       required: [currency]

@@ -4485,8 +4485,13 @@ type DnsCheck struct {
 
 // DrainResult defines model for DrainResult.
 type DrainResult struct {
-	Moves int  `json:"moves"`
-	Node  Node `json:"node"`
+	// EtcdReplacement The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+	EtcdReplacement *openapi_types.UUID `json:"etcd_replacement,omitempty"`
+	Moves           int                 `json:"moves"`
+	Node            Node                `json:"node"`
+
+	// Warning E.g. the node holds an etcd member that couldn't be moved yet.
+	Warning *string `json:"warning,omitempty"`
 }
 
 // DuplicateIndex defines model for DuplicateIndex.
@@ -4559,6 +4564,10 @@ type EtcdCluster struct {
 
 	// Reason Why it isn't ready.
 	Reason *string `json:"reason,omitempty"`
+	Region *string `json:"region,omitempty"`
+
+	// Regions Regions that have an etcd cluster.
+	Regions *[]string `json:"regions,omitempty"`
 }
 
 // EtcdMember defines model for EtcdMember.
@@ -4569,11 +4578,18 @@ type EtcdMember struct {
 	Name      string             `json:"name"`
 	NodeId    openapi_types.UUID `json:"node_id"`
 	NodeName  string             `json:"node_name"`
+	Region    *string            `json:"region,omitempty"`
 	Status    EtcdMemberStatus   `json:"status"`
 }
 
 // EtcdMemberStatus defines model for EtcdMember.Status.
 type EtcdMemberStatus string
+
+// EtcdReplaceRequest defines model for EtcdReplaceRequest.
+type EtcdReplaceRequest struct {
+	// NodeId Where the new member goes (default the least loaded eligible node in the region).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+}
 
 // EtcdSetupRequest defines model for EtcdSetupRequest.
 type EtcdSetupRequest struct {
@@ -4712,11 +4728,17 @@ type HAMemberRole string
 
 // HAStatus defines model for HAStatus.
 type HAStatus struct {
-	Availability *Availability   `json:"availability,omitempty"`
-	Enabled      bool            `json:"enabled"`
-	Failovers    []FailoverEvent `json:"failovers"`
-	Members      []HAMember      `json:"members"`
-	Synchronous  bool            `json:"synchronous"`
+	Availability *Availability `json:"availability,omitempty"`
+	Enabled      bool          `json:"enabled"`
+
+	// EtcdMoveAvailable The project's region has its own ready etcd cluster that the project doesn't use yet.
+	EtcdMoveAvailable *bool `json:"etcd_move_available,omitempty"`
+
+	// EtcdRegion The region whose etcd cluster holds the project's Patroni state.
+	EtcdRegion  *string         `json:"etcd_region,omitempty"`
+	Failovers   []FailoverEvent `json:"failovers"`
+	Members     []HAMember      `json:"members"`
+	Synchronous bool            `json:"synchronous"`
 }
 
 // HAUpdateRequest defines model for HAUpdateRequest.
@@ -8024,6 +8046,12 @@ type ListDedicatedRequestsParams struct {
 // ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParamsStatus string
 
+// GetEtcdClusterParams defines parameters for GetEtcdCluster.
+type GetEtcdClusterParams struct {
+	// Region The region (default the home region).
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
+
 // AdminListInvoicesParams defines parameters for AdminListInvoices.
 type AdminListInvoicesParams struct {
 	Status *AdminListInvoicesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -8500,6 +8528,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 
 // SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
 type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
+
+// ReplaceEtcdMemberJSONRequestBody defines body for ReplaceEtcdMember for application/json ContentType.
+type ReplaceEtcdMemberJSONRequestBody = EtcdReplaceRequest
 
 // SetFXRateJSONRequestBody defines body for SetFXRate for application/json ContentType.
 type SetFXRateJSONRequestBody = FXRateInput
@@ -9128,24 +9159,42 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequest(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+	// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 	//
 	// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-	GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetEtcdCluster(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SetupEtcdClusterWithBody Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdClusterWithBody Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceEtcdMemberWithBody Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMemberWithBody(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMember(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
 	//
@@ -11277,6 +11326,13 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 	EnableProjectHA(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+	//
+	// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+	MoveProjectEtcd(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
 	//
 	// Corresponds with GET /api/v1/projects/{id}/insights/bloat (the `GetInsightBloat` operationId).
@@ -12819,11 +12875,11 @@ func (c *Client) RejectDedicatedRequest(ctx context.Context, requestId RequestID
 	return c.Client.Do(req)
 }
 
-// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 //
 // Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-func (c *Client) GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetEtcdClusterRequest(c.Server)
+func (c *Client) GetEtcdCluster(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEtcdClusterRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12834,7 +12890,7 @@ func (c *Client) GetEtcdCluster(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
-// SetupEtcdClusterWithBody Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdClusterWithBody Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes any type of body and a specified content type.
 //
@@ -12851,13 +12907,51 @@ func (c *Client) SetupEtcdClusterWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 func (c *Client) SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetupEtcdClusterRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceEtcdMemberWithBody Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *Client) ReplaceEtcdMemberWithBody(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceEtcdMemberRequestWithBody(c.Server, nodeId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *Client) ReplaceEtcdMember(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceEtcdMemberRequest(c.Server, nodeId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18028,6 +18122,23 @@ func (c *Client) EnableProjectHA(ctx context.Context, id ProjectID, body EnableP
 	return c.Client.Do(req)
 }
 
+// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+//
+// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+//
+// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+func (c *Client) MoveProjectEtcd(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveProjectEtcdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
 //
 // Corresponds with GET /api/v1/projects/{id}/insights/bloat (the `GetInsightBloat` operationId).
@@ -21363,7 +21474,7 @@ func NewRejectDedicatedRequestRequestWithBody(server string, requestId RequestID
 }
 
 // NewGetEtcdClusterRequest constructs an http.Request for the GetEtcdCluster method
-func NewGetEtcdClusterRequest(server string) (*http.Request, error) {
+func NewGetEtcdClusterRequest(server string, params *GetEtcdClusterParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -21379,6 +21490,33 @@ func NewGetEtcdClusterRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -21410,6 +21548,53 @@ func NewSetupEtcdClusterRequestWithBody(server string, contentType string, body 
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/admin/etcd")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReplaceEtcdMemberRequest calls the generic ReplaceEtcdMember builder with application/json body
+func NewReplaceEtcdMemberRequest(server string, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceEtcdMemberRequestWithBody(server, nodeId, "application/json", bodyReader)
+}
+
+// NewReplaceEtcdMemberRequestWithBody constructs an http.Request for the ReplaceEtcdMember method, with any body, and a specified content type
+func NewReplaceEtcdMemberRequestWithBody(server string, nodeId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "node_id", nodeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/etcd/members/%s/replace", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -30425,6 +30610,40 @@ func NewEnableProjectHARequestWithBody(server string, id ProjectID, contentType 
 	return req, nil
 }
 
+// NewMoveProjectEtcdRequest constructs an http.Request for the MoveProjectEtcd method
+func NewMoveProjectEtcdRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/ha/etcd-move", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetInsightBloatRequest constructs an http.Request for the GetInsightBloat method
 func NewGetInsightBloatRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -35081,26 +35300,44 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/dedicated-requests/{request_id}/reject (the `RejectDedicatedRequest` operationId).
 	RejectDedicatedRequestWithResponse(ctx context.Context, requestId RequestID, body RejectDedicatedRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectDedicatedRequestResponse, error)
 
-	// GetEtcdClusterWithResponse The etcd cluster HA instances keep their state in, and each member's health
+	// GetEtcdClusterWithResponse A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-	GetEtcdClusterWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error)
+	GetEtcdClusterWithResponse(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error)
 
-	// SetupEtcdClusterWithBodyWithResponse Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdClusterWithBodyWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
 
-	// SetupEtcdClusterWithResponse Set up the etcd cluster, one member on each of three nodes
+	// SetupEtcdClusterWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithResponse(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
+
+	// ReplaceEtcdMemberWithBodyWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMemberWithBodyWithResponse(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error)
+
+	// ReplaceEtcdMemberWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	//
+	// The other members must be healthy. The cluster keeps its quorum throughout.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+	ReplaceEtcdMemberWithResponse(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error)
 
 	// ListFailureDomainProblemsWithResponse HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
 	//
@@ -37478,6 +37715,15 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/ha (the `EnableProjectHA` operationId).
 	EnableProjectHAWithResponse(ctx context.Context, id ProjectID, body EnableProjectHAJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectHAResponse, error)
 
+	// MoveProjectEtcdWithResponse Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+	//
+	// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+	MoveProjectEtcdWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*MoveProjectEtcdResponse, error)
+
 	// GetInsightBloatWithResponse Estimated table bloat (reclaim it with reclaim-space)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -39711,6 +39957,54 @@ func (r SetupEtcdClusterResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetupEtcdClusterResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReplaceEtcdMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ReplaceEtcdMemberResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ReplaceEtcdMemberResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ReplaceEtcdMemberResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplaceEtcdMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplaceEtcdMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReplaceEtcdMemberResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49826,6 +50120,54 @@ func (r EnableProjectHAResponse) ContentType() string {
 	return ""
 }
 
+type MoveProjectEtcdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r MoveProjectEtcdResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r MoveProjectEtcdResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r MoveProjectEtcdResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MoveProjectEtcdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MoveProjectEtcdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MoveProjectEtcdResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetInsightBloatResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54791,20 +55133,20 @@ func (c *ClientWithResponses) RejectDedicatedRequestWithResponse(ctx context.Con
 	return ParseRejectDedicatedRequestResponse(rsp)
 }
 
-// GetEtcdClusterWithResponse The etcd cluster HA instances keep their state in, and each member's health
+// GetEtcdClusterWithResponse A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 //
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /api/v1/admin/etcd (the `GetEtcdCluster` operationId).
-func (c *ClientWithResponses) GetEtcdClusterWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error) {
-	rsp, err := c.GetEtcdCluster(ctx, reqEditors...)
+func (c *ClientWithResponses) GetEtcdClusterWithResponse(ctx context.Context, params *GetEtcdClusterParams, reqEditors ...RequestEditorFn) (*GetEtcdClusterResponse, error) {
+	rsp, err := c.GetEtcdCluster(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseGetEtcdClusterResponse(rsp)
 }
 
-// SetupEtcdClusterWithBodyWithResponse Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdClusterWithBodyWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -54817,7 +55159,7 @@ func (c *ClientWithResponses) SetupEtcdClusterWithBodyWithResponse(ctx context.C
 	return ParseSetupEtcdClusterResponse(rsp)
 }
 
-// SetupEtcdClusterWithResponse Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdClusterWithResponse Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -54828,6 +55170,36 @@ func (c *ClientWithResponses) SetupEtcdClusterWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseSetupEtcdClusterResponse(rsp)
+}
+
+// ReplaceEtcdMemberWithBodyWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *ClientWithResponses) ReplaceEtcdMemberWithBodyWithResponse(ctx context.Context, nodeId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error) {
+	rsp, err := c.ReplaceEtcdMemberWithBody(ctx, nodeId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceEtcdMemberResponse(rsp)
+}
+
+// ReplaceEtcdMemberWithResponse Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+//
+// The other members must be healthy. The cluster keeps its quorum throughout.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/etcd/members/{node_id}/replace (the `ReplaceEtcdMember` operationId).
+func (c *ClientWithResponses) ReplaceEtcdMemberWithResponse(ctx context.Context, nodeId openapi_types.UUID, body ReplaceEtcdMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceEtcdMemberResponse, error) {
+	rsp, err := c.ReplaceEtcdMember(ctx, nodeId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceEtcdMemberResponse(rsp)
 }
 
 // ListFailureDomainProblemsWithResponse HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
@@ -59024,6 +59396,21 @@ func (c *ClientWithResponses) EnableProjectHAWithResponse(ctx context.Context, i
 	return ParseEnableProjectHAResponse(rsp)
 }
 
+// MoveProjectEtcdWithResponse Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+//
+// The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/ha/etcd-move (the `MoveProjectEtcd` operationId).
+func (c *ClientWithResponses) MoveProjectEtcdWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*MoveProjectEtcdResponse, error) {
+	rsp, err := c.MoveProjectEtcd(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveProjectEtcdResponse(rsp)
+}
+
 // GetInsightBloatWithResponse Estimated table bloat (reclaim it with reclaim-space)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -61767,6 +62154,39 @@ func ParseSetupEtcdClusterResponse(rsp *http.Response) (*SetupEtcdClusterRespons
 	}
 
 	response := &SetupEtcdClusterResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReplaceEtcdMemberResponse parses an HTTP response from a ReplaceEtcdMemberWithResponse call
+func ParseReplaceEtcdMemberResponse(rsp *http.Response) (*ReplaceEtcdMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplaceEtcdMemberResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -68730,6 +69150,39 @@ func ParseEnableProjectHAResponse(rsp *http.Response) (*EnableProjectHAResponse,
 	}
 
 	response := &EnableProjectHAResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMoveProjectEtcdResponse parses an HTTP response from a MoveProjectEtcdWithResponse call
+func ParseMoveProjectEtcdResponse(rsp *http.Response) (*MoveProjectEtcdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MoveProjectEtcdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

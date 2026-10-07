@@ -709,7 +709,16 @@ export const api = {
     request<Operation>("POST", `/api/v1/projects/${id}/switchover`, {
       candidate,
     }),
-  etcd: () => getJSON<EtcdCluster>("/api/v1/admin/etcd"),
+  etcd: (region?: string) =>
+    getJSON<EtcdCluster>(`/api/v1/admin/etcd${qs({ region })}`),
+  replaceEtcdMember: (node: string, to?: string) =>
+    request<Operation>(
+      "POST",
+      `/api/v1/admin/etcd/members/${node}/replace`,
+      to ? { node_id: to } : {},
+    ),
+  moveProjectEtcd: (id: string) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/ha/etcd-move`),
   setupEtcd: (node_ids: string[]) =>
     request<Operation>("POST", "/api/v1/admin/etcd", { node_ids }),
   maintenance: () => getJSON<MaintenanceStatus>("/api/v1/admin/maintenance"),

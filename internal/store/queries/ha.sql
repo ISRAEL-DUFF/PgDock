@@ -1,18 +1,39 @@
 -- name: ListEtcdMembers :many
+-- tenant: system - platform infrastructure (the etcd clusters, every region).
+SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id ORDER BY e.region, e.created_at, e.name;
+
+-- name: ListRegionEtcdMembers :many
+-- tenant: system - platform infrastructure (one region's etcd cluster).
+SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id
+WHERE e.region = @region ORDER BY e.created_at, e.name;
+
+-- name: GetEtcdMember :one
 -- tenant: system - platform infrastructure (the etcd cluster).
-SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id ORDER BY e.created_at, e.name;
+SELECT e.*, n.name AS node_name FROM etcd_members e JOIN nodes n ON n.id = e.node_id WHERE e.node_id = @node_id;
 
 -- name: InsertEtcdMember :exec
 -- tenant: system - platform infrastructure (the etcd cluster).
-INSERT INTO etcd_members (node_id, name, client_url, peer_url) VALUES (@node_id, @name, @client_url, @peer_url);
+INSERT INTO etcd_members (node_id, name, client_url, peer_url, region) VALUES (@node_id, @name, @client_url, @peer_url, @region);
 
 -- name: SetEtcdMemberStatus :exec
 -- tenant: system - platform infrastructure (the etcd cluster).
 UPDATE etcd_members SET status = @status, error = sqlc.narg(error), checked_at = now() WHERE node_id = @node_id;
 
--- name: DeleteEtcdMembers :exec
--- tenant: system - platform infrastructure (the etcd cluster).
-DELETE FROM etcd_members;
+-- name: DeleteRegionEtcdMembers :exec
+-- tenant: system - platform infrastructure (one region's etcd cluster).
+DELETE FROM etcd_members WHERE region = @region;
+
+-- name: DeleteEtcdMember :exec
+-- tenant: system - platform infrastructure (a replaced etcd member).
+DELETE FROM etcd_members WHERE node_id = @node_id;
+
+-- name: SetInstanceEtcdRegion :exec
+-- tenant: system - which region's etcd cluster an HA instance's Patroni uses.
+UPDATE instances SET etcd_region = sqlc.narg(etcd_region) WHERE id = @id;
+
+-- name: EtcdRegionInstances :many
+-- tenant: system - the instances under Patroni whose state is in a region's etcd cluster.
+SELECT * FROM instances WHERE patroni AND deleted_at IS NULL AND etcd_region = @region ORDER BY created_at;
 
 -- name: InsertInstanceMember :one
 -- tenant: system - HA members of an instance the caller already resolved.

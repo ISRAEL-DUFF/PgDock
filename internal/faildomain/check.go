@@ -77,20 +77,25 @@ func Check(ctx context.Context, q *store.Queries) ([]Problem, error) {
 		add(GroupHAPair, region, "ha:"+inst.ID.String(), project, ns, "the primary and standby of "+name)
 	}
 
-	// The etcd members.
+	// Each region's etcd members.
 	members, err := q.ListEtcdMembers(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var etcd []store.Node
-	region := ""
+	etcd := map[string][]store.Node{}
+	var etcdRegions []string
 	for _, m := range members {
 		if n, ok := byID[m.NodeID]; ok {
-			etcd = append(etcd, n)
-			region = n.Region
+			if _, seen := etcd[m.Region]; !seen {
+				etcdRegions = append(etcdRegions, m.Region)
+			}
+			etcd[m.Region] = append(etcd[m.Region], n)
 		}
 	}
-	add(GroupEtcd, region, "etcd", nil, etcd, "etcd members")
+	for _, r := range etcdRegions {
+		key := "etcd:" + r
+		add(GroupEtcd, r, key, nil, etcd[r], r+"'s etcd members")
+	}
 
 	// Each region's pooler hosts.
 	hosts, err := q.PoolerHosts(ctx)

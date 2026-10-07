@@ -165,6 +165,16 @@ export function HACard({ p }: { p: Project }) {
               </span>
             </label>
             <div className="ml-auto flex gap-2">
+              {st.etcd_move_available && (
+                <Button
+                  onClick={() => run("etcd", () => api.moveProjectEtcd(p.id))}
+                  busy={busy === "etcd"}
+                  disabled={busyStatus}
+                  title={`Its Patroni state is in ${st.etcd_region}'s etcd cluster; move it to its own region's (writes pause once, for a few seconds).`}
+                >
+                  Move to the region's etcd
+                </Button>
+              )}
               <Button
                 onClick={() => run("switchover", () => api.switchover(p.id))}
                 busy={busy === "switchover"}
@@ -303,7 +313,13 @@ export function HACard({ p }: { p: Project }) {
             what="HA"
             req={
               p.instance?.cpus != null
-                ? { cpus: p.instance.cpus, memory_mb: p.instance.memory_mb ?? 0, disk_gb: p.instance.volume_gb ?? 0, standby_only: true, synchronous: sync }
+                ? {
+                    cpus: p.instance.cpus,
+                    memory_mb: p.instance.memory_mb ?? 0,
+                    disk_gb: p.instance.volume_gb ?? 0,
+                    standby_only: true,
+                    synchronous: sync,
+                  }
                 : null
             }
           />

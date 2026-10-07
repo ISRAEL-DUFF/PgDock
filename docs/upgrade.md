@@ -194,6 +194,12 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   placement groups that PGDock creates; the API token needs to be able to
   manage placement groups (a read-and-write token can). See
   [Failure domains](failure-domains.md).
+- **etcd per region** (migration 00034): the existing etcd cluster becomes
+  its nodes' region's cluster, and every HA instance is recorded as using
+  it. Set up a cluster in each other region with HA projects (Platform →
+  Nodes → etcd cluster for HA, pick the region), then use **Move to the
+  region's etcd** on each of those projects' HA cards. Upgrade the agents
+  with the server: member replacement uses a new agent endpoint.
 
 ## Rolling back
 

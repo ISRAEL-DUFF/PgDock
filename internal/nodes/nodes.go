@@ -63,6 +63,9 @@ type Status struct {
 // SetHomeRegion sets the region nodes are added to when none is named.
 func (s *Service) SetHomeRegion(r string) { s.home = r }
 
+// HomeRegion is the home region (V3 §6.1), or "eu-central" when unset.
+func (s *Service) HomeRegion() string { return s.regionOr("") }
+
 func (s *Service) regionOr(r string) string {
 	if r = strings.TrimSpace(r); r != "" {
 		return r

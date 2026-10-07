@@ -2,7 +2,10 @@ package api
 
 import (
 	"net/http"
+	"slices"
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/dedicated"
@@ -24,22 +27,34 @@ func (s *Server) etcdSvc(w http.ResponseWriter) *ha.Service {
 }
 
 // GetEtcdCluster implements GET /api/v1/admin/etcd.
-func (s *Server) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GetEtcdCluster(w http.ResponseWriter, r *http.Request, params gen.GetEtcdClusterParams) {
 	es := s.etcdSvc(w)
 	if es == nil {
 		return
+	}
+	region := s.nodes.HomeRegion()
+	if params.Region != nil && *params.Region != "" {
+		region = *params.Region
 	}
 	ms, err := es.Refresh(r.Context())
 	if err != nil {
 		s.internalError(w, "etcd members", err)
 		return
 	}
-	out := gen.EtcdCluster{Members: []gen.EtcdMember{}, Ready: true}
+	regions := []string{}
+	out := gen.EtcdCluster{Members: []gen.EtcdMember{}, Ready: true, Region: &region, Regions: &regions}
 	for _, m := range ms {
+		if !slices.Contains(regions, m.Region) {
+			regions = append(regions, m.Region)
+		}
+		if m.Region != region {
+			continue
+		}
+		rg := m.Region
 		out.Members = append(out.Members, gen.EtcdMember{NodeId: m.NodeID, NodeName: m.NodeName, Name: m.Name, ClientUrl: m.ClientUrl,
-			Status: gen.EtcdMemberStatus(m.Status), Error: m.Error, CheckedAt: m.CheckedAt})
+			Status: gen.EtcdMemberStatus(m.Status), Error: m.Error, CheckedAt: m.CheckedAt, Region: &rg})
 	}
-	if err := es.Ready(r.Context()); err != nil {
+	if err := es.Ready(r.Context(), region); err != nil {
 		msg := err.Error()
 		out.Ready, out.Reason = false, &msg
 	}
@@ -66,6 +81,44 @@ func (s *Server) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
 	s.writeOperation(w, "etcd setup", op)
 }
 
+// ReplaceEtcdMember implements POST /api/v1/admin/etcd/members/{node_id}/replace.
+func (s *Server) ReplaceEtcdMember(w http.ResponseWriter, r *http.Request, nodeID openapi_types.UUID) {
+	es := s.etcdSvc(w)
+	if es == nil {
+		return
+	}
+	var req gen.EtcdReplaceRequest
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("node", nodeID.String())
+	if req.NodeId != nil {
+		a.set("to_node", req.NodeId.String())
+	}
+	op, err := es.Replace(r.Context(), nodeID, req.NodeId, userID(r.Context()))
+	if err != nil {
+		s.provisionError(w, "replace etcd member", err)
+		return
+	}
+	s.writeOperation(w, "replace etcd member", op)
+}
+
+// MoveProjectEtcd implements POST /api/v1/projects/{id}/ha/etcd-move.
+func (s *Server) MoveProjectEtcd(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil {
+		return
+	}
+	auditFrom(r.Context()).target("project", id.String())
+	op, err := ds.MoveToRegionEtcd(r.Context(), id, userID(r.Context()))
+	if err != nil {
+		s.provisionError(w, "move to the region's etcd", err)
+		return
+	}
+	s.writeOperation(w, "move to the region's etcd", op)
+}
+
 func (s *Server) haStatus(w http.ResponseWriter, r *http.Request, id gen.ProjectID) (gen.HAStatus, bool) {
 	ctx := r.Context()
 	q := store.New(s.db)
@@ -80,6 +133,14 @@ func (s *Server) haStatus(w http.ResponseWriter, r *http.Request, id gen.Project
 		return gen.HAStatus{}, false
 	}
 	out := gen.HAStatus{Enabled: inst.HaEnabled, Synchronous: inst.SyncReplication, Members: []gen.HAMember{}, Failovers: []gen.FailoverEvent{}}
+	if ds := s.backups; ds != nil && ds.Dedicated != nil && inst.Patroni {
+		// Which region's etcd cluster holds its state (V3.1 §3).
+		if cur, want, err := ds.Dedicated.EtcdRegionOf(ctx, p); err == nil {
+			out.EtcdRegion = &cur
+			movable := cur != want && ds.Dedicated.Etcd != nil && ds.Dedicated.Etcd.Ready(ctx, want) == nil
+			out.EtcdMoveAvailable = &movable
+		}
+	}
 	ms, err := q.ListInstanceMembers(ctx, inst.ID)
 	if err != nil {
 		s.internalError(w, "HA members", err)

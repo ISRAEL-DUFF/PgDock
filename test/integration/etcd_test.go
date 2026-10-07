@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -74,7 +75,11 @@ func setupEtcd(t *testing.T, e *testenv.Env, ns []gen.Node) gen.EtcdCluster {
 		t.Fatalf("etcd setup: %s %s\n%s", op.Status, deref(op.Error), testenv.FormatLog(op))
 	}
 	var c gen.EtcdCluster
-	if code := e.Do("GET", "/api/v1/admin/etcd", nil, &c); code != http.StatusOK || !c.Ready || len(c.Members) != 3 {
+	var region string
+	if err := e.DB.QueryRow(context.Background(), `SELECT region FROM nodes WHERE id = $1`, ns[0].Id).Scan(&region); err != nil {
+		t.Fatal(err)
+	}
+	if code := e.Do("GET", "/api/v1/admin/etcd?region="+region, nil, &c); code != http.StatusOK || !c.Ready || len(c.Members) != 3 {
 		t.Fatalf("etcd cluster: %d %+v", code, c)
 	}
 	return c

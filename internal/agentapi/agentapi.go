@@ -34,6 +34,7 @@ const (
 	// The node's etcd member (V3 §2.2).
 	PathEtcd        = "/v1/etcd"
 	PathEtcdAddress = "/v1/etcd/address"
+	PathEtcdMembers = "/v1/etcd/members"
 )
 
 // PGConn is how the agent reaches a Postgres server. Passwords travel only
@@ -392,6 +393,34 @@ type EtcdSpec struct {
 	// Wipe removes the member's data first (rejoining after "member
 	// remove").
 	Wipe bool `json:"wipe,omitempty"`
+}
+
+// EtcdMembersRequest is POST /v1/etcd/members: list, add or remove members
+// of the cluster through this node's member (V3.1 §3.2), as a client with
+// the certificate given.
+type EtcdMembersRequest struct {
+	Action   string `json:"action"` // list, add, remove
+	PeerURL  string `json:"peer_url,omitempty"`
+	MemberID string `json:"member_id,omitempty"`
+	CAPEM    string `json:"ca_pem"`
+	CertPEM  string `json:"cert_pem"`
+	KeyPEM   string `json:"key_pem"`
+}
+
+// EtcdClusterMember is a member as the cluster lists it. A member added
+// but not started yet has no name.
+type EtcdClusterMember struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	PeerURLs   []string `json:"peer_urls"`
+	ClientURLs []string `json:"client_urls"`
+}
+
+// EtcdMembers is the cluster's members after the action.
+type EtcdMembers struct {
+	Members []EtcdClusterMember `json:"members"`
+	// Added is the member an add created.
+	Added *EtcdClusterMember `json:"added,omitempty"`
 }
 
 // Etcd is the state of the node's etcd member.

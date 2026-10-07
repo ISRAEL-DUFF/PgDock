@@ -960,6 +960,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/ha/etcd-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+         * @description The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+         */
+        post: operations["moveProjectEtcd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/switchover": {
         parameters: {
             query?: never;
@@ -4878,11 +4898,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The etcd cluster HA instances keep their state in, and each member's health */
+        /** A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1) */
         get: operations["getEtcdCluster"];
         put?: never;
-        /** Set up the etcd cluster, one member on each of three nodes */
+        /** Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains */
         post: operations["setupEtcdCluster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/etcd/members/{node_id}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+         * @description The other members must be healthy. The cluster keeps its quorum throughout.
+         */
+        post: operations["replaceEtcdMember"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5792,8 +5832,19 @@ export interface components {
             error?: string | null;
             /** Format: date-time */
             checked_at?: string | null;
+            region?: string;
+        };
+        EtcdReplaceRequest: {
+            /**
+             * Format: uuid
+             * @description Where the new member goes (default the least loaded eligible node in the region).
+             */
+            node_id?: string;
         };
         EtcdCluster: {
+            region?: string;
+            /** @description Regions that have an etcd cluster. */
+            regions?: string[];
             members: components["schemas"]["EtcdMember"][];
             /** @description Set up, with a quorum of healthy members. */
             ready: boolean;
@@ -5858,6 +5909,10 @@ export interface components {
             external_ok?: boolean | null;
         };
         HAStatus: {
+            /** @description The region whose etcd cluster holds the project's Patroni state. */
+            etcd_region?: string | null;
+            /** @description The project's region has its own ready etcd cluster that the project doesn't use yet. */
+            etcd_move_available?: boolean;
             enabled: boolean;
             synchronous: boolean;
             members: components["schemas"]["HAMember"][];
@@ -7965,6 +8020,13 @@ export interface components {
         DrainResult: {
             node: components["schemas"]["Node"];
             moves: number;
+            /**
+             * Format: uuid
+             * @description The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+             */
+            etcd_replacement?: string;
+            /** @description E.g. the node holds an etcd member that couldn't be moved yet. */
+            warning?: string;
         };
         NodeCost: {
             /** Format: int64 */
@@ -10244,6 +10306,29 @@ export interface operations {
         };
     };
     resumeProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveProjectEtcd: {
         parameters: {
             query?: never;
             header?: never;
@@ -17170,7 +17255,10 @@ export interface operations {
     };
     getEtcdCluster: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The region (default the home region). */
+                region?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17203,6 +17291,33 @@ export interface operations {
         };
         responses: {
             /** @description The setup operation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replaceEtcdMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EtcdReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description The replacement operation. */
             202: {
                 headers: {
                     [name: string]: unknown;

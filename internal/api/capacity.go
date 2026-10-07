@@ -310,7 +310,20 @@ func (s *Server) DrainNode(w http.ResponseWriter, r *http.Request, id gen.NodeID
 	a := auditFrom(r.Context())
 	a.target("node", id.String())
 	a.set("moves", moves)
-	writeJSON(w, http.StatusOK, gen.DrainResult{Node: s.toAPINode(n), Moves: moves})
+	out := gen.DrainResult{Node: s.toAPINode(n), Moves: moves}
+	// A node that is leaving takes no etcd member with it (V3.1 §3.2).
+	if ds := s.backups; ds != nil && ds.Dedicated != nil && ds.Dedicated.Etcd != nil {
+		op, err := ds.Dedicated.Etcd.ReplaceOnDrain(r.Context(), id)
+		switch {
+		case err != nil:
+			msg := "The node holds an etcd member that can't be moved yet: " + err.Error()
+			out.Warning = &msg
+		case op != nil:
+			out.EtcdReplacement = &op.ID
+			a.set("etcd_replacement", op.ID.String())
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // StopDrain implements DELETE /api/v1/nodes/{id}/drain.

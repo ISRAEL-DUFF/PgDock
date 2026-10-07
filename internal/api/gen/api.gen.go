@@ -4481,8 +4481,13 @@ type DnsCheck struct {
 
 // DrainResult defines model for DrainResult.
 type DrainResult struct {
-	Moves int  `json:"moves"`
-	Node  Node `json:"node"`
+	// EtcdReplacement The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+	EtcdReplacement *openapi_types.UUID `json:"etcd_replacement,omitempty"`
+	Moves           int                 `json:"moves"`
+	Node            Node                `json:"node"`
+
+	// Warning E.g. the node holds an etcd member that couldn't be moved yet.
+	Warning *string `json:"warning,omitempty"`
 }
 
 // DuplicateIndex defines model for DuplicateIndex.
@@ -4555,6 +4560,10 @@ type EtcdCluster struct {
 
 	// Reason Why it isn't ready.
 	Reason *string `json:"reason,omitempty"`
+	Region *string `json:"region,omitempty"`
+
+	// Regions Regions that have an etcd cluster.
+	Regions *[]string `json:"regions,omitempty"`
 }
 
 // EtcdMember defines model for EtcdMember.
@@ -4565,11 +4574,18 @@ type EtcdMember struct {
 	Name      string             `json:"name"`
 	NodeId    openapi_types.UUID `json:"node_id"`
 	NodeName  string             `json:"node_name"`
+	Region    *string            `json:"region,omitempty"`
 	Status    EtcdMemberStatus   `json:"status"`
 }
 
 // EtcdMemberStatus defines model for EtcdMember.Status.
 type EtcdMemberStatus string
+
+// EtcdReplaceRequest defines model for EtcdReplaceRequest.
+type EtcdReplaceRequest struct {
+	// NodeId Where the new member goes (default the least loaded eligible node in the region).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+}
 
 // EtcdSetupRequest defines model for EtcdSetupRequest.
 type EtcdSetupRequest struct {
@@ -4708,11 +4724,17 @@ type HAMemberRole string
 
 // HAStatus defines model for HAStatus.
 type HAStatus struct {
-	Availability *Availability   `json:"availability,omitempty"`
-	Enabled      bool            `json:"enabled"`
-	Failovers    []FailoverEvent `json:"failovers"`
-	Members      []HAMember      `json:"members"`
-	Synchronous  bool            `json:"synchronous"`
+	Availability *Availability `json:"availability,omitempty"`
+	Enabled      bool          `json:"enabled"`
+
+	// EtcdMoveAvailable The project's region has its own ready etcd cluster that the project doesn't use yet.
+	EtcdMoveAvailable *bool `json:"etcd_move_available,omitempty"`
+
+	// EtcdRegion The region whose etcd cluster holds the project's Patroni state.
+	EtcdRegion  *string         `json:"etcd_region,omitempty"`
+	Failovers   []FailoverEvent `json:"failovers"`
+	Members     []HAMember      `json:"members"`
+	Synchronous bool            `json:"synchronous"`
 }
 
 // HAUpdateRequest defines model for HAUpdateRequest.
@@ -8020,6 +8042,12 @@ type ListDedicatedRequestsParams struct {
 // ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParamsStatus string
 
+// GetEtcdClusterParams defines parameters for GetEtcdCluster.
+type GetEtcdClusterParams struct {
+	// Region The region (default the home region).
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
+
 // AdminListInvoicesParams defines parameters for AdminListInvoices.
 type AdminListInvoicesParams struct {
 	Status *AdminListInvoicesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -8497,6 +8525,9 @@ type RejectDedicatedRequestJSONRequestBody = DecideRequest
 // SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
 type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
 
+// ReplaceEtcdMemberJSONRequestBody defines body for ReplaceEtcdMember for application/json ContentType.
+type ReplaceEtcdMemberJSONRequestBody = EtcdReplaceRequest
+
 // SetFXRateJSONRequestBody defines body for SetFXRate for application/json ContentType.
 type SetFXRateJSONRequestBody = FXRateInput
 
@@ -8949,12 +8980,15 @@ type ServerInterface interface {
 	// RejectDedicatedRequest Reject a dedicated request (platform admin)
 	// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
 	RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
-	// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+	// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 	// (GET /api/v1/admin/etcd)
-	GetEtcdCluster(w http.ResponseWriter, r *http.Request)
-	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+	GetEtcdCluster(w http.ResponseWriter, r *http.Request, params GetEtcdClusterParams)
+	// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 	// (POST /api/v1/admin/etcd)
 	SetupEtcdCluster(w http.ResponseWriter, r *http.Request)
+	// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+	// (POST /api/v1/admin/etcd/members/{node_id}/replace)
+	ReplaceEtcdMember(w http.ResponseWriter, r *http.Request, nodeId openapi_types.UUID)
 	// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
 	// (GET /api/v1/admin/failure-domains)
 	ListFailureDomainProblems(w http.ResponseWriter, r *http.Request)
@@ -9597,6 +9631,9 @@ type ServerInterface interface {
 	// EnableProjectHA Turn HA on
 	// (POST /api/v1/projects/{id}/ha)
 	EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+	// (POST /api/v1/projects/{id}/ha/etcd-move)
+	MoveProjectEtcd(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
 	// (GET /api/v1/projects/{id}/insights/bloat)
 	GetInsightBloat(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -10011,15 +10048,21 @@ func (_ Unimplemented) RejectDedicatedRequest(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+// GetEtcdCluster A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1)
 // (GET /api/v1/admin/etcd)
-func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request, params GetEtcdClusterParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+// SetupEtcdCluster Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains
 // (POST /api/v1/admin/etcd)
 func (_ Unimplemented) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReplaceEtcdMember Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+// (POST /api/v1/admin/etcd/members/{node_id}/replace)
+func (_ Unimplemented) ReplaceEtcdMember(w http.ResponseWriter, r *http.Request, nodeId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11307,6 +11350,12 @@ func (_ Unimplemented) EnableProjectHA(w http.ResponseWriter, r *http.Request, i
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// MoveProjectEtcd Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+// (POST /api/v1/projects/{id}/ha/etcd-move)
+func (_ Unimplemented) MoveProjectEtcd(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
 // (GET /api/v1/projects/{id}/insights/bloat)
 func (_ Unimplemented) GetInsightBloat(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -12387,8 +12436,27 @@ func (siw *ServerInterfaceWrapper) RejectDedicatedRequest(w http.ResponseWriter,
 // GetEtcdCluster operation middleware
 func (siw *ServerInterfaceWrapper) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEtcdClusterParams
+
+	// ------------- Optional query parameter "region" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "region", r.URL.Query(), &params.Region, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "region"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetEtcdCluster(w, r)
+		siw.Handler.GetEtcdCluster(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12403,6 +12471,32 @@ func (siw *ServerInterfaceWrapper) SetupEtcdCluster(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetupEtcdCluster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplaceEtcdMember operation middleware
+func (siw *ServerInterfaceWrapper) ReplaceEtcdMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "node_id" -------------
+	var nodeId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "node_id", chi.URLParam(r, "node_id"), &nodeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "node_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplaceEtcdMember(w, r, nodeId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -18001,6 +18095,32 @@ func (siw *ServerInterfaceWrapper) EnableProjectHA(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// MoveProjectEtcd operation middleware
+func (siw *ServerInterfaceWrapper) MoveProjectEtcd(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveProjectEtcd(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetInsightBloat operation middleware
 func (siw *ServerInterfaceWrapper) GetInsightBloat(w http.ResponseWriter, r *http.Request) {
 
@@ -21192,6 +21312,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/resume", wrapper.ResumeProject)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/ha/etcd-move", wrapper.MoveProjectEtcd)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/switchover", wrapper.SwitchoverProject)
 	})
 	r.Group(func(r chi.Router) {
@@ -22012,6 +22135,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/etcd", wrapper.SetupEtcdCluster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/etcd/members/{node_id}/replace", wrapper.ReplaceEtcdMember)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/shared-clusters", wrapper.ListSharedClusters)

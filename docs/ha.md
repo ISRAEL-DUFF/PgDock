@@ -11,8 +11,10 @@ from two vantage points (§2.7).
 
 ## Setting up: the etcd cluster
 
-Once per platform, Admin → Nodes → **etcd cluster for HA**: pick three
-nodes with agents, ideally the control node and two others. PGDock starts
+Each region with HA projects has **its own** etcd cluster (V3.1-M2), so a
+region's failover depends only on that region. Platform → Nodes → **etcd
+cluster for HA**, choose the region, and pick three of its nodes with agents
+in three different failure domains. PGDock starts
 an etcd member on each (`gcr.io/etcd-development/etcd:v3.6.5`, pulled by
 the agent; `PGDOCK_AGENT_ETCD_IMAGE` overrides it). Clients and peers use
 TLS with certificates from PGDock's own etcd CA (separate from the agent
@@ -23,7 +25,48 @@ Members are reached at the node's address (`PGDOCK_AGENT_PUBLISH`, on
 ports 2379 and 2380) or, on a single Docker host, by name on the agent's
 network. Open 2379–2380 between the three nodes on the private network.
 
-API: `GET/POST /api/v1/admin/etcd`.
+API: `GET /api/v1/admin/etcd?region=<id>` (default the home region) and
+`POST /api/v1/admin/etcd` (the region is the nodes'). Every region's
+cluster uses the one platform etcd CA; clusters are kept apart by their
+members and tokens.
+
+### Replacing a member
+
+**Replace…** on a member (or `POST
+/api/v1/admin/etcd/members/{node_id}/replace`, optionally with
+`{"node_id": …}` for where the new member goes) runs an operation. By
+default the new member goes to the least loaded eligible node in the
+region: a healthy agent, not a pooler host, in service, and in a failure
+domain neither remaining member uses. The other two members must be
+healthy, or it is refused.
+
+- **A dead member** is removed from the cluster first, so the remaining
+  two keep a quorum of two. Then the new member is added and started, and
+  joins.
+- **A live member** (a node being drained) is the other way round: the new
+  member joins first, then the old one is removed, so the cluster never
+  has fewer than three.
+
+Writes and failover keep working throughout. Patroni learns the new member
+from the cluster, and member containers created afterwards are given the
+new list. **Draining** a node that holds a member starts this replacement
+by itself, and the drain response names the operation. If no node can take
+the member, the drain goes ahead and says so.
+
+### Moving a project onto its region's cluster
+
+A project whose Patroni state is in another region's cluster (Lagos
+projects set up under V3 used the home cluster) shows **Move to the
+region's etcd** on its HA card once its region has a ready cluster (`POST
+/api/v1/projects/{id}/ha/etcd-move`). The operation:
+
+1. removes the standby;
+2. restarts the primary on the new cluster with the poolers holding
+   clients (writes paused 5–7 seconds in the tests, with no client
+   errors);
+3. builds a new standby from the newest base backup.
+
+The project has no standby until step 3 finishes.
 
 The standby always goes on a node in another [failure
 domain](failure-domains.md) from the primary, and the etcd cluster's three
@@ -88,6 +131,12 @@ poolers only ever follow the member holding the lease.
 
 `TestChaosEtcdMemberLoss` covers all three, with a client writing
 throughout: no client errors, and every acknowledged commit kept.
+`TestEtcdPerRegionAndReplace` covers the rest, again with a writer running:
+- the EU cluster is lost;
+- a Lagos cluster is set up and the project moved onto it;
+- a member is destroyed and replaced;
+- a switchover is run;
+- a member is moved off a drained node.
 
 ## Switchover
 
@@ -141,8 +190,5 @@ has the minutes.
 
 ## Not yet
 
-- Replacing an etcd member (a dead etcd node) is manual: the cluster is set
-  up once, and PGDock doesn't yet re-run it while HA projects use it.
 - Excluding maintenance announced 72 hours ahead (V3 §2.7) from the
-  availability record.
-- Per-region etcd clusters (V3.1-M2).
+  availability record (V3.1-M3).

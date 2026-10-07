@@ -306,6 +306,7 @@ type EtcdMember struct {
 	Error     *string
 	CheckedAt *time.Time
 	CreatedAt time.Time
+	Region    string
 }
 
 type FailoverEvent struct {
@@ -385,6 +386,7 @@ type Instance struct {
 	Patroni            bool
 	LeaderMember       *uuid.UUID
 	PatroniSecret      []byte
+	EtcdRegion         *string
 }
 
 type InstanceMember struct {

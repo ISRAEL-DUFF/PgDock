@@ -123,8 +123,9 @@ only on Lagos.
 - On upgrade, the existing cluster becomes the home region's. Existing HA
   projects in other regions (possible in V3) keep using it until moved
   (§3.3), and the region page says so.
-- Each cluster has its own CA (as V3's does), its own client certificates
-  for Patroni, and its own alerts.
+- Every cluster uses the one platform etcd CA (as built: per-region CAs
+  would add no isolation, since pgdock-server holds every key, and one CA
+  keeps Patroni's certificates valid across a move).
 
 ### 3.2 Replacing a member
 
@@ -139,9 +140,9 @@ cluster's quorum throughout:
 3. Add the new member (`member add`), start etcd on the new node with
    `initial-cluster-state=existing`, and wait until it is healthy and
    caught up.
-4. Rewrite every Patroni member's etcd host list in the region (Patroni
-   reloads it without a restart) and wait until each reports the new
-   list.
+4. (As built: Patroni refreshes the member list from the cluster itself,
+   and containers created later get the new list, so running members'
+   configuration isn't rewritten.)
 5. Stop and remove the old member's container if its node answers;
    record the replacement.
 
@@ -159,20 +160,17 @@ automatically, to a node in an unused domain.
 ### 3.3 Moving a region's HA projects onto its own cluster
 
 For HA projects whose region has a new cluster of its own, **Move to the
-region's etcd** (per project, or all at once from the region page) is a
-planned operation:
+region's etcd** (per project, from its HA card) is a planned operation (as
+built):
 
-1. Pause the project's poolers (as a switchover does).
-2. Stop Patroni on the standby, then the primary (the primary's
-   Postgres keeps running under Patroni's `pause` mode, so writes stop
-   only for the pooler pause).
-3. Write the cluster's state (leader, config, members) into the new etcd,
-   point both members at it, and start Patroni on the primary, then the
-   standby.
-4. Resume the poolers.
+1. Remove the standby.
+2. Re-create the primary pointed at the new cluster, with the poolers
+   holding clients; Patroni initialises the empty scope from the running
+   data, as when HA is first enabled.
+3. Build a new standby from the newest base backup.
 
-Target pause: under 10 seconds, no lost commits. If anything fails before
-step 3 completes, both members go back to the old cluster.
+Target pause: under 10 seconds, no lost commits (5–7 s in the test). The
+project has no standby until step 3 finishes.
 
 ---
 
@@ -237,21 +235,9 @@ ALTER TABLE nodes ADD COLUMN placement_group text;     -- Hetzner group id
 -- §3 etcd per region
 ALTER TABLE etcd_members ADD COLUMN region text REFERENCES regions(id);
                                                        -- existing rows: home region
-CREATE TABLE etcd_clusters (
-  region      text PRIMARY KEY REFERENCES regions(id),
-  ca_sealed   bytea NOT NULL,
-  created_at  timestamptz NOT NULL DEFAULT now()
-);
 ALTER TABLE instances ADD COLUMN etcd_region text;     -- the cluster an HA instance uses
-CREATE TABLE etcd_replacements (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  region      text NOT NULL,
-  old_node    uuid, new_node uuid NOT NULL,
-  operation_id uuid REFERENCES operations(id),
-  started_at  timestamptz NOT NULL DEFAULT now(),
-  finished_at timestamptz,
-  error       text
-);
+-- (As built: no per-region CA table, and replacements are recorded as
+-- operations.)
 
 -- §4 Announced maintenance
 ALTER TABLE incidents
@@ -275,8 +261,8 @@ ALTER TABLE availability_minutes ADD COLUMN excluded_by uuid REFERENCES incident
 | --- | --- |
 | `PATCH /api/v1/nodes/{id}` | Gains `failure_domain`. |
 | `GET /api/v1/admin/failure-domains` | Groups that break the rule (§2.4). |
-| `GET/POST /api/v1/admin/regions/{id}/etcd` | A region's cluster; set up. |
-| `POST /api/v1/admin/regions/{id}/etcd/members/{node}/replace` | Replace a member (`{"node_id": …}`), an operation. |
+| `GET /api/v1/admin/etcd?region=…`, `POST /api/v1/admin/etcd` | A region's cluster; set up (as built, on the existing paths). |
+| `POST /api/v1/admin/etcd/members/{node_id}/replace` | Replace a member (`{"node_id": …}`), an operation. |
 | `POST /api/v1/projects/{id}/ha/etcd-move` | Move an HA project onto its region's cluster (§3.3). |
 | `POST /api/v1/admin/maintenance` | Announce (`start`, `end`, `region`, optional `projects`/`nodes`, `title`, `body`). |
 | `DELETE /api/v1/admin/maintenance/{id}` | Cancel. |
@@ -325,8 +311,8 @@ of an etcd node, moving HA projects onto their region's cluster. **Done
 when:** in the Docker HA environment, a Lagos cluster serves a Lagos HA
 project with a writer running; one member's container and volume are
 destroyed; **Replace** onto a fourth node brings the cluster back to three
-healthy members with no client errors and no failover; a failover after
-the replacement still works; an HA project on the home cluster moves to
+healthy members with no client errors and no failover; a switchover after
+the replacement still works; a drain moves an etcd member; an HA project on the home cluster moves to
 the Lagos cluster with under 10 seconds of paused writes and no lost
 commits.
 

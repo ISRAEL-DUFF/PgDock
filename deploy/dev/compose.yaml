@@ -230,6 +230,18 @@ services:
       - ../../tmp/bin:/pgdock:ro
       - /var/run/docker.sock:/var/run/docker.sock
 
+  # A fourth node, for replacing an etcd member (V3.1 §3.2).
+  agent-test-4:
+    image: postgres:18
+    profiles: [test]
+    entrypoint: ["sleep", "infinity"]
+    stop_signal: SIGKILL
+    ports:
+      - "127.0.0.1:${PGDOCK_TEST_AGENT4_PORT:-7074}:7070"
+    volumes:
+      - ../../tmp/bin:/pgdock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
   # Import sources: a Supabase image and a plain Postgres 15. Published on
   # the gateway address so the control plane (host) and the agent
   # (container) use one connection string.

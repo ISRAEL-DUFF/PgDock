@@ -96,7 +96,7 @@ func TestFailureDomains(t *testing.T) {
 	if p := problems(); len(p) != 1 || p[0].Group != gen.Etcd || len(p[0].Nodes) != 2 {
 		t.Fatalf("problems with etcd in one rack: %+v", p)
 	}
-	if a := alert(); a["etcd"] != "firing" {
+	if a := alert(); a["etcd:eu-central"] != "firing" {
 		t.Fatalf("alerts: %v", a)
 	}
 	haURL := "/api/v1/projects/" + c.Project.Id.String() + "/ha"
@@ -132,7 +132,7 @@ func TestFailureDomains(t *testing.T) {
 	if p := problems(); len(p) != 0 {
 		t.Fatalf("problems after fixing the racks: %+v", p)
 	}
-	if a := alert(); a["etcd"] != "resolved" {
+	if a := alert(); a["etcd:eu-central"] != "resolved" {
 		t.Fatalf("alerts after fixing: %v", a)
 	}
 	// Moving the standby's node into the primary's rack is reported, for
