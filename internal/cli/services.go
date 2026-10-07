@@ -194,5 +194,7 @@ func (a *App) keysRevoke(args []string) error {
 	if err := check(r, err); err != nil {
 		return err
 	}
-	return a.emit(r.JSON200, func(w io.Writer) { fmt.Fprintf(w, "revoked %s (%s); the edge refuses it within seconds\n", r.JSON200.Name, r.JSON200.Prefix) })
+	return a.emit(r.JSON200, func(w io.Writer) {
+		fmt.Fprintf(w, "revoked %s (%s); the edge refuses it within seconds\n", r.JSON200.Name, r.JSON200.Prefix)
+	})
 }
