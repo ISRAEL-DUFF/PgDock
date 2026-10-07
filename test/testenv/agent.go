@@ -44,6 +44,13 @@ func (e *Env) StartSecondAgent(name, token string) {
 	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT2_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT2_ADDR"), name, token)
 }
 
+// StartThirdAgent runs a third agent (the agent-test-3 container) for the
+// node named name, registered with token.
+func (e *Env) StartThirdAgent(name, token string) {
+	e.t.Helper()
+	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT3_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT3_ADDR"), name, token)
+}
+
 func (e *Env) runAgent(container, agentAddr, nodeName, token string) {
 	e.t.Helper()
 	ctx := context.Background()
@@ -148,12 +155,18 @@ func (e *Env) ConfigureBackups() string {
 // removeInstances deletes instance containers and volumes a test left
 // behind (normally deletes and rollbacks remove them).
 func removeInstances(t testing.TB) {
+	for _, label := range []string{"pgdock.instance", "pgdock.etcd"} {
+		removeLabelled(t, label)
+	}
+}
+
+func removeLabelled(t testing.TB, label string) {
 	for _, kind := range []string{"container", "volume"} {
 		list := []string{"ps", "-aq"}
 		if kind == "volume" {
 			list = []string{"volume", "ls", "-q"}
 		}
-		out, err := exec.Command("docker", append(list, "--filter", "label=pgdock.instance")...).Output()
+		out, err := exec.Command("docker", append(list, "--filter", "label="+label)...).Output()
 		if err != nil {
 			continue
 		}
@@ -161,7 +174,7 @@ func removeInstances(t testing.TB) {
 		if len(ids) == 0 {
 			continue
 		}
-		t.Logf("removing %d leftover instance %s(s)", len(ids), kind)
+		t.Logf("removing %d leftover %s %s(s)", len(ids), label, kind)
 		rm := []string{"rm", "-f"}
 		if kind == "volume" {
 			rm = []string{"volume", "rm", "-f"}

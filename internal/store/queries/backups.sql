@@ -72,6 +72,7 @@ GROUP BY project_id;
 -- Branches are skipped unless a project admin turned their backups on.
 SELECT p.* FROM projects p
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.created_at < @since
+  AND p.lifecycle = 'active' -- a paused project hasn't changed, and refuses connections (V3 §4.2)
   AND (p.parent_project_id IS NULL OR p.branch_backups)
   AND EXISTS (SELECT 1 FROM organizations o WHERE o.id = p.org_id AND o.status = 'active')
   AND NOT EXISTS (
@@ -90,7 +91,7 @@ SELECT * FROM operations WHERE kind = @kind ORDER BY created_at DESC LIMIT 1;
 -- name: RandomProjectWithBackup :one
 -- tenant: system - backup workers and the scheduler, or a project the request already authorized.
 SELECT p.* FROM projects p
-WHERE p.deleted_at IS NULL AND p.status = 'active'
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'archived'
   AND EXISTS (SELECT 1 FROM backups b WHERE b.project_id = p.id AND b.status = 'succeeded' AND b.kind = 'logical')
 ORDER BY random()
 LIMIT 1;
@@ -207,3 +208,62 @@ WHERE project_id = @project_id AND kind = 'base' AND status = 'succeeded' AND wa
 -- tenant: system - deciding whether a retired WAL-G archive can go.
 SELECT count(*)::int FROM backups
 WHERE kind = 'base' AND status = 'succeeded' AND walg_prefix = @walg_prefix AND storage_target_id = @storage_target_id;
+
+-- name: ExpireBackupAt :exec
+-- tenant: system - an archived project's archive backup expires once the project is deleted (V3 §4.3).
+UPDATE backups SET expires_at = @expires_at WHERE id = @id;
+
+-- CopyQueue lists backups on platform targets that still need their
+-- cross-region copy (V3 §2.5), with the region's copy target. Org targets
+-- aren't copied; base backups are WAL-G archives, copied by the copy
+-- target's own replication if at all.
+-- name: CopyQueue :many
+-- tenant: system - the cross-region copy worker.
+SELECT b.*, r.copy_target_id AS region_copy_target_id, p.region AS project_region, p.data_residency AS project_residency,
+       ct.pgdock_region AS copy_target_region
+FROM backups b
+JOIN projects p ON p.id = b.project_id
+JOIN regions r ON r.id = p.region
+JOIN storage_targets st ON st.id = b.storage_target_id
+JOIN storage_targets ct ON ct.id = r.copy_target_id
+WHERE b.status = 'succeeded' AND b.checksum IS NOT NULL AND b.copy_of IS NULL
+  AND b.kind IN ('logical', 'final', 'safety')
+  AND st.org_id IS NULL AND st.deleted_at IS NULL AND ct.deleted_at IS NULL
+  AND (b.copy_status IS NULL OR b.copy_status = 'pending'
+       OR (b.copy_status = 'failed' AND b.copied_at < now() - interval '1 hour'))
+ORDER BY b.finished_at
+LIMIT @lim;
+
+-- name: SetBackupCopy :exec
+-- tenant: system - the cross-region copy worker records a copy's outcome; copied_at is the attempt's time.
+UPDATE backups SET copy_status = @copy_status, copy_target_id = sqlc.narg(copy_target_id),
+  copy_error = sqlc.narg(copy_error), copied_at = now()
+WHERE id = @id;
+
+-- name: LatestCopiedBackup :one
+-- tenant: system - the restore test, alternating to copy targets.
+SELECT * FROM backups
+WHERE project_id = @project_id AND status = 'succeeded' AND copy_status = 'copied' AND kind IN ('logical', 'final', 'safety')
+ORDER BY finished_at DESC
+LIMIT 1;
+
+-- name: RandomProjectWithCopiedBackup :one
+-- tenant: system - the restore test, alternating to copy targets.
+SELECT p.* FROM projects p
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'archived'
+  AND EXISTS (SELECT 1 FROM backups b WHERE b.project_id = p.id AND b.status = 'succeeded' AND b.kind = 'logical' AND b.copy_status = 'copied')
+ORDER BY random()
+LIMIT 1;
+
+-- name: CopyStatusCounts :many
+-- tenant: system - platform admin's view of cross-region copies.
+SELECT COALESCE(copy_status, 'none')::text AS copy_status, count(*)::int AS n
+FROM backups WHERE status = 'succeeded' AND started_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY 1;
+
+-- name: OutOfRegionCopies :many
+-- tenant: system - turning data residency on removes copies outside the project's region.
+SELECT b.* FROM backups b
+JOIN storage_targets ct ON ct.id = b.copy_target_id
+WHERE b.project_id = @project_id AND b.copy_status = 'copied'
+  AND (ct.pgdock_region IS NULL OR ct.pgdock_region <> @region::text);

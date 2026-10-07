@@ -21,7 +21,8 @@ to report it.
 | Project roles `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS` | `ensureRole` spells every attribute out on `CREATE`/`ALTER ROLE`; console logins are `NOINHERIT` and the same | `isocheck.Roles` (owner and `<db>_console`); "role has no dangerous attributes" |
 | Not members of `pg_read_all_data`, `pg_write_all_data`, `pg_read_server_files`, `pg_execute_server_program`, or other privileged roles | Roles are never granted; the console login is granted only its project's owner (`WITH INHERIT FALSE`) | `isocheck.Roles` (membership in any `pg_*` or privileged role); "not a member of predefined roles"; live probe |
 | Untrusted languages and `plpython3u`, `plperlu`, `dblink`, `postgres_fdw`, `file_fdw`, `adminpack` never available | Project roles cannot create untrusted extensions; the extension API allows only the §7.4 list for the tier (`postgres_fdw` only on dedicated) | `isocheck.Database` (none installed in any project DB); live probe tries each `CREATE EXTENSION`; `TestExtensionsAndMetrics` (API refuses `dblink`, `plpython3u`) |
-| `pg_hba.conf` accepts only the pooler and control-plane addresses, `scram-sha-256`, `hostssl` where applicable | Bundle: `deploy/compose/shared-pg-hba.conf` names the fixed addresses of pgdock-server, the agent, and both poolers; agent-run clusters and instances: `pgdock-hba.sh` writes `PGDOCK_AGENT_DB_ALLOW` (default: private ranges) at initdb | `isocheck.Cluster`: every network rule must be SCRAM (or `reject`/`cert`), name explicit addresses (no `all`, `samenet`, `0.0.0.0/0`), and use `hostssl` outside private ranges; `TestHBAFinding`; `TestClusterConfiguration` |
+| etcd (HA, V3 §2.2) | TLS for clients and peers with client certificates required, from a separate etcd CA whose key is sealed with the master key; each HA instance's Patroni has its own client certificate. Patroni's REST API listens on the private network: reads are open, changes (switchover, configuration) need the instance's REST password. The SLA probe login can only connect and run `SELECT 1` (no grants beyond CONNECT). | `TestEtcdCluster` (no client certificate is refused) |
+| `pg_hba.conf` accepts only the pooler and control-plane addresses, `scram-sha-256`, `hostssl` where applicable | Bundle: `deploy/compose/shared-pg-hba.conf` names the fixed addresses of pgdock-server, the agent, and both poolers; agent-run clusters and instances: `pgdock-hba.sh` writes `PGDOCK_AGENT_DB_ALLOW` (default: private ranges) at initdb. V3 moves: the moves' own logins (`pgdock_move_<id>`, random password, dropped after the move) may also connect from `PGDOCK_AGENT_MOVE_ALLOW` (default: private ranges; bundle: its Docker network), added by the agent on every start; the bundle's shared cluster allows them from its Docker network | `isocheck.Cluster`: every network rule must be SCRAM (or `reject`/`cert`), name explicit addresses (no `all`, `samenet`, `0.0.0.0/0`), and use `hostssl` outside private ranges; `TestHBAFinding`; `TestClusterConfiguration` |
 | `log_statement` off; only `log_min_duration_statement` set | `log_statement=none`, `log_min_duration_statement=5s` in the bundle and agent-run clusters | `isocheck.Cluster` (`log_statement`, `log_duration`, `log_min_duration_statement` not 0) |
 | Isolation suite: A cannot connect to B, list B's tables, read B's data through any predefined role, create objects in B, or read server files | — | `test/isolation` (CI) and `isocheck.Probes` (live, two throwaway tenants created with the real create steps): connections, `SET ROLE`, `GRANT`, `ALTER ROLE`, `DROP DATABASE`, `pg_terminate_backend`, `pg_read_file`, `pg_ls_dir`, `COPY … PROGRAM`, `COPY FROM` file, `lo_import`, C functions, superuser-only settings, `pg_stat_activity` query text |
 
@@ -125,6 +126,46 @@ Have someone outside the project review tenant isolation, or pay for a short
 penetration test of it (V2 §14 M16): other people's data now depends on it,
 and this review found two critical bugs. Start with the copy paths and
 anything that runs tenant SQL.
+
+## V3 review of payments and billing (M27)
+
+Payment webhooks and billing permissions, before money moves through
+them for real.
+
+| Surface | Enforced by | Verified by |
+| --- | --- | --- |
+| Webhook authentication | Flutterwave: the `verif-hash` header against the configured secret, constant-time. iSpend: HMAC-SHA256 over the timestamp and body, constant-time, timestamp within 5 minutes. Unknown providers 404; bodies over 1 MB are cut off | `TestPaymentsAcrossProviders`, provider unit tests |
+| What a webhook can do | Nothing on its own: its body is a hint. Every payment is looked up again with the provider (`Verify`) before anything is posted, and only a successful naira transaction with an amount counts. A card or wallet payment below its intent's amount is refused | `providers_test.go` |
+| Whose money it is | The provider's record decides: the intent its verified transaction names, or the virtual account it was paid into. An intent named only in the event is ignored (fixed, below); an intent with another provider is refused | `TestForgedEventCannotRedirectATransfer` |
+| Replays and duplicates | Event IDs are unique per provider; payments are unique per provider reference; ledger transactions are keyed. A replayed or re-sent event changes nothing | `TestPartialOverAndDuplicatePayments`, `TestPaymentsAcrossProviders` |
+| Organisations' billing | Owners and billing members (`org.billing`); members and admins see no invoices. Every invoice, payment, receipt, payment method and WHT certificate is looked up with the organisation in the path, so another organisation's ID answers 404 | `TestPermissionMatrix`, `TestBillingAccountsAndRoles` |
+| Money-moving admin actions | Platform admin only, and now a fresh step-up (password and code): refunds, recording a manual payment, credit notes, attributing an unmatched event, publishing a price book, an organisation's billing terms | `TestPermissionMatrix`, `reauthRequired` |
+| Refund limits | At most the payment less earlier refunds; beyond the org's credit only by reopening the invoices it settled | `TestRefundReopensInvoices` |
+| Card tokens | Sealed with the master key; never returned by the API | `TestPaymentsAcrossProviders` |
+
+### Found and fixed
+
+- **A forged event could credit another organisation's transfer to an
+  intent** (high, needs the webhook secret). When the provider's
+  verified transaction carried no reference (a bank transfer into a
+  virtual account), the intent named in the event body was trusted, so
+  whoever could sign a webhook could have a transfer into someone else's
+  virtual account credited to their own organisation. With Flutterwave,
+  signing is a static shared header value. Now only the provider's record
+  attributes a payment.
+- **Refunds, manual payments and credit notes needed no step-up**
+  (medium). A stolen admin session could move money without the second
+  factor. They now ask for the password and a code, through a dialog the
+  web UI shows for any request the server refuses with `reauth_required`.
+
+### Accepted
+
+- Flutterwave's webhook check is a static secret without a timestamp. A
+  replayed event changes nothing (above); rotate the secret in the
+  Flutterwave dashboard and `PGDOCK_FLW_WEBHOOK_HASH` together if
+  it may have leaked.
+- The webhook endpoint is public and unauthenticated requests are cheap to
+  refuse; each refusal is logged with the remote address.
 
 ## Dependency audit
 

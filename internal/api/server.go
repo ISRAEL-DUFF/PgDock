@@ -20,18 +20,28 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/branching"
+	"github.com/israel-duff/pgdock/internal/capacity"
 	"github.com/israel-duff/pgdock/internal/console"
+	"github.com/israel-duff/pgdock/internal/costs"
+	"github.com/israel-duff/pgdock/internal/freetier"
+	"github.com/israel-duff/pgdock/internal/incidents"
+	"github.com/israel-duff/pgdock/internal/insights"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/outbound"
+	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/regions"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/support"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/version"
@@ -65,9 +75,19 @@ type Server struct {
 	tenancy   *tenancy.Service
 	tokens    *tokens.Service
 	branches  *branching.Service
+	freetier  *freetier.Service
+	support   *support.Service
+	legal     *legal.Service
+	capacity  *capacity.Service
+	costs     *costs.Service
+	regions   *regions.Service
+	insights  *insights.Service
 	webhooks  *webhooks.Service
 	jobs      *schedjobs.Service
 	outbound  *outbound.Service
+	incidents *incidents.Service
+	arbiter   *pooler.Arbiter
+	billing   *billing.Service
 
 	tokenLimit    *auth.Limiter
 	orgTokenLimit *auth.Limiter
@@ -130,11 +150,31 @@ type Options struct {
 	Tenancy *tenancy.Service
 	// Branches runs database branching (V2 §8); nil disables it.
 	Branches *branching.Service
+	// FreeTier pauses and archives idle Free projects (V3 §4).
+	FreeTier *freetier.Service
+	// Support runs tickets (V3 §7.1).
+	Support *support.Service
+	// Legal keeps the SLA, DPA and order forms organisations accept (V3 §7.3).
+	Legal *legal.Service
+	// Capacity and Costs run capacity automation and cost attribution (V3 §5).
+	Capacity *capacity.Service
+	Costs    *costs.Service
+	// Regions are the platform's regions (V3 §6).
+	Regions *regions.Service
+	// Insights is query insights (V3 §8).
+	Insights *insights.Service
 	// Webhooks, Jobs and Outbound run database webhooks, scheduled jobs and
 	// their outbound requests (V2 §9); nil disables them.
 	Webhooks *webhooks.Service
 	Jobs     *schedjobs.Service
 	Outbound *outbound.Service
+	// Incidents backs Admin → Incidents and the status page pushes
+	// (V3 §2.6); PoolerArbiter reports the edge pooler hosts (V3 §2.1).
+	Incidents     *incidents.Service
+	PoolerArbiter *pooler.Arbiter
+	// Billing runs price books, billing accounts and invoices (V3 §3);
+	// nil disables billing.
+	Billing *billing.Service
 	// Tokens issues and checks API tokens and device logins; nil disables
 	// bearer authentication. TokenRate and OrgTokenRate are requests per
 	// minute per token and per organisation's tokens (defaults 600, 1200).
@@ -159,8 +199,8 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches,
-		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches, freetier: opts.FreeTier, support: opts.Support, legal: opts.Legal, capacity: opts.Capacity, costs: opts.Costs, regions: opts.Regions, insights: opts.Insights,
+		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound, billing: opts.Billing,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
 	}

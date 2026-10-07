@@ -93,3 +93,42 @@ The same 4-vCPU container, both shared nodes on one host:
   idle server connections creates and branches leave until the poolers'
   `server_idle_timeout`: about 2 per project. A node at 500
   `max_connections` should take another node before about 200 projects.
+
+## V3 rating load test
+
+`TestRatingLoad` (in `internal/billing`, also run by `make test-load`) is
+V3 M27's load test of rating: 1,000 organisations (60% Free, 30% Pro, 8%
+Team, 2% Team with a dedicated HA project), one to three shared projects
+each, and a month of usage as the recorder writes it (hourly storage and
+transfer per project, daily backup storage, the dedicated project's
+compute, HA and synchronous replication hours). It rates every
+organisation, then runs the month end (draft every invoice, issue them)
+and the ledger audit over the result. `PGDOCK_LOAD_RATING_ORGS` changes
+its size; it writes `tmp/load-report-rating.md`.
+
+It fails if an invoice is missing for a paying organisation or isn't
+issued, the audit finds a problem, rating's p95 exceeds 500 ms, the
+month end takes over 10 minutes, or the audit over a minute.
+
+### Results (2026-10-06)
+
+The same 4-vCPU container, one Postgres for everything:
+
+| Measure | 1,000 orgs | 5,000 orgs |
+| --- | --- | --- |
+| Usage rows for the month | 3.1 million | 15.7 million |
+| Rate each org | 5.9 s in all; p50 5 ms, p95 8 ms, max 24 ms | 30 s; p50 5 ms, p95 9 ms, max 41 ms |
+| Draft every invoice | 410 in 6.1 s | 2,050 in 35 s |
+| Issue them | 410 in 2.0 s | 2,050 in 13 s |
+| Ledger audit | 10 ms | 26 ms |
+
+Rating is per organisation and stays at about 5 ms however many there
+are; the month end grows linearly, about 25 ms an organisation.
+
+### Tuning
+
+- **Ledger audit.** The first run took 152 ms at 1,000 organisations and
+  4.9 s at 5,000: each invoice, credit note and payment summed its own
+  ledger entries with a correlated subquery over the whole ledger, so the
+  audit grew with invoices × entries. The ledger is now summed once per
+  transaction and joined: 10 ms and 26 ms.

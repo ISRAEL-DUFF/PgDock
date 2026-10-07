@@ -81,6 +81,15 @@ type AuthChallenge struct {
 	CreatedAt time.Time
 }
 
+type AvailabilityMinute struct {
+	ProjectID  uuid.UUID
+	Minute     time.Time
+	InternalOk *bool
+	ExternalOk *bool
+	Excluded   bool
+	Available  *bool
+}
+
 type Backup struct {
 	ID              uuid.UUID
 	ProjectID       *uuid.UUID
@@ -100,6 +109,10 @@ type Backup struct {
 	EncryptionKeyID *uuid.UUID
 	WalgPrefix      *string
 	CopyOf          *uuid.UUID
+	CopyTargetID    *uuid.UUID
+	CopyStatus      *string
+	CopiedAt        *time.Time
+	CopyError       *string
 }
 
 type BackupKey struct {
@@ -112,6 +125,69 @@ type BackupKey struct {
 	RetiredAt   *time.Time
 }
 
+type BillingAccount struct {
+	OrgID               uuid.UUID
+	Plan                string
+	Term                string
+	TermEndsAt          *time.Time
+	Mode                string
+	PriceBookVersion    int32
+	Grandfathered       bool
+	LegalName           *string
+	Address             *string
+	Tin                 *string
+	VatRegistered       bool
+	DeductsWht          bool
+	ProviderCustomers   json.RawMessage
+	PaymentTermsDays    int32
+	BudgetMinor         *int64
+	SpendCapMinor       *int64
+	AutoTopup           []byte
+	DunningState        string
+	GraceUntil          *time.Time
+	ForecastMinor       *int64
+	ForecastAt          *time.Time
+	Capped              bool
+	BudgetAlerted       int32
+	BudgetMonth         pgtype.Date
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	DunningSince        *time.Time
+	DeletionScheduledAt *time.Time
+	BalanceAlerted      int32
+	BalanceMonth        pgtype.Date
+	ZeroBalanceAt       *time.Time
+	CardFailingSince    *time.Time
+}
+
+type BillingContact struct {
+	OrgID     uuid.UUID
+	Email     string
+	Name      *string
+	CreatedAt time.Time
+}
+
+type BillingPlanChange struct {
+	ID          uuid.UUID
+	OrgID       uuid.UUID
+	FromPlan    string
+	ToPlan      string
+	FromTerm    string
+	ToTerm      string
+	EffectiveAt time.Time
+	RequestedAt time.Time
+	RequestedBy *uuid.UUID
+	Applied     bool
+	Cancelled   bool
+	Lines       json.RawMessage
+}
+
+type BillingSequence struct {
+	Kind string
+	Year int32
+	Last int32
+}
+
 type BreakGlassSession struct {
 	ID        uuid.UUID
 	OrgID     uuid.UUID
@@ -121,6 +197,49 @@ type BreakGlassSession struct {
 	ExpiresAt time.Time
 	EndedAt   *time.Time
 	EndedBy   *uuid.UUID
+}
+
+type CapacityProposal struct {
+	ID               uuid.UUID
+	Region           string
+	Tier             string
+	Reason           string
+	Provider         string
+	ServerType       string
+	Location         string
+	MonthlyCostMinor int64
+	Currency         string
+	Status           string
+	Auto             bool
+	NodeID           *uuid.UUID
+	OperationID      *uuid.UUID
+	Error            *string
+	DecidedBy        *uuid.UUID
+	DecidedAt        *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type CostAllocation struct {
+	Day         pgtype.Date
+	OrgID       uuid.UUID
+	Category    string
+	Region      string
+	Currency    string
+	AmountMinor pgtype.Numeric
+	Quantity    pgtype.Numeric
+}
+
+type CreditNote struct {
+	ID          uuid.UUID
+	InvoiceID   uuid.UUID
+	OrgID       uuid.UUID
+	Number      string
+	AmountMinor int64
+	VatMinor    int64
+	Reason      string
+	IssuedBy    *uuid.UUID
+	IssuedAt    time.Time
 }
 
 type DedicatedRequest struct {
@@ -152,6 +271,15 @@ type DeviceAuthRequest struct {
 	CreatedAt       time.Time
 }
 
+type DunningStep struct {
+	ID      int64
+	OrgID   uuid.UUID
+	Cycle   time.Time
+	Step    string
+	Detail  *string
+	TakenAt time.Time
+}
+
 type EditorPreference struct {
 	ProjectID       uuid.UUID
 	UserID          uuid.UUID
@@ -169,29 +297,114 @@ type EmailToken struct {
 	CreatedAt time.Time
 }
 
+type EtcdMember struct {
+	NodeID    uuid.UUID
+	Name      string
+	ClientUrl string
+	PeerUrl   string
+	Status    string
+	Error     *string
+	CheckedAt *time.Time
+	CreatedAt time.Time
+}
+
+type FailoverEvent struct {
+	ID         int64
+	InstanceID uuid.UUID
+	FromMember *uuid.UUID
+	ToMember   *uuid.UUID
+	FromNode   *uuid.UUID
+	ToNode     *uuid.UUID
+	Kind       string
+	DurationMs *int32
+	OccurredAt time.Time
+}
+
+type FxRate struct {
+	ID          int64
+	Currency    string
+	NgnPerUnit  pgtype.Numeric
+	EffectiveAt time.Time
+	Source      string
+	SetBy       *uuid.UUID
+	CreatedAt   time.Time
+}
+
+type Incident struct {
+	ID         uuid.UUID
+	Title      string
+	Components []string
+	RegionID   *string
+	Severity   string
+	Status     string
+	StartedAt  time.Time
+	ResolvedAt *time.Time
+	CreatedBy  *uuid.UUID
+	PushedAt   *time.Time
+	PushError  *string
+	UpdatedAt  time.Time
+}
+
+type IncidentUpdate struct {
+	ID         int64
+	IncidentID uuid.UUID
+	Status     string
+	Body       string
+	PostedBy   *uuid.UUID
+	PostedAt   time.Time
+}
+
 type Instance struct {
-	ID           uuid.UUID
-	NodeID       uuid.UUID
-	Kind         string
-	PgVersion    int32
-	Port         int32
-	ContainerID  *string
-	CpuLimit     pgtype.Numeric
-	MemLimitMb   *int32
-	VolumeGb     *int32
-	Status       string
-	CreatedAt    time.Time
-	AdminHost    *string
-	AdminPort    *int32
-	Host         *string
-	AdminSecret  []byte
-	Profile      *string
-	WalgPrefix   *string
-	Error        *string
-	DeletedAt    *time.Time
-	OrgID        *uuid.UUID
-	WalgTargetID *uuid.UUID
-	WalgKeyID    *uuid.UUID
+	ID                 uuid.UUID
+	NodeID             uuid.UUID
+	Kind               string
+	PgVersion          int32
+	Port               int32
+	ContainerID        *string
+	CpuLimit           pgtype.Numeric
+	MemLimitMb         *int32
+	VolumeGb           *int32
+	Status             string
+	CreatedAt          time.Time
+	AdminHost          *string
+	AdminPort          *int32
+	Host               *string
+	AdminSecret        []byte
+	Profile            *string
+	WalgPrefix         *string
+	Error              *string
+	DeletedAt          *time.Time
+	OrgID              *uuid.UUID
+	WalgTargetID       *uuid.UUID
+	WalgKeyID          *uuid.UUID
+	PgRelease          *string
+	PgReleaseAvailable *string
+	ReleaseCheckedAt   *time.Time
+	HaEnabled          bool
+	SyncReplication    bool
+	Patroni            bool
+	LeaderMember       *uuid.UUID
+	PatroniSecret      []byte
+}
+
+type InstanceMember struct {
+	ID         uuid.UUID
+	InstanceID uuid.UUID
+	NodeID     uuid.UUID
+	Role       string
+	State      *string
+	Host       *string
+	Port       *int32
+	RestHost   *string
+	RestPort   *int32
+	AdminHost  *string
+	AdminPort  *int32
+	LagBytes   *int64
+	Timeline   *int32
+	Error      *string
+	UpdatedAt  time.Time
+	CreatedAt  time.Time
+	DeletedAt  *time.Time
 }
 
 type Invitation struct {
@@ -210,6 +423,46 @@ type Invitation struct {
 	CreatedAt    time.Time
 }
 
+type Invoice struct {
+	ID               uuid.UUID
+	OrgID            uuid.UUID
+	Number           *string
+	PeriodStart      pgtype.Date
+	PeriodEnd        pgtype.Date
+	Status           string
+	Held             bool
+	HoldReason       *string
+	SubtotalMinor    int64
+	VatMinor         int64
+	TotalMinor       int64
+	WhtExpectedMinor int64
+	VatRate          pgtype.Numeric
+	BillTo           json.RawMessage
+	Seller           json.RawMessage
+	DueAt            *time.Time
+	IssuedAt         *time.Time
+	PaidAt           *time.Time
+	PdfObjectKey     *string
+	PriceBookVersion int32
+	CreatedAt        time.Time
+	PaidMinor        int64
+	WhtDeductedMinor int64
+	WhtEvidencedAt   *time.Time
+}
+
+type InvoiceLine struct {
+	ID             int64
+	InvoiceID      uuid.UUID
+	Kind           string
+	Description    string
+	ProjectID      *uuid.UUID
+	Metric         *string
+	Quantity       pgtype.Numeric
+	UnitPriceMinor pgtype.Numeric
+	AmountMinor    int64
+	RevenueAccount string
+}
+
 type JobRun struct {
 	ID           int64
 	JobID        uuid.UUID
@@ -223,6 +476,40 @@ type JobRun struct {
 	Trigger      string
 }
 
+type LedgerEntry struct {
+	ID             int64
+	TxnID          uuid.UUID
+	OrgID          *uuid.UUID
+	Account        string
+	Direction      string
+	AmountMinor    int64
+	SourceType     string
+	SourceID       string
+	IdempotencyKey string
+	Memo           *string
+	CreatedBy      *uuid.UUID
+	CreatedAt      time.Time
+}
+
+type LegalAcceptance struct {
+	DocumentID uuid.UUID
+	OrgID      uuid.UUID
+	UserID     *uuid.UUID
+	AcceptedAt time.Time
+	Ip         *netip.Addr
+}
+
+type LegalDocument struct {
+	ID          uuid.UUID
+	Kind        string
+	OrgID       *uuid.UUID
+	Version     int32
+	Title       string
+	BodyMd      string
+	PublishedBy *uuid.UUID
+	PublishedAt time.Time
+}
+
 type MetricPoint struct {
 	Scope      string
 	ScopeID    uuid.UUID
@@ -230,6 +517,43 @@ type MetricPoint struct {
 	Ts         time.Time
 	Resolution string
 	Value      float64
+}
+
+type MinorUpgrade struct {
+	ID          uuid.UUID
+	InstanceID  uuid.UUID
+	FromRelease string
+	ToRelease   string
+	StartedAt   time.Time
+	FinishedAt  *time.Time
+	PauseMs     *int32
+	Error       *string
+}
+
+type Move struct {
+	ID             uuid.UUID
+	OperationID    uuid.UUID
+	ProjectID      uuid.UUID
+	SourceInstance uuid.UUID
+	TargetInstance uuid.UUID
+	Mode           string
+	FallbackReason *string
+	Phase          string
+	TablesTotal    *int32
+	TablesReady    *int32
+	LagBytes       *int64
+	FreezeMs       *int32
+	StartedAt      time.Time
+	FinishedAt     *time.Time
+}
+
+type MrrSnapshot struct {
+	Month     pgtype.Date
+	OrgID     uuid.UUID
+	Plan      string
+	Term      string
+	MrrMinor  int64
+	UpdatedAt time.Time
 }
 
 type Node struct {
@@ -249,6 +573,20 @@ type Node struct {
 	RegistrationToken     *string
 	RegistrationExpiresAt *time.Time
 	LastReachableAt       *time.Time
+	ProviderServerID      *string
+	PoolerGeneration      *int64
+	PoolerHash            *string
+	PoolerVrrpState       *string
+	PoolerReady           *bool
+	PoolerCheckedAt       *time.Time
+	Provider              string
+	Region                string
+	ServerType            *string
+	MonthlyCostMinor      *int64
+	CostCurrency          string
+	Lifecycle             string
+	EmptySince            *time.Time
+	Keep                  bool
 }
 
 type Operation struct {
@@ -272,6 +610,13 @@ type OrgMember struct {
 	OrgID     uuid.UUID
 	UserID    uuid.UUID
 	Role      string
+	CreatedAt time.Time
+}
+
+type OrgSupportPhone struct {
+	Phone     string
+	OrgID     uuid.UUID
+	AddedBy   *uuid.UUID
 	CreatedAt time.Time
 }
 
@@ -308,6 +653,124 @@ type OutboundCounter struct {
 	Failures int64
 }
 
+type Payment struct {
+	ID             uuid.UUID
+	OrgID          uuid.UUID
+	Provider       string
+	Channel        string
+	ProviderRef    string
+	Reference      *string
+	AmountMinor    int64
+	FeeMinor       int64
+	RefundedMinor  int64
+	FxQuote        []byte
+	Note           *string
+	ProofObjectKey *string
+	RecordedBy     *uuid.UUID
+	ReceivedAt     time.Time
+	CreatedAt      time.Time
+}
+
+type PaymentAllocation struct {
+	PaymentID   uuid.UUID
+	InvoiceID   uuid.UUID
+	AmountMinor int64
+	WhtMinor    int64
+}
+
+type PaymentEvent struct {
+	ID              int64
+	Provider        string
+	ProviderEventID string
+	Kind            string
+	OrgID           *uuid.UUID
+	Reference       *string
+	ProviderRef     *string
+	AmountMinor     *int64
+	Currency        *string
+	Payload         json.RawMessage
+	ReceivedAt      time.Time
+	ProcessedAt     *time.Time
+	Outcome         *string
+	Error           *string
+}
+
+type PaymentIntent struct {
+	ID          uuid.UUID
+	OrgID       uuid.UUID
+	Reference   string
+	Provider    string
+	Channel     string
+	Purpose     string
+	InvoiceID   *uuid.UUID
+	MethodID    *uuid.UUID
+	AmountMinor int64
+	Status      string
+	CheckoutUrl *string
+	Automatic   bool
+	Error       *string
+	CreatedAt   time.Time
+	CompletedAt *time.Time
+}
+
+type PaymentMethod struct {
+	ID           uuid.UUID
+	OrgID        uuid.UUID
+	Provider     string
+	Kind         string
+	TokenSealed  []byte
+	ProviderRef  *string
+	Brand        *string
+	Last4        *string
+	ExpMonth     *int32
+	ExpYear      *int32
+	LimitMinor   *int64
+	IsDefault    bool
+	Status       string
+	RemindedDays int32
+	CreatedAt    time.Time
+}
+
+type PoolerConfig struct {
+	ID         int32
+	Generation int64
+	Hash       string
+	UpdatedAt  time.Time
+}
+
+type PoolerEvent struct {
+	ID         int64
+	NodeID     *uuid.UUID
+	Kind       string
+	Detail     json.RawMessage
+	OccurredAt time.Time
+}
+
+type PoolerGeneration struct {
+	Region     string
+	Generation int64
+	Hash       string
+	UpdatedAt  time.Time
+}
+
+type PrepaidDeduction struct {
+	OrgID       uuid.UUID
+	Month       pgtype.Date
+	Account     string
+	AmountMinor int64
+	UpdatedAt   time.Time
+}
+
+type PriceBook struct {
+	Version     int32
+	EffectiveAt time.Time
+	Prices      json.RawMessage
+	Notes       *string
+	CreatedAt   time.Time
+	PublishedAt *time.Time
+	PublishedBy *uuid.UUID
+}
+
 type Project struct {
 	ID                  uuid.UUID
 	Name                string
@@ -340,6 +803,18 @@ type Project struct {
 	ExpiryNotifiedAt    *time.Time
 	BranchBackups       bool
 	SensitiveData       bool
+	ProbeVerifier       *string
+	Lifecycle           string
+	LastActiveAt        *time.Time
+	PauseWarnedAt       *time.Time
+	PausedAt            *time.Time
+	ArchivedAt          *time.Time
+	ArchiveBackupID     *uuid.UUID
+	ArchiveNoticeDays   *int32
+	Region              string
+	DataResidency       bool
+	ForwardRegion       *string
+	ForwardUntil        *time.Time
 }
 
 type ProjectDbUser struct {
@@ -362,6 +837,43 @@ type ProjectMember struct {
 	CreatedAt time.Time
 }
 
+type QuerySnapshot struct {
+	InstanceID     uuid.UUID
+	Dbid           int64
+	Userid         int64
+	Queryid        int64
+	Toplevel       bool
+	Calls          int64
+	TotalMs        float64
+	Rows           int64
+	SharedBlksHit  int64
+	SharedBlksRead int64
+	MaxMs          float64
+	TakenAt        time.Time
+}
+
+type QueryStat struct {
+	ProjectID      uuid.UUID
+	Queryid        int64
+	Bucket         time.Time
+	Calls          int64
+	TotalMs        float64
+	Rows           int64
+	SharedBlksHit  int64
+	SharedBlksRead int64
+	MaxMs          float64
+}
+
+type QueryText struct {
+	ProjectID uuid.UUID
+	Queryid   int64
+	Query     string
+	Example   *string
+	ExampleAt *time.Time
+	FirstSeen time.Time
+	LastSeen  time.Time
+}
+
 type QuotaPlan struct {
 	ID        uuid.UUID
 	Name      string
@@ -378,6 +890,49 @@ type ReapedSession struct {
 	DurationS int32
 	Query     *string
 	CreatedAt time.Time
+}
+
+type RebalanceMove struct {
+	ID          uuid.UUID
+	Batch       uuid.UUID
+	Kind        string
+	ProjectID   uuid.UUID
+	FromNode    uuid.UUID
+	ToNode      *uuid.UUID
+	Reason      string
+	Status      string
+	OperationID *uuid.UUID
+	Error       *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type Refund struct {
+	ID          uuid.UUID
+	PaymentID   uuid.UUID
+	AmountMinor int64
+	Reason      string
+	ProviderRef *string
+	Status      string
+	Error       *string
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+	CompletedAt *time.Time
+}
+
+type Region struct {
+	ID              string
+	Name            string
+	Country         string
+	PoolerHost      string
+	Provider        string
+	Location        string
+	StorageTargetID *uuid.UUID
+	CopyTargetID    *uuid.UUID
+	FloatingIpID    *string
+	Residency       bool
+	Status          string
+	CreatedAt       time.Time
 }
 
 type RetiredDatabase struct {
@@ -445,21 +1000,33 @@ type Setting struct {
 	UpdatedAt time.Time
 }
 
+type SlowQuery struct {
+	ID         int64
+	ProjectID  uuid.UUID
+	Queryid    *int64
+	Query      string
+	DurationMs float64
+	Source     string
+	RoleName   string
+	SeenAt     time.Time
+}
+
 type StorageTarget struct {
-	ID          uuid.UUID
-	Name        string
-	Endpoint    string
-	Bucket      string
-	Prefix      string
-	Credentials []byte
-	IsDefault   bool
-	CreatedAt   time.Time
-	OrgID       *uuid.UUID
-	Region      string
-	PathStyle   bool
-	CreatedBy   *uuid.UUID
-	UpdatedAt   time.Time
-	DeletedAt   *time.Time
+	ID           uuid.UUID
+	Name         string
+	Endpoint     string
+	Bucket       string
+	Prefix       string
+	Credentials  []byte
+	IsDefault    bool
+	CreatedAt    time.Time
+	OrgID        *uuid.UUID
+	Region       string
+	PathStyle    bool
+	CreatedBy    *uuid.UUID
+	UpdatedAt    time.Time
+	DeletedAt    *time.Time
+	PgdockRegion *string
 }
 
 type TermsAcceptance struct {
@@ -475,6 +1042,38 @@ type TermsVersion struct {
 	PrivacyMd   string
 	PublishedBy *uuid.UUID
 	PublishedAt time.Time
+	AupMd       string
+}
+
+type Ticket struct {
+	ID              uuid.UUID
+	Number          int64
+	OrgID           *uuid.UUID
+	Requester       string
+	RequesterName   *string
+	RequesterUserID *uuid.UUID
+	Channel         string
+	Subject         string
+	Status          string
+	Priority        string
+	Plan            *string
+	Assignee        *uuid.UUID
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	FirstResponseAt *time.Time
+	RespondBy       *time.Time
+}
+
+type TicketMessage struct {
+	ID           int64
+	TicketID     uuid.UUID
+	Direction    string
+	Author       string
+	AuthorUserID *uuid.UUID
+	Body         string
+	Attachments  json.RawMessage
+	ExternalID   *string
+	CreatedAt    time.Time
 }
 
 type UsageRecord struct {
@@ -503,6 +1102,18 @@ type User struct {
 	ApprovedAt      *time.Time
 	RecoveryCodes   []byte
 	LastActiveAt    *time.Time
+	SignupIp        *netip.Addr
+}
+
+type VirtualAccount struct {
+	ID            uuid.UUID
+	OrgID         uuid.UUID
+	Provider      string
+	AccountNumber string
+	BankName      string
+	AccountName   string
+	ProviderRef   *string
+	CreatedAt     time.Time
 }
 
 type Webhook struct {
@@ -538,4 +1149,15 @@ type WebhookDelivery struct {
 	ReplayedAt      *time.Time
 	Payload         []byte
 	CreatedAt       time.Time
+}
+
+type WhtCertificate struct {
+	ID         uuid.UUID
+	InvoiceID  uuid.UUID
+	OrgID      uuid.UUID
+	ObjectKey  string
+	Filename   string
+	SizeBytes  int64
+	UploadedBy *uuid.UUID
+	UploadedAt time.Time
 }

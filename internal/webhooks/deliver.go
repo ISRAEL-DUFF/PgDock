@@ -273,6 +273,9 @@ func (s *Service) deliverProject(ctx context.Context, conn *pgx.Conn, p store.Pr
 		}
 		return err
 	}
+	if capped, err := store.New(s.db).OrgSpendCapped(ctx, p.OrgID); err != nil || capped {
+		return err // at the spend cap, deliveries queue (V3 §3.10)
+	}
 	rows, err := conn.Query(ctx, `SELECT DISTINCT webhook_id FROM pgdock.webhook_outbox`)
 	if err != nil {
 		return err

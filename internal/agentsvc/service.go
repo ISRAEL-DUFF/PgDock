@@ -46,6 +46,17 @@ type Service struct {
 	log  *slog.Logger
 	jobs chan struct{}
 	inst *instances
+	pool *poolerHost // nil unless this is a pooler host (V3 §2.1)
+}
+
+// EnablePooler makes this agent a pooler host's agent.
+func (s *Service) EnablePooler(cfg PoolerConfig) error {
+	p, err := newPoolerHost(cfg, s.log)
+	if err != nil {
+		return err
+	}
+	s.pool = p
+	return nil
 }
 
 // New returns a Service.
@@ -58,6 +69,10 @@ func New(cfg Config, log *slog.Logger) *Service {
 	}
 	return &Service{cfg: cfg, log: log, jobs: make(chan struct{}, cfg.MaxJobs), inst: newInstances(cfg.Instances)}
 }
+
+// EnsureMoveRules gives running instances the pg_hba.conf rules moves need
+// (V3 §2.3); the agent calls it once at start.
+func (s *Service) EnsureMoveRules(ctx context.Context) { s.inst.ensureMoveRules(ctx, s.log) }
 
 // Handler returns the API's HTTP handler.
 func (s *Service) Handler() http.Handler {
@@ -74,6 +89,13 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+agentapi.PathInstanceStop, s.instanceAction("stop"))
 	mux.HandleFunc("POST "+agentapi.PathWALGBackup, s.walgBackup)
 	mux.HandleFunc("GET "+agentapi.PathWALGBackupList, s.walgBackups)
+	mux.HandleFunc("GET "+agentapi.PathEtcdAddress, s.etcdAddressHandler)
+	mux.HandleFunc("PUT "+agentapi.PathEtcd, s.runEtcd)
+	mux.HandleFunc("GET "+agentapi.PathEtcd, s.getEtcd)
+	mux.HandleFunc("DELETE "+agentapi.PathEtcd, s.removeEtcd)
+	mux.HandleFunc("PUT "+agentapi.PathPoolerConfig, s.poolerConfig)
+	mux.HandleFunc("PUT "+agentapi.PathPoolerExpected, s.poolerExpected)
+	mux.HandleFunc("GET "+agentapi.PathPoolerStatus, s.poolerStatus)
 	return mux
 }
 

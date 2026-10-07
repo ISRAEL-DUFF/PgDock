@@ -5,6 +5,7 @@
 package docker
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
 	"context"
@@ -158,13 +159,18 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 // 304); the caller closes the body.
 func (c *Client) raw(ctx context.Context, method, path string, query url.Values, in any) (*http.Response, error) {
 	var body io.Reader
+	ctype := ""
 	if in != nil {
 		b, err := json.Marshal(in)
 		if err != nil {
 			return nil, err
 		}
-		body = bytes.NewReader(b)
+		body, ctype = bytes.NewReader(b), "application/json"
 	}
+	return c.send(ctx, method, path, query, body, ctype)
+}
+
+func (c *Client) send(ctx context.Context, method, path string, query url.Values, body io.Reader, ctype string) (*http.Response, error) {
 	u := c.apiBase(ctx) + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
@@ -173,8 +179,8 @@ func (c *Client) raw(ctx context.Context, method, path string, query url.Values,
 	if err != nil {
 		return nil, err
 	}
-	if in != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if ctype != "" {
+		req.Header.Set("Content-Type", ctype)
 	}
 	res, err := c.http.Do(req)
 	if err != nil {
@@ -216,6 +222,32 @@ func (c *Client) ImageExists(ctx context.Context, ref string) (bool, error) {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// Image is what InspectImage returns.
+type Image struct {
+	ID     string `json:"Id"`
+	Config struct {
+		Env    []string          `json:"Env"`
+		Labels map[string]string `json:"Labels"`
+	} `json:"Config"`
+}
+
+// Env returns the value of an environment variable the image sets.
+func (i Image) Env(name string) string {
+	for _, e := range i.Config.Env {
+		if k, v, ok := strings.Cut(e, "="); ok && k == name {
+			return v
+		}
+	}
+	return ""
+}
+
+// InspectImage describes a local image by tag or ID.
+func (c *Client) InspectImage(ctx context.Context, ref string) (Image, error) {
+	var out Image
+	err := c.do(ctx, http.MethodGet, "/images/"+url.PathEscape(ref)+"/json", nil, nil, &out)
+	return out, err
 }
 
 // Pull fetches ref from its registry.
@@ -330,7 +362,10 @@ func (c *Client) CreateContainer(ctx context.Context, name string, cfg Container
 
 // Container is what InspectContainer returns.
 type Container struct {
-	ID           string `json:"Id"`
+	ID string `json:"Id"`
+	// ImageID is the image the container was created from, which a tag
+	// may no longer point to.
+	ImageID      string `json:"Image"`
 	Name         string `json:"Name"`
 	RestartCount int    `json:"RestartCount"`
 	State        struct {
@@ -354,6 +389,59 @@ type Container struct {
 	} `json:"NetworkSettings"`
 }
 
+// ContainerSummary is one entry of ListContainers.
+type ContainerSummary struct {
+	ID     string            `json:"Id"`
+	Names  []string          `json:"Names"`
+	State  string            `json:"State"`
+	Labels map[string]string `json:"Labels"`
+}
+
+// ListContainers lists the containers, running or not, that carry label.
+func (c *Client) ListContainers(ctx context.Context, label string) ([]ContainerSummary, error) {
+	filters, err := json.Marshal(map[string][]string{"label": {label}})
+	if err != nil {
+		return nil, err
+	}
+	var out []ContainerSummary
+	err = c.do(ctx, http.MethodGet, "/containers/json", url.Values{"all": {"true"}, "filters": {string(filters)}}, nil, &out)
+	return out, err
+}
+
+// File is one file CopyTo writes.
+type File struct {
+	Name string // relative to the directory; a trailing "/" makes a directory
+	Mode int64
+	Data []byte
+}
+
+// CopyTo writes files into dir of a container, created or running (the
+// archive endpoint); dir must exist in the image.
+func (c *Client) CopyTo(ctx context.Context, id, dir string, files []File) error {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for _, f := range files {
+		h := &tar.Header{Name: f.Name, Mode: f.Mode, Size: int64(len(f.Data)), ModTime: time.Now(), Typeflag: tar.TypeReg}
+		if dir, ok := strings.CutSuffix(f.Name, "/"); ok { // a directory
+			h.Name, h.Size, h.Typeflag = dir, 0, tar.TypeDir
+		}
+		if err := tw.WriteHeader(h); err != nil {
+			return err
+		}
+		if _, err := tw.Write(f.Data); err != nil {
+			return err
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	res, err := c.send(ctx, http.MethodPut, "/containers/"+url.PathEscape(id)+"/archive", url.Values{"path": {dir}}, &buf, "application/x-tar")
+	if err != nil {
+		return err
+	}
+	return res.Body.Close()
+}
+
 // InspectContainer returns a container by name or ID (ErrNotFound if absent).
 func (c *Client) InspectContainer(ctx context.Context, id string) (Container, error) {
 	var out Container
@@ -375,7 +463,8 @@ func (c *Client) StopContainer(ctx context.Context, id string, timeout time.Dura
 // RemoveContainer force-removes a container (not its named volumes); a
 // missing one is not an error.
 func (c *Client) RemoveContainer(ctx context.Context, id string) error {
-	err := c.do(ctx, http.MethodDelete, "/containers/"+url.PathEscape(id), url.Values{"force": {"true"}}, nil, nil)
+	// v: also the anonymous volumes an image declares (named ones stay).
+	err := c.do(ctx, http.MethodDelete, "/containers/"+url.PathEscape(id), url.Values{"force": {"true"}, "v": {"true"}}, nil, nil)
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}

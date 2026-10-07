@@ -5,6 +5,176 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V3 (in progress, on feature/pgdock3)
+- Standby edge pooler: two pooler hosts behind a floating IP with
+  keepalived. pgdock-server pushes the PgBouncer configuration to both and
+  moves the floating IP itself if keepalived doesn't. Admin → Nodes shows
+  both hosts and recent pooler events. See docs/edge-poolers.md.
+- `pgdock-status`, a status page to run on separate infrastructure. It
+  probes PGDock from outside and takes signed heartbeats for the rest. It
+  opens and resolves incidents by itself, keeps 90 days of history, and
+  emails subscribers. Admin → Incidents posts incidents to it. See
+  docs/status-page.md.
+- New migrations 00020 and 00021 (pooler hosts, incidents).
+- Moves by logical replication: promotion, demotion, node moves (platform
+  admins: Project Settings → Compute → Moves, `pgdock move`) and major
+  upgrades copy the data while the project serves, and pause writes only
+  for the switch (about 0.1 s in the tests, at 1 and 3 GB). They fall back
+  to dump and restore when they must, and say why. Schema changes are
+  refused during a move. See docs/moves.md.
+- Postgres versions: `PGDOCK_PG_VERSIONS` (default 17 and 18), a version
+  picker when creating a project or shared cluster, and major upgrades
+  with a preflight that test-restores the schema on the new version
+  (Project Settings → Compute → Postgres version, `pgdock upgrade`).
+- Minor releases are applied automatically in a weekly maintenance window
+  (Admin → Nodes; default Sunday 02:00–06:00 UTC), one instance at a time
+  with the poolers holding clients.
+- HA for dedicated projects: a standby on another node under Patroni,
+  with a three-member etcd cluster. The pooler route follows the leader,
+  so writes are back through the same URL about 20 seconds after the
+  primary's node dies. Planned switchovers, optional synchronous
+  replication, failover history, and the month's availability measured
+  from pgdock-server and the status page (the SLA's two vantage points).
+  Project Settings → Compute → High availability, `pgdock ha`, Admin →
+  Nodes → etcd. See docs/ha.md.
+- Billing core: price books (versioned prices, repricing at least 30
+  days ahead, grandfathering, a preview of each org's invoice), Free, Pro
+  and Team plans with prorated plan changes and annual terms, monthly
+  invoices (usage in arrears, the plan fee in advance, VAT, expected WHT)
+  numbered `PGD-YYYY-NNNNNN` and downloadable as PDF, credit notes, a
+  double-entry ledger the database keeps balanced and append-only, the
+  month's forecast, budget alerts, a spend cap that pauses new billable
+  resources, and cost estimates before promoting or enabling HA. A new
+  `billing` org role for finance staff. Org → Billing, Admin → Billing,
+  `pgdock billing`. Invoices aren't issued automatically until an admin
+  turns it on. See docs/billing.md.
+- Payments: cards through Flutterwave (saved and charged when an
+  invoice is issued), bank transfers into each organisation's own virtual
+  account (iSpend, falling back to Flutterwave), Pay with iSpend and
+  wallet mandates, optional USDT top-ups, and manual payments with proof.
+  Webhooks are verified with the provider before anything is posted, and
+  re-queried hourly and nightly. Receipts, refunds from credit, prepaid
+  balances with daily deduction, alerts and auto top-up, WHT matching and
+  credit-note uploads, a dunning ladder (overdue, restricted, suspended,
+  deletion only if enabled), and nightly reconciliation with each
+  provider. Org → Billing, Admin → Billing → Payments / WHT / Events /
+  Reconciliation, `pgdock billing pay|transfer|payments`. Admin →
+  Organisations → an org → Billing sets its mode (postpaid or prepaid),
+  payment terms and price book. Refunds can reopen the invoices a payment
+  settled. See docs/payments.md.
+- The Free tier: a Free project idle for 7 days (no client connections
+  through the poolers) is paused after a day's warning, and one paused for
+  90 days is archived to a verified backup. The next connection wakes it:
+  the client gets a message saying it is resuming (or being restored),
+  and a retry gets in. Resume from the dashboard, `pgdock resume`, or the
+  API. Archived projects are deleted after a year, with 30 and 7 days'
+  notice. Paid plans are never paused. See docs/free-tier.md.
+- Open signup: Cloudflare Turnstile on the signup page and a cap on
+  accounts per IP address a day. A Pricing page in the dashboard, and
+  public prices at `GET /api/v1/pricing`.
+- Support:
+  - Tickets from the dashboard (Organisation → Support), email (an
+    inbound webhook, threaded by reference and headers) and WhatsApp
+    (Pro and Team, from registered numbers), all in one console
+    (Platform → Support).
+  - Each ticket shows the organisation's plan, billing standing,
+    projects, recent operations and incidents beside it.
+  - Response targets in Nigerian business hours. Replies go back by the
+    same channel; staff can add internal notes.
+  - A new `support` platform role sees the console and nothing else. See
+    docs/support.md.
+- Revenue dashboard (Platform → Revenue):
+  - MRR and ARR, with new, expansion, contraction and churn.
+  - Paying organisations, ARPA, and conversions from Free.
+  - Metered revenue, invoiced and collected amounts, receivables by age,
+    and outstanding WHT.
+  - A CSV for the accountant.
+- Legal documents:
+  - An acceptable use policy accepted with the terms.
+  - A versioned SLA and DPA, and per-organisation order forms, accepted
+    by an owner (Organisation → Legal, or with a plan change) and listed
+    with their acceptances for the platform admin. See docs/legal.md.
+- New migration 00029 (tickets, support phones, legal documents and
+  acceptances, MRR snapshots).
+- Capacity automation:
+  - Hetzner Cloud servers created by PGDock, joining by themselves
+    through cloud-init and a one-time token.
+  - Proposals when a region's shared disk is projected past 70% within 14
+    days, or no dedicated host fits the largest size. They are
+    provisioned within a monthly budget, and wait for approval above it.
+  - Drains with zero-downtime moves, weekly rebalancing, and deletion of
+    servers that stay empty for a day.
+  - Platform → Capacity. See docs/capacity.md.
+- Cost attribution and margins:
+  - Each day's node, storage, transfer, floating IP and overhead costs,
+    divided among organisations.
+  - Margin by plan and organisation, the cost of the Free tier, and unit
+    costs for repricing.
+  - An FX view with recorded naira rates and the erosion since costs were
+    incurred, and a CSV for the accountant.
+  - Platform → Costs & margins.
+- New migration 00030 (node provider, region, cost and lifecycle;
+  capacity proposals; drain and rebalance moves; exchange rates; daily
+  cost allocations).
+- Regions:
+  - Projects choose a region at creation (New project → Region,
+    `pgdock projects create --region`, `pgdock regions`). Each region
+    has its own pooler hosts and hostname, backup target and copy target.
+  - Moving a project to another region is a zero-downtime move; the old
+    hostname keeps working for 30 days.
+  - Data residency (owners, with step-up): backups only in the region, no
+    cross-region copies, no moves out, branches stay. Exports stay
+    available.
+  - Backups on platform targets are copied to a second region, verified
+    by checksum, and the weekly restore test alternates between primary
+    and copy.
+  - Platform → Regions. See docs/regions.md.
+- New migration 00031 (regions, project region and residency, per-region
+  pooler generations, backup copies).
+- Query insights (Pro, Team and dedicated; Project → Query insights,
+  `pgdock insights`):
+  - Top queries over an hour to 30 days, each with its latency and calls
+    over time and its EXPLAIN as a plan tree.
+  - A slow-query log.
+  - Index suggestions with their `CREATE INDEX CONCURRENTLY`, a hypopg
+    estimate where it is enabled, and save as migration.
+  - Unused and duplicate indexes, table bloat with reclaim space, and
+    blocking chains.
+  - See docs/query-insights.md.
+- New migration 00032 (query statistics). The Postgres image includes
+  hypopg.
+- Hardening for the Lagos launch (M27):
+  - A billing audit: the ledger check now ties every invoice, credit note
+    and payment to its ledger entries and the receivable to what is owed
+    (docs/billing-audit.md, with questions for the accountant).
+  - Fixed: a credit note on a partly paid invoice made the receivable
+    negative, and a fully credited invoice stayed open for dunning.
+  - Fixed: a signed but forged provider event could redirect another
+    organisation's transfer. Refunds, manual payments, credit notes,
+    attributing events, publishing price books and changing an org's
+    billing terms now ask admins to confirm with a password or code.
+  - Payment provider outages: a charge that hits one is tried again when
+    the provider is back, a card retry isn't used up by one, and neither
+    counts as a decline or emails the customer.
+  - Fixed: with pooler hosts in two regions, the split-brain alert fired
+    for a MASTER in each. It is now per region.
+  - The waker restarts if it stops; a `waker_down` alert fires while it is
+    unreachable, and Free projects aren't paused or archived meanwhile.
+  - HA: Patroni's failsafe mode is on, so losing etcd's quorum doesn't
+    stop writes; existing clusters get it from pgdock-server. A
+    switchover with synchronous replication waits for the standby to be
+    synchronous instead of failing.
+  - Chaos tests (provider outage, pooler split brain, waker failure, etcd
+    member and quorum loss), a rating load test at 1,000 organisations,
+    and the Lagos launch gate (docs/lagos-launch.md).
+- Fixed: base backups of HA projects failed (WAL-G connected as
+  `postgres`).
+- Fixed: recreating a Postgres 17 instance lost its data (V3 only; V2 ran
+  18), and recreating an agent-run shared cluster failed.
+- New migrations 00022 and 00023 (moves, Postgres releases), 00026
+  (billing), 00027 (payments), 00028 (the Free tier). Upgrade notes:
+  docs/upgrade.md#upgrading-to-v3.
+
 - Fixed: the first-run setup code printed by `install.sh` was missing its
   trailing `=`, so the wizard called it wrong. The installer now prints the
   whole code, new codes have no padding, and the server ignores spaces,

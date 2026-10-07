@@ -132,7 +132,25 @@ func (s *Service) active(ctx context.Context, projectID uuid.UUID) (store.Projec
 	if p.Status != provision.StatusActive {
 		return p, fmt.Errorf("%w (it is %s)", ErrNotActive, p.Status)
 	}
+	if err := asleep(p); err != nil {
+		return p, err
+	}
+	// Working in the console keeps a Free project awake too (V3 §4.2).
+	if p.LastActiveAt == nil || time.Since(*p.LastActiveAt) > time.Minute {
+		if err := store.New(s.db).TouchProjectsActive(ctx, []uuid.UUID{p.ID}); err != nil {
+			s.log.Warn("console: mark project active", "project_id", p.ID, "err", err)
+		}
+	}
 	return p, nil
+}
+
+// asleep refuses a Free project paused or archived for inactivity (V3 §4):
+// its database accepts no connections until it is resumed.
+func asleep(p store.Project) error {
+	if p.Lifecycle != "" && p.Lifecycle != "active" {
+		return fmt.Errorf("%w: it is %s for inactivity; resume it first", ErrNotActive, p.Lifecycle)
+	}
+	return nil
 }
 
 // open connects as the console role and assumes the owner role. A login

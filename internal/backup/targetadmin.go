@@ -271,10 +271,13 @@ func (s *Service) SwitchTarget(ctx context.Context, p store.Project, sp SwitchPa
 		if err != nil {
 			return nil, err
 		}
-		if row.OrgID == nil && row.IsDefault {
+		if err := residencyAllows(p, row); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+		}
+		if row.OrgID == nil && row.IsDefault && !s.regionHasTarget(ctx, p.Region) {
 			sp.TargetID = nil // the default, followed if it changes
 		}
-	} else if _, _, err := s.StorageTarget(ctx); err != nil {
+	} else if _, _, err := s.regionTarget(ctx, p); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrConflict, err)
 	}
 	if p.Tier != provision.TierDedicated && !sp.CopyExisting {

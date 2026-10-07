@@ -116,7 +116,7 @@ pgdock login | logout | context list | context use <name> | whoami
 pgdock orgs list | create <name>
 pgdock org members | invite <email> --role <r> | remove <email> | usage | quotas
 
-pgdock projects list | info <p> | create <name> [--tier] | delete <p> --confirm <name>
+pgdock projects list | info <p> | create <name> [--tier] [--pg-version 17] | delete <p> --confirm <name>
 pgdock connect <p> [--pooled|--session] [--psql]
 pgdock creds <p> [--rotate]
 pgdock sql <p> -c "select …" | -f file.sql [--json|--csv]
@@ -128,11 +128,22 @@ pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
 pgdock backup download <p> [--backup <id>] [-o file]   # organisation owners: a pg_dump file (a fresh backup by default)
 pgdock promote <p> [--node <id>] [--profile <size>]
 pgdock demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
+pgdock upgrade <p> --to <major> [--check]        # a newer Postgres major
+pgdock moves <p>                                  # recent moves, with the pause each took
+pgdock ha status <p> | enable <p> [--node <id>] [--sync] | disable <p>
+pgdock ha switchover <p> [--to <member>] | sync <p> on|off
+pgdock move <p> --node <id>                       # platform admins: put the project on another node
 
 pgdock webhooks list <p> | create <p> <name> --tables orders --url https://… [--events INSERT,UPDATE] [--columns c] [--header K=V]
 pgdock webhooks delete <p> <webhook> | deliveries <p> <webhook> [--dead] | replay <p> <webhook> --all | --ids 1,2
 pgdock jobs list <p> | create <p> <name> --cron '0 3 * * *' [--tz Europe/Berlin] (--sql '…' | --sql @file.sql | --url https://…)
 pgdock jobs pause|resume|run|history <p> <job>
+
+pgdock resume <p>   # wake a paused Free project, or restore an archived one
+
+pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
+pgdock billing invoices | invoice <number|id> [--pdf file.pdf]
+pgdock billing pay <number|id> [--wallet] | transfer | payments   # a link to pay, the bank account to transfer to, payments received
 
 pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>
 pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
@@ -145,6 +156,10 @@ doesn't allow, the size, no room) refuse the demotion; warnings (peak
 connections, database settings that reset) need `--accept-warnings`.
 `--node` picks the shared cluster by its node's id (by default the one
 with the most free capacity, or the organisation's own).
+
+`upgrade` prints its preflight first (including the trial restore of the
+schema on the new version) and stops there with `--check`; a blocked check
+refuses. See [moves and Postgres versions](moves.md).
 
 `webhooks create` and an HTTP `jobs create` print the signing secret
 once. See [webhooks and scheduled jobs](webhooks.md) for the payload, the
@@ -160,7 +175,7 @@ time, and remembering it in `~/.config/pgdock/credentials.toml`); `creds
 --rotate` issues a new password.
 
 Every command takes `--json` for scripts. Long operations (create,
-backup, restore, promote, demote, delete) stream their progress; `--no-wait`
+backup, restore, promote, demote, upgrade, move, delete) stream their progress; `--no-wait`
 returns the operation at once.
 
 Exit codes: `0` success, `1` error (including "not found"), `2` usage

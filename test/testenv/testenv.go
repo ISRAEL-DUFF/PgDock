@@ -47,12 +47,23 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
+	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/branching"
+	"github.com/israel-duff/pgdock/internal/capacity"
+	"github.com/israel-duff/pgdock/internal/cloud"
 	"github.com/israel-duff/pgdock/internal/console"
+	"github.com/israel-duff/pgdock/internal/costs"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/freetier"
+	"github.com/israel-duff/pgdock/internal/ha"
+	"github.com/israel-duff/pgdock/internal/incidents"
+	"github.com/israel-duff/pgdock/internal/insights"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
@@ -60,13 +71,16 @@ import (
 	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/regions"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/pgdock/internal/support"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tokens"
+	"github.com/israel-duff/pgdock/internal/waker"
 	"github.com/israel-duff/pgdock/internal/webhooks"
 )
 
@@ -98,6 +112,33 @@ type Env struct {
 	Auth *auth.Service
 	Orgs *orgs.Service
 	SMTP *SMTPServer
+	// Billing is the billing core (V3 §3); tests move its clock (Now).
+	Billing *billing.Service
+	// FreeTier pauses and archives idle Free projects (V3 §4); tests call
+	// FreeTier.Sweep. Waker is its waker, reached by the test poolers.
+	FreeTier *freetier.Service
+	Waker    *waker.Server
+	// wakerLn, wakerAddr and wakerCtx let tests stop and start the waker
+	// (StopWaker).
+	wakerLn   net.Listener
+	wakerAddr string
+	wakerCtx  context.Context
+	// Support runs tickets (V3 §7.1); WhatsApp fakes the Cloud API, whose
+	// webhook reaches the API. SupportInboundSecret authenticates inbound email.
+	Support  *support.Service
+	WhatsApp *support.FakeGraph
+	// Capacity, Costs and Hetzner: capacity automation, cost attribution,
+	// and the fake Hetzner Cloud servers are created in (V3 §5).
+	Capacity *capacity.Service
+	Costs    *costs.Service
+	Hetzner  *cloud.FakeHetzner
+	// Regions are the platform's regions (V3 §6).
+	Regions              *regions.Service
+	Insights             *insights.Service
+	SupportInboundSecret string
+	// Flutterwave and ISpend are the payment providers' fake sandboxes.
+	Flutterwave *flutterwave.Fake
+	ISpend      *ispend.Fake
 	// Tenancy is the M9 controller; tests tick it (EnforceStorage, Reap,
 	// RecordUsage, Sweep) rather than running its loops. Its clock is real
 	// time plus TenancyAdvance.
@@ -111,6 +152,8 @@ type Env struct {
 	Webhooks *webhooks.Service
 	Jobs     *schedjobs.Service
 	Outbound *outbound.Service
+	// Incidents pushes to Options.StatusURL; tests call Push and Heartbeat.
+	Incidents *incidents.Service
 	// OrgID is the owner's personal organisation, where CreateProject puts
 	// projects.
 	OrgID uuid.UUID
@@ -159,6 +202,8 @@ type Options struct {
 	// S3Link puts a cuttable TCP link (Env.S3Link) between agents and the
 	// fake S3 ConfigureBackups starts.
 	S3Link bool
+	// StatusURL and StatusSecret point incidents at a status service.
+	StatusURL, StatusSecret string
 	// TokenRate and OrgTokenRate override the API token rate limits
 	// (requests per minute).
 	TokenRate, OrgTokenRate int
@@ -223,13 +268,19 @@ func Start(t testing.TB, opts Options) *Env {
 	if err != nil {
 		t.Fatal(err)
 	}
+	pm.SetHome("eu-central")
 
 	host, sport, _ := net.SplitHostPort(sessionAddr)
 	_, pport, _ := net.SplitHostPort(pooledAddr)
 	sp, _ := strconv.Atoi(sport)
 	pp, _ := strconv.Atoi(pport)
 	st := settings.New(db, host)
+	regionSvc := regions.New(db, "eu-central", log)
+	if err := regionSvc.Ensure(ctx); err != nil {
+		t.Fatal(err)
+	}
 	cfg := provision.Config{
+		HomeRegion: "eu-central", RegionHost: regionSvc.Host,
 		DBHost: host, DBHostFunc: st.DBHost, SessionPort: sp, PooledPort: pp, SSLMode: "require",
 		SmokeSessionAddr: sessionAddr, SmokePooledAddr: pooledAddr,
 		SmokeSSLMode: "require", AdminSSLMode: "disable",
@@ -257,13 +308,19 @@ func Start(t testing.TB, opts Options) *Env {
 	backups := backup.NewService(db, keyring, nodeSvc, svc, bcfg, log)
 	// The test server runs on the host: it reaches instances through the
 	// ports agents publish on 127.0.0.1.
-	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze}, log)
+	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze,
+		MoveWait: dedicated.MoveWait{StableFor: 2 * time.Second, Poll: 250 * time.Millisecond}}, log)
 	ded.Snapshot = backups.Snapshot
 	svc.Instances = ded
 	backups.Dedicated = ded
+	haSvc := ha.New(db, keyring, nodeSvc, log)
+	ded.Etcd = haSvc
 
 	kinds := svc.Kinds()
 	for name, k := range backups.Kinds() {
+		kinds[name] = k
+	}
+	for name, k := range haSvc.Kinds() {
 		kinds[name] = k
 	}
 	for name, k := range ded.Kinds() {
@@ -287,17 +344,48 @@ func Start(t testing.TB, opts Options) *Env {
 		k.MaxAttempts = opts.MaxAttempts
 		kinds[provision.KindCreate] = k
 	}
+	// Capacity automation against a fake Hetzner Cloud (V3 §5): a test
+	// boots a created "server" by starting an agent with the token from
+	// its cloud-init.
+	hetzner := cloud.NewFakeHetzner("hetzner-test-token")
+	hetznerSrv := httptest.NewServer(hetzner)
+	t.Cleanup(hetznerSrv.Close)
+	capacitySvc := capacity.New(db, nodeSvc, ded, &cloud.HetznerProvider{API: hetznerSrv.URL + "/v1", Token: "hetzner-test-token"}, nil, capacity.Config{
+		Region: "eu-central", Location: "fsn1", Image: "ubuntu-24.04", JoinTimeout: 2 * time.Minute, Poll: 300 * time.Millisecond,
+		Bootstrap: cloud.Bootstrap{ServerURL: "https://pgdock.test", AgentImage: "pgdock-agent:test", PGImage: "pgdock-postgres:{major}", PrivateCIDR: "10.0.0.0/16"},
+	}, log)
+	for name, k := range capacitySvc.Kinds() {
+		kinds[name] = k
+	}
+	freeSvc := freetier.New(db, svc, backups, mailSvc, freetier.Config{PublicURL: "https://pgdock.test"}, log)
+	for name, k := range freeSvc.Kinds() {
+		kinds[name] = k
+	}
+	// The waker listens where the test poolers (containers) reach it.
+	wakerHost := "127.0.0.1"
+	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
+		wakerHost = gw
+	}
+	wakerLn, err := net.Listen("tcp", net.JoinHostPort(wakerHost, "0"))
+	if err != nil {
+		t.Fatalf("waker listen: %v", err)
+	}
+	wakerSrv := waker.New(freeSvc, log)
+	wakerPort := wakerLn.Addr().(*net.TCPAddr).Port
+	pm.SetWaker(wakerHost, wakerPort)
 	notifier := jobs.NewNotifier(db, log)
 	runner := jobs.NewRunner(db, notifier, log, jobs.RunnerConfig{
 		PollInterval: 100 * time.Millisecond, RetryBase: 50 * time.Millisecond, RetryMax: 200 * time.Millisecond,
 	}, kinds)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
+	go func() { defer wg.Done(); _ = wakerSrv.Serve(ctx, wakerLn) }()
 	go func() { defer wg.Done(); notifier.Run(ctx) }()
 	go func() { defer wg.Done(); runner.Run(ctx) }()
 
 	consoleSvc := console.New(db, svc, keyring, false, log)
-	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond}, log)
+	insightSvc := insights.New(db, svc, consoleSvc, insights.Config{SlowQuery: 200 * time.Millisecond, Plans: []string{"all"}}, log)
+	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond, WakerAddr: pm.WakerAddr}, log)
 	collector := metrics.NewCollector(db, svc, pm, nodeSvc, time.Second, log)
 
 	clock := &Clock{t: time.Now()}
@@ -329,7 +417,38 @@ func Start(t testing.TB, opts Options) *Env {
 	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
+	incidentSvc := incidents.New(db, incidents.Config{URL: opts.StatusURL, Secret: opts.StatusSecret}, log)
+	billingSvc := billing.New(db, mailSvc, "https://pgdock.test", log)
+	costSvc := costs.New(db, billingSvc, "eu-central", log)
+	capacitySvc.SetConverter(costSvc)
+	if err := billingSvc.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Payment providers: fakes of the Flutterwave and iSpend sandboxes,
+	// whose webhooks reach the API like the real ones (wired below, once
+	// the server's URL is known).
+	flw := flutterwave.NewFake("flw-test-secret", "flw-test-webhook-hash")
+	isp := ispend.NewFake("isp-test-key", "isp-test-webhook-secret")
+	flwSrv, ispSrv := httptest.NewServer(flw), httptest.NewServer(isp)
+	t.Cleanup(flwSrv.Close)
+	t.Cleanup(ispSrv.Close)
+	billingSvc.SetPayments([]billing.PaymentProvider{
+		flutterwave.New(flutterwave.Config{BaseURL: flwSrv.URL, SecretKey: flw.SecretKey, WebhookHash: flw.WebhookHash, BVN: "22222222222"}),
+		ispend.New(ispend.Config{BaseURL: ispSrv.URL, APIKey: isp.APIKey, WebhookSecret: isp.WebhookSecret}),
+	}, billing.Routing{Cards: billing.ProviderFlutterwave, VAPrimary: billing.ProviderISpend, VAFallback: billing.ProviderFlutterwave, Wallet: billing.ProviderISpend}, keyring)
+	billingSvc.SetDunning(tenancySvc, nil)
+	billingSvc.SetDocStore(&memDocs{m: map[string][]byte{}})
+	supportSvc := support.New(db, mailSvc, support.Config{Address: "support@pgdock.test", PublicURL: "https://pgdock.test", InboundSecret: "inbound-secret-0123456789"}, log)
+	legalSvc := legal.New(db)
+	if err := legalSvc.EnsureDefaults(ctx); err != nil {
+		t.Fatal(err)
+	}
+	wa := support.NewFakeGraph()
+	waSrv := httptest.NewServer(wa)
+	t.Cleanup(waSrv.Close)
+	supportSvc.SetWhatsApp(support.CloudAPI{BaseURL: waSrv.URL, PhoneNumberID: wa.PhoneNumberID, AccessToken: wa.AccessToken, AppSecret: wa.AppSecret, VerifyToken: "wa-verify"})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
+		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc, Regions: regionSvc, Insights: insightSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
@@ -347,11 +466,14 @@ func Start(t testing.TB, opts Options) *Env {
 		ts.Listener = ln
 	}
 	ts.Start()
+	flw.WebhookURL = ts.URL + "/api/v1/payments/webhooks/flutterwave"
+	isp.WebhookURL = ts.URL + "/api/v1/payments/webhooks/ispend"
+	wa.WebhookURL = ts.URL + "/api/v1/support/whatsapp"
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
@@ -555,6 +677,33 @@ func (e *Env) Do(method, path string, body, out any) int {
 	return res.StatusCode
 }
 
+// DoBytes sends body (raw, as contentType) as the owner and returns the
+// status and the raw response.
+func (e *Env) DoBytes(method, path, contentType string, body []byte) (int, []byte) {
+	e.t.Helper()
+	var r io.Reader
+	if body != nil {
+		r = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, e.URL+path, r)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if e.csrf != "" {
+		req.Header.Set("X-CSRF-Token", e.csrf)
+	}
+	res, err := e.client.Do(req)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	return res.StatusCode, b
+}
+
 // CreateProject creates a project through the API and waits for it to be
 // active. It returns the credentials response.
 func (e *Env) CreateProject(name string) gen.ProjectCredentials {
@@ -740,4 +889,61 @@ func (e *Env) StopAutomation() {
 		cancel()
 		a.wg.Wait()
 	}
+}
+
+// memDocs keeps billing documents in memory (tests have no bucket unless
+// they configure backups).
+type memDocs struct {
+	mu sync.Mutex
+	m  map[string][]byte
+}
+
+func (d *memDocs) Put(_ context.Context, key string, r io.Reader) error {
+	b, err := io.ReadAll(r)
+	d.mu.Lock()
+	d.m[key] = b
+	d.mu.Unlock()
+	return err
+}
+
+func (d *memDocs) Get(_ context.Context, key string) (io.ReadCloser, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	b, ok := d.m[key]
+	if !ok {
+		return nil, fmt.Errorf("no document %s", key)
+	}
+	return io.NopCloser(bytes.NewReader(b)), nil
+}
+
+// StopWaker stops the waker, as if it had crashed: its port refuses
+// connections until StartWaker.
+func (e *Env) StopWaker(t *testing.T) {
+	t.Helper()
+	if e.wakerLn != nil {
+		_ = e.wakerLn.Close()
+		e.wakerLn = nil
+	}
+}
+
+// StartWaker starts the waker again on the same address.
+func (e *Env) StartWaker(t *testing.T) {
+	t.Helper()
+	if e.wakerLn != nil {
+		return
+	}
+	addr := e.wakerAddr
+	var ln net.Listener
+	var err error
+	for range 50 { // the old socket may linger a moment
+		if ln, err = net.Listen("tcp", addr); err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("waker listen again on %s: %v", addr, err)
+	}
+	e.wakerLn = ln
+	go func() { _ = e.Waker.Serve(e.wakerCtx, ln) }()
 }

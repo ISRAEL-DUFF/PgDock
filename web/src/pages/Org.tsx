@@ -29,7 +29,7 @@ import { StorageTargetsPanel } from "../components/StorageTargets";
 import { sessionQuery } from "../lib/session";
 import { OrgTokensCard } from "../components/Tokens";
 
-const orgRoles: OrgRole[] = ["owner", "admin", "member"];
+const orgRoles: OrgRole[] = ["owner", "admin", "member", "billing"];
 const projectRoles: { id: ProjectRole; label: string }[] = [
   { id: "admin", label: "Admin" },
   { id: "developer", label: "Developer" },
@@ -277,7 +277,7 @@ function InviteModal({ orgId, canInviteOwners, open, onClose }: { orgId: string;
       ) : (
         <form id="invite-form" className="flex flex-col gap-4" onSubmit={submit}>
           <Field label="Email">{(id) => <Input id={id} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />}</Field>
-          <Field label="Organisation role" hint="Owners and admins are admins of every project; members only of the projects you pick.">
+          <Field label="Organisation role" hint="Owners and admins are admins of every project; members only of the projects you pick; billing members see billing and no projects.">
             {(id) => (
               <Select id={id} value={role} onChange={(e) => setRole(e.target.value as OrgRole)}>
                 {orgRoles

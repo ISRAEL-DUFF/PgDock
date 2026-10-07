@@ -1,0 +1,31 @@
+# pgdock-status on its own server (another provider than PGDock's).
+# Put status.toml and the secret files next to this file, then:
+#
+#   docker compose up -d
+#
+# Caddy terminates TLS for STATUS_DOMAIN (point its DNS here first).
+
+name: pgdock-status
+
+services:
+  status:
+    image: ${PGDOCK_STATUS_IMAGE:-pgdock-status:local}
+    restart: unless-stopped
+    volumes:
+      - ./status.toml:/etc/pgdock-status/status.toml:ro
+      - ./secrets:/run/secrets:ro
+      - data:/var/lib/pgdock-status
+    environment:
+      PGDOCK_STATUS_LOG_FORMAT: json
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    command: ["caddy", "reverse-proxy", "--from", "${STATUS_DOMAIN:?set STATUS_DOMAIN}", "--to", "status:8080"]
+    volumes:
+      - caddy:/data
+
+volumes:
+  data:
+  caddy:

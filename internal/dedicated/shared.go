@@ -27,6 +27,11 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindSharedCluster: {Handler: s.runSharedCluster, OnFail: s.failSharedCluster, MaxAttempts: 3},
 		KindPromote:       {Handler: s.runPromote, OnFail: s.failPromote, MaxAttempts: 2, Timeout: 12 * time.Hour},
 		KindDemote:        {Handler: s.runDemote, OnFail: s.failDemote, MaxAttempts: 2, Timeout: 12 * time.Hour},
+		KindMove:          {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
+		KindUpgrade:       {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
+		KindHAEnable:      {Handler: s.runHAEnable, OnFail: s.failHAEnable, MaxAttempts: 2, Timeout: 24 * time.Hour},
+		KindHADisable:     {Handler: s.runHADisable, MaxAttempts: 3},
+		KindHASwitchover:  {Handler: s.runSwitchover, MaxAttempts: 1, Timeout: 5 * time.Minute},
 	}
 }
 
@@ -45,13 +50,37 @@ func sharedSettings(memMB int) map[string]string {
 		"autovacuum_max_workers":     "5",
 		"shared_preload_libraries":   "pg_stat_statements",
 		"log_min_duration_statement": "5s",
+		// Logical-replication moves (V3 §2.3).
+		"wal_level": "logical",
 	}
+}
+
+// sharedSpec is the agent's spec for an agent-run shared cluster.
+func sharedSpec(inst store.Instance, secret provision.AdminSecret) agentapi.InstanceSpec {
+	mem := 1024
+	if inst.MemLimitMb != nil {
+		mem = int(*inst.MemLimitMb)
+	}
+	return agentapi.InstanceSpec{
+		ID: inst.ID.String(), Kind: agentapi.InstanceShared, MemoryMB: mem,
+		AdminUser: secret.User, AdminPassword: secret.Password, Settings: sharedSettings(mem),
+		PGVersion: int(inst.PgVersion),
+	}
+}
+
+// checkPGVersion resolves a requested major against the supported ones
+// (without a projects service, as in unit tests, it takes v as given).
+func (s *Service) checkPGVersion(v int) (int, error) {
+	if s.projects == nil {
+		return v, nil
+	}
+	return s.projects.CheckPGVersion(v)
 }
 
 // AddSharedCluster records a shared cluster on node and queues its
 // creation. memoryMB sizes it (its CPU is not limited: it is the node's
 // shared tenant pool).
-func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memoryMB int, by *uuid.UUID) (store.Operation, error) {
+func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memoryMB, pgVersion int, by *uuid.UUID) (store.Operation, error) {
 	if memoryMB < 512 || memoryMB > 1<<20 {
 		return store.Operation{}, fmt.Errorf("%w: memory must be 512 MB to 1 TB", provision.ErrInvalid)
 	}
@@ -79,10 +108,13 @@ func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memory
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
+		if pgVersion, err = s.checkPGVersion(pgVersion); err != nil {
+			return err
+		}
 		mem := int32(memoryMB)
 		name := "shared"
 		inst, err := q.InsertInstance(ctx, store.InsertInstanceParams{
-			ID: uuid.New(), NodeID: nodeID, Kind: provision.TierShared, MemLimitMb: &mem, Profile: &name,
+			ID: uuid.New(), NodeID: nodeID, Kind: provision.TierShared, PgVersion: int32(pgVersion), MemLimitMb: &mem, Profile: &name,
 		})
 		if err != nil {
 			return err
@@ -122,21 +154,15 @@ func (s *Service) runSharedCluster(ctx context.Context, op store.Operation, log 
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	mem := 1024
-	if inst.MemLimitMb != nil {
-		mem = int(*inst.MemLimitMb)
-	}
+	spec := sharedSpec(inst, secret)
 	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
 	if err != nil {
 		return err
 	}
-	if err := log.Info(ctx, "instance", "starting a shared cluster (%d MB) on node %s", mem, agent.Node.Name); err != nil {
+	if err := log.Info(ctx, "instance", "starting a shared cluster (%d MB) on node %s", spec.MemoryMB, agent.Node.Name); err != nil {
 		return err
 	}
-	res, err := agent.CreateInstance(ctx, agentapi.InstanceSpec{
-		ID: inst.ID.String(), Kind: agentapi.InstanceShared, MemoryMB: mem,
-		AdminUser: secret.User, AdminPassword: secret.Password, Settings: sharedSettings(mem),
-	})
+	res, err := agent.CreateInstance(ctx, spec)
 	if err != nil {
 		return err
 	}
@@ -223,7 +249,11 @@ func (s *Service) Act(ctx context.Context, p store.Project, action string) (agen
 	if err != nil {
 		return agentapi.Instance{}, err
 	}
-	id := inst.ID.String()
+	if inst.HaEnabled {
+		// Stopping or restarting one member would fail over (V3 §2.2).
+		return agentapi.Instance{}, fmt.Errorf("%w: this project has HA; use a switchover, or turn HA off first", provision.ErrConflict)
+	}
+	id := agentKey(inst)
 	var res agentapi.Instance
 	switch action {
 	case ActionStop:
@@ -259,7 +289,7 @@ func (s *Service) Status(ctx context.Context, inst store.Instance) (agentapi.Ins
 	if err != nil {
 		return agentapi.Instance{}, err
 	}
-	return agent.Instance(ctx, inst.ID.String())
+	return agent.Instance(ctx, agentKey(inst))
 }
 
 func decodeJSON(raw []byte, v any) error {

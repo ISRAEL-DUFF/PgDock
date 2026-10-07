@@ -38,7 +38,7 @@ type RoleChange struct {
 // ends the target's sessions, so the change is immediate. The target is
 // emailed.
 func (s *Service) SetPlatformRole(ctx context.Context, target uuid.UUID, role string, opt RoleChange) (store.User, error) {
-	if role != RolePlatformAdmin && role != RoleUser {
+	if role != RolePlatformAdmin && role != RoleSupport && role != RoleUser {
 		return store.User{}, fmt.Errorf("unknown platform role %q", role)
 	}
 	var out store.User
@@ -56,23 +56,26 @@ func (s *Service) SetPlatformRole(ctx context.Context, target uuid.UUID, role st
 		if u.PlatformRole == role {
 			return nil
 		}
-		if role == RolePlatformAdmin {
-			if opt.Recovery {
-				if _, err := q.ApproveUser(ctx, u.ID); err != nil {
+		switch {
+		case role == RolePlatformAdmin && opt.Recovery:
+			if _, err := q.ApproveUser(ctx, u.ID); err != nil {
+				return err
+			}
+			if err := q.MarkEmailVerified(ctx, u.ID); err != nil {
+				return err
+			}
+			if u.DisabledAt != nil {
+				if _, err := q.SetUserDisabled(ctx, store.SetUserDisabledParams{ID: u.ID, Disabled: false}); err != nil {
 					return err
 				}
-				if err := q.MarkEmailVerified(ctx, u.ID); err != nil {
-					return err
-				}
-				if u.DisabledAt != nil {
-					if _, err := q.SetUserDisabled(ctx, store.SetUserDisabledParams{ID: u.ID, Disabled: false}); err != nil {
-						return err
-					}
-				}
-			} else if reason := ineligible(u); reason != "" {
+			}
+		case role != RoleUser:
+			// Admins and support staff need a working second factor.
+			if reason := ineligible(u); reason != "" {
 				return &IneligibleError{Reason: reason}
 			}
-		} else {
+		}
+		if u.PlatformRole == RolePlatformAdmin && role != RolePlatformAdmin {
 			n, err := q.CountPlatformAdmins(ctx)
 			if err != nil {
 				return err
@@ -96,9 +99,14 @@ func (s *Service) SetPlatformRole(ctx context.Context, target uuid.UUID, role st
 		return out, err
 	}
 	if changed {
-		subject, body := "You are now a PGDock platform admin", "You were made a platform admin. You can manage users, plans, nodes and the platform's settings. Sign in again to use it."
-		if role == RoleUser {
-			subject, body = "You are no longer a PGDock platform admin", "Your platform admin access was removed. Your own organisations and projects are unchanged. Sign in again to continue."
+		var subject, body string
+		switch role {
+		case RolePlatformAdmin:
+			subject, body = "You are now a PGDock platform admin", "You were made a platform admin. You can manage users, plans, nodes and the platform's settings. Sign in again to use it."
+		case RoleSupport:
+			subject, body = "You are now PGDock support staff", "You were given the support role. You can answer tickets in the support console and see organisations' plans, billing status and usage, but not their data. Sign in again to use it."
+		default:
+			subject, body = "Your PGDock platform role was removed", "Your platform access was removed. Your own organisations and projects are unchanged. Sign in again to continue."
 		}
 		if err := s.send(ctx, out.Email, subject, body+"\n\nIf this wasn't expected, contact a platform admin."); err != nil {
 			s.log.Warn("platform role email", "user_id", out.ID, "err", err)

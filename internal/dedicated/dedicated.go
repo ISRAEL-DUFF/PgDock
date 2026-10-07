@@ -22,6 +22,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -60,6 +61,9 @@ type Config struct {
 	// writes are frozen; an error fails it there (tests use it to exercise
 	// the rollback).
 	AfterFreeze func(ctx context.Context) error
+	// MoveWait tunes when a logical move cuts over (defaults: lag under
+	// 1 MB for 30 s, checked every 2 s).
+	MoveWait MoveWait
 }
 
 // Service manages dedicated instances.
@@ -72,6 +76,11 @@ type Service struct {
 	cfg      Config
 	log      *slog.Logger
 
+	// Etcd is the etcd cluster HA instances use (V3 §2.2); nil when the
+	// server runs without one.
+	Etcd  *ha.Service
+	watch watcher
+	sla   slaState
 	// Quotas, when set, checks organisation limits for demotions (the
 	// tenancy service).
 	Quotas Quotas
@@ -160,9 +169,9 @@ func (s *Service) Validate(ctx context.Context, p *provision.CreateParams) (prov
 	}
 	q := store.New(s.db)
 	if p.NodeID == nil {
-		n, err := q.PickDedicatedNode(ctx)
+		n, err := q.PickDedicatedNode(ctx, p.Region)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return prof, fmt.Errorf("%w: no healthy node with an agent accepts dedicated instances", provision.ErrNoCapacity)
+			return prof, fmt.Errorf("%w: no healthy node with an agent in %s accepts dedicated instances", provision.ErrNoCapacity, p.Region)
 		}
 		if err != nil {
 			return prof, err
@@ -411,6 +420,13 @@ func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agenta
 	if err != nil {
 		return agentapi.InstanceSpec{}, jobs.Permanent(err)
 	}
+	if inst.Kind == provision.TierShared {
+		return sharedSpec(inst, secret), nil
+	}
+	if inst.Patroni {
+		// An HA instance: the leader's member (V3 §2.2).
+		return s.memberSpec(ctx, inst, leaderKey(inst))
+	}
 	w, err := s.walgFor(ctx, inst)
 	if err != nil {
 		return agentapi.InstanceSpec{}, err
@@ -419,6 +435,7 @@ func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agenta
 	return agentapi.InstanceSpec{
 		ID: inst.ID.String(), Kind: agentapi.InstanceDedicated, CPUs: prof.CPUs, MemoryMB: prof.MemoryMB,
 		AdminUser: secret.User, AdminPassword: secret.Password, Settings: settings(prof), WALG: &w,
+		PGVersion: int(inst.PgVersion),
 	}, nil
 }
 
@@ -650,7 +667,8 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 	if err := log.Info(ctx, "backup", "wal-g backup-push on %s", agent.Node.Name); err != nil {
 		return store.Backup{}, err
 	}
-	res, err := agent.BaseBackup(ctx, inst.ID.String(), agentapi.WALGBackupRequest{RetainFull: s.cfg.RetainFull})
+	// From the leader (V3 §2.2: WAL-G runs from the current primary).
+	res, err := agent.BaseBackup(ctx, agentKey(inst), agentapi.WALGBackupRequest{RetainFull: s.cfg.RetainFull})
 	if err != nil {
 		return store.Backup{}, err
 	}
@@ -665,7 +683,7 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 		return store.Backup{}, err
 	}
 	// Retention happened in WAL-G; forget backups it no longer lists.
-	if list, err := agent.BaseBackups(ctx, inst.ID.String()); err == nil {
+	if list, err := agent.BaseBackups(ctx, agentKey(inst)); err == nil {
 		keep := map[string]bool{}
 		for _, l := range list {
 			keep[l.Name] = true
@@ -732,7 +750,19 @@ func (s *Service) removeInstance(ctx context.Context, inst store.Instance) (node
 	if err != nil {
 		return "", archived, err
 	}
-	if err := agent.DestroyInstance(ctx, inst.ID.String()); err != nil {
+	// An HA instance's other members first, then the leader.
+	members, err := store.New(s.db).ListInstanceMembers(ctx, inst.ID)
+	if err != nil {
+		return "", archived, err
+	}
+	for _, m := range members {
+		if m.ID != leaderKey(inst) {
+			if err := s.removeMember(ctx, m.ID, m.NodeID); err != nil {
+				return "", archived, err
+			}
+		}
+	}
+	if err := agent.DestroyInstance(ctx, agentKey(inst)); err != nil {
 		return "", archived, err
 	}
 	if inst.WalgPrefix != nil {

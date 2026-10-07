@@ -239,6 +239,11 @@ func (s *Server) InviteOrgMember(w http.ResponseWriter, r *http.Request, org gen
 		writeError(w, http.StatusForbidden, "forbidden", "only owners can invite owners")
 		return
 	}
+	if req.Role == gen.OrgRoleBilling && acc.OrgRole != authz.OrgOwner {
+		// Admins can't see billing, so they can't hand out access to it.
+		writeError(w, http.StatusForbidden, "forbidden", "only owners can invite billing members")
+		return
+	}
 	p := orgs.InviteParams{OrgID: &org, Email: string(req.Email), OrgRole: string(req.Role), InvitedBy: sess.UserID, InviterName: displayName(sess.Name, sess.Email)}
 	if req.Projects != nil {
 		for _, pr := range *req.Projects {

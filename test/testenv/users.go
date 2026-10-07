@@ -202,3 +202,20 @@ func (e *Env) InviteUser(email string) *Client {
 	}
 	return e.AcceptInvitation(e.MailToken(email, "invitation"), email)
 }
+
+// SignIn signs c in again (password and TOTP), after its sessions ended
+// (a platform role change ends them), returning the new client.
+func (e *Env) SignIn(c *Client) *Client {
+	e.t.Helper()
+	n := newClient(e)
+	n.Email, n.UserID, n.OrgID, n.totp = c.Email, c.UserID, c.OrgID, c.totp
+	var ch gen.LoginChallenge
+	if code := n.Do("POST", "/api/v1/auth/login", map[string]string{"email": c.Email, "password": UserPassword}, &ch); code != http.StatusOK {
+		e.t.Fatalf("sign in %s: %d", c.Email, code)
+	}
+	var st gen.SessionState
+	if code := n.Do("POST", "/api/v1/auth/totp", map[string]string{"challenge_id": ch.ChallengeId, "code": n.TOTP()}, &st); code != http.StatusOK || !st.Authenticated {
+		e.t.Fatalf("TOTP for %s: %d %+v", c.Email, code, st)
+	}
+	return n
+}

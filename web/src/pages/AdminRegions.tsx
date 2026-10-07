@@ -1,0 +1,345 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import {
+  api,
+  errorMessage,
+  type AdminRegion,
+  type AdminRegionRequest,
+} from "../api/client";
+import {
+  Alert,
+  Badge,
+  Button,
+  Field,
+  Input,
+  Page,
+  PageSkeleton,
+  Panel,
+  Select,
+  SidePanel,
+  Stat,
+  Table,
+} from "../components/ui";
+
+const COPY_LABEL: Record<string, string> = {
+  copied: "Copied",
+  pending: "Pending",
+  failed: "Failed",
+  skipped: "Skipped (residency)",
+  none: "Not copied",
+};
+
+/** Platform → Regions (V3 §6): each region's pooler hostname, storage and
+ * copy targets, data residency, and how its backups are copied. */
+export function AdminRegionsPage() {
+  const regions = useQuery({
+    queryKey: ["admin", "regions"],
+    queryFn: api.adminRegions,
+  });
+  const targets = useQuery({
+    queryKey: ["storage-targets", "platform"],
+    queryFn: () => api.storageTargets(),
+  });
+  const [editing, setEditing] = useState<AdminRegion | "new" | null>(null);
+  if (!regions.data) return <PageSkeleton />;
+  const targetName = (id?: string | null) =>
+    id
+      ? (targets.data?.items.find((t) => t.id === id)?.name ?? id.slice(0, 8))
+      : "Platform default";
+  const copies = regions.data.copies;
+  return (
+    <Page
+      title="Regions"
+      description="Where projects run. Each region has its own pooler hostname, backup target and cross-region copy target."
+      testId="admin-regions"
+      actions={
+        <Button variant="primary" onClick={() => setEditing("new")}>
+          Add region
+        </Button>
+      }
+    >
+      <Panel title="Regions">
+        <Table
+          head={[
+            "Region",
+            "Hostname",
+            "Backups",
+            "Copies to",
+            "Residency",
+            "Nodes",
+            "Projects",
+            "",
+          ]}
+        >
+          {regions.data.items.map((r) => (
+            <tr key={r.id} data-testid={`region-${r.id}`}>
+              <td className="px-3 py-2">
+                <div className="font-medium">
+                  {r.name}{" "}
+                  {r.country && (
+                    <span className="text-muted">({r.country})</span>
+                  )}
+                </div>
+                <div className="text-xs text-muted">
+                  {r.id}
+                  {r.home && " · home"}
+                  {r.status === "hidden" && " · hidden"}
+                </div>
+              </td>
+              <td className="px-3 py-2">
+                <div className="font-mono text-xs">
+                  {r.pooler_host || "platform host"}
+                </div>
+                <div className="text-xs text-muted">
+                  {r.home || r.pooler_hosts > 0
+                    ? `${r.pooler_hosts} pooler host${r.pooler_hosts === 1 ? "" : "s"}`
+                    : "served by the home poolers"}
+                </div>
+              </td>
+              <td className="px-3 py-2">{targetName(r.storage_target_id)}</td>
+              <td className="px-3 py-2">
+                {r.copy_target_id ? (
+                  targetName(r.copy_target_id)
+                ) : (
+                  <span className="text-muted">No copies</span>
+                )}
+              </td>
+              <td className="px-3 py-2">
+                {r.residency ? (
+                  <Badge tone="accent">
+                    Offered ({r.residency_projects} on)
+                  </Badge>
+                ) : (
+                  <span className="text-muted">No</span>
+                )}
+              </td>
+              <td className="px-3 py-2">{r.nodes}</td>
+              <td className="px-3 py-2">{r.projects}</td>
+              <td className="px-3 py-2 text-right">
+                <Button size="small" onClick={() => setEditing(r)}>
+                  Edit
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </Panel>
+      <Panel title="Cross-region backup copies (last 7 days)">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {copies.length === 0 && (
+            <span className="text-[13px] text-muted">
+              No backups in the last 7 days.
+            </span>
+          )}
+          {copies.map((c) => (
+            <Stat
+              key={c.status}
+              label={COPY_LABEL[c.status] ?? c.status}
+              value={String(c.count)}
+            />
+          ))}
+        </div>
+      </Panel>
+      <RegionPanel
+        key={editing === "new" ? "new" : (editing?.id ?? "none")}
+        region={editing}
+        targets={(targets.data?.items ?? []).filter(
+          (t) => t.kind === "platform",
+        )}
+        onClose={() => setEditing(null)}
+      />
+    </Page>
+  );
+}
+
+function RegionPanel({
+  region,
+  targets,
+  onClose,
+}: {
+  region: AdminRegion | "new" | null;
+  targets: { id: string; name: string }[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const r = region && region !== "new" ? region : null;
+  const [id, setId] = useState(r?.id ?? "");
+  const [f, setF] = useState<AdminRegionRequest>({
+    name: r?.name ?? "",
+    country: r?.country ?? "",
+    pooler_host: r?.pooler_host ?? "",
+    provider: r?.provider ?? "manual",
+    location: r?.location ?? "",
+    storage_target_id: r?.storage_target_id ?? null,
+    copy_target_id: r?.copy_target_id ?? null,
+    floating_ip_id: r?.floating_ip_id ?? null,
+    residency: r?.residency ?? false,
+    hidden: r?.status === "hidden",
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const set = (k: keyof AdminRegionRequest, v: unknown) =>
+    setF((x) => ({ ...x, [k]: v }));
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.saveRegion(id, f);
+      await qc.invalidateQueries({ queryKey: ["admin", "regions"] });
+      await qc.invalidateQueries({ queryKey: ["regions"] });
+      onClose();
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const targetSelect = (
+    k: "storage_target_id" | "copy_target_id",
+    none: string,
+  ) => (
+    <Field label={k === "storage_target_id" ? "Backup target" : "Copy target"}>
+      {(fid) => (
+        <Select
+          id={fid}
+          value={f[k] ?? ""}
+          onChange={(e) => set(k, e.target.value || null)}
+        >
+          <option value="">{none}</option>
+          {targets.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </Select>
+      )}
+    </Field>
+  );
+  return (
+    <SidePanel
+      open={!!region}
+      onOpenChange={(o) => !o && onClose()}
+      title={r ? `Edit ${r.name}` : "Add a region"}
+      description="The control plane stays where it is; a region groups nodes, a pooler pair and storage."
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            type="submit"
+            form="region-form"
+            variant="primary"
+            busy={busy}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <form id="region-form" className="flex flex-col gap-3" onSubmit={submit}>
+        <Field label="ID">
+          {(fid) => (
+            <Input
+              id={fid}
+              required
+              disabled={!!r}
+              placeholder="ng-lagos"
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Name">
+          {(fid) => (
+            <Input
+              id={fid}
+              required
+              value={f.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Country (two letters)">
+          {(fid) => (
+            <Input
+              id={fid}
+              maxLength={2}
+              placeholder="NG"
+              value={f.country ?? ""}
+              onChange={(e) => set("country", e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Pooler hostname">
+          {(fid) => (
+            <Input
+              id={fid}
+              placeholder="db.ng.example.com"
+              value={f.pooler_host ?? ""}
+              onChange={(e) => set("pooler_host", e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Provider">
+          {(fid) => (
+            <Select
+              id={fid}
+              value={f.provider ?? "manual"}
+              onChange={(e) => set("provider", e.target.value)}
+            >
+              <option value="manual">
+                Manual (colocated or local provider)
+              </option>
+              <option value="hetzner">Hetzner</option>
+            </Select>
+          )}
+        </Field>
+        {f.provider === "hetzner" && (
+          <Field label="Location">
+            {(fid) => (
+              <Input
+                id={fid}
+                placeholder="nbg1"
+                value={f.location ?? ""}
+                onChange={(e) => set("location", e.target.value)}
+              />
+            )}
+          </Field>
+        )}
+        <Field label="Pooler floating IP ID">
+          {(fid) => (
+            <Input
+              id={fid}
+              value={f.floating_ip_id ?? ""}
+              onChange={(e) => set("floating_ip_id", e.target.value || null)}
+            />
+          )}
+        </Field>
+        {targetSelect("storage_target_id", "Platform default")}
+        {targetSelect("copy_target_id", "No cross-region copies")}
+        <label className="flex items-start gap-2 text-[13px]">
+          <input
+            type="checkbox"
+            aria-label="Offer data residency"
+            checked={!!f.residency}
+            onChange={(e) => set("residency", e.target.checked)}
+          />
+          <span>
+            Offer data residency: projects here can keep their data, backups and
+            branches in the country. Needs an in-country backup target.
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-[13px]">
+          <input
+            type="checkbox"
+            aria-label="Hidden"
+            checked={!!f.hidden}
+            onChange={(e) => set("hidden", e.target.checked)}
+          />
+          <span>Hidden: no new projects (existing ones keep running).</span>
+        </label>
+        {err && <Alert>{err}</Alert>}
+      </form>
+    </SidePanel>
+  );
+}

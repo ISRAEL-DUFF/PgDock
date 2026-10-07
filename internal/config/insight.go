@@ -36,6 +36,16 @@ type Insight struct {
 	// comma-separated CIDRs), besides the private, loopback, link-local and
 	// metadata ranges always refused (V2 §9.1).
 	OutboundBlock []netip.Prefix
+	// QueryInsightsInterval is how often pg_stat_statements is snapshotted
+	// (PGDOCK_INSIGHTS_INTERVAL, default 5m, V3 §8).
+	QueryInsightsInterval time.Duration
+	// SlowQuery is the slow-query log's threshold (PGDOCK_SLOW_QUERY_MS,
+	// default 1000).
+	SlowQuery time.Duration
+	// InsightsPlans are the plans whose shared projects get query insights
+	// (PGDOCK_INSIGHTS_PLANS, default "pro,team"; "all" for every plan, for
+	// installations without billing). Dedicated projects always do.
+	InsightsPlans []string
 }
 
 func loadInsight(getenv func(string) string, cfg *Config) []error {
@@ -84,6 +94,31 @@ func loadInsight(getenv func(string) string, cfg *Config) []error {
 			continue
 		}
 		in.OutboundBlock = append(in.OutboundBlock, pfx)
+	}
+	in.QueryInsightsInterval = 5 * time.Minute
+	if v := getenv("PGDOCK_INSIGHTS_INTERVAL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < time.Second || d > time.Hour {
+			errs = append(errs, fmt.Errorf("PGDOCK_INSIGHTS_INTERVAL: must be a duration from 1s to 1h, got %q", v))
+		}
+		in.QueryInsightsInterval = d
+	}
+	in.SlowQuery = time.Second
+	if v := getenv("PGDOCK_SLOW_QUERY_MS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 10 || n > 3_600_000 {
+			errs = append(errs, fmt.Errorf("PGDOCK_SLOW_QUERY_MS: must be 10 to 3600000, got %q", v))
+		}
+		in.SlowQuery = time.Duration(n) * time.Millisecond
+	}
+	in.InsightsPlans = []string{"pro", "team"}
+	if v := strings.TrimSpace(getenv("PGDOCK_INSIGHTS_PLANS")); v != "" {
+		in.InsightsPlans = nil
+		for _, pl := range strings.Split(v, ",") {
+			if pl = strings.TrimSpace(strings.ToLower(pl)); pl != "" {
+				in.InsightsPlans = append(in.InsightsPlans, pl)
+			}
+		}
 	}
 	if t := in.MetricsToken; t != "" && len(t) < 24 {
 		errs = append(errs, errors.New("PGDOCK_METRICS_TOKEN: must be at least 24 characters"))

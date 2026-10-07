@@ -41,6 +41,9 @@ branches listed inside; the toggle beside the filters switches to a list.
 | **Owner** | Everything an admin can, plus add or remove owners, transfer projects out, delete the organisation. An org always keeps at least one owner. |
 | **Admin** | Manage members and invitations, settings, backup storage, tokens, every project (as its admin), usage and the audit log. |
 | **Member** | See only the projects they're added to, with that project's role; create projects if the org allows it (Settings → *Members can create projects*, on by default), becoming their admin. |
+| **Billing** | See and change billing (plan, invoices, business details, contacts, budget and spend cap) and nothing in the projects. For finance staff; only owners can give this role. |
+
+Only owners and billing members see **Billing**: see [Billing](billing.md).
 
 On a project, roles are:
 
@@ -148,6 +151,18 @@ Deleting your organisation never deletes what is in your own bucket.
   organisation (read, write or admin, optionally to some projects), and
   branches in CI.
 
+## Query insights
+
+On Pro and Team plans and dedicated projects, **Query insights** shows the
+queries that take your database's time, refreshed every 5 minutes: open
+one for its latency over time and its plan (EXPLAIN, which doesn't run
+the query). The **Indexes** tab suggests indexes for slow lookups and
+foreign keys, with the `CREATE INDEX CONCURRENTLY` statement to run or
+save as a migration; enable the `hypopg` extension to see how much each
+would help before creating it. It also lists unused and duplicate
+indexes, table bloat, slow statements, and sessions waiting on locks. See
+[query insights](query-insights.md).
+
 ## Limits
 
 Your organisation's plan sets its limits: projects, branches, storage,
@@ -164,6 +179,34 @@ storage:
 
 Statements running over 10 minutes, and transactions idle over 5, are
 ended on the shared tier.
+
+## Free projects that sleep
+
+On the Free plan, a project with no client connections for 7 days is
+**paused**. You get an email a day before. Its data is kept. The next
+connection wakes it: that first connection is refused with *"This project
+was paused for inactivity and is resuming. Retry in about 30 seconds."*,
+and the retry works. With the pooled URL, the message comes with the
+first query. A project paused for 90 days is **archived** to a verified
+backup. The next connection restores it, which takes minutes. Archived
+projects are deleted after a year, with 30 and 7 days' notice. You can
+also resume a project with **Resume** on its page, or with
+`pgdock resume <project>`. Paid plans never sleep: see **Pricing** in the
+sidebar. Details: [The Free tier](free-tier.md).
+
+## Getting help
+
+**Organisation → Support**: open a ticket, follow it and reply. You can also
+email the support address and reply to PGDock's emails, which thread into
+the ticket. Pro and Team organisations can register WhatsApp numbers that
+message support directly. Pro tickets are answered within a business day,
+Team tickets within four business hours, and urgent issues on a paid plan
+within an hour, any time. Details: [Support](support.md).
+
+**Organisation → Legal**: the service level agreement, the data processing
+agreement and your order form, if you have one. An owner accepts them for
+the organisation, and can also accept them when changing plan. Details:
+[Legal documents](legal.md).
 
 ## Your data
 

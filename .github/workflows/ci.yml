@@ -73,6 +73,9 @@ jobs:
       # connect through the poolers -> rotate -> delete, rollback, and the
       # tenant-isolation suite (spec §7.1, §13).
       - name: Integration and isolation suites
+        env:
+          # M18's move under load, at 1 GB (make test-move runs 20).
+          PGDOCK_TEST_MOVE_GB: "1"
         run: |
           set -o pipefail
           make test-integration 2>&1 | tee "$RUNNER_TEMP/integration.log"

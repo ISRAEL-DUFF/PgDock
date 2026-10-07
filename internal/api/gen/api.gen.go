@@ -56,6 +56,24 @@ func (e APITokenStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminBillingUpdateMode.
+const (
+	AdminBillingUpdateModePostpaid AdminBillingUpdateMode = "postpaid"
+	AdminBillingUpdateModePrepaid  AdminBillingUpdateMode = "prepaid"
+)
+
+// Valid indicates whether the value is a known member of the AdminBillingUpdateMode enum.
+func (e AdminBillingUpdateMode) Valid() bool {
+	switch e {
+	case AdminBillingUpdateModePostpaid:
+		return true
+	case AdminBillingUpdateModePrepaid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminOrgSummaryStatus.
 const (
 	AdminOrgSummaryStatusActive    AdminOrgSummaryStatus = "active"
@@ -80,9 +98,55 @@ func (e AdminOrgSummaryStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminRegionStatus.
+const (
+	AdminRegionStatusActive AdminRegionStatus = "active"
+	AdminRegionStatusHidden AdminRegionStatus = "hidden"
+)
+
+// Valid indicates whether the value is a known member of the AdminRegionStatus enum.
+func (e AdminRegionStatus) Valid() bool {
+	switch e {
+	case AdminRegionStatusActive:
+		return true
+	case AdminRegionStatusHidden:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminRegionListCopiesStatus.
+const (
+	AdminRegionListCopiesStatusCopied  AdminRegionListCopiesStatus = "copied"
+	AdminRegionListCopiesStatusFailed  AdminRegionListCopiesStatus = "failed"
+	AdminRegionListCopiesStatusNone    AdminRegionListCopiesStatus = "none"
+	AdminRegionListCopiesStatusPending AdminRegionListCopiesStatus = "pending"
+	AdminRegionListCopiesStatusSkipped AdminRegionListCopiesStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdminRegionListCopiesStatus enum.
+func (e AdminRegionListCopiesStatus) Valid() bool {
+	switch e {
+	case AdminRegionListCopiesStatusCopied:
+		return true
+	case AdminRegionListCopiesStatusFailed:
+		return true
+	case AdminRegionListCopiesStatusNone:
+		return true
+	case AdminRegionListCopiesStatusPending:
+		return true
+	case AdminRegionListCopiesStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminUserPlatformRole.
 const (
 	AdminUserPlatformRolePlatformAdmin AdminUserPlatformRole = "platform_admin"
+	AdminUserPlatformRoleSupport       AdminUserPlatformRole = "support"
 	AdminUserPlatformRoleUser          AdminUserPlatformRole = "user"
 )
 
@@ -90,6 +154,8 @@ const (
 func (e AdminUserPlatformRole) Valid() bool {
 	switch e {
 	case AdminUserPlatformRolePlatformAdmin:
+		return true
+	case AdminUserPlatformRoleSupport:
 		return true
 	case AdminUserPlatformRoleUser:
 		return true
@@ -262,25 +328,64 @@ func (e BackupStatus) Valid() bool {
 
 // Defines values for BackupKind.
 const (
-	Base     BackupKind = "base"
-	Final    BackupKind = "final"
-	Logical  BackupKind = "logical"
-	Metadata BackupKind = "metadata"
-	Safety   BackupKind = "safety"
+	BackupKindArchive  BackupKind = "archive"
+	BackupKindBase     BackupKind = "base"
+	BackupKindFinal    BackupKind = "final"
+	BackupKindLogical  BackupKind = "logical"
+	BackupKindMetadata BackupKind = "metadata"
+	BackupKindSafety   BackupKind = "safety"
 )
 
 // Valid indicates whether the value is a known member of the BackupKind enum.
 func (e BackupKind) Valid() bool {
 	switch e {
-	case Base:
+	case BackupKindArchive:
 		return true
-	case Final:
+	case BackupKindBase:
 		return true
-	case Logical:
+	case BackupKindFinal:
 		return true
-	case Metadata:
+	case BackupKindLogical:
 		return true
-	case Safety:
+	case BackupKindMetadata:
+		return true
+	case BackupKindSafety:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BillingAccountMode.
+const (
+	BillingAccountModePostpaid BillingAccountMode = "postpaid"
+	BillingAccountModePrepaid  BillingAccountMode = "prepaid"
+)
+
+// Valid indicates whether the value is a known member of the BillingAccountMode enum.
+func (e BillingAccountMode) Valid() bool {
+	switch e {
+	case BillingAccountModePostpaid:
+		return true
+	case BillingAccountModePrepaid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BillingAccountTerm.
+const (
+	BillingAccountTermAnnual  BillingAccountTerm = "annual"
+	BillingAccountTermMonthly BillingAccountTerm = "monthly"
+)
+
+// Valid indicates whether the value is a known member of the BillingAccountTerm enum.
+func (e BillingAccountTerm) Valid() bool {
+	switch e {
+	case BillingAccountTermAnnual:
+		return true
+	case BillingAccountTermMonthly:
 		return true
 	default:
 		return false
@@ -335,6 +440,57 @@ func (e BranchResetRequestSource) Valid() bool {
 	case BranchResetRequestSourceBackup:
 		return true
 	case BranchResetRequestSourceLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CapacityProposalStatus.
+const (
+	CapacityProposalStatusApproved     CapacityProposalStatus = "approved"
+	CapacityProposalStatusDone         CapacityProposalStatus = "done"
+	CapacityProposalStatusFailed       CapacityProposalStatus = "failed"
+	CapacityProposalStatusPending      CapacityProposalStatus = "pending"
+	CapacityProposalStatusProvisioning CapacityProposalStatus = "provisioning"
+	CapacityProposalStatusRejected     CapacityProposalStatus = "rejected"
+	CapacityProposalStatusSuperseded   CapacityProposalStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the CapacityProposalStatus enum.
+func (e CapacityProposalStatus) Valid() bool {
+	switch e {
+	case CapacityProposalStatusApproved:
+		return true
+	case CapacityProposalStatusDone:
+		return true
+	case CapacityProposalStatusFailed:
+		return true
+	case CapacityProposalStatusPending:
+		return true
+	case CapacityProposalStatusProvisioning:
+		return true
+	case CapacityProposalStatusRejected:
+		return true
+	case CapacityProposalStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CapacityProposalTier.
+const (
+	CapacityProposalTierDedicated CapacityProposalTier = "dedicated"
+	CapacityProposalTierShared    CapacityProposalTier = "shared"
+)
+
+// Valid indicates whether the value is a known member of the CapacityProposalTier enum.
+func (e CapacityProposalTier) Valid() bool {
+	switch e {
+	case CapacityProposalTierDedicated:
+		return true
+	case CapacityProposalTierShared:
 		return true
 	default:
 		return false
@@ -399,6 +555,7 @@ func (e ColumnRefOnUpdate) Valid() bool {
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
 	CreateNodeRequestRoleDedicated CreateNodeRequestRole = "dedicated"
+	CreateNodeRequestRolePooler    CreateNodeRequestRole = "pooler"
 	CreateNodeRequestRoleShared    CreateNodeRequestRole = "shared"
 )
 
@@ -408,6 +565,8 @@ func (e CreateNodeRequestRole) Valid() bool {
 	case CreateNodeRequestRoleBoth:
 		return true
 	case CreateNodeRequestRoleDedicated:
+		return true
+	case CreateNodeRequestRolePooler:
 		return true
 	case CreateNodeRequestRoleShared:
 		return true
@@ -469,31 +628,31 @@ func (e DedicatedRequestStatus) Valid() bool {
 
 // Defines values for DemoteCheckName.
 const (
-	Allowance   DemoteCheckName = "allowance"
-	Capacity    DemoteCheckName = "capacity"
-	Connections DemoteCheckName = "connections"
-	Extensions  DemoteCheckName = "extensions"
-	Roles       DemoteCheckName = "roles"
-	Settings    DemoteCheckName = "settings"
-	Size        DemoteCheckName = "size"
+	DemoteCheckNameAllowance   DemoteCheckName = "allowance"
+	DemoteCheckNameCapacity    DemoteCheckName = "capacity"
+	DemoteCheckNameConnections DemoteCheckName = "connections"
+	DemoteCheckNameExtensions  DemoteCheckName = "extensions"
+	DemoteCheckNameRoles       DemoteCheckName = "roles"
+	DemoteCheckNameSettings    DemoteCheckName = "settings"
+	DemoteCheckNameSize        DemoteCheckName = "size"
 )
 
 // Valid indicates whether the value is a known member of the DemoteCheckName enum.
 func (e DemoteCheckName) Valid() bool {
 	switch e {
-	case Allowance:
+	case DemoteCheckNameAllowance:
 		return true
-	case Capacity:
+	case DemoteCheckNameCapacity:
 		return true
-	case Connections:
+	case DemoteCheckNameConnections:
 		return true
-	case Extensions:
+	case DemoteCheckNameExtensions:
 		return true
-	case Roles:
+	case DemoteCheckNameRoles:
 		return true
-	case Settings:
+	case DemoteCheckNameSettings:
 		return true
-	case Size:
+	case DemoteCheckNameSize:
 		return true
 	default:
 		return false
@@ -515,6 +674,24 @@ func (e DemoteCheckStatus) Valid() bool {
 	case DemoteCheckStatusOk:
 		return true
 	case DemoteCheckStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DemotePreflightCopyMode.
+const (
+	DemotePreflightCopyModeDump    DemotePreflightCopyMode = "dump"
+	DemotePreflightCopyModeLogical DemotePreflightCopyMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the DemotePreflightCopyMode enum.
+func (e DemotePreflightCopyMode) Valid() bool {
+	switch e {
+	case DemotePreflightCopyModeDump:
+		return true
+	case DemotePreflightCopyModeLogical:
 		return true
 	default:
 		return false
@@ -560,6 +737,27 @@ func (e EditorPreferencesMigrationFormat) Valid() bool {
 	}
 }
 
+// Defines values for EtcdMemberStatus.
+const (
+	EtcdMemberStatusHealthy   EtcdMemberStatus = "healthy"
+	EtcdMemberStatusStarting  EtcdMemberStatus = "starting"
+	EtcdMemberStatusUnhealthy EtcdMemberStatus = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the EtcdMemberStatus enum.
+func (e EtcdMemberStatus) Valid() bool {
+	switch e {
+	case EtcdMemberStatusHealthy:
+		return true
+	case EtcdMemberStatusStarting:
+		return true
+	case EtcdMemberStatusUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExtensionTier.
 const (
 	ExtensionTierDedicated ExtensionTier = "dedicated"
@@ -572,6 +770,54 @@ func (e ExtensionTier) Valid() bool {
 	case ExtensionTierDedicated:
 		return true
 	case ExtensionTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FailoverEventKind.
+const (
+	Failover   FailoverEventKind = "failover"
+	Switchover FailoverEventKind = "switchover"
+)
+
+// Valid indicates whether the value is a known member of the FailoverEventKind enum.
+func (e FailoverEventKind) Valid() bool {
+	switch e {
+	case Failover:
+		return true
+	case Switchover:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HAMemberRole.
+const (
+	HAMemberRoleLeader      HAMemberRole = "leader"
+	HAMemberRoleReplica     HAMemberRole = "replica"
+	HAMemberRoleStarting    HAMemberRole = "starting"
+	HAMemberRoleStopped     HAMemberRole = "stopped"
+	HAMemberRoleSyncStandby HAMemberRole = "sync_standby"
+	HAMemberRoleUnknown     HAMemberRole = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HAMemberRole enum.
+func (e HAMemberRole) Valid() bool {
+	switch e {
+	case HAMemberRoleLeader:
+		return true
+	case HAMemberRoleReplica:
+		return true
+	case HAMemberRoleStarting:
+		return true
+	case HAMemberRoleStopped:
+		return true
+	case HAMemberRoleSyncStandby:
+		return true
+	case HAMemberRoleUnknown:
 		return true
 	default:
 		return false
@@ -617,6 +863,93 @@ func (e ImportPreflightRoleReferencesKind) Valid() bool {
 	case Grant:
 		return true
 	case Policy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentSeverity.
+const (
+	IncidentSeverityCritical    IncidentSeverity = "critical"
+	IncidentSeverityMaintenance IncidentSeverity = "maintenance"
+	IncidentSeverityMajor       IncidentSeverity = "major"
+	IncidentSeverityMinor       IncidentSeverity = "minor"
+)
+
+// Valid indicates whether the value is a known member of the IncidentSeverity enum.
+func (e IncidentSeverity) Valid() bool {
+	switch e {
+	case IncidentSeverityCritical:
+		return true
+	case IncidentSeverityMaintenance:
+		return true
+	case IncidentSeverityMajor:
+		return true
+	case IncidentSeverityMinor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentStatus.
+const (
+	IncidentStatusIdentified    IncidentStatus = "identified"
+	IncidentStatusInvestigating IncidentStatus = "investigating"
+	IncidentStatusMonitoring    IncidentStatus = "monitoring"
+	IncidentStatusResolved      IncidentStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IncidentStatus enum.
+func (e IncidentStatus) Valid() bool {
+	switch e {
+	case IncidentStatusIdentified:
+		return true
+	case IncidentStatusInvestigating:
+		return true
+	case IncidentStatusMonitoring:
+		return true
+	case IncidentStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IndexReportHypopg.
+const (
+	Available   IndexReportHypopg = "available"
+	Installed   IndexReportHypopg = "installed"
+	Unavailable IndexReportHypopg = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the IndexReportHypopg enum.
+func (e IndexReportHypopg) Valid() bool {
+	switch e {
+	case Available:
+		return true
+	case Installed:
+		return true
+	case Unavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IndexSuggestionReasons.
+const (
+	SeqScanFilter       IndexSuggestionReasons = "seq_scan_filter"
+	UnindexedForeignKey IndexSuggestionReasons = "unindexed_foreign_key"
+)
+
+// Valid indicates whether the value is a known member of the IndexSuggestionReasons enum.
+func (e IndexSuggestionReasons) Valid() bool {
+	switch e {
+	case SeqScanFilter:
+		return true
+	case UnindexedForeignKey:
 		return true
 	default:
 		return false
@@ -692,6 +1025,66 @@ func (e InvitationPreviewKind) Valid() bool {
 	case InvitationPreviewKindOrg:
 		return true
 	case InvitationPreviewKindPlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InvoiceStatus.
+const (
+	InvoiceStatusDraft          InvoiceStatus = "draft"
+	InvoiceStatusIssued         InvoiceStatus = "issued"
+	InvoiceStatusPaid           InvoiceStatus = "paid"
+	InvoiceStatusPaidWhtPending InvoiceStatus = "paid_wht_pending"
+	InvoiceStatusPartiallyPaid  InvoiceStatus = "partially_paid"
+	InvoiceStatusVoid           InvoiceStatus = "void"
+)
+
+// Valid indicates whether the value is a known member of the InvoiceStatus enum.
+func (e InvoiceStatus) Valid() bool {
+	switch e {
+	case InvoiceStatusDraft:
+		return true
+	case InvoiceStatusIssued:
+		return true
+	case InvoiceStatusPaid:
+		return true
+	case InvoiceStatusPaidWhtPending:
+		return true
+	case InvoiceStatusPartiallyPaid:
+		return true
+	case InvoiceStatusVoid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InvoiceLineKind.
+const (
+	InvoiceLineKindAddon     InvoiceLineKind = "addon"
+	InvoiceLineKindCredit    InvoiceLineKind = "credit"
+	InvoiceLineKindDedicated InvoiceLineKind = "dedicated"
+	InvoiceLineKindOverage   InvoiceLineKind = "overage"
+	InvoiceLineKindPlan      InvoiceLineKind = "plan"
+	InvoiceLineKindProration InvoiceLineKind = "proration"
+)
+
+// Valid indicates whether the value is a known member of the InvoiceLineKind enum.
+func (e InvoiceLineKind) Valid() bool {
+	switch e {
+	case InvoiceLineKindAddon:
+		return true
+	case InvoiceLineKindCredit:
+		return true
+	case InvoiceLineKindDedicated:
+		return true
+	case InvoiceLineKindOverage:
+		return true
+	case InvoiceLineKindPlan:
+		return true
+	case InvoiceLineKindProration:
 		return true
 	default:
 		return false
@@ -836,6 +1229,45 @@ func (e JobUpdateOverlap) Valid() bool {
 	}
 }
 
+// Defines values for LegalDocumentKind.
+const (
+	LegalDocumentKindDpa       LegalDocumentKind = "dpa"
+	LegalDocumentKindOrderForm LegalDocumentKind = "order_form"
+	LegalDocumentKindSla       LegalDocumentKind = "sla"
+)
+
+// Valid indicates whether the value is a known member of the LegalDocumentKind enum.
+func (e LegalDocumentKind) Valid() bool {
+	switch e {
+	case LegalDocumentKindDpa:
+		return true
+	case LegalDocumentKindOrderForm:
+		return true
+	case LegalDocumentKindSla:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LegalPublishKind.
+const (
+	LegalPublishKindDpa LegalPublishKind = "dpa"
+	LegalPublishKindSla LegalPublishKind = "sla"
+)
+
+// Valid indicates whether the value is a known member of the LegalPublishKind enum.
+func (e LegalPublishKind) Valid() bool {
+	switch e {
+	case LegalPublishKindDpa:
+		return true
+	case LegalPublishKindSla:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MailSettingsTls.
 const (
 	MailSettingsTlsNone     MailSettingsTls = "none"
@@ -890,6 +1322,93 @@ func (e MetricsResponseResolution) Valid() bool {
 	case MetricsResponseResolutionN1h:
 		return true
 	case MetricsResponseResolutionN1m:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MinorUpgradeKind.
+const (
+	MinorUpgradeKindDedicated MinorUpgradeKind = "dedicated"
+	MinorUpgradeKindShared    MinorUpgradeKind = "shared"
+)
+
+// Valid indicates whether the value is a known member of the MinorUpgradeKind enum.
+func (e MinorUpgradeKind) Valid() bool {
+	switch e {
+	case MinorUpgradeKindDedicated:
+		return true
+	case MinorUpgradeKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MoveMode.
+const (
+	MoveModeDump    MoveMode = "dump"
+	MoveModeLogical MoveMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the MoveMode enum.
+func (e MoveMode) Valid() bool {
+	switch e {
+	case MoveModeDump:
+		return true
+	case MoveModeLogical:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MovePhase.
+const (
+	MovePhaseCopying   MovePhase = "copying"
+	MovePhaseCutover   MovePhase = "cutover"
+	MovePhaseDone      MovePhase = "done"
+	MovePhaseFailed    MovePhase = "failed"
+	MovePhasePreparing MovePhase = "preparing"
+	MovePhaseStreaming MovePhase = "streaming"
+)
+
+// Valid indicates whether the value is a known member of the MovePhase enum.
+func (e MovePhase) Valid() bool {
+	switch e {
+	case MovePhaseCopying:
+		return true
+	case MovePhaseCutover:
+		return true
+	case MovePhaseDone:
+		return true
+	case MovePhaseFailed:
+		return true
+	case MovePhasePreparing:
+		return true
+	case MovePhaseStreaming:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NodeLifecycle.
+const (
+	NodeLifecycleActive       NodeLifecycle = "active"
+	NodeLifecycleDraining     NodeLifecycle = "draining"
+	NodeLifecycleProvisioning NodeLifecycle = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the NodeLifecycle enum.
+func (e NodeLifecycle) Valid() bool {
+	switch e {
+	case NodeLifecycleActive:
+		return true
+	case NodeLifecycleDraining:
+		return true
+	case NodeLifecycleProvisioning:
 		return true
 	default:
 		return false
@@ -967,9 +1486,10 @@ func (e OrgStatus) Valid() bool {
 
 // Defines values for OrgRole.
 const (
-	OrgRoleAdmin  OrgRole = "admin"
-	OrgRoleMember OrgRole = "member"
-	OrgRoleOwner  OrgRole = "owner"
+	OrgRoleAdmin   OrgRole = "admin"
+	OrgRoleBilling OrgRole = "billing"
+	OrgRoleMember  OrgRole = "member"
+	OrgRoleOwner   OrgRole = "owner"
 )
 
 // Valid indicates whether the value is a known member of the OrgRole enum.
@@ -977,9 +1497,29 @@ func (e OrgRole) Valid() bool {
 	switch e {
 	case OrgRoleAdmin:
 		return true
+	case OrgRoleBilling:
+		return true
 	case OrgRoleMember:
 		return true
 	case OrgRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PaymentMethodKind.
+const (
+	PaymentMethodKindCard    PaymentMethodKind = "card"
+	PaymentMethodKindMandate PaymentMethodKind = "mandate"
+)
+
+// Valid indicates whether the value is a known member of the PaymentMethodKind enum.
+func (e PaymentMethodKind) Valid() bool {
+	switch e {
+	case PaymentMethodKindCard:
+		return true
+	case PaymentMethodKindMandate:
 		return true
 	default:
 		return false
@@ -1022,6 +1562,90 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	}
 }
 
+// Defines values for PlanChangeRequestTerm.
+const (
+	PlanChangeRequestTermAnnual  PlanChangeRequestTerm = "annual"
+	PlanChangeRequestTermMonthly PlanChangeRequestTerm = "monthly"
+)
+
+// Valid indicates whether the value is a known member of the PlanChangeRequestTerm enum.
+func (e PlanChangeRequestTerm) Valid() bool {
+	switch e {
+	case PlanChangeRequestTermAnnual:
+		return true
+	case PlanChangeRequestTermMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PoolerEventKind.
+const (
+	PushFailed PoolerEventKind = "push_failed"
+	Reassigned PoolerEventKind = "reassigned"
+	Recovered  PoolerEventKind = "recovered"
+	SplitBrain PoolerEventKind = "split_brain"
+	Stale      PoolerEventKind = "stale"
+	TookIp     PoolerEventKind = "took_ip"
+)
+
+// Valid indicates whether the value is a known member of the PoolerEventKind enum.
+func (e PoolerEventKind) Valid() bool {
+	switch e {
+	case PushFailed:
+		return true
+	case Reassigned:
+		return true
+	case Recovered:
+		return true
+	case SplitBrain:
+		return true
+	case Stale:
+		return true
+	case TookIp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PricesCurrency.
+const (
+	NGN PricesCurrency = "NGN"
+)
+
+// Valid indicates whether the value is a known member of the PricesCurrency enum.
+func (e PricesCurrency) Valid() bool {
+	switch e {
+	case NGN:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectLifecycle.
+const (
+	ProjectLifecycleActive   ProjectLifecycle = "active"
+	ProjectLifecycleArchived ProjectLifecycle = "archived"
+	ProjectLifecyclePaused   ProjectLifecycle = "paused"
+)
+
+// Valid indicates whether the value is a known member of the ProjectLifecycle enum.
+func (e ProjectLifecycle) Valid() bool {
+	switch e {
+	case ProjectLifecycleActive:
+		return true
+	case ProjectLifecycleArchived:
+		return true
+	case ProjectLifecyclePaused:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectRole.
 const (
 	ProjectRoleAdmin     ProjectRole = "admin"
@@ -1049,9 +1673,11 @@ const (
 	ProjectStatusDeleting     ProjectStatus = "deleting"
 	ProjectStatusDemoting     ProjectStatus = "demoting"
 	ProjectStatusError        ProjectStatus = "error"
+	ProjectStatusMoving       ProjectStatus = "moving"
 	ProjectStatusPromoting    ProjectStatus = "promoting"
 	ProjectStatusProvisioning ProjectStatus = "provisioning"
 	ProjectStatusRestoring    ProjectStatus = "restoring"
+	ProjectStatusUpgrading    ProjectStatus = "upgrading"
 )
 
 // Valid indicates whether the value is a known member of the ProjectStatus enum.
@@ -1065,11 +1691,15 @@ func (e ProjectStatus) Valid() bool {
 		return true
 	case ProjectStatusError:
 		return true
+	case ProjectStatusMoving:
+		return true
 	case ProjectStatusPromoting:
 		return true
 	case ProjectStatusProvisioning:
 		return true
 	case ProjectStatusRestoring:
+		return true
+	case ProjectStatusUpgrading:
 		return true
 	default:
 		return false
@@ -1094,6 +1724,24 @@ func (e ProjectTier) Valid() bool {
 	}
 }
 
+// Defines values for PromotionEstimateCopyMode.
+const (
+	PromotionEstimateCopyModeDump    PromotionEstimateCopyMode = "dump"
+	PromotionEstimateCopyModeLogical PromotionEstimateCopyMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the PromotionEstimateCopyMode enum.
+func (e PromotionEstimateCopyMode) Valid() bool {
+	switch e {
+	case PromotionEstimateCopyModeDump:
+		return true
+	case PromotionEstimateCopyModeLogical:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReapedSessionKind.
 const (
 	IdleInTransaction ReapedSessionKind = "idle_in_transaction"
@@ -1106,6 +1754,81 @@ func (e ReapedSessionKind) Valid() bool {
 	case IdleInTransaction:
 		return true
 	case Statement:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RebalanceMoveKind.
+const (
+	Drain     RebalanceMoveKind = "drain"
+	Rebalance RebalanceMoveKind = "rebalance"
+)
+
+// Valid indicates whether the value is a known member of the RebalanceMoveKind enum.
+func (e RebalanceMoveKind) Valid() bool {
+	switch e {
+	case Drain:
+		return true
+	case Rebalance:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RebalanceMoveStatus.
+const (
+	RebalanceMoveStatusApproved RebalanceMoveStatus = "approved"
+	RebalanceMoveStatusDone     RebalanceMoveStatus = "done"
+	RebalanceMoveStatusFailed   RebalanceMoveStatus = "failed"
+	RebalanceMoveStatusMoving   RebalanceMoveStatus = "moving"
+	RebalanceMoveStatusProposed RebalanceMoveStatus = "proposed"
+	RebalanceMoveStatusRejected RebalanceMoveStatus = "rejected"
+	RebalanceMoveStatusSkipped  RebalanceMoveStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the RebalanceMoveStatus enum.
+func (e RebalanceMoveStatus) Valid() bool {
+	switch e {
+	case RebalanceMoveStatusApproved:
+		return true
+	case RebalanceMoveStatusDone:
+		return true
+	case RebalanceMoveStatusFailed:
+		return true
+	case RebalanceMoveStatusMoving:
+		return true
+	case RebalanceMoveStatusProposed:
+		return true
+	case RebalanceMoveStatusRejected:
+		return true
+	case RebalanceMoveStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReconciliationDifferencesKind.
+const (
+	Amount            ReconciliationDifferencesKind = "amount"
+	Fee               ReconciliationDifferencesKind = "fee"
+	MissingAtProvider ReconciliationDifferencesKind = "missing_at_provider"
+	MissingInPgdock   ReconciliationDifferencesKind = "missing_in_pgdock"
+)
+
+// Valid indicates whether the value is a known member of the ReconciliationDifferencesKind enum.
+func (e ReconciliationDifferencesKind) Valid() bool {
+	switch e {
+	case Amount:
+		return true
+	case Fee:
+		return true
+	case MissingAtProvider:
+		return true
+	case MissingInPgdock:
 		return true
 	default:
 		return false
@@ -1463,6 +2186,27 @@ func (e SignupSettingsMode) Valid() bool {
 	}
 }
 
+// Defines values for SlowQuerySource.
+const (
+	SlowQuerySourceReaper   SlowQuerySource = "reaper"
+	SlowQuerySourceRunning  SlowQuerySource = "running"
+	SlowQuerySourceSnapshot SlowQuerySource = "snapshot"
+)
+
+// Valid indicates whether the value is a known member of the SlowQuerySource enum.
+func (e SlowQuerySource) Valid() bool {
+	switch e {
+	case SlowQuerySourceReaper:
+		return true
+	case SlowQuerySourceRunning:
+		return true
+	case SlowQuerySourceSnapshot:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StorageState.
 const (
 	StorageStateHard StorageState = "hard"
@@ -1580,6 +2324,168 @@ func (e TablePageOrder) Valid() bool {
 	}
 }
 
+// Defines values for TicketChannel.
+const (
+	Dashboard TicketChannel = "dashboard"
+	Email     TicketChannel = "email"
+	Whatsapp  TicketChannel = "whatsapp"
+)
+
+// Valid indicates whether the value is a known member of the TicketChannel enum.
+func (e TicketChannel) Valid() bool {
+	switch e {
+	case Dashboard:
+		return true
+	case Email:
+		return true
+	case Whatsapp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketPriority.
+const (
+	TicketPriorityHigh   TicketPriority = "high"
+	TicketPriorityLow    TicketPriority = "low"
+	TicketPriorityNormal TicketPriority = "normal"
+	TicketPriorityUrgent TicketPriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketPriority enum.
+func (e TicketPriority) Valid() bool {
+	switch e {
+	case TicketPriorityHigh:
+		return true
+	case TicketPriorityLow:
+		return true
+	case TicketPriorityNormal:
+		return true
+	case TicketPriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketStatus.
+const (
+	TicketStatusClosed  TicketStatus = "closed"
+	TicketStatusOpen    TicketStatus = "open"
+	TicketStatusPending TicketStatus = "pending"
+	TicketStatusSolved  TicketStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the TicketStatus enum.
+func (e TicketStatus) Valid() bool {
+	switch e {
+	case TicketStatusClosed:
+		return true
+	case TicketStatusOpen:
+		return true
+	case TicketStatusPending:
+		return true
+	case TicketStatusSolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketMessageDirection.
+const (
+	In   TicketMessageDirection = "in"
+	Note TicketMessageDirection = "note"
+	Out  TicketMessageDirection = "out"
+)
+
+// Valid indicates whether the value is a known member of the TicketMessageDirection enum.
+func (e TicketMessageDirection) Valid() bool {
+	switch e {
+	case In:
+		return true
+	case Note:
+		return true
+	case Out:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketOpenPriority.
+const (
+	TicketOpenPriorityHigh   TicketOpenPriority = "high"
+	TicketOpenPriorityLow    TicketOpenPriority = "low"
+	TicketOpenPriorityNormal TicketOpenPriority = "normal"
+	TicketOpenPriorityUrgent TicketOpenPriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketOpenPriority enum.
+func (e TicketOpenPriority) Valid() bool {
+	switch e {
+	case TicketOpenPriorityHigh:
+		return true
+	case TicketOpenPriorityLow:
+		return true
+	case TicketOpenPriorityNormal:
+		return true
+	case TicketOpenPriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketUpdatePriority.
+const (
+	TicketUpdatePriorityHigh   TicketUpdatePriority = "high"
+	TicketUpdatePriorityLow    TicketUpdatePriority = "low"
+	TicketUpdatePriorityNormal TicketUpdatePriority = "normal"
+	TicketUpdatePriorityUrgent TicketUpdatePriority = "urgent"
+)
+
+// Valid indicates whether the value is a known member of the TicketUpdatePriority enum.
+func (e TicketUpdatePriority) Valid() bool {
+	switch e {
+	case TicketUpdatePriorityHigh:
+		return true
+	case TicketUpdatePriorityLow:
+		return true
+	case TicketUpdatePriorityNormal:
+		return true
+	case TicketUpdatePriorityUrgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TicketUpdateStatus.
+const (
+	TicketUpdateStatusClosed  TicketUpdateStatus = "closed"
+	TicketUpdateStatusOpen    TicketUpdateStatus = "open"
+	TicketUpdateStatusPending TicketUpdateStatus = "pending"
+	TicketUpdateStatusSolved  TicketUpdateStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the TicketUpdateStatus enum.
+func (e TicketUpdateStatus) Valid() bool {
+	switch e {
+	case TicketUpdateStatusClosed:
+		return true
+	case TicketUpdateStatusOpen:
+		return true
+	case TicketUpdateStatusPending:
+		return true
+	case TicketUpdateStatusSolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TlsStatusMode.
 const (
 	TlsStatusModeAcme       TlsStatusMode = "acme"
@@ -1673,6 +2579,7 @@ func (e UpdateNodeRequestRole) Valid() bool {
 // Defines values for UpdateUserRequestPlatformRole.
 const (
 	UpdateUserRequestPlatformRolePlatformAdmin UpdateUserRequestPlatformRole = "platform_admin"
+	UpdateUserRequestPlatformRoleSupport       UpdateUserRequestPlatformRole = "support"
 	UpdateUserRequestPlatformRoleUser          UpdateUserRequestPlatformRole = "user"
 )
 
@@ -1681,7 +2588,75 @@ func (e UpdateUserRequestPlatformRole) Valid() bool {
 	switch e {
 	case UpdateUserRequestPlatformRolePlatformAdmin:
 		return true
+	case UpdateUserRequestPlatformRoleSupport:
+		return true
 	case UpdateUserRequestPlatformRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradeCheckName.
+const (
+	UpgradeCheckNameExtensions  UpgradeCheckName = "extensions"
+	UpgradeCheckNameReplication UpgradeCheckName = "replication"
+	UpgradeCheckNameSchema      UpgradeCheckName = "schema"
+	UpgradeCheckNameTarget      UpgradeCheckName = "target"
+	UpgradeCheckNameVersion     UpgradeCheckName = "version"
+)
+
+// Valid indicates whether the value is a known member of the UpgradeCheckName enum.
+func (e UpgradeCheckName) Valid() bool {
+	switch e {
+	case UpgradeCheckNameExtensions:
+		return true
+	case UpgradeCheckNameReplication:
+		return true
+	case UpgradeCheckNameSchema:
+		return true
+	case UpgradeCheckNameTarget:
+		return true
+	case UpgradeCheckNameVersion:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradeCheckStatus.
+const (
+	UpgradeCheckStatusBlocked UpgradeCheckStatus = "blocked"
+	UpgradeCheckStatusOk      UpgradeCheckStatus = "ok"
+	UpgradeCheckStatusWarning UpgradeCheckStatus = "warning"
+)
+
+// Valid indicates whether the value is a known member of the UpgradeCheckStatus enum.
+func (e UpgradeCheckStatus) Valid() bool {
+	switch e {
+	case UpgradeCheckStatusBlocked:
+		return true
+	case UpgradeCheckStatusOk:
+		return true
+	case UpgradeCheckStatusWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpgradePreflightCopyMode.
+const (
+	UpgradePreflightCopyModeDump    UpgradePreflightCopyMode = "dump"
+	UpgradePreflightCopyModeLogical UpgradePreflightCopyMode = "logical"
+)
+
+// Valid indicates whether the value is a known member of the UpgradePreflightCopyMode enum.
+func (e UpgradePreflightCopyMode) Valid() bool {
+	switch e {
+	case UpgradePreflightCopyModeDump:
+		return true
+	case UpgradePreflightCopyModeLogical:
 		return true
 	default:
 		return false
@@ -1727,6 +2702,7 @@ func (e UsageRecordGranularity) Valid() bool {
 // Defines values for UserPlatformRole.
 const (
 	UserPlatformRolePlatformAdmin UserPlatformRole = "platform_admin"
+	UserPlatformRoleSupport       UserPlatformRole = "support"
 	UserPlatformRoleUser          UserPlatformRole = "user"
 )
 
@@ -1734,6 +2710,8 @@ const (
 func (e UserPlatformRole) Valid() bool {
 	switch e {
 	case UserPlatformRolePlatformAdmin:
+		return true
+	case UserPlatformRoleSupport:
 		return true
 	case UserPlatformRoleUser:
 		return true
@@ -1744,22 +2722,22 @@ func (e UserPlatformRole) Valid() bool {
 
 // Defines values for WebhookStatus.
 const (
-	Broken  WebhookStatus = "broken"
-	Failing WebhookStatus = "failing"
-	Healthy WebhookStatus = "healthy"
-	Paused  WebhookStatus = "paused"
+	WebhookStatusBroken  WebhookStatus = "broken"
+	WebhookStatusFailing WebhookStatus = "failing"
+	WebhookStatusHealthy WebhookStatus = "healthy"
+	WebhookStatusPaused  WebhookStatus = "paused"
 )
 
 // Valid indicates whether the value is a known member of the WebhookStatus enum.
 func (e WebhookStatus) Valid() bool {
 	switch e {
-	case Broken:
+	case WebhookStatusBroken:
 		return true
-	case Failing:
+	case WebhookStatusFailing:
 		return true
-	case Healthy:
+	case WebhookStatusHealthy:
 		return true
-	case Paused:
+	case WebhookStatusPaused:
 		return true
 	default:
 		return false
@@ -1829,6 +2807,30 @@ func (e AuditOutcome) Valid() bool {
 	}
 }
 
+// Defines values for InsightRange.
+const (
+	InsightRangeN1h  InsightRange = "1h"
+	InsightRangeN24h InsightRange = "24h"
+	InsightRangeN30d InsightRange = "30d"
+	InsightRangeN7d  InsightRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the InsightRange enum.
+func (e InsightRange) Valid() bool {
+	switch e {
+	case InsightRangeN1h:
+		return true
+	case InsightRangeN24h:
+		return true
+	case InsightRangeN30d:
+		return true
+	case InsightRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MetricRange.
 const (
 	MetricRangeN1h  MetricRange = "1h"
@@ -1871,6 +2873,24 @@ func (e ListPlatformAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AdminCostsParamsFormat.
+const (
+	AdminCostsParamsFormatCsv  AdminCostsParamsFormat = "csv"
+	AdminCostsParamsFormatJson AdminCostsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminCostsParamsFormat enum.
+func (e AdminCostsParamsFormat) Valid() bool {
+	switch e {
+	case AdminCostsParamsFormatCsv:
+		return true
+	case AdminCostsParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListDedicatedRequestsParamsStatus.
 const (
 	ListDedicatedRequestsParamsStatusApproved  ListDedicatedRequestsParamsStatus = "approved"
@@ -1889,6 +2909,126 @@ func (e ListDedicatedRequestsParamsStatus) Valid() bool {
 	case ListDedicatedRequestsParamsStatusPending:
 		return true
 	case ListDedicatedRequestsParamsStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminListInvoicesParamsStatus.
+const (
+	AdminListInvoicesParamsStatusDraft          AdminListInvoicesParamsStatus = "draft"
+	AdminListInvoicesParamsStatusIssued         AdminListInvoicesParamsStatus = "issued"
+	AdminListInvoicesParamsStatusPaid           AdminListInvoicesParamsStatus = "paid"
+	AdminListInvoicesParamsStatusPaidWhtPending AdminListInvoicesParamsStatus = "paid_wht_pending"
+	AdminListInvoicesParamsStatusPartiallyPaid  AdminListInvoicesParamsStatus = "partially_paid"
+	AdminListInvoicesParamsStatusVoid           AdminListInvoicesParamsStatus = "void"
+)
+
+// Valid indicates whether the value is a known member of the AdminListInvoicesParamsStatus enum.
+func (e AdminListInvoicesParamsStatus) Valid() bool {
+	switch e {
+	case AdminListInvoicesParamsStatusDraft:
+		return true
+	case AdminListInvoicesParamsStatusIssued:
+		return true
+	case AdminListInvoicesParamsStatusPaid:
+		return true
+	case AdminListInvoicesParamsStatusPaidWhtPending:
+		return true
+	case AdminListInvoicesParamsStatusPartiallyPaid:
+		return true
+	case AdminListInvoicesParamsStatusVoid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminListPaymentEventsParamsOutcome.
+const (
+	AdminListPaymentEventsParamsOutcomeDuplicate AdminListPaymentEventsParamsOutcome = "duplicate"
+	AdminListPaymentEventsParamsOutcomeFailed    AdminListPaymentEventsParamsOutcome = "failed"
+	AdminListPaymentEventsParamsOutcomeIgnored   AdminListPaymentEventsParamsOutcome = "ignored"
+	AdminListPaymentEventsParamsOutcomePosted    AdminListPaymentEventsParamsOutcome = "posted"
+	AdminListPaymentEventsParamsOutcomeRejected  AdminListPaymentEventsParamsOutcome = "rejected"
+	AdminListPaymentEventsParamsOutcomeUnmatched AdminListPaymentEventsParamsOutcome = "unmatched"
+)
+
+// Valid indicates whether the value is a known member of the AdminListPaymentEventsParamsOutcome enum.
+func (e AdminListPaymentEventsParamsOutcome) Valid() bool {
+	switch e {
+	case AdminListPaymentEventsParamsOutcomeDuplicate:
+		return true
+	case AdminListPaymentEventsParamsOutcomeFailed:
+		return true
+	case AdminListPaymentEventsParamsOutcomeIgnored:
+		return true
+	case AdminListPaymentEventsParamsOutcomePosted:
+		return true
+	case AdminListPaymentEventsParamsOutcomeRejected:
+		return true
+	case AdminListPaymentEventsParamsOutcomeUnmatched:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminRevenueParamsFormat.
+const (
+	AdminRevenueParamsFormatCsv  AdminRevenueParamsFormat = "csv"
+	AdminRevenueParamsFormatJson AdminRevenueParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminRevenueParamsFormat enum.
+func (e AdminRevenueParamsFormat) Valid() bool {
+	switch e {
+	case AdminRevenueParamsFormatCsv:
+		return true
+	case AdminRevenueParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminListTicketsParamsStatus.
+const (
+	AdminListTicketsParamsStatusClosed  AdminListTicketsParamsStatus = "closed"
+	AdminListTicketsParamsStatusOpen    AdminListTicketsParamsStatus = "open"
+	AdminListTicketsParamsStatusPending AdminListTicketsParamsStatus = "pending"
+	AdminListTicketsParamsStatusSolved  AdminListTicketsParamsStatus = "solved"
+)
+
+// Valid indicates whether the value is a known member of the AdminListTicketsParamsStatus enum.
+func (e AdminListTicketsParamsStatus) Valid() bool {
+	switch e {
+	case AdminListTicketsParamsStatusClosed:
+		return true
+	case AdminListTicketsParamsStatusOpen:
+		return true
+	case AdminListTicketsParamsStatusPending:
+		return true
+	case AdminListTicketsParamsStatusSolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminOutstandingWhtParamsFormat.
+const (
+	AdminOutstandingWhtParamsFormatCsv  AdminOutstandingWhtParamsFormat = "csv"
+	AdminOutstandingWhtParamsFormatJson AdminOutstandingWhtParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the AdminOutstandingWhtParamsFormat enum.
+func (e AdminOutstandingWhtParamsFormat) Valid() bool {
+	switch e {
+	case AdminOutstandingWhtParamsFormatCsv:
+		return true
+	case AdminOutstandingWhtParamsFormatJson:
 		return true
 	default:
 		return false
@@ -1955,6 +3095,48 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for StartCheckoutJSONBodyChannel.
+const (
+	StartCheckoutJSONBodyChannelCard       StartCheckoutJSONBodyChannel = "card"
+	StartCheckoutJSONBodyChannelStablecoin StartCheckoutJSONBodyChannel = "stablecoin"
+	StartCheckoutJSONBodyChannelWallet     StartCheckoutJSONBodyChannel = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyChannel enum.
+func (e StartCheckoutJSONBodyChannel) Valid() bool {
+	switch e {
+	case StartCheckoutJSONBodyChannelCard:
+		return true
+	case StartCheckoutJSONBodyChannelStablecoin:
+		return true
+	case StartCheckoutJSONBodyChannelWallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartCheckoutJSONBodyPurpose.
+const (
+	StartCheckoutJSONBodyPurposeCardSetup StartCheckoutJSONBodyPurpose = "card_setup"
+	StartCheckoutJSONBodyPurposeInvoice   StartCheckoutJSONBodyPurpose = "invoice"
+	StartCheckoutJSONBodyPurposeTopup     StartCheckoutJSONBodyPurpose = "topup"
+)
+
+// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyPurpose enum.
+func (e StartCheckoutJSONBodyPurpose) Valid() bool {
+	switch e {
+	case StartCheckoutJSONBodyPurposeCardSetup:
+		return true
+	case StartCheckoutJSONBodyPurposeInvoice:
+		return true
+	case StartCheckoutJSONBodyPurposeTopup:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetOrgUsageParamsFormat.
 const (
 	GetOrgUsageParamsFormatCsv  GetOrgUsageParamsFormat = "csv"
@@ -1967,6 +3149,24 @@ func (e GetOrgUsageParamsFormat) Valid() bool {
 	case GetOrgUsageParamsFormatCsv:
 		return true
 	case GetOrgUsageParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PaymentWebhookParamsProvider.
+const (
+	Flutterwave PaymentWebhookParamsProvider = "flutterwave"
+	Ispend      PaymentWebhookParamsProvider = "ispend"
+)
+
+// Valid indicates whether the value is a known member of the PaymentWebhookParamsProvider enum.
+func (e PaymentWebhookParamsProvider) Valid() bool {
+	switch e {
+	case Flutterwave:
+		return true
+	case Ispend:
 		return true
 	default:
 		return false
@@ -1988,6 +3188,102 @@ func (e ListProjectAuditParamsOutcome) Valid() bool {
 	case ListProjectAuditParamsOutcomeFailure:
 		return true
 	case ListProjectAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListInsightQueriesParamsRange.
+const (
+	ListInsightQueriesParamsRangeN1h  ListInsightQueriesParamsRange = "1h"
+	ListInsightQueriesParamsRangeN24h ListInsightQueriesParamsRange = "24h"
+	ListInsightQueriesParamsRangeN30d ListInsightQueriesParamsRange = "30d"
+	ListInsightQueriesParamsRangeN7d  ListInsightQueriesParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the ListInsightQueriesParamsRange enum.
+func (e ListInsightQueriesParamsRange) Valid() bool {
+	switch e {
+	case ListInsightQueriesParamsRangeN1h:
+		return true
+	case ListInsightQueriesParamsRangeN24h:
+		return true
+	case ListInsightQueriesParamsRangeN30d:
+		return true
+	case ListInsightQueriesParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListInsightQueriesParamsSort.
+const (
+	Calls ListInsightQueriesParamsSort = "calls"
+	Mean  ListInsightQueriesParamsSort = "mean"
+	Rows  ListInsightQueriesParamsSort = "rows"
+	Total ListInsightQueriesParamsSort = "total"
+)
+
+// Valid indicates whether the value is a known member of the ListInsightQueriesParamsSort enum.
+func (e ListInsightQueriesParamsSort) Valid() bool {
+	switch e {
+	case Calls:
+		return true
+	case Mean:
+		return true
+	case Rows:
+		return true
+	case Total:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetInsightQueryParamsRange.
+const (
+	GetInsightQueryParamsRangeN1h  GetInsightQueryParamsRange = "1h"
+	GetInsightQueryParamsRangeN24h GetInsightQueryParamsRange = "24h"
+	GetInsightQueryParamsRangeN30d GetInsightQueryParamsRange = "30d"
+	GetInsightQueryParamsRangeN7d  GetInsightQueryParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the GetInsightQueryParamsRange enum.
+func (e GetInsightQueryParamsRange) Valid() bool {
+	switch e {
+	case GetInsightQueryParamsRangeN1h:
+		return true
+	case GetInsightQueryParamsRangeN24h:
+		return true
+	case GetInsightQueryParamsRangeN30d:
+		return true
+	case GetInsightQueryParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSlowQueriesParamsRange.
+const (
+	ListSlowQueriesParamsRangeN1h  ListSlowQueriesParamsRange = "1h"
+	ListSlowQueriesParamsRangeN24h ListSlowQueriesParamsRange = "24h"
+	ListSlowQueriesParamsRangeN30d ListSlowQueriesParamsRange = "30d"
+	ListSlowQueriesParamsRangeN7d  ListSlowQueriesParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the ListSlowQueriesParamsRange enum.
+func (e ListSlowQueriesParamsRange) Valid() bool {
+	switch e {
+	case ListSlowQueriesParamsRangeN1h:
+		return true
+	case ListSlowQueriesParamsRangeN24h:
+		return true
+	case ListSlowQueriesParamsRangeN30d:
+		return true
+	case ListSlowQueriesParamsRangeN7d:
 		return true
 	default:
 		return false
@@ -2087,6 +3383,17 @@ type AcceptTermsRequest struct {
 	Version int `json:"version"`
 }
 
+// AdminBillingUpdate defines model for AdminBillingUpdate.
+type AdminBillingUpdate struct {
+	Grandfathered    bool                   `json:"grandfathered"`
+	Mode             AdminBillingUpdateMode `json:"mode"`
+	PaymentTermsDays int                    `json:"payment_terms_days"`
+	PriceBookVersion int                    `json:"price_book_version"`
+}
+
+// AdminBillingUpdateMode defines model for AdminBillingUpdate.Mode.
+type AdminBillingUpdateMode string
+
 // AdminOrg defines model for AdminOrg.
 type AdminOrg struct {
 	// BreakGlass Your open break-glass sessions on this organisation.
@@ -2127,6 +3434,74 @@ type AdminOrgSummary struct {
 
 // AdminOrgSummaryStatus defines model for AdminOrgSummary.Status.
 type AdminOrgSummaryStatus string
+
+// AdminRegion defines model for AdminRegion.
+type AdminRegion struct {
+	// CopyTargetId Where backups on platform targets are copied (V3 §2.5).
+	CopyTargetId *openapi_types.UUID `json:"copy_target_id,omitempty"`
+	Country      string              `json:"country"`
+	CreatedAt    time.Time           `json:"created_at"`
+
+	// FloatingIpId The region's pooler floating IP at the provider.
+	FloatingIpId *string `json:"floating_ip_id,omitempty"`
+	Home         bool    `json:"home"`
+	Id           string  `json:"id"`
+
+	// Location The provider's location for new servers (e.g. nbg1); empty for manual.
+	Location string `json:"location"`
+	Name     string `json:"name"`
+	Nodes    int    `json:"nodes"`
+
+	// PoolerHost The hostname in the region's connection strings; empty is the platform's database host.
+	PoolerHost string `json:"pooler_host"`
+
+	// PoolerHosts The region's own pooler hosts; with none, the home region's poolers serve its projects.
+	PoolerHosts int `json:"pooler_hosts"`
+	Projects    int `json:"projects"`
+
+	// Provider manual or hetzner.
+	Provider          string            `json:"provider"`
+	Residency         bool              `json:"residency"`
+	ResidencyProjects int               `json:"residency_projects"`
+	Status            AdminRegionStatus `json:"status"`
+
+	// StorageTargetId Where the region's projects back up (platform default when null).
+	StorageTargetId *openapi_types.UUID `json:"storage_target_id,omitempty"`
+}
+
+// AdminRegionStatus defines model for AdminRegion.Status.
+type AdminRegionStatus string
+
+// AdminRegionList defines model for AdminRegionList.
+type AdminRegionList struct {
+	// Copies Cross-region copy status of the last 7 days' backups.
+	Copies []struct {
+		Count  int                         `json:"count"`
+		Status AdminRegionListCopiesStatus `json:"status"`
+	} `json:"copies"`
+	Items []AdminRegion `json:"items"`
+}
+
+// AdminRegionListCopiesStatus defines model for AdminRegionList.Copies.Status.
+type AdminRegionListCopiesStatus string
+
+// AdminRegionRequest defines model for AdminRegionRequest.
+type AdminRegionRequest struct {
+	CopyTargetId *openapi_types.UUID `json:"copy_target_id,omitempty"`
+	Country      *string             `json:"country,omitempty"`
+	FloatingIpId *string             `json:"floating_ip_id,omitempty"`
+
+	// Hidden Hidden regions take no new projects.
+	Hidden     *bool   `json:"hidden,omitempty"`
+	Location   *string `json:"location,omitempty"`
+	Name       string  `json:"name"`
+	PoolerHost *string `json:"pooler_host,omitempty"`
+
+	// Provider manual (the default) or hetzner.
+	Provider        *string             `json:"provider,omitempty"`
+	Residency       *bool               `json:"residency,omitempty"`
+	StorageTargetId *openapi_types.UUID `json:"storage_target_id,omitempty"`
+}
 
 // AdminUpdateOrgRequest defines model for AdminUpdateOrgRequest.
 type AdminUpdateOrgRequest struct {
@@ -2269,6 +3644,19 @@ type AlertTestResult struct {
 	} `json:"results"`
 }
 
+// AttributeRequest defines model for AttributeRequest.
+type AttributeRequest struct {
+	From openapi_types.Date `json:"from"`
+
+	// To Inclusive.
+	To openapi_types.Date `json:"to"`
+}
+
+// AttributeResult defines model for AttributeResult.
+type AttributeResult struct {
+	Days int `json:"days"`
+}
+
 // AuditEntry defines model for AuditEntry.
 type AuditEntry struct {
 	// Action Example: project.create
@@ -2299,6 +3687,25 @@ type AuditEntryOutcome string
 type AuditList struct {
 	Items      []AuditEntry `json:"items"`
 	NextBefore *int64       `json:"next_before,omitempty"`
+}
+
+// AutoTopup defines model for AutoTopup.
+type AutoTopup struct {
+	AmountMinor int64 `json:"amount_minor"`
+	BelowMinor  int64 `json:"below_minor"`
+}
+
+// Availability defines model for Availability.
+type Availability struct {
+	MeasuredMinutes int `json:"measured_minutes"`
+
+	// Month The calendar month (UTC), YYYY-MM.
+	Month string `json:"month"`
+
+	// Percent Available share of measured minutes, or null before the first probe.
+	Percent            *float32        `json:"percent,omitempty"`
+	RecentOutages      *[]OutageMinute `json:"recent_outages,omitempty"`
+	UnavailableMinutes int             `json:"unavailable_minutes"`
 }
 
 // Backup defines model for Backup.
@@ -2375,6 +3782,143 @@ type BackupOverview struct {
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
 
+// BatchDecision defines model for BatchDecision.
+type BatchDecision struct {
+	Approve bool `json:"approve"`
+}
+
+// BillingAccount defines model for BillingAccount.
+type BillingAccount struct {
+	Address          *string    `json:"address,omitempty"`
+	AutoTopup        *AutoTopup `json:"auto_topup,omitempty"`
+	BudgetMinor      *int64     `json:"budget_minor,omitempty"`
+	Capped           *bool      `json:"capped,omitempty"`
+	CardFailingSince *time.Time `json:"card_failing_since,omitempty"`
+
+	// Channels The payment channels offered.
+	Channels *struct {
+		Card       bool `json:"card"`
+		Stablecoin bool `json:"stablecoin"`
+		Transfer   bool `json:"transfer"`
+		Wallet     bool `json:"wallet"`
+	} `json:"channels,omitempty"`
+
+	// CreditMinor On the credit balance (prepaid funds, overpayments).
+	CreditMinor         *int64             `json:"credit_minor,omitempty"`
+	DeductsWht          bool               `json:"deducts_wht"`
+	DeletionScheduledAt *time.Time         `json:"deletion_scheduled_at,omitempty"`
+	DunningState        string             `json:"dunning_state"`
+	ForecastMinor       *int64             `json:"forecast_minor,omitempty"`
+	GraceUntil          *time.Time         `json:"grace_until,omitempty"`
+	Grandfathered       bool               `json:"grandfathered"`
+	LegalName           *string            `json:"legal_name,omitempty"`
+	Mode                BillingAccountMode `json:"mode"`
+	OrgId               openapi_types.UUID `json:"org_id"`
+	OverdueSince        *time.Time         `json:"overdue_since,omitempty"`
+
+	// OwedMinor Outstanding on issued invoices.
+	OwedMinor        *int64 `json:"owed_minor,omitempty"`
+	PaymentTermsDays int    `json:"payment_terms_days"`
+	PendingChange    *struct {
+		EffectiveAt time.Time `json:"effective_at"`
+		ToPlan      string    `json:"to_plan"`
+		ToTerm      string    `json:"to_term"`
+	} `json:"pending_change,omitempty"`
+	Plan     string `json:"plan"`
+	PlanName string `json:"plan_name"`
+
+	// Plans The plans on the organisation's price book.
+	Plans            []PlanOption       `json:"plans"`
+	PriceBookVersion int                `json:"price_book_version"`
+	SpendCapMinor    *int64             `json:"spend_cap_minor,omitempty"`
+	Term             BillingAccountTerm `json:"term"`
+	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
+	Tin              *string            `json:"tin,omitempty"`
+	VatRegistered    bool               `json:"vat_registered"`
+	ZeroBalanceAt    *time.Time         `json:"zero_balance_at,omitempty"`
+}
+
+// BillingAccountMode defines model for BillingAccount.Mode.
+type BillingAccountMode string
+
+// BillingAccountTerm defines model for BillingAccount.Term.
+type BillingAccountTerm string
+
+// BillingContact defines model for BillingContact.
+type BillingContact struct {
+	Email string  `json:"email"`
+	Name  *string `json:"name,omitempty"`
+}
+
+// BillingDetailsUpdate defines model for BillingDetailsUpdate.
+type BillingDetailsUpdate struct {
+	Address       *string `json:"address,omitempty"`
+	BudgetMinor   *int64  `json:"budget_minor,omitempty"`
+	DeductsWht    bool    `json:"deducts_wht"`
+	LegalName     *string `json:"legal_name,omitempty"`
+	SpendCapMinor *int64  `json:"spend_cap_minor,omitempty"`
+	Tin           *string `json:"tin,omitempty"`
+	VatRegistered bool    `json:"vat_registered"`
+}
+
+// BillingForecast defines model for BillingForecast.
+type BillingForecast struct {
+	BudgetMinor *int64 `json:"budget_minor,omitempty"`
+	Capped      bool   `json:"capped"`
+
+	// Elapsed An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	Elapsed Decimal `json:"elapsed"`
+
+	// Month YYYY-MM.
+	Month string `json:"month"`
+
+	// SoFar The month's lines so far (the next invoice, still changing).
+	SoFar         []InvoiceLine `json:"so_far"`
+	SpendCapMinor *int64        `json:"spend_cap_minor,omitempty"`
+
+	// SpendMinor The month's projected cost before VAT.
+	SpendMinor int64 `json:"spend_minor"`
+
+	// UsageMinor Projected usage charges (overage, dedicated, add-ons); the spend cap applies to these.
+	UsageMinor int64 `json:"usage_minor"`
+}
+
+// BillingSettings defines model for BillingSettings.
+type BillingSettings struct {
+	// AutoIssue Issue each month's draft invoices automatically on the 1st.
+	AutoIssue bool `json:"auto_issue"`
+
+	// DeleteForNonPayment Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin.
+	DeleteForNonPayment *bool `json:"delete_for_non_payment,omitempty"`
+	Seller              struct {
+		Address   string `json:"address"`
+		Email     string `json:"email"`
+		LegalName string `json:"legal_name"`
+		Tin       string `json:"tin"`
+		VatNumber string `json:"vat_number"`
+	} `json:"seller"`
+
+	// Stablecoin Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
+	Stablecoin *bool `json:"stablecoin,omitempty"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate Decimal `json:"vat_rate"`
+
+	// WhtRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	WhtRate Decimal `json:"wht_rate"`
+}
+
+// BloatList defines model for BloatList.
+type BloatList struct {
+	Items []TableBloat `json:"items"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -2427,6 +3971,74 @@ type BreakGlassSession struct {
 	OrgId      openapi_types.UUID `json:"org_id"`
 	Reason     string             `json:"reason"`
 	StartsAt   time.Time          `json:"starts_at"`
+}
+
+// Capacity defines model for Capacity.
+type Capacity struct {
+	// BudgetUsedMinor The nodes' monthly cost in the budget's currency (where a rate allows).
+	BudgetUsedMinor int64              `json:"budget_used_minor"`
+	CanCreate       bool               `json:"can_create"`
+	Dedicated       []RegionDedicated  `json:"dedicated"`
+	Moves           []RebalanceMove    `json:"moves"`
+	Nodes           []Node             `json:"nodes"`
+	Proposals       []CapacityProposal `json:"proposals"`
+	Provider        string             `json:"provider"`
+	Region          string             `json:"region"`
+	Settings        CapacitySettings   `json:"settings"`
+	Shared          []RegionShared     `json:"shared"`
+}
+
+// CapacityProposal defines model for CapacityProposal.
+type CapacityProposal struct {
+	Auto             bool                   `json:"auto"`
+	CreatedAt        time.Time              `json:"created_at"`
+	Currency         string                 `json:"currency"`
+	Error            *string                `json:"error,omitempty"`
+	Id               openapi_types.UUID     `json:"id"`
+	Location         string                 `json:"location"`
+	MonthlyCostMinor int64                  `json:"monthly_cost_minor"`
+	NodeId           *openapi_types.UUID    `json:"node_id,omitempty"`
+	NodeName         *string                `json:"node_name,omitempty"`
+	OperationId      *openapi_types.UUID    `json:"operation_id,omitempty"`
+	Provider         string                 `json:"provider"`
+	Reason           string                 `json:"reason"`
+	Region           string                 `json:"region"`
+	ServerType       string                 `json:"server_type"`
+	Status           CapacityProposalStatus `json:"status"`
+	Tier             CapacityProposalTier   `json:"tier"`
+	UpdatedAt        time.Time              `json:"updated_at"`
+}
+
+// CapacityProposalStatus defines model for CapacityProposal.Status.
+type CapacityProposalStatus string
+
+// CapacityProposalTier defines model for CapacityProposal.Tier.
+type CapacityProposalTier string
+
+// CapacityProposalList defines model for CapacityProposalList.
+type CapacityProposalList struct {
+	Items []CapacityProposal `json:"items"`
+}
+
+// CapacitySettings defines model for CapacitySettings.
+type CapacitySettings struct {
+	AutoApply             bool         `json:"auto_apply"`
+	AutoRebalance         bool         `json:"auto_rebalance"`
+	BudgetCurrency        string       `json:"budget_currency"`
+	Dedicated             TierSettings `json:"dedicated"`
+	DeleteEmptyAfterHours int          `json:"delete_empty_after_hours"`
+	MonthlyBudgetMinor    int64        `json:"monthly_budget_minor"`
+	RebalanceSpread       float32      `json:"rebalance_spread"`
+	Shared                TierSettings `json:"shared"`
+}
+
+// CategoryCost defines model for CategoryCost.
+type CategoryCost struct {
+	Category       string           `json:"category"`
+	NativeMinor    map[string]int64 `json:"native_minor"`
+	NgnBookedMinor int64            `json:"ngn_booked_minor"`
+	NgnMinor       int64            `json:"ngn_minor"`
+	Region         string           `json:"region"`
 }
 
 // ChangePasswordRequest defines model for ChangePasswordRequest.
@@ -2483,6 +4095,26 @@ type ConnectionInfo struct {
 	User string `json:"user"`
 }
 
+// CostSettings defines model for CostSettings.
+type CostSettings struct {
+	Currency                  string     `json:"currency"`
+	EgressGbMinor             float32    `json:"egress_gb_minor"`
+	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
+	FloatingIps               int        `json:"floating_ips"`
+	ObjectStorageGbMonthMinor float32    `json:"object_storage_gb_month_minor"`
+	Overheads                 []Overhead `json:"overheads"`
+}
+
+// CreateIncidentRequest defines model for CreateIncidentRequest.
+type CreateIncidentRequest struct {
+	Body       string           `json:"body"`
+	Components []string         `json:"components"`
+	Region     *string          `json:"region,omitempty"`
+	Severity   IncidentSeverity `json:"severity"`
+	Status     IncidentStatus   `json:"status"`
+	Title      string           `json:"title"`
+}
+
 // CreateNodeRequest defines model for CreateNodeRequest.
 type CreateNodeRequest struct {
 	// Name Example: node-b
@@ -2491,11 +4123,16 @@ type CreateNodeRequest struct {
 	// PrivateAddr The node's address on the private network (poolers and the control plane reach it here).
 	//
 	// Example: 10.0.0.12
-	PrivateAddr string                `json:"private_addr"`
-	Role        CreateNodeRequestRole `json:"role"`
+	PrivateAddr string `json:"private_addr"`
+
+	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
+	Region *string `json:"region,omitempty"`
+
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole defines model for CreateNodeRequest.Role.
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -2505,7 +4142,9 @@ type CreateOrgRequest struct {
 
 // CreateProjectRequest defines model for CreateProjectRequest.
 type CreateProjectRequest struct {
-	Description *string `json:"description,omitempty"`
+	// DataResidency Keep the data, backups and branches in the region's country; the region must offer it.
+	DataResidency *bool   `json:"data_residency,omitempty"`
+	Description   *string `json:"description,omitempty"`
 
 	// Name Example: My Blog
 	Name string `json:"name"`
@@ -2516,9 +4155,15 @@ type CreateProjectRequest struct {
 	// OrgId The organisation; your personal organisation when omitted.
 	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
 
+	// PgVersion Postgres major version (see /profiles); default the newest.
+	PgVersion *int `json:"pg_version,omitempty"`
+
 	// Profile Dedicated only (see /profiles); default small.
-	Profile *string      `json:"profile,omitempty"`
-	Tier    *ProjectTier `json:"tier,omitempty"`
+	Profile *string `json:"profile,omitempty"`
+
+	// Region The region (see /regions); the platform's home region by default. A branch is always in its parent's.
+	Region *string      `json:"region,omitempty"`
+	Tier   *ProjectTier `json:"tier,omitempty"`
 
 	// VolumeGb Dedicated only; default 20.
 	VolumeGb *int `json:"volume_gb,omitempty"`
@@ -2539,6 +4184,31 @@ type CreatedToken struct {
 	// Secret The token itself (`pgd_…`), shown only once.
 	Secret string   `json:"secret"`
 	Token  APIToken `json:"token"`
+}
+
+// CreditNote defines model for CreditNote.
+type CreditNote struct {
+	AmountMinor int64              `json:"amount_minor"`
+	Id          openapi_types.UUID `json:"id"`
+	InvoiceId   openapi_types.UUID `json:"invoice_id"`
+	IssuedAt    time.Time          `json:"issued_at"`
+	Number      string             `json:"number"`
+	Reason      string             `json:"reason"`
+	VatMinor    int64              `json:"vat_minor"`
+}
+
+// DBSession defines model for DBSession.
+type DBSession struct {
+	InTransactionMs int64 `json:"in_transaction_ms"`
+	Pid             int   `json:"pid"`
+
+	// Platform One of PGDock's own sessions.
+	Platform  bool   `json:"platform"`
+	Query     string `json:"query"`
+	Role      string `json:"role"`
+	RunningMs int64  `json:"running_ms"`
+	State     string `json:"state"`
+	WaitEvent string `json:"wait_event"`
 }
 
 // DbColumn defines model for DbColumn.
@@ -2606,6 +4276,11 @@ type DecideRequest struct {
 	RaiseAllowance *bool `json:"raise_allowance,omitempty"`
 }
 
+// Decimal An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+//
+// Example: 34.25
+type Decimal = string
+
 // DedicatedAllowance defines model for DedicatedAllowance.
 type DedicatedAllowance struct {
 	Cpus      float32 `json:"cpus"`
@@ -2671,11 +4346,17 @@ type DemoteCheckStatus string
 type DemotePreflight struct {
 	Checks []DemoteCheck `json:"checks"`
 
+	// CopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+	CopyMode *DemotePreflightCopyMode `json:"copy_mode,omitempty"`
+
 	// Eligible No check blocks the demotion (warnings still need accept_warnings).
 	Eligible bool `json:"eligible"`
 
-	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
+	// EstimatedDowntimeSeconds How long writes are expected to pause.
 	EstimatedDowntimeSeconds int `json:"estimated_downtime_seconds"`
+
+	// FallbackReason Why logical replication can't be used.
+	FallbackReason *string `json:"fallback_reason,omitempty"`
 
 	// Resets The guardrails that change, e.g. "connection limit 90 → 20".
 	Resets []string `json:"resets"`
@@ -2686,6 +4367,9 @@ type DemotePreflight struct {
 	SizeBytes     int64           `json:"size_bytes"`
 	Target        *DemoteTarget   `json:"target,omitempty"`
 }
+
+// DemotePreflightCopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+type DemotePreflightCopyMode string
 
 // DemoteRequest defines model for DemoteRequest.
 type DemoteRequest struct {
@@ -2771,6 +4455,24 @@ type DnsCheck struct {
 	ServerAddresses []string `json:"server_addresses"`
 }
 
+// DrainResult defines model for DrainResult.
+type DrainResult struct {
+	Moves int  `json:"moves"`
+	Node  Node `json:"node"`
+}
+
+// DuplicateIndex defines model for DuplicateIndex.
+type DuplicateIndex struct {
+	Bytes      int64  `json:"bytes"`
+	Definition string `json:"definition"`
+	Exact      bool   `json:"exact"`
+	Name       string `json:"name"`
+	Of         string `json:"of"`
+	Scans      int64  `json:"scans"`
+	Schema     string `json:"schema"`
+	Table      string `json:"table"`
+}
+
 // EditColumn defines model for EditColumn.
 type EditColumn struct {
 	BaseType string `json:"base_type"`
@@ -2820,6 +4522,36 @@ type Error struct {
 	Statement *string `json:"statement,omitempty"`
 }
 
+// EtcdCluster defines model for EtcdCluster.
+type EtcdCluster struct {
+	Members []EtcdMember `json:"members"`
+
+	// Ready Set up, with a quorum of healthy members.
+	Ready bool `json:"ready"`
+
+	// Reason Why it isn't ready.
+	Reason *string `json:"reason,omitempty"`
+}
+
+// EtcdMember defines model for EtcdMember.
+type EtcdMember struct {
+	CheckedAt *time.Time         `json:"checked_at,omitempty"`
+	ClientUrl string             `json:"client_url"`
+	Error     *string            `json:"error,omitempty"`
+	Name      string             `json:"name"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+	Status    EtcdMemberStatus   `json:"status"`
+}
+
+// EtcdMemberStatus defines model for EtcdMember.Status.
+type EtcdMemberStatus string
+
+// EtcdSetupRequest defines model for EtcdSetupRequest.
+type EtcdSetupRequest struct {
+	NodeIds []openapi_types.UUID `json:"node_ids"`
+}
+
 // Extension defines model for Extension.
 type Extension struct {
 	// Allowed On this project's tier's allow-list.
@@ -2844,6 +4576,28 @@ type ExtensionList struct {
 	Items []Extension `json:"items"`
 }
 
+// FXRate defines model for FXRate.
+type FXRate struct {
+	Currency    string    `json:"currency"`
+	EffectiveAt time.Time `json:"effective_at"`
+	Id          int64     `json:"id"`
+	NgnPerUnit  float64   `json:"ngn_per_unit"`
+	Source      string    `json:"source"`
+}
+
+// FXRateInput defines model for FXRateInput.
+type FXRateInput struct {
+	Currency    string     `json:"currency"`
+	EffectiveAt *time.Time `json:"effective_at,omitempty"`
+	NgnPerUnit  float64    `json:"ngn_per_unit"`
+}
+
+// FXRateList defines model for FXRateList.
+type FXRateList struct {
+	Current []FXRate `json:"current"`
+	History []FXRate `json:"history"`
+}
+
 // FailedChange defines model for FailedChange.
 type FailedChange struct {
 	Error SqlError `json:"error"`
@@ -2851,6 +4605,18 @@ type FailedChange struct {
 	// Index The change Postgres refused (-1 for a constraint checked at commit).
 	Index int `json:"index"`
 }
+
+// FailoverEvent defines model for FailoverEvent.
+type FailoverEvent struct {
+	DurationMs *int              `json:"duration_ms,omitempty"`
+	FromNode   *string           `json:"from_node,omitempty"`
+	Kind       FailoverEventKind `json:"kind"`
+	OccurredAt time.Time         `json:"occurred_at"`
+	ToNode     *string           `json:"to_node,omitempty"`
+}
+
+// FailoverEventKind defines model for FailoverEvent.Kind.
+type FailoverEventKind string
 
 // ForeignKey defines model for ForeignKey.
 type ForeignKey struct {
@@ -2870,6 +4636,42 @@ type GeneralSettings struct {
 	SessionPort int       `json:"session_port"`
 	Sslmode     string    `json:"sslmode"`
 	Tls         TlsStatus `json:"tls"`
+}
+
+// HAEnableRequest defines model for HAEnableRequest.
+type HAEnableRequest struct {
+	// NodeId Where the standby goes (default the least loaded other node that takes dedicated instances).
+	NodeId      *openapi_types.UUID `json:"node_id,omitempty"`
+	Synchronous *bool               `json:"synchronous,omitempty"`
+}
+
+// HAMember defines model for HAMember.
+type HAMember struct {
+	Id        openapi_types.UUID `json:"id"`
+	LagBytes  *int64             `json:"lag_bytes,omitempty"`
+	NodeId    openapi_types.UUID `json:"node_id"`
+	NodeName  string             `json:"node_name"`
+	Role      HAMemberRole       `json:"role"`
+	State     *string            `json:"state,omitempty"`
+	Timeline  *int               `json:"timeline,omitempty"`
+	UpdatedAt *time.Time         `json:"updated_at,omitempty"`
+}
+
+// HAMemberRole defines model for HAMember.Role.
+type HAMemberRole string
+
+// HAStatus defines model for HAStatus.
+type HAStatus struct {
+	Availability *Availability   `json:"availability,omitempty"`
+	Enabled      bool            `json:"enabled"`
+	Failovers    []FailoverEvent `json:"failovers"`
+	Members      []HAMember      `json:"members"`
+	Synchronous  bool            `json:"synchronous"`
+}
+
+// HAUpdateRequest defines model for HAUpdateRequest.
+type HAUpdateRequest struct {
+	Synchronous bool `json:"synchronous"`
 }
 
 // Health defines model for Health.
@@ -2936,6 +4738,173 @@ type ImportSource struct {
 	SourceUrl string `json:"source_url"`
 }
 
+// Incident defines model for Incident.
+type Incident struct {
+	Components []string           `json:"components"`
+	Id         openapi_types.UUID `json:"id"`
+	PushError  *string            `json:"push_error,omitempty"`
+
+	// PushedAt When the status page last took this version; unset while a push is due.
+	PushedAt   *time.Time       `json:"pushed_at,omitempty"`
+	Region     *string          `json:"region,omitempty"`
+	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
+	Severity   IncidentSeverity `json:"severity"`
+	StartedAt  time.Time        `json:"started_at"`
+	Status     IncidentStatus   `json:"status"`
+	Title      string           `json:"title"`
+	UpdatedAt  time.Time        `json:"updated_at"`
+	Updates    []IncidentUpdate `json:"updates"`
+}
+
+// IncidentList defines model for IncidentList.
+type IncidentList struct {
+	// Components Status page components an incident can name.
+	Components           []string   `json:"components"`
+	Items                []Incident `json:"items"`
+	StatusPageConfigured bool       `json:"status_page_configured"`
+	StatusPageUrl        *string    `json:"status_page_url,omitempty"`
+}
+
+// IncidentSeverity defines model for IncidentSeverity.
+type IncidentSeverity string
+
+// IncidentStatus defines model for IncidentStatus.
+type IncidentStatus string
+
+// IncidentUpdate defines model for IncidentUpdate.
+type IncidentUpdate struct {
+	Body     string    `json:"body"`
+	Id       int64     `json:"id"`
+	PostedAt time.Time `json:"posted_at"`
+
+	// PostedBy The poster's email.
+	PostedBy *string        `json:"posted_by,omitempty"`
+	Status   IncidentStatus `json:"status"`
+}
+
+// IncidentUpdateRequest defines model for IncidentUpdateRequest.
+type IncidentUpdateRequest struct {
+	Body   string         `json:"body"`
+	Status IncidentStatus `json:"status"`
+}
+
+// IndexEstimate defines model for IndexEstimate.
+type IndexEstimate struct {
+	CostAfter   float64 `json:"cost_after"`
+	CostBefore  float64 `json:"cost_before"`
+	Improvement float64 `json:"improvement"`
+	UsesIndex   bool    `json:"uses_index"`
+}
+
+// IndexInfo defines model for IndexInfo.
+type IndexInfo struct {
+	Bytes      int64  `json:"bytes"`
+	Definition string `json:"definition"`
+	Name       string `json:"name"`
+	Scans      int64  `json:"scans"`
+	Schema     string `json:"schema"`
+	Table      string `json:"table"`
+}
+
+// IndexReport defines model for IndexReport.
+type IndexReport struct {
+	Duplicates    []DuplicateIndex  `json:"duplicates"`
+	HeavySeqScans []TableScans      `json:"heavy_seq_scans"`
+	Hypopg        IndexReportHypopg `json:"hypopg"`
+	StatsSince    *time.Time        `json:"stats_since,omitempty"`
+	Suggestions   []IndexSuggestion `json:"suggestions"`
+	Unused        []IndexInfo       `json:"unused"`
+}
+
+// IndexReportHypopg defines model for IndexReport.Hypopg.
+type IndexReportHypopg string
+
+// IndexSuggestion defines model for IndexSuggestion.
+type IndexSuggestion struct {
+	// Change One change (V2 §4.3); which fields apply depends on `kind`.
+	Change    SchemaChange             `json:"change"`
+	Columns   []string                 `json:"columns"`
+	Estimate  *IndexEstimate           `json:"estimate,omitempty"`
+	QueryIds  []string                 `json:"query_ids"`
+	Reasons   []IndexSuggestionReasons `json:"reasons"`
+	Schema    string                   `json:"schema"`
+	SeqScans  int64                    `json:"seq_scans"`
+	Statement string                   `json:"statement"`
+	Table     string                   `json:"table"`
+	TableRows float64                  `json:"table_rows"`
+}
+
+// IndexSuggestionReasons defines model for IndexSuggestion.Reasons.
+type IndexSuggestionReasons string
+
+// InsightExplainRequest defines model for InsightExplainRequest.
+type InsightExplainRequest struct {
+	Generic *bool  `json:"generic,omitempty"`
+	QueryId string `json:"query_id"`
+}
+
+// InsightPlan defines model for InsightPlan.
+type InsightPlan struct {
+	Generic bool     `json:"generic"`
+	Indexes []string `json:"indexes"`
+
+	// Plan EXPLAIN (FORMAT JSON)'s output.
+	Plan      interface{} `json:"plan"`
+	SeqScans  []string    `json:"seq_scans"`
+	Statement string      `json:"statement"`
+	TotalCost float64     `json:"total_cost"`
+}
+
+// InsightPoint defines model for InsightPoint.
+type InsightPoint struct {
+	Calls   int64     `json:"calls"`
+	MaxMs   float64   `json:"max_ms"`
+	MeanMs  float64   `json:"mean_ms"`
+	Rows    int64     `json:"rows"`
+	TotalMs float64   `json:"total_ms"`
+	Ts      time.Time `json:"ts"`
+}
+
+// InsightQuery defines model for InsightQuery.
+type InsightQuery struct {
+	Calls      int64 `json:"calls"`
+	HasExample bool  `json:"has_example"`
+
+	// HitRatio Share of blocks read from shared buffers.
+	HitRatio float64 `json:"hit_ratio"`
+	MaxMs    float64 `json:"max_ms"`
+	MeanMs   float64 `json:"mean_ms"`
+
+	// Query The normalised text, with $1… for literals.
+	Query string `json:"query"`
+
+	// QueryId pg_stat_statements' queryid (a 64-bit integer, as a string).
+	QueryId string `json:"query_id"`
+	Rows    int64  `json:"rows"`
+
+	// Share Share of the project's total query time.
+	Share   float64 `json:"share"`
+	TotalMs float64 `json:"total_ms"`
+}
+
+// InsightQueryDetail defines model for InsightQueryDetail.
+type InsightQueryDetail struct {
+	// Example The latest statement seen with its literals.
+	Example     *string        `json:"example,omitempty"`
+	ExampleAt   *time.Time     `json:"example_at,omitempty"`
+	FirstSeen   time.Time      `json:"first_seen"`
+	LastSeen    time.Time      `json:"last_seen"`
+	Query       InsightQuery   `json:"query"`
+	Series      []InsightPoint `json:"series"`
+	StepSeconds int            `json:"step_seconds"`
+}
+
+// InsightQueryList defines model for InsightQueryList.
+type InsightQueryList struct {
+	Items []InsightQuery `json:"items"`
+	Range string         `json:"range"`
+}
+
 // InstanceActionRequest defines model for InstanceActionRequest.
 type InstanceActionRequest struct {
 	Action InstanceActionRequestAction `json:"action"`
@@ -2953,16 +4922,28 @@ type InstanceState struct {
 
 // InstanceSummary defines model for InstanceSummary.
 type InstanceSummary struct {
-	Cpus     *float32            `json:"cpus,omitempty"`
-	Error    *string             `json:"error,omitempty"`
-	Id       openapi_types.UUID  `json:"id"`
-	Kind     InstanceSummaryKind `json:"kind"`
-	MemoryMb *int                `json:"memory_mb,omitempty"`
-	NodeId   openapi_types.UUID  `json:"node_id"`
-	NodeName string              `json:"node_name"`
-	Profile  *string             `json:"profile,omitempty"`
-	Status   string              `json:"status"`
-	VolumeGb *int                `json:"volume_gb,omitempty"`
+	Cpus  *float32 `json:"cpus,omitempty"`
+	Error *string  `json:"error,omitempty"`
+
+	// HaEnabled A primary and a streaming standby on another node (V3 §2.2).
+	HaEnabled *bool               `json:"ha_enabled,omitempty"`
+	Id        openapi_types.UUID  `json:"id"`
+	Kind      InstanceSummaryKind `json:"kind"`
+	MemoryMb  *int                `json:"memory_mb,omitempty"`
+	NodeId    openapi_types.UUID  `json:"node_id"`
+	NodeName  string              `json:"node_name"`
+
+	// PgRelease The release the instance runs ("18.1"), as its agent last reported.
+	PgRelease *string `json:"pg_release,omitempty"`
+
+	// PgReleaseAvailable The release its image now holds; a newer minor is applied in the maintenance window.
+	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
+
+	// PgVersion Postgres major version.
+	PgVersion int     `json:"pg_version"`
+	Profile   *string `json:"profile,omitempty"`
+	Status    string  `json:"status"`
+	VolumeGb  *int    `json:"volume_gb,omitempty"`
 }
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
@@ -3030,6 +5011,78 @@ type InviteRequest struct {
 	Email    openapi_types.Email  `json:"email"`
 	Projects *[]InviteProjectRole `json:"projects,omitempty"`
 	Role     OrgRole              `json:"role"`
+}
+
+// Invoice defines model for Invoice.
+type Invoice struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	DueAt      *time.Time         `json:"due_at,omitempty"`
+	Held       bool               `json:"held"`
+	HoldReason *string            `json:"hold_reason,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+	IssuedAt   *time.Time         `json:"issued_at,omitempty"`
+	Number     *string            `json:"number,omitempty"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	OrgName    *string            `json:"org_name,omitempty"`
+	PaidAt     *time.Time         `json:"paid_at,omitempty"`
+
+	// PaidMinor Kobo settled against this invoice so far (payments and credit applied).
+	PaidMinor        int64              `json:"paid_minor"`
+	PeriodEnd        openapi_types.Date `json:"period_end"`
+	PeriodStart      openapi_types.Date `json:"period_start"`
+	PriceBookVersion int                `json:"price_book_version"`
+	Status           InvoiceStatus      `json:"status"`
+	SubtotalMinor    int64              `json:"subtotal_minor"`
+	TotalMinor       int64              `json:"total_minor"`
+	VatMinor         int64              `json:"vat_minor"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate Decimal `json:"vat_rate"`
+
+	// WhtDeductedMinor Kobo withheld as WHT by the customer, awaiting a certificate.
+	WhtDeductedMinor int64      `json:"wht_deducted_minor"`
+	WhtEvidencedAt   *time.Time `json:"wht_evidenced_at,omitempty"`
+	WhtExpectedMinor int64      `json:"wht_expected_minor"`
+}
+
+// InvoiceStatus defines model for Invoice.Status.
+type InvoiceStatus string
+
+// InvoiceDetail defines model for InvoiceDetail.
+type InvoiceDetail struct {
+	CreditNotes []CreditNote  `json:"credit_notes"`
+	Invoice     Invoice       `json:"invoice"`
+	Lines       []InvoiceLine `json:"lines"`
+}
+
+// InvoiceLine defines model for InvoiceLine.
+type InvoiceLine struct {
+	// Amount Kobo.
+	Amount      int64               `json:"amount"`
+	Description string              `json:"description"`
+	Kind        InvoiceLineKind     `json:"kind"`
+	Metric      *string             `json:"metric,omitempty"`
+	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Quantity An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	Quantity Decimal `json:"quantity"`
+
+	// UnitPrice An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	UnitPrice Decimal `json:"unit_price"`
+}
+
+// InvoiceLineKind defines model for InvoiceLine.Kind.
+type InvoiceLineKind string
+
+// InvoiceList defines model for InvoiceList.
+type InvoiceList struct {
+	Items []Invoice `json:"items"`
 }
 
 // IsolationCheck defines model for IsolationCheck.
@@ -3158,6 +5211,103 @@ type JobUpdate struct {
 // JobUpdateOverlap defines model for JobUpdate.Overlap.
 type JobUpdateOverlap string
 
+// LedgerCheck defines model for LedgerCheck.
+type LedgerCheck struct {
+	// Accounts Each account's balance (debits minus credits) across organisations.
+	Accounts []struct {
+		Account      string `json:"account"`
+		BalanceMinor int64  `json:"balance_minor"`
+	} `json:"accounts"`
+	Balanced     bool  `json:"balanced"`
+	CreditsMinor int64 `json:"credits_minor"`
+	DebitsMinor  int64 `json:"debits_minor"`
+	Problems     []struct {
+		CreditsMinor int64   `json:"credits_minor"`
+		DebitsMinor  int64   `json:"debits_minor"`
+		Detail       *string `json:"detail,omitempty"`
+
+		// Kind Set for a ledger that disagrees with what it records (txn_id is then empty): invoice_ledger,
+		// invoice_arithmetic, invoice_allocations, invoice_outstanding, credit_note_ledger, payment_ledger,
+		// receivable, account_sign.
+		Kind *string `json:"kind,omitempty"`
+
+		// Ref The invoice or credit note number, payment reference, or organisation.
+		Ref   *string            `json:"ref,omitempty"`
+		TxnId openapi_types.UUID `json:"txn_id"`
+	} `json:"problems"`
+	Transactions int `json:"transactions"`
+}
+
+// LegalAcceptance defines model for LegalAcceptance.
+type LegalAcceptance struct {
+	AcceptedAt time.Time          `json:"accepted_at"`
+	AcceptedBy *string            `json:"accepted_by,omitempty"`
+	OrgId      openapi_types.UUID `json:"org_id"`
+	OrgName    string             `json:"org_name"`
+}
+
+// LegalDocument defines model for LegalDocument.
+type LegalDocument struct {
+	BodyMd      string              `json:"body_md"`
+	Id          openapi_types.UUID  `json:"id"`
+	Kind        LegalDocumentKind   `json:"kind"`
+	OrgId       *openapi_types.UUID `json:"org_id,omitempty"`
+	PublishedAt time.Time           `json:"published_at"`
+	Title       string              `json:"title"`
+	Version     int32               `json:"version"`
+}
+
+// LegalDocumentKind defines model for LegalDocument.Kind.
+type LegalDocumentKind string
+
+// LegalDocumentDetail defines model for LegalDocumentDetail.
+type LegalDocumentDetail struct {
+	Acceptances []LegalAcceptance `json:"acceptances"`
+	Document    LegalDocument     `json:"document"`
+}
+
+// LegalDocumentList defines model for LegalDocumentList.
+type LegalDocumentList struct {
+	Items []LegalDocument `json:"items"`
+}
+
+// LegalPublish defines model for LegalPublish.
+type LegalPublish struct {
+	BodyMd string           `json:"body_md"`
+	Kind   LegalPublishKind `json:"kind"`
+	Title  string           `json:"title"`
+}
+
+// LegalPublishKind defines model for LegalPublish.Kind.
+type LegalPublishKind string
+
+// LegalVersion defines model for LegalVersion.
+type LegalVersion struct {
+	Acceptances int64              `json:"acceptances"`
+	Id          openapi_types.UUID `json:"id"`
+	Kind        string             `json:"kind"`
+	PublishedAt time.Time          `json:"published_at"`
+	Title       string             `json:"title"`
+	Version     int32              `json:"version"`
+}
+
+// LegalVersionList defines model for LegalVersionList.
+type LegalVersionList struct {
+	Items []LegalVersion `json:"items"`
+}
+
+// LockBlock defines model for LockBlock.
+type LockBlock struct {
+	Blocked  DBSession   `json:"blocked"`
+	Blockers []DBSession `json:"blockers"`
+	Lock     string      `json:"lock"`
+}
+
+// LockList defines model for LockList.
+type LockList struct {
+	Items []LockBlock `json:"items"`
+}
+
 // LoginChallenge defines model for LoginChallenge.
 type LoginChallenge struct {
 	ChallengeId string `json:"challenge_id"`
@@ -3211,6 +5361,48 @@ type MailSettingsRequest struct {
 // MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
 type MailSettingsRequestTls string
 
+// MaintenanceStatus defines model for MaintenanceStatus.
+type MaintenanceStatus struct {
+	// Behind Running instances whose image has a newer minor release.
+	Behind     []InstanceSummary `json:"behind"`
+	History    []MinorUpgrade    `json:"history"`
+	InWindow   bool              `json:"in_window"`
+	NextWindow time.Time         `json:"next_window"`
+
+	// Window A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+	Window MaintenanceWindow `json:"window"`
+}
+
+// MaintenanceWindow A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+type MaintenanceWindow struct {
+	Enabled   bool `json:"enabled"`
+	Hours     int  `json:"hours"`
+	StartHour int  `json:"start_hour"`
+
+	// Weekday 0 is Sunday.
+	Weekday int `json:"weekday"`
+}
+
+// Margins defines model for Margins.
+type Margins struct {
+	Categories        []CategoryCost     `json:"categories"`
+	CostBookedMinor   int64              `json:"cost_booked_minor"`
+	CostMinor         int64              `json:"cost_minor"`
+	Days              int                `json:"days"`
+	FreeTierCostMinor int64              `json:"free_tier_cost_minor"`
+	FxErosionMinor    int64              `json:"fx_erosion_minor"`
+	MarginMinor       int64              `json:"margin_minor"`
+	MarginPct         *float32           `json:"margin_pct,omitempty"`
+	MissingRates      *[]string          `json:"missing_rates,omitempty"`
+	Month             string             `json:"month"`
+	Orgs              []OrgMargin        `json:"orgs"`
+	Plans             []PlanMargin       `json:"plans"`
+	Rates             map[string]float32 `json:"rates"`
+	RevenueMinor      int64              `json:"revenue_minor"`
+	UnallocatedMinor  int64              `json:"unallocated_minor"`
+	Units             []UnitCost         `json:"units"`
+}
+
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
 	Ts    time.Time `json:"ts"`
@@ -3234,6 +5426,61 @@ type MetricsResponse struct {
 // MetricsResponseResolution defines model for MetricsResponse.Resolution.
 type MetricsResponseResolution string
 
+// MinorUpgrade defines model for MinorUpgrade.
+type MinorUpgrade struct {
+	Error       *string            `json:"error,omitempty"`
+	FinishedAt  *time.Time         `json:"finished_at,omitempty"`
+	FromRelease string             `json:"from_release"`
+	Id          openapi_types.UUID `json:"id"`
+	InstanceId  openapi_types.UUID `json:"instance_id"`
+	Kind        MinorUpgradeKind   `json:"kind"`
+	NodeName    string             `json:"node_name"`
+
+	// PauseMs How long the poolers held clients.
+	PauseMs   *int      `json:"pause_ms,omitempty"`
+	StartedAt time.Time `json:"started_at"`
+	ToRelease string    `json:"to_release"`
+}
+
+// MinorUpgradeKind defines model for MinorUpgrade.Kind.
+type MinorUpgradeKind string
+
+// Move defines model for Move.
+type Move struct {
+	// FallbackReason Why logical replication wasn't used.
+	FallbackReason *string    `json:"fallback_reason,omitempty"`
+	FinishedAt     *time.Time `json:"finished_at,omitempty"`
+
+	// FreezeMs How long writes were paused.
+	FreezeMs       *int               `json:"freeze_ms,omitempty"`
+	Id             openapi_types.UUID `json:"id"`
+	LagBytes       *int64             `json:"lag_bytes,omitempty"`
+	Mode           MoveMode           `json:"mode"`
+	OperationId    openapi_types.UUID `json:"operation_id"`
+	Phase          MovePhase          `json:"phase"`
+	SourceInstance openapi_types.UUID `json:"source_instance"`
+	StartedAt      time.Time          `json:"started_at"`
+	TablesReady    *int               `json:"tables_ready,omitempty"`
+	TablesTotal    *int               `json:"tables_total,omitempty"`
+	TargetInstance openapi_types.UUID `json:"target_instance"`
+}
+
+// MoveMode defines model for Move.Mode.
+type MoveMode string
+
+// MovePhase defines model for Move.Phase.
+type MovePhase string
+
+// MoveList defines model for MoveList.
+type MoveList struct {
+	Items []Move `json:"items"`
+}
+
+// MoveProjectRequest defines model for MoveProjectRequest.
+type MoveProjectRequest struct {
+	NodeId openapi_types.UUID `json:"node_id"`
+}
+
 // MyInvitationList defines model for MyInvitationList.
 type MyInvitationList struct {
 	Items []Invitation `json:"items"`
@@ -3241,14 +5488,38 @@ type MyInvitationList struct {
 
 // Node defines model for Node.
 type Node struct {
-	Agent         AgentStatus        `json:"agent"`
-	CreatedAt     time.Time          `json:"created_at"`
-	Id            openapi_types.UUID `json:"id"`
-	LastHeartbeat *time.Time         `json:"last_heartbeat,omitempty"`
-	Name          string             `json:"name"`
-	PrivateAddr   string             `json:"private_addr"`
-	Role          string             `json:"role"`
-	Status        string             `json:"status"`
+	Agent        AgentStatus        `json:"agent"`
+	CostCurrency *string            `json:"cost_currency,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
+	EmptySince   *time.Time         `json:"empty_since,omitempty"`
+	Id           openapi_types.UUID `json:"id"`
+
+	// Keep Never deleted for being empty.
+	Keep             *bool          `json:"keep,omitempty"`
+	LastHeartbeat    *time.Time     `json:"last_heartbeat,omitempty"`
+	Lifecycle        *NodeLifecycle `json:"lifecycle,omitempty"`
+	MonthlyCostMinor *int64         `json:"monthly_cost_minor,omitempty"`
+	Name             string         `json:"name"`
+	PrivateAddr      string         `json:"private_addr"`
+
+	// Provider manual (registered by hand) or the cloud provider that created it.
+	Provider   *string `json:"provider,omitempty"`
+	Region     *string `json:"region,omitempty"`
+	Role       string  `json:"role"`
+	ServerType *string `json:"server_type,omitempty"`
+	Status     string  `json:"status"`
+}
+
+// NodeLifecycle defines model for Node.Lifecycle.
+type NodeLifecycle string
+
+// NodeCost defines model for NodeCost.
+type NodeCost struct {
+	Currency         string  `json:"currency"`
+	Keep             *bool   `json:"keep,omitempty"`
+	MonthlyCostMinor *int64  `json:"monthly_cost_minor,omitempty"`
+	Region           *string `json:"region,omitempty"`
+	ServerType       *string `json:"server_type,omitempty"`
 }
 
 // NodeCreated defines model for NodeCreated.
@@ -3274,10 +5545,17 @@ type NodeInstance struct {
 	Id        openapi_types.UUID `json:"id"`
 	Kind      string             `json:"kind"`
 	MemoryMb  *int               `json:"memory_mb,omitempty"`
-	Profile   *string            `json:"profile,omitempty"`
-	Projects  int                `json:"projects"`
-	Status    string             `json:"status"`
-	VolumeGb  *int               `json:"volume_gb,omitempty"`
+
+	// PgRelease The release the instance runs, as its agent last reported.
+	PgRelease *string `json:"pg_release,omitempty"`
+
+	// PgReleaseAvailable The release its image now holds.
+	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
+	PgVersion          *int    `json:"pg_version,omitempty"`
+	Profile            *string `json:"profile,omitempty"`
+	Projects           int     `json:"projects"`
+	Status             string  `json:"status"`
+	VolumeGb           *int    `json:"volume_gb,omitempty"`
 }
 
 // NodeList defines model for NodeList.
@@ -3331,6 +5609,12 @@ type OperationLogEntryLevel string
 // OperationStatus defines model for OperationStatus.
 type OperationStatus string
 
+// OrderFormPublish defines model for OrderFormPublish.
+type OrderFormPublish struct {
+	BodyMd string `json:"body_md"`
+	Title  string `json:"title"`
+}
+
 // Org defines model for Org.
 type Org struct {
 	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
@@ -3365,9 +5649,36 @@ type OrgDeletion struct {
 	DeleteAfter time.Time `json:"delete_after"`
 }
 
+// OrgLegal defines model for OrgLegal.
+type OrgLegal struct {
+	Items []OrgLegalDocument `json:"items"`
+
+	// Outstanding Some document in effect isn't accepted yet.
+	Outstanding bool `json:"outstanding"`
+}
+
+// OrgLegalDocument defines model for OrgLegalDocument.
+type OrgLegalDocument struct {
+	AcceptedAt *time.Time    `json:"accepted_at,omitempty"`
+	AcceptedBy *string       `json:"accepted_by,omitempty"`
+	Document   LegalDocument `json:"document"`
+}
+
 // OrgList defines model for OrgList.
 type OrgList struct {
 	Items []Org `json:"items"`
+}
+
+// OrgMargin defines model for OrgMargin.
+type OrgMargin struct {
+	CostMinor       int64              `json:"cost_minor"`
+	CostNativeMinor map[string]int64   `json:"cost_native_minor"`
+	MarginMinor     int64              `json:"margin_minor"`
+	MarginPct       *float32           `json:"margin_pct,omitempty"`
+	Name            string             `json:"name"`
+	OrgId           openapi_types.UUID `json:"org_id"`
+	Plan            string             `json:"plan"`
+	RevenueMinor    int64              `json:"revenue_minor"`
 }
 
 // OrgMember defines model for OrgMember.
@@ -3413,6 +5724,13 @@ type OrgRoleRequest struct {
 	Role OrgRole `json:"role"`
 }
 
+// OutageMinute defines model for OutageMinute.
+type OutageMinute struct {
+	ExternalOk *bool     `json:"external_ok,omitempty"`
+	InternalOk *bool     `json:"internal_ok,omitempty"`
+	Minute     time.Time `json:"minute"`
+}
+
 // OutboundAllowlist defines model for OutboundAllowlist.
 type OutboundAllowlist struct {
 	Hosts []string `json:"hosts"`
@@ -3426,11 +5744,80 @@ type OutboundHost struct {
 	Requests int64              `json:"requests"`
 }
 
+// OutstandingWht defines model for OutstandingWht.
+type OutstandingWht struct {
+	AgeDays   int                `json:"age_days"`
+	InvoiceId openapi_types.UUID `json:"invoice_id"`
+	Number    *string            `json:"number,omitempty"`
+	OrgId     openapi_types.UUID `json:"org_id"`
+	OrgName   string             `json:"org_name"`
+	PaidAt    *time.Time         `json:"paid_at,omitempty"`
+	Tin       *string            `json:"tin,omitempty"`
+	WhtMinor  int64              `json:"wht_minor"`
+}
+
+// Overhead defines model for Overhead.
+type Overhead struct {
+	Currency     string `json:"currency"`
+	MonthlyMinor int64  `json:"monthly_minor"`
+	Name         string `json:"name"`
+}
+
 // PasswordResetConfirm defines model for PasswordResetConfirm.
 type PasswordResetConfirm struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
+
+// Payment defines model for Payment.
+type Payment struct {
+	AmountMinor   int64              `json:"amount_minor"`
+	Channel       string             `json:"channel"`
+	FeeMinor      int64              `json:"fee_minor"`
+	Id            openapi_types.UUID `json:"id"`
+	Note          *string            `json:"note,omitempty"`
+	OrgId         openapi_types.UUID `json:"org_id"`
+	OrgName       *string            `json:"org_name,omitempty"`
+	Provider      string             `json:"provider"`
+	ProviderRef   string             `json:"provider_ref"`
+	ReceivedAt    time.Time          `json:"received_at"`
+	RefundedMinor int64              `json:"refunded_minor"`
+}
+
+// PaymentEvent defines model for PaymentEvent.
+type PaymentEvent struct {
+	AmountMinor     *int64              `json:"amount_minor,omitempty"`
+	Error           *string             `json:"error,omitempty"`
+	Id              int64               `json:"id"`
+	Kind            string              `json:"kind"`
+	OrgId           *openapi_types.UUID `json:"org_id,omitempty"`
+	Outcome         *string             `json:"outcome,omitempty"`
+	Provider        string              `json:"provider"`
+	ProviderEventId string              `json:"provider_event_id"`
+	ProviderRef     *string             `json:"provider_ref,omitempty"`
+	ReceivedAt      time.Time           `json:"received_at"`
+}
+
+// PaymentList defines model for PaymentList.
+type PaymentList struct {
+	Items []Payment `json:"items"`
+}
+
+// PaymentMethod defines model for PaymentMethod.
+type PaymentMethod struct {
+	Brand      *string            `json:"brand,omitempty"`
+	ExpMonth   *int               `json:"exp_month,omitempty"`
+	ExpYear    *int               `json:"exp_year,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+	IsDefault  bool               `json:"is_default"`
+	Kind       PaymentMethodKind  `json:"kind"`
+	Last4      *string            `json:"last4,omitempty"`
+	LimitMinor *int64             `json:"limit_minor,omitempty"`
+	Provider   string             `json:"provider"`
+}
+
+// PaymentMethodKind defines model for PaymentMethod.Kind.
+type PaymentMethodKind string
 
 // PersonalCredentials defines model for PersonalCredentials.
 type PersonalCredentials struct {
@@ -3478,12 +5865,62 @@ type Plan struct {
 	OrgCount int                `json:"org_count"`
 }
 
+// PlanChange defines model for PlanChange.
+type PlanChange struct {
+	// Applied In effect now; otherwise scheduled for effective_at.
+	Applied     bool      `json:"applied"`
+	EffectiveAt time.Time `json:"effective_at"`
+	FromPlan    string    `json:"from_plan"`
+	FromTerm    string    `json:"from_term"`
+
+	// Lines Lines on the next invoice (before VAT).
+	Lines      []InvoiceLine `json:"lines"`
+	TermEndsAt *time.Time    `json:"term_ends_at,omitempty"`
+	ToPlan     string        `json:"to_plan"`
+	ToTerm     string        `json:"to_term"`
+	TotalMinor int64         `json:"total_minor"`
+	Upgrade    bool          `json:"upgrade"`
+}
+
+// PlanChangeRequest defines model for PlanChangeRequest.
+type PlanChangeRequest struct {
+	// AcceptLegal Accept the SLA, DPA and order form in effect on the organisation's behalf (owners).
+	AcceptLegal *bool `json:"accept_legal,omitempty"`
+	DryRun      *bool `json:"dry_run,omitempty"`
+
+	// Immediately Apply a downgrade now, with a credit for the unused part.
+	Immediately *bool                  `json:"immediately,omitempty"`
+	Plan        string                 `json:"plan"`
+	Term        *PlanChangeRequestTerm `json:"term,omitempty"`
+}
+
+// PlanChangeRequestTerm defines model for PlanChangeRequest.Term.
+type PlanChangeRequestTerm string
+
 // PlanList defines model for PlanList.
 type PlanList struct {
 	Items []Plan `json:"items"`
 
 	// Keys Known limit keys, in display order.
 	Keys []string `json:"keys"`
+}
+
+// PlanMargin defines model for PlanMargin.
+type PlanMargin struct {
+	CostMinor    int64    `json:"cost_minor"`
+	MarginMinor  int64    `json:"margin_minor"`
+	MarginPct    *float32 `json:"margin_pct,omitempty"`
+	Orgs         int      `json:"orgs"`
+	Plan         string   `json:"plan"`
+	RevenueMinor int64    `json:"revenue_minor"`
+}
+
+// PlanOption defines model for PlanOption.
+type PlanOption struct {
+	AnnualMinor  int64  `json:"annual_minor"`
+	Id           string `json:"id"`
+	MonthlyMinor int64  `json:"monthly_minor"`
+	Name         string `json:"name"`
 }
 
 // PlanRequest defines model for PlanRequest.
@@ -3507,6 +5944,144 @@ type PlatformUsageRow struct {
 	Quantity float32            `json:"quantity"`
 }
 
+// PoolerEvent defines model for PoolerEvent.
+type PoolerEvent struct {
+	CreatedAt time.Time              `json:"created_at"`
+	Detail    map[string]interface{} `json:"detail"`
+	Host      *string                `json:"host,omitempty"`
+	Id        int64                  `json:"id"`
+	Kind      PoolerEventKind        `json:"kind"`
+}
+
+// PoolerEventKind defines model for PoolerEvent.Kind.
+type PoolerEventKind string
+
+// PoolerHost defines model for PoolerHost.
+type PoolerHost struct {
+	Generation int64 `json:"generation"`
+
+	// Holder The floating IP routes to this host.
+	Holder      bool               `json:"holder"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	PrivateAddr *string            `json:"private_addr,omitempty"`
+	Reachable   bool               `json:"reachable"`
+	Ready       bool               `json:"ready"`
+	Reason      *string            `json:"reason,omitempty"`
+	ServerId    string             `json:"server_id"`
+	Stale       bool               `json:"stale"`
+
+	// VrrpState keepalived's state (MASTER, BACKUP, FAULT, STOP), empty before it reports.
+	VrrpState string `json:"vrrp_state"`
+}
+
+// PoolerHosts defines model for PoolerHosts.
+type PoolerHosts struct {
+	CheckedAt *time.Time `json:"checked_at,omitempty"`
+
+	// Enabled Pooler hosts are configured (the arbiter runs).
+	Enabled        bool          `json:"enabled"`
+	Events         []PoolerEvent `json:"events"`
+	Generation     int64         `json:"generation"`
+	HolderError    *string       `json:"holder_error,omitempty"`
+	HolderName     *string       `json:"holder_name,omitempty"`
+	HolderServerId *string       `json:"holder_server_id,omitempty"`
+	Hosts          []PoolerHost  `json:"hosts"`
+	ManagesIp      bool          `json:"manages_ip"`
+	NoHealthy      bool          `json:"no_healthy"`
+	SplitBrain     bool          `json:"split_brain"`
+}
+
+// PriceBook defines model for PriceBook.
+type PriceBook struct {
+	CreatedAt   time.Time  `json:"created_at"`
+	EffectiveAt time.Time  `json:"effective_at"`
+	Notes       *string    `json:"notes,omitempty"`
+	Prices      Prices     `json:"prices"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+	Version     int        `json:"version"`
+}
+
+// PriceBookInput defines model for PriceBookInput.
+type PriceBookInput struct {
+	EffectiveAt time.Time `json:"effective_at"`
+	Notes       *string   `json:"notes,omitempty"`
+	Prices      Prices    `json:"prices"`
+}
+
+// PricePlan defines model for PricePlan.
+type PricePlan struct {
+	// AnnualMinor The fee for a year in advance, in kobo; 0 when the plan has no annual term.
+	AnnualMinor int64 `json:"annual_minor"`
+
+	// Included Each metric's monthly allowance, in the metric's unit.
+	Included map[string]Decimal `json:"included"`
+
+	// MonthlyMinor The monthly fee in kobo, billed in advance.
+	MonthlyMinor     int64  `json:"monthly_minor"`
+	Name             string `json:"name"`
+	PaymentTermsDays int    `json:"payment_terms_days"`
+
+	// QuotaPlan The quota plan (limits) an organisation on this plan gets.
+	QuotaPlan string `json:"quota_plan"`
+
+	// Unit Kobo per unit above the allowance; a metric with no price isn't charged.
+	Unit map[string]Decimal `json:"unit"`
+}
+
+// Prices defines model for Prices.
+type Prices struct {
+	Addons struct {
+		// HaPremiumPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		HaPremiumPercent Decimal `json:"ha_premium_percent"`
+
+		// SyncReplicationHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		SyncReplicationHour Decimal `json:"sync_replication_hour"`
+	} `json:"addons"`
+	Currency  PricesCurrency `json:"currency"`
+	Dedicated struct {
+		// DiskGbHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		DiskGbHour Decimal `json:"disk_gb_hour"`
+
+		// RamGbHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		RamGbHour Decimal `json:"ram_gb_hour"`
+
+		// VcpuHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		VcpuHour Decimal `json:"vcpu_hour"`
+	} `json:"dedicated"`
+	Plans map[string]PricePlan `json:"plans"`
+}
+
+// PricesCurrency defines model for Prices.Currency.
+type PricesCurrency string
+
+// Pricing defines model for Pricing.
+type Pricing struct {
+	EffectiveAt time.Time `json:"effective_at"`
+	Next        *struct {
+		EffectiveAt time.Time `json:"effective_at"`
+		Prices      Prices    `json:"prices"`
+		Version     int       `json:"version"`
+	} `json:"next,omitempty"`
+	Prices Prices `json:"prices"`
+
+	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	VatRate Decimal `json:"vat_rate"`
+	Version int     `json:"version"`
+}
+
 // Profile defines model for Profile.
 type Profile struct {
 	Cpus     float32 `json:"cpus"`
@@ -3516,42 +6091,64 @@ type Profile struct {
 
 // ProfileList defines model for ProfileList.
 type ProfileList struct {
-	DefaultProfile  string    `json:"default_profile"`
-	DefaultVolumeGb int       `json:"default_volume_gb"`
-	Items           []Profile `json:"items"`
+	DefaultPgVersion int       `json:"default_pg_version"`
+	DefaultProfile   string    `json:"default_profile"`
+	DefaultVolumeGb  int       `json:"default_volume_gb"`
+	Items            []Profile `json:"items"`
+
+	// PgVersions Supported Postgres major versions, oldest first (V3 §2.4).
+	PgVersions []int `json:"pg_versions"`
 }
 
 // Project defines model for Project.
 type Project struct {
-	Branch *BranchInfo `json:"branch,omitempty"`
+	ArchivedAt *time.Time  `json:"archived_at,omitempty"`
+	Branch     *BranchInfo `json:"branch,omitempty"`
 
 	// BranchCount Live branches of this project.
 	BranchCount *int `json:"branch_count,omitempty"`
 
 	// CanSwitchCredentials A V1 project that still uses its V1 owner role (V2 §10.2).
-	CanSwitchCredentials *bool              `json:"can_switch_credentials,omitempty"`
-	Connection           ConnectionInfo     `json:"connection"`
-	CreatedAt            time.Time          `json:"created_at"`
-	DbName               string             `json:"db_name"`
-	Description          *string            `json:"description,omitempty"`
-	Id                   openapi_types.UUID `json:"id"`
-	Instance             *InstanceSummary   `json:"instance,omitempty"`
+	CanSwitchCredentials *bool          `json:"can_switch_credentials,omitempty"`
+	Connection           ConnectionInfo `json:"connection"`
+	CreatedAt            time.Time      `json:"created_at"`
+
+	// DataResidency Data, backups and branches stay in the project's region's country (V3 §6.3).
+	DataResidency *bool   `json:"data_residency,omitempty"`
+	DbName        string  `json:"db_name"`
+	Description   *string `json:"description,omitempty"`
+
+	// ForwardRegion After a region move, the old region still routing the old hostname.
+	ForwardRegion *string            `json:"forward_region,omitempty"`
+	ForwardUntil  *time.Time         `json:"forward_until,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	Instance      *InstanceSummary   `json:"instance,omitempty"`
+
+	// LastActiveAt The last time a client was seen through the poolers.
+	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
 
 	// LastBackupAt When the latest backup of this project finished.
 	LastBackupAt *time.Time `json:"last_backup_at,omitempty"`
 
 	// LegacyCredentialsUntil The V1 credentials stop working at this time.
-	LegacyCredentialsUntil *time.Time         `json:"legacy_credentials_until,omitempty"`
-	MyRole                 *ProjectRole       `json:"my_role,omitempty"`
-	Name                   string             `json:"name"`
-	OrgId                  openapi_types.UUID `json:"org_id"`
-	OwnerRole              string             `json:"owner_role"`
+	LegacyCredentialsUntil *time.Time `json:"legacy_credentials_until,omitempty"`
+
+	// Lifecycle A Free project paused or archived for inactivity (V3 §4).
+	Lifecycle *ProjectLifecycle  `json:"lifecycle,omitempty"`
+	MyRole    *ProjectRole       `json:"my_role,omitempty"`
+	Name      string             `json:"name"`
+	OrgId     openapi_types.UUID `json:"org_id"`
+	OwnerRole string             `json:"owner_role"`
 
 	// ParentProjectId Set for a branch (V2 §8).
 	ParentProjectId *openapi_types.UUID `json:"parent_project_id,omitempty"`
+	PausedAt        *time.Time          `json:"paused_at,omitempty"`
 
 	// PitrWindow Dedicated only. Any time in [from, to] can be restored.
 	PitrWindow *PitrWindow `json:"pitr_window,omitempty"`
+
+	// Region The region the project runs in (V3 §6).
+	Region *string `json:"region,omitempty"`
 
 	// RetiredCopyUntil After a promotion, when the read-only shared copy is dropped;
 	// after a demotion, when the stopped dedicated instance is
@@ -3566,6 +6163,9 @@ type Project struct {
 	StorageState *StorageState `json:"storage_state,omitempty"`
 	Tier         ProjectTier   `json:"tier"`
 }
+
+// ProjectLifecycle A Free project paused or archived for inactivity (V3 §4).
+type ProjectLifecycle string
 
 // ProjectBackupKey defines model for ProjectBackupKey.
 type ProjectBackupKey struct {
@@ -3644,6 +6244,19 @@ type ProjectMembership struct {
 	ProjectId   openapi_types.UUID `json:"project_id"`
 	ProjectName string             `json:"project_name"`
 	Role        ProjectRole        `json:"role"`
+}
+
+// ProjectResidencyRequest defines model for ProjectResidencyRequest.
+type ProjectResidencyRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// ProjectResidencyResult defines model for ProjectResidencyResult.
+type ProjectResidencyResult struct {
+	Project Project `json:"project"`
+
+	// RemovedCopies Cross-region copies outside the region that were deleted.
+	RemovedCopies int `json:"removed_copies"`
 }
 
 // ProjectRole defines model for ProjectRole.
@@ -3732,15 +6345,26 @@ type PromoteRequest struct {
 
 // PromotionEstimate defines model for PromotionEstimate.
 type PromotionEstimate struct {
-	// EstimatedDowntimeSeconds Roughly dump + restore time, while writes wait.
-	EstimatedDowntimeSeconds int   `json:"estimated_downtime_seconds"`
-	SizeBytes                int64 `json:"size_bytes"`
+	// CopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+	CopyMode *PromotionEstimateCopyMode `json:"copy_mode,omitempty"`
+
+	// EstimatedDowntimeSeconds How long writes are expected to pause.
+	EstimatedDowntimeSeconds int `json:"estimated_downtime_seconds"`
+
+	// FallbackReason Why logical replication can't be used.
+	FallbackReason *string `json:"fallback_reason,omitempty"`
+	SizeBytes      int64   `json:"size_bytes"`
 }
+
+// PromotionEstimateCopyMode logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+type PromotionEstimateCopyMode string
 
 // PublishTermsRequest defines model for PublishTermsRequest.
 type PublishTermsRequest struct {
-	PrivacyMd string `json:"privacy_md"`
-	TermsMd   string `json:"terms_md"`
+	// AupMd The acceptable use policy; left out, the current one is kept.
+	AupMd     *string `json:"aup_md,omitempty"`
+	PrivacyMd string  `json:"privacy_md"`
+	TermsMd   string  `json:"terms_md"`
 }
 
 // QuotaItem defines model for QuotaItem.
@@ -3781,11 +6405,65 @@ type ReauthRequest struct {
 	Password string `json:"password"`
 }
 
+// RebalanceMove defines model for RebalanceMove.
+type RebalanceMove struct {
+	Batch       openapi_types.UUID  `json:"batch"`
+	CreatedAt   time.Time           `json:"created_at"`
+	Error       *string             `json:"error,omitempty"`
+	FromName    string              `json:"from_name"`
+	FromNode    openapi_types.UUID  `json:"from_node"`
+	Id          openapi_types.UUID  `json:"id"`
+	Kind        RebalanceMoveKind   `json:"kind"`
+	OperationId *openapi_types.UUID `json:"operation_id,omitempty"`
+	OrgId       openapi_types.UUID  `json:"org_id"`
+	ProjectId   openapi_types.UUID  `json:"project_id"`
+	ProjectName string              `json:"project_name"`
+	Reason      string              `json:"reason"`
+	Status      RebalanceMoveStatus `json:"status"`
+	ToName      *string             `json:"to_name,omitempty"`
+	ToNode      *openapi_types.UUID `json:"to_node,omitempty"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+}
+
+// RebalanceMoveKind defines model for RebalanceMove.Kind.
+type RebalanceMoveKind string
+
+// RebalanceMoveStatus defines model for RebalanceMove.Status.
+type RebalanceMoveStatus string
+
+// RebalancePlan defines model for RebalancePlan.
+type RebalancePlan struct {
+	Batch *openapi_types.UUID `json:"batch,omitempty"`
+	Moves int64               `json:"moves"`
+}
+
 // ReclaimSpaceRequest defines model for ReclaimSpaceRequest.
 type ReclaimSpaceRequest struct {
 	Schema string `json:"schema"`
 	Table  string `json:"table"`
 }
+
+// Reconciliation defines model for Reconciliation.
+type Reconciliation struct {
+	Differences []struct {
+		Kind          ReconciliationDifferencesKind `json:"kind"`
+		Note          *string                       `json:"note,omitempty"`
+		PgdockMinor   int64                         `json:"pgdock_minor"`
+		ProviderMinor int64                         `json:"provider_minor"`
+		ProviderRef   string                        `json:"provider_ref"`
+	} `json:"differences"`
+	Error      *string   `json:"error,omitempty"`
+	FeesMinor  int64     `json:"fees_minor"`
+	From       time.Time `json:"from"`
+	GrossMinor int64     `json:"gross_minor"`
+	Matched    int       `json:"matched"`
+	Provider   string    `json:"provider"`
+	RanAt      time.Time `json:"ran_at"`
+	To         time.Time `json:"to"`
+}
+
+// ReconciliationDifferencesKind defines model for Reconciliation.Differences.Kind.
+type ReconciliationDifferencesKind string
 
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
@@ -3795,6 +6473,50 @@ type RecoveryCodes struct {
 // RecoveryCodesStatus defines model for RecoveryCodesStatus.
 type RecoveryCodesStatus struct {
 	Remaining int `json:"remaining"`
+}
+
+// Region defines model for Region.
+type Region struct {
+	// Country ISO 3166 two-letter code; empty when not tied to one.
+	Country string `json:"country"`
+
+	// Home The platform's home region, where projects go by default.
+	Home bool `json:"home"`
+
+	// Id Example: ng-lagos
+	Id string `json:"id"`
+
+	// Name Example: Lagos
+	Name string `json:"name"`
+
+	// Residency Projects here may turn data residency on.
+	Residency bool `json:"residency"`
+}
+
+// RegionDedicated defines model for RegionDedicated.
+type RegionDedicated struct {
+	FitsOn    *string `json:"fits_on,omitempty"`
+	FreeCpus  float32 `json:"free_cpus"`
+	FreeMemMb int64   `json:"free_mem_mb"`
+	Largest   string  `json:"largest"`
+	Nodes     int     `json:"nodes"`
+	Region    string  `json:"region"`
+}
+
+// RegionList defines model for RegionList.
+type RegionList struct {
+	Items []Region `json:"items"`
+}
+
+// RegionShared defines model for RegionShared.
+type RegionShared struct {
+	HorizonDays    int     `json:"horizon_days"`
+	Nodes          int     `json:"nodes"`
+	ProjectedBytes float32 `json:"projected_bytes"`
+	Region         string  `json:"region"`
+	Threshold      float32 `json:"threshold"`
+	TotalBytes     float32 `json:"total_bytes"`
+	UsedBytes      float32 `json:"used_bytes"`
 }
 
 // RegistrationToken defines model for RegistrationToken.
@@ -3834,6 +6556,45 @@ type RestoreResponse struct {
 	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
+}
+
+// Revenue defines model for Revenue.
+type Revenue struct {
+	Ageing []struct {
+		AmountMinor int64  `json:"amount_minor"`
+		Invoices    int    `json:"invoices"`
+		Label       string `json:"label"`
+	} `json:"ageing"`
+	AsOf                time.Time      `json:"as_of"`
+	Months              []RevenueMonth `json:"months"`
+	OutstandingWhtMinor int64          `json:"outstanding_wht_minor"`
+}
+
+// RevenueMonth defines model for RevenueMonth.
+type RevenueMonth struct {
+	ArpaMinor        int64 `json:"arpa_minor"`
+	ArrMinor         int64 `json:"arr_minor"`
+	ChurnedMinor     int64 `json:"churned_minor"`
+	CollectedMinor   int64 `json:"collected_minor"`
+	ContractionMinor int64 `json:"contraction_minor"`
+
+	// Conversions Organisations that moved from Free to a paid plan this month.
+	Conversions    int   `json:"conversions"`
+	ExpansionMinor int64 `json:"expansion_minor"`
+
+	// FreeOrgs Organisations on Free at the start of the month.
+	FreeOrgs      int   `json:"free_orgs"`
+	InvoicedMinor int64 `json:"invoiced_minor"`
+	Invoices      int64 `json:"invoices"`
+
+	// Month Example: 2026-10
+	Month      string `json:"month"`
+	MrrMinor   int64  `json:"mrr_minor"`
+	NewMinor   int64  `json:"new_minor"`
+	PayingOrgs int    `json:"paying_orgs"`
+
+	// UsageRevenueMinor Metered charges (overage, dedicated, add-ons) on the month's invoices.
+	UsageRevenueMinor int64 `json:"usage_revenue_minor"`
 }
 
 // RowChange defines model for RowChange.
@@ -4082,6 +6843,23 @@ type SchemaStatement struct {
 	Transactional bool   `json:"transactional"`
 }
 
+// ServerPrice defines model for ServerPrice.
+type ServerPrice struct {
+	Cpus         int     `json:"cpus"`
+	Currency     string  `json:"currency"`
+	DiskGb       int     `json:"disk_gb"`
+	Location     string  `json:"location"`
+	MemoryGb     float32 `json:"memory_gb"`
+	MonthlyMinor int64   `json:"monthly_minor"`
+	Type         string  `json:"type"`
+}
+
+// ServerPriceList defines model for ServerPriceList.
+type ServerPriceList struct {
+	Items    []ServerPrice `json:"items"`
+	Provider string        `json:"provider"`
+}
+
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
 	CreatedAt  time.Time `json:"created_at"`
@@ -4112,8 +6890,11 @@ type SessionState struct {
 	SignupMode    *SessionStateSignupMode `json:"signup_mode,omitempty"`
 
 	// TermsRequired A terms version the user must accept before anything else.
-	TermsRequired *int  `json:"terms_required,omitempty"`
-	User          *User `json:"user,omitempty"`
+	TermsRequired *int `json:"terms_required,omitempty"`
+
+	// TurnstileSiteKey Signing up needs a solved Cloudflare Turnstile challenge with this site key.
+	TurnstileSiteKey *string `json:"turnstile_site_key,omitempty"`
+	User             *User   `json:"user,omitempty"`
 }
 
 // SessionStateSignupMode defines model for SessionState.SignupMode.
@@ -4165,13 +6946,18 @@ type SharedClusterList struct {
 // SharedClusterRequest defines model for SharedClusterRequest.
 type SharedClusterRequest struct {
 	MemoryMb int `json:"memory_mb"`
+
+	// PgVersion Postgres major version; default the newest supported.
+	PgVersion *int `json:"pg_version,omitempty"`
 }
 
 // SignupRequest defines model for SignupRequest.
 type SignupRequest struct {
-	Email    openapi_types.Email `json:"email"`
-	Name     *string             `json:"name,omitempty"`
-	Password string              `json:"password"`
+	// Challenge The Turnstile token from the signup page, when the session state names a site key (V3 §7.4).
+	Challenge *string             `json:"challenge,omitempty"`
+	Email     openapi_types.Email `json:"email"`
+	Name      *string             `json:"name,omitempty"`
+	Password  string              `json:"password"`
 
 	// TermsVersion The terms version the user accepted (the current one).
 	TermsVersion int `json:"terms_version"`
@@ -4186,6 +6972,27 @@ type SignupSettings struct {
 
 // SignupSettingsMode defines model for SignupSettings.Mode.
 type SignupSettingsMode string
+
+// SlowQuery defines model for SlowQuery.
+type SlowQuery struct {
+	DurationMs float64   `json:"duration_ms"`
+	Query      string    `json:"query"`
+	QueryId    *string   `json:"query_id,omitempty"`
+	Role       string    `json:"role"`
+	SeenAt     time.Time `json:"seen_at"`
+
+	// Source running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+	Source SlowQuerySource `json:"source"`
+}
+
+// SlowQuerySource running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+type SlowQuerySource string
+
+// SlowQueryList defines model for SlowQueryList.
+type SlowQueryList struct {
+	Items       []SlowQuery `json:"items"`
+	ThresholdMs int         `json:"threshold_ms"`
+}
 
 // SqlCancelRequest defines model for SqlCancelRequest.
 type SqlCancelRequest struct {
@@ -4363,6 +7170,59 @@ type StorageTestStep struct {
 	TookMs int     `json:"took_ms"`
 }
 
+// SupportContext What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+type SupportContext struct {
+	BillingMode      *string            `json:"billing_mode,omitempty"`
+	CreditMinor      *int64             `json:"credit_minor,omitempty"`
+	DunningState     *string            `json:"dunning_state,omitempty"`
+	Incidents        []SupportIncident  `json:"incidents"`
+	Members          int                `json:"members"`
+	OrgId            openapi_types.UUID `json:"org_id"`
+	OrgName          string             `json:"org_name"`
+	OrgStatus        string             `json:"org_status"`
+	OwedMinor        *int64             `json:"owed_minor,omitempty"`
+	Plan             string             `json:"plan"`
+	Projects         []SupportProject   `json:"projects"`
+	Quotas           []QuotaItem        `json:"quotas"`
+	RecentOperations []SupportOperation `json:"recent_operations"`
+	Term             *string            `json:"term,omitempty"`
+}
+
+// SupportIncident defines model for SupportIncident.
+type SupportIncident struct {
+	Id        openapi_types.UUID `json:"id"`
+	Severity  string             `json:"severity"`
+	StartedAt time.Time          `json:"started_at"`
+	Status    string             `json:"status"`
+	Title     string             `json:"title"`
+}
+
+// SupportOperation defines model for SupportOperation.
+type SupportOperation struct {
+	CreatedAt time.Time           `json:"created_at"`
+	Error     *string             `json:"error,omitempty"`
+	Id        openapi_types.UUID  `json:"id"`
+	Kind      string              `json:"kind"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Status    string              `json:"status"`
+}
+
+// SupportPhone defines model for SupportPhone.
+type SupportPhone struct {
+	CreatedAt time.Time `json:"created_at"`
+	Phone     string    `json:"phone"`
+}
+
+// SupportProject defines model for SupportProject.
+type SupportProject struct {
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	Lifecycle string             `json:"lifecycle"`
+	Name      string             `json:"name"`
+	Status    string             `json:"status"`
+	Tier      string             `json:"tier"`
+}
+
 // SwitchCredentialsRequest defines model for SwitchCredentialsRequest.
 type SwitchCredentialsRequest struct {
 	// GraceDays How long the V1 credentials keep working (default 7).
@@ -4376,6 +7236,26 @@ type SwitchedCredentials struct {
 	Operation   Operation      `json:"operation"`
 	Password    string         `json:"password"`
 	Project     Project        `json:"project"`
+}
+
+// SwitchoverRequest defines model for SwitchoverRequest.
+type SwitchoverRequest struct {
+	// Candidate The member to switch to (default the most current standby).
+	Candidate *openapi_types.UUID `json:"candidate,omitempty"`
+}
+
+// TableBloat defines model for TableBloat.
+type TableBloat struct {
+	BloatBytes     int64      `json:"bloat_bytes"`
+	BloatRatio     float64    `json:"bloat_ratio"`
+	Bytes          int64      `json:"bytes"`
+	DeadRows       int64      `json:"dead_rows"`
+	ExpectedBytes  int64      `json:"expected_bytes"`
+	LastAutovacuum *time.Time `json:"last_autovacuum,omitempty"`
+	LastVacuum     *time.Time `json:"last_vacuum,omitempty"`
+	LiveRows       int64      `json:"live_rows"`
+	Schema         string     `json:"schema"`
+	Table          string     `json:"table"`
 }
 
 // TableConstraint defines model for TableConstraint.
@@ -4442,12 +7322,129 @@ type TablePage struct {
 // TablePageOrder defines model for TablePage.Order.
 type TablePageOrder string
 
+// TableScans defines model for TableScans.
+type TableScans struct {
+	IdxScans   int64   `json:"idx_scans"`
+	Rows       float64 `json:"rows"`
+	Schema     string  `json:"schema"`
+	SeqScans   int64   `json:"seq_scans"`
+	SeqTupRead int64   `json:"seq_tup_read"`
+	Table      string  `json:"table"`
+}
+
 // Terms defines model for Terms.
 type Terms struct {
+	// AupMd The acceptable use policy, accepted with the terms (V3 §7.3).
+	AupMd       *string   `json:"aup_md,omitempty"`
 	PrivacyMd   string    `json:"privacy_md"`
 	PublishedAt time.Time `json:"published_at"`
 	TermsMd     string    `json:"terms_md"`
 	Version     int       `json:"version"`
+}
+
+// Ticket defines model for Ticket.
+type Ticket struct {
+	Assignee        *openapi_types.UUID `json:"assignee,omitempty"`
+	Channel         TicketChannel       `json:"channel"`
+	CreatedAt       time.Time           `json:"created_at"`
+	FirstResponseAt *time.Time          `json:"first_response_at,omitempty"`
+	Id              openapi_types.UUID  `json:"id"`
+	Messages        *int64              `json:"messages,omitempty"`
+	Number          int64               `json:"number"`
+	OrgId           *openapi_types.UUID `json:"org_id,omitempty"`
+	OrgName         *string             `json:"org_name,omitempty"`
+	Plan            *string             `json:"plan,omitempty"`
+	Priority        TicketPriority      `json:"priority"`
+
+	// Ref The reference people quote, e.g. T-1042.
+	Ref           string  `json:"ref"`
+	Requester     string  `json:"requester"`
+	RequesterName *string `json:"requester_name,omitempty"`
+
+	// RespondBy The plan's response target; null is best effort.
+	RespondBy *time.Time   `json:"respond_by,omitempty"`
+	Status    TicketStatus `json:"status"`
+	Subject   string       `json:"subject"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// TicketChannel defines model for Ticket.Channel.
+type TicketChannel string
+
+// TicketPriority defines model for Ticket.Priority.
+type TicketPriority string
+
+// TicketStatus defines model for Ticket.Status.
+type TicketStatus string
+
+// TicketDetail defines model for TicketDetail.
+type TicketDetail struct {
+	// Context What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+	Context  *SupportContext `json:"context,omitempty"`
+	Messages []TicketMessage `json:"messages"`
+	Ticket   Ticket          `json:"ticket"`
+}
+
+// TicketList defines model for TicketList.
+type TicketList struct {
+	Items []Ticket `json:"items"`
+}
+
+// TicketMessage defines model for TicketMessage.
+type TicketMessage struct {
+	Author    string                 `json:"author"`
+	Body      string                 `json:"body"`
+	CreatedAt time.Time              `json:"created_at"`
+	Direction TicketMessageDirection `json:"direction"`
+	Id        int64                  `json:"id"`
+}
+
+// TicketMessageDirection defines model for TicketMessage.Direction.
+type TicketMessageDirection string
+
+// TicketOpen defines model for TicketOpen.
+type TicketOpen struct {
+	Body     string              `json:"body"`
+	Priority *TicketOpenPriority `json:"priority,omitempty"`
+	Subject  string              `json:"subject"`
+}
+
+// TicketOpenPriority defines model for TicketOpen.Priority.
+type TicketOpenPriority string
+
+// TicketReply defines model for TicketReply.
+type TicketReply struct {
+	Body string `json:"body"`
+
+	// Note An internal note (support console only), not sent to the customer.
+	Note *bool `json:"note,omitempty"`
+}
+
+// TicketUpdate defines model for TicketUpdate.
+type TicketUpdate struct {
+	Assignee      *openapi_types.UUID   `json:"assignee,omitempty"`
+	ClearAssignee *bool                 `json:"clear_assignee,omitempty"`
+	OrgId         *openapi_types.UUID   `json:"org_id,omitempty"`
+	Priority      *TicketUpdatePriority `json:"priority,omitempty"`
+	Status        *TicketUpdateStatus   `json:"status,omitempty"`
+}
+
+// TicketUpdatePriority defines model for TicketUpdate.Priority.
+type TicketUpdatePriority string
+
+// TicketUpdateStatus defines model for TicketUpdate.Status.
+type TicketUpdateStatus string
+
+// TierSettings defines model for TierSettings.
+type TierSettings struct {
+	ClusterMemoryMb *int     `json:"cluster_memory_mb,omitempty"`
+	DiskThreshold   *float32 `json:"disk_threshold,omitempty"`
+	Enabled         bool     `json:"enabled"`
+	HorizonDays     *int     `json:"horizon_days,omitempty"`
+	MinCpus         *int     `json:"min_cpus,omitempty"`
+	MinDiskGb       *int     `json:"min_disk_gb,omitempty"`
+	MinMemoryGb     *float32 `json:"min_memory_gb,omitempty"`
+	ServerType      *string  `json:"server_type,omitempty"`
 }
 
 // TlsStatus defines model for TlsStatus.
@@ -4524,6 +7521,22 @@ type TransferProjectRequest struct {
 	OrgId openapi_types.UUID `json:"org_id"`
 }
 
+// UnitCost defines model for UnitCost.
+type UnitCost struct {
+	Currency        string  `json:"currency"`
+	PerUnitMinor    float32 `json:"per_unit_minor"`
+	PerUnitNgnMinor float32 `json:"per_unit_ngn_minor"`
+	Quantity        float32 `json:"quantity"`
+	Unit            string  `json:"unit"`
+}
+
+// UpdateIncidentRequest defines model for UpdateIncidentRequest.
+type UpdateIncidentRequest struct {
+	Components *[]string         `json:"components,omitempty"`
+	Severity   *IncidentSeverity `json:"severity,omitempty"`
+	Title      *string           `json:"title,omitempty"`
+}
+
 // UpdateMeRequest defines model for UpdateMeRequest.
 type UpdateMeRequest struct {
 	Name *string `json:"name,omitempty"`
@@ -4583,6 +7596,40 @@ type UpdateUserRequest struct {
 // active platform admin can't be demoted. The account's sessions
 // end, and it is emailed.
 type UpdateUserRequestPlatformRole string
+
+// UpgradeCheck defines model for UpgradeCheck.
+type UpgradeCheck struct {
+	Message string             `json:"message"`
+	Name    UpgradeCheckName   `json:"name"`
+	Status  UpgradeCheckStatus `json:"status"`
+}
+
+// UpgradeCheckName defines model for UpgradeCheck.Name.
+type UpgradeCheckName string
+
+// UpgradeCheckStatus defines model for UpgradeCheck.Status.
+type UpgradeCheckStatus string
+
+// UpgradePreflight defines model for UpgradePreflight.
+type UpgradePreflight struct {
+	Checks                   []UpgradeCheck           `json:"checks"`
+	CopyMode                 UpgradePreflightCopyMode `json:"copy_mode"`
+	Eligible                 bool                     `json:"eligible"`
+	EstimatedDowntimeSeconds int                      `json:"estimated_downtime_seconds"`
+	FallbackReason           *string                  `json:"fallback_reason,omitempty"`
+	From                     int                      `json:"from"`
+	SizeBytes                int64                    `json:"size_bytes"`
+	TargetNode               *string                  `json:"target_node,omitempty"`
+	To                       int                      `json:"to"`
+}
+
+// UpgradePreflightCopyMode defines model for UpgradePreflight.CopyMode.
+type UpgradePreflightCopyMode string
+
+// UpgradeRequest defines model for UpgradeRequest.
+type UpgradeRequest struct {
+	PgVersion int `json:"pg_version"`
+}
 
 // UsageMetric defines model for UsageMetric.
 type UsageMetric struct {
@@ -4663,6 +7710,14 @@ type Version struct {
 
 	// Version Example: 0.1.0
 	Version string `json:"version"`
+}
+
+// VirtualAccount defines model for VirtualAccount.
+type VirtualAccount struct {
+	AccountName   string `json:"account_name"`
+	AccountNumber string `json:"account_number"`
+	BankName      string `json:"bank_name"`
+	Provider      string `json:"provider"`
 }
 
 // Webhook defines model for Webhook.
@@ -4792,11 +7847,26 @@ type AuditTarget = string
 // BackupID defines model for BackupID.
 type BackupID = openapi_types.UUID
 
+// IncidentID defines model for IncidentID.
+type IncidentID = openapi_types.UUID
+
+// InsightQueryID defines model for InsightQueryID.
+type InsightQueryID = string
+
+// InsightRange defines model for InsightRange.
+type InsightRange string
+
 // InvitationID defines model for InvitationID.
 type InvitationID = openapi_types.UUID
 
+// InvoiceID defines model for InvoiceID.
+type InvoiceID = openapi_types.UUID
+
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
+
+// MethodID defines model for MethodID.
+type MethodID = openapi_types.UUID
 
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
@@ -4816,6 +7886,12 @@ type OrgID = openapi_types.UUID
 // OrgQuery defines model for OrgQuery.
 type OrgQuery = openapi_types.UUID
 
+// PaymentID defines model for PaymentID.
+type PaymentID = openapi_types.UUID
+
+// PriceBookVersion defines model for PriceBookVersion.
+type PriceBookVersion = int
+
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
 
@@ -4833,6 +7909,9 @@ type TableName = string
 
 // TargetID defines model for TargetID.
 type TargetID = openapi_types.UUID
+
+// TicketID defines model for TicketID.
+type TicketID = openapi_types.UUID
 
 // TokenID defines model for TokenID.
 type TokenID = openapi_types.UUID
@@ -4858,6 +7937,21 @@ type ListPlatformAuditParams struct {
 // ListPlatformAuditParamsOutcome defines parameters for ListPlatformAudit.
 type ListPlatformAuditParamsOutcome string
 
+// AdminUploadBillingDocumentParams defines parameters for AdminUploadBillingDocument.
+type AdminUploadBillingDocumentParams struct {
+	OrgId    openapi_types.UUID `form:"org_id" json:"org_id"`
+	Filename string             `form:"filename" json:"filename"`
+}
+
+// AdminCostsParams defines parameters for AdminCosts.
+type AdminCostsParams struct {
+	Month  *string                 `form:"month,omitempty" json:"month,omitempty"`
+	Format *AdminCostsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminCostsParamsFormat defines parameters for AdminCosts.
+type AdminCostsParamsFormat string
+
 // ListDedicatedRequestsParams defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParams struct {
 	Status *ListDedicatedRequestsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -4866,16 +7960,129 @@ type ListDedicatedRequestsParams struct {
 // ListDedicatedRequestsParamsStatus defines parameters for ListDedicatedRequests.
 type ListDedicatedRequestsParamsStatus string
 
+// AdminListInvoicesParams defines parameters for AdminListInvoices.
+type AdminListInvoicesParams struct {
+	Status *AdminListInvoicesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Period The usage month, YYYY-MM.
+	Period *string `form:"period,omitempty" json:"period,omitempty"`
+}
+
+// AdminListInvoicesParamsStatus defines parameters for AdminListInvoices.
+type AdminListInvoicesParamsStatus string
+
+// AdminDraftInvoicesJSONBody defines parameters for AdminDraftInvoices.
+type AdminDraftInvoicesJSONBody struct {
+	OrgId  *openapi_types.UUID `json:"org_id,omitempty"`
+	Period string              `json:"period"`
+}
+
+// AdminCreateCreditNoteJSONBody defines parameters for AdminCreateCreditNote.
+type AdminCreateCreditNoteJSONBody struct {
+	AmountMinor int64  `json:"amount_minor"`
+	Reason      string `json:"reason"`
+}
+
+// AdminHoldInvoiceJSONBody defines parameters for AdminHoldInvoice.
+type AdminHoldInvoiceJSONBody struct {
+	Held   bool    `json:"held"`
+	Reason *string `json:"reason,omitempty"`
+}
+
+// AdminUploadWhtCertificateParams defines parameters for AdminUploadWhtCertificate.
+type AdminUploadWhtCertificateParams struct {
+	Filename string `form:"filename" json:"filename"`
+}
+
 // AdminListOrgsParams defines parameters for AdminListOrgs.
 type AdminListOrgsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 }
+
+// AdminSetGraceJSONBody defines parameters for AdminSetGrace.
+type AdminSetGraceJSONBody struct {
+	Until *time.Time `json:"until,omitempty"`
+}
+
+// AdminListPaymentEventsParams defines parameters for AdminListPaymentEvents.
+type AdminListPaymentEventsParams struct {
+	Outcome *AdminListPaymentEventsParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+}
+
+// AdminListPaymentEventsParamsOutcome defines parameters for AdminListPaymentEvents.
+type AdminListPaymentEventsParamsOutcome string
+
+// AdminAttributePaymentEventJSONBody defines parameters for AdminAttributePaymentEvent.
+type AdminAttributePaymentEventJSONBody struct {
+	OrgId openapi_types.UUID `json:"org_id"`
+}
+
+// AdminListPaymentsParams defines parameters for AdminListPayments.
+type AdminListPaymentsParams struct {
+	Provider *string    `form:"provider,omitempty" json:"provider,omitempty"`
+	From     *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To       *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// AdminRecordPaymentJSONBody defines parameters for AdminRecordPayment.
+type AdminRecordPaymentJSONBody struct {
+	AmountMinor int64               `json:"amount_minor"`
+	InvoiceId   *openapi_types.UUID `json:"invoice_id,omitempty"`
+	Note        *string             `json:"note,omitempty"`
+	OrgId       openapi_types.UUID  `json:"org_id"`
+
+	// ProofKey From POST /api/v1/admin/billing/documents.
+	ProofKey   *string    `json:"proof_key,omitempty"`
+	ReceivedAt *time.Time `json:"received_at,omitempty"`
+	Reference  string     `json:"reference"`
+	Topup      *bool      `json:"topup,omitempty"`
+}
+
+// AdminRefundPaymentJSONBody defines parameters for AdminRefundPayment.
+type AdminRefundPaymentJSONBody struct {
+	AmountMinor int64  `json:"amount_minor"`
+	Reason      string `json:"reason"`
+
+	// ReopenInvoices When the organisation's credit doesn't cover the refund, take the rest back off the invoices this payment settled, which are owed again.
+	ReopenInvoices *bool `json:"reopen_invoices,omitempty"`
+}
+
+// PreviewPriceBookJSONBody defines parameters for PreviewPriceBook.
+type PreviewPriceBookJSONBody struct {
+	// Period The usage month (default the last complete one).
+	Period *string `json:"period,omitempty"`
+}
+
+// AdminRunReconciliationJSONBody defines parameters for AdminRunReconciliation.
+type AdminRunReconciliationJSONBody struct {
+	From *time.Time `json:"from,omitempty"`
+	To   *time.Time `json:"to,omitempty"`
+}
+
+// AdminRevenueParams defines parameters for AdminRevenue.
+type AdminRevenueParams struct {
+	Months *int                      `form:"months,omitempty" json:"months,omitempty"`
+	Format *AdminRevenueParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminRevenueParamsFormat defines parameters for AdminRevenue.
+type AdminRevenueParamsFormat string
 
 // DeletePlatformStorageTargetParams defines parameters for DeletePlatformStorageTarget.
 type DeletePlatformStorageTargetParams struct {
 	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
 	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
 }
+
+// AdminListTicketsParams defines parameters for AdminListTickets.
+type AdminListTicketsParams struct {
+	Status   *AdminListTicketsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Assignee *openapi_types.UUID           `form:"assignee,omitempty" json:"assignee,omitempty"`
+	OrgId    *openapi_types.UUID           `form:"org_id,omitempty" json:"org_id,omitempty"`
+}
+
+// AdminListTicketsParamsStatus defines parameters for AdminListTickets.
+type AdminListTicketsParamsStatus string
 
 // PlatformUsageParams defines parameters for PlatformUsage.
 type PlatformUsageParams struct {
@@ -4891,6 +8098,14 @@ type ListUsersParams struct {
 	// Pending Only accounts waiting for approval.
 	Pending *bool `form:"pending,omitempty" json:"pending,omitempty"`
 }
+
+// AdminOutstandingWhtParams defines parameters for AdminOutstandingWht.
+type AdminOutstandingWhtParams struct {
+	Format *AdminOutstandingWhtParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// AdminOutstandingWhtParamsFormat defines parameters for AdminOutstandingWht.
+type AdminOutstandingWhtParamsFormat string
 
 // ListAlertsParams defines parameters for ListAlerts.
 type ListAlertsParams struct {
@@ -4955,10 +8170,50 @@ type ListOrgAuditParams struct {
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
 
+// StartCheckoutJSONBody defines parameters for StartCheckout.
+type StartCheckoutJSONBody struct {
+	// AmountMinor For a top-up.
+	AmountMinor *int64                       `json:"amount_minor,omitempty"`
+	Channel     StartCheckoutJSONBodyChannel `json:"channel"`
+	InvoiceId   *openapi_types.UUID          `json:"invoice_id,omitempty"`
+
+	// MandateLimitMinor With a wallet payment, also set up a recurring mandate with this monthly limit.
+	MandateLimitMinor *int64                       `json:"mandate_limit_minor,omitempty"`
+	Purpose           StartCheckoutJSONBodyPurpose `json:"purpose"`
+}
+
+// StartCheckoutJSONBodyChannel defines parameters for StartCheckout.
+type StartCheckoutJSONBodyChannel string
+
+// StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
+type StartCheckoutJSONBodyPurpose string
+
+// EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
+type EstimateOrgCostJSONBody struct {
+	Cpus     *float32 `json:"cpus,omitempty"`
+	DiskGb   *int64   `json:"disk_gb,omitempty"`
+	Ha       *bool    `json:"ha,omitempty"`
+	MemoryMb *int64   `json:"memory_mb,omitempty"`
+
+	// StandbyOnly Price only what enabling HA adds to a running instance.
+	StandbyOnly *bool `json:"standby_only,omitempty"`
+	Synchronous *bool `json:"synchronous,omitempty"`
+}
+
+// UploadWhtCertificateParams defines parameters for UploadWhtCertificate.
+type UploadWhtCertificateParams struct {
+	Filename string `form:"filename" json:"filename"`
+}
+
 // DeleteOrgStorageTargetParams defines parameters for DeleteOrgStorageTarget.
 type DeleteOrgStorageTargetParams struct {
 	// AcceptUnrestorable Delete even though the target holds unexpired backups, which become unrestorable.
 	AcceptUnrestorable *AcceptUnrestorable `form:"accept_unrestorable,omitempty" json:"accept_unrestorable,omitempty"`
+}
+
+// AddSupportPhoneJSONBody defines parameters for AddSupportPhone.
+type AddSupportPhoneJSONBody struct {
+	Phone string `json:"phone"`
 }
 
 // GetOrgUsageParams defines parameters for GetOrgUsage.
@@ -4974,6 +8229,12 @@ type GetOrgUsageParams struct {
 
 // GetOrgUsageParamsFormat defines parameters for GetOrgUsage.
 type GetOrgUsageParamsFormat string
+
+// PaymentWebhookJSONBody defines parameters for PaymentWebhook.
+type PaymentWebhookJSONBody map[string]interface{}
+
+// PaymentWebhookParamsProvider defines parameters for PaymentWebhook.
+type PaymentWebhookParamsProvider string
 
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
@@ -5003,6 +8264,35 @@ type ListProjectAuditParams struct {
 
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
+
+// ListInsightQueriesParams defines parameters for ListInsightQueries.
+type ListInsightQueriesParams struct {
+	Range *ListInsightQueriesParamsRange `form:"range,omitempty" json:"range,omitempty"`
+	Sort  *ListInsightQueriesParamsSort  `form:"sort,omitempty" json:"sort,omitempty"`
+	Limit *int                           `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListInsightQueriesParamsRange defines parameters for ListInsightQueries.
+type ListInsightQueriesParamsRange string
+
+// ListInsightQueriesParamsSort defines parameters for ListInsightQueries.
+type ListInsightQueriesParamsSort string
+
+// GetInsightQueryParams defines parameters for GetInsightQuery.
+type GetInsightQueryParams struct {
+	Range *GetInsightQueryParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// GetInsightQueryParamsRange defines parameters for GetInsightQuery.
+type GetInsightQueryParamsRange string
+
+// ListSlowQueriesParams defines parameters for ListSlowQueries.
+type ListSlowQueriesParams struct {
+	Range *ListSlowQueriesParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// ListSlowQueriesParamsRange defines parameters for ListSlowQueries.
+type ListSlowQueriesParamsRange string
 
 // ListJobRunsParams defines parameters for ListJobRuns.
 type ListJobRunsParams struct {
@@ -5110,17 +8400,72 @@ type TestStorageTargetParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// SupportInboundEmailJSONBody defines parameters for SupportInboundEmail.
+type SupportInboundEmailJSONBody map[string]interface{}
+
+// SupportWhatsAppVerifyParams defines parameters for SupportWhatsAppVerify.
+type SupportWhatsAppVerifyParams struct {
+	HubMode        *string `form:"hub.mode,omitempty" json:"hub.mode,omitempty"`
+	HubVerifyToken *string `form:"hub.verify_token,omitempty" json:"hub.verify_token,omitempty"`
+	HubChallenge   *string `form:"hub.challenge,omitempty" json:"hub.challenge,omitempty"`
+}
+
+// SupportWhatsAppWebhookJSONBody defines parameters for SupportWhatsAppWebhook.
+type SupportWhatsAppWebhookJSONBody map[string]interface{}
+
+// PutBillingSettingsJSONRequestBody defines body for PutBillingSettings for application/json ContentType.
+type PutBillingSettingsJSONRequestBody = BillingSettings
+
+// DecideRebalanceBatchJSONRequestBody defines body for DecideRebalanceBatch for application/json ContentType.
+type DecideRebalanceBatchJSONRequestBody = BatchDecision
+
+// PutCapacitySettingsJSONRequestBody defines body for PutCapacitySettings for application/json ContentType.
+type PutCapacitySettingsJSONRequestBody = CapacitySettings
+
+// AttributeCostsJSONRequestBody defines body for AttributeCosts for application/json ContentType.
+type AttributeCostsJSONRequestBody = AttributeRequest
+
+// PutCostSettingsJSONRequestBody defines body for PutCostSettings for application/json ContentType.
+type PutCostSettingsJSONRequestBody = CostSettings
+
 // ApproveDedicatedRequestJSONRequestBody defines body for ApproveDedicatedRequest for application/json ContentType.
 type ApproveDedicatedRequestJSONRequestBody = DecideRequest
 
 // RejectDedicatedRequestJSONRequestBody defines body for RejectDedicatedRequest for application/json ContentType.
 type RejectDedicatedRequestJSONRequestBody = DecideRequest
 
+// SetupEtcdClusterJSONRequestBody defines body for SetupEtcdCluster for application/json ContentType.
+type SetupEtcdClusterJSONRequestBody = EtcdSetupRequest
+
+// SetFXRateJSONRequestBody defines body for SetFXRate for application/json ContentType.
+type SetFXRateJSONRequestBody = FXRateInput
+
 // CreatePlatformInvitationJSONRequestBody defines body for CreatePlatformInvitation for application/json ContentType.
 type CreatePlatformInvitationJSONRequestBody = EmailRequest
 
+// AdminDraftInvoicesJSONRequestBody defines body for AdminDraftInvoices for application/json ContentType.
+type AdminDraftInvoicesJSONRequestBody AdminDraftInvoicesJSONBody
+
+// AdminCreateCreditNoteJSONRequestBody defines body for AdminCreateCreditNote for application/json ContentType.
+type AdminCreateCreditNoteJSONRequestBody AdminCreateCreditNoteJSONBody
+
+// AdminHoldInvoiceJSONRequestBody defines body for AdminHoldInvoice for application/json ContentType.
+type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
+
+// AdminPublishLegalJSONRequestBody defines body for AdminPublishLegal for application/json ContentType.
+type AdminPublishLegalJSONRequestBody = LegalPublish
+
+// PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
+type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
+
 // AdminUpdateOrgJSONRequestBody defines body for AdminUpdateOrg for application/json ContentType.
 type AdminUpdateOrgJSONRequestBody = AdminUpdateOrgRequest
+
+// AdminUpdateOrgBillingJSONRequestBody defines body for AdminUpdateOrgBilling for application/json ContentType.
+type AdminUpdateOrgBillingJSONRequestBody = AdminBillingUpdate
+
+// AdminSetGraceJSONRequestBody defines body for AdminSetGrace for application/json ContentType.
+type AdminSetGraceJSONRequestBody AdminSetGraceJSONBody
 
 // AdminStartBreakGlassJSONRequestBody defines body for AdminStartBreakGlass for application/json ContentType.
 type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
@@ -5128,17 +8473,47 @@ type AdminStartBreakGlassJSONRequestBody = BreakGlassRequest
 // AdminSetOrgClusterJSONRequestBody defines body for AdminSetOrgCluster for application/json ContentType.
 type AdminSetOrgClusterJSONRequestBody = SetOrgClusterRequest
 
+// AdminPublishOrderFormJSONRequestBody defines body for AdminPublishOrderForm for application/json ContentType.
+type AdminPublishOrderFormJSONRequestBody = OrderFormPublish
+
 // AdminSetOrgOutboundAllowlistJSONRequestBody defines body for AdminSetOrgOutboundAllowlist for application/json ContentType.
 type AdminSetOrgOutboundAllowlistJSONRequestBody = OutboundAllowlist
 
 // AdminSuspendOrgJSONRequestBody defines body for AdminSuspendOrg for application/json ContentType.
 type AdminSuspendOrgJSONRequestBody = ReasonRequest
 
+// AdminAttributePaymentEventJSONRequestBody defines body for AdminAttributePaymentEvent for application/json ContentType.
+type AdminAttributePaymentEventJSONRequestBody AdminAttributePaymentEventJSONBody
+
+// AdminRecordPaymentJSONRequestBody defines body for AdminRecordPayment for application/json ContentType.
+type AdminRecordPaymentJSONRequestBody AdminRecordPaymentJSONBody
+
+// AdminRefundPaymentJSONRequestBody defines body for AdminRefundPayment for application/json ContentType.
+type AdminRefundPaymentJSONRequestBody AdminRefundPaymentJSONBody
+
 // CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
 type CreatePlanJSONRequestBody = PlanRequest
 
 // UpdatePlanJSONRequestBody defines body for UpdatePlan for application/json ContentType.
 type UpdatePlanJSONRequestBody = PlanRequest
+
+// CreatePriceBookJSONRequestBody defines body for CreatePriceBook for application/json ContentType.
+type CreatePriceBookJSONRequestBody = PriceBookInput
+
+// UpdatePriceBookJSONRequestBody defines body for UpdatePriceBook for application/json ContentType.
+type UpdatePriceBookJSONRequestBody = PriceBookInput
+
+// PreviewPriceBookJSONRequestBody defines body for PreviewPriceBook for application/json ContentType.
+type PreviewPriceBookJSONRequestBody PreviewPriceBookJSONBody
+
+// MoveProjectJSONRequestBody defines body for MoveProject for application/json ContentType.
+type MoveProjectJSONRequestBody = MoveProjectRequest
+
+// AdminRunReconciliationJSONRequestBody defines body for AdminRunReconciliation for application/json ContentType.
+type AdminRunReconciliationJSONRequestBody AdminRunReconciliationJSONBody
+
+// PutAdminRegionJSONRequestBody defines body for PutAdminRegion for application/json ContentType.
+type PutAdminRegionJSONRequestBody = AdminRegionRequest
 
 // PutMailSettingsJSONRequestBody defines body for PutMailSettings for application/json ContentType.
 type PutMailSettingsJSONRequestBody = MailSettingsRequest
@@ -5157,6 +8532,12 @@ type CreatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
 
 // UpdatePlatformStorageTargetJSONRequestBody defines body for UpdatePlatformStorageTarget for application/json ContentType.
 type UpdatePlatformStorageTargetJSONRequestBody = StorageTargetRequest
+
+// AdminUpdateTicketJSONRequestBody defines body for AdminUpdateTicket for application/json ContentType.
+type AdminUpdateTicketJSONRequestBody = TicketUpdate
+
+// AdminReplyTicketJSONRequestBody defines body for AdminReplyTicket for application/json ContentType.
+type AdminReplyTicketJSONRequestBody = TicketReply
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUserRequest
@@ -5209,6 +8590,15 @@ type CreateImportJSONRequestBody = ImportRequest
 // ImportPreflightJSONRequestBody defines body for ImportPreflight for application/json ContentType.
 type ImportPreflightJSONRequestBody = ImportSource
 
+// CreateIncidentJSONRequestBody defines body for CreateIncident for application/json ContentType.
+type CreateIncidentJSONRequestBody = CreateIncidentRequest
+
+// UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
+type UpdateIncidentJSONRequestBody = UpdateIncidentRequest
+
+// PostIncidentUpdateJSONRequestBody defines body for PostIncidentUpdate for application/json ContentType.
+type PostIncidentUpdateJSONRequestBody = IncidentUpdateRequest
+
 // AcceptInvitationJSONRequestBody defines body for AcceptInvitation for application/json ContentType.
 type AcceptInvitationJSONRequestBody = AcceptInvitationRequest
 
@@ -5230,6 +8620,9 @@ type CreateNodeJSONRequestBody = CreateNodeRequest
 // UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
 type UpdateNodeJSONRequestBody = UpdateNodeRequest
 
+// SetNodeCostJSONRequestBody defines body for SetNodeCost for application/json ContentType.
+type SetNodeCostJSONRequestBody = NodeCost
+
 // CreateSharedClusterJSONRequestBody defines body for CreateSharedCluster for application/json ContentType.
 type CreateSharedClusterJSONRequestBody = SharedClusterRequest
 
@@ -5241,6 +8634,24 @@ type DeleteOrgJSONRequestBody = DeleteOrgRequest
 
 // UpdateOrgJSONRequestBody defines body for UpdateOrg for application/json ContentType.
 type UpdateOrgJSONRequestBody = UpdateOrgRequest
+
+// UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
+type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
+
+// SetAutoTopupJSONRequestBody defines body for SetAutoTopup for application/json ContentType.
+type SetAutoTopupJSONRequestBody = AutoTopup
+
+// StartCheckoutJSONRequestBody defines body for StartCheckout for application/json ContentType.
+type StartCheckoutJSONRequestBody StartCheckoutJSONBody
+
+// AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
+type AddBillingContactJSONRequestBody = BillingContact
+
+// EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
+type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
+
+// ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
+type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
 
 // InviteOrgMemberJSONRequestBody defines body for InviteOrgMember for application/json ContentType.
 type InviteOrgMemberJSONRequestBody = InviteRequest
@@ -5254,8 +8665,20 @@ type CreateOrgStorageTargetJSONRequestBody = StorageTargetRequest
 // UpdateOrgStorageTargetJSONRequestBody defines body for UpdateOrgStorageTarget for application/json ContentType.
 type UpdateOrgStorageTargetJSONRequestBody = StorageTargetRequest
 
+// AddSupportPhoneJSONRequestBody defines body for AddSupportPhone for application/json ContentType.
+type AddSupportPhoneJSONRequestBody AddSupportPhoneJSONBody
+
+// OpenOrgTicketJSONRequestBody defines body for OpenOrgTicket for application/json ContentType.
+type OpenOrgTicketJSONRequestBody = TicketOpen
+
+// ReplyOrgTicketJSONRequestBody defines body for ReplyOrgTicket for application/json ContentType.
+type ReplyOrgTicketJSONRequestBody = TicketReply
+
 // TransferOrgOwnershipJSONRequestBody defines body for TransferOrgOwnership for application/json ContentType.
 type TransferOrgOwnershipJSONRequestBody = TransferOwnershipRequest
+
+// PaymentWebhookJSONRequestBody defines body for PaymentWebhook for application/json ContentType.
+type PaymentWebhookJSONRequestBody PaymentWebhookJSONBody
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
@@ -5274,6 +8697,15 @@ type DemotePreflightJSONRequestBody = DemoteRequest
 
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
+
+// UpdateProjectHAJSONRequestBody defines body for UpdateProjectHA for application/json ContentType.
+type UpdateProjectHAJSONRequestBody = HAUpdateRequest
+
+// EnableProjectHAJSONRequestBody defines body for EnableProjectHA for application/json ContentType.
+type EnableProjectHAJSONRequestBody = HAEnableRequest
+
+// ExplainInsightQueryJSONRequestBody defines body for ExplainInsightQuery for application/json ContentType.
+type ExplainInsightQueryJSONRequestBody = InsightExplainRequest
 
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
@@ -5311,6 +8743,9 @@ type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
 // ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
 type ResetBranchJSONRequestBody = BranchResetRequest
 
+// SetProjectResidencyJSONRequestBody defines body for SetProjectResidency for application/json ContentType.
+type SetProjectResidencyJSONRequestBody = ProjectResidencyRequest
+
 // ApplySchemaChangeJSONRequestBody defines body for ApplySchemaChange for application/json ContentType.
 type ApplySchemaChangeJSONRequestBody = SchemaApplyRequest
 
@@ -5335,11 +8770,20 @@ type SetProjectStorageTargetJSONRequestBody = ProjectStorageTargetRequest
 // SwitchProjectCredentialsJSONRequestBody defines body for SwitchProjectCredentials for application/json ContentType.
 type SwitchProjectCredentialsJSONRequestBody = SwitchCredentialsRequest
 
+// SwitchoverProjectJSONRequestBody defines body for SwitchoverProject for application/json ContentType.
+type SwitchoverProjectJSONRequestBody = SwitchoverRequest
+
 // SaveTableChangesJSONRequestBody defines body for SaveTableChanges for application/json ContentType.
 type SaveTableChangesJSONRequestBody = SaveRowsRequest
 
 // TransferProjectJSONRequestBody defines body for TransferProject for application/json ContentType.
 type TransferProjectJSONRequestBody = TransferProjectRequest
+
+// UpgradeProjectJSONRequestBody defines body for UpgradeProject for application/json ContentType.
+type UpgradeProjectJSONRequestBody = UpgradeRequest
+
+// UpgradePreflightJSONRequestBody defines body for UpgradePreflight for application/json ContentType.
+type UpgradePreflightJSONRequestBody = UpgradeRequest
 
 // CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
 type CreateWebhookJSONRequestBody = WebhookRequest
@@ -5377,6 +8821,12 @@ type CompleteSetupJSONRequestBody = SetupCompleteRequest
 // TestStorageTargetJSONRequestBody defines body for TestStorageTarget for application/json ContentType.
 type TestStorageTargetJSONRequestBody = StorageTargetTestRequest
 
+// SupportInboundEmailJSONRequestBody defines body for SupportInboundEmail for application/json ContentType.
+type SupportInboundEmailJSONRequestBody SupportInboundEmailJSONBody
+
+// SupportWhatsAppWebhookJSONRequestBody defines body for SupportWhatsAppWebhook for application/json ContentType.
+type SupportWhatsAppWebhookJSONRequestBody SupportWhatsAppWebhookJSONBody
+
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateTokenRequest
 
@@ -5385,6 +8835,51 @@ type ServerInterface interface {
 	// ListPlatformAudit The platform audit log, newest first (platform admin)
 	// (GET /api/v1/admin/audit)
 	ListPlatformAudit(w http.ResponseWriter, r *http.Request, params ListPlatformAuditParams)
+	// AdminUploadBillingDocument Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+	// (POST /api/v1/admin/billing/documents)
+	AdminUploadBillingDocument(w http.ResponseWriter, r *http.Request, params AdminUploadBillingDocumentParams)
+	// GetBillingSettings Tax rates and the seller's details on invoices
+	// (GET /api/v1/admin/billing/settings)
+	GetBillingSettings(w http.ResponseWriter, r *http.Request)
+	// PutBillingSettings Change the billing settings
+	// (PUT /api/v1/admin/billing/settings)
+	PutBillingSettings(w http.ResponseWriter, r *http.Request)
+	// AdminCapacity Capacity automation at a glance (settings, outlook, proposals, moves)
+	// (GET /api/v1/admin/capacity)
+	AdminCapacity(w http.ResponseWriter, r *http.Request)
+	// DecideRebalanceBatch Approve or reject a proposed rebalance batch
+	// (POST /api/v1/admin/capacity/batches/{batch_id})
+	DecideRebalanceBatch(w http.ResponseWriter, r *http.Request, batchId openapi_types.UUID)
+	// EvaluateCapacity Check thresholds now (they're checked hourly)
+	// (POST /api/v1/admin/capacity/evaluate)
+	EvaluateCapacity(w http.ResponseWriter, r *http.Request)
+	// ApproveCapacityProposal Provision a proposal waiting for approval (a manual provider's is marked done)
+	// (POST /api/v1/admin/capacity/proposals/{proposal_id}/approve)
+	ApproveCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID)
+	// RejectCapacityProposal Close a proposal without provisioning
+	// (POST /api/v1/admin/capacity/proposals/{proposal_id}/reject)
+	RejectCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID)
+	// PlanRebalance Propose moves that even out shared nodes' disk (done weekly)
+	// (POST /api/v1/admin/capacity/rebalance)
+	PlanRebalance(w http.ResponseWriter, r *http.Request)
+	// PutCapacitySettings Thresholds, the server types added, the monthly infrastructure budget
+	// (PUT /api/v1/admin/capacity/settings)
+	PutCapacitySettings(w http.ResponseWriter, r *http.Request)
+	// CloudCatalog The provider's server types and prices
+	// (GET /api/v1/admin/cloud/catalog)
+	CloudCatalog(w http.ResponseWriter, r *http.Request)
+	// AdminCosts Costs and margins for a month (by region and tier, plan, organisation; FX view)
+	// (GET /api/v1/admin/costs)
+	AdminCosts(w http.ResponseWriter, r *http.Request, params AdminCostsParams)
+	// AttributeCosts Recompute cost attribution for days (done daily)
+	// (POST /api/v1/admin/costs/attribute)
+	AttributeCosts(w http.ResponseWriter, r *http.Request)
+	// GetCostSettings Costs outside the server catalog (storage, egress, floating IPs, overheads)
+	// (GET /api/v1/admin/costs/settings)
+	GetCostSettings(w http.ResponseWriter, r *http.Request)
+	// PutCostSettings Save the cost settings
+	// (PUT /api/v1/admin/costs/settings)
+	PutCostSettings(w http.ResponseWriter, r *http.Request)
 	// ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 	// (GET /api/v1/admin/dedicated-requests)
 	ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams)
@@ -5394,6 +8889,21 @@ type ServerInterface interface {
 	// RejectDedicatedRequest Reject a dedicated request (platform admin)
 	// (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
 	RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID)
+	// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+	// (GET /api/v1/admin/etcd)
+	GetEtcdCluster(w http.ResponseWriter, r *http.Request)
+	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+	// (POST /api/v1/admin/etcd)
+	SetupEtcdCluster(w http.ResponseWriter, r *http.Request)
+	// ListFXRates Exchange rates (naira per unit), current and history
+	// (GET /api/v1/admin/fx-rates)
+	ListFXRates(w http.ResponseWriter, r *http.Request)
+	// SetFXRate Record an exchange rate
+	// (POST /api/v1/admin/fx-rates)
+	SetFXRate(w http.ResponseWriter, r *http.Request)
+	// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
+	// (POST /api/v1/admin/instances/{instance_id}/minor-upgrade)
+	MinorUpgradeInstance(w http.ResponseWriter, r *http.Request, instanceId openapi_types.UUID)
 	// ListPlatformInvitations Pending platform invitations (platform admin)
 	// (GET /api/v1/admin/invitations)
 	ListPlatformInvitations(w http.ResponseWriter, r *http.Request)
@@ -5403,6 +8913,48 @@ type ServerInterface interface {
 	// RevokePlatformInvitation Revoke a platform invitation (platform admin)
 	// (DELETE /api/v1/admin/invitations/{invitation_id})
 	RevokePlatformInvitation(w http.ResponseWriter, r *http.Request, invitationId InvitationID)
+	// AdminListInvoices Invoices across organisations, drafts included
+	// (GET /api/v1/admin/invoices)
+	AdminListInvoices(w http.ResponseWriter, r *http.Request, params AdminListInvoicesParams)
+	// AdminDraftInvoices Generate (or refresh) a month's drafts now, for every organisation or one
+	// (POST /api/v1/admin/invoices/draft)
+	AdminDraftInvoices(w http.ResponseWriter, r *http.Request)
+	// AdminGetInvoice An invoice, drafts included
+	// (GET /api/v1/admin/invoices/{invoice_id})
+	AdminGetInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminCreateCreditNote Issue a credit note against an issued invoice (amount before VAT)
+	// (POST /api/v1/admin/invoices/{invoice_id}/credit-notes)
+	AdminCreateCreditNote(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminHoldInvoice Hold a draft for review (it isn't issued on the 1st), or release it
+	// (POST /api/v1/admin/invoices/{invoice_id}/hold)
+	AdminHoldInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminIssueInvoice Issue a draft now (a held one is released)
+	// (POST /api/v1/admin/invoices/{invoice_id}/issue)
+	AdminIssueInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminGetInvoicePdf An invoice (or draft) as PDF
+	// (GET /api/v1/admin/invoices/{invoice_id}/pdf)
+	AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID)
+	// AdminUploadWhtCertificate Attach a WHT credit note to an invoice
+	// (POST /api/v1/admin/invoices/{invoice_id}/wht-certificate)
+	AdminUploadWhtCertificate(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID, params AdminUploadWhtCertificateParams)
+	// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
+	// (GET /api/v1/admin/ledger/check)
+	AdminLedgerCheck(w http.ResponseWriter, r *http.Request)
+	// AdminListLegal Every version of the platform-wide documents, with their acceptance counts
+	// (GET /api/v1/admin/legal)
+	AdminListLegal(w http.ResponseWriter, r *http.Request)
+	// AdminPublishLegal Publish a new version of the SLA or DPA
+	// (POST /api/v1/admin/legal)
+	AdminPublishLegal(w http.ResponseWriter, r *http.Request)
+	// AdminGetLegal A document version and the organisations that accepted it
+	// (GET /api/v1/admin/legal/{document_id})
+	AdminGetLegal(w http.ResponseWriter, r *http.Request, documentId openapi_types.UUID)
+	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+	// (GET /api/v1/admin/maintenance)
+	GetMaintenance(w http.ResponseWriter, r *http.Request)
+	// PutMaintenanceWindow Change the weekly maintenance window (UTC)
+	// (PUT /api/v1/admin/maintenance/window)
+	PutMaintenanceWindow(w http.ResponseWriter, r *http.Request)
 	// AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
 	// (GET /api/v1/admin/orgs)
 	AdminListOrgs(w http.ResponseWriter, r *http.Request, params AdminListOrgsParams)
@@ -5412,12 +8964,24 @@ type ServerInterface interface {
 	// AdminUpdateOrg Assign a plan, overrides, dedicated allowance, or the outbound toggle (platform admin)
 	// (PATCH /api/v1/admin/orgs/{org})
 	AdminUpdateOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminGetOrgBilling An organisation's billing account, as the platform admin sees it
+	// (GET /api/v1/admin/orgs/{org}/billing)
+	AdminGetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminUpdateOrgBilling The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
+	// (PATCH /api/v1/admin/orgs/{org}/billing)
+	AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminSetGrace Hold dunning for an organisation until a date (null ends the extension)
+	// (PUT /api/v1/admin/orgs/{org}/billing/grace)
+	AdminSetGrace(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
 	// (POST /api/v1/admin/orgs/{org}/break-glass)
 	AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
 	// (POST /api/v1/admin/orgs/{org}/cluster)
 	AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminPublishOrderForm Publish a new version of an organisation's order form
+	// (POST /api/v1/admin/orgs/{org}/order-form)
+	AdminPublishOrderForm(w http.ResponseWriter, r *http.Request, org OrgID)
 	// AdminGetOrgOutbound An organisation's outbound allow-list and request counts by host, 30 days (platform admin)
 	// (GET /api/v1/admin/orgs/{org}/outbound)
 	AdminGetOrgOutbound(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -5430,6 +8994,21 @@ type ServerInterface interface {
 	// AdminSuspendOrg Suspend an organisation (platform admin)
 	// (POST /api/v1/admin/orgs/{org}/suspend)
 	AdminSuspendOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AdminListPaymentEvents Provider events as received, newest first
+	// (GET /api/v1/admin/payment-events)
+	AdminListPaymentEvents(w http.ResponseWriter, r *http.Request, params AdminListPaymentEventsParams)
+	// AdminAttributePaymentEvent Settle an unmatched transfer for an organisation (it is verified again first)
+	// (POST /api/v1/admin/payment-events/{event_id}/attribute)
+	AdminAttributePaymentEvent(w http.ResponseWriter, r *http.Request, eventId int64)
+	// AdminListPayments Payments received, by provider and period
+	// (GET /api/v1/admin/payments)
+	AdminListPayments(w http.ResponseWriter, r *http.Request, params AdminListPaymentsParams)
+	// AdminRecordPayment Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+	// (POST /api/v1/admin/payments)
+	AdminRecordPayment(w http.ResponseWriter, r *http.Request)
+	// AdminRefundPayment Refund part of a payment from the organisation's credit balance
+	// (POST /api/v1/admin/payments/{payment_id}/refund)
+	AdminRefundPayment(w http.ResponseWriter, r *http.Request, paymentId PaymentID)
 	// ListPlans Quota plan templates (platform admin)
 	// (GET /api/v1/admin/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request)
@@ -5439,6 +9018,45 @@ type ServerInterface interface {
 	// UpdatePlan Change a quota plan template (platform admin)
 	// (PATCH /api/v1/admin/plans/{plan_id})
 	UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID)
+	// ListPriceBooks Price book versions, newest first (V3 §3.9)
+	// (GET /api/v1/admin/price-books)
+	ListPriceBooks(w http.ResponseWriter, r *http.Request)
+	// CreatePriceBook Create a draft price book
+	// (POST /api/v1/admin/price-books)
+	CreatePriceBook(w http.ResponseWriter, r *http.Request)
+	// DeletePriceBook Delete a draft price book
+	// (DELETE /api/v1/admin/price-books/{version})
+	DeletePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// GetPriceBook One price book
+	// (GET /api/v1/admin/price-books/{version})
+	GetPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// UpdatePriceBook Edit a draft price book
+	// (PUT /api/v1/admin/price-books/{version})
+	UpdatePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// PreviewPriceBook Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+	// (POST /api/v1/admin/price-books/{version}/preview)
+	PreviewPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// PublishPriceBook Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
+	// (POST /api/v1/admin/price-books/{version}/publish)
+	PublishPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion)
+	// MoveProject Move a project to another node (platform admin, V3 §2.3)
+	// (POST /api/v1/admin/projects/{project_id}/move)
+	MoveProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// AdminLastReconciliation The latest reconciliation against each provider
+	// (GET /api/v1/admin/reconciliation)
+	AdminLastReconciliation(w http.ResponseWriter, r *http.Request)
+	// AdminRunReconciliation Reconcile a period now (default the previous day)
+	// (POST /api/v1/admin/reconciliation)
+	AdminRunReconciliation(w http.ResponseWriter, r *http.Request)
+	// ListAdminRegions Every region with its pooler hostname, targets and usage
+	// (GET /api/v1/admin/regions)
+	ListAdminRegions(w http.ResponseWriter, r *http.Request)
+	// PutAdminRegion Create or change a region
+	// (PUT /api/v1/admin/regions/{region_id})
+	PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string)
+	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+	// (GET /api/v1/admin/revenue)
+	AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams)
 	// GetMailSettings Platform SMTP settings (platform admin; no password)
 	// (GET /api/v1/admin/settings/mail)
 	GetMailSettings(w http.ResponseWriter, r *http.Request)
@@ -5478,6 +9096,21 @@ type ServerInterface interface {
 	// UpdatePlatformStorageTarget Change a platform target after a live test (platform admin)
 	// (PATCH /api/v1/admin/storage-targets/{target_id})
 	UpdatePlatformStorageTarget(w http.ResponseWriter, r *http.Request, targetId TargetID)
+	// AdminSupportStaff Support staff and platform admins, to assign tickets to
+	// (GET /api/v1/admin/support/staff)
+	AdminSupportStaff(w http.ResponseWriter, r *http.Request)
+	// AdminListTickets The support console's tickets (support staff and platform admins)
+	// (GET /api/v1/admin/support/tickets)
+	AdminListTickets(w http.ResponseWriter, r *http.Request, params AdminListTicketsParams)
+	// AdminGetTicket A ticket with internal notes and the organisation's context (no tenant data)
+	// (GET /api/v1/admin/support/tickets/{ticket_id})
+	AdminGetTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID)
+	// AdminUpdateTicket Change a ticket's status, priority, assignee or organisation
+	// (PATCH /api/v1/admin/support/tickets/{ticket_id})
+	AdminUpdateTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID)
+	// AdminReplyTicket Answer the customer (by the ticket's channel) or add an internal note
+	// (POST /api/v1/admin/support/tickets/{ticket_id}/messages)
+	AdminReplyTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID)
 	// PlatformUsage Usage totals per organisation (platform admin)
 	// (GET /api/v1/admin/usage)
 	PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams)
@@ -5490,6 +9123,9 @@ type ServerInterface interface {
 	// ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
 	// (POST /api/v1/admin/users/{user}/reset-2fa)
 	ResetUserTotp(w http.ResponseWriter, r *http.Request, user UserID)
+	// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+	// (GET /api/v1/admin/wht)
+	AdminOutstandingWht(w http.ResponseWriter, r *http.Request, params AdminOutstandingWhtParams)
 	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
 	// (POST /api/v1/agent/register)
 	RegisterAgent(w http.ResponseWriter, r *http.Request)
@@ -5556,12 +9192,30 @@ type ServerInterface interface {
 	// ImportPreflight Inspect a source database before importing it
 	// (POST /api/v1/imports/preflight)
 	ImportPreflight(w http.ResponseWriter, r *http.Request)
+	// ListIncidents Incidents for the status page, open first (V3 §2.6)
+	// (GET /api/v1/incidents)
+	ListIncidents(w http.ResponseWriter, r *http.Request)
+	// CreateIncident Open an incident; it is pushed to the status page
+	// (POST /api/v1/incidents)
+	CreateIncident(w http.ResponseWriter, r *http.Request)
+	// GetIncident An incident and its updates
+	// (GET /api/v1/incidents/{id})
+	GetIncident(w http.ResponseWriter, r *http.Request, id IncidentID)
+	// UpdateIncident Change an incident's title, components or severity
+	// (PATCH /api/v1/incidents/{id})
+	UpdateIncident(w http.ResponseWriter, r *http.Request, id IncidentID)
+	// PostIncidentUpdate Post an update; its status becomes the incident's
+	// (POST /api/v1/incidents/{id}/updates)
+	PostIncidentUpdate(w http.ResponseWriter, r *http.Request, id IncidentID)
 	// AcceptInvitation Accept an invitation link (public, token-gated)
 	// (POST /api/v1/invitations/accept)
 	AcceptInvitation(w http.ResponseWriter, r *http.Request)
 	// PreviewInvitation What an invitation link offers (public, token-gated)
 	// (POST /api/v1/invitations/preview)
 	PreviewInvitation(w http.ResponseWriter, r *http.Request)
+	// GetLegal The service level agreement and data processing agreement in effect (public)
+	// (GET /api/v1/legal)
+	GetLegal(w http.ResponseWriter, r *http.Request)
 	// GetMe The signed-in user
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
@@ -5607,6 +9261,15 @@ type ServerInterface interface {
 	// UpdateNode Change a node's role (where new projects may go)
 	// (PATCH /api/v1/nodes/{id})
 	UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID)
+	// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
+	// (PUT /api/v1/nodes/{id}/cost)
+	SetNodeCost(w http.ResponseWriter, r *http.Request, id NodeID)
+	// StopDrain Stop draining; moves not started are dropped
+	// (DELETE /api/v1/nodes/{id}/drain)
+	StopDrain(w http.ResponseWriter, r *http.Request, id NodeID)
+	// DrainNode Move every project off a node, one at a time, and place nothing new there
+	// (POST /api/v1/nodes/{id}/drain)
+	DrainNode(w http.ResponseWriter, r *http.Request, id NodeID)
 	// GetNodeMetrics A node's metric series
 	// (GET /api/v1/nodes/{id}/metrics)
 	GetNodeMetrics(w http.ResponseWriter, r *http.Request, id NodeID, params GetNodeMetricsParams)
@@ -5643,6 +9306,69 @@ type ServerInterface interface {
 	// ListOrgAudit The organisation's audit log, newest first
 	// (GET /api/v1/orgs/{org}/audit)
 	ListOrgAudit(w http.ResponseWriter, r *http.Request, org OrgID, params ListOrgAuditParams)
+	// GetOrgBilling The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members)
+	// (GET /api/v1/orgs/{org}/billing)
+	GetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// UpdateOrgBilling Change business details and spend controls
+	// (PATCH /api/v1/orgs/{org}/billing)
+	UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ClearAutoTopup Stop automatic top-ups
+	// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
+	ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
+	// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
+	// (PUT /api/v1/orgs/{org}/billing/auto-topup)
+	SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
+	// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+	// (POST /api/v1/orgs/{org}/billing/checkout)
+	StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListBillingContacts Billing contacts, who receive invoices and payment email
+	// (GET /api/v1/orgs/{org}/billing/contacts)
+	ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AddBillingContact Add a billing contact
+	// (POST /api/v1/orgs/{org}/billing/contacts)
+	AddBillingContact(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RemoveBillingContact Remove a billing contact
+	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
+	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// (POST /api/v1/orgs/{org}/billing/estimate)
+	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgForecast The current month so far and its forecast (V3 §3.10)
+	// (GET /api/v1/orgs/{org}/billing/forecast)
+	GetOrgForecast(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgInvoices The organisation's issued invoices
+	// (GET /api/v1/orgs/{org}/billing/invoices)
+	ListOrgInvoices(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgInvoice An invoice with its lines and credit notes
+	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id})
+	GetOrgInvoice(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
+	// GetOrgInvoicePdf An invoice as PDF
+	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
+	GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
+	// UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+	// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
+	UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams)
+	// ListPaymentMethods Saved cards and wallet mandates
+	// (GET /api/v1/orgs/{org}/billing/payment-methods)
+	ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RemovePaymentMethod Remove a saved card or revoke a mandate
+	// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
+	RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
+	// SetDefaultPaymentMethod Charge this method for invoices and top-ups
+	// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
+	SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
+	// ListOrgPayments Payments received, with receipts
+	// (GET /api/v1/orgs/{org}/billing/payments)
+	ListOrgPayments(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetPaymentReceipt A payment's receipt as PDF
+	// (GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt)
+	GetPaymentReceipt(w http.ResponseWriter, r *http.Request, org OrgID, paymentId PaymentID)
+	// ChangeOrgPlan Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
+	// (POST /api/v1/orgs/{org}/billing/plan)
+	ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org OrgID)
+	// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
+	// (POST /api/v1/orgs/{org}/billing/virtual-account)
+	OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EndBreakGlass End a break-glass session early (owner)
 	// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
 	EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID)
@@ -5661,6 +9387,12 @@ type ServerInterface interface {
 	// LeaveOrg Leave an organisation
 	// (POST /api/v1/orgs/{org}/leave)
 	LeaveOrg(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgLegal The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+	// (GET /api/v1/orgs/{org}/legal)
+	GetOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AcceptOrgLegal Accept a document on the organisation's behalf (owners)
+	// (POST /api/v1/orgs/{org}/legal/{document_id}/accept)
+	AcceptOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID, documentId openapi_types.UUID)
 	// ListOrgMembers Members, their roles and project memberships
 	// (GET /api/v1/orgs/{org}/members)
 	ListOrgMembers(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -5691,6 +9423,27 @@ type ServerInterface interface {
 	// UpdateOrgStorageTarget Change an org target after a live test
 	// (PATCH /api/v1/orgs/{org}/storage-targets/{target_id})
 	UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Request, org OrgID, targetId TargetID)
+	// ListSupportPhones WhatsApp numbers registered for support (Pro and Team)
+	// (GET /api/v1/orgs/{org}/support/phones)
+	ListSupportPhones(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AddSupportPhone Register a WhatsApp number (E.164) for the organisation's support
+	// (POST /api/v1/orgs/{org}/support/phones)
+	AddSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID)
+	// RemoveSupportPhone Remove a WhatsApp number
+	// (DELETE /api/v1/orgs/{org}/support/phones/{phone})
+	RemoveSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID, phone string)
+	// ListOrgTickets The organisation's support tickets (admins see all; members their own)
+	// (GET /api/v1/orgs/{org}/support/tickets)
+	ListOrgTickets(w http.ResponseWriter, r *http.Request, org OrgID)
+	// OpenOrgTicket Open a support ticket for the organisation
+	// (POST /api/v1/orgs/{org}/support/tickets)
+	OpenOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgTicket A ticket and its conversation
+	// (GET /api/v1/orgs/{org}/support/tickets/{ticket_id})
+	GetOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID)
+	// ReplyOrgTicket Add to a ticket
+	// (POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages)
+	ReplyOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID)
 	// ListOrgTokens Every token scoped to the organisation (owners and admins)
 	// (GET /api/v1/orgs/{org}/tokens)
 	ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -5703,6 +9456,15 @@ type ServerInterface interface {
 	// GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
 	// (GET /api/v1/orgs/{org}/usage)
 	GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams)
+	// PaymentWebhook A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+	// (POST /api/v1/payments/webhooks/{provider})
+	PaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentWebhookParamsProvider)
+	// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+	// (GET /api/v1/pooler-hosts)
+	GetPoolerHosts(w http.ResponseWriter, r *http.Request)
+	// GetPricing The prices in effect, and the next price book if one is published (public)
+	// (GET /api/v1/pricing)
+	GetPricing(w http.ResponseWriter, r *http.Request)
 	// ListProfiles Dedicated instance sizes
 	// (GET /api/v1/profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
@@ -5760,6 +9522,39 @@ type ServerInterface interface {
 	// EnableProjectExtension Enable an allow-listed extension
 	// (POST /api/v1/projects/{id}/extensions)
 	EnableProjectExtension(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DisableProjectHA Turn HA off (the standby is removed)
+	// (DELETE /api/v1/projects/{id}/ha)
+	DisableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectHA HA state of a dedicated project (V3 §2.2)
+	// (GET /api/v1/projects/{id}/ha)
+	GetProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpdateProjectHA Change HA settings (synchronous replication)
+	// (PATCH /api/v1/projects/{id}/ha)
+	UpdateProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// EnableProjectHA Turn HA on
+	// (POST /api/v1/projects/{id}/ha)
+	EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
+	// (GET /api/v1/projects/{id}/insights/bloat)
+	GetInsightBloat(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ExplainInsightQuery EXPLAIN (without ANALYZE) a query as the project's role
+	// (POST /api/v1/projects/{id}/insights/explain)
+	ExplainInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetInsightIndexes Index suggestions, unused and duplicate indexes
+	// (GET /api/v1/projects/{id}/insights/indexes)
+	GetInsightIndexes(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetInsightLocks Current blocking chains
+	// (GET /api/v1/projects/{id}/insights/locks)
+	GetInsightLocks(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListInsightQueries Top queries over a range (Pro, Team and dedicated projects)
+	// (GET /api/v1/projects/{id}/insights/queries)
+	ListInsightQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListInsightQueriesParams)
+	// GetInsightQuery A query's totals, its calls and latency over time, and its example
+	// (GET /api/v1/projects/{id}/insights/queries/{query_id})
+	GetInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId InsightQueryID, params GetInsightQueryParams)
+	// ListSlowQueries Statements over the slow-query threshold
+	// (GET /api/v1/projects/{id}/insights/slow)
+	ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5799,6 +9594,9 @@ type ServerInterface interface {
 	// GetProjectMetrics A project's metric series and top queries
 	// (GET /api/v1/projects/{id}/metrics)
 	GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams)
+	// ListProjectMoves The project's recent moves between instances, newest first
+	// (GET /api/v1/projects/{id}/moves)
+	ListProjectMoves(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
 	// (POST /api/v1/projects/{id}/pitr)
 	RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5835,6 +9633,12 @@ type ServerInterface interface {
 	// ResetBranch Reset a branch from its parent
 	// (POST /api/v1/projects/{id}/reset)
 	ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SetProjectResidency Turn data residency on or off (organisation owners; step-up)
+	// (PUT /api/v1/projects/{id}/residency)
+	SetProjectResidency(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ResumeProject Resume a paused or archived Free project
+	// (POST /api/v1/projects/{id}/resume)
+	ResumeProject(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// RotateProjectPassword Rotate the project password
 	// (POST /api/v1/projects/{id}/rotate-password)
 	RotateProjectPassword(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5871,6 +9675,9 @@ type ServerInterface interface {
 	// SwitchProjectCredentials Switch a V1 project to opaque credentials (V2 §10.2)
 	// (POST /api/v1/projects/{id}/switch-credentials)
 	SwitchProjectCredentials(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SwitchoverProject Planned switchover to a standby
+	// (POST /api/v1/projects/{id}/switchover)
+	SwitchoverProject(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
 	// (GET /api/v1/projects/{id}/tables/{schema}/{table})
 	GetTableInfo(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName)
@@ -5892,6 +9699,12 @@ type ServerInterface interface {
 	// TransferProject Move the project to another organisation (owner of both)
 	// (POST /api/v1/projects/{id}/transfer)
 	TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpgradeProject Upgrade the project to a newer Postgres major
+	// (POST /api/v1/projects/{id}/upgrade)
+	UpgradeProject(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpgradePreflight Check a major Postgres upgrade of this project (V3 §2.4)
+	// (POST /api/v1/projects/{id}/upgrade/preflight)
+	UpgradePreflight(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ListWebhooks A project's webhooks, with their health and backlog
 	// (GET /api/v1/projects/{id}/webhooks)
 	ListWebhooks(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -5919,6 +9732,9 @@ type ServerInterface interface {
 	// TestWebhook Send a test event now
 	// (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
 	TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID)
+	// ListRegions The regions new projects can be created in
+	// (GET /api/v1/regions)
+	ListRegions(w http.ResponseWriter, r *http.Request)
 	// RunRestoreTest Run the restore test now
 	// (POST /api/v1/restore-tests)
 	RunRestoreTest(w http.ResponseWriter, r *http.Request, params RunRestoreTestParams)
@@ -5979,6 +9795,15 @@ type ServerInterface interface {
 	// TestStorageTarget Run the live write/read/list/delete test without saving
 	// (POST /api/v1/storage-targets/test)
 	TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams)
+	// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
+	// (POST /api/v1/support/inbound/email)
+	SupportInboundEmail(w http.ResponseWriter, r *http.Request)
+	// SupportWhatsAppVerify The WhatsApp Business Platform's webhook verification
+	// (GET /api/v1/support/whatsapp)
+	SupportWhatsAppVerify(w http.ResponseWriter, r *http.Request, params SupportWhatsAppVerifyParams)
+	// SupportWhatsAppWebhook WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+	// (POST /api/v1/support/whatsapp)
+	SupportWhatsAppWebhook(w http.ResponseWriter, r *http.Request)
 	// GetTerms The current terms of use and privacy notice (public)
 	// (GET /api/v1/terms)
 	GetTerms(w http.ResponseWriter, r *http.Request)
@@ -6015,6 +9840,96 @@ func (_ Unimplemented) ListPlatformAudit(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminUploadBillingDocument Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+// (POST /api/v1/admin/billing/documents)
+func (_ Unimplemented) AdminUploadBillingDocument(w http.ResponseWriter, r *http.Request, params AdminUploadBillingDocumentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetBillingSettings Tax rates and the seller's details on invoices
+// (GET /api/v1/admin/billing/settings)
+func (_ Unimplemented) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutBillingSettings Change the billing settings
+// (PUT /api/v1/admin/billing/settings)
+func (_ Unimplemented) PutBillingSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminCapacity Capacity automation at a glance (settings, outlook, proposals, moves)
+// (GET /api/v1/admin/capacity)
+func (_ Unimplemented) AdminCapacity(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DecideRebalanceBatch Approve or reject a proposed rebalance batch
+// (POST /api/v1/admin/capacity/batches/{batch_id})
+func (_ Unimplemented) DecideRebalanceBatch(w http.ResponseWriter, r *http.Request, batchId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EvaluateCapacity Check thresholds now (they're checked hourly)
+// (POST /api/v1/admin/capacity/evaluate)
+func (_ Unimplemented) EvaluateCapacity(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveCapacityProposal Provision a proposal waiting for approval (a manual provider's is marked done)
+// (POST /api/v1/admin/capacity/proposals/{proposal_id}/approve)
+func (_ Unimplemented) ApproveCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectCapacityProposal Close a proposal without provisioning
+// (POST /api/v1/admin/capacity/proposals/{proposal_id}/reject)
+func (_ Unimplemented) RejectCapacityProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PlanRebalance Propose moves that even out shared nodes' disk (done weekly)
+// (POST /api/v1/admin/capacity/rebalance)
+func (_ Unimplemented) PlanRebalance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutCapacitySettings Thresholds, the server types added, the monthly infrastructure budget
+// (PUT /api/v1/admin/capacity/settings)
+func (_ Unimplemented) PutCapacitySettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CloudCatalog The provider's server types and prices
+// (GET /api/v1/admin/cloud/catalog)
+func (_ Unimplemented) CloudCatalog(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminCosts Costs and margins for a month (by region and tier, plan, organisation; FX view)
+// (GET /api/v1/admin/costs)
+func (_ Unimplemented) AdminCosts(w http.ResponseWriter, r *http.Request, params AdminCostsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AttributeCosts Recompute cost attribution for days (done daily)
+// (POST /api/v1/admin/costs/attribute)
+func (_ Unimplemented) AttributeCosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetCostSettings Costs outside the server catalog (storage, egress, floating IPs, overheads)
+// (GET /api/v1/admin/costs/settings)
+func (_ Unimplemented) GetCostSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutCostSettings Save the cost settings
+// (PUT /api/v1/admin/costs/settings)
+func (_ Unimplemented) PutCostSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListDedicatedRequests Dedicated instance requests from every organisation (platform admin)
 // (GET /api/v1/admin/dedicated-requests)
 func (_ Unimplemented) ListDedicatedRequests(w http.ResponseWriter, r *http.Request, params ListDedicatedRequestsParams) {
@@ -6030,6 +9945,36 @@ func (_ Unimplemented) ApproveDedicatedRequest(w http.ResponseWriter, r *http.Re
 // RejectDedicatedRequest Reject a dedicated request (platform admin)
 // (POST /api/v1/admin/dedicated-requests/{request_id}/reject)
 func (_ Unimplemented) RejectDedicatedRequest(w http.ResponseWriter, r *http.Request, requestId RequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetEtcdCluster The etcd cluster HA instances keep their state in, and each member's health
+// (GET /api/v1/admin/etcd)
+func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
+// (POST /api/v1/admin/etcd)
+func (_ Unimplemented) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListFXRates Exchange rates (naira per unit), current and history
+// (GET /api/v1/admin/fx-rates)
+func (_ Unimplemented) ListFXRates(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetFXRate Record an exchange rate
+// (POST /api/v1/admin/fx-rates)
+func (_ Unimplemented) SetFXRate(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MinorUpgradeInstance Restart an instance onto its image's newer Postgres minor release now, outside the window
+// (POST /api/v1/admin/instances/{instance_id}/minor-upgrade)
+func (_ Unimplemented) MinorUpgradeInstance(w http.ResponseWriter, r *http.Request, instanceId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6051,6 +9996,90 @@ func (_ Unimplemented) RevokePlatformInvitation(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminListInvoices Invoices across organisations, drafts included
+// (GET /api/v1/admin/invoices)
+func (_ Unimplemented) AdminListInvoices(w http.ResponseWriter, r *http.Request, params AdminListInvoicesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminDraftInvoices Generate (or refresh) a month's drafts now, for every organisation or one
+// (POST /api/v1/admin/invoices/draft)
+func (_ Unimplemented) AdminDraftInvoices(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetInvoice An invoice, drafts included
+// (GET /api/v1/admin/invoices/{invoice_id})
+func (_ Unimplemented) AdminGetInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminCreateCreditNote Issue a credit note against an issued invoice (amount before VAT)
+// (POST /api/v1/admin/invoices/{invoice_id}/credit-notes)
+func (_ Unimplemented) AdminCreateCreditNote(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminHoldInvoice Hold a draft for review (it isn't issued on the 1st), or release it
+// (POST /api/v1/admin/invoices/{invoice_id}/hold)
+func (_ Unimplemented) AdminHoldInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminIssueInvoice Issue a draft now (a held one is released)
+// (POST /api/v1/admin/invoices/{invoice_id}/issue)
+func (_ Unimplemented) AdminIssueInvoice(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetInvoicePdf An invoice (or draft) as PDF
+// (GET /api/v1/admin/invoices/{invoice_id}/pdf)
+func (_ Unimplemented) AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminUploadWhtCertificate Attach a WHT credit note to an invoice
+// (POST /api/v1/admin/invoices/{invoice_id}/wht-certificate)
+func (_ Unimplemented) AdminUploadWhtCertificate(w http.ResponseWriter, r *http.Request, invoiceId InvoiceID, params AdminUploadWhtCertificateParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminLedgerCheck Check the ledger's invariants and show each account's balance (V3 §3.3)
+// (GET /api/v1/admin/ledger/check)
+func (_ Unimplemented) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListLegal Every version of the platform-wide documents, with their acceptance counts
+// (GET /api/v1/admin/legal)
+func (_ Unimplemented) AdminListLegal(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminPublishLegal Publish a new version of the SLA or DPA
+// (POST /api/v1/admin/legal)
+func (_ Unimplemented) AdminPublishLegal(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetLegal A document version and the organisations that accepted it
+// (GET /api/v1/admin/legal/{document_id})
+func (_ Unimplemented) AdminGetLegal(w http.ResponseWriter, r *http.Request, documentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+// (GET /api/v1/admin/maintenance)
+func (_ Unimplemented) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutMaintenanceWindow Change the weekly maintenance window (UTC)
+// (PUT /api/v1/admin/maintenance/window)
+func (_ Unimplemented) PutMaintenanceWindow(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AdminListOrgs Every organisation with plan, counts, size, and status (platform admin)
 // (GET /api/v1/admin/orgs)
 func (_ Unimplemented) AdminListOrgs(w http.ResponseWriter, r *http.Request, params AdminListOrgsParams) {
@@ -6069,6 +10098,24 @@ func (_ Unimplemented) AdminUpdateOrg(w http.ResponseWriter, r *http.Request, or
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminGetOrgBilling An organisation's billing account, as the platform admin sees it
+// (GET /api/v1/admin/orgs/{org}/billing)
+func (_ Unimplemented) AdminGetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminUpdateOrgBilling The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
+// (PATCH /api/v1/admin/orgs/{org}/billing)
+func (_ Unimplemented) AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminSetGrace Hold dunning for an organisation until a date (null ends the extension)
+// (PUT /api/v1/admin/orgs/{org}/billing/grace)
+func (_ Unimplemented) AdminSetGrace(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AdminStartBreakGlass Start break-glass access to an organisation (platform admin, step-up auth)
 // (POST /api/v1/admin/orgs/{org}/break-glass)
 func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -6078,6 +10125,12 @@ func (_ Unimplemented) AdminStartBreakGlass(w http.ResponseWriter, r *http.Reque
 // AdminSetOrgCluster Give an organisation its own shared cluster, or take it back (platform admin)
 // (POST /api/v1/admin/orgs/{org}/cluster)
 func (_ Unimplemented) AdminSetOrgCluster(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminPublishOrderForm Publish a new version of an organisation's order form
+// (POST /api/v1/admin/orgs/{org}/order-form)
+func (_ Unimplemented) AdminPublishOrderForm(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6105,6 +10158,36 @@ func (_ Unimplemented) AdminSuspendOrg(w http.ResponseWriter, r *http.Request, o
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminListPaymentEvents Provider events as received, newest first
+// (GET /api/v1/admin/payment-events)
+func (_ Unimplemented) AdminListPaymentEvents(w http.ResponseWriter, r *http.Request, params AdminListPaymentEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminAttributePaymentEvent Settle an unmatched transfer for an organisation (it is verified again first)
+// (POST /api/v1/admin/payment-events/{event_id}/attribute)
+func (_ Unimplemented) AdminAttributePaymentEvent(w http.ResponseWriter, r *http.Request, eventId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListPayments Payments received, by provider and period
+// (GET /api/v1/admin/payments)
+func (_ Unimplemented) AdminListPayments(w http.ResponseWriter, r *http.Request, params AdminListPaymentsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRecordPayment Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+// (POST /api/v1/admin/payments)
+func (_ Unimplemented) AdminRecordPayment(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRefundPayment Refund part of a payment from the organisation's credit balance
+// (POST /api/v1/admin/payments/{payment_id}/refund)
+func (_ Unimplemented) AdminRefundPayment(w http.ResponseWriter, r *http.Request, paymentId PaymentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListPlans Quota plan templates (platform admin)
 // (GET /api/v1/admin/plans)
 func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request) {
@@ -6120,6 +10203,84 @@ func (_ Unimplemented) CreatePlan(w http.ResponseWriter, r *http.Request) {
 // UpdatePlan Change a quota plan template (platform admin)
 // (PATCH /api/v1/admin/plans/{plan_id})
 func (_ Unimplemented) UpdatePlan(w http.ResponseWriter, r *http.Request, planId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPriceBooks Price book versions, newest first (V3 §3.9)
+// (GET /api/v1/admin/price-books)
+func (_ Unimplemented) ListPriceBooks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreatePriceBook Create a draft price book
+// (POST /api/v1/admin/price-books)
+func (_ Unimplemented) CreatePriceBook(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeletePriceBook Delete a draft price book
+// (DELETE /api/v1/admin/price-books/{version})
+func (_ Unimplemented) DeletePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPriceBook One price book
+// (GET /api/v1/admin/price-books/{version})
+func (_ Unimplemented) GetPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePriceBook Edit a draft price book
+// (PUT /api/v1/admin/price-books/{version})
+func (_ Unimplemented) UpdatePriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewPriceBook Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+// (POST /api/v1/admin/price-books/{version}/preview)
+func (_ Unimplemented) PreviewPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PublishPriceBook Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
+// (POST /api/v1/admin/price-books/{version}/publish)
+func (_ Unimplemented) PublishPriceBook(w http.ResponseWriter, r *http.Request, version PriceBookVersion) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MoveProject Move a project to another node (platform admin, V3 §2.3)
+// (POST /api/v1/admin/projects/{project_id}/move)
+func (_ Unimplemented) MoveProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminLastReconciliation The latest reconciliation against each provider
+// (GET /api/v1/admin/reconciliation)
+func (_ Unimplemented) AdminLastReconciliation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRunReconciliation Reconcile a period now (default the previous day)
+// (POST /api/v1/admin/reconciliation)
+func (_ Unimplemented) AdminRunReconciliation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAdminRegions Every region with its pooler hostname, targets and usage
+// (GET /api/v1/admin/regions)
+func (_ Unimplemented) ListAdminRegions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutAdminRegion Create or change a region
+// (PUT /api/v1/admin/regions/{region_id})
+func (_ Unimplemented) PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+// (GET /api/v1/admin/revenue)
+func (_ Unimplemented) AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6201,6 +10362,36 @@ func (_ Unimplemented) UpdatePlatformStorageTarget(w http.ResponseWriter, r *htt
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// AdminSupportStaff Support staff and platform admins, to assign tickets to
+// (GET /api/v1/admin/support/staff)
+func (_ Unimplemented) AdminSupportStaff(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminListTickets The support console's tickets (support staff and platform admins)
+// (GET /api/v1/admin/support/tickets)
+func (_ Unimplemented) AdminListTickets(w http.ResponseWriter, r *http.Request, params AdminListTicketsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminGetTicket A ticket with internal notes and the organisation's context (no tenant data)
+// (GET /api/v1/admin/support/tickets/{ticket_id})
+func (_ Unimplemented) AdminGetTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminUpdateTicket Change a ticket's status, priority, assignee or organisation
+// (PATCH /api/v1/admin/support/tickets/{ticket_id})
+func (_ Unimplemented) AdminUpdateTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminReplyTicket Answer the customer (by the ticket's channel) or add an internal note
+// (POST /api/v1/admin/support/tickets/{ticket_id}/messages)
+func (_ Unimplemented) AdminReplyTicket(w http.ResponseWriter, r *http.Request, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // PlatformUsage Usage totals per organisation (platform admin)
 // (GET /api/v1/admin/usage)
 func (_ Unimplemented) PlatformUsage(w http.ResponseWriter, r *http.Request, params PlatformUsageParams) {
@@ -6222,6 +10413,12 @@ func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, user U
 // ResetUserTotp Reset an account's two-factor authentication (platform admin, step-up auth)
 // (POST /api/v1/admin/users/{user}/reset-2fa)
 func (_ Unimplemented) ResetUserTotp(w http.ResponseWriter, r *http.Request, user UserID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+// (GET /api/v1/admin/wht)
+func (_ Unimplemented) AdminOutstandingWht(w http.ResponseWriter, r *http.Request, params AdminOutstandingWhtParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6357,6 +10554,36 @@ func (_ Unimplemented) ImportPreflight(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListIncidents Incidents for the status page, open first (V3 §2.6)
+// (GET /api/v1/incidents)
+func (_ Unimplemented) ListIncidents(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateIncident Open an incident; it is pushed to the status page
+// (POST /api/v1/incidents)
+func (_ Unimplemented) CreateIncident(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetIncident An incident and its updates
+// (GET /api/v1/incidents/{id})
+func (_ Unimplemented) GetIncident(w http.ResponseWriter, r *http.Request, id IncidentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateIncident Change an incident's title, components or severity
+// (PATCH /api/v1/incidents/{id})
+func (_ Unimplemented) UpdateIncident(w http.ResponseWriter, r *http.Request, id IncidentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PostIncidentUpdate Post an update; its status becomes the incident's
+// (POST /api/v1/incidents/{id}/updates)
+func (_ Unimplemented) PostIncidentUpdate(w http.ResponseWriter, r *http.Request, id IncidentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AcceptInvitation Accept an invitation link (public, token-gated)
 // (POST /api/v1/invitations/accept)
 func (_ Unimplemented) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
@@ -6366,6 +10593,12 @@ func (_ Unimplemented) AcceptInvitation(w http.ResponseWriter, r *http.Request) 
 // PreviewInvitation What an invitation link offers (public, token-gated)
 // (POST /api/v1/invitations/preview)
 func (_ Unimplemented) PreviewInvitation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetLegal The service level agreement and data processing agreement in effect (public)
+// (GET /api/v1/legal)
+func (_ Unimplemented) GetLegal(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6459,6 +10692,24 @@ func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, id Nod
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
+// (PUT /api/v1/nodes/{id}/cost)
+func (_ Unimplemented) SetNodeCost(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StopDrain Stop draining; moves not started are dropped
+// (DELETE /api/v1/nodes/{id}/drain)
+func (_ Unimplemented) StopDrain(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DrainNode Move every project off a node, one at a time, and place nothing new there
+// (POST /api/v1/nodes/{id}/drain)
+func (_ Unimplemented) DrainNode(w http.ResponseWriter, r *http.Request, id NodeID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetNodeMetrics A node's metric series
 // (GET /api/v1/nodes/{id}/metrics)
 func (_ Unimplemented) GetNodeMetrics(w http.ResponseWriter, r *http.Request, id NodeID, params GetNodeMetricsParams) {
@@ -6531,6 +10782,132 @@ func (_ Unimplemented) ListOrgAudit(w http.ResponseWriter, r *http.Request, org 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetOrgBilling The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members)
+// (GET /api/v1/orgs/{org}/billing)
+func (_ Unimplemented) GetOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateOrgBilling Change business details and spend controls
+// (PATCH /api/v1/orgs/{org}/billing)
+func (_ Unimplemented) UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ClearAutoTopup Stop automatic top-ups
+// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
+func (_ Unimplemented) ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
+// (PUT /api/v1/orgs/{org}/billing/auto-topup)
+func (_ Unimplemented) SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+// (POST /api/v1/orgs/{org}/billing/checkout)
+func (_ Unimplemented) StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListBillingContacts Billing contacts, who receive invoices and payment email
+// (GET /api/v1/orgs/{org}/billing/contacts)
+func (_ Unimplemented) ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AddBillingContact Add a billing contact
+// (POST /api/v1/orgs/{org}/billing/contacts)
+func (_ Unimplemented) AddBillingContact(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveBillingContact Remove a billing contact
+// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
+func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// (POST /api/v1/orgs/{org}/billing/estimate)
+func (_ Unimplemented) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgForecast The current month so far and its forecast (V3 §3.10)
+// (GET /api/v1/orgs/{org}/billing/forecast)
+func (_ Unimplemented) GetOrgForecast(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgInvoices The organisation's issued invoices
+// (GET /api/v1/orgs/{org}/billing/invoices)
+func (_ Unimplemented) ListOrgInvoices(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgInvoice An invoice with its lines and credit notes
+// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id})
+func (_ Unimplemented) GetOrgInvoice(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgInvoicePdf An invoice as PDF
+// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
+func (_ Unimplemented) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
+func (_ Unimplemented) UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPaymentMethods Saved cards and wallet mandates
+// (GET /api/v1/orgs/{org}/billing/payment-methods)
+func (_ Unimplemented) ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemovePaymentMethod Remove a saved card or revoke a mandate
+// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
+func (_ Unimplemented) RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetDefaultPaymentMethod Charge this method for invoices and top-ups
+// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
+func (_ Unimplemented) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgPayments Payments received, with receipts
+// (GET /api/v1/orgs/{org}/billing/payments)
+func (_ Unimplemented) ListOrgPayments(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPaymentReceipt A payment's receipt as PDF
+// (GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt)
+func (_ Unimplemented) GetPaymentReceipt(w http.ResponseWriter, r *http.Request, org OrgID, paymentId PaymentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ChangeOrgPlan Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
+// (POST /api/v1/orgs/{org}/billing/plan)
+func (_ Unimplemented) ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
+// (POST /api/v1/orgs/{org}/billing/virtual-account)
+func (_ Unimplemented) OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // EndBreakGlass End a break-glass session early (owner)
 // (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
 func (_ Unimplemented) EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID) {
@@ -6564,6 +10941,18 @@ func (_ Unimplemented) RevokeOrgInvitation(w http.ResponseWriter, r *http.Reques
 // LeaveOrg Leave an organisation
 // (POST /api/v1/orgs/{org}/leave)
 func (_ Unimplemented) LeaveOrg(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgLegal The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+// (GET /api/v1/orgs/{org}/legal)
+func (_ Unimplemented) GetOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AcceptOrgLegal Accept a document on the organisation's behalf (owners)
+// (POST /api/v1/orgs/{org}/legal/{document_id}/accept)
+func (_ Unimplemented) AcceptOrgLegal(w http.ResponseWriter, r *http.Request, org OrgID, documentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6627,6 +11016,48 @@ func (_ Unimplemented) UpdateOrgStorageTarget(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListSupportPhones WhatsApp numbers registered for support (Pro and Team)
+// (GET /api/v1/orgs/{org}/support/phones)
+func (_ Unimplemented) ListSupportPhones(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AddSupportPhone Register a WhatsApp number (E.164) for the organisation's support
+// (POST /api/v1/orgs/{org}/support/phones)
+func (_ Unimplemented) AddSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveSupportPhone Remove a WhatsApp number
+// (DELETE /api/v1/orgs/{org}/support/phones/{phone})
+func (_ Unimplemented) RemoveSupportPhone(w http.ResponseWriter, r *http.Request, org OrgID, phone string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgTickets The organisation's support tickets (admins see all; members their own)
+// (GET /api/v1/orgs/{org}/support/tickets)
+func (_ Unimplemented) ListOrgTickets(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// OpenOrgTicket Open a support ticket for the organisation
+// (POST /api/v1/orgs/{org}/support/tickets)
+func (_ Unimplemented) OpenOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgTicket A ticket and its conversation
+// (GET /api/v1/orgs/{org}/support/tickets/{ticket_id})
+func (_ Unimplemented) GetOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReplyOrgTicket Add to a ticket
+// (POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages)
+func (_ Unimplemented) ReplyOrgTicket(w http.ResponseWriter, r *http.Request, org OrgID, ticketId TicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListOrgTokens Every token scoped to the organisation (owners and admins)
 // (GET /api/v1/orgs/{org}/tokens)
 func (_ Unimplemented) ListOrgTokens(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -6648,6 +11079,24 @@ func (_ Unimplemented) TransferOrgOwnership(w http.ResponseWriter, r *http.Reque
 // GetOrgUsage Recorded usage (V2 §10.9), as JSON or CSV
 // (GET /api/v1/orgs/{org}/usage)
 func (_ Unimplemented) GetOrgUsage(w http.ResponseWriter, r *http.Request, org OrgID, params GetOrgUsageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PaymentWebhook A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+// (POST /api/v1/payments/webhooks/{provider})
+func (_ Unimplemented) PaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentWebhookParamsProvider) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPoolerHosts The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+// (GET /api/v1/pooler-hosts)
+func (_ Unimplemented) GetPoolerHosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPricing The prices in effect, and the next price book if one is published (public)
+// (GET /api/v1/pricing)
+func (_ Unimplemented) GetPricing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6765,6 +11214,72 @@ func (_ Unimplemented) EnableProjectExtension(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// DisableProjectHA Turn HA off (the standby is removed)
+// (DELETE /api/v1/projects/{id}/ha)
+func (_ Unimplemented) DisableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProjectHA HA state of a dedicated project (V3 §2.2)
+// (GET /api/v1/projects/{id}/ha)
+func (_ Unimplemented) GetProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateProjectHA Change HA settings (synchronous replication)
+// (PATCH /api/v1/projects/{id}/ha)
+func (_ Unimplemented) UpdateProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableProjectHA Turn HA on
+// (POST /api/v1/projects/{id}/ha)
+func (_ Unimplemented) EnableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightBloat Estimated table bloat (reclaim it with reclaim-space)
+// (GET /api/v1/projects/{id}/insights/bloat)
+func (_ Unimplemented) GetInsightBloat(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExplainInsightQuery EXPLAIN (without ANALYZE) a query as the project's role
+// (POST /api/v1/projects/{id}/insights/explain)
+func (_ Unimplemented) ExplainInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightIndexes Index suggestions, unused and duplicate indexes
+// (GET /api/v1/projects/{id}/insights/indexes)
+func (_ Unimplemented) GetInsightIndexes(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightLocks Current blocking chains
+// (GET /api/v1/projects/{id}/insights/locks)
+func (_ Unimplemented) GetInsightLocks(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListInsightQueries Top queries over a range (Pro, Team and dedicated projects)
+// (GET /api/v1/projects/{id}/insights/queries)
+func (_ Unimplemented) ListInsightQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListInsightQueriesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetInsightQuery A query's totals, its calls and latency over time, and its example
+// (GET /api/v1/projects/{id}/insights/queries/{query_id})
+func (_ Unimplemented) GetInsightQuery(w http.ResponseWriter, r *http.Request, id ProjectID, queryId InsightQueryID, params GetInsightQueryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSlowQueries Statements over the slow-query threshold
+// (GET /api/v1/projects/{id}/insights/slow)
+func (_ Unimplemented) ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 // (POST /api/v1/projects/{id}/instance)
 func (_ Unimplemented) ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -6843,6 +11358,12 @@ func (_ Unimplemented) GetProjectMetrics(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListProjectMoves The project's recent moves between instances, newest first
+// (GET /api/v1/projects/{id}/moves)
+func (_ Unimplemented) ListProjectMoves(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // RestoreProjectPITR Point-in-time recovery of a dedicated project into a new one
 // (POST /api/v1/projects/{id}/pitr)
 func (_ Unimplemented) RestoreProjectPITR(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -6912,6 +11433,18 @@ func (_ Unimplemented) ReclaimSpace(w http.ResponseWriter, r *http.Request, id P
 // ResetBranch Reset a branch from its parent
 // (POST /api/v1/projects/{id}/reset)
 func (_ Unimplemented) ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetProjectResidency Turn data residency on or off (organisation owners; step-up)
+// (PUT /api/v1/projects/{id}/residency)
+func (_ Unimplemented) SetProjectResidency(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResumeProject Resume a paused or archived Free project
+// (POST /api/v1/projects/{id}/resume)
+func (_ Unimplemented) ResumeProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6987,6 +11520,12 @@ func (_ Unimplemented) SwitchProjectCredentials(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// SwitchoverProject Planned switchover to a standby
+// (POST /api/v1/projects/{id}/switchover)
+func (_ Unimplemented) SwitchoverProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetTableInfo A table's columns, keys, constraints and indexes, and whether its rows can be edited
 // (GET /api/v1/projects/{id}/tables/{schema}/{table})
 func (_ Unimplemented) GetTableInfo(w http.ResponseWriter, r *http.Request, id ProjectID, schema SchemaName, table TableName) {
@@ -7026,6 +11565,18 @@ func (_ Unimplemented) GetTableRows(w http.ResponseWriter, r *http.Request, id P
 // TransferProject Move the project to another organisation (owner of both)
 // (POST /api/v1/projects/{id}/transfer)
 func (_ Unimplemented) TransferProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpgradeProject Upgrade the project to a newer Postgres major
+// (POST /api/v1/projects/{id}/upgrade)
+func (_ Unimplemented) UpgradeProject(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpgradePreflight Check a major Postgres upgrade of this project (V3 §2.4)
+// (POST /api/v1/projects/{id}/upgrade/preflight)
+func (_ Unimplemented) UpgradePreflight(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7080,6 +11631,12 @@ func (_ Unimplemented) RotateWebhookSecret(w http.ResponseWriter, r *http.Reques
 // TestWebhook Send a test event now
 // (POST /api/v1/projects/{id}/webhooks/{webhook_id}/test)
 func (_ Unimplemented) TestWebhook(w http.ResponseWriter, r *http.Request, id ProjectID, webhookId WebhookID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListRegions The regions new projects can be created in
+// (GET /api/v1/regions)
+func (_ Unimplemented) ListRegions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7200,6 +11757,24 @@ func (_ Unimplemented) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 // TestStorageTarget Run the live write/read/list/delete test without saving
 // (POST /api/v1/storage-targets/test)
 func (_ Unimplemented) TestStorageTarget(w http.ResponseWriter, r *http.Request, params TestStorageTargetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
+// (POST /api/v1/support/inbound/email)
+func (_ Unimplemented) SupportInboundEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SupportWhatsAppVerify The WhatsApp Business Platform's webhook verification
+// (GET /api/v1/support/whatsapp)
+func (_ Unimplemented) SupportWhatsAppVerify(w http.ResponseWriter, r *http.Request, params SupportWhatsAppVerifyParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SupportWhatsAppWebhook WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+// (POST /api/v1/support/whatsapp)
+func (_ Unimplemented) SupportWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7345,6 +11920,316 @@ func (siw *ServerInterfaceWrapper) ListPlatformAudit(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// AdminUploadBillingDocument operation middleware
+func (siw *ServerInterfaceWrapper) AdminUploadBillingDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminUploadBillingDocumentParams
+
+	// ------------- Required query parameter "org_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "org_id", r.URL.Query(), &params.OrgId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "filename" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "filename", r.URL.Query(), &params.Filename, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filename"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUploadBillingDocument(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBillingSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBillingSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutBillingSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutBillingSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutBillingSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminCapacity operation middleware
+func (siw *ServerInterfaceWrapper) AdminCapacity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminCapacity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DecideRebalanceBatch operation middleware
+func (siw *ServerInterfaceWrapper) DecideRebalanceBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batch_id" -------------
+	var batchId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batch_id", chi.URLParam(r, "batch_id"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batch_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DecideRebalanceBatch(w, r, batchId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EvaluateCapacity operation middleware
+func (siw *ServerInterfaceWrapper) EvaluateCapacity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EvaluateCapacity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveCapacityProposal operation middleware
+func (siw *ServerInterfaceWrapper) ApproveCapacityProposal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "proposal_id" -------------
+	var proposalId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposal_id", chi.URLParam(r, "proposal_id"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "proposal_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveCapacityProposal(w, r, proposalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectCapacityProposal operation middleware
+func (siw *ServerInterfaceWrapper) RejectCapacityProposal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "proposal_id" -------------
+	var proposalId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposal_id", chi.URLParam(r, "proposal_id"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "proposal_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectCapacityProposal(w, r, proposalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlanRebalance operation middleware
+func (siw *ServerInterfaceWrapper) PlanRebalance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlanRebalance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutCapacitySettings operation middleware
+func (siw *ServerInterfaceWrapper) PutCapacitySettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutCapacitySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CloudCatalog operation middleware
+func (siw *ServerInterfaceWrapper) CloudCatalog(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CloudCatalog(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminCosts operation middleware
+func (siw *ServerInterfaceWrapper) AdminCosts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminCostsParams
+
+	// ------------- Optional query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminCosts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttributeCosts operation middleware
+func (siw *ServerInterfaceWrapper) AttributeCosts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttributeCosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCostSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetCostSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCostSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutCostSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutCostSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutCostSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListDedicatedRequests operation middleware
 func (siw *ServerInterfaceWrapper) ListDedicatedRequests(w http.ResponseWriter, r *http.Request) {
 
@@ -7430,6 +12315,88 @@ func (siw *ServerInterfaceWrapper) RejectDedicatedRequest(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetEtcdCluster operation middleware
+func (siw *ServerInterfaceWrapper) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEtcdCluster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetupEtcdCluster operation middleware
+func (siw *ServerInterfaceWrapper) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetupEtcdCluster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFXRates operation middleware
+func (siw *ServerInterfaceWrapper) ListFXRates(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFXRates(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetFXRate operation middleware
+func (siw *ServerInterfaceWrapper) SetFXRate(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetFXRate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MinorUpgradeInstance operation middleware
+func (siw *ServerInterfaceWrapper) MinorUpgradeInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "instance_id" -------------
+	var instanceId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "instance_id", chi.URLParam(r, "instance_id"), &instanceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "instance_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MinorUpgradeInstance(w, r, instanceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlatformInvitations operation middleware
 func (siw *ServerInterfaceWrapper) ListPlatformInvitations(w http.ResponseWriter, r *http.Request) {
 
@@ -7475,6 +12442,334 @@ func (siw *ServerInterfaceWrapper) RevokePlatformInvitation(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokePlatformInvitation(w, r, invitationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListInvoices operation middleware
+func (siw *ServerInterfaceWrapper) AdminListInvoices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListInvoicesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "period" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "period", r.URL.Query(), &params.Period, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "period"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "period", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListInvoices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminDraftInvoices operation middleware
+func (siw *ServerInterfaceWrapper) AdminDraftInvoices(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminDraftInvoices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetInvoice operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetInvoice(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminCreateCreditNote operation middleware
+func (siw *ServerInterfaceWrapper) AdminCreateCreditNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminCreateCreditNote(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminHoldInvoice operation middleware
+func (siw *ServerInterfaceWrapper) AdminHoldInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminHoldInvoice(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminIssueInvoice operation middleware
+func (siw *ServerInterfaceWrapper) AdminIssueInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminIssueInvoice(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetInvoicePdf operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetInvoicePdf(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetInvoicePdf(w, r, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminUploadWhtCertificate operation middleware
+func (siw *ServerInterfaceWrapper) AdminUploadWhtCertificate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminUploadWhtCertificateParams
+
+	// ------------- Required query parameter "filename" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "filename", r.URL.Query(), &params.Filename, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filename"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUploadWhtCertificate(w, r, invoiceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminLedgerCheck operation middleware
+func (siw *ServerInterfaceWrapper) AdminLedgerCheck(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminLedgerCheck(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListLegal operation middleware
+func (siw *ServerInterfaceWrapper) AdminListLegal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListLegal(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminPublishLegal operation middleware
+func (siw *ServerInterfaceWrapper) AdminPublishLegal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminPublishLegal(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetLegal operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetLegal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "document_id" -------------
+	var documentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "document_id", chi.URLParam(r, "document_id"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "document_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetLegal(w, r, documentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutMaintenanceWindow operation middleware
+func (siw *ServerInterfaceWrapper) PutMaintenanceWindow(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMaintenanceWindow(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7569,6 +12864,84 @@ func (siw *ServerInterfaceWrapper) AdminUpdateOrg(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// AdminGetOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminUpdateOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) AdminUpdateOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUpdateOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminSetGrace operation middleware
+func (siw *ServerInterfaceWrapper) AdminSetGrace(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSetGrace(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AdminStartBreakGlass operation middleware
 func (siw *ServerInterfaceWrapper) AdminStartBreakGlass(w http.ResponseWriter, r *http.Request) {
 
@@ -7612,6 +12985,32 @@ func (siw *ServerInterfaceWrapper) AdminSetOrgCluster(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminSetOrgCluster(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminPublishOrderForm operation middleware
+func (siw *ServerInterfaceWrapper) AdminPublishOrderForm(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminPublishOrderForm(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7725,6 +13124,164 @@ func (siw *ServerInterfaceWrapper) AdminSuspendOrg(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// AdminListPaymentEvents operation middleware
+func (siw *ServerInterfaceWrapper) AdminListPaymentEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListPaymentEventsParams
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListPaymentEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminAttributePaymentEvent operation middleware
+func (siw *ServerInterfaceWrapper) AdminAttributePaymentEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "event_id" -------------
+	var eventId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "event_id", chi.URLParam(r, "event_id"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "event_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminAttributePaymentEvent(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListPayments operation middleware
+func (siw *ServerInterfaceWrapper) AdminListPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListPaymentsParams
+
+	// ------------- Optional query parameter "provider" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "provider", r.URL.Query(), &params.Provider, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "provider"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListPayments(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRecordPayment operation middleware
+func (siw *ServerInterfaceWrapper) AdminRecordPayment(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRecordPayment(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRefundPayment operation middleware
+func (siw *ServerInterfaceWrapper) AdminRefundPayment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "payment_id" -------------
+	var paymentId PaymentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "payment_id", chi.URLParam(r, "payment_id"), &paymentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "payment_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRefundPayment(w, r, paymentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlans operation middleware
 func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Request) {
 
@@ -7770,6 +13327,304 @@ func (siw *ServerInterfaceWrapper) UpdatePlan(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdatePlan(w, r, planId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPriceBooks operation middleware
+func (siw *ServerInterfaceWrapper) ListPriceBooks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPriceBooks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePriceBook operation middleware
+func (siw *ServerInterfaceWrapper) CreatePriceBook(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePriceBook(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePriceBook operation middleware
+func (siw *ServerInterfaceWrapper) DeletePriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPriceBook operation middleware
+func (siw *ServerInterfaceWrapper) GetPriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePriceBook operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewPriceBook operation middleware
+func (siw *ServerInterfaceWrapper) PreviewPriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewPriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PublishPriceBook operation middleware
+func (siw *ServerInterfaceWrapper) PublishPriceBook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "version" -------------
+	var version PriceBookVersion
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublishPriceBook(w, r, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MoveProject operation middleware
+func (siw *ServerInterfaceWrapper) MoveProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "project_id" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project_id", chi.URLParam(r, "project_id"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminLastReconciliation operation middleware
+func (siw *ServerInterfaceWrapper) AdminLastReconciliation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminLastReconciliation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRunReconciliation operation middleware
+func (siw *ServerInterfaceWrapper) AdminRunReconciliation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRunReconciliation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAdminRegions operation middleware
+func (siw *ServerInterfaceWrapper) ListAdminRegions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdminRegions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminRegion operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminRegion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminRegion(w, r, regionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminRevenue operation middleware
+func (siw *ServerInterfaceWrapper) AdminRevenue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminRevenueParams
+
+	// ------------- Optional query parameter "months" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "months", r.URL.Query(), &params.Months, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "months"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "months", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminRevenue(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8013,6 +13868,157 @@ func (siw *ServerInterfaceWrapper) UpdatePlatformStorageTarget(w http.ResponseWr
 	handler.ServeHTTP(w, r)
 }
 
+// AdminSupportStaff operation middleware
+func (siw *ServerInterfaceWrapper) AdminSupportStaff(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminSupportStaff(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminListTickets operation middleware
+func (siw *ServerInterfaceWrapper) AdminListTickets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminListTicketsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "assignee" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "assignee", r.URL.Query(), &params.Assignee, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "assignee"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "assignee", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "org_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org_id", r.URL.Query(), &params.OrgId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminListTickets(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminGetTicket operation middleware
+func (siw *ServerInterfaceWrapper) AdminGetTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminGetTicket(w, r, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminUpdateTicket operation middleware
+func (siw *ServerInterfaceWrapper) AdminUpdateTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminUpdateTicket(w, r, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminReplyTicket operation middleware
+func (siw *ServerInterfaceWrapper) AdminReplyTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminReplyTicket(w, r, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PlatformUsage operation middleware
 func (siw *ServerInterfaceWrapper) PlatformUsage(w http.ResponseWriter, r *http.Request) {
 
@@ -8148,6 +14154,39 @@ func (siw *ServerInterfaceWrapper) ResetUserTotp(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ResetUserTotp(w, r, user)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdminOutstandingWht operation middleware
+func (siw *ServerInterfaceWrapper) AdminOutstandingWht(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdminOutstandingWhtParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdminOutstandingWht(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8610,6 +14649,112 @@ func (siw *ServerInterfaceWrapper) ImportPreflight(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListIncidents operation middleware
+func (siw *ServerInterfaceWrapper) ListIncidents(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIncidents(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateIncident operation middleware
+func (siw *ServerInterfaceWrapper) CreateIncident(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateIncident(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetIncident operation middleware
+func (siw *ServerInterfaceWrapper) GetIncident(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IncidentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetIncident(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateIncident operation middleware
+func (siw *ServerInterfaceWrapper) UpdateIncident(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IncidentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateIncident(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostIncidentUpdate operation middleware
+func (siw *ServerInterfaceWrapper) PostIncidentUpdate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IncidentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostIncidentUpdate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AcceptInvitation operation middleware
 func (siw *ServerInterfaceWrapper) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 
@@ -8629,6 +14774,20 @@ func (siw *ServerInterfaceWrapper) PreviewInvitation(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PreviewInvitation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLegal operation middleware
+func (siw *ServerInterfaceWrapper) GetLegal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLegal(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8899,6 +15058,84 @@ func (siw *ServerInterfaceWrapper) UpdateNode(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateNode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetNodeCost operation middleware
+func (siw *ServerInterfaceWrapper) SetNodeCost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetNodeCost(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StopDrain operation middleware
+func (siw *ServerInterfaceWrapper) StopDrain(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StopDrain(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DrainNode operation middleware
+func (siw *ServerInterfaceWrapper) DrainNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id NodeID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DrainNode(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9365,6 +15602,631 @@ func (siw *ServerInterfaceWrapper) ListOrgAudit(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrgBilling operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrgBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrgBilling(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClearAutoTopup operation middleware
+func (siw *ServerInterfaceWrapper) ClearAutoTopup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearAutoTopup(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAutoTopup operation middleware
+func (siw *ServerInterfaceWrapper) SetAutoTopup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAutoTopup(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartCheckout operation middleware
+func (siw *ServerInterfaceWrapper) StartCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartCheckout(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBillingContacts operation middleware
+func (siw *ServerInterfaceWrapper) ListBillingContacts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBillingContacts(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddBillingContact operation middleware
+func (siw *ServerInterfaceWrapper) AddBillingContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddBillingContact(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveBillingContact operation middleware
+func (siw *ServerInterfaceWrapper) RemoveBillingContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "email" -------------
+	var email string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "email", chi.URLParam(r, "email"), &email, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveBillingContact(w, r, org, email)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EstimateOrgCost operation middleware
+func (siw *ServerInterfaceWrapper) EstimateOrgCost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EstimateOrgCost(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgForecast operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgForecast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgForecast(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgInvoices operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgInvoices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgInvoices(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgInvoice operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgInvoice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgInvoice(w, r, org, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgInvoicePdf operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgInvoicePdf(w, r, org, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadWhtCertificate operation middleware
+func (siw *ServerInterfaceWrapper) UploadWhtCertificate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UploadWhtCertificateParams
+
+	// ------------- Required query parameter "filename" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "filename", r.URL.Query(), &params.Filename, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filename"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadWhtCertificate(w, r, org, invoiceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPaymentMethods operation middleware
+func (siw *ServerInterfaceWrapper) ListPaymentMethods(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPaymentMethods(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemovePaymentMethod operation middleware
+func (siw *ServerInterfaceWrapper) RemovePaymentMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "method_id" -------------
+	var methodId MethodID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemovePaymentMethod(w, r, org, methodId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetDefaultPaymentMethod operation middleware
+func (siw *ServerInterfaceWrapper) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "method_id" -------------
+	var methodId MethodID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetDefaultPaymentMethod(w, r, org, methodId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgPayments operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgPayments(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPaymentReceipt operation middleware
+func (siw *ServerInterfaceWrapper) GetPaymentReceipt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "payment_id" -------------
+	var paymentId PaymentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "payment_id", chi.URLParam(r, "payment_id"), &paymentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "payment_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPaymentReceipt(w, r, org, paymentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangeOrgPlan operation middleware
+func (siw *ServerInterfaceWrapper) ChangeOrgPlan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangeOrgPlan(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OrgVirtualAccount operation middleware
+func (siw *ServerInterfaceWrapper) OrgVirtualAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OrgVirtualAccount(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EndBreakGlass operation middleware
 func (siw *ServerInterfaceWrapper) EndBreakGlass(w http.ResponseWriter, r *http.Request) {
 
@@ -9530,6 +16392,67 @@ func (siw *ServerInterfaceWrapper) LeaveOrg(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.LeaveOrg(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgLegal operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgLegal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgLegal(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptOrgLegal operation middleware
+func (siw *ServerInterfaceWrapper) AcceptOrgLegal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "document_id" -------------
+	var documentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "document_id", chi.URLParam(r, "document_id"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "document_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptOrgLegal(w, r, org, documentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9860,6 +16783,215 @@ func (siw *ServerInterfaceWrapper) UpdateOrgStorageTarget(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListSupportPhones operation middleware
+func (siw *ServerInterfaceWrapper) ListSupportPhones(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSupportPhones(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddSupportPhone operation middleware
+func (siw *ServerInterfaceWrapper) AddSupportPhone(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddSupportPhone(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveSupportPhone operation middleware
+func (siw *ServerInterfaceWrapper) RemoveSupportPhone(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "phone" -------------
+	var phone string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "phone", chi.URLParam(r, "phone"), &phone, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "phone", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveSupportPhone(w, r, org, phone)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgTickets operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgTickets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgTickets(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OpenOrgTicket operation middleware
+func (siw *ServerInterfaceWrapper) OpenOrgTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenOrgTicket(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgTicket operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgTicket(w, r, org, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplyOrgTicket operation middleware
+func (siw *ServerInterfaceWrapper) ReplyOrgTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "ticket_id" -------------
+	var ticketId TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticket_id", chi.URLParam(r, "ticket_id"), &ticketId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticket_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplyOrgTicket(w, r, org, ticketId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListOrgTokens operation middleware
 func (siw *ServerInterfaceWrapper) ListOrgTokens(w http.ResponseWriter, r *http.Request) {
 
@@ -10019,6 +17151,60 @@ func (siw *ServerInterfaceWrapper) GetOrgUsage(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOrgUsage(w, r, org, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PaymentWebhook operation middleware
+func (siw *ServerInterfaceWrapper) PaymentWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider PaymentWebhookParamsProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PaymentWebhook(w, r, provider)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPoolerHosts operation middleware
+func (siw *ServerInterfaceWrapper) GetPoolerHosts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPoolerHosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPricing operation middleware
+func (siw *ServerInterfaceWrapper) GetPricing(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPricing(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10628,6 +17814,375 @@ func (siw *ServerInterfaceWrapper) EnableProjectExtension(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// DisableProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) DisableProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableProjectHA operation middleware
+func (siw *ServerInterfaceWrapper) EnableProjectHA(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableProjectHA(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInsightBloat operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightBloat(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightBloat(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExplainInsightQuery operation middleware
+func (siw *ServerInterfaceWrapper) ExplainInsightQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExplainInsightQuery(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInsightIndexes operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightIndexes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightIndexes(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInsightLocks operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightLocks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightLocks(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListInsightQueries operation middleware
+func (siw *ServerInterfaceWrapper) ListInsightQueries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListInsightQueriesParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListInsightQueries(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInsightQuery operation middleware
+func (siw *ServerInterfaceWrapper) GetInsightQuery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "query_id" -------------
+	var queryId InsightQueryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "query_id", chi.URLParam(r, "query_id"), &queryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetInsightQueryParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInsightQuery(w, r, id, queryId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSlowQueries operation middleware
+func (siw *ServerInterfaceWrapper) ListSlowQueries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSlowQueriesParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSlowQueries(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProjectInstanceAction operation middleware
 func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, r *http.Request) {
 
@@ -11074,6 +18629,32 @@ func (siw *ServerInterfaceWrapper) GetProjectMetrics(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjectMoves operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectMoves(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectMoves(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RestoreProjectPITR operation middleware
 func (siw *ServerInterfaceWrapper) RestoreProjectPITR(w http.ResponseWriter, r *http.Request) {
 
@@ -11422,6 +19003,58 @@ func (siw *ServerInterfaceWrapper) ResetBranch(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// SetProjectResidency operation middleware
+func (siw *ServerInterfaceWrapper) SetProjectResidency(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetProjectResidency(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResumeProject operation middleware
+func (siw *ServerInterfaceWrapper) ResumeProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResumeProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RotateProjectPassword operation middleware
 func (siw *ServerInterfaceWrapper) RotateProjectPassword(w http.ResponseWriter, r *http.Request) {
 
@@ -11725,6 +19358,32 @@ func (siw *ServerInterfaceWrapper) SwitchProjectCredentials(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SwitchProjectCredentials(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SwitchoverProject operation middleware
+func (siw *ServerInterfaceWrapper) SwitchoverProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SwitchoverProject(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12241,6 +19900,58 @@ func (siw *ServerInterfaceWrapper) TransferProject(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// UpgradeProject operation middleware
+func (siw *ServerInterfaceWrapper) UpgradeProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpgradeProject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpgradePreflight operation middleware
+func (siw *ServerInterfaceWrapper) UpgradePreflight(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpgradePreflight(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListWebhooks operation middleware
 func (siw *ServerInterfaceWrapper) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 
@@ -12558,6 +20269,20 @@ func (siw *ServerInterfaceWrapper) TestWebhook(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TestWebhook(w, r, id, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRegions operation middleware
+func (siw *ServerInterfaceWrapper) ListRegions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRegions(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12885,6 +20610,93 @@ func (siw *ServerInterfaceWrapper) TestStorageTarget(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// SupportInboundEmail operation middleware
+func (siw *ServerInterfaceWrapper) SupportInboundEmail(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SupportInboundEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SupportWhatsAppVerify operation middleware
+func (siw *ServerInterfaceWrapper) SupportWhatsAppVerify(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SupportWhatsAppVerifyParams
+
+	// ------------- Optional query parameter "hub.mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.mode", r.URL.Query(), &params.HubMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hub.verify_token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.verify_token", r.URL.Query(), &params.HubVerifyToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.verify_token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.verify_token", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hub.challenge" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.challenge", r.URL.Query(), &params.HubChallenge, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.challenge"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.challenge", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SupportWhatsAppVerify(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SupportWhatsAppWebhook operation middleware
+func (siw *ServerInterfaceWrapper) SupportWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SupportWhatsAppWebhook(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTerms operation middleware
 func (siw *ServerInterfaceWrapper) GetTerms(w http.ResponseWriter, r *http.Request) {
 
@@ -13132,6 +20944,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/version", wrapper.GetVersion)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pricing", wrapper.GetPricing)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/auth/login", wrapper.PostAuthLogin)
 	})
 	r.Group(func(r chi.Router) {
@@ -13270,6 +21085,36 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/promote", wrapper.PromoteProject)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/projects/{project_id}/move", wrapper.MoveProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/moves", wrapper.ListProjectMoves)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/upgrade/preflight", wrapper.UpgradePreflight)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.DisableProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.GetProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.UpdateProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/ha", wrapper.EnableProjectHA)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/resume", wrapper.ResumeProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/switchover", wrapper.SwitchoverProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/upgrade", wrapper.UpgradeProject)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote/preflight", wrapper.DemotePreflight)
 	})
 	r.Group(func(r chi.Router) {
@@ -13379,6 +21224,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/alerts", wrapper.ListAlerts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/incidents", wrapper.ListIncidents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/incidents", wrapper.CreateIncident)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/incidents/{id}", wrapper.GetIncident)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/incidents/{id}", wrapper.UpdateIncident)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/incidents/{id}/updates", wrapper.PostIncidentUpdate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pooler-hosts", wrapper.GetPoolerHosts)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/settings/alerts", wrapper.GetAlertSettings)
@@ -13621,6 +21484,69 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/quotas", wrapper.GetOrgQuotas)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing", wrapper.GetOrgBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}/billing", wrapper.UpdateOrgBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/plan", wrapper.ChangeOrgPlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts", wrapper.ListBillingContacts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts", wrapper.AddBillingContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts/{email}", wrapper.RemoveBillingContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices", wrapper.ListOrgInvoices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}", wrapper.GetOrgInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf", wrapper.GetOrgInvoicePdf)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/forecast", wrapper.GetOrgForecast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/estimate", wrapper.EstimateOrgCost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/checkout", wrapper.StartCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/virtual-account", wrapper.OrgVirtualAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods", wrapper.ListPaymentMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}", wrapper.RemovePaymentMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}/default", wrapper.SetDefaultPaymentMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.ClearAutoTopup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.SetAutoTopup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payments", wrapper.ListOrgPayments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payments/{payment_id}/receipt", wrapper.GetPaymentReceipt)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate", wrapper.UploadWhtCertificate)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/usage", wrapper.GetOrgUsage)
 	})
 	r.Group(func(r chi.Router) {
@@ -13640,6 +21566,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/reclaim-space", wrapper.ReclaimSpace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/queries", wrapper.ListInsightQueries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/queries/{query_id}", wrapper.GetInsightQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/insights/explain", wrapper.ExplainInsightQuery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/slow", wrapper.ListSlowQueries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/indexes", wrapper.GetInsightIndexes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/bloat", wrapper.GetInsightBloat)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/insights/locks", wrapper.GetInsightLocks)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/reaped", wrapper.ListReapedSessions)
@@ -13739,6 +21686,246 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/usage", wrapper.PlatformUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/billing/settings", wrapper.GetBillingSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/billing/settings", wrapper.PutBillingSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/price-books", wrapper.ListPriceBooks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/price-books", wrapper.CreatePriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/admin/price-books/{version}", wrapper.DeletePriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/price-books/{version}", wrapper.GetPriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/price-books/{version}", wrapper.UpdatePriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/price-books/{version}/publish", wrapper.PublishPriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/orgs/{org}/billing", wrapper.AdminGetOrgBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/orgs/{org}/billing", wrapper.AdminUpdateOrgBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/invoices", wrapper.AdminListInvoices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/draft", wrapper.AdminDraftInvoices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}", wrapper.AdminGetInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/pdf", wrapper.AdminGetInvoicePdf)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/hold", wrapper.AdminHoldInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/issue", wrapper.AdminIssueInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/credit-notes", wrapper.AdminCreateCreditNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/ledger/check", wrapper.AdminLedgerCheck)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/price-books/{version}/preview", wrapper.PreviewPriceBook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/payments/webhooks/{provider}", wrapper.PaymentWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/support/tickets", wrapper.ListOrgTickets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/support/tickets", wrapper.OpenOrgTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/support/tickets/{ticket_id}", wrapper.GetOrgTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/support/tickets/{ticket_id}/messages", wrapper.ReplyOrgTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/support/phones", wrapper.ListSupportPhones)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/support/phones", wrapper.AddSupportPhone)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/support/phones/{phone}", wrapper.RemoveSupportPhone)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/support/inbound/email", wrapper.SupportInboundEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/support/whatsapp", wrapper.SupportWhatsAppVerify)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/support/whatsapp", wrapper.SupportWhatsAppWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/support/tickets", wrapper.AdminListTickets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/support/tickets/{ticket_id}", wrapper.AdminGetTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/support/tickets/{ticket_id}", wrapper.AdminUpdateTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/support/tickets/{ticket_id}/messages", wrapper.AdminReplyTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/support/staff", wrapper.AdminSupportStaff)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/legal", wrapper.GetLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/legal", wrapper.GetOrgLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/legal/{document_id}/accept", wrapper.AcceptOrgLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/legal", wrapper.AdminListLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/legal", wrapper.AdminPublishLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/legal/{document_id}", wrapper.AdminGetLegal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/orgs/{org}/order-form", wrapper.AdminPublishOrderForm)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/capacity", wrapper.AdminCapacity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/regions", wrapper.ListRegions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/regions", wrapper.ListAdminRegions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/regions/{region_id}", wrapper.PutAdminRegion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/residency", wrapper.SetProjectResidency)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/capacity/settings", wrapper.PutCapacitySettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/evaluate", wrapper.EvaluateCapacity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/proposals/{proposal_id}/approve", wrapper.ApproveCapacityProposal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/proposals/{proposal_id}/reject", wrapper.RejectCapacityProposal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/rebalance", wrapper.PlanRebalance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/capacity/batches/{batch_id}", wrapper.DecideRebalanceBatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/cloud/catalog", wrapper.CloudCatalog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/nodes/{id}/drain", wrapper.StopDrain)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/nodes/{id}/drain", wrapper.DrainNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/nodes/{id}/cost", wrapper.SetNodeCost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/costs", wrapper.AdminCosts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/costs/attribute", wrapper.AttributeCosts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/costs/settings", wrapper.GetCostSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/costs/settings", wrapper.PutCostSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/fx-rates", wrapper.ListFXRates)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/fx-rates", wrapper.SetFXRate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/revenue", wrapper.AdminRevenue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/payments", wrapper.AdminListPayments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/payments", wrapper.AdminRecordPayment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/billing/documents", wrapper.AdminUploadBillingDocument)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/payments/{payment_id}/refund", wrapper.AdminRefundPayment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/payment-events", wrapper.AdminListPaymentEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/payment-events/{event_id}/attribute", wrapper.AdminAttributePaymentEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/wht", wrapper.AdminOutstandingWht)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/invoices/{invoice_id}/wht-certificate", wrapper.AdminUploadWhtCertificate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/reconciliation", wrapper.AdminLastReconciliation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/reconciliation", wrapper.AdminRunReconciliation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/orgs/{org}/billing/grace", wrapper.AdminSetGrace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/admin/maintenance/window", wrapper.PutMaintenanceWindow)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/instances/{instance_id}/minor-upgrade", wrapper.MinorUpgradeInstance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/etcd", wrapper.GetEtcdCluster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/etcd", wrapper.SetupEtcdCluster)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/shared-clusters", wrapper.ListSharedClusters)

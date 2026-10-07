@@ -21,7 +21,9 @@ import {
 } from "../components/ui";
 import { formatBytes, formatDate } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
+import { OrgBillingPanel } from "../components/AdminPayments";
 import { formatQuantity, LIMIT_LABELS, monthStart } from "../lib/usage";
+import { OrderFormCard } from "./Legal";
 
 function statusBadge(status: string) {
   return <Badge tone={status === "active" ? "ok" : status === "suspended" ? "danger" : "warn"}>{status}</Badge>;
@@ -168,6 +170,8 @@ export function AdminOrgPage() {
             />
           )}
         </Panel>
+        <OrgBillingPanel org={id} />
+        <OrderFormCard org={id} />
         <SuspendCard org={o} onDone={refresh} />
         <BreakGlassCard org={o} onDone={refresh} />
       </div>

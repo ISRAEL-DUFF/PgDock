@@ -2,9 +2,13 @@
 SELECT count(*) FROM users;
 
 -- name: InsertUser :one
-INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at)
-VALUES (@email, @password_hash, sqlc.narg(name), @platform_role, sqlc.narg(email_verified_at), sqlc.narg(approved_at))
+INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at, signup_ip)
+VALUES (@email, @password_hash, sqlc.narg(name), @platform_role, sqlc.narg(email_verified_at), sqlc.narg(approved_at), sqlc.narg(signup_ip))
 RETURNING *;
+
+-- name: CountSignupsFrom :one
+-- Accounts created from an IP address since a time (V3 §7.4).
+SELECT count(*) FROM users WHERE signup_ip = @ip AND created_at >= @since;
 
 -- name: CountPlatformAdmins :one
 SELECT count(*) FROM users WHERE platform_role = 'platform_admin' AND disabled_at IS NULL;
@@ -74,8 +78,8 @@ RETURNING user_id;
 SELECT * FROM terms_versions ORDER BY version DESC LIMIT 1;
 
 -- name: InsertTerms :one
-INSERT INTO terms_versions (version, terms_md, privacy_md, published_by)
-VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), @terms_md, @privacy_md, sqlc.narg(published_by))
+INSERT INTO terms_versions (version, terms_md, privacy_md, aup_md, published_by)
+VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), @terms_md, @privacy_md, @aup_md, sqlc.narg(published_by))
 RETURNING *;
 
 -- name: AcceptTerms :exec

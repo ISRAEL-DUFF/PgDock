@@ -30,6 +30,8 @@ type Actor struct {
 	Kind          string
 	UserID        uuid.UUID
 	PlatformAdmin bool
+	// Support is support staff (V3 §7.1).
+	Support bool
 	// TokenID and TokenOrg are set for API tokens (V2 §7.2), which act
 	// only in their organisation, within their scopes, and (when
 	// TokenProjects is not nil) only on those projects.
@@ -56,12 +58,14 @@ var actionScope = map[Action]string{
 	ConsoleRead:        ScopeRead,
 	ProjectAudit:       ScopeRead,
 	ProjectExport:      ScopeAdmin,
+	ProjectResidency:   ScopeAdmin,
 	ConsoleWrite:       ScopeWrite,
 	TableEdit:          ScopeWrite,
 	BackupCreate:       ScopeWrite,
 	OrgCreateProject:   ScopeWrite,
 	OrgManage:          ScopeAdmin,
 	OrgOwnerOnly:       ScopeAdmin,
+	OrgBillingManage:   ScopeAdmin,
 	RestoreInPlace:     ScopeAdmin,
 	BackupStorage:      ScopeAdmin,
 	BranchManage:       ScopeWrite,
@@ -116,6 +120,8 @@ const (
 	OrgOwner  = "owner"
 	OrgAdmin  = "admin"
 	OrgMember = "member"
+	// OrgBilling sees and manages billing, without project access (V3 §3.2).
+	OrgBilling = "billing"
 )
 
 // Project roles.
@@ -135,12 +141,17 @@ const (
 	// signup, users, platform invitations, isolation checks, alerts,
 	// platform audit, /metrics.
 	PlatformManage Action = "platform.manage"
+	// SupportConsole is support staff and platform admins (V3 §7.1): the
+	// ticket console and organisations' metadata, never tenant data.
+	SupportConsole Action = "support.console"
 
 	OrgView          Action = "org.view"           // member
 	OrgCreateProject Action = "org.create_project" // admin; member when the org allows it
 	OrgManage        Action = "org.manage"         // admin: settings, members, invitations
 	OrgAudit         Action = "org.audit"          // admin: org audit log, usage
 	OrgOwnerOnly     Action = "org.owner"          // owner: owners, delete, transfer projects out
+	// OrgBillingManage is billing: owners and billing members only (V3 §3.2).
+	OrgBillingManage Action = "org.billing"
 
 	ProjectView        Action = "project.view"         // read_only: project, metrics, operations
 	ProjectCredentials Action = "project.credentials"  // read_only (read-only credentials)
@@ -161,6 +172,9 @@ const (
 	// archive, V2 §10.10): organisation owners only, and like any project
 	// action invisible to those who can't see the project.
 	ProjectExport Action = "project.export"
+	// ProjectResidency turns a project's data residency on or off (V3
+	// §6.3): organisation owners only.
+	ProjectResidency Action = "project.residency"
 )
 
 // projectMin is the least project role for each project action.
@@ -181,6 +195,7 @@ var projectMin = map[Action]string{
 	ProjectDelete:      ProjectAdmin,
 	ProjectAudit:       ProjectAdmin,
 	ProjectExport:      ProjectReadOnly, // visibility; owners only, below
+	ProjectResidency:   ProjectReadOnly, // visibility; owners only, below
 }
 
 // IsProjectAction reports whether a is checked against a project.
@@ -237,6 +252,9 @@ func Can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 	case PlatformManage:
 		ok := actor.PlatformAdmin && actor.Kind == ActorSession
 		// Platform routes are not tenant resources: refusing them is 403.
+		return Decision{Visible: true, Allowed: ok}, nil
+	case SupportConsole:
+		ok := (actor.PlatformAdmin || actor.Support) && actor.Kind == ActorSession
 		return Decision{Visible: true, Allowed: ok}, nil
 	}
 	if actor.Kind == ActorSystem {
@@ -314,6 +332,9 @@ func can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		if res.ProjectID == uuid.Nil {
 			return Decision{}, errors.New("authz: project action without a project")
 		}
+		if d.OrgRole == OrgBilling {
+			return Decision{OrgRole: d.OrgRole}, nil // no project access
+		}
 		if d.OrgRole == OrgOwner || d.OrgRole == OrgAdmin {
 			d.ProjectRole = ProjectAdmin
 		} else {
@@ -328,7 +349,7 @@ func can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		}
 		d.Visible = true
 		d.Allowed = projectRank[d.ProjectRole] >= projectRank[minRole]
-		if action == ProjectExport {
+		if action == ProjectExport || action == ProjectResidency {
 			d.Allowed = d.OrgRole == OrgOwner && !d.BreakGlass
 		}
 		return d, nil
@@ -342,7 +363,12 @@ func can(ctx context.Context, q Queries, actor Actor, action Action, res Resourc
 		d.Allowed = orgRank[d.OrgRole] >= orgRank[OrgAdmin]
 	case OrgOwnerOnly:
 		d.Allowed = d.OrgRole == OrgOwner
+	case OrgBillingManage:
+		d.Allowed = (d.OrgRole == OrgOwner || d.OrgRole == OrgBilling) && !d.BreakGlass
 	case OrgCreateProject:
+		if d.OrgRole == OrgBilling {
+			break
+		}
 		if orgRank[d.OrgRole] >= orgRank[OrgAdmin] {
 			d.Allowed = true
 			break

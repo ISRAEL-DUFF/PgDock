@@ -161,44 +161,70 @@ func (a *auditInfo) set(k string, v any) {
 // auditActions names mutating routes. Unlisted ones fall back to
 // "<METHOD> <pattern>".
 var auditActions = map[string]string{
-	"POST /api/v1/auth/login":                    "auth.login",
-	"POST /api/v1/auth/totp":                     "auth.totp",
-	"POST /api/v1/auth/reauth":                   "auth.reauth",
-	"POST /api/v1/auth/logout":                   "auth.logout",
-	"POST /api/v1/setup/begin":                   "setup.begin",
-	"POST /api/v1/setup/complete":                "setup.complete",
-	"POST /api/v1/projects":                      "project.create",
-	"DELETE /api/v1/projects/{id}":               "project.delete",
-	"PATCH /api/v1/projects/{id}/settings":       "project.update",
-	"POST /api/v1/projects/{id}/rotate-password": "project.rotate_password",
-	"PUT /api/v1/settings/db-host":               "settings.db_host",
-	"POST /api/v1/dev/operations":                "dev.operation",
-	"POST /api/v1/settings/db-host/check":        "", // read-only check
-	"POST /api/v1/projects/{id}/backups":         "backup.create",
-	"POST /api/v1/backups/{id}/restore":          "backup.restore",
-	"POST /api/v1/restore-tests":                 "backup.restore_test",
-	"PUT /api/v1/settings/storage":               "settings.storage",
-	"POST /api/v1/settings/storage/test":         "settings.storage_test",
-	"POST /api/v1/settings/backup-key":           "settings.backup_key.generate",
-	"POST /api/v1/settings/backup-key/export":    "settings.backup_key.export",
-	"POST /api/v1/settings/backup-key/confirm":   "settings.backup_key.confirm",
-	"POST /api/v1/imports/preflight":             "import.preflight",
-	"POST /api/v1/imports":                       "import.create",
-	"POST /api/v1/nodes/{id}/registration-token": "node.registration_token",
-	"POST /api/v1/agent/register":                "node.agent_register",
-	"POST /api/v1/nodes":                         "node.create",
-	"DELETE /api/v1/nodes/{id}":                  "node.remove",
-	"PATCH /api/v1/nodes/{id}":                   "node.update",
-	"POST /api/v1/nodes/{id}/shared-cluster":     "node.shared_cluster",
-	"POST /api/v1/projects/{id}/pitr":            "backup.pitr",
-	"POST /api/v1/projects/{id}/instance":        "project.instance",
-	"POST /api/v1/projects/{id}/promote":         "project.promote",
-	"POST /api/v1/projects/{id}/sql":             "project.console",
-	"POST /api/v1/projects/{id}/sql/cancel":      "project.console_cancel",
-	"POST /api/v1/projects/{id}/extensions":      "project.extension",
-	"POST /api/v1/security/isolation-checks":     "security.isolation_check",
-	"PUT /api/v1/settings/alerts":                "settings.alerts",
-	"POST /api/v1/settings/alerts/test":          "settings.alerts_test",
+	"POST /api/v1/auth/login":                                      "auth.login",
+	"POST /api/v1/auth/totp":                                       "auth.totp",
+	"POST /api/v1/auth/reauth":                                     "auth.reauth",
+	"POST /api/v1/auth/logout":                                     "auth.logout",
+	"POST /api/v1/setup/begin":                                     "setup.begin",
+	"POST /api/v1/setup/complete":                                  "setup.complete",
+	"POST /api/v1/projects":                                        "project.create",
+	"DELETE /api/v1/projects/{id}":                                 "project.delete",
+	"PATCH /api/v1/projects/{id}/settings":                         "project.update",
+	"POST /api/v1/projects/{id}/rotate-password":                   "project.rotate_password",
+	"PUT /api/v1/settings/db-host":                                 "settings.db_host",
+	"POST /api/v1/dev/operations":                                  "dev.operation",
+	"POST /api/v1/settings/db-host/check":                          "", // read-only check
+	"POST /api/v1/payments/webhooks/{provider}":                    "", // the payment event log records them
+	"POST /api/v1/support/inbound/email":                           "", // the ticket records it
+	"POST /api/v1/support/whatsapp":                                "", // likewise
+	"POST /api/v1/orgs/{org}/support/tickets":                      "support.ticket_open",
+	"POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages": "support.ticket_reply",
+	"POST /api/v1/orgs/{org}/support/phones":                       "support.phone_add",
+	"DELETE /api/v1/orgs/{org}/support/phones/{phone}":             "support.phone_remove",
+	"PATCH /api/v1/admin/support/tickets/{ticket_id}":              "support.ticket_update",
+	"POST /api/v1/admin/support/tickets/{ticket_id}/messages":      "support.staff_reply",
+	"POST /api/v1/orgs/{org}/legal/{document_id}/accept":           "legal.accept",
+	"POST /api/v1/admin/legal":                                     "legal.publish",
+	"POST /api/v1/admin/orgs/{org}/order-form":                     "legal.order_form",
+	"POST /api/v1/projects/{id}/backups":                           "backup.create",
+	"POST /api/v1/backups/{id}/restore":                            "backup.restore",
+	"POST /api/v1/restore-tests":                                   "backup.restore_test",
+	"PUT /api/v1/settings/storage":                                 "settings.storage",
+	"POST /api/v1/settings/storage/test":                           "settings.storage_test",
+	"POST /api/v1/settings/backup-key":                             "settings.backup_key.generate",
+	"POST /api/v1/settings/backup-key/export":                      "settings.backup_key.export",
+	"POST /api/v1/settings/backup-key/confirm":                     "settings.backup_key.confirm",
+	"POST /api/v1/imports/preflight":                               "import.preflight",
+	"POST /api/v1/imports":                                         "import.create",
+	"POST /api/v1/nodes/{id}/registration-token":                   "node.registration_token",
+	"POST /api/v1/agent/register":                                  "node.agent_register",
+	"POST /api/v1/nodes":                                           "node.create",
+	"DELETE /api/v1/nodes/{id}":                                    "node.remove",
+	"PATCH /api/v1/nodes/{id}":                                     "node.update",
+	"PUT /api/v1/admin/capacity/settings":                          "capacity.settings",
+	"PUT /api/v1/admin/regions/{region_id}":                        "region.save",
+	"PUT /api/v1/projects/{id}/residency":                          "project.residency",
+	"POST /api/v1/admin/capacity/evaluate":                         "capacity.evaluate",
+	"POST /api/v1/admin/capacity/proposals/{proposal_id}/approve":  "capacity.approve",
+	"POST /api/v1/admin/capacity/proposals/{proposal_id}/reject":   "capacity.reject",
+	"POST /api/v1/admin/capacity/rebalance":                        "capacity.rebalance",
+	"POST /api/v1/admin/capacity/batches/{batch_id}":               "capacity.batch",
+	"POST /api/v1/nodes/{id}/drain":                                "node.drain",
+	"DELETE /api/v1/nodes/{id}/drain":                              "node.drain_stop",
+	"PUT /api/v1/nodes/{id}/cost":                                  "node.cost",
+	"POST /api/v1/admin/costs/attribute":                           "costs.attribute",
+	"PUT /api/v1/admin/costs/settings":                             "costs.settings",
+	"POST /api/v1/admin/fx-rates":                                  "costs.fx_rate",
+	"POST /api/v1/nodes/{id}/shared-cluster":                       "node.shared_cluster",
+	"POST /api/v1/projects/{id}/pitr":                              "backup.pitr",
+	"POST /api/v1/projects/{id}/instance":                          "project.instance",
+	"POST /api/v1/projects/{id}/promote":                           "project.promote",
+	"POST /api/v1/projects/{id}/sql":                               "project.console",
+	"POST /api/v1/projects/{id}/sql/cancel":                        "project.console_cancel",
+	"POST /api/v1/projects/{id}/extensions":                        "project.extension",
+	"POST /api/v1/security/isolation-checks":                       "security.isolation_check",
+	"PUT /api/v1/settings/alerts":                                  "settings.alerts",
+	"POST /api/v1/settings/alerts/test":                            "settings.alerts_test",
 
 	"POST /api/v1/auth/signup":                                   "auth.signup",
 	"POST /api/v1/auth/verify-email":                             "auth.verify_email",
@@ -351,22 +377,37 @@ var csrfExempt = map[string]bool{
 	"POST /api/v1/agent/register":    true,
 	"POST /api/v1/auth/device":       true,
 	"POST /api/v1/auth/device/token": true,
+	// Signed by the provider; no cookies.
+	"POST /api/v1/payments/webhooks/{provider}": true,
+	"POST /api/v1/support/inbound/email":        true,
+	"POST /api/v1/support/whatsapp":             true,
 }
 
 // reauthRequired lists destructive routes needing a recent step-up auth
 // (spec §7.2).
 var reauthRequired = map[string]bool{
-	"DELETE /api/v1/projects/{id}":                  true,
-	"POST /api/v1/settings/backup-key/export":       true,
-	"DELETE /api/v1/nodes/{id}":                     true,
-	"POST /api/v1/me/recovery-codes":                true,
-	"POST /api/v1/admin/users/{user}/reset-2fa":     true,
-	"POST /api/v1/projects/{id}/transfer":           true,
-	"POST /api/v1/orgs/{org}/transfer-ownership":    true,
-	"DELETE /api/v1/orgs/{org}":                     true,
-	"POST /api/v1/admin/orgs/{org}/break-glass":     true,
-	"POST /api/v1/admin/orgs/{org}/suspend":         true,
-	"GET /api/v1/projects/{id}/backup-key/download": true,
+	"DELETE /api/v1/projects/{id}":            true,
+	"POST /api/v1/settings/backup-key/export": true,
+	"DELETE /api/v1/nodes/{id}":               true,
+	// Spending money: a server, or the budget that lets PGDock buy them.
+	"POST /api/v1/admin/capacity/proposals/{proposal_id}/approve": true,
+	"PUT /api/v1/admin/capacity/settings":                         true,
+	"PUT /api/v1/projects/{id}/residency":                         true,
+	// Moving money or changing what is owed (M27 security review).
+	"POST /api/v1/admin/payments/{payment_id}/refund":        true,
+	"POST /api/v1/admin/payments":                            true,
+	"POST /api/v1/admin/invoices/{invoice_id}/credit-notes":  true,
+	"POST /api/v1/admin/payment-events/{event_id}/attribute": true,
+	"POST /api/v1/admin/price-books/{version}/publish":       true,
+	"PATCH /api/v1/admin/orgs/{org}/billing":                 true,
+	"POST /api/v1/me/recovery-codes":                         true,
+	"POST /api/v1/admin/users/{user}/reset-2fa":              true,
+	"POST /api/v1/projects/{id}/transfer":                    true,
+	"POST /api/v1/orgs/{org}/transfer-ownership":             true,
+	"DELETE /api/v1/orgs/{org}":                              true,
+	"POST /api/v1/admin/orgs/{org}/break-glass":              true,
+	"POST /api/v1/admin/orgs/{org}/suspend":                  true,
+	"GET /api/v1/projects/{id}/backup-key/download":          true,
 	// POST /api/v1/backups/{id}/restore checks it for mode in_place only.
 }
 
@@ -582,7 +623,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		if !isAPIPath(r.URL.Path) {
+			// Cloudflare Turnstile's script and frame, for the signup page's
+			// challenge (V3 §7.4).
 			h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "+
+				"script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; "+
 				"connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		}
 		next.ServeHTTP(w, r)

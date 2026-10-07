@@ -141,6 +141,11 @@ func (s *Service) Resolve(ctx context.Context, p CreateParams) (Resolved, error)
 	default:
 		return r, fmt.Errorf("%w: source must be backup or live", ErrInvalid)
 	}
+	// A sleeping Free project's database refuses connections (V3 §4); its
+	// backups still branch.
+	if r.Source == SourceLive && parent.Lifecycle != "" && parent.Lifecycle != "active" {
+		return r, fmt.Errorf("%w: %s is %s for inactivity; resume it to branch from live, or branch from its backup", ErrConflict, parent.Name, parent.Lifecycle)
+	}
 	r.SchemaOnly = parent.SensitiveData
 	if p.SchemaOnly != nil {
 		r.SchemaOnly = *p.SchemaOnly
@@ -172,8 +177,14 @@ func (s *Service) Resolve(ctx context.Context, p CreateParams) (Resolved, error)
 // Create queues a branch of r.Parent (always on the shared tier) and
 // returns its one-time credentials.
 func (s *Service) Create(ctx context.Context, p CreateParams, r Resolved) (provision.Created, error) {
+	// The parent's Postgres version, so the branch behaves like it.
+	parentInst, err := store.New(s.db).GetInstance(ctx, r.Parent.InstanceID)
+	if err != nil {
+		return provision.Created{}, err
+	}
 	return s.projects.Create(ctx, provision.CreateParams{
-		OrgID: r.Parent.OrgID, CreatorRole: p.CreatorRole, Name: p.Name, CreatedBy: p.CreatedBy,
+		PgVersion: int(parentInst.PgVersion),
+		OrgID:     r.Parent.OrgID, CreatorRole: p.CreatorRole, Name: p.Name, CreatedBy: p.CreatedBy,
 		Kind: KindCreate, Tier: provision.TierShared, Sensitive: r.Parent.SensitiveData,
 		Params: map[string]any{"branch": fillParams{Parent: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly}},
 		Branch: &provision.BranchSpec{ParentID: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly, ExpiresAt: r.ExpiresAt},

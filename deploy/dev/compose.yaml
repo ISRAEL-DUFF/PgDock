@@ -69,6 +69,9 @@ services:
       - log_min_duration_statement=5s
       - -c
       - hba_file=/etc/pgdock/pg_hba.conf
+      # Logical-replication moves (V3 §2.3).
+      - -c
+      - wal_level=logical
     ports:
       - "127.0.0.1:${PGDOCK_DEV_SHARED_PORT:-5441}:5432"
     volumes:
@@ -150,7 +153,7 @@ services:
       POSTGRES_PASSWORD: pgdock_admin
       POSTGRES_DB: postgres
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
-    command: ["postgres", "-c", "hba_file=/etc/pgdock/pg_hba.conf", "-c", "max_connections=500",
+    command: ["postgres", "-c", "hba_file=/etc/pgdock/pg_hba.conf", "-c", "max_connections=500", "-c", "wal_level=logical",
               "-c", "shared_buffers=256MB", "-c", "log_min_duration_statement=5s"]
     ports:
       - "127.0.0.1:${PGDOCK_DEV_LOAD2_PORT:-5443}:5432"
@@ -210,6 +213,19 @@ services:
     stop_signal: SIGKILL
     ports:
       - "127.0.0.1:${PGDOCK_TEST_AGENT2_PORT:-7072}:7070"
+    volumes:
+      - ../../tmp/bin:/pgdock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # A third node, for the etcd cluster's third member and HA failover
+  # tests (V3 §2.2).
+  agent-test-3:
+    image: postgres:18
+    profiles: [test]
+    entrypoint: ["sleep", "infinity"]
+    stop_signal: SIGKILL
+    ports:
+      - "127.0.0.1:${PGDOCK_TEST_AGENT3_PORT:-7073}:7070"
     volumes:
       - ../../tmp/bin:/pgdock:ro
       - /var/run/docker.sock:/var/run/docker.sock

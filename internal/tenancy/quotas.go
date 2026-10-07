@@ -47,6 +47,9 @@ func (s *Service) CheckCreateProject(ctx context.Context, orgID uuid.UUID) error
 	if err := s.orgActive(o); err != nil {
 		return err
 	}
+	if err := s.CheckBillingStanding(ctx, orgID); err != nil {
+		return err
+	}
 	if limit, ok := l.Get(store.LimitProjects); ok {
 		n, err := store.New(s.db).CountOrgProjects(ctx, orgID)
 		if err != nil {
@@ -55,6 +58,34 @@ func (s *Service) CheckCreateProject(ctx context.Context, orgID uuid.UUID) error
 		if int64(n) >= limit {
 			return &QuotaError{Limit: store.LimitProjects, Used: int64(n), Max: limit}
 		}
+	}
+	return nil
+}
+
+// CheckSpendCap refuses a new billable resource (a branch, a dedicated
+// instance, HA) while the organisation is at its spend cap (V3 §3.10).
+// Nothing running is stopped.
+func (s *Service) CheckSpendCap(ctx context.Context, orgID uuid.UUID) error {
+	capped, err := store.New(s.db).OrgSpendCapped(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if capped {
+		return fmt.Errorf("%w: the organisation has reached its spend cap; new billable resources are paused until the cap is raised on the Billing page or next month starts", ErrConflict)
+	}
+	return nil
+}
+
+// CheckBillingStanding refuses new projects, branches and dedicated
+// instances while the organisation is restricted for an overdue balance
+// (V3 §3.8, day 3 on).
+func (s *Service) CheckBillingStanding(ctx context.Context, orgID uuid.UUID) error {
+	state, err := store.New(s.db).OrgDunningState(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if state == "restricted" || state == "suspended" {
+		return fmt.Errorf("%w: the organisation has an overdue balance; creating projects, branches and dedicated instances is blocked until it is paid (Billing page)", ErrConflict)
 	}
 	return nil
 }
@@ -68,6 +99,12 @@ func (s *Service) CheckCreateBranch(ctx context.Context, orgID uuid.UUID, parent
 		return err
 	}
 	if err := s.orgActive(o); err != nil {
+		return err
+	}
+	if err := s.CheckSpendCap(ctx, orgID); err != nil {
+		return err
+	}
+	if err := s.CheckBillingStanding(ctx, orgID); err != nil {
 		return err
 	}
 	q := store.New(s.db)

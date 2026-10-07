@@ -28,6 +28,8 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | [Terms template](docs/terms-template.md) | Terms of use and privacy notice to adapt |
 | [CLI and API tokens](docs/cli.md) | `pgdock` from a terminal or CI |
 | [Webhooks and scheduled jobs](docs/webhooks.md) | Table changes to a URL, signed; SQL or HTTP on a schedule |
+| [Standby edge pooler](docs/edge-poolers.md) | Two pooler hosts behind a floating IP, with keepalived |
+| [Status page](docs/status-page.md) | pgdock-status on separate infrastructure, incidents, subscriptions |
 | [Upgrades](docs/upgrade.md) | New releases, agents, PostgreSQL minor versions |
 | [Disaster recovery](docs/disaster-recovery.md) | Rebuild the control node from backups |
 | [Security review](docs/security-review.md) | Spec §7, item by item, with the tests that check it |

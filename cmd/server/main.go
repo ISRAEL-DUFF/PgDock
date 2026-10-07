@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -21,6 +22,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
@@ -30,13 +33,25 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
+	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/branching"
+	"github.com/israel-duff/pgdock/internal/capacity"
+	"github.com/israel-duff/pgdock/internal/cloud"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/console"
+	"github.com/israel-duff/pgdock/internal/costs"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/floatip"
+	"github.com/israel-duff/pgdock/internal/freetier"
+	"github.com/israel-duff/pgdock/internal/ha"
+	"github.com/israel-duff/pgdock/internal/incidents"
+	"github.com/israel-duff/pgdock/internal/insights"
 	"github.com/israel-duff/pgdock/internal/isocheck"
 	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/metrics"
@@ -45,14 +60,19 @@ import (
 	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/regions"
 	"github.com/israel-duff/pgdock/internal/rotate"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
 	"github.com/israel-duff/pgdock/internal/settings"
+	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/support"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 	"github.com/israel-duff/pgdock/internal/tlscert"
 	"github.com/israel-duff/pgdock/internal/tokens"
 	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/pgdock/internal/waker"
 	"github.com/israel-duff/pgdock/internal/webhooks"
 	"github.com/israel-duff/pgdock/web"
 )
@@ -160,9 +180,23 @@ func run() error {
 	}
 	bg.Add(1)
 	go func() { defer bg.Done(); sweepAuth(bgCtx, authSvc, log) }()
+	// Open signup's protection (V3 §7.4).
+	guard := auth.SignupGuard{PerIP: cfg.Signup.PerIP}
+	if cfg.Signup.TurnstileSecret != "" {
+		guard.Check = auth.Turnstile{SiteKey: cfg.Signup.TurnstileSiteKey, Secret: cfg.Signup.TurnstileSecret, URL: cfg.Signup.TurnstileURL}
+		guard.SiteKey = cfg.Signup.TurnstileSiteKey
+	}
+	authSvc.SetSignupGuard(guard)
 
 	kinds := map[string]jobs.Kind{jobs.KindNoop: jobs.Noop()}
-	projects, pm, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, log)
+	// Regions (V3 §6.1): the home region is where projects go by default.
+	regionSvc := regions.New(pool, cfg.Cloud.Region, log)
+	if err := regionSvc.Ensure(ctx); err != nil {
+		return fmt.Errorf("regions: %w", err)
+	}
+	bg.Add(1)
+	go func() { defer bg.Done(); regionSvc.Run(bgCtx, 30*time.Second) }()
+	projects, pm, err := setupProvisioning(ctx, cfg, pool, keyring, settingsStore, regionSvc, log)
 	if err != nil {
 		return err
 	}
@@ -174,6 +208,7 @@ func run() error {
 
 	var backups *backup.Service
 	var nodeSvc *nodes.Service
+	var poolerArbiter *pooler.Arbiter
 	if projects != nil {
 		if backups, nodeSvc, err = setupBackups(ctx, cfg, pool, keyring, projects, log); err != nil {
 			return err
@@ -184,14 +219,49 @@ func run() error {
 		for name, k := range backups.Dedicated.Kinds() {
 			kinds[name] = k
 		}
-		bg.Add(3)
+		// The etcd cluster for HA instances (V3 §2.2).
+		etcdSvc := ha.New(pool, keyring, nodeSvc, log)
+		backups.Dedicated.Etcd = etcdSvc
+		for name, k := range etcdSvc.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); etcdSvc.Run(bgCtx, 30*time.Second) }()
+		// Follow each HA instance's leader (V3 §2.2 "Routing").
+		bg.Add(1)
+		go func() { defer bg.Done(); backups.Dedicated.RunHAWatcher(bgCtx, time.Second) }()
+		// The standby edge pooler (V3 §2.1): push the configuration to the
+		// pooler hosts and keep the floating IP on a healthy one.
+		poolerArbiter = setupPoolerHosts(cfg, pm, nodeSvc, regionSvc, log)
+		if poolerArbiter != nil {
+			bg.Add(1)
+			go func() { defer bg.Done(); poolerArbiter.Run(bgCtx, 3*time.Second) }()
+		}
+		bg.Add(4)
 		go func() { defer bg.Done(); nodeSvc.Run(bgCtx, 30*time.Second) }()
 		go func() { defer bg.Done(); backups.Run(bgCtx) }()
 		go func() { defer bg.Done(); backups.Dedicated.RunReaper(bgCtx, time.Minute) }()
+		// Postgres minor releases, one instance at a time in the weekly
+		// maintenance window (V3 §2.4).
+		go func() { defer bg.Done(); backups.Dedicated.RunMaintenance(bgCtx, 5*time.Minute) }()
 	}
 
 	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
 	authSvc.SetHooks(orgSvc.Hooks())
+
+	// Billing (V3 §3): price books, accounts, plan changes.
+	billingSvc := billing.New(pool, mailSvc, cfg.Insight.PublicURL, log)
+	billingSvc.SetPayments(paymentProviders(cfg.Payments), billing.Routing{
+		Cards: cfg.Payments.Cards, VAPrimary: cfg.Payments.VAPrimary, VAFallback: cfg.Payments.VAFallback, Wallet: cfg.Payments.Wallet,
+	}, keyring)
+	if backups != nil {
+		billingSvc.SetDocStore(billingDocs{backups})
+	}
+	if err := billingSvc.Init(ctx); err != nil {
+		return fmt.Errorf("billing: %w", err)
+	}
+	bg.Add(1)
+	go func() { defer bg.Done(); billingSvc.Run(bgCtx, 10*time.Minute) }()
 
 	// Quotas, storage locks, the reaper, usage, suspension (V2 §10).
 	tokenSvc := tokens.New(pool, keyring, mailSvc, tokens.Config{PublicURL: cfg.Insight.PublicURL}, log)
@@ -210,6 +280,25 @@ func run() error {
 		}
 		bg.Add(1)
 		go func() { defer bg.Done(); tenancySvc.Run(bgCtx) }()
+		// Dunning suspends through tenancy and, when allowed, deletes an
+		// org's dedicated projects (keeping final backups).
+		billingSvc.SetDunning(tenancySvc, func(ctx context.Context, orgID uuid.UUID) (int, error) {
+			ps, err := store.New(pool).OrgLiveProjects(ctx, orgID)
+			if err != nil {
+				return 0, err
+			}
+			n := 0
+			for _, p := range ps {
+				if p.Tier != provision.TierDedicated {
+					continue
+				}
+				if _, err := projects.Delete(ctx, p.ID, p.Name, false, nil); err != nil {
+					return n, err
+				}
+				n++
+			}
+			return n, nil
+		})
 	}
 
 	// Database branches and their hourly expiry (V2 §8).
@@ -221,6 +310,95 @@ func run() error {
 		}
 		bg.Add(1)
 		go func() { defer bg.Done(); branchSvc.Run(bgCtx, 10*time.Minute) }()
+	}
+
+	// The Free tier: pause idle Free projects, archive long-paused ones,
+	// and wake them on the next connection (V3 §4).
+	var freeSvc *freetier.Service
+	if backups != nil {
+		freeSvc = freetier.New(pool, projects, backups, mailSvc, freetier.Config{
+			PauseAfter: cfg.FreeTier.PauseAfter, ArchiveAfter: cfg.FreeTier.ArchiveAfter, DeleteAfter: cfg.FreeTier.DeleteAfter,
+			PublicURL: cfg.Insight.PublicURL,
+		}, log)
+		for name, k := range freeSvc.Kinds() {
+			kinds[name] = k
+		}
+		if host, port := cfg.FreeTier.WakerHostPort(); host != "" {
+			ln, err := net.Listen("tcp", cfg.FreeTier.WakerListen)
+			if err != nil {
+				return fmt.Errorf("waker: listen on %s: %w", cfg.FreeTier.WakerListen, err)
+			}
+			pm.SetWaker(host, port)
+			ws := waker.New(freeSvc, log)
+			bg.Add(1)
+			go func() {
+				defer bg.Done()
+				// If accepting fails the waker listens again, so paused
+				// projects don't stay unreachable (M27 chaos test).
+				for {
+					err := ws.Serve(bgCtx, ln)
+					if bgCtx.Err() != nil {
+						return
+					}
+					log.Error("waker stopped; restarting", "err", err)
+					_ = ln.Close()
+					for {
+						select {
+						case <-bgCtx.Done():
+							return
+						case <-time.After(5 * time.Second):
+						}
+						if ln, err = net.Listen("tcp", cfg.FreeTier.WakerListen); err == nil {
+							break
+						}
+						log.Error("waker: listen again", "err", err)
+					}
+				}
+			}()
+			log.Info("waker listening", "listen", cfg.FreeTier.WakerListen, "pooler_address", cfg.FreeTier.WakerAddr)
+		} else {
+			log.Info("PGDOCK_WAKER_ADDR is not set: idle Free projects are not paused")
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); freeSvc.Run(bgCtx, time.Hour) }()
+	}
+
+	// Support (V3 §7.1): tickets from the dashboard, email and WhatsApp.
+	supportSvc := support.New(pool, mailSvc, support.Config{
+		Address: cfg.Support.Email, PublicURL: cfg.Insight.PublicURL, InboundSecret: cfg.Support.InboundSecret,
+	}, log)
+	if cfg.Support.WhatsAppOn() {
+		supportSvc.SetWhatsApp(support.CloudAPI{
+			BaseURL: cfg.Support.WhatsAppGraphURL, PhoneNumberID: cfg.Support.WhatsAppPhoneNumberID, AccessToken: cfg.Support.WhatsAppAccessToken,
+			AppSecret: cfg.Support.WhatsAppAppSecret, VerifyToken: cfg.Support.WhatsAppVerifyToken,
+		})
+	}
+
+	// Legal documents (V3 §7.3): the default SLA and DPA until the
+	// company publishes its own.
+	legalSvc := legal.New(pool)
+	if err := legalSvc.EnsureDefaults(ctx); err != nil {
+		return fmt.Errorf("legal documents: %w", err)
+	}
+
+	// Cost attribution and exchange rates (V3 §5.4), and capacity
+	// automation: proposals, provisioning, drains, rebalancing (§5.2, §5.3).
+	costSvc := costs.New(pool, billingSvc, cfg.Cloud.Region, log)
+	bg.Add(1)
+	go func() { defer bg.Done(); costSvc.Run(bgCtx, time.Hour) }()
+	var capacitySvc *capacity.Service
+	if backups != nil {
+		capacitySvc = capacity.New(pool, nodeSvc, backups.Dedicated, cloudProvider(cfg.Cloud), costSvc, capacity.Config{
+			Region: cfg.Cloud.Region, Location: cfg.Cloud.HetznerLocation, Image: cfg.Cloud.HetznerImage,
+			Network: cfg.Cloud.HetznerNetworkID, PlacementGroup: cfg.Cloud.HetznerPlacementGroup, SSHKeys: cfg.Cloud.HetznerSSHKeys,
+			Bootstrap: cloud.Bootstrap{ServerURL: cfg.Cloud.ServerURL, ServerCA: cfg.Cloud.ServerCA, AgentImage: cfg.Cloud.AgentImage,
+				PGImage: cfg.Cloud.PGImage, PrivateCIDR: cfg.Cloud.PrivateCIDR},
+		}, log)
+		for name, k := range capacitySvc.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); capacitySvc.Run(bgCtx, 30*time.Second) }()
 	}
 
 	// Database webhooks, scheduled jobs and their outbound requests (V2 §9).
@@ -241,6 +419,7 @@ func run() error {
 	}
 
 	var consoleSvc *console.Service
+	var insightSvc *insights.Service
 	var isoChecks *isocheck.Service
 	var alertSvc *alerts.Service
 	if projects != nil {
@@ -252,13 +431,18 @@ func run() error {
 		go func() { defer bg.Done(); isoChecks.Run(bgCtx) }()
 		consoleSvc = console.New(pool, projects, keyring, cfg.Insight.ConsoleDisabled, log)
 		alertSvc = alerts.New(pool, keyring, alerts.Config{
-			Interval: cfg.Insight.AlertsInterval, PublicURL: cfg.Insight.PublicURL, Poolers: pm.Admins(),
+			Interval: cfg.Insight.AlertsInterval, PublicURL: cfg.Insight.PublicURL, Poolers: pm.Admins(), WakerAddr: pm.WakerAddr,
 		}, log)
 		bg.Add(1)
 		go func() { defer bg.Done(); alertSvc.Run(bgCtx) }()
 		collector := metrics.NewCollector(pool, projects, pm, nodeSvc, cfg.Insight.MetricsInterval, log)
 		bg.Add(1)
 		go func() { defer bg.Done(); collector.Run(bgCtx) }()
+		insightSvc = insights.New(pool, projects, consoleSvc, insights.Config{
+			Interval: cfg.Insight.QueryInsightsInterval, SlowQuery: cfg.Insight.SlowQuery, Plans: cfg.Insight.InsightsPlans,
+		}, log)
+		bg.Add(1)
+		go func() { defer bg.Done(); insightSvc.Run(bgCtx) }()
 	}
 	if cfg.Insight.ConsoleDisabled {
 		log.Warn("SQL console disabled (PGDOCK_CONSOLE_DISABLED)")
@@ -269,6 +453,27 @@ func run() error {
 		if certs, err = setupPoolerTLS(cfg, pm, settingsStore, log); err != nil {
 			return err
 		}
+	}
+
+	// The status page (V3 §2.6): incidents, and heartbeats for what
+	// pgdock-status can't probe from outside.
+	incidentSvc := incidents.New(pool, incidents.Config{
+		URL: cfg.Status.URL, Secret: cfg.Status.PushSecret, Components: cfg.Status.Components, Region: cfg.Status.Region,
+	}, log)
+	if cfg.Status.URL != "" {
+		log.Info("pushing heartbeats and incidents to the status page", "url", cfg.Status.URL)
+		bg.Add(1)
+		go func() { defer bg.Done(); incidentSvc.Run(bgCtx, time.Minute) }()
+	}
+	// SLA probes of HA projects, from here and, through the status page,
+	// from outside (V3 §2.7).
+	if backups != nil && backups.Dedicated != nil {
+		var status *statusapi.Client
+		if cfg.Status.URL != "" {
+			status = &statusapi.Client{URL: cfg.Status.URL, Secret: cfg.Status.PushSecret}
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); backups.Dedicated.RunSLA(bgCtx, time.Minute, status) }()
 	}
 
 	notifier := jobs.NewNotifier(pool, log)
@@ -311,15 +516,25 @@ func run() error {
 		Nodes:     nodeSvc,
 
 		Console:         consoleSvc,
+		Insights:        insightSvc,
 		IsoChecks:       isoChecks,
 		Alerts:          alertSvc,
 		Orgs:            orgSvc,
 		Mail:            mailSvc,
 		Tenancy:         tenancySvc,
 		Branches:        branchSvc,
+		FreeTier:        freeSvc,
+		Support:         supportSvc,
+		Legal:           legalSvc,
+		Capacity:        capacitySvc,
+		Costs:           costSvc,
+		Regions:         regionSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,
+		Incidents:       incidentSvc,
+		PoolerArbiter:   poolerArbiter,
+		Billing:         billingSvc,
 		Tokens:          tokenSvc,
 		PublicURL:       cfg.Insight.PublicURL,
 		MetricsInterval: cfg.Insight.MetricsInterval,
@@ -475,7 +690,7 @@ func toAPITLS(s tlscert.Status) gen.TlsStatus {
 	return out
 }
 
-func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, st *settings.Store, log *slog.Logger) (*provision.Service, *pooler.Manager, error) {
+func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, st *settings.Store, rs *regions.Service, log *slog.Logger) (*provision.Service, *pooler.Manager, error) {
 	if cfg.Shared.AdminURL != "" {
 		// A cluster that is down at boot should not keep the control plane
 		// down; creates fail until it is back.
@@ -501,19 +716,24 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 	if err != nil {
 		return nil, nil, fmt.Errorf("pooler admin password: %w", err)
 	}
+	// The poolers next to pgdock-server (V1/V2), unless the edge runs on
+	// pooler hosts (V3 §2.1), which are administered through their nodes.
 	var admins []*pooler.Admin
-	for _, a := range []struct{ name, addr string }{{"session", pc.SessionAddr}, {"transaction", pc.PooledAddr}} {
-		adm, err := pooler.NewAdmin(a.name, a.addr, pc.AdminUser, pc.AdminPassword, pc.SSLMode)
-		if err != nil {
-			return nil, nil, err
+	if pc.Local {
+		for _, a := range []struct{ name, addr string }{{"session", pc.SessionAddr}, {"transaction", pc.PooledAddr}} {
+			adm, err := pooler.NewAdmin(a.name, a.addr, pc.AdminUser, pc.AdminPassword, pc.SSLMode)
+			if err != nil {
+				return nil, nil, err
+			}
+			admins = append(admins, adm)
 		}
-		admins = append(admins, adm)
 	}
 	pm, err := pooler.NewManager(pc.ConfigDir, pc.FileMode, pool, admins,
 		[]pooler.User{{Name: pc.AdminUser, Secret: adminVerifier}}, log)
 	if err != nil {
 		return nil, nil, err
 	}
+	pm.SetHome(rs.Home())
 	// Bring the poolers in line with the metadata DB (e.g. after a restore
 	// or a lost reload). Failure is not fatal: every flow syncs again.
 	syncCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -531,10 +751,42 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 		SessionPort:      cfg.Public.SessionPort,
 		PooledPort:       cfg.Public.PooledPort,
 		SSLMode:          cfg.Public.SSLMode,
+		PGVersions:       cfg.PGVersions,
+		HomeRegion:       rs.Home(),
+		RegionHost:       rs.Host,
 		SmokeSessionAddr: pc.SessionAddr,
 		SmokePooledAddr:  pc.PooledAddr,
 		SmokeSSLMode:     pc.SSLMode,
 	}, log), pm, nil
+}
+
+// setupPoolerHosts connects the pooler manager to the pooler hosts and
+// returns the arbiter that watches them and the floating IP.
+func setupPoolerHosts(cfg config.Config, pm *pooler.Manager, ns *nodes.Service, rs *regions.Service, log *slog.Logger) *pooler.Arbiter {
+	if pm == nil || ns == nil {
+		return nil
+	}
+	pc := cfg.Pooler
+	pm.SetHostDriver(nodes.PoolerDriver{S: ns}, pooler.HostAdminConfig{
+		User: pc.AdminUser, Password: pc.AdminPassword, SSLMode: pc.SSLMode,
+		SessionPort: pc.HostSessionPort, PooledPort: pc.HostPooledPort,
+	})
+	var fip floatip.Provider
+	if pc.FloatingIP.ID != "" {
+		fip = &floatip.Hetzner{API: pc.FloatingIP.API, Token: pc.FloatingIP.Token, IPID: pc.FloatingIP.ID}
+		log.Info("managing the edge pooler's floating IP", "floating_ip", pc.FloatingIP.ID)
+	}
+	a := pooler.NewArbiter(pm, fip, log)
+	// Other regions' pairs have their own floating IPs (V3 §6.1), in the
+	// same Hetzner project.
+	a.SetRegionIPs(func(region string) floatip.Provider {
+		r, ok := rs.Cached(region)
+		if !ok || r.FloatingIpID == nil || *r.FloatingIpID == "" || pc.FloatingIP.Token == "" {
+			return nil
+		}
+		return &floatip.Hetzner{API: pc.FloatingIP.API, Token: pc.FloatingIP.Token, IPID: *r.FloatingIpID}
+	})
+	return a
 }
 
 // setupBackups builds the agent CA, the nodes service, and the backup
@@ -545,6 +797,9 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 		return nil, nil, fmt.Errorf("agent CA: %w", err)
 	}
 	ns, err := nodes.NewService(pool, ca, cfg.Backups.AgentBootstrapToken, log)
+	if err == nil {
+		ns.SetHomeRegion(cfg.Cloud.Region)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -619,4 +874,54 @@ func rotateMasterKey(cfg config.Config, keyring *crypto.Keyring, log *slog.Logge
 	log.Info("master key rotated; remove PGDOCK_MASTER_KEY_PREVIOUS and restart", "key_id", keyring.PrimaryID().String(),
 		"sign_in_challenges_cleared", res.Cleared)
 	return nil
+}
+
+// paymentProviders are the configured payment providers (V3 §3.4).
+func paymentProviders(c config.Payments) []billing.PaymentProvider {
+	var out []billing.PaymentProvider
+	if c.FlutterwaveOn() {
+		out = append(out, flutterwave.New(flutterwave.Config{BaseURL: c.FlutterwaveURL, SecretKey: c.FlutterwaveSecretKey,
+			WebhookHash: c.FlutterwaveWebhookHash, BVN: c.FlutterwaveBVN}))
+	}
+	if c.ISpendOn() {
+		out = append(out, ispend.New(ispend.Config{BaseURL: c.ISpendURL, APIKey: c.ISpendAPIKey, WebhookSecret: c.ISpendWebhookSecret}))
+	}
+	return out
+}
+
+// billingDocs keeps billing documents (proofs of payment, WHT credit
+// notes) in the platform's backup storage, under billing/.
+type billingDocs struct{ b *backup.Service }
+
+func (d billingDocs) client(ctx context.Context) (*storage.Client, error) {
+	_, t, err := d.b.StorageTarget(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return storage.New(t)
+}
+
+func (d billingDocs) Put(ctx context.Context, key string, r io.Reader) error {
+	c, err := d.client(ctx)
+	if err != nil {
+		return err
+	}
+	return c.Upload(ctx, c.Target().Key("billing/"+key), r)
+}
+
+func (d billingDocs) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	c, err := d.client(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.Download(ctx, c.Target().Key("billing/"+key))
+}
+
+// cloudProvider is the provider capacity automation creates servers with
+// (V3 §5.1): Hetzner Cloud, or none (machines are registered by hand).
+func cloudProvider(c config.Cloud) cloud.Provider {
+	if c.Provider == cloud.Hetzner {
+		return &cloud.HetznerProvider{API: c.HetznerAPI, Token: c.HetznerToken}
+	}
+	return cloud.ManualProvider{}
 }

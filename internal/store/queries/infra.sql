@@ -24,8 +24,8 @@ RETURNING *;
 -- other organisation uses only the untagged ones (V2 s10.5).
 SELECT i.* FROM instances i
 JOIN nodes n ON n.id = i.node_id
-WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.role IN ('shared', 'both')
-  AND i.deleted_at IS NULL
+WHERE i.kind = 'shared' AND i.status = 'running' AND n.status = 'healthy' AND n.lifecycle = 'active' AND n.role IN ('shared', 'both')
+  AND i.deleted_at IS NULL AND i.pg_version = @pg_version AND n.region = @region
   AND CASE WHEN EXISTS (SELECT 1 FROM instances x WHERE x.kind = 'shared' AND x.deleted_at IS NULL AND x.org_id = @org_id)
            THEN i.org_id = @org_id ELSE i.org_id IS NULL END
 ORDER BY (SELECT count(*) FROM projects p WHERE p.instance_id = i.id AND p.deleted_at IS NULL), i.created_at
@@ -46,7 +46,7 @@ SELECT * FROM instances WHERE id = @id;
 
 -- name: InsertInstance :one
 INSERT INTO instances (id, node_id, kind, pg_version, port, cpu_limit, mem_limit_mb, volume_gb, profile, walg_prefix, status)
-VALUES (@id, @node_id, @kind, 18, 5432, @cpu_limit, @mem_limit_mb, @volume_gb, @profile, sqlc.narg(walg_prefix), 'provisioning')
+VALUES (@id, @node_id, @kind, @pg_version, 5432, @cpu_limit, @mem_limit_mb, @volume_gb, @profile, sqlc.narg(walg_prefix), 'provisioning')
 RETURNING *;
 
 -- name: SetInstanceAdminSecret :exec
@@ -75,7 +75,8 @@ ORDER BY i.created_at;
 -- dedicated instances and runs the fewest.
 -- name: PickDedicatedNode :one
 SELECT n.* FROM nodes n
-WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.agent_cert_fp IS NOT NULL
+WHERE n.role IN ('dedicated', 'both') AND n.status = 'healthy' AND n.lifecycle = 'active' AND n.agent_cert_fp IS NOT NULL
+  AND n.region = @region
 ORDER BY (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.kind = 'dedicated' AND i.deleted_at IS NULL), n.created_at
 LIMIT 1;
 
@@ -97,7 +98,8 @@ WHERE i.deleted_at IS NULL
 ORDER BY i.created_at;
 
 -- name: ListInstanceSummaries :many
-SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error,
+SELECT i.id, i.kind, i.profile, i.cpu_limit, i.mem_limit_mb, i.volume_gb, i.status, i.error, i.pg_version,
+       i.pg_release, i.pg_release_available, i.ha_enabled,
        n.id AS node_id, n.name AS node_name
 FROM instances i JOIN nodes n ON n.id = i.node_id
 WHERE i.deleted_at IS NULL;

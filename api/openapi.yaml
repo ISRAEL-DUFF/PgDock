@@ -51,6 +51,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Version"
+  /api/v1/pricing:
+    get:
+      operationId: getPricing
+      summary: The prices in effect, and the next price book if one is published (public)
+      description: For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+      tags: [billing]
+      security: []
+      responses:
+        "200":
+          description: Current prices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pricing"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/auth/login:
     post:
       operationId: postAuthLogin
@@ -1004,6 +1020,236 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/projects/{project_id}/move:
+    post:
+      operationId: moveProject
+      summary: Move a project to another node (platform admin, V3 §2.3)
+      description: |
+        Queues a `logical_move` operation. A shared project goes to the
+        shared cluster on the node (same Postgres version); a dedicated
+        project gets a new instance of the same size there. The data is
+        copied by logical replication while the project keeps serving, then
+        writes pause for a few seconds while the route switches. When
+        logical replication isn't possible (see the operation log) the copy
+        is a dump/restore during the pause instead. Connection strings don't
+        change; the old copy is kept for 48 hours.
+      tags: [projects]
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveProjectRequest"
+      responses:
+        "202":
+          description: Move queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/moves:
+    get:
+      operationId: listProjectMoves
+      summary: The project's recent moves between instances, newest first
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Moves.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoveList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/upgrade/preflight:
+    post:
+      operationId: upgradePreflight
+      summary: Check a major Postgres upgrade of this project (V3 §2.4)
+      description: |
+        Runs the upgrade's checks without changing anything: the target
+        version, where the project would go, whether logical replication
+        can be used, and, for a shared project, a trial restore of the
+        schema on the new version that lists anything incompatible.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeRequest"
+      responses:
+        "200":
+          description: The checks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradePreflight"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/ha:
+    get:
+      operationId: getProjectHA
+      summary: HA state of a dedicated project (V3 §2.2)
+      description: Each member's node, role, state and lag; the failover history; the month's availability.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: HA state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAStatus"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: enableProjectHA
+      summary: Turn HA on
+      description: |
+        Queues an `ha_enable` operation: the instance restarts under Patroni
+        (writes pause for a few seconds), then a standby on another node is
+        built from the newest base backup and streams.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HAEnableRequest"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateProjectHA
+      summary: Change HA settings (synchronous replication)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HAUpdateRequest"
+      responses:
+        "200":
+          description: Changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAStatus"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: disableProjectHA
+      summary: Turn HA off (the standby is removed)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/resume:
+    post:
+      operationId: resumeProject
+      summary: Resume a paused or archived Free project
+      description: |
+        Queues `resume_project` for a paused project (seconds) or
+        `unarchive_project` for an archived one, which restores it from its
+        archive backup (minutes). The first client connection does the same
+        by itself (V3 §4.2).
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/switchover:
+    post:
+      operationId: switchoverProject
+      summary: Planned switchover to a standby
+      description: Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchoverRequest"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/upgrade:
+    post:
+      operationId: upgradeProject
+      summary: Upgrade the project to a newer Postgres major
+      description: |
+        Queues a `major_upgrade` operation: the data moves to an instance of
+        the new version (a shared cluster of that version, or a new
+        dedicated instance) by logical replication, then writes pause for a
+        few seconds while the route switches. Connection strings don't
+        change. Refused with the failing checks when the preflight blocks
+        it. The old copy is kept for 48 hours.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeRequest"
+      responses:
+        "202":
+          description: Upgrade queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/demote/preflight:
     post:
       operationId: demotePreflight
@@ -1903,6 +2149,112 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlertList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/incidents:
+    get:
+      operationId: listIncidents
+      summary: Incidents for the status page, open first (V3 §2.6)
+      tags: [incidents]
+      responses:
+        "200":
+          description: Incidents and the status page connection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createIncident
+      summary: Open an incident; it is pushed to the status page
+      tags: [incidents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIncidentRequest"
+      responses:
+        "201":
+          description: The incident.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/incidents/{id}:
+    get:
+      operationId: getIncident
+      summary: An incident and its updates
+      tags: [incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentID"
+      responses:
+        "200":
+          description: The incident.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateIncident
+      summary: Change an incident's title, components or severity
+      tags: [incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIncidentRequest"
+      responses:
+        "200":
+          description: The incident.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/incidents/{id}/updates:
+    post:
+      operationId: postIncidentUpdate
+      summary: Post an update; its status becomes the incident's
+      tags: [incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncidentUpdateRequest"
+      responses:
+        "201":
+          description: The incident with the new update.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/pooler-hosts:
+    get:
+      operationId: getPoolerHosts
+      summary: The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1)
+      tags: [nodes]
+      responses:
+        "200":
+          description: The arbiter's latest check and events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolerHosts"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/settings/alerts:
@@ -3342,6 +3694,445 @@ paths:
                 $ref: "#/components/schemas/OrgQuotas"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing:
+    get:
+      operationId: getOrgBilling
+      summary: The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateOrgBilling
+      summary: Change business details and spend controls
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingDetailsUpdate"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/plan:
+    post:
+      operationId: changeOrgPlan
+      summary: Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanChangeRequest"
+      responses:
+        "200":
+          description: The change and its prorated lines.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanChange"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/contacts:
+    get:
+      operationId: listBillingContacts
+      summary: Billing contacts, who receive invoices and payment email
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Contacts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BillingContact"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: addBillingContact
+      summary: Add a billing contact
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingContact"
+      responses:
+        "201":
+          description: Added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingContact"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/contacts/{email}:
+    delete:
+      operationId: removeBillingContact
+      summary: Remove a billing contact
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices:
+    get:
+      operationId: listOrgInvoices
+      summary: The organisation's issued invoices
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Invoices, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices/{invoice_id}:
+    get:
+      operationId: getOrgInvoice
+      summary: An invoice with its lines and credit notes
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf:
+    get:
+      operationId: getOrgInvoicePdf
+      summary: An invoice as PDF
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/forecast:
+    get:
+      operationId: getOrgForecast
+      summary: The current month so far and its forecast (V3 §3.10)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The forecast.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingForecast"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/estimate:
+    post:
+      operationId: estimateOrgCost
+      summary: What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cpus:
+                  type: number
+                memory_mb:
+                  type: integer
+                  format: int64
+                disk_gb:
+                  type: integer
+                  format: int64
+                ha:
+                  type: boolean
+                synchronous:
+                  type: boolean
+                standby_only:
+                  type: boolean
+                  description: Price only what enabling HA adds to a running instance.
+      responses:
+        "200":
+          description: The estimate (before VAT).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hourly_minor, monthly_minor, lines]
+                properties:
+                  hourly_minor:
+                    type: integer
+                    format: int64
+                  monthly_minor:
+                    type: integer
+                    format: int64
+                    description: For 730 hours.
+                  lines:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvoiceLine"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/checkout:
+    post:
+      operationId: startCheckout
+      summary: Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, purpose]
+              properties:
+                channel:
+                  type: string
+                  enum: [card, wallet, stablecoin]
+                purpose:
+                  type: string
+                  enum: [invoice, topup, card_setup]
+                invoice_id:
+                  type: string
+                  format: uuid
+                amount_minor:
+                  type: integer
+                  format: int64
+                  description: For a top-up.
+                mandate_limit_minor:
+                  type: integer
+                  format: int64
+                  description: With a wallet payment, also set up a recurring mandate with this monthly limit.
+      responses:
+        "201":
+          description: The hosted page to send the customer to.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reference, checkout_url, amount_minor]
+                properties:
+                  reference:
+                    type: string
+                  checkout_url:
+                    type: string
+                  amount_minor:
+                    type: integer
+                    format: int64
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/virtual-account:
+    post:
+      operationId: orgVirtualAccount
+      summary: The organisation's bank account for transfers, issued on first use
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VirtualAccount"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/payment-methods:
+    get:
+      operationId: listPaymentMethods
+      summary: Saved cards and wallet mandates
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Methods.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentMethod"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/payment-methods/{method_id}:
+    delete:
+      operationId: removePaymentMethod
+      summary: Remove a saved card or revoke a mandate
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/MethodID"
+      responses:
+        "204":
+          description: Removed.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default:
+    post:
+      operationId: setDefaultPaymentMethod
+      summary: Charge this method for invoices and top-ups
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/MethodID"
+      responses:
+        "204":
+          description: Set.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/auto-topup:
+    put:
+      operationId: setAutoTopup
+      summary: Top up a prepaid balance from the default method when it falls below a threshold
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutoTopup"
+      responses:
+        "204":
+          description: Set.
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: clearAutoTopup
+      summary: Stop automatic top-ups
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "204":
+          description: Cleared.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/payments:
+    get:
+      operationId: listOrgPayments
+      summary: Payments received, with receipts
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Payments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt:
+    get:
+      operationId: getPaymentReceipt
+      summary: A payment's receipt as PDF
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/PaymentID"
+      responses:
+        "200":
+          description: The PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate:
+    post:
+      operationId: uploadWhtCertificate
+      summary: Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/InvoiceID"
+        - name: filename
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Stored; the WHT is evidenced.
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/usage:
     get:
       operationId: getOrgUsage
@@ -3490,6 +4281,143 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/queries:
+    get:
+      operationId: listInsightQueries
+      summary: Top queries over a range (Pro, Team and dedicated projects)
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/InsightRange"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [total, mean, calls, rows]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Most expensive first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightQueryList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/queries/{query_id}:
+    get:
+      operationId: getInsightQuery
+      summary: A query's totals, its calls and latency over time, and its example
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/InsightQueryID"
+        - $ref: "#/components/parameters/InsightRange"
+      responses:
+        "200":
+          description: The query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightQueryDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/explain:
+    post:
+      operationId: explainInsightQuery
+      summary: EXPLAIN (without ANALYZE) a query as the project's role
+      description: |
+        On its latest captured example with literals, or as a generic plan
+        (parameters unknown) when there is none or `generic` is set. Runs in
+        a read-only transaction; the statement is not executed.
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsightExplainRequest"
+      responses:
+        "200":
+          description: The plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightPlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/slow:
+    get:
+      operationId: listSlowQueries
+      summary: Statements over the slow-query threshold
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/InsightRange"
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlowQueryList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/indexes:
+    get:
+      operationId: getInsightIndexes
+      summary: Index suggestions, unused and duplicate indexes
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexReport"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/bloat:
+    get:
+      operationId: getInsightBloat
+      summary: Estimated table bloat (reclaim it with reclaim-space)
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Most bloated first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BloatList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/insights/locks:
+    get:
+      operationId: getInsightLocks
+      summary: Current blocking chains
+      tags: [insights]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Blocked sessions, longest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LockList"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/reaped:
@@ -4141,6 +5069,1763 @@ paths:
                 $ref: "#/components/schemas/PlatformUsage"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/billing/settings:
+    get:
+      operationId: getBillingSettings
+      summary: Tax rates and the seller's details on invoices
+      tags: [admin]
+      responses:
+        "200":
+          description: Settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putBillingSettings
+      summary: Change the billing settings
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books:
+    get:
+      operationId: listPriceBooks
+      summary: Price book versions, newest first (V3 §3.9)
+      tags: [admin]
+      responses:
+        "200":
+          description: Price books.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, current_version]
+                properties:
+                  current_version:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createPriceBook
+      summary: Create a draft price book
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceBookInput"
+      responses:
+        "201":
+          description: The draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books/{version}:
+    get:
+      operationId: getPriceBook
+      summary: One price book
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      responses:
+        "200":
+          description: The price book.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: updatePriceBook
+      summary: Edit a draft price book
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceBookInput"
+      responses:
+        "200":
+          description: The draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBook"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deletePriceBook
+      summary: Delete a draft price book
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books/{version}/publish:
+    post:
+      operationId: publishPriceBook
+      summary: Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      responses:
+        "200":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [price_book, notified]
+                properties:
+                  price_book:
+                    $ref: "#/components/schemas/PriceBook"
+                  notified:
+                    type: integer
+                    description: Organisations emailed about the change.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/billing:
+    get:
+      operationId: adminGetOrgBilling
+      summary: An organisation's billing account, as the platform admin sees it
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: adminUpdateOrgBilling
+      summary: The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBillingUpdate"
+      responses:
+        "200":
+          description: The billing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices:
+    get:
+      operationId: adminListInvoices
+      summary: Invoices across organisations, drafts included
+      tags: [admin]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, issued, paid, paid_wht_pending, partially_paid, void]
+        - name: period
+          in: query
+          description: The usage month, YYYY-MM.
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+      responses:
+        "200":
+          description: Invoices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/draft:
+    post:
+      operationId: adminDraftInvoices
+      summary: Generate (or refresh) a month's drafts now, for every organisation or one
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period]
+              properties:
+                period:
+                  type: string
+                  pattern: '^\d{4}-\d{2}$'
+                org_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: How many drafts there are.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [drafts]
+                properties:
+                  drafts:
+                    type: integer
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}:
+    get:
+      operationId: adminGetInvoice
+      summary: An invoice, drafts included
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/pdf:
+    get:
+      operationId: adminGetInvoicePdf
+      summary: An invoice (or draft) as PDF
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/hold:
+    post:
+      operationId: adminHoldInvoice
+      summary: Hold a draft for review (it isn't issued on the 1st), or release it
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [held]
+              properties:
+                held:
+                  type: boolean
+                reason:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/issue:
+    post:
+      operationId: adminIssueInvoice
+      summary: Issue a draft now (a held one is released)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: The issued invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/credit-notes:
+    post:
+      operationId: adminCreateCreditNote
+      summary: Issue a credit note against an issued invoice (amount before VAT)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_minor, reason]
+              properties:
+                amount_minor:
+                  type: integer
+                  format: int64
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: The credit note.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNote"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/ledger/check:
+    get:
+      operationId: adminLedgerCheck
+      summary: Check the ledger's invariants and show each account's balance (V3 §3.3)
+      tags: [admin]
+      responses:
+        "200":
+          description: The check.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerCheck"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/price-books/{version}/preview:
+    post:
+      operationId: previewPriceBook
+      summary: Estimate each organisation's invoice for a month under this price book (V3 §3.9)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PriceBookVersion"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                period:
+                  type: string
+                  pattern: '^\d{4}-\d{2}$'
+                  description: The usage month (default the last complete one).
+      responses:
+        "200":
+          description: Estimates (before VAT).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [period, items, current_total_minor, projected_total_minor]
+                properties:
+                  period:
+                    type: string
+                  current_total_minor:
+                    type: integer
+                    format: int64
+                  projected_total_minor:
+                    type: integer
+                    format: int64
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [org_id, org_name, plan, current_minor, projected_minor]
+                      properties:
+                        org_id:
+                          type: string
+                          format: uuid
+                        org_name:
+                          type: string
+                        plan:
+                          type: string
+                        current_minor:
+                          type: integer
+                          format: int64
+                        projected_minor:
+                          type: integer
+                          format: int64
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/payments/webhooks/{provider}:
+    post:
+      operationId: paymentWebhook
+      summary: A payment provider's webhook (authenticated by its signature, re-verified before anything is posted)
+      tags: [billing]
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [flutterwave, ispend]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Accepted (including duplicates and events PGDock doesn't act on).
+        "401":
+          description: The signature didn't verify.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/tickets:
+    get:
+      operationId: listOrgTickets
+      summary: The organisation's support tickets (admins see all; members their own)
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Tickets, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: openOrgTicket
+      summary: Open a support ticket for the organisation
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketOpen"
+      responses:
+        "201":
+          description: Opened.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/tickets/{ticket_id}:
+    get:
+      operationId: getOrgTicket
+      summary: A ticket and its conversation
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TicketID"
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages:
+    post:
+      operationId: replyOrgTicket
+      summary: Add to a ticket
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/TicketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketReply"
+      responses:
+        "201":
+          description: Added.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/phones:
+    get:
+      operationId: listSupportPhones
+      summary: WhatsApp numbers registered for support (Pro and Team)
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Numbers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, available]
+                properties:
+                  available:
+                    type: boolean
+                    description: WhatsApp support is set up on this server and the plan includes it.
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SupportPhone"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: addSupportPhone
+      summary: Register a WhatsApp number (E.164) for the organisation's support
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+      responses:
+        "201":
+          description: Registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportPhone"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/support/phones/{phone}:
+    delete:
+      operationId: removeSupportPhone
+      summary: Remove a WhatsApp number
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: phone
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/support/inbound/email:
+    post:
+      operationId: supportInboundEmail
+      summary: An email to the support address, from the email provider's inbound webhook
+      description: |
+        Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
+        password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+        inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+      tags: [support]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Threaded into a ticket (or ignored as a duplicate).
+        "401":
+          description: Not authenticated.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/support/whatsapp:
+    get:
+      operationId: supportWhatsAppVerify
+      summary: The WhatsApp Business Platform's webhook verification
+      tags: [support]
+      security: []
+      parameters:
+        - name: hub.mode
+          in: query
+          schema:
+            type: string
+        - name: hub.verify_token
+          in: query
+          schema:
+            type: string
+        - name: hub.challenge
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The challenge, echoed.
+        "403":
+          description: Wrong verify token.
+    post:
+      operationId: supportWhatsAppWebhook
+      summary: WhatsApp messages, signed with the app secret (X-Hub-Signature-256)
+      tags: [support]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Accepted.
+        "401":
+          description: The signature didn't verify.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/tickets:
+    get:
+      operationId: adminListTickets
+      summary: The support console's tickets (support staff and platform admins)
+      tags: [support]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, pending, solved, closed]
+        - name: assignee
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: org_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Open tickets first, by response target.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, open, pending, overdue]
+                properties:
+                  open:
+                    type: integer
+                    format: int64
+                  pending:
+                    type: integer
+                    format: int64
+                  overdue:
+                    type: integer
+                    format: int64
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Ticket"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/tickets/{ticket_id}:
+    get:
+      operationId: adminGetTicket
+      summary: A ticket with internal notes and the organisation's context (no tenant data)
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketDetail"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: adminUpdateTicket
+      summary: Change a ticket's status, priority, assignee or organisation
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketUpdate"
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/tickets/{ticket_id}/messages:
+    post:
+      operationId: adminReplyTicket
+      summary: Answer the customer (by the ticket's channel) or add an internal note
+      tags: [support]
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketReply"
+      responses:
+        "201":
+          description: Added.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/support/staff:
+    get:
+      operationId: adminSupportStaff
+      summary: Support staff and platform admins, to assign tickets to
+      tags: [support]
+      responses:
+        "200":
+          description: Staff.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, email, role]
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        email:
+                          type: string
+                        name:
+                          type: string
+                          nullable: true
+                        role:
+                          type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/legal:
+    get:
+      operationId: getLegal
+      summary: The service level agreement and data processing agreement in effect (public)
+      tags: [legal]
+      responses:
+        "200":
+          description: The documents in effect.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocumentList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/legal:
+    get:
+      operationId: getOrgLegal
+      summary: The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances
+      tags: [legal]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The documents.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgLegal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/legal/{document_id}/accept:
+    post:
+      operationId: acceptOrgLegal
+      summary: Accept a document on the organisation's behalf (owners)
+      tags: [legal]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The documents, with the acceptance recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgLegal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/legal:
+    get:
+      operationId: adminListLegal
+      summary: Every version of the platform-wide documents, with their acceptance counts
+      tags: [legal]
+      responses:
+        "200":
+          description: Versions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalVersionList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: adminPublishLegal
+      summary: Publish a new version of the SLA or DPA
+      tags: [legal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegalPublish"
+      responses:
+        "201":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocument"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/legal/{document_id}:
+    get:
+      operationId: adminGetLegal
+      summary: A document version and the organisations that accepted it
+      tags: [legal]
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocumentDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/order-form:
+    post:
+      operationId: adminPublishOrderForm
+      summary: Publish a new version of an organisation's order form
+      tags: [legal]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderFormPublish"
+      responses:
+        "201":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocument"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity:
+    get:
+      operationId: adminCapacity
+      summary: Capacity automation at a glance (settings, outlook, proposals, moves)
+      tags: [capacity]
+      responses:
+        "200":
+          description: The capacity page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capacity"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/regions:
+    get:
+      operationId: listRegions
+      summary: The regions new projects can be created in
+      tags: [regions]
+      responses:
+        "200":
+          description: Active regions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/regions:
+    get:
+      operationId: listAdminRegions
+      summary: Every region with its pooler hostname, targets and usage
+      tags: [regions]
+      responses:
+        "200":
+          description: Regions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRegionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/regions/{region_id}:
+    put:
+      operationId: putAdminRegion
+      summary: Create or change a region
+      tags: [regions]
+      parameters:
+        - name: region_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRegionRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRegion"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/residency:
+    put:
+      operationId: setProjectResidency
+      summary: Turn data residency on or off (organisation owners; step-up)
+      description: |
+        On needs a region that offers residency and backups on a target in
+        the region; existing cross-region copies outside the region are
+        deleted. Exports stay available.
+      tags: [regions]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectResidencyRequest"
+      responses:
+        "200":
+          description: Changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResidencyResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/settings:
+    put:
+      operationId: putCapacitySettings
+      summary: Thresholds, the server types added, the monthly infrastructure budget
+      tags: [capacity]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapacitySettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacitySettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/evaluate:
+    post:
+      operationId: evaluateCapacity
+      summary: Check thresholds now (they're checked hourly)
+      tags: [capacity]
+      responses:
+        "200":
+          description: The proposals made.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityProposalList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/proposals/{proposal_id}/approve:
+    post:
+      operationId: approveCapacityProposal
+      summary: Provision a proposal waiting for approval (a manual provider's is marked done)
+      tags: [capacity]
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The proposal, provisioning.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityProposal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/proposals/{proposal_id}/reject:
+    post:
+      operationId: rejectCapacityProposal
+      summary: Close a proposal without provisioning
+      tags: [capacity]
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityProposal"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/rebalance:
+    post:
+      operationId: planRebalance
+      summary: Propose moves that even out shared nodes' disk (done weekly)
+      tags: [capacity]
+      responses:
+        "200":
+          description: The batch, if any moves are needed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RebalancePlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/capacity/batches/{batch_id}:
+    post:
+      operationId: decideRebalanceBatch
+      summary: Approve or reject a proposed rebalance batch
+      tags: [capacity]
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchDecision"
+      responses:
+        "200":
+          description: The moves decided.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RebalancePlan"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/cloud/catalog:
+    get:
+      operationId: cloudCatalog
+      summary: The provider's server types and prices
+      tags: [capacity]
+      responses:
+        "200":
+          description: The catalog.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerPriceList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}/drain:
+    post:
+      operationId: drainNode
+      summary: Move every project off a node, one at a time, and place nothing new there
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      responses:
+        "200":
+          description: Draining.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrainResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: stopDrain
+      summary: Stop draining; moves not started are dropped
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      responses:
+        "200":
+          description: Back in service.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/nodes/{id}/cost:
+    put:
+      operationId: setNodeCost
+      summary: What a node costs (manual nodes; a provider's are priced from its catalog)
+      tags: [nodes]
+      parameters:
+        - $ref: "#/components/parameters/NodeID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NodeCost"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/costs:
+    get:
+      operationId: adminCosts
+      summary: Costs and margins for a month (by region and tier, plan, organisation; FX view)
+      tags: [billing]
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+            example: "2026-10"
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: The month.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Margins"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/costs/attribute:
+    post:
+      operationId: attributeCosts
+      summary: Recompute cost attribution for days (done daily)
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttributeRequest"
+      responses:
+        "200":
+          description: The days attributed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttributeResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/costs/settings:
+    get:
+      operationId: getCostSettings
+      summary: Costs outside the server catalog (storage, egress, floating IPs, overheads)
+      tags: [billing]
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putCostSettings
+      summary: Save the cost settings
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostSettings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/fx-rates:
+    get:
+      operationId: listFXRates
+      summary: Exchange rates (naira per unit), current and history
+      tags: [billing]
+      responses:
+        "200":
+          description: Rates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRateList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: setFXRate
+      summary: Record an exchange rate
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FXRateInput"
+      responses:
+        "201":
+          description: Recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRate"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/revenue:
+    get:
+      operationId: adminRevenue
+      summary: The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
+      tags: [billing]
+      parameters:
+        - name: months
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 36
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: The dashboard (CSV for the accountant with format=csv).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Revenue"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/payments:
+    get:
+      operationId: adminListPayments
+      summary: Payments received, by provider and period
+      tags: [admin]
+      parameters:
+        - name: provider
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Payments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: adminRecordPayment
+      summary: Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [org_id, amount_minor, reference]
+              properties:
+                org_id:
+                  type: string
+                  format: uuid
+                amount_minor:
+                  type: integer
+                  format: int64
+                reference:
+                  type: string
+                note:
+                  type: string
+                invoice_id:
+                  type: string
+                  format: uuid
+                topup:
+                  type: boolean
+                received_at:
+                  type: string
+                  format: date-time
+                proof_key:
+                  type: string
+                  description: From POST /api/v1/admin/billing/documents.
+      responses:
+        "201":
+          description: The payment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/billing/documents:
+    post:
+      operationId: adminUploadBillingDocument
+      summary: Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment
+      tags: [admin]
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: filename
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key]
+                properties:
+                  key:
+                    type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/payments/{payment_id}/refund:
+    post:
+      operationId: adminRefundPayment
+      summary: Refund part of a payment from the organisation's credit balance
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/PaymentID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_minor, reason]
+              properties:
+                amount_minor:
+                  type: integer
+                  format: int64
+                reason:
+                  type: string
+                reopen_invoices:
+                  type: boolean
+                  description: >-
+                    When the organisation's credit doesn't cover the refund, take the rest back
+                    off the invoices this payment settled, which are owed again.
+      responses:
+        "200":
+          description: The refund (pending until the provider confirms).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, status, amount_minor]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  amount_minor:
+                    type: integer
+                    format: int64
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/payment-events:
+    get:
+      operationId: adminListPaymentEvents
+      summary: Provider events as received, newest first
+      tags: [admin]
+      parameters:
+        - name: outcome
+          in: query
+          schema:
+            type: string
+            enum: [posted, duplicate, unmatched, rejected, failed, ignored]
+      responses:
+        "200":
+          description: Events.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentEvent"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/payment-events/{event_id}/attribute:
+    post:
+      operationId: adminAttributePaymentEvent
+      summary: Settle an unmatched transfer for an organisation (it is verified again first)
+      tags: [admin]
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [org_id]
+              properties:
+                org_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: The payment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/wht:
+    get:
+      operationId: adminOutstandingWht
+      summary: Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
+      tags: [admin]
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: Outstanding WHT.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OutstandingWht"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/invoices/{invoice_id}/wht-certificate:
+    post:
+      operationId: adminUploadWhtCertificate
+      summary: Attach a WHT credit note to an invoice
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceID"
+        - name: filename
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Stored; the WHT is evidenced.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/reconciliation:
+    get:
+      operationId: adminLastReconciliation
+      summary: The latest reconciliation against each provider
+      tags: [admin]
+      responses:
+        "200":
+          description: Per provider.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reconciliation"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: adminRunReconciliation
+      summary: Reconcile a period now (default the previous day)
+      tags: [admin]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from:
+                  type: string
+                  format: date-time
+                to:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Per provider.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reconciliation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/orgs/{org}/billing/grace:
+    put:
+      operationId: adminSetGrace
+      summary: Hold dunning for an organisation until a date (null ends the extension)
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                until:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        "204":
+          description: Set.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance:
+    get:
+      operationId: getMaintenance
+      summary: The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
+      tags: [admin]
+      responses:
+        "200":
+          description: Maintenance state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceStatus"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/window:
+    put:
+      operationId: putMaintenanceWindow
+      summary: Change the weekly maintenance window (UTC)
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenanceWindow"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceWindow"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/instances/{instance_id}/minor-upgrade:
+    post:
+      operationId: minorUpgradeInstance
+      summary: Restart an instance onto its image's newer Postgres minor release now, outside the window
+      tags: [admin]
+      parameters:
+        - name: instance_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The upgrade ran; error is set if it failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinorUpgrade"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/etcd:
+    get:
+      operationId: getEtcdCluster
+      summary: The etcd cluster HA instances keep their state in, and each member's health
+      tags: [admin]
+      responses:
+        "200":
+          description: The cluster.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EtcdCluster"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: setupEtcdCluster
+      summary: Set up the etcd cluster, one member on each of three nodes
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EtcdSetupRequest"
+      responses:
+        "202":
+          description: The setup operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/shared-clusters:
     get:
       operationId: listSharedClusters
@@ -4157,6 +6842,18 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   parameters:
+    InsightRange:
+      name: range
+      in: query
+      schema:
+        type: string
+        enum: ["1h", "24h", "7d", "30d"]
+    InsightQueryID:
+      name: query_id
+      in: path
+      required: true
+      schema:
+        type: string
     SavedQueryID:
       name: query_id
       in: path
@@ -4225,6 +6922,40 @@ components:
       schema:
         type: string
         format: uuid
+    MethodID:
+      name: method_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TicketID:
+      name: ticket_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PaymentID:
+      name: payment_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InvoiceID:
+      name: invoice_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PriceBookVersion:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: integer
     UserID:
       name: user
       in: path
@@ -4294,6 +7025,13 @@ components:
         items:
           type: string
     BackupID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IncidentID:
       name: id
       in: path
       required: true
@@ -4513,7 +7251,7 @@ components:
           description: Fail the first N attempts to exercise retries.
     ProjectStatus:
       type: string
-      enum: [provisioning, active, promoting, demoting, restoring, deleting, error]
+      enum: [provisioning, active, promoting, demoting, moving, upgrading, restoring, deleting, error]
     ProjectTier:
       type: string
       enum: [shared, dedicated]
@@ -4551,6 +7289,37 @@ components:
       type: object
       required: [id, org_id, name, slug, db_name, owner_role, tier, status, settings, created_at, connection]
       properties:
+        region:
+          type: string
+          description: The region the project runs in (V3 §6).
+        data_residency:
+          type: boolean
+          description: Data, backups and branches stay in the project's region's country (V3 §6.3).
+        forward_region:
+          type: string
+          nullable: true
+          description: After a region move, the old region still routing the old hostname.
+        forward_until:
+          type: string
+          format: date-time
+          nullable: true
+        lifecycle:
+          type: string
+          enum: [active, paused, archived]
+          description: A Free project paused or archived for inactivity (V3 §4).
+        last_active_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: The last time a client was seen through the poolers.
+        paused_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
         parent_project_id:
           type: string
           format: uuid
@@ -4645,6 +7414,152 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Project"
+    Region:
+      type: object
+      required: [id, name, country, residency, home]
+      properties:
+        id:
+          type: string
+          example: ng-lagos
+        name:
+          type: string
+          example: Lagos
+        country:
+          type: string
+          description: ISO 3166 two-letter code; empty when not tied to one.
+        residency:
+          type: boolean
+          description: Projects here may turn data residency on.
+        home:
+          type: boolean
+          description: The platform's home region, where projects go by default.
+    RegionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Region"
+    AdminRegion:
+      type: object
+      required: [id, name, country, pooler_host, provider, location, residency, status, home, nodes, pooler_hosts, projects, residency_projects, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        pooler_host:
+          type: string
+          description: The hostname in the region's connection strings; empty is the platform's database host.
+        provider:
+          type: string
+          description: manual or hetzner.
+        location:
+          type: string
+          description: The provider's location for new servers (e.g. nbg1); empty for manual.
+        storage_target_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Where the region's projects back up (platform default when null).
+        copy_target_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Where backups on platform targets are copied (V3 §2.5).
+        floating_ip_id:
+          type: string
+          nullable: true
+          description: The region's pooler floating IP at the provider.
+        residency:
+          type: boolean
+        status:
+          type: string
+          enum: [active, hidden]
+        home:
+          type: boolean
+        nodes:
+          type: integer
+        pooler_hosts:
+          type: integer
+          description: The region's own pooler hosts; with none, the home region's poolers serve its projects.
+        projects:
+          type: integer
+        residency_projects:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    AdminRegionList:
+      type: object
+      required: [items, copies]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRegion"
+        copies:
+          type: array
+          description: Cross-region copy status of the last 7 days' backups.
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status:
+                type: string
+                enum: [none, pending, copied, failed, skipped]
+              count:
+                type: integer
+    AdminRegionRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        country:
+          type: string
+        pooler_host:
+          type: string
+        provider:
+          type: string
+          description: manual (the default) or hetzner.
+        location:
+          type: string
+        storage_target_id:
+          type: string
+          format: uuid
+          nullable: true
+        copy_target_id:
+          type: string
+          format: uuid
+          nullable: true
+        floating_ip_id:
+          type: string
+          nullable: true
+        residency:
+          type: boolean
+        hidden:
+          type: boolean
+          description: Hidden regions take no new projects.
+    ProjectResidencyRequest:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+    ProjectResidencyResult:
+      type: object
+      required: [project, removed_copies]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        removed_copies:
+          type: integer
+          description: Cross-region copies outside the region that were deleted.
     CreateProjectRequest:
       type: object
       required: [name]
@@ -4667,6 +7582,12 @@ components:
           type: string
           format: uuid
           description: Dedicated only; default is the least loaded dedicated node.
+        region:
+          type: string
+          description: The region (see /regions); the platform's home region by default. A branch is always in its parent's.
+        data_residency:
+          type: boolean
+          description: Keep the data, backups and branches in the region's country; the region must offer it.
         profile:
           type: string
           description: Dedicated only (see /profiles); default small.
@@ -4675,6 +7596,9 @@ components:
           minimum: 1
           maximum: 16384
           description: Dedicated only; default 20.
+        pg_version:
+          type: integer
+          description: Postgres major version (see /profiles); default the newest.
     ProjectCredentials:
       type: object
       description: Shown once. PGDock keeps only the SCRAM verifier.
@@ -4703,6 +7627,9 @@ components:
         signup_mode:
           type: string
           enum: [invite_only, approval, open]
+        turnstile_site_key:
+          type: string
+          description: Signing up needs a solved Cloudflare Turnstile challenge with this site key.
         terms_required:
           type: integer
           nullable: true
@@ -4982,7 +7909,7 @@ components:
           $ref: "#/components/schemas/Operation"
     BackupKind:
       type: string
-      enum: [logical, base, final, safety, metadata]
+      enum: [logical, base, final, safety, metadata, archive]
     Backup:
       type: object
       required: [id, kind, status, started_at]
@@ -5486,6 +8413,30 @@ components:
           format: date-time
         agent:
           $ref: "#/components/schemas/AgentStatus"
+        region:
+          type: string
+        provider:
+          type: string
+          description: manual (registered by hand) or the cloud provider that created it.
+        lifecycle:
+          type: string
+          enum: [active, provisioning, draining]
+        server_type:
+          type: string
+          nullable: true
+        monthly_cost_minor:
+          type: integer
+          format: int64
+          nullable: true
+        cost_currency:
+          type: string
+        empty_since:
+          type: string
+          format: date-time
+          nullable: true
+        keep:
+          type: boolean
+          description: Never deleted for being empty.
     AgentStatus:
       type: object
       required: [registered, reachable]
@@ -5561,10 +8512,264 @@ components:
           type: string
         ca_pem:
           type: string
+    MaintenanceWindow:
+      type: object
+      description: A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time.
+      required: [enabled, weekday, start_hour, hours]
+      properties:
+        enabled:
+          type: boolean
+        weekday:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: 0 is Sunday.
+        start_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        hours:
+          type: integer
+          minimum: 1
+          maximum: 24
+    MinorUpgrade:
+      type: object
+      required: [id, instance_id, kind, node_name, from_release, to_release, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        instance_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [shared, dedicated]
+        node_name:
+          type: string
+        from_release:
+          type: string
+        to_release:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        pause_ms:
+          type: integer
+          nullable: true
+          description: How long the poolers held clients.
+        error:
+          type: string
+          nullable: true
+    MaintenanceStatus:
+      type: object
+      required: [window, in_window, next_window, behind, history]
+      properties:
+        window:
+          $ref: "#/components/schemas/MaintenanceWindow"
+        in_window:
+          type: boolean
+        next_window:
+          type: string
+          format: date-time
+        behind:
+          type: array
+          description: Running instances whose image has a newer minor release.
+          items:
+            $ref: "#/components/schemas/InstanceSummary"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinorUpgrade"
+    EtcdSetupRequest:
+      type: object
+      required: [node_ids]
+      properties:
+        node_ids:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: string
+            format: uuid
+    EtcdMember:
+      type: object
+      required: [node_id, node_name, name, client_url, status]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        name:
+          type: string
+        client_url:
+          type: string
+        status:
+          type: string
+          enum: [starting, healthy, unhealthy]
+        error:
+          type: string
+          nullable: true
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+    EtcdCluster:
+      type: object
+      required: [members, ready]
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/EtcdMember"
+        ready:
+          type: boolean
+          description: Set up, with a quorum of healthy members.
+        reason:
+          type: string
+          description: Why it isn't ready.
+    HAEnableRequest:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+          description: Where the standby goes (default the least loaded other node that takes dedicated instances).
+        synchronous:
+          type: boolean
+    HAUpdateRequest:
+      type: object
+      required: [synchronous]
+      properties:
+        synchronous:
+          type: boolean
+    SwitchoverRequest:
+      type: object
+      properties:
+        candidate:
+          type: string
+          format: uuid
+          description: The member to switch to (default the most current standby).
+    HAMember:
+      type: object
+      required: [id, node_id, node_name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        role:
+          type: string
+          enum: [leader, replica, sync_standby, starting, stopped, unknown]
+        state:
+          type: string
+          nullable: true
+        lag_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        timeline:
+          type: integer
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+    FailoverEvent:
+      type: object
+      required: [kind, occurred_at]
+      properties:
+        kind:
+          type: string
+          enum: [failover, switchover]
+        from_node:
+          type: string
+          nullable: true
+        to_node:
+          type: string
+          nullable: true
+        duration_ms:
+          type: integer
+          nullable: true
+        occurred_at:
+          type: string
+          format: date-time
+    Availability:
+      type: object
+      required: [month, measured_minutes, unavailable_minutes]
+      properties:
+        month:
+          type: string
+          description: The calendar month (UTC), YYYY-MM.
+        measured_minutes:
+          type: integer
+        unavailable_minutes:
+          type: integer
+        percent:
+          type: number
+          nullable: true
+          description: Available share of measured minutes, or null before the first probe.
+        recent_outages:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutageMinute"
+    OutageMinute:
+      type: object
+      required: [minute]
+      properties:
+        minute:
+          type: string
+          format: date-time
+        internal_ok:
+          type: boolean
+          nullable: true
+        external_ok:
+          type: boolean
+          nullable: true
+    HAStatus:
+      type: object
+      required: [enabled, synchronous, members, failovers]
+      properties:
+        enabled:
+          type: boolean
+        synchronous:
+          type: boolean
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/HAMember"
+        failovers:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailoverEvent"
+        availability:
+          $ref: "#/components/schemas/Availability"
     InstanceSummary:
       type: object
-      required: [id, kind, status, node_id, node_name]
+      required: [id, kind, status, node_id, node_name, pg_version]
       properties:
+        pg_version:
+          type: integer
+          description: Postgres major version.
+        ha_enabled:
+          type: boolean
+          description: A primary and a streaming standby on another node (V3 §2.2).
+        pg_release:
+          type: string
+          nullable: true
+          description: The release the instance runs ("18.1"), as its agent last reported.
+        pg_release_available:
+          type: string
+          nullable: true
+          description: The release its image now holds; a newer minor is applied in the maintenance window.
         id:
           type: string
           format: uuid
@@ -5645,7 +8850,7 @@ components:
           type: integer
     ProfileList:
       type: object
-      required: [items, default_profile, default_volume_gb]
+      required: [items, default_profile, default_volume_gb, pg_versions, default_pg_version]
       properties:
         items:
           type: array
@@ -5654,6 +8859,13 @@ components:
         default_profile:
           type: string
         default_volume_gb:
+          type: integer
+        pg_versions:
+          type: array
+          description: Supported Postgres major versions, oldest first (V3 §2.4).
+          items:
+            type: integer
+        default_pg_version:
           type: integer
     CreateNodeRequest:
       type: object
@@ -5668,7 +8880,11 @@ components:
           example: 10.0.0.12
         role:
           type: string
-          enum: [shared, dedicated, both]
+          enum: [shared, dedicated, both, pooler]
+          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database."
+        region:
+          type: string
+          description: The region the node is in (default the home region). A pooler host serves that region's projects.
     NodeCreated:
       type: object
       required: [node, token, expires_at, command]
@@ -5696,6 +8912,16 @@ components:
       type: object
       required: [id, kind, status, projects]
       properties:
+        pg_version:
+          type: integer
+        pg_release:
+          type: string
+          nullable: true
+          description: The release the instance runs, as its agent last reported.
+        pg_release_available:
+          type: string
+          nullable: true
+          description: The release its image now holds.
         id:
           type: string
           format: uuid
@@ -5732,6 +8958,9 @@ components:
         memory_mb:
           type: integer
           minimum: 512
+        pg_version:
+          type: integer
+          description: Postgres major version; default the newest supported.
     UpdateNodeRequest:
       type: object
       required: [role]
@@ -5748,7 +8977,14 @@ components:
           format: int64
         estimated_downtime_seconds:
           type: integer
-          description: Roughly dump + restore time, while writes wait.
+          description: How long writes are expected to pause.
+        copy_mode:
+          type: string
+          enum: [logical, dump]
+          description: logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+        fallback_reason:
+          type: string
+          description: Why logical replication can't be used.
     DemoteRequest:
       type: object
       properties:
@@ -5762,6 +8998,50 @@ components:
         accept_warnings:
           type: boolean
           description: Acknowledge the preflight's warnings (peak connections, settings that reset).
+    UpgradeRequest:
+      type: object
+      required: [pg_version]
+      properties:
+        pg_version:
+          type: integer
+    UpgradeCheck:
+      type: object
+      required: [name, status, message]
+      properties:
+        name:
+          type: string
+          enum: [version, target, replication, schema, extensions]
+        status:
+          type: string
+          enum: [ok, warning, blocked]
+        message:
+          type: string
+    UpgradePreflight:
+      type: object
+      required: [eligible, from, to, checks, size_bytes, estimated_downtime_seconds, copy_mode]
+      properties:
+        eligible:
+          type: boolean
+        from:
+          type: integer
+        to:
+          type: integer
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/UpgradeCheck"
+        target_node:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        estimated_downtime_seconds:
+          type: integer
+        copy_mode:
+          type: string
+          enum: [logical, dump]
+        fallback_reason:
+          type: string
     DemoteCheck:
       type: object
       required: [name, status, message]
@@ -5807,7 +9087,14 @@ components:
           format: int64
         estimated_downtime_seconds:
           type: integer
-          description: Roughly dump + restore time, while writes wait.
+          description: How long writes are expected to pause.
+        copy_mode:
+          type: string
+          enum: [logical, dump]
+          description: logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+        fallback_reason:
+          type: string
+          description: Why logical replication can't be used.
         target:
           $ref: "#/components/schemas/DemoteTarget"
         settings_after:
@@ -6236,6 +9523,62 @@ components:
         last_day:
           type: string
           format: date
+    MoveProjectRequest:
+      type: object
+      required: [node_id]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+    Move:
+      type: object
+      required: [id, operation_id, source_instance, target_instance, mode, phase, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        operation_id:
+          type: string
+          format: uuid
+        source_instance:
+          type: string
+          format: uuid
+        target_instance:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [logical, dump]
+        fallback_reason:
+          type: string
+          description: Why logical replication wasn't used.
+        phase:
+          type: string
+          enum: [preparing, copying, streaming, cutover, done, failed]
+        tables_total:
+          type: integer
+        tables_ready:
+          type: integer
+        lag_bytes:
+          type: integer
+          format: int64
+        freeze_ms:
+          type: integer
+          description: How long writes were paused.
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    MoveList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Move"
     PromoteRequest:
       type: object
       properties:
@@ -7178,6 +10521,212 @@ components:
         critical:
           type: integer
           format: int64
+    IncidentSeverity:
+      type: string
+      enum: [minor, major, critical, maintenance]
+    IncidentStatus:
+      type: string
+      enum: [investigating, identified, monitoring, resolved]
+    Incident:
+      type: object
+      required: [id, title, components, severity, status, started_at, updated_at, updates]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        components:
+          type: array
+          items:
+            type: string
+        region:
+          type: string
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        started_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        pushed_at:
+          type: string
+          format: date-time
+          description: When the status page last took this version; unset while a push is due.
+        push_error:
+          type: string
+        updates:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncidentUpdate"
+    IncidentUpdate:
+      type: object
+      required: [id, status, body, posted_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        body:
+          type: string
+        posted_at:
+          type: string
+          format: date-time
+        posted_by:
+          type: string
+          description: The poster's email.
+    IncidentList:
+      type: object
+      required: [items, components, status_page_configured]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+        components:
+          type: array
+          description: Status page components an incident can name.
+          items:
+            type: string
+        status_page_configured:
+          type: boolean
+        status_page_url:
+          type: string
+    CreateIncidentRequest:
+      type: object
+      required: [title, components, severity, status, body]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        components:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        region:
+          type: string
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+    UpdateIncidentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        components:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+    IncidentUpdateRequest:
+      type: object
+      required: [status, body]
+      properties:
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+    PoolerHost:
+      type: object
+      required: [id, name, server_id, reachable, ready, stale, vrrp_state, generation, holder]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        private_addr:
+          type: string
+        server_id:
+          type: string
+        reachable:
+          type: boolean
+        ready:
+          type: boolean
+        stale:
+          type: boolean
+        vrrp_state:
+          type: string
+          description: keepalived's state (MASTER, BACKUP, FAULT, STOP), empty before it reports.
+        generation:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        holder:
+          type: boolean
+          description: The floating IP routes to this host.
+    PoolerEvent:
+      type: object
+      required: [id, kind, created_at, detail]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [took_ip, reassigned, split_brain, stale, push_failed, recovered]
+        host:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        detail:
+          type: object
+          additionalProperties: true
+    PoolerHosts:
+      type: object
+      required: [enabled, generation, hosts, manages_ip, split_brain, no_healthy, events]
+      properties:
+        enabled:
+          type: boolean
+          description: Pooler hosts are configured (the arbiter runs).
+        checked_at:
+          type: string
+          format: date-time
+        generation:
+          type: integer
+          format: int64
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolerHost"
+        manages_ip:
+          type: boolean
+        holder_server_id:
+          type: string
+        holder_name:
+          type: string
+        holder_error:
+          type: string
+        split_brain:
+          type: boolean
+        no_healthy:
+          type: boolean
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolerEvent"
     AlertSmtp:
       type: object
       required: [host, port, from, to, tls, has_password]
@@ -7487,7 +11036,7 @@ components:
           nullable: true
         platform_role:
           type: string
-          enum: [platform_admin, user]
+          enum: [platform_admin, support, user]
         token:
           $ref: "#/components/schemas/TokenGrant"
     UpdateMeRequest:
@@ -7513,6 +11062,9 @@ components:
         terms_version:
           type: integer
           description: The terms version the user accepted (the current one).
+        challenge:
+          type: string
+          description: The Turnstile token from the signup page, when the session state names a site key (V3 §7.4).
     TokenRequest:
       type: object
       required: [token]
@@ -7566,6 +11118,9 @@ components:
           type: string
         privacy_md:
           type: string
+        aup_md:
+          type: string
+          description: The acceptable use policy, accepted with the terms (V3 §7.3).
         published_at:
           type: string
           format: date-time
@@ -7583,6 +11138,9 @@ components:
           type: string
         privacy_md:
           type: string
+        aup_md:
+          type: string
+          description: The acceptable use policy; left out, the current one is kept.
     SessionInfo:
       type: object
       required: [id, created_at, last_seen_at, current]
@@ -7627,7 +11185,7 @@ components:
             type: string
     OrgRole:
       type: string
-      enum: [owner, admin, member]
+      enum: [owner, admin, member, billing]
     ProjectRole:
       type: string
       enum: [admin, developer, read_only]
@@ -8011,7 +11569,7 @@ components:
           nullable: true
         platform_role:
           type: string
-          enum: [platform_admin, user]
+          enum: [platform_admin, support, user]
         email_verified:
           type: boolean
         approved:
@@ -8047,7 +11605,7 @@ components:
           type: boolean
         platform_role:
           type: string
-          enum: [platform_admin, user]
+          enum: [platform_admin, support, user]
           description: |
             Makes the account a platform admin, or an ordinary user again.
             Needs a recent step-up authentication. The account must be
@@ -8136,6 +11694,1775 @@ components:
         unlimited:
           type: boolean
           description: The Unlimited plan has no allowance to stay within.
+    Decimal:
+      type: string
+      description: An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+      example: "34.25"
+    PricePlan:
+      type: object
+      required: [name, monthly_minor, annual_minor, quota_plan, included, unit, payment_terms_days]
+      properties:
+        name:
+          type: string
+        monthly_minor:
+          type: integer
+          format: int64
+          description: The monthly fee in kobo, billed in advance.
+        annual_minor:
+          type: integer
+          format: int64
+          description: The fee for a year in advance, in kobo; 0 when the plan has no annual term.
+        quota_plan:
+          type: string
+          description: The quota plan (limits) an organisation on this plan gets.
+        included:
+          type: object
+          description: Each metric's monthly allowance, in the metric's unit.
+          additionalProperties:
+            $ref: "#/components/schemas/Decimal"
+        unit:
+          type: object
+          description: Kobo per unit above the allowance; a metric with no price isn't charged.
+          additionalProperties:
+            $ref: "#/components/schemas/Decimal"
+        payment_terms_days:
+          type: integer
+    Prices:
+      type: object
+      required: [currency, plans, dedicated, addons]
+      properties:
+        currency:
+          type: string
+          enum: [NGN]
+        plans:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/PricePlan"
+        dedicated:
+          type: object
+          required: [vcpu_hour, ram_gb_hour, disk_gb_hour]
+          properties:
+            vcpu_hour:
+              $ref: "#/components/schemas/Decimal"
+            ram_gb_hour:
+              $ref: "#/components/schemas/Decimal"
+            disk_gb_hour:
+              $ref: "#/components/schemas/Decimal"
+        addons:
+          type: object
+          required: [ha_premium_percent, sync_replication_hour]
+          properties:
+            ha_premium_percent:
+              $ref: "#/components/schemas/Decimal"
+            sync_replication_hour:
+              $ref: "#/components/schemas/Decimal"
+    PriceBook:
+      type: object
+      required: [version, effective_at, prices, created_at]
+      properties:
+        version:
+          type: integer
+        effective_at:
+          type: string
+          format: date-time
+        prices:
+          $ref: "#/components/schemas/Prices"
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+    Pricing:
+      type: object
+      required: [version, effective_at, prices, vat_rate]
+      properties:
+        version:
+          type: integer
+        effective_at:
+          type: string
+          format: date-time
+        prices:
+          $ref: "#/components/schemas/Prices"
+        vat_rate:
+          $ref: "#/components/schemas/Decimal"
+        next:
+          type: object
+          required: [version, effective_at, prices]
+          properties:
+            version:
+              type: integer
+            effective_at:
+              type: string
+              format: date-time
+            prices:
+              $ref: "#/components/schemas/Prices"
+    Ticket:
+      type: object
+      required: [id, number, ref, requester, channel, subject, status, priority, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+          format: int64
+        ref:
+          type: string
+          description: The reference people quote, e.g. T-1042.
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+        org_name:
+          type: string
+          nullable: true
+        requester:
+          type: string
+        requester_name:
+          type: string
+          nullable: true
+        channel:
+          type: string
+          enum: [dashboard, email, whatsapp]
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [open, pending, solved, closed]
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        plan:
+          type: string
+          nullable: true
+        assignee:
+          type: string
+          format: uuid
+          nullable: true
+        messages:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        first_response_at:
+          type: string
+          format: date-time
+          nullable: true
+        respond_by:
+          type: string
+          format: date-time
+          nullable: true
+          description: The plan's response target; null is best effort.
+    TicketList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ticket"
+    TicketMessage:
+      type: object
+      required: [id, direction, author, body, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        direction:
+          type: string
+          enum: [in, out, note]
+        author:
+          type: string
+        body:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    TicketDetail:
+      type: object
+      required: [ticket, messages]
+      properties:
+        ticket:
+          $ref: "#/components/schemas/Ticket"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketMessage"
+        context:
+          $ref: "#/components/schemas/SupportContext"
+    SupportContext:
+      type: object
+      description: What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
+      required: [org_id, org_name, org_status, plan, members, projects, recent_operations, incidents, quotas]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        org_status:
+          type: string
+        plan:
+          type: string
+        term:
+          type: string
+          nullable: true
+        billing_mode:
+          type: string
+          nullable: true
+        dunning_state:
+          type: string
+          nullable: true
+        owed_minor:
+          type: integer
+          format: int64
+          nullable: true
+        credit_minor:
+          type: integer
+          format: int64
+          nullable: true
+        members:
+          type: integer
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportProject"
+        recent_operations:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportOperation"
+        incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportIncident"
+        quotas:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuotaItem"
+    SupportProject:
+      type: object
+      required: [id, name, tier, status, lifecycle]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tier:
+          type: string
+        status:
+          type: string
+        lifecycle:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    SupportOperation:
+      type: object
+      required: [id, kind, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        status:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    SupportIncident:
+      type: object
+      required: [id, title, status, severity, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+        severity:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+    TicketOpen:
+      type: object
+      required: [subject, body]
+      properties:
+        subject:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+          maxLength: 20000
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+    TicketReply:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          maxLength: 20000
+        note:
+          type: boolean
+          description: An internal note (support console only), not sent to the customer.
+    TicketUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, pending, solved, closed]
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        assignee:
+          type: string
+          format: uuid
+          nullable: true
+        clear_assignee:
+          type: boolean
+        org_id:
+          type: string
+          format: uuid
+    SupportPhone:
+      type: object
+      required: [phone, created_at]
+      properties:
+        phone:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    RevenueMonth:
+      type: object
+      required: [month, mrr_minor, arr_minor, new_minor, expansion_minor, contraction_minor, churned_minor, paying_orgs, arpa_minor,
+                 conversions, free_orgs, usage_revenue_minor, invoiced_minor, invoices, collected_minor]
+      properties:
+        month:
+          type: string
+          example: "2026-10"
+        mrr_minor:
+          type: integer
+          format: int64
+        arr_minor:
+          type: integer
+          format: int64
+        new_minor:
+          type: integer
+          format: int64
+        expansion_minor:
+          type: integer
+          format: int64
+        contraction_minor:
+          type: integer
+          format: int64
+        churned_minor:
+          type: integer
+          format: int64
+        paying_orgs:
+          type: integer
+        arpa_minor:
+          type: integer
+          format: int64
+        conversions:
+          type: integer
+          description: Organisations that moved from Free to a paid plan this month.
+        free_orgs:
+          type: integer
+          description: Organisations on Free at the start of the month.
+        usage_revenue_minor:
+          type: integer
+          format: int64
+          description: Metered charges (overage, dedicated, add-ons) on the month's invoices.
+        invoiced_minor:
+          type: integer
+          format: int64
+        invoices:
+          type: integer
+          format: int64
+        collected_minor:
+          type: integer
+          format: int64
+    Revenue:
+      type: object
+      required: [months, ageing, outstanding_wht_minor, as_of]
+      properties:
+        months:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevenueMonth"
+        ageing:
+          type: array
+          items:
+            type: object
+            required: [label, amount_minor, invoices]
+            properties:
+              label:
+                type: string
+              amount_minor:
+                type: integer
+                format: int64
+              invoices:
+                type: integer
+        outstanding_wht_minor:
+          type: integer
+          format: int64
+        as_of:
+          type: string
+          format: date-time
+    PriceBookInput:
+      type: object
+      required: [effective_at, prices]
+      properties:
+        effective_at:
+          type: string
+          format: date-time
+        prices:
+          $ref: "#/components/schemas/Prices"
+        notes:
+          type: string
+          nullable: true
+    BillingSettings:
+      type: object
+      required: [vat_rate, wht_rate, auto_issue, seller]
+      properties:
+        vat_rate:
+          $ref: "#/components/schemas/Decimal"
+        wht_rate:
+          $ref: "#/components/schemas/Decimal"
+        auto_issue:
+          type: boolean
+          description: Issue each month's draft invoices automatically on the 1st.
+        stablecoin:
+          type: boolean
+          description: Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
+        delete_for_non_payment:
+          type: boolean
+          description: Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin.
+        seller:
+          type: object
+          required: [legal_name, address, tin, vat_number, email]
+          properties:
+            legal_name:
+              type: string
+            address:
+              type: string
+            tin:
+              type: string
+            vat_number:
+              type: string
+            email:
+              type: string
+    InvoiceLine:
+      type: object
+      required: [kind, description, quantity, unit_price, amount]
+      properties:
+        kind:
+          type: string
+          enum: [plan, overage, dedicated, addon, credit, proration]
+        description:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        metric:
+          type: string
+          nullable: true
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+        unit_price:
+          $ref: "#/components/schemas/Decimal"
+        amount:
+          type: integer
+          format: int64
+          description: Kobo.
+    PlanOption:
+      type: object
+      required: [id, name, monthly_minor, annual_minor]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        monthly_minor:
+          type: integer
+          format: int64
+        annual_minor:
+          type: integer
+          format: int64
+    BillingAccount:
+      type: object
+      required: [org_id, plan, plan_name, term, mode, price_book_version, grandfathered, vat_registered, deducts_wht,
+                 payment_terms_days, dunning_state, plans]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        plan:
+          type: string
+        plan_name:
+          type: string
+        term:
+          type: string
+          enum: [monthly, annual]
+        term_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        mode:
+          type: string
+          enum: [postpaid, prepaid]
+        price_book_version:
+          type: integer
+        grandfathered:
+          type: boolean
+        legal_name:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        tin:
+          type: string
+          nullable: true
+        vat_registered:
+          type: boolean
+        deducts_wht:
+          type: boolean
+        payment_terms_days:
+          type: integer
+        budget_minor:
+          type: integer
+          format: int64
+          nullable: true
+        spend_cap_minor:
+          type: integer
+          format: int64
+          nullable: true
+        dunning_state:
+          type: string
+        forecast_minor:
+          type: integer
+          format: int64
+          nullable: true
+        capped:
+          type: boolean
+        credit_minor:
+          type: integer
+          format: int64
+          description: On the credit balance (prepaid funds, overpayments).
+        owed_minor:
+          type: integer
+          format: int64
+          description: Outstanding on issued invoices.
+        overdue_since:
+          type: string
+          format: date-time
+          nullable: true
+        card_failing_since:
+          type: string
+          format: date-time
+          nullable: true
+        zero_balance_at:
+          type: string
+          format: date-time
+          nullable: true
+        grace_until:
+          type: string
+          format: date-time
+          nullable: true
+        deletion_scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        auto_topup:
+          allOf:
+            - $ref: "#/components/schemas/AutoTopup"
+          nullable: true
+        channels:
+          type: object
+          required: [card, wallet, transfer, stablecoin]
+          description: The payment channels offered.
+          properties:
+            card:
+              type: boolean
+            wallet:
+              type: boolean
+            transfer:
+              type: boolean
+            stablecoin:
+              type: boolean
+        pending_change:
+          type: object
+          nullable: true
+          required: [to_plan, to_term, effective_at]
+          properties:
+            to_plan:
+              type: string
+            to_term:
+              type: string
+            effective_at:
+              type: string
+              format: date-time
+        plans:
+          type: array
+          description: The plans on the organisation's price book.
+          items:
+            $ref: "#/components/schemas/PlanOption"
+    BillingDetailsUpdate:
+      type: object
+      required: [vat_registered, deducts_wht]
+      properties:
+        legal_name:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        tin:
+          type: string
+          nullable: true
+        vat_registered:
+          type: boolean
+        deducts_wht:
+          type: boolean
+        budget_minor:
+          type: integer
+          format: int64
+          nullable: true
+        spend_cap_minor:
+          type: integer
+          format: int64
+          nullable: true
+    AdminBillingUpdate:
+      type: object
+      required: [grandfathered, mode, payment_terms_days, price_book_version]
+      properties:
+        grandfathered:
+          type: boolean
+        mode:
+          type: string
+          enum: [postpaid, prepaid]
+        payment_terms_days:
+          type: integer
+        price_book_version:
+          type: integer
+    BillingContact:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+          nullable: true
+    LegalDocument:
+      type: object
+      required: [id, kind, version, title, body_md, published_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [sla, dpa, order_form]
+        org_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int32
+        title:
+          type: string
+        body_md:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+    LegalDocumentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalDocument"
+    OrgLegalDocument:
+      type: object
+      required: [document]
+      properties:
+        document:
+          $ref: "#/components/schemas/LegalDocument"
+        accepted_at:
+          type: string
+          format: date-time
+        accepted_by:
+          type: string
+    OrgLegal:
+      type: object
+      required: [items, outstanding]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgLegalDocument"
+        outstanding:
+          type: boolean
+          description: Some document in effect isn't accepted yet.
+    LegalVersion:
+      type: object
+      required: [id, kind, version, title, published_at, acceptances]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        version:
+          type: integer
+          format: int32
+        title:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+        acceptances:
+          type: integer
+          format: int64
+    LegalVersionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalVersion"
+    LegalAcceptance:
+      type: object
+      required: [org_id, org_name, accepted_at]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        accepted_by:
+          type: string
+    LegalDocumentDetail:
+      type: object
+      required: [document, acceptances]
+      properties:
+        document:
+          $ref: "#/components/schemas/LegalDocument"
+        acceptances:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalAcceptance"
+    LegalPublish:
+      type: object
+      required: [kind, title, body_md]
+      properties:
+        kind:
+          type: string
+          enum: [sla, dpa]
+        title:
+          type: string
+        body_md:
+          type: string
+    OrderFormPublish:
+      type: object
+      required: [title, body_md]
+      properties:
+        title:
+          type: string
+        body_md:
+          type: string
+    TierSettings:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+        disk_threshold:
+          type: number
+        horizon_days:
+          type: integer
+        server_type:
+          type: string
+        min_cpus:
+          type: integer
+        min_memory_gb:
+          type: number
+        min_disk_gb:
+          type: integer
+        cluster_memory_mb:
+          type: integer
+    CapacitySettings:
+      type: object
+      required: [auto_apply, monthly_budget_minor, budget_currency, shared, dedicated, auto_rebalance, rebalance_spread, delete_empty_after_hours]
+      properties:
+        auto_apply:
+          type: boolean
+        monthly_budget_minor:
+          type: integer
+          format: int64
+        budget_currency:
+          type: string
+        shared:
+          $ref: "#/components/schemas/TierSettings"
+        dedicated:
+          $ref: "#/components/schemas/TierSettings"
+        auto_rebalance:
+          type: boolean
+        rebalance_spread:
+          type: number
+        delete_empty_after_hours:
+          type: integer
+    CapacityProposal:
+      type: object
+      required: [id, region, tier, reason, provider, server_type, location, monthly_cost_minor, currency, status, auto, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        region:
+          type: string
+        tier:
+          type: string
+          enum: [shared, dedicated]
+        reason:
+          type: string
+        provider:
+          type: string
+        server_type:
+          type: string
+        location:
+          type: string
+        monthly_cost_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, provisioning, done, rejected, failed, superseded]
+        auto:
+          type: boolean
+        node_id:
+          type: string
+          format: uuid
+          nullable: true
+        node_name:
+          type: string
+        operation_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CapacityProposalList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapacityProposal"
+    RegionShared:
+      type: object
+      required: [region, nodes, total_bytes, used_bytes, projected_bytes, horizon_days, threshold]
+      properties:
+        region:
+          type: string
+        nodes:
+          type: integer
+        total_bytes:
+          type: number
+        used_bytes:
+          type: number
+        projected_bytes:
+          type: number
+        horizon_days:
+          type: integer
+        threshold:
+          type: number
+    RegionDedicated:
+      type: object
+      required: [region, nodes, largest, free_cpus, free_mem_mb]
+      properties:
+        region:
+          type: string
+        nodes:
+          type: integer
+        largest:
+          type: string
+        fits_on:
+          type: string
+        free_cpus:
+          type: number
+        free_mem_mb:
+          type: integer
+          format: int64
+    RebalanceMove:
+      type: object
+      required: [id, batch, kind, project_id, project_name, org_id, from_node, from_name, reason, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [drain, rebalance]
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+        from_node:
+          type: string
+          format: uuid
+        from_name:
+          type: string
+        to_node:
+          type: string
+          format: uuid
+          nullable: true
+        to_name:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [proposed, approved, moving, done, failed, skipped, rejected]
+        operation_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Capacity:
+      type: object
+      required: [provider, can_create, region, settings, shared, dedicated, proposals, moves, nodes, budget_used_minor]
+      properties:
+        provider:
+          type: string
+        can_create:
+          type: boolean
+        region:
+          type: string
+        settings:
+          $ref: "#/components/schemas/CapacitySettings"
+        shared:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionShared"
+        dedicated:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionDedicated"
+        proposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapacityProposal"
+        moves:
+          type: array
+          items:
+            $ref: "#/components/schemas/RebalanceMove"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+        budget_used_minor:
+          type: integer
+          format: int64
+          description: The nodes' monthly cost in the budget's currency (where a rate allows).
+    RebalancePlan:
+      type: object
+      required: [moves]
+      properties:
+        batch:
+          type: string
+          format: uuid
+          nullable: true
+        moves:
+          type: integer
+          format: int64
+    BatchDecision:
+      type: object
+      required: [approve]
+      properties:
+        approve:
+          type: boolean
+    DrainResult:
+      type: object
+      required: [node, moves]
+      properties:
+        node:
+          $ref: "#/components/schemas/Node"
+        moves:
+          type: integer
+    NodeCost:
+      type: object
+      required: [currency]
+      properties:
+        monthly_cost_minor:
+          type: integer
+          format: int64
+          nullable: true
+        currency:
+          type: string
+        server_type:
+          type: string
+        region:
+          type: string
+        keep:
+          type: boolean
+    ServerPrice:
+      type: object
+      required: [type, location, cpus, memory_gb, disk_gb, monthly_minor, currency]
+      properties:
+        type:
+          type: string
+        location:
+          type: string
+        cpus:
+          type: integer
+        memory_gb:
+          type: number
+        disk_gb:
+          type: integer
+        monthly_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+    ServerPriceList:
+      type: object
+      required: [provider, items]
+      properties:
+        provider:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServerPrice"
+    CategoryCost:
+      type: object
+      required: [category, region, native_minor, ngn_minor, ngn_booked_minor]
+      properties:
+        category:
+          type: string
+        region:
+          type: string
+        native_minor:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        ngn_minor:
+          type: integer
+          format: int64
+        ngn_booked_minor:
+          type: integer
+          format: int64
+    OrgMargin:
+      type: object
+      required: [org_id, name, plan, revenue_minor, cost_minor, cost_native_minor, margin_minor]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        plan:
+          type: string
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        cost_native_minor:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        margin_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    PlanMargin:
+      type: object
+      required: [plan, orgs, revenue_minor, cost_minor, margin_minor]
+      properties:
+        plan:
+          type: string
+        orgs:
+          type: integer
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        margin_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    UnitCost:
+      type: object
+      required: [unit, quantity, currency, per_unit_minor, per_unit_ngn_minor]
+      properties:
+        unit:
+          type: string
+        quantity:
+          type: number
+        currency:
+          type: string
+        per_unit_minor:
+          type: number
+        per_unit_ngn_minor:
+          type: number
+    Margins:
+      type: object
+      required: [month, days, rates, categories, plans, orgs, units, revenue_minor, cost_minor, cost_booked_minor, unallocated_minor, free_tier_cost_minor, margin_minor, fx_erosion_minor]
+      properties:
+        month:
+          type: string
+        days:
+          type: integer
+        rates:
+          type: object
+          additionalProperties:
+            type: number
+        missing_rates:
+          type: array
+          items:
+            type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCost"
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanMargin"
+        orgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgMargin"
+        units:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnitCost"
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        cost_booked_minor:
+          type: integer
+          format: int64
+        unallocated_minor:
+          type: integer
+          format: int64
+        free_tier_cost_minor:
+          type: integer
+          format: int64
+        margin_minor:
+          type: integer
+          format: int64
+        fx_erosion_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    AttributeRequest:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+          description: Inclusive.
+    AttributeResult:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: integer
+    Overhead:
+      type: object
+      required: [name, monthly_minor, currency]
+      properties:
+        name:
+          type: string
+        monthly_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+    CostSettings:
+      type: object
+      required: [currency, object_storage_gb_month_minor, egress_gb_minor, floating_ips, floating_ip_monthly_minor, overheads]
+      properties:
+        currency:
+          type: string
+        object_storage_gb_month_minor:
+          type: number
+        egress_gb_minor:
+          type: number
+        floating_ips:
+          type: integer
+        floating_ip_monthly_minor:
+          type: integer
+          format: int64
+        overheads:
+          type: array
+          items:
+            $ref: "#/components/schemas/Overhead"
+    FXRate:
+      type: object
+      required: [id, currency, ngn_per_unit, effective_at, source]
+      properties:
+        id:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        ngn_per_unit:
+          type: number
+          format: double
+        effective_at:
+          type: string
+          format: date-time
+        source:
+          type: string
+    FXRateList:
+      type: object
+      required: [current, history]
+      properties:
+        current:
+          type: array
+          items:
+            $ref: "#/components/schemas/FXRate"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/FXRate"
+    FXRateInput:
+      type: object
+      required: [currency, ngn_per_unit]
+      properties:
+        currency:
+          type: string
+        ngn_per_unit:
+          type: number
+          format: double
+        effective_at:
+          type: string
+          format: date-time
+    PlanChangeRequest:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          type: string
+        term:
+          type: string
+          enum: [monthly, annual]
+        immediately:
+          type: boolean
+          description: Apply a downgrade now, with a credit for the unused part.
+        dry_run:
+          type: boolean
+        accept_legal:
+          type: boolean
+          description: Accept the SLA, DPA and order form in effect on the organisation's behalf (owners).
+    PlanChange:
+      type: object
+      required: [from_plan, from_term, to_plan, to_term, effective_at, upgrade, applied, lines, total_minor]
+      properties:
+        from_plan:
+          type: string
+        from_term:
+          type: string
+        to_plan:
+          type: string
+        to_term:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        upgrade:
+          type: boolean
+        applied:
+          type: boolean
+          description: In effect now; otherwise scheduled for effective_at.
+        term_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        lines:
+          type: array
+          description: Lines on the next invoice (before VAT).
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        total_minor:
+          type: integer
+          format: int64
+    Invoice:
+      type: object
+      required: [id, org_id, period_start, period_end, status, held, subtotal_minor, vat_minor, total_minor,
+                 wht_expected_minor, paid_minor, wht_deducted_minor, vat_rate, price_book_version, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, issued, paid, paid_wht_pending, partially_paid, void]
+        held:
+          type: boolean
+        hold_reason:
+          type: string
+          nullable: true
+        subtotal_minor:
+          type: integer
+          format: int64
+        vat_minor:
+          type: integer
+          format: int64
+        total_minor:
+          type: integer
+          format: int64
+        wht_expected_minor:
+          type: integer
+          format: int64
+        paid_minor:
+          type: integer
+          format: int64
+          description: Kobo settled against this invoice so far (payments and credit applied).
+        wht_deducted_minor:
+          type: integer
+          format: int64
+          description: Kobo withheld as WHT by the customer, awaiting a certificate.
+        wht_evidenced_at:
+          type: string
+          format: date-time
+          nullable: true
+        vat_rate:
+          $ref: "#/components/schemas/Decimal"
+        price_book_version:
+          type: integer
+        issued_at:
+          type: string
+          format: date-time
+          nullable: true
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    InvoiceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+    CreditNote:
+      type: object
+      required: [id, invoice_id, number, amount_minor, vat_minor, reason, issued_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        amount_minor:
+          type: integer
+          format: int64
+        vat_minor:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        issued_at:
+          type: string
+          format: date-time
+    InvoiceDetail:
+      type: object
+      required: [invoice, lines, credit_notes]
+      properties:
+        invoice:
+          $ref: "#/components/schemas/Invoice"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        credit_notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditNote"
+    LedgerCheck:
+      type: object
+      required: [balanced, transactions, debits_minor, credits_minor, problems, accounts]
+      properties:
+        balanced:
+          type: boolean
+        transactions:
+          type: integer
+        debits_minor:
+          type: integer
+          format: int64
+        credits_minor:
+          type: integer
+          format: int64
+        problems:
+          type: array
+          items:
+            type: object
+            required: [txn_id, debits_minor, credits_minor]
+            properties:
+              txn_id:
+                type: string
+                format: uuid
+              debits_minor:
+                type: integer
+                format: int64
+              credits_minor:
+                type: integer
+                format: int64
+              kind:
+                type: string
+                description: |
+                  Set for a ledger that disagrees with what it records (txn_id is then empty): invoice_ledger,
+                  invoice_arithmetic, invoice_allocations, invoice_outstanding, credit_note_ledger, payment_ledger,
+                  receivable, account_sign.
+              ref:
+                type: string
+                description: The invoice or credit note number, payment reference, or organisation.
+              detail:
+                type: string
+        accounts:
+          type: array
+          description: Each account's balance (debits minus credits) across organisations.
+          items:
+            type: object
+            required: [account, balance_minor]
+            properties:
+              account:
+                type: string
+              balance_minor:
+                type: integer
+                format: int64
+    BillingForecast:
+      type: object
+      required: [month, spend_minor, usage_minor, elapsed, capped, so_far]
+      properties:
+        month:
+          type: string
+          description: YYYY-MM.
+        spend_minor:
+          type: integer
+          format: int64
+          description: The month's projected cost before VAT.
+        usage_minor:
+          type: integer
+          format: int64
+          description: Projected usage charges (overage, dedicated, add-ons); the spend cap applies to these.
+        elapsed:
+          $ref: "#/components/schemas/Decimal"
+        budget_minor:
+          type: integer
+          format: int64
+          nullable: true
+        spend_cap_minor:
+          type: integer
+          format: int64
+          nullable: true
+        capped:
+          type: boolean
+        so_far:
+          type: array
+          description: The month's lines so far (the next invoice, still changing).
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+    VirtualAccount:
+      type: object
+      required: [provider, account_number, bank_name, account_name]
+      properties:
+        provider:
+          type: string
+        account_number:
+          type: string
+        bank_name:
+          type: string
+        account_name:
+          type: string
+    PaymentMethod:
+      type: object
+      required: [id, provider, kind, is_default]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        kind:
+          type: string
+          enum: [card, mandate]
+        brand:
+          type: string
+          nullable: true
+        last4:
+          type: string
+          nullable: true
+        exp_month:
+          type: integer
+          nullable: true
+        exp_year:
+          type: integer
+          nullable: true
+        limit_minor:
+          type: integer
+          format: int64
+          nullable: true
+        is_default:
+          type: boolean
+    AutoTopup:
+      type: object
+      required: [below_minor, amount_minor]
+      properties:
+        below_minor:
+          type: integer
+          format: int64
+        amount_minor:
+          type: integer
+          format: int64
+    Payment:
+      type: object
+      required: [id, org_id, provider, channel, provider_ref, amount_minor, fee_minor, refunded_minor, received_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+          nullable: true
+        provider:
+          type: string
+        channel:
+          type: string
+        provider_ref:
+          type: string
+        amount_minor:
+          type: integer
+          format: int64
+        fee_minor:
+          type: integer
+          format: int64
+        refunded_minor:
+          type: integer
+          format: int64
+        note:
+          type: string
+          nullable: true
+        received_at:
+          type: string
+          format: date-time
+    PaymentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
+    PaymentEvent:
+      type: object
+      required: [id, provider, provider_event_id, kind, received_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        provider:
+          type: string
+        provider_event_id:
+          type: string
+        kind:
+          type: string
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+        provider_ref:
+          type: string
+          nullable: true
+        amount_minor:
+          type: integer
+          format: int64
+          nullable: true
+        outcome:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        received_at:
+          type: string
+          format: date-time
+    OutstandingWht:
+      type: object
+      required: [invoice_id, org_id, org_name, wht_minor, age_days]
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          nullable: true
+        org_id:
+          type: string
+          format: uuid
+        org_name:
+          type: string
+        tin:
+          type: string
+          nullable: true
+        wht_minor:
+          type: integer
+          format: int64
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        age_days:
+          type: integer
+    Reconciliation:
+      type: object
+      required: [provider, from, to, matched, gross_minor, fees_minor, differences, ran_at]
+      properties:
+        provider:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        matched:
+          type: integer
+        gross_minor:
+          type: integer
+          format: int64
+        fees_minor:
+          type: integer
+          format: int64
+        error:
+          type: string
+        ran_at:
+          type: string
+          format: date-time
+        differences:
+          type: array
+          items:
+            type: object
+            required: [kind, provider_ref, provider_minor, pgdock_minor]
+            properties:
+              kind:
+                type: string
+                enum: [missing_in_pgdock, missing_at_provider, amount, fee]
+              provider_ref:
+                type: string
+              provider_minor:
+                type: integer
+                format: int64
+              pgdock_minor:
+                type: integer
+                format: int64
+              note:
+                type: string
     OrgQuotas:
       type: object
       required: [plan, items, dedicated_allowance, dedicated_use]
@@ -8413,6 +13740,369 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TableFootprint"
+    InsightQuery:
+      type: object
+      required: [query_id, query, has_example, calls, total_ms, mean_ms, max_ms, rows, hit_ratio, share]
+      properties:
+        query_id:
+          type: string
+          description: pg_stat_statements' queryid (a 64-bit integer, as a string).
+        query:
+          type: string
+          description: The normalised text, with $1… for literals.
+        has_example:
+          type: boolean
+        calls:
+          type: integer
+          format: int64
+        total_ms:
+          type: number
+          format: double
+        mean_ms:
+          type: number
+          format: double
+        max_ms:
+          type: number
+          format: double
+        rows:
+          type: integer
+          format: int64
+        hit_ratio:
+          type: number
+          format: double
+          description: Share of blocks read from shared buffers.
+        share:
+          type: number
+          format: double
+          description: Share of the project's total query time.
+    InsightQueryList:
+      type: object
+      required: [range, items]
+      properties:
+        range:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightQuery"
+    InsightPoint:
+      type: object
+      required: [ts, calls, total_ms, mean_ms, max_ms, rows]
+      properties:
+        ts:
+          type: string
+          format: date-time
+        calls:
+          type: integer
+          format: int64
+        total_ms:
+          type: number
+          format: double
+        mean_ms:
+          type: number
+          format: double
+        max_ms:
+          type: number
+          format: double
+        rows:
+          type: integer
+          format: int64
+    InsightQueryDetail:
+      type: object
+      required: [query, first_seen, last_seen, step_seconds, series]
+      properties:
+        query:
+          $ref: "#/components/schemas/InsightQuery"
+        example:
+          type: string
+          nullable: true
+          description: The latest statement seen with its literals.
+        example_at:
+          type: string
+          format: date-time
+          nullable: true
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        step_seconds:
+          type: integer
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightPoint"
+    InsightExplainRequest:
+      type: object
+      required: [query_id]
+      properties:
+        query_id:
+          type: string
+        generic:
+          type: boolean
+    InsightPlan:
+      type: object
+      required: [generic, statement, plan, total_cost, indexes, seq_scans]
+      properties:
+        generic:
+          type: boolean
+        statement:
+          type: string
+        plan:
+          description: EXPLAIN (FORMAT JSON)'s output.
+        total_cost:
+          type: number
+          format: double
+        indexes:
+          type: array
+          items:
+            type: string
+        seq_scans:
+          type: array
+          items:
+            type: string
+    SlowQuery:
+      type: object
+      required: [query, duration_ms, source, role, seen_at]
+      properties:
+        query_id:
+          type: string
+          nullable: true
+        query:
+          type: string
+        duration_ms:
+          type: number
+          format: double
+        source:
+          type: string
+          enum: [running, snapshot, reaper]
+          description: running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+        role:
+          type: string
+        seen_at:
+          type: string
+          format: date-time
+    SlowQueryList:
+      type: object
+      required: [threshold_ms, items]
+      properties:
+        threshold_ms:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlowQuery"
+    IndexEstimate:
+      type: object
+      required: [cost_before, cost_after, improvement, uses_index]
+      properties:
+        cost_before:
+          type: number
+          format: double
+        cost_after:
+          type: number
+          format: double
+        improvement:
+          type: number
+          format: double
+        uses_index:
+          type: boolean
+    IndexSuggestion:
+      type: object
+      required: [schema, table, columns, reasons, query_ids, statement, change, table_rows, seq_scans]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        reasons:
+          type: array
+          items:
+            type: string
+            enum: [seq_scan_filter, unindexed_foreign_key]
+        query_ids:
+          type: array
+          items:
+            type: string
+        statement:
+          type: string
+        change:
+          $ref: "#/components/schemas/SchemaChange"
+        estimate:
+          allOf:
+            - $ref: "#/components/schemas/IndexEstimate"
+          nullable: true
+        table_rows:
+          type: number
+          format: double
+        seq_scans:
+          type: integer
+          format: int64
+    IndexInfo:
+      type: object
+      required: [schema, table, name, definition, bytes, scans]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        name:
+          type: string
+        definition:
+          type: string
+        bytes:
+          type: integer
+          format: int64
+        scans:
+          type: integer
+          format: int64
+    DuplicateIndex:
+      allOf:
+        - $ref: "#/components/schemas/IndexInfo"
+        - type: object
+          required: [of, exact]
+          properties:
+            of:
+              type: string
+            exact:
+              type: boolean
+    TableScans:
+      type: object
+      required: [schema, table, rows, seq_scans, seq_tup_read, idx_scans]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        rows:
+          type: number
+          format: double
+        seq_scans:
+          type: integer
+          format: int64
+        seq_tup_read:
+          type: integer
+          format: int64
+        idx_scans:
+          type: integer
+          format: int64
+    IndexReport:
+      type: object
+      required: [suggestions, unused, duplicates, heavy_seq_scans, hypopg]
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndexSuggestion"
+        unused:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndexInfo"
+        duplicates:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateIndex"
+        heavy_seq_scans:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableScans"
+        hypopg:
+          type: string
+          enum: [installed, available, unavailable]
+        stats_since:
+          type: string
+          format: date-time
+          nullable: true
+    TableBloat:
+      type: object
+      required: [schema, table, bytes, expected_bytes, bloat_bytes, bloat_ratio, live_rows, dead_rows]
+      properties:
+        schema:
+          type: string
+        table:
+          type: string
+        bytes:
+          type: integer
+          format: int64
+        expected_bytes:
+          type: integer
+          format: int64
+        bloat_bytes:
+          type: integer
+          format: int64
+        bloat_ratio:
+          type: number
+          format: double
+        live_rows:
+          type: integer
+          format: int64
+        dead_rows:
+          type: integer
+          format: int64
+        last_vacuum:
+          type: string
+          format: date-time
+          nullable: true
+        last_autovacuum:
+          type: string
+          format: date-time
+          nullable: true
+    BloatList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableBloat"
+    DBSession:
+      type: object
+      required: [pid, role, state, wait_event, query, running_ms, in_transaction_ms, platform]
+      properties:
+        pid:
+          type: integer
+        role:
+          type: string
+        state:
+          type: string
+        wait_event:
+          type: string
+        query:
+          type: string
+        running_ms:
+          type: integer
+          format: int64
+        in_transaction_ms:
+          type: integer
+          format: int64
+        platform:
+          type: boolean
+          description: One of PGDock's own sessions.
+    LockBlock:
+      type: object
+      required: [blocked, lock, blockers]
+      properties:
+        blocked:
+          $ref: "#/components/schemas/DBSession"
+        lock:
+          type: string
+        blockers:
+          type: array
+          items:
+            $ref: "#/components/schemas/DBSession"
+    LockList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LockBlock"
     ReclaimSpaceRequest:
       type: object
       required: [schema, table]

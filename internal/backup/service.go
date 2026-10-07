@@ -45,6 +45,9 @@ const (
 	Final    = "final"
 	Safety   = "safety"
 	Metadata = "metadata"
+	// Archive is an archived Free project's backup (V3 §4.3), kept for as
+	// long as the project is archived.
+	Archive = "archive"
 )
 
 // Errors for the API layer.
@@ -328,6 +331,9 @@ func (s *Service) deleteObject(ctx context.Context, b store.Backup) error {
 	if err := c.Delete(ctx, b.ObjectKey); err != nil {
 		return err
 	}
+	if err := s.deleteCopy(ctx, b); err != nil {
+		return err
+	}
 	if err := q.MarkBackupDeleted(ctx, b.ID); err != nil {
 		return err
 	}
@@ -487,7 +493,10 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 		last, err := q.LastOperationOfKind(ctx, KindRestoreTest)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && now.Sub(last.CreatedAt) >= 7*24*time.Hour) {
 			if _, err := q.RandomProjectWithBackup(ctx); err == nil {
-				if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindRestoreTest}); err != nil {
+				// Alternate between primary and copy targets (V3 §2.5).
+				// The first test (no last operation) reads a copy if any.
+				next := RestoreTestParams{FromCopy: !restoreTestParams(last).FromCopy}
+				if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindRestoreTest, Params: next}); err != nil {
 					return err
 				}
 			}
@@ -503,10 +512,18 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 func (s *Service) Run(ctx context.Context) {
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()
-	lastExpiry := time.Time{}
+	lastExpiry, lastCopies := time.Time{}, time.Time{}
 	for {
 		if err := s.Schedule(ctx, time.Now()); err != nil && ctx.Err() == nil {
 			s.log.Warn("backup scheduler", "err", err)
+		}
+		if time.Since(lastCopies) > 5*time.Minute {
+			if res, err := s.CopyRegionBackups(ctx, 20); err != nil && ctx.Err() == nil {
+				s.log.Warn("cross-region backup copies", "err", err)
+			} else if res.Copied+res.Failed > 0 {
+				s.log.Info("cross-region backup copies", "copied", res.Copied, "failed", res.Failed, "skipped", res.Skipped)
+			}
+			lastCopies = time.Now()
 		}
 		if time.Since(lastExpiry) > time.Hour {
 			s.expireSpecial(ctx)

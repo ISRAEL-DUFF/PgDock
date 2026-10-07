@@ -279,33 +279,76 @@ func (s *Service) failRestore(ctx context.Context, op store.Operation, log *jobs
 	return s.reopen(ctx, p, log)
 }
 
+// RestoreTestParams: FromCopy tests a backup's cross-region copy instead
+// of the primary; the weekly test alternates (V3 §2.5).
+type RestoreTestParams struct {
+	FromCopy bool `json:"from_copy,omitempty"`
+}
+
+func restoreTestParams(op store.Operation) RestoreTestParams {
+	var p RestoreTestParams
+	_ = json.Unmarshal(op.Params, &p)
+	return p
+}
+
 // runRestoreTest restores the latest backup of a random project into a
-// scratch database, counts every table, and drops it (spec §6.5).
+// scratch database, counts every table, and drops it (spec §6.5). On the
+// copy turn it reads a backup's cross-region copy; with none copied yet it
+// tests the primary.
 func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
 	q := store.New(s.db)
+	fromCopy := restoreTestParams(op).FromCopy
 	var p store.Project
 	var err error
 	if op.ProjectID != nil {
 		p, err = s.projects.ProjectFor(ctx, op)
 	} else {
-		p, err = q.RandomProjectWithBackup(ctx)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return log.Info(ctx, "done", "no project has a backup yet; nothing to test")
+		if fromCopy {
+			p, err = q.RandomProjectWithCopiedBackup(ctx)
+			if errors.Is(err, pgx.ErrNoRows) {
+				fromCopy = false
+				if err := log.Info(ctx, "pick", "no backup has a cross-region copy yet; testing a primary"); err != nil {
+					return err
+				}
+			}
+		}
+		if !fromCopy {
+			p, err = q.RandomProjectWithBackup(ctx)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return log.Info(ctx, "done", "no project has a backup yet; nothing to test")
+			}
 		}
 	}
 	if err != nil {
 		return err
 	}
-	b, err := q.LatestSucceededBackup(ctx, &p.ID)
-	if err != nil {
+	var b store.Backup
+	if fromCopy {
+		if b, err = q.LatestCopiedBackup(ctx, &p.ID); err == nil {
+			b, err = atCopy(b)
+		}
+		if err != nil {
+			return jobs.Permanent(fmt.Errorf("project %s has no copied backup: %w", p.Name, err))
+		}
+	} else if b, err = q.LatestSucceededBackup(ctx, &p.ID); err != nil {
 		return jobs.Permanent(fmt.Errorf("project %s has no backup: %w", p.Name, err))
 	}
+	from := "primary target"
+	if fromCopy {
+		from = "cross-region copy"
+	}
+	if err := log.Info(ctx, "pick", "testing the %s backup of %s (%s) from its %s", b.Kind, p.Name, b.StartedAt.UTC().Format("2006-01-02 15:04 MST"), from); err != nil {
+		return err
+	}
+	return s.verifyRestore(ctx, p, b, log)
+}
+
+// verifyRestore restores b into a scratch database on p's instance, counts
+// every table, and drops it.
+func (s *Service) verifyRestore(ctx context.Context, p store.Project, b store.Backup, log *jobs.StepLogger) error {
 	suffix := make([]byte, 4)
 	_, _ = rand.Read(suffix)
 	scratch := "pgdock_restore_test_" + hex.EncodeToString(suffix)
-	if err := log.Info(ctx, "pick", "testing the %s backup of %s (%s) in %s", b.Kind, p.Name, b.StartedAt.UTC().Format("2006-01-02 15:04 MST"), scratch); err != nil {
-		return err
-	}
 	admin, err := s.projects.AdminConn(ctx, p.InstanceID, "postgres")
 	if err != nil {
 		return err
@@ -340,7 +383,39 @@ func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *j
 	for _, c := range counts {
 		total += c.Rows
 	}
-	return log.Info(ctx, "verify", "restore test passed: %d table(s), %d row(s) readable", len(counts), total)
+	return log.Info(ctx, "verify", "restore test passed in %s: %d table(s), %d row(s) readable", scratch, len(counts), total)
+}
+
+// Archive takes p's archive backup (V3 §4.3) and verifies it by restoring
+// it into a scratch database. The database must accept connections.
+func (s *Service) Archive(ctx context.Context, p store.Project, opID *uuid.UUID, log *jobs.StepLogger) (store.Backup, error) {
+	if _, err := s.PlacementFor(ctx, p); err != nil {
+		return store.Backup{}, jobs.Permanent(fmt.Errorf("no backup storage to archive to: %w", err))
+	}
+	b, err := s.backupProject(ctx, p, Archive, opID, log)
+	if err != nil {
+		return b, err
+	}
+	if err := s.verifyRestore(ctx, p, b, log); err != nil {
+		_ = s.deleteObject(context.WithoutCancel(ctx), b)
+		return store.Backup{}, fmt.Errorf("verify the archive backup: %w", err)
+	}
+	return b, nil
+}
+
+// RestoreArchive creates p's database again and restores archive backup
+// b into it, with its webhooks and members' grants (V3 §4.3).
+func (s *Service) RestoreArchive(ctx context.Context, p store.Project, b store.Backup, log *jobs.StepLogger) error {
+	if err := s.projects.RecreateDatabase(ctx, p, log); err != nil {
+		return err
+	}
+	if err := s.restoreFrom(ctx, b, p, p.DbName, log); err != nil {
+		return err
+	}
+	if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
+		return err
+	}
+	return s.projects.SyncMemberRoles(ctx, p, log)
 }
 
 // runMetadataBackup backs up the metadata DB itself (spec §11.6).

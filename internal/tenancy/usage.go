@@ -28,6 +28,11 @@ const (
 	MetricWebhookSent   = "webhook_deliveries"
 	MetricJobRunsSQL    = "job_runs_sql"
 	MetricJobRunsHTTP   = "job_runs_http"
+	// HA standbys' resources and synchronous replication (V3 §2.2, §3.1).
+	MetricHACPU           = "ha_vcpu_hours"
+	MetricHARAM           = "ha_ram_gb_hours"
+	MetricHADisk          = "ha_disk_gb_hours"
+	MetricSyncReplication = "sync_replication_hours"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -44,6 +49,10 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricWebhookSent, "deliveries", "hour"},
 	{MetricJobRunsSQL, "runs", "hour"},
 	{MetricJobRunsHTTP, "runs", "hour"},
+	{MetricHACPU, "vCPU-hours", "hour"},
+	{MetricHARAM, "GB-RAM-hours", "hour"},
+	{MetricHADisk, "GB-disk-hours", "hour"},
+	{MetricSyncReplication, "hours", "hour"},
 }
 
 const (
@@ -184,11 +193,20 @@ func (s *Service) recordHours(ctx context.Context, from, to time.Time) error {
 	}
 	for _, r := range ded {
 		f := max(0, min(1, r.Fraction))
-		for metric, v := range map[string]float64{
+		vals := map[string]float64{
 			MetricDedicatedCPU:  r.Cpus * f,
 			MetricDedicatedRAM:  float64(r.MemMb) / 1000 * f,
 			MetricDedicatedDisk: float64(r.DiskGb) * f,
-		} {
+		}
+		if n := float64(r.Standbys); n > 0 {
+			vals[MetricHACPU] = r.Cpus * f * n
+			vals[MetricHARAM] = float64(r.MemMb) / 1000 * f * n
+			vals[MetricHADisk] = float64(r.DiskGb) * f * n
+		}
+		if r.SyncReplication {
+			vals[MetricSyncReplication] = f
+		}
+		for metric, v := range vals {
 			if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, metric, "hour", r.PeriodStart, v); err != nil {
 				return err
 			}

@@ -84,12 +84,13 @@ const (
 	rDev       = "developer"
 	rReadOnly  = "read_only"
 	rMember    = "member_without_project"
+	rBilling   = "billing_member"
 	rOutsider  = "other_org_owner"
 	rPlatform  = "platform_admin"
 	rAnonymous = "anonymous"
 )
 
-var matrixActors = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rOutsider, rPlatform, rAnonymous}
+var matrixActors = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling, rOutsider, rPlatform, rAnonymous}
 
 // expected is the spec's matrix (V2 §2.3, §2.4), written out
 // independently of authz: who may perform each action on org A and its
@@ -110,12 +111,14 @@ var expected = map[authz.Action][]string{
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectDelete:      {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectAudit:       {rOwner, rAdmin, rProjAdmin},
-	authz.OrgView:            {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember},
+	authz.OrgView:            {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling},
 	authz.OrgCreateProject:   {rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember},
 	authz.OrgManage:          {rOwner, rAdmin},
 	authz.OrgAudit:           {rOwner, rAdmin},
 	authz.OrgOwnerOnly:       {rOwner},
+	authz.OrgBillingManage:   {rOwner, rBilling}, // V3 §3.2: not admins
 	authz.ProjectExport:      {rOwner},
+	authz.ProjectResidency:   {rOwner},
 	authz.PlatformManage:     {rPlatform},
 }
 
@@ -123,7 +126,7 @@ var expected = map[authz.Action][]string{
 var seesProject = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly}
 
 // seesOrg is who may know org A exists.
-var seesOrg = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember}
+var seesOrg = []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling}
 
 func has(list []string, s string) bool {
 	for _, x := range list {
@@ -182,7 +185,7 @@ func newMatrixWorld(t *testing.T) *matrixWorld {
 	clk.step()
 
 	// Everyone else: accounts with a verified address, signed in once.
-	for _, r := range []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rOutsider} {
+	for _, r := range []string{rOwner, rAdmin, rProjAdmin, rDev, rReadOnly, rMember, rBilling, rOutsider} {
 		addr := strings.ReplaceAll(r, "_", "-") + "@example.com"
 		var u store.User
 		if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
@@ -214,7 +217,7 @@ func newMatrixWorld(t *testing.T) *matrixWorld {
 		t.Fatal(err)
 	}
 	w.orgA, w.orgB = oa.ID, ob.ID
-	for r, role := range map[string]string{rAdmin: "admin", rProjAdmin: "member", rDev: "member", rReadOnly: "member", rMember: "member"} {
+	for r, role := range map[string]string{rAdmin: "admin", rProjAdmin: "member", rDev: "member", rReadOnly: "member", rMember: "member", rBilling: "billing"} {
 		if err := q.InsertOrgMember(ctx, store.InsertOrgMemberParams{OrgID: w.orgA, UserID: w.users[r], Role: role}); err != nil {
 			t.Fatal(err)
 		}
@@ -229,7 +232,8 @@ func newMatrixWorld(t *testing.T) *matrixWorld {
 		}
 	}
 	p, err := q.InsertProject(ctx, store.InsertProjectParams{
-		ID: uuid.New(), OrgID: w.orgA, Name: "P", Slug: "p", DbName: "p_abcd", OwnerRole: "p_abcd_owner",
+		Region: "eu-central",
+		ID:     uuid.New(), OrgID: w.orgA, Name: "P", Slug: "p", DbName: "p_abcd", OwnerRole: "p_abcd_owner",
 		ScramVerifier: "x", Tier: "shared", InstanceID: inst, Settings: []byte(`{}`),
 	})
 	if err != nil {
@@ -280,7 +284,7 @@ func (w *matrixWorld) path(pattern string, platformOp bool) string {
 		"{invitation_id}", w.invitation.String(), "{session_id}", "abc", "{schema}", "public", "{table}", "t",
 		"{plan_id}", uuid.NewString(), "{request_id}", uuid.NewString(), "{token_id}", uuid.NewString(), "{target_id}", uuid.NewString(),
 		"{webhook_id}", uuid.NewString(), "{job_id}", uuid.NewString(),
-		"{user_code}", "BCDF-GHJK",
+		"{user_code}", "BCDF-GHJK", "{email}", "ap@example.com", "{version}", "1", "{invoice_id}", uuid.NewString(), "{method_id}", uuid.NewString(), "{payment_id}", uuid.NewString(), "{event_id}", "1",
 	).Replace(pattern)
 	for _, m := range []string{"GET", "POST"} {
 		if rl := routeRules[m+" "+pattern]; rl.scope == scopeOrgQuery {
@@ -408,6 +412,8 @@ func TestMembersCanCreateProjectsSetting(t *testing.T) {
 var specMatrix = map[authz.Action][]string{
 	// "View project, metrics, operations"
 	authz.ProjectView: {
+		// V3 §4.2 "Owners can also resume from the dashboard": anyone who could connect wakes it anyway
+		"POST /api/v1/projects/{id}/resume",
 		"GET /api/v1/projects/{id}", "GET /api/v1/projects/{id}/metrics", "GET /api/v1/projects/{id}/extensions",
 		"GET /api/v1/projects/{id}/members", "GET /api/v1/operations/{id}", "GET /api/v1/operations/{id}/stream",
 		// §10.4: storage against the limit, and the reaper's log
@@ -416,12 +422,18 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects/{id}/storage-target",
 		// V2 §8 Project → Branches
 		"GET /api/v1/projects/{id}/branches",
+		// V3 §2.3: a project's moves between instances
+		"GET /api/v1/projects/{id}/ha", "GET /api/v1/projects/{id}/moves",
 	},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
 	// "SQL console - read" (writes are re-checked in the handler)
 	authz.ConsoleRead: {
 		"POST /api/v1/projects/{id}/sql", "POST /api/v1/projects/{id}/sql/cancel",
+		// V3 §8 query insights read the project's statements and catalog
+		"GET /api/v1/projects/{id}/insights/queries", "GET /api/v1/projects/{id}/insights/queries/{query_id}",
+		"POST /api/v1/projects/{id}/insights/explain", "GET /api/v1/projects/{id}/insights/slow",
+		"GET /api/v1/projects/{id}/insights/indexes", "GET /api/v1/projects/{id}/insights/bloat", "GET /api/v1/projects/{id}/insights/locks",
 		"GET /api/v1/projects/{id}/schema", "GET /api/v1/projects/{id}/tables/{schema}/{table}/rows",
 		// §4.1 the grid's table details and export; previewing a schema
 		// change and rendering it as a migration change nothing
@@ -472,6 +484,11 @@ var specMatrix = map[authz.Action][]string{
 	authz.ProjectPromote: {
 		"GET /api/v1/projects/{id}/promote", "POST /api/v1/projects/{id}/promote",
 		"POST /api/v1/projects/{id}/demote/preflight", "POST /api/v1/projects/{id}/demote",
+		// V3 §2.4: a major upgrade moves the project like a promotion does
+		"POST /api/v1/projects/{id}/upgrade/preflight", "POST /api/v1/projects/{id}/upgrade",
+		// V3 §2.2 HA: enable/disable, settings, planned switchover, visibility.
+		"POST /api/v1/projects/{id}/ha", "PATCH /api/v1/projects/{id}/ha",
+		"DELETE /api/v1/projects/{id}/ha", "POST /api/v1/projects/{id}/switchover",
 	},
 	// "Delete project" (transfer also needs owner of both orgs, checked in the handler)
 	authz.ProjectDelete: {"DELETE /api/v1/projects/{id}", "POST /api/v1/projects/{id}/transfer"},
@@ -479,15 +496,25 @@ var specMatrix = map[authz.Action][]string{
 	authz.ProjectAudit: {"GET /api/v1/projects/{id}/audit"},
 	// Seeing the organisation and its lists
 	authz.OrgView: {
+		// V3 §7.1 "Tickets can also be opened from the dashboard": members see their own, admins the org's
+		"GET /api/v1/orgs/{org}/support/tickets", "POST /api/v1/orgs/{org}/support/tickets",
+		"GET /api/v1/orgs/{org}/support/tickets/{ticket_id}", "POST /api/v1/orgs/{org}/support/tickets/{ticket_id}/messages",
+		"GET /api/v1/orgs/{org}/support/phones",
+		// V3 §7.3: members read the documents in effect
+		"GET /api/v1/orgs/{org}/legal",
 		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "POST /api/v1/orgs/{org}/leave",
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
 		// §13 "projects list ... with quota usage bars": every member sees the limits
 		"GET /api/v1/orgs/{org}/quotas",
+		// V3 §3.10 "Cost estimate before every billable action"
+		"POST /api/v1/orgs/{org}/billing/estimate",
 	},
 	// "Create projects, import"
 	authz.OrgCreateProject: {"POST /api/v1/projects", "POST /api/v1/imports"},
 	// "Manage org members and invitations", "org settings"
 	authz.OrgManage: {
+		// V3 §7.1 WhatsApp "linked to the org by the registered phone number"
+		"POST /api/v1/orgs/{org}/support/phones", "DELETE /api/v1/orgs/{org}/support/phones/{phone}",
 		"PATCH /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/members", "PATCH /api/v1/orgs/{org}/members/{user}",
 		"DELETE /api/v1/orgs/{org}/members/{user}", "GET /api/v1/orgs/{org}/invitations", "DELETE /api/v1/orgs/{org}/invitations/{invitation_id}",
 		// §2.3 "See and revoke any token scoped to the org"
@@ -504,9 +531,23 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/orgs/{org}/transfer-ownership", "DELETE /api/v1/orgs/{org}", "POST /api/v1/orgs/{org}/cancel-deletion",
 		// §2.4 "any org owner can end the session early"
 		"POST /api/v1/orgs/{org}/break-glass/{session_id}/end",
+		// V3 §7.3 legal documents "accepted" by the organisation
+		"POST /api/v1/orgs/{org}/legal/{document_id}/accept",
+	},
+	// V3 §3.2 "Only org owners and members with a new billing org role can see or change billing"
+	authz.OrgBillingManage: {
+		"GET /api/v1/orgs/{org}/billing", "PATCH /api/v1/orgs/{org}/billing", "POST /api/v1/orgs/{org}/billing/plan",
+		"GET /api/v1/orgs/{org}/billing/contacts", "POST /api/v1/orgs/{org}/billing/contacts",
+		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
+		"GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}", "GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf",
+		"GET /api/v1/orgs/{org}/billing/forecast",
+		// V3 §3.4: paying, methods, receipts, WHT credit notes
+		"POST /api/v1/orgs/{org}/billing/checkout", "POST /api/v1/orgs/{org}/billing/virtual-account", "GET /api/v1/orgs/{org}/billing/payment-methods", "DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id}", "POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default", "PUT /api/v1/orgs/{org}/billing/auto-topup", "DELETE /api/v1/orgs/{org}/billing/auto-topup", "GET /api/v1/orgs/{org}/billing/payments", "GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt", "POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate",
 	},
 	// §10.10 "Org owners can export any project as a pg_dump file"
 	authz.ProjectExport: {"GET /api/v1/backups/{id}/download"},
+	// V3 §6.3 the data residency setting: owners only
+	authz.ProjectResidency: {"PUT /api/v1/projects/{id}/residency"},
 	// The signed-in user's own account
 	authz.Self: {
 		"POST /api/v1/auth/reauth", "POST /api/v1/auth/logout", "GET /api/v1/me", "PATCH /api/v1/me", "POST /api/v1/me/password",
@@ -514,17 +555,33 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/me/recovery-codes", "POST /api/v1/me/terms/accept", "GET /api/v1/me/invitations",
 		"POST /api/v1/me/invitations/{invitation_id}/accept", "GET /api/v1/orgs", "POST /api/v1/orgs",
 		"GET /api/v1/settings/general", "GET /api/v1/profiles", "POST /api/v1/imports/preflight",
+		// V3 §6.1 "Projects choose a region at creation"
+		"GET /api/v1/regions",
 		// §7.2 "Users manage their own tokens", §7.1 device-login approval
 		"GET /api/v1/tokens", "POST /api/v1/tokens", "DELETE /api/v1/tokens/{token_id}",
 		"GET /api/v1/auth/device/requests/{user_code}", "POST /api/v1/auth/device/approve",
 	},
 	// §2.4: the platform admin's
+	// V3 §7.1 "Support staff role ... can see the support console and org metadata"
+	authz.SupportConsole: {
+		"GET /api/v1/admin/support/tickets", "GET /api/v1/admin/support/tickets/{ticket_id}",
+		"PATCH /api/v1/admin/support/tickets/{ticket_id}", "POST /api/v1/admin/support/tickets/{ticket_id}/messages",
+		"GET /api/v1/admin/support/staff",
+	},
 	authz.PlatformManage: {
+		// V3 §7.2 "Revenue and cost dashboard ... For the platform admin"
+		"GET /api/v1/admin/revenue",
+		// V3 §7.3 versioned legal documents and order forms
+		"GET /api/v1/admin/legal", "POST /api/v1/admin/legal", "GET /api/v1/admin/legal/{document_id}", "POST /api/v1/admin/orgs/{org}/order-form",
 		"PUT /api/v1/settings/db-host", "POST /api/v1/settings/db-host/check", "POST /api/v1/dev/operations",
 		"POST /api/v1/restore-tests", "GET /api/v1/settings/storage", "PUT /api/v1/settings/storage",
 		"POST /api/v1/settings/storage/test", "GET /api/v1/settings/backup-key", "POST /api/v1/settings/backup-key",
 		"POST /api/v1/settings/backup-key/export", "POST /api/v1/settings/backup-key/confirm", "GET /api/v1/nodes",
 		"POST /api/v1/nodes", "GET /api/v1/nodes/{id}", "PATCH /api/v1/nodes/{id}", "DELETE /api/v1/nodes/{id}",
+		// V3 §5 capacity automation, §5.4 and §7.2 costs and margins
+		// V3 §6.1 regions
+		"GET /api/v1/admin/regions", "PUT /api/v1/admin/regions/{region_id}",
+		"GET /api/v1/admin/capacity", "PUT /api/v1/admin/capacity/settings", "POST /api/v1/admin/capacity/evaluate", "POST /api/v1/admin/capacity/proposals/{proposal_id}/approve", "POST /api/v1/admin/capacity/proposals/{proposal_id}/reject", "POST /api/v1/admin/capacity/rebalance", "POST /api/v1/admin/capacity/batches/{batch_id}", "GET /api/v1/admin/cloud/catalog", "POST /api/v1/nodes/{id}/drain", "DELETE /api/v1/nodes/{id}/drain", "PUT /api/v1/nodes/{id}/cost", "GET /api/v1/admin/costs", "POST /api/v1/admin/costs/attribute", "GET /api/v1/admin/costs/settings", "PUT /api/v1/admin/costs/settings", "GET /api/v1/admin/fx-rates", "POST /api/v1/admin/fx-rates",
 		"POST /api/v1/nodes/{id}/shared-cluster", "POST /api/v1/nodes/{id}/registration-token", "GET /api/v1/nodes/{id}/metrics",
 		"GET /api/v1/security/isolation-checks", "POST /api/v1/security/isolation-checks", "GET /api/v1/alerts",
 		"GET /api/v1/settings/alerts", "PUT /api/v1/settings/alerts", "POST /api/v1/settings/alerts/test",
@@ -540,12 +597,33 @@ var specMatrix = map[authz.Action][]string{
 		"PATCH /api/v1/admin/plans/{plan_id}", "GET /api/v1/admin/dedicated-requests",
 		"POST /api/v1/admin/dedicated-requests/{request_id}/approve", "POST /api/v1/admin/dedicated-requests/{request_id}/reject",
 		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
+		// V3 §2.2 "a 3-member etcd cluster spread across the control node and two other nodes"
+		"GET /api/v1/admin/etcd", "POST /api/v1/admin/etcd",
+		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"
+		"GET /api/v1/admin/maintenance", "PUT /api/v1/admin/maintenance/window",
+		// V3 §3.6, §3.9: billing settings, price books, an org's billing terms
+		"GET /api/v1/admin/billing/settings", "PUT /api/v1/admin/billing/settings",
+		"GET /api/v1/admin/price-books", "POST /api/v1/admin/price-books", "GET /api/v1/admin/price-books/{version}",
+		"PUT /api/v1/admin/price-books/{version}", "DELETE /api/v1/admin/price-books/{version}",
+		"POST /api/v1/admin/price-books/{version}/publish", "GET /api/v1/admin/orgs/{org}/billing", "PATCH /api/v1/admin/orgs/{org}/billing",
+		"POST /api/v1/admin/price-books/{version}/preview", "GET /api/v1/admin/invoices", "POST /api/v1/admin/invoices/draft",
+		"GET /api/v1/admin/invoices/{invoice_id}", "GET /api/v1/admin/invoices/{invoice_id}/pdf",
+		"POST /api/v1/admin/invoices/{invoice_id}/hold", "POST /api/v1/admin/invoices/{invoice_id}/issue",
+		"POST /api/v1/admin/invoices/{invoice_id}/credit-notes", "GET /api/v1/admin/ledger/check",
+		"GET /api/v1/admin/payments", "POST /api/v1/admin/payments", "POST /api/v1/admin/billing/documents", "POST /api/v1/admin/payments/{payment_id}/refund", "GET /api/v1/admin/payment-events", "POST /api/v1/admin/payment-events/{event_id}/attribute", "GET /api/v1/admin/wht", "POST /api/v1/admin/invoices/{invoice_id}/wht-certificate", "GET /api/v1/admin/reconciliation", "POST /api/v1/admin/reconciliation", "PUT /api/v1/admin/orgs/{org}/billing/grace",
+		"POST /api/v1/admin/instances/{instance_id}/minor-upgrade",
 		// §7.2 "The platform admin can set a platform-wide maximum"
 		"GET /api/v1/admin/settings/tokens", "PUT /api/v1/admin/settings/tokens",
 		// V2 §6 "Platform targets (managed by the platform admin)"
 		"GET /api/v1/admin/storage-targets", "POST /api/v1/admin/storage-targets",
 		"GET /api/v1/admin/storage-targets/{target_id}", "PATCH /api/v1/admin/storage-targets/{target_id}",
 		"DELETE /api/v1/admin/storage-targets/{target_id}",
+		// V3 §2.6 "manually by the platform admin. Updates are posted from
+		// the admin console"; §2.1 the pooler hosts are platform infrastructure.
+		"GET /api/v1/incidents", "POST /api/v1/incidents", "GET /api/v1/incidents/{id}",
+		"PATCH /api/v1/incidents/{id}", "POST /api/v1/incidents/{id}/updates", "GET /api/v1/pooler-hosts",
+		// V3 §5.3: moving projects between nodes is the platform's call
+		"POST /api/v1/admin/projects/{project_id}/move",
 	},
 }
 

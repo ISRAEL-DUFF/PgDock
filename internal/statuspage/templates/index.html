@@ -1,0 +1,62 @@
+{{define "content"}}
+<section class="banner {{.Status}}">
+  <h1>{{.StatusLabel}}</h1>
+</section>
+
+{{range .Active}}
+<article class="incident active {{.Severity}}">
+  <h2><a href="/incidents/{{.ID}}">{{.Title}}</a></h2>
+  {{template "latest" .}}
+</article>
+{{end}}
+
+{{range .Regions}}
+<section class="region">
+  {{if .Name}}<h2>{{.Name}}</h2>{{end}}
+  <ul class="components">
+  {{range .Components}}
+    <li class="component">
+      <div class="row">
+        <span class="name">{{.Name}}{{if .Description}} <span class="desc">{{.Description}}</span>{{end}}</span>
+        <span class="state {{.Status}}">{{label .Status}}</span>
+      </div>
+      {{if .Detail}}<p class="detail">{{.Detail}}</p>{{end}}
+      <div class="bars" aria-label="90-day history">{{range .Days}}<span class="bar {{.Class}}" title="{{.Title}}"></span>{{end}}</div>
+      <div class="legend"><span>90 days ago</span><span>{{uptime .Uptime}} uptime</span><span>Today</span></div>
+    </li>
+  {{end}}
+  </ul>
+</section>
+{{end}}
+
+<section class="history">
+  <h2>Past incidents</h2>
+  {{range .Recent}}
+  <article class="incident">
+    <h3><a href="/incidents/{{.ID}}">{{.Title}}</a></h3>
+    {{template "latest" .}}
+  </article>
+  {{else}}
+  <p class="muted">No incidents in the last 14 days.</p>
+  {{end}}
+</section>
+
+{{if .Subscribable}}
+<section class="subscribe" id="subscribe">
+  <h2>Get updates by email</h2>
+  {{if .Notice}}<p class="notice">{{.Notice}}</p>{{end}}
+  <form method="post" action="/subscribe">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" required autocomplete="email" maxlength="254" placeholder="you@example.com">
+    <button type="submit">Subscribe</button>
+  </form>
+</section>
+{{end}}
+{{end}}
+
+{{define "latest"}}
+{{$n := len .Updates}}{{if $n}}{{$u := index .Updates (sub $n 1)}}
+<p class="update"><strong>{{title $u.Status}}</strong> — {{$u.Body}}</p>
+<p class="muted">{{when $u.PostedAt}}{{if .ResolvedAt}} · Resolved{{end}}</p>
+{{end}}
+{{end}}

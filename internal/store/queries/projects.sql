@@ -1,6 +1,6 @@
 -- name: InsertProject :one
-INSERT INTO projects (id, org_id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by)
-VALUES (@id, @org_id, @name, @slug, @db_name, @owner_role, @scram_verifier, @tier, @instance_id, 'provisioning', @settings, sqlc.narg(description), sqlc.narg(created_by))
+INSERT INTO projects (id, org_id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, description, created_by, region, data_residency)
+VALUES (@id, @org_id, @name, @slug, @db_name, @owner_role, @scram_verifier, @tier, @instance_id, 'provisioning', @settings, sqlc.narg(description), sqlc.narg(created_by), @region, @data_residency)
 RETURNING *;
 
 -- name: GetProject :one
@@ -37,13 +37,14 @@ UPDATE projects SET status = @status, deleted_at = now() WHERE id = @id;
 -- name: PoolerRoutes :many
 -- tenant: system - provisioning workers and the poolers, or a project the request already authorized.
 SELECT p.db_name, p.alias_db_name, p.owner_role, p.scram_verifier, p.legacy_owner_role, p.legacy_scram_verifier,
-       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port
+       p.settings, COALESCE(i.host, n.private_addr)::text AS host, i.port, p.lifecycle,
+       p.region, p.forward_region, p.forward_until
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN nodes n ON n.id = i.node_id
 JOIN organizations o ON o.id = p.org_id
 WHERE p.deleted_at IS NULL
-  AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'restoring')
+  AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
   AND o.status <> 'suspended'
 ORDER BY p.db_name;
 

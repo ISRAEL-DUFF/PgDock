@@ -50,6 +50,21 @@ type Config struct {
 	Backups Backups
 	// Insight configures the SQL console and metrics.
 	Insight Insight
+	// Status connects to the status page (V3 §2.6).
+	Status Status
+	// Payments configures the payment providers (V3 §3.4).
+	Payments Payments
+	// FreeTier configures pausing and archiving Free projects (V3 §4).
+	FreeTier FreeTier
+	// Signup configures open signup's protections (V3 §7.4).
+	Signup Signup
+	// Support configures support's channels (V3 §7.1).
+	Support Support
+	// Cloud configures the provider servers are created with (V3 §5.1).
+	Cloud Cloud
+	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
+	// majors projects may run (V3 §2.4); the newest is the default.
+	PGVersions []int
 }
 
 // Backups configures node agents and backups (M3).
@@ -150,6 +165,11 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadPoolerTLS(getenv, &cfg)...)
 	errs = append(errs, loadBackups(getenv, &cfg)...)
 	errs = append(errs, loadInsight(getenv, &cfg)...)
+	errs = append(errs, loadStatus(getenv, readFile, &cfg)...)
+	errs = append(errs, loadPayments(getenv, readFile, &cfg)...)
+	errs = append(errs, loadFreeTier(getenv, readFile, &cfg)...)
+	errs = append(errs, loadSupport(getenv, readFile, &cfg)...)
+	errs = append(errs, loadCloud(getenv, readFile, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err

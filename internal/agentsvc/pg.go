@@ -69,7 +69,13 @@ func dumpArgs(o agentapi.DumpOptions) []string {
 
 func restoreArgs(o agentapi.RestoreOptions, db string) []string {
 	args := []string{"--no-password", "--dbname=" + db}
-	if !o.KeepOwners {
+	if o.KeepOwners {
+		// Grants are restored, except those on system objects: a dump of a
+		// shared cluster's database carries its activity hardening (V2
+		// §10.2), which the restore login may not change and the target
+		// applies itself.
+		args = append(args, "--exclude-schema=pg_catalog")
+	} else {
 		args = append(args, "--no-owner", "--no-acl")
 	}
 	if o.Role != "" {

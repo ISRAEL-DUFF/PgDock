@@ -7,7 +7,10 @@ export type EditColumn = S["EditColumn"];
 export type RowChange = S["RowChange"];
 export type SaveRowsResult = S["SaveRowsResult"];
 // Fields with server-side defaults are optional in requests.
-export type SchemaChange = Omit<S["SchemaChange"], "schema" | "concurrently" | "columns" | "column" | "changes"> & {
+export type SchemaChange = Omit<
+  S["SchemaChange"],
+  "schema" | "concurrently" | "columns" | "column" | "changes"
+> & {
   schema?: string;
   concurrently?: boolean;
   columns?: SchemaColumnDef[];
@@ -17,19 +20,45 @@ export type SchemaChange = Omit<S["SchemaChange"], "schema" | "concurrently" | "
 export type ColumnRef = S["ColumnRef"];
 export type SavedQuery = S["SavedQuery"];
 export type RowCount = S["RowCount"];
-export type SchemaColumnDef = Omit<S["SchemaColumnDef"], "nullable"> & { nullable?: boolean };
+export type SchemaColumnDef = Omit<S["SchemaColumnDef"], "nullable"> & {
+  nullable?: boolean;
+};
 export type SchemaPlan = S["SchemaPlan"];
 export type MigrationFormat = S["EditorPreferences"]["migration_format"];
-export type GridFilter = { column: string; op: "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "contains" | "is_null" | "not_null" | "in"; value?: string; values?: string[] };
+export type GridFilter = {
+  column: string;
+  op:
+    | "eq"
+    | "neq"
+    | "lt"
+    | "lte"
+    | "gt"
+    | "gte"
+    | "contains"
+    | "is_null"
+    | "not_null"
+    | "in";
+  value?: string;
+  values?: string[];
+};
 export type GridSort = { column: string; desc: boolean };
-export type GridOptions = { filters?: GridFilter[]; /** A raw condition typed in the filter bar. */ where?: string; sort?: string; desc?: boolean; order?: GridSort[] };
+export type GridOptions = {
+  filters?: GridFilter[];
+  /** A raw condition typed in the filter bar. */ where?: string;
+  sort?: string;
+  desc?: boolean;
+  order?: GridSort[];
+};
 
 function tableBase(id: string, schema: string, table: string) {
   return `/api/v1/projects/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}`;
 }
 
 /** The grid's query string: repeated filter=JSON, sort, desc, and extras. */
-function gridQs(g: GridOptions, extra: Record<string, string | undefined>): string {
+function gridQs(
+  g: GridOptions,
+  extra: Record<string, string | undefined>,
+): string {
   const p = new URLSearchParams();
   for (const f of g.filters ?? []) p.append("filter", JSON.stringify(f));
   if (g.where?.trim()) p.set("where", g.where.trim());
@@ -42,7 +71,107 @@ function gridQs(g: GridOptions, extra: Record<string, string | undefined>): stri
   const s = p.toString();
   return s ? `?${s}` : "";
 }
+export type BillingAccount = S["BillingAccount"];
+export type BillingContact = S["BillingContact"];
+export type BillingForecast = S["BillingForecast"];
+export type BillingSettings = S["BillingSettings"];
+export type PlanChange = S["PlanChange"];
+export type PlanChangeRequest = S["PlanChangeRequest"];
+export type PriceBook = S["PriceBook"];
+export type Prices = S["Prices"];
+export type Pricing = S["Pricing"];
+export type Invoice = S["Invoice"];
+export type InvoiceDetail = S["InvoiceDetail"];
+export type InvoiceLine = S["InvoiceLine"];
+export type CreditNote = S["CreditNote"];
+export type LedgerCheck = S["LedgerCheck"];
+export type EstimateRequest = {
+  cpus?: number;
+  memory_mb?: number;
+  disk_gb?: number;
+  ha?: boolean;
+  synchronous?: boolean;
+  standby_only?: boolean;
+};
+export type PaymentMethod = S["PaymentMethod"];
+export type Payment = S["Payment"];
+export type VirtualAccount = S["VirtualAccount"];
+export type PaymentEvent = S["PaymentEvent"];
+export type OutstandingWht = S["OutstandingWht"];
+export type Reconciliation = S["Reconciliation"];
+export type CheckoutRequest = {
+  channel: "card" | "wallet" | "stablecoin";
+  purpose: "invoice" | "topup" | "card_setup";
+  invoice_id?: string;
+  amount_minor?: number;
+  mandate_limit_minor?: number;
+};
+export type CostEstimate = {
+  hourly_minor: number;
+  monthly_minor: number;
+  lines: InvoiceLine[];
+};
+export type PricePreview = {
+  period: string;
+  current_total_minor: number;
+  projected_total_minor: number;
+  items: {
+    org_id: string;
+    org_name: string;
+    plan: string;
+    current_minor: number;
+    projected_minor: number;
+  }[];
+};
+export type Ticket = S["Ticket"];
+export type TicketDetail = S["TicketDetail"];
+export type TicketMessage = S["TicketMessage"];
+export type TicketUpdate = S["TicketUpdate"];
+export type SupportContext = S["SupportContext"];
+export type SupportPhone = S["SupportPhone"];
+export type SupportStaff = {
+  id: string;
+  email: string;
+  role: string;
+  name?: string;
+};
+export type TicketQueue = {
+  items: Ticket[];
+  open: number;
+  pending: number;
+  overdue: number;
+};
+export type Revenue = S["Revenue"];
+export type RevenueMonth = S["RevenueMonth"];
+export type LegalDocument = S["LegalDocument"];
+export type OrgLegal = S["OrgLegal"];
+export type LegalVersion = S["LegalVersion"];
+export type LegalDocumentDetail = S["LegalDocumentDetail"];
+export type Capacity = S["Capacity"];
+export type CapacitySettings = S["CapacitySettings"];
+export type CapacityProposal = S["CapacityProposal"];
+export type Region = S["Region"];
+export type InsightQuery = S["InsightQuery"];
+export type InsightQueryDetail = S["InsightQueryDetail"];
+export type InsightPlan = S["InsightPlan"];
+export type IndexReport = S["IndexReport"];
+export type IndexSuggestion = S["IndexSuggestion"];
+export type InsightRange = "1h" | "24h" | "7d" | "30d";
+export type InsightSort = "total" | "mean" | "calls" | "rows";
+export type AdminRegion = S["AdminRegion"];
+export type AdminRegionList = S["AdminRegionList"];
+export type AdminRegionRequest = S["AdminRegionRequest"];
+export type ProjectResidencyResult = S["ProjectResidencyResult"];
+export type RebalanceMove = S["RebalanceMove"];
+export type Margins = S["Margins"];
+export type CostSettings = S["CostSettings"];
+export type FXRate = S["FXRate"];
+export type ServerPrice = S["ServerPrice"];
 export type APIToken = S["APIToken"];
+export type Incident = S["Incident"];
+export type IncidentSeverity = S["IncidentSeverity"];
+export type IncidentStatus = S["IncidentStatus"];
+export type PoolerHosts = S["PoolerHosts"];
 export type TokenScope = S["TokenScope"];
 export type CreatedToken = S["CreatedToken"];
 export type DeviceRequest = S["DeviceRequest"];
@@ -77,6 +206,13 @@ export type NodeDetail = S["NodeDetail"];
 export type NodeCreated = S["NodeCreated"];
 export type ProfileList = S["ProfileList"];
 export type InstanceSummary = S["InstanceSummary"];
+export type UpgradePreflight = S["UpgradePreflight"];
+export type Move = S["Move"];
+export type MaintenanceStatus = S["MaintenanceStatus"];
+export type MaintenanceWindow = S["MaintenanceWindow"];
+export type MinorUpgrade = S["MinorUpgrade"];
+export type HAStatus = S["HAStatus"];
+export type EtcdCluster = S["EtcdCluster"];
 export type CreateProjectRequest = S["CreateProjectRequest"];
 export type SqlResult = S["SqlResult"];
 export type SqlStatementResult = S["SqlStatementResult"];
@@ -130,7 +266,13 @@ export type AdminOrgSummary = S["AdminOrgSummary"];
 export type Plan = S["Plan"];
 export type SharedCluster = S["SharedCluster"];
 export type PlatformUsage = S["PlatformUsage"];
-export type AuditQuery = { action?: string; outcome?: string; target_id?: string; before?: number; limit?: number };
+export type AuditQuery = {
+  action?: string;
+  outcome?: string;
+  target_id?: string;
+  before?: number;
+  limit?: number;
+};
 
 /** An error response from the API, with the server's error code. */
 export class ApiRequestError extends Error {
@@ -166,7 +308,44 @@ function cookieToken(): string {
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-export async function request<T>(method: Method, path: string, body?: unknown, fetchFn: typeof fetch = fetch): Promise<T> {
+let reauthHandler: (() => Promise<boolean>) | null = null;
+
+/**
+ * Registers what to do when the server wants a fresh step-up (password and
+ * code) before a sensitive action: resolve true once the user has confirmed,
+ * and the request is sent again.
+ */
+export function setReauthHandler(h: (() => Promise<boolean>) | null) {
+  reauthHandler = h;
+}
+
+export async function request<T>(
+  method: Method,
+  path: string,
+  body?: unknown,
+  fetchFn: typeof fetch = fetch,
+): Promise<T> {
+  try {
+    return await send<T>(method, path, body, fetchFn);
+  } catch (e) {
+    if (
+      e instanceof ApiRequestError &&
+      e.code === "reauth_required" &&
+      reauthHandler &&
+      path !== "/api/v1/auth/reauth"
+    ) {
+      if (await reauthHandler()) return send<T>(method, path, body, fetchFn);
+    }
+    throw e;
+  }
+}
+
+async function send<T>(
+  method: Method,
+  path: string,
+  body: unknown,
+  fetchFn: typeof fetch,
+): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET") {
@@ -174,7 +353,12 @@ export async function request<T>(method: Method, path: string, body?: unknown, f
     // A page that writes on load (an invitation or email link) may get here
     // before anything has handed out a CSRF token.
     if (!token) {
-      const s = await request<{ csrf_token: string }>("GET", "/api/v1/session", undefined, fetchFn);
+      const s = await request<{ csrf_token: string }>(
+        "GET",
+        "/api/v1/session",
+        undefined,
+        fetchFn,
+      );
       csrfToken ||= s.csrf_token;
       token = cookieToken() || csrfToken;
     }
@@ -202,6 +386,37 @@ export async function request<T>(method: Method, path: string, body?: unknown, f
   return (text === "" ? undefined : JSON.parse(text)) as T;
 }
 
+/** POSTs a file as the raw body (billing documents). */
+export async function uploadFile(path: string, file: Blob): Promise<unknown> {
+  let token = cookieToken() || csrfToken;
+  if (!token) {
+    const s = await request<{ csrf_token: string }>("GET", "/api/v1/session");
+    csrfToken ||= s.csrf_token;
+    token = cookieToken() || csrfToken;
+  }
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/octet-stream",
+      "X-CSRF-Token": token,
+    },
+    credentials: "same-origin",
+    body: file,
+  });
+  if (!res.ok) {
+    let err: ApiErrorBody | undefined;
+    try {
+      err = (await res.json()) as ApiErrorBody;
+    } catch {
+      err = undefined;
+    }
+    throw new ApiRequestError(res.status, err);
+  }
+  const text = await res.text();
+  return text === "" ? undefined : JSON.parse(text);
+}
+
 export function getJSON<T>(path: string, fetchFn?: typeof fetch): Promise<T> {
   return request<T>("GET", path, undefined, fetchFn);
 }
@@ -210,7 +425,9 @@ export function getVersion(fetchFn?: typeof fetch): Promise<Version> {
   return getJSON<Version>("/api/v1/version", fetchFn);
 }
 
-function qs(params: Record<string, string | number | undefined | null>): string {
+function qs(
+  params: Record<string, string | number | undefined | null>,
+): string {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") p.set(k, String(v));
@@ -225,208 +442,573 @@ export const api = {
     request<SetupEnrollment>("POST", "/api/v1/setup/begin", b),
   setupComplete: (b: { enrollment_token: string; code: string }) =>
     request<SessionState>("POST", "/api/v1/setup/complete", b),
-  login: (b: { email: string; password: string }) => request<LoginChallenge>("POST", "/api/v1/auth/login", b),
-  totp: (b: { challenge_id: string; code: string }) => request<SessionState>("POST", "/api/v1/auth/totp", b),
-  reauth: (b: { password: string; code: string }) => request<void>("POST", "/api/v1/auth/reauth", b),
+  login: (b: { email: string; password: string }) =>
+    request<LoginChallenge>("POST", "/api/v1/auth/login", b),
+  totp: (b: { challenge_id: string; code: string }) =>
+    request<SessionState>("POST", "/api/v1/auth/totp", b),
+  reauth: (b: { password: string; code: string }) =>
+    request<void>("POST", "/api/v1/auth/reauth", b),
   logout: () => request<void>("POST", "/api/v1/auth/logout"),
 
-  signup: (b: S["SignupRequest"]) => request<void>("POST", "/api/v1/auth/signup", b),
-  verifyEmail: (token: string) => request<S["VerifyEmailResult"]>("POST", "/api/v1/auth/verify-email", { token }),
-  resendVerification: (email: string) => request<void>("POST", "/api/v1/auth/verify-email/resend", { email }),
-  requestPasswordReset: (email: string) => request<void>("POST", "/api/v1/auth/password-reset", { email }),
-  confirmPasswordReset: (token: string, password: string) => request<void>("POST", "/api/v1/auth/password-reset/confirm", { token, password }),
+  signup: (b: S["SignupRequest"]) =>
+    request<void>("POST", "/api/v1/auth/signup", b),
+  verifyEmail: (token: string) =>
+    request<S["VerifyEmailResult"]>("POST", "/api/v1/auth/verify-email", {
+      token,
+    }),
+  resendVerification: (email: string) =>
+    request<void>("POST", "/api/v1/auth/verify-email/resend", { email }),
+  requestPasswordReset: (email: string) =>
+    request<void>("POST", "/api/v1/auth/password-reset", { email }),
+  confirmPasswordReset: (token: string, password: string) =>
+    request<void>("POST", "/api/v1/auth/password-reset/confirm", {
+      token,
+      password,
+    }),
   terms: () => getJSON<Terms>("/api/v1/terms"),
-  acceptTerms: (version: number) => request<void>("POST", "/api/v1/me/terms/accept", { version }),
-  previewInvitation: (token: string) => request<InvitationPreview>("POST", "/api/v1/invitations/preview", { token }),
-  acceptInvitation: (b: S["AcceptInvitationRequest"]) => request<S["AcceptInvitationResult"]>("POST", "/api/v1/invitations/accept", b),
+  acceptTerms: (version: number) =>
+    request<void>("POST", "/api/v1/me/terms/accept", { version }),
+  previewInvitation: (token: string) =>
+    request<InvitationPreview>("POST", "/api/v1/invitations/preview", {
+      token,
+    }),
+  acceptInvitation: (b: S["AcceptInvitationRequest"]) =>
+    request<S["AcceptInvitationResult"]>(
+      "POST",
+      "/api/v1/invitations/accept",
+      b,
+    ),
 
   me: () => getJSON<User>("/api/v1/me"),
-  updateMe: (b: S["UpdateMeRequest"]) => request<User>("PATCH", "/api/v1/me", b),
-  changePassword: (b: S["ChangePasswordRequest"]) => request<void>("POST", "/api/v1/me/password", b),
+  updateMe: (b: S["UpdateMeRequest"]) =>
+    request<User>("PATCH", "/api/v1/me", b),
+  changePassword: (b: S["ChangePasswordRequest"]) =>
+    request<void>("POST", "/api/v1/me/password", b),
   mySessions: () => getJSON<S["SessionList"]>("/api/v1/me/sessions"),
-  revokeSession: (id: string) => request<void>("DELETE", `/api/v1/me/sessions/${encodeURIComponent(id)}`),
-  recoveryCodes: () => getJSON<S["RecoveryCodesStatus"]>("/api/v1/me/recovery-codes"),
-  regenerateRecoveryCodes: () => request<S["RecoveryCodes"]>("POST", "/api/v1/me/recovery-codes"),
+  revokeSession: (id: string) =>
+    request<void>("DELETE", `/api/v1/me/sessions/${encodeURIComponent(id)}`),
+  recoveryCodes: () =>
+    getJSON<S["RecoveryCodesStatus"]>("/api/v1/me/recovery-codes"),
+  regenerateRecoveryCodes: () =>
+    request<S["RecoveryCodes"]>("POST", "/api/v1/me/recovery-codes"),
   myInvitations: () => getJSON<S["MyInvitationList"]>("/api/v1/me/invitations"),
-  acceptMyInvitation: (id: string) => request<S["AcceptInvitationResult"]>("POST", `/api/v1/me/invitations/${id}/accept`),
+  acceptMyInvitation: (id: string) =>
+    request<S["AcceptInvitationResult"]>(
+      "POST",
+      `/api/v1/me/invitations/${id}/accept`,
+    ),
 
   myTokens: () => getJSON<S["APITokenList"]>("/api/v1/tokens"),
-  createToken: (b: S["CreateTokenRequest"]) => request<CreatedToken>("POST", "/api/v1/tokens", b),
-  revokeMyToken: (id: string) => request<void>("DELETE", `/api/v1/tokens/${id}`),
-  orgTokens: (org: string) => getJSON<S["APITokenList"]>(`/api/v1/orgs/${org}/tokens`),
-  revokeOrgToken: (org: string, id: string) => request<void>("DELETE", `/api/v1/orgs/${org}/tokens/${id}`),
-  deviceRequest: (code: string) => getJSON<DeviceRequest>(`/api/v1/auth/device/requests/${encodeURIComponent(code)}`),
-  approveDevice: (b: S["DeviceApproveRequest"]) => request<APIToken | undefined>("POST", "/api/v1/auth/device/approve", b),
-  tokenSettings: () => getJSON<S["TokenSettings"]>("/api/v1/admin/settings/tokens"),
-  putTokenSettings: (b: S["TokenSettings"]) => request<S["TokenSettings"]>("PUT", "/api/v1/admin/settings/tokens", b),
+  createToken: (b: S["CreateTokenRequest"]) =>
+    request<CreatedToken>("POST", "/api/v1/tokens", b),
+  revokeMyToken: (id: string) =>
+    request<void>("DELETE", `/api/v1/tokens/${id}`),
+  orgTokens: (org: string) =>
+    getJSON<S["APITokenList"]>(`/api/v1/orgs/${org}/tokens`),
+  revokeOrgToken: (org: string, id: string) =>
+    request<void>("DELETE", `/api/v1/orgs/${org}/tokens/${id}`),
+  deviceRequest: (code: string) =>
+    getJSON<DeviceRequest>(
+      `/api/v1/auth/device/requests/${encodeURIComponent(code)}`,
+    ),
+  approveDevice: (b: S["DeviceApproveRequest"]) =>
+    request<APIToken | undefined>("POST", "/api/v1/auth/device/approve", b),
+  tokenSettings: () =>
+    getJSON<S["TokenSettings"]>("/api/v1/admin/settings/tokens"),
+  putTokenSettings: (b: S["TokenSettings"]) =>
+    request<S["TokenSettings"]>("PUT", "/api/v1/admin/settings/tokens", b),
 
   orgs: () => getJSON<S["OrgList"]>("/api/v1/orgs"),
   createOrg: (name: string) => request<Org>("POST", "/api/v1/orgs", { name }),
   org: (id: string) => getJSON<Org>(`/api/v1/orgs/${id}`),
-  updateOrg: (id: string, b: S["UpdateOrgRequest"]) => request<Org>("PATCH", `/api/v1/orgs/${id}`, b),
-  orgMembers: (id: string) => getJSON<S["OrgMemberList"]>(`/api/v1/orgs/${id}/members`),
-  inviteOrgMember: (id: string, b: S["InviteRequest"]) => request<InvitationCreated>("POST", `/api/v1/orgs/${id}/members`, b),
-  setOrgRole: (id: string, user: string, role: OrgRole) => request<void>("PATCH", `/api/v1/orgs/${id}/members/${user}`, { role }),
-  removeOrgMember: (id: string, user: string) => request<void>("DELETE", `/api/v1/orgs/${id}/members/${user}`),
+  updateOrg: (id: string, b: S["UpdateOrgRequest"]) =>
+    request<Org>("PATCH", `/api/v1/orgs/${id}`, b),
+  orgMembers: (id: string) =>
+    getJSON<S["OrgMemberList"]>(`/api/v1/orgs/${id}/members`),
+  inviteOrgMember: (id: string, b: S["InviteRequest"]) =>
+    request<InvitationCreated>("POST", `/api/v1/orgs/${id}/members`, b),
+  setOrgRole: (id: string, user: string, role: OrgRole) =>
+    request<void>("PATCH", `/api/v1/orgs/${id}/members/${user}`, { role }),
+  removeOrgMember: (id: string, user: string) =>
+    request<void>("DELETE", `/api/v1/orgs/${id}/members/${user}`),
   leaveOrg: (id: string) => request<void>("POST", `/api/v1/orgs/${id}/leave`),
-  transferOwnership: (id: string, user_id: string) => request<void>("POST", `/api/v1/orgs/${id}/transfer-ownership`, { user_id }),
-  orgInvitations: (id: string) => getJSON<S["InvitationList"]>(`/api/v1/orgs/${id}/invitations`),
-  revokeOrgInvitation: (id: string, inv: string) => request<void>("DELETE", `/api/v1/orgs/${id}/invitations/${inv}`),
-  orgAudit: (id: string, p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/orgs/${id}/audit${qs(p)}`),
+  transferOwnership: (id: string, user_id: string) =>
+    request<void>("POST", `/api/v1/orgs/${id}/transfer-ownership`, { user_id }),
+  orgInvitations: (id: string) =>
+    getJSON<S["InvitationList"]>(`/api/v1/orgs/${id}/invitations`),
+  revokeOrgInvitation: (id: string, inv: string) =>
+    request<void>("DELETE", `/api/v1/orgs/${id}/invitations/${inv}`),
+  orgAudit: (id: string, p: AuditQuery = {}) =>
+    getJSON<AuditList>(`/api/v1/orgs/${id}/audit${qs(p)}`),
   orgQuotas: (id: string) => getJSON<OrgQuotas>(`/api/v1/orgs/${id}/quotas`),
-  orgUsage: (id: string, p: { from?: string; to?: string; metric?: string } = {}) => getJSON<UsageReport>(`/api/v1/orgs/${id}/usage${qs(p)}`),
-  orgUsageCsvUrl: (id: string, p: { from?: string; to?: string } = {}) => `/api/v1/orgs/${id}/usage${qs({ ...p, format: "csv" })}`,
-  orgDedicatedRequests: (id: string) => getJSON<S["DedicatedRequestList"]>(`/api/v1/orgs/${id}/dedicated-requests`),
-  deleteOrg: (id: string, b: S["DeleteOrgRequest"]) => request<S["OrgDeletion"]>("DELETE", `/api/v1/orgs/${id}`, b),
-  cancelOrgDeletion: (id: string) => request<void>("POST", `/api/v1/orgs/${id}/cancel-deletion`),
-  endBreakGlass: (id: string, session: string) => request<void>("POST", `/api/v1/orgs/${id}/break-glass/${session}/end`),
+  orgUsage: (
+    id: string,
+    p: { from?: string; to?: string; metric?: string } = {},
+  ) => getJSON<UsageReport>(`/api/v1/orgs/${id}/usage${qs(p)}`),
+  orgUsageCsvUrl: (id: string, p: { from?: string; to?: string } = {}) =>
+    `/api/v1/orgs/${id}/usage${qs({ ...p, format: "csv" })}`,
+  orgDedicatedRequests: (id: string) =>
+    getJSON<S["DedicatedRequestList"]>(`/api/v1/orgs/${id}/dedicated-requests`),
+  deleteOrg: (id: string, b: S["DeleteOrgRequest"]) =>
+    request<S["OrgDeletion"]>("DELETE", `/api/v1/orgs/${id}`, b),
+  cancelOrgDeletion: (id: string) =>
+    request<void>("POST", `/api/v1/orgs/${id}/cancel-deletion`),
+  endBreakGlass: (id: string, session: string) =>
+    request<void>("POST", `/api/v1/orgs/${id}/break-glass/${session}/end`),
 
-  projectMembers: (id: string) => getJSON<S["ProjectMemberList"]>(`/api/v1/projects/${id}/members`),
-  addProjectMember: (id: string, b: S["ProjectMemberRequest"]) => request<S["ProjectMemberAdded"]>("POST", `/api/v1/projects/${id}/members`, b),
-  setProjectRole: (id: string, user: string, role: ProjectRole) => request<void>("PATCH", `/api/v1/projects/${id}/members/${user}`, { role }),
-  removeProjectMember: (id: string, user: string) => request<void>("DELETE", `/api/v1/projects/${id}/members/${user}`),
-  myCredentials: (id: string) => getJSON<PersonalCredentialsInfo>(`/api/v1/projects/${id}/credentials`),
-  issueMyCredentials: (id: string) => request<PersonalCredentials>("POST", `/api/v1/projects/${id}/credentials`),
-  transferProject: (id: string, org_id: string) => request<Project>("POST", `/api/v1/projects/${id}/transfer`, { org_id }),
-  projectAudit: (id: string, p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/projects/${id}/audit${qs(p)}`),
-  projectStorage: (id: string) => getJSON<ProjectStorage>(`/api/v1/projects/${id}/storage`),
-  reclaimSpace: (id: string, schema: string, table: string) => request<Operation>("POST", `/api/v1/projects/${id}/reclaim-space`, { schema, table }),
-  reapedSessions: (id: string) => getJSON<S["ReapedSessionList"]>(`/api/v1/projects/${id}/reaped`),
-  switchCredentials: (id: string, grace_days: number) => request<SwitchedCredentials>("POST", `/api/v1/projects/${id}/switch-credentials`, { grace_days }),
+  projectMembers: (id: string) =>
+    getJSON<S["ProjectMemberList"]>(`/api/v1/projects/${id}/members`),
+  addProjectMember: (id: string, b: S["ProjectMemberRequest"]) =>
+    request<S["ProjectMemberAdded"]>(
+      "POST",
+      `/api/v1/projects/${id}/members`,
+      b,
+    ),
+  setProjectRole: (id: string, user: string, role: ProjectRole) =>
+    request<void>("PATCH", `/api/v1/projects/${id}/members/${user}`, { role }),
+  removeProjectMember: (id: string, user: string) =>
+    request<void>("DELETE", `/api/v1/projects/${id}/members/${user}`),
+  myCredentials: (id: string) =>
+    getJSON<PersonalCredentialsInfo>(`/api/v1/projects/${id}/credentials`),
+  issueMyCredentials: (id: string) =>
+    request<PersonalCredentials>("POST", `/api/v1/projects/${id}/credentials`),
+  transferProject: (id: string, org_id: string) =>
+    request<Project>("POST", `/api/v1/projects/${id}/transfer`, { org_id }),
+  projectAudit: (id: string, p: AuditQuery = {}) =>
+    getJSON<AuditList>(`/api/v1/projects/${id}/audit${qs(p)}`),
+  projectStorage: (id: string) =>
+    getJSON<ProjectStorage>(`/api/v1/projects/${id}/storage`),
+  reclaimSpace: (id: string, schema: string, table: string) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/reclaim-space`, {
+      schema,
+      table,
+    }),
+  reapedSessions: (id: string) =>
+    getJSON<S["ReapedSessionList"]>(`/api/v1/projects/${id}/reaped`),
+  switchCredentials: (id: string, grace_days: number) =>
+    request<SwitchedCredentials>(
+      "POST",
+      `/api/v1/projects/${id}/switch-credentials`,
+      { grace_days },
+    ),
 
-  users: (p: { q?: string; pending?: boolean } = {}) => getJSON<S["UserList"]>(`/api/v1/admin/users${qs({ q: p.q, pending: p.pending ? "true" : undefined })}`),
-  updateUser: (id: string, b: S["UpdateUserRequest"]) => request<AdminUser>("PATCH", `/api/v1/admin/users/${id}`, b),
-  resetUserTotp: (id: string) => request<void>("POST", `/api/v1/admin/users/${id}/reset-2fa`),
-  platformInvitations: () => getJSON<S["InvitationList"]>("/api/v1/admin/invitations"),
-  invitePlatform: (email: string) => request<InvitationCreated>("POST", "/api/v1/admin/invitations", { email }),
-  revokePlatformInvitation: (id: string) => request<void>("DELETE", `/api/v1/admin/invitations/${id}`),
-  signupSettings: () => getJSON<SignupSettings>("/api/v1/admin/settings/signup"),
-  saveSignupSettings: (b: SignupSettings) => request<SignupSettings>("PUT", "/api/v1/admin/settings/signup", b),
+  users: (p: { q?: string; pending?: boolean } = {}) =>
+    getJSON<S["UserList"]>(
+      `/api/v1/admin/users${qs({ q: p.q, pending: p.pending ? "true" : undefined })}`,
+    ),
+  updateUser: (id: string, b: S["UpdateUserRequest"]) =>
+    request<AdminUser>("PATCH", `/api/v1/admin/users/${id}`, b),
+  resetUserTotp: (id: string) =>
+    request<void>("POST", `/api/v1/admin/users/${id}/reset-2fa`),
+  platformInvitations: () =>
+    getJSON<S["InvitationList"]>("/api/v1/admin/invitations"),
+  invitePlatform: (email: string) =>
+    request<InvitationCreated>("POST", "/api/v1/admin/invitations", { email }),
+  revokePlatformInvitation: (id: string) =>
+    request<void>("DELETE", `/api/v1/admin/invitations/${id}`),
+  signupSettings: () =>
+    getJSON<SignupSettings>("/api/v1/admin/settings/signup"),
+  saveSignupSettings: (b: SignupSettings) =>
+    request<SignupSettings>("PUT", "/api/v1/admin/settings/signup", b),
   mailSettings: () => getJSON<MailSettings>("/api/v1/admin/settings/mail"),
-  saveMailSettings: (b: MailSettingsRequest) => request<MailSettings>("PUT", "/api/v1/admin/settings/mail", b),
-  publishTerms: (b: S["PublishTermsRequest"]) => request<Terms>("POST", "/api/v1/admin/settings/terms", b),
-  platformAudit: (p: AuditQuery = {}) => getJSON<AuditList>(`/api/v1/admin/audit${qs(p)}`),
-  adminOrgs: (q?: string) => getJSON<S["AdminOrgList"]>(`/api/v1/admin/orgs${qs({ q })}`),
+  saveMailSettings: (b: MailSettingsRequest) =>
+    request<MailSettings>("PUT", "/api/v1/admin/settings/mail", b),
+  publishTerms: (b: S["PublishTermsRequest"]) =>
+    request<Terms>("POST", "/api/v1/admin/settings/terms", b),
+  platformAudit: (p: AuditQuery = {}) =>
+    getJSON<AuditList>(`/api/v1/admin/audit${qs(p)}`),
+  adminOrgs: (q?: string) =>
+    getJSON<S["AdminOrgList"]>(`/api/v1/admin/orgs${qs({ q })}`),
   adminOrg: (id: string) => getJSON<AdminOrg>(`/api/v1/admin/orgs/${id}`),
-  adminUpdateOrg: (id: string, b: S["AdminUpdateOrgRequest"]) => request<AdminOrg>("PATCH", `/api/v1/admin/orgs/${id}`, b),
-  suspendOrg: (id: string, reason: string) => request<void>("POST", `/api/v1/admin/orgs/${id}/suspend`, { reason }),
-  reinstateOrg: (id: string) => request<void>("POST", `/api/v1/admin/orgs/${id}/reinstate`),
-  setOrgCluster: (id: string, instance_id: string, reserved: boolean) => request<AdminOrg>("POST", `/api/v1/admin/orgs/${id}/cluster`, { instance_id, reserved }),
+  adminUpdateOrg: (id: string, b: S["AdminUpdateOrgRequest"]) =>
+    request<AdminOrg>("PATCH", `/api/v1/admin/orgs/${id}`, b),
+  suspendOrg: (id: string, reason: string) =>
+    request<void>("POST", `/api/v1/admin/orgs/${id}/suspend`, { reason }),
+  reinstateOrg: (id: string) =>
+    request<void>("POST", `/api/v1/admin/orgs/${id}/reinstate`),
+  setOrgCluster: (id: string, instance_id: string, reserved: boolean) =>
+    request<AdminOrg>("POST", `/api/v1/admin/orgs/${id}/cluster`, {
+      instance_id,
+      reserved,
+    }),
   startBreakGlass: (id: string, reason: string, duration_minutes: number) =>
-    request<BreakGlassSession>("POST", `/api/v1/admin/orgs/${id}/break-glass`, { reason, duration_minutes }),
+    request<BreakGlassSession>("POST", `/api/v1/admin/orgs/${id}/break-glass`, {
+      reason,
+      duration_minutes,
+    }),
   plans: () => getJSON<S["PlanList"]>("/api/v1/admin/plans"),
-  createPlan: (b: S["PlanRequest"]) => request<Plan>("POST", "/api/v1/admin/plans", b),
-  updatePlan: (id: string, b: S["PlanRequest"]) => request<Plan>("PATCH", `/api/v1/admin/plans/${id}`, b),
-  dedicatedRequests: (status?: string) => getJSON<S["DedicatedRequestList"]>(`/api/v1/admin/dedicated-requests${qs({ status })}`),
-  approveDedicatedRequest: (id: string, b: S["DecideRequest"]) => request<Operation>("POST", `/api/v1/admin/dedicated-requests/${id}/approve`, b),
-  rejectDedicatedRequest: (id: string, b: S["DecideRequest"]) => request<void>("POST", `/api/v1/admin/dedicated-requests/${id}/reject`, b),
-  platformUsage: (p: { from?: string; to?: string } = {}) => getJSON<PlatformUsage>(`/api/v1/admin/usage${qs(p)}`),
-  sharedClusters: () => getJSON<S["SharedClusterList"]>("/api/v1/admin/shared-clusters"),
+  createPlan: (b: S["PlanRequest"]) =>
+    request<Plan>("POST", "/api/v1/admin/plans", b),
+  updatePlan: (id: string, b: S["PlanRequest"]) =>
+    request<Plan>("PATCH", `/api/v1/admin/plans/${id}`, b),
+  dedicatedRequests: (status?: string) =>
+    getJSON<S["DedicatedRequestList"]>(
+      `/api/v1/admin/dedicated-requests${qs({ status })}`,
+    ),
+  approveDedicatedRequest: (id: string, b: S["DecideRequest"]) =>
+    request<Operation>(
+      "POST",
+      `/api/v1/admin/dedicated-requests/${id}/approve`,
+      b,
+    ),
+  rejectDedicatedRequest: (id: string, b: S["DecideRequest"]) =>
+    request<void>("POST", `/api/v1/admin/dedicated-requests/${id}/reject`, b),
+  platformUsage: (p: { from?: string; to?: string } = {}) =>
+    getJSON<PlatformUsage>(`/api/v1/admin/usage${qs(p)}`),
+  sharedClusters: () =>
+    getJSON<S["SharedClusterList"]>("/api/v1/admin/shared-clusters"),
 
-  projects: (org?: string, status?: string) => getJSON<S["ProjectList"]>(`/api/v1/projects${qs({ org, status, limit: 500 })}`),
+  projects: (org?: string, status?: string) =>
+    getJSON<S["ProjectList"]>(
+      `/api/v1/projects${qs({ org, status, limit: 500 })}`,
+    ),
   project: (id: string) => getJSON<Project>(`/api/v1/projects/${id}`),
-  createProject: (b: CreateProjectRequest) => request<ProjectCredentials>("POST", "/api/v1/projects", b),
+  createProject: (b: CreateProjectRequest) =>
+    request<ProjectCredentials>("POST", "/api/v1/projects", b),
   profiles: () => getJSON<ProfileList>("/api/v1/profiles"),
-  promotionEstimate: (id: string) => getJSON<S["PromotionEstimate"]>(`/api/v1/projects/${id}/promote`),
+  promotionEstimate: (id: string) =>
+    getJSON<S["PromotionEstimate"]>(`/api/v1/projects/${id}/promote`),
   /** An operation, or a dedicated request when beyond the org's allowance (V2 §10.6). */
-  promote: (id: string, b: S["PromoteRequest"]) => request<Operation | DedicatedRequest>("POST", `/api/v1/projects/${id}/promote`, b),
-  demotePreflight: (id: string, b: DemoteRequest) => request<DemotePreflight>("POST", `/api/v1/projects/${id}/demote/preflight`, b),
-  demote: (id: string, b: DemoteRequest) => request<Operation>("POST", `/api/v1/projects/${id}/demote`, b),
-  sql: (id: string, b: S["SqlRequest"]) => request<SqlResult>("POST", `/api/v1/projects/${id}/sql`, b),
-  cancelSql: (id: string, query_id: string) => request<S["SqlCancelResult"]>("POST", `/api/v1/projects/${id}/sql/cancel`, { query_id }),
+  promote: (id: string, b: S["PromoteRequest"]) =>
+    request<Operation | DedicatedRequest>(
+      "POST",
+      `/api/v1/projects/${id}/promote`,
+      b,
+    ),
+  demotePreflight: (id: string, b: DemoteRequest) =>
+    request<DemotePreflight>(
+      "POST",
+      `/api/v1/projects/${id}/demote/preflight`,
+      b,
+    ),
+  demote: (id: string, b: DemoteRequest) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/demote`, b),
+  upgradePreflight: (id: string, pg_version: number) =>
+    request<UpgradePreflight>(
+      "POST",
+      `/api/v1/projects/${id}/upgrade/preflight`,
+      { pg_version },
+    ),
+  upgrade: (id: string, pg_version: number) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/upgrade`, {
+      pg_version,
+    }),
+  projectMoves: (id: string) =>
+    getJSON<S["MoveList"]>(`/api/v1/projects/${id}/moves`),
+  /** Platform admin: move a project to another node (V3 §2.3). */
+  moveProject: (id: string, b: S["MoveProjectRequest"]) =>
+    request<Operation>("POST", `/api/v1/admin/projects/${id}/move`, b),
+  projectHA: (id: string) => getJSON<HAStatus>(`/api/v1/projects/${id}/ha`),
+  enableHA: (id: string, b: S["HAEnableRequest"]) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/ha`, b),
+  updateHA: (id: string, synchronous: boolean) =>
+    request<HAStatus>("PATCH", `/api/v1/projects/${id}/ha`, { synchronous }),
+  disableHA: (id: string) =>
+    request<Operation>("DELETE", `/api/v1/projects/${id}/ha`),
+  switchover: (id: string, candidate?: string) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/switchover`, {
+      candidate,
+    }),
+  etcd: () => getJSON<EtcdCluster>("/api/v1/admin/etcd"),
+  setupEtcd: (node_ids: string[]) =>
+    request<Operation>("POST", "/api/v1/admin/etcd", { node_ids }),
+  maintenance: () => getJSON<MaintenanceStatus>("/api/v1/admin/maintenance"),
+  putMaintenanceWindow: (b: MaintenanceWindow) =>
+    request<MaintenanceWindow>("PUT", "/api/v1/admin/maintenance/window", b),
+  minorUpgrade: (instanceId: string) =>
+    request<MinorUpgrade>(
+      "POST",
+      `/api/v1/admin/instances/${instanceId}/minor-upgrade`,
+    ),
+  sql: (id: string, b: S["SqlRequest"]) =>
+    request<SqlResult>("POST", `/api/v1/projects/${id}/sql`, b),
+  cancelSql: (id: string, query_id: string) =>
+    request<S["SqlCancelResult"]>("POST", `/api/v1/projects/${id}/sql/cancel`, {
+      query_id,
+    }),
   schema: (id: string) => getJSON<DbSchema>(`/api/v1/projects/${id}/schema`),
-  tableRows: (id: string, schema: string, table: string, after?: string, grid: GridOptions = {}) =>
-    getJSON<TablePage>(`${tableBase(id, schema, table)}/rows${gridQs(grid, { after })}`),
-  tableInfo: (id: string, schema: string, table: string) => getJSON<TableInfo>(tableBase(id, schema, table)),
+  tableRows: (
+    id: string,
+    schema: string,
+    table: string,
+    after?: string,
+    grid: GridOptions = {},
+  ) =>
+    getJSON<TablePage>(
+      `${tableBase(id, schema, table)}/rows${gridQs(grid, { after })}`,
+    ),
+  tableInfo: (id: string, schema: string, table: string) =>
+    getJSON<TableInfo>(tableBase(id, schema, table)),
   /** A numbered page (offset paging) of up to 1,000 rows. */
-  tablePage: (id: string, schema: string, table: string, grid: GridOptions, offset: number, limit: number) =>
-    getJSON<TablePage>(`${tableBase(id, schema, table)}/rows${gridQs(grid, { offset: String(offset), limit: String(limit) })}`),
-  tableCount: (id: string, schema: string, table: string, grid: GridOptions = {}) =>
-    getJSON<RowCount>(`${tableBase(id, schema, table)}/count${gridQs({ filters: grid.filters, where: grid.where }, {})}`),
-  tableDefinition: (id: string, schema: string, table: string) => getJSON<S["TableDefinition"]>(`${tableBase(id, schema, table)}/definition`),
-  exportUrl: (id: string, schema: string, table: string, format: "csv" | "json", grid: GridOptions = {}) =>
-    `${tableBase(id, schema, table)}/export${gridQs(grid, { format })}`,
+  tablePage: (
+    id: string,
+    schema: string,
+    table: string,
+    grid: GridOptions,
+    offset: number,
+    limit: number,
+  ) =>
+    getJSON<TablePage>(
+      `${tableBase(id, schema, table)}/rows${gridQs(grid, { offset: String(offset), limit: String(limit) })}`,
+    ),
+  tableCount: (
+    id: string,
+    schema: string,
+    table: string,
+    grid: GridOptions = {},
+  ) =>
+    getJSON<RowCount>(
+      `${tableBase(id, schema, table)}/count${gridQs({ filters: grid.filters, where: grid.where }, {})}`,
+    ),
+  tableDefinition: (id: string, schema: string, table: string) =>
+    getJSON<S["TableDefinition"]>(`${tableBase(id, schema, table)}/definition`),
+  exportUrl: (
+    id: string,
+    schema: string,
+    table: string,
+    format: "csv" | "json",
+    grid: GridOptions = {},
+  ) => `${tableBase(id, schema, table)}/export${gridQs(grid, { format })}`,
   saveRows: (id: string, schema: string, table: string, changes: RowChange[]) =>
-    request<SaveRowsResult>("POST", `${tableBase(id, schema, table)}/changes`, { changes }),
-  previewSchema: (id: string, change: SchemaChange) => request<SchemaPlan>("POST", `/api/v1/projects/${id}/schema/preview`, { change }),
-  applySchema: (id: string, change: SchemaChange, hash: string, confirm?: string) =>
-    request<S["SchemaApplied"]>("POST", `/api/v1/projects/${id}/schema/apply`, { change, hash, confirm }),
-  schemaMigration: (id: string, change: SchemaChange, format: MigrationFormat) =>
-    request<S["SchemaMigration"]>("POST", `/api/v1/projects/${id}/schema/migration`, { change, format }),
-  savedQueries: (id: string) => getJSON<S["SavedQueryList"]>(`/api/v1/projects/${id}/queries`),
-  createSavedQuery: (id: string, b: S["SavedQueryRequest"]) => request<SavedQuery>("POST", `/api/v1/projects/${id}/queries`, b),
-  updateSavedQuery: (id: string, queryId: string, b: S["SavedQueryPatch"]) => request<SavedQuery>("PATCH", `/api/v1/projects/${id}/queries/${queryId}`, b),
-  deleteSavedQuery: (id: string, queryId: string) => request<void>("DELETE", `/api/v1/projects/${id}/queries/${queryId}`),
-  favoriteSavedQuery: (id: string, queryId: string, favorite: boolean) => request<SavedQuery>("PUT", `/api/v1/projects/${id}/queries/${queryId}/favorite`, { favorite }),
-  editorPreferences: (id: string) => getJSON<S["EditorPreferences"]>(`/api/v1/projects/${id}/editor-preferences`),
-  extensions: (id: string) => getJSON<S["ExtensionList"]>(`/api/v1/projects/${id}/extensions`),
-  enableExtension: (id: string, name: string) => request<S["ExtensionList"]>("POST", `/api/v1/projects/${id}/extensions`, { name }),
-  projectMetrics: (id: string, range: MetricRange) => getJSON<MetricsResponse>(`/api/v1/projects/${id}/metrics${qs({ range })}`),
-  nodeMetrics: (id: string, range: MetricRange) => getJSON<MetricsResponse>(`/api/v1/nodes/${id}/metrics${qs({ range })}`),
-  pitr: (id: string, b: S["PitrRequest"]) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/pitr`, b),
+    request<SaveRowsResult>("POST", `${tableBase(id, schema, table)}/changes`, {
+      changes,
+    }),
+  previewSchema: (id: string, change: SchemaChange) =>
+    request<SchemaPlan>("POST", `/api/v1/projects/${id}/schema/preview`, {
+      change,
+    }),
+  applySchema: (
+    id: string,
+    change: SchemaChange,
+    hash: string,
+    confirm?: string,
+  ) =>
+    request<S["SchemaApplied"]>("POST", `/api/v1/projects/${id}/schema/apply`, {
+      change,
+      hash,
+      confirm,
+    }),
+  schemaMigration: (
+    id: string,
+    change: SchemaChange,
+    format: MigrationFormat,
+  ) =>
+    request<S["SchemaMigration"]>(
+      "POST",
+      `/api/v1/projects/${id}/schema/migration`,
+      { change, format },
+    ),
+  savedQueries: (id: string) =>
+    getJSON<S["SavedQueryList"]>(`/api/v1/projects/${id}/queries`),
+  createSavedQuery: (id: string, b: S["SavedQueryRequest"]) =>
+    request<SavedQuery>("POST", `/api/v1/projects/${id}/queries`, b),
+  updateSavedQuery: (id: string, queryId: string, b: S["SavedQueryPatch"]) =>
+    request<SavedQuery>(
+      "PATCH",
+      `/api/v1/projects/${id}/queries/${queryId}`,
+      b,
+    ),
+  deleteSavedQuery: (id: string, queryId: string) =>
+    request<void>("DELETE", `/api/v1/projects/${id}/queries/${queryId}`),
+  favoriteSavedQuery: (id: string, queryId: string, favorite: boolean) =>
+    request<SavedQuery>(
+      "PUT",
+      `/api/v1/projects/${id}/queries/${queryId}/favorite`,
+      { favorite },
+    ),
+  editorPreferences: (id: string) =>
+    getJSON<S["EditorPreferences"]>(
+      `/api/v1/projects/${id}/editor-preferences`,
+    ),
+  extensions: (id: string) =>
+    getJSON<S["ExtensionList"]>(`/api/v1/projects/${id}/extensions`),
+  enableExtension: (id: string, name: string) =>
+    request<S["ExtensionList"]>("POST", `/api/v1/projects/${id}/extensions`, {
+      name,
+    }),
+  projectMetrics: (id: string, range: MetricRange) =>
+    getJSON<MetricsResponse>(`/api/v1/projects/${id}/metrics${qs({ range })}`),
+  nodeMetrics: (id: string, range: MetricRange) =>
+    getJSON<MetricsResponse>(`/api/v1/nodes/${id}/metrics${qs({ range })}`),
+  pitr: (id: string, b: S["PitrRequest"]) =>
+    request<ProjectCredentials>("POST", `/api/v1/projects/${id}/pitr`, b),
   instanceAction: (id: string, action: "start" | "stop" | "restart") =>
-    request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, { action }),
+    request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, {
+      action,
+    }),
   updateProject: (id: string, b: S["UpdateProjectRequest"]) =>
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
-  rotatePassword: (id: string) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/rotate-password`),
-  branches: (id: string) => getJSON<S["ProjectList"]>(`/api/v1/projects/${id}/branches`),
-  webhooks: (id: string) => getJSON<S["WebhookList"]>(`/api/v1/projects/${id}/webhooks`),
-  createWebhook: (id: string, b: WebhookRequest) => request<S["WebhookCreated"]>("POST", `/api/v1/projects/${id}/webhooks`, b),
-  updateWebhook: (id: string, wid: string, b: S["WebhookUpdate"]) => request<Webhook>("PATCH", `/api/v1/projects/${id}/webhooks/${wid}`, b),
-  deleteWebhook: (id: string, wid: string) => request<void>("DELETE", `/api/v1/projects/${id}/webhooks/${wid}`),
-  testWebhook: (id: string, wid: string) => request<S["WebhookTestResult"]>("POST", `/api/v1/projects/${id}/webhooks/${wid}/test`),
-  rotateWebhookSecret: (id: string, wid: string) => request<S["WebhookSecret"]>("POST", `/api/v1/projects/${id}/webhooks/${wid}/rotate-secret`),
+  resumeProject: (id: string) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/resume`),
+  pricing: () => getJSON<Pricing>("/api/v1/pricing"),
+  rotatePassword: (id: string) =>
+    request<ProjectCredentials>(
+      "POST",
+      `/api/v1/projects/${id}/rotate-password`,
+    ),
+  branches: (id: string) =>
+    getJSON<S["ProjectList"]>(`/api/v1/projects/${id}/branches`),
+  webhooks: (id: string) =>
+    getJSON<S["WebhookList"]>(`/api/v1/projects/${id}/webhooks`),
+  createWebhook: (id: string, b: WebhookRequest) =>
+    request<S["WebhookCreated"]>("POST", `/api/v1/projects/${id}/webhooks`, b),
+  updateWebhook: (id: string, wid: string, b: S["WebhookUpdate"]) =>
+    request<Webhook>("PATCH", `/api/v1/projects/${id}/webhooks/${wid}`, b),
+  deleteWebhook: (id: string, wid: string) =>
+    request<void>("DELETE", `/api/v1/projects/${id}/webhooks/${wid}`),
+  testWebhook: (id: string, wid: string) =>
+    request<S["WebhookTestResult"]>(
+      "POST",
+      `/api/v1/projects/${id}/webhooks/${wid}/test`,
+    ),
+  rotateWebhookSecret: (id: string, wid: string) =>
+    request<S["WebhookSecret"]>(
+      "POST",
+      `/api/v1/projects/${id}/webhooks/${wid}/rotate-secret`,
+    ),
   webhookDeliveries: (id: string, wid: string, dead = false) =>
-    getJSON<S["WebhookDeliveryList"]>(`/api/v1/projects/${id}/webhooks/${wid}/deliveries?limit=100${dead ? "&dead=true" : ""}`),
-  replayWebhook: (id: string, wid: string, b: S["ReplayRequest"]) => request<S["ReplayResult"]>("POST", `/api/v1/projects/${id}/webhooks/${wid}/replay`, b),
+    getJSON<S["WebhookDeliveryList"]>(
+      `/api/v1/projects/${id}/webhooks/${wid}/deliveries?limit=100${dead ? "&dead=true" : ""}`,
+    ),
+  replayWebhook: (id: string, wid: string, b: S["ReplayRequest"]) =>
+    request<S["ReplayResult"]>(
+      "POST",
+      `/api/v1/projects/${id}/webhooks/${wid}/replay`,
+      b,
+    ),
   jobs: (id: string) => getJSON<S["JobList"]>(`/api/v1/projects/${id}/jobs`),
-  createJob: (id: string, b: JobRequest) => request<S["JobCreated"]>("POST", `/api/v1/projects/${id}/jobs`, b),
-  updateJob: (id: string, jid: string, b: S["JobUpdate"]) => request<Job>("PATCH", `/api/v1/projects/${id}/jobs/${jid}`, b),
-  deleteJob: (id: string, jid: string) => request<void>("DELETE", `/api/v1/projects/${id}/jobs/${jid}`),
-  runJob: (id: string, jid: string) => request<JobRun>("POST", `/api/v1/projects/${id}/jobs/${jid}/run`),
-  jobRuns: (id: string, jid: string) => getJSON<S["JobRunList"]>(`/api/v1/projects/${id}/jobs/${jid}/runs?limit=50`),
-  orgOutbound: (org: string) => getJSON<S["OrgOutbound"]>(`/api/v1/admin/orgs/${org}/outbound`),
-  setOrgOutbound: (org: string, hosts: string[]) => request<S["OrgOutbound"]>("PUT", `/api/v1/admin/orgs/${org}/outbound`, { hosts }),
-  createBranch: (id: string, b: S["BranchRequest"]) => request<ProjectCredentials>("POST", `/api/v1/projects/${id}/branches`, b),
-  resetBranch: (id: string, b: S["BranchResetRequest"] = {}) => request<Operation>("POST", `/api/v1/projects/${id}/reset`, b),
-  detachBranch: (id: string) => request<Project>("POST", `/api/v1/projects/${id}/detach`),
+  createJob: (id: string, b: JobRequest) =>
+    request<S["JobCreated"]>("POST", `/api/v1/projects/${id}/jobs`, b),
+  updateJob: (id: string, jid: string, b: S["JobUpdate"]) =>
+    request<Job>("PATCH", `/api/v1/projects/${id}/jobs/${jid}`, b),
+  deleteJob: (id: string, jid: string) =>
+    request<void>("DELETE", `/api/v1/projects/${id}/jobs/${jid}`),
+  runJob: (id: string, jid: string) =>
+    request<JobRun>("POST", `/api/v1/projects/${id}/jobs/${jid}/run`),
+  jobRuns: (id: string, jid: string) =>
+    getJSON<S["JobRunList"]>(
+      `/api/v1/projects/${id}/jobs/${jid}/runs?limit=50`,
+    ),
+  orgOutbound: (org: string) =>
+    getJSON<S["OrgOutbound"]>(`/api/v1/admin/orgs/${org}/outbound`),
+  setOrgOutbound: (org: string, hosts: string[]) =>
+    request<S["OrgOutbound"]>("PUT", `/api/v1/admin/orgs/${org}/outbound`, {
+      hosts,
+    }),
+  createBranch: (id: string, b: S["BranchRequest"]) =>
+    request<ProjectCredentials>("POST", `/api/v1/projects/${id}/branches`, b),
+  resetBranch: (id: string, b: S["BranchResetRequest"] = {}) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/reset`, b),
+  detachBranch: (id: string) =>
+    request<Project>("POST", `/api/v1/projects/${id}/detach`),
   deleteProject: (id: string, confirm: string, skipFinalBackup = false) =>
-    request<Operation>("DELETE", `/api/v1/projects/${id}${qs({ confirm, skip_final_backup: skipFinalBackup ? "true" : undefined })}`),
+    request<Operation>(
+      "DELETE",
+      `/api/v1/projects/${id}${qs({ confirm, skip_final_backup: skipFinalBackup ? "true" : undefined })}`,
+    ),
 
-  backups: (p: { org?: string; project_id?: string; kind?: string; limit?: number } = {}) => getJSON<S["BackupList"]>(`/api/v1/backups${qs(p)}`),
-  backupOverview: (org?: string) => getJSON<BackupOverview>(`/api/v1/backups/overview${qs({ org })}`),
-  backupNow: (projectId: string) => request<Operation>("POST", `/api/v1/projects/${projectId}/backups`),
-  restore: (backupId: string, b: S["RestoreRequest"]) => request<RestoreResponse>("POST", `/api/v1/backups/${backupId}/restore`, b),
-  restoreTest: (projectId?: string) => request<Operation>("POST", `/api/v1/restore-tests${qs({ project_id: projectId })}`),
+  backups: (
+    p: {
+      org?: string;
+      project_id?: string;
+      kind?: string;
+      limit?: number;
+    } = {},
+  ) => getJSON<S["BackupList"]>(`/api/v1/backups${qs(p)}`),
+  backupOverview: (org?: string) =>
+    getJSON<BackupOverview>(`/api/v1/backups/overview${qs({ org })}`),
+  backupNow: (projectId: string) =>
+    request<Operation>("POST", `/api/v1/projects/${projectId}/backups`),
+  restore: (backupId: string, b: S["RestoreRequest"]) =>
+    request<RestoreResponse>("POST", `/api/v1/backups/${backupId}/restore`, b),
+  restoreTest: (projectId?: string) =>
+    request<Operation>(
+      "POST",
+      `/api/v1/restore-tests${qs({ project_id: projectId })}`,
+    ),
 
   storage: () => getJSON<StorageSettings>("/api/v1/settings/storage"),
-  saveStorage: (b: StorageRequest) => request<StorageTestResult>("PUT", "/api/v1/settings/storage", b),
-  testStorage: (b: StorageRequest) => request<StorageTestResult>("POST", "/api/v1/settings/storage/test", b),
+  saveStorage: (b: StorageRequest) =>
+    request<StorageTestResult>("PUT", "/api/v1/settings/storage", b),
+  testStorage: (b: StorageRequest) =>
+    request<StorageTestResult>("POST", "/api/v1/settings/storage/test", b),
   backupKey: () => getJSON<BackupKeyInfo>("/api/v1/settings/backup-key"),
-  generateBackupKey: () => request<BackupKeyExport>("POST", "/api/v1/settings/backup-key"),
-  exportBackupKey: () => request<BackupKeyExport>("POST", "/api/v1/settings/backup-key/export"),
-  confirmBackupKey: (key: string) => request<BackupKeyInfo>("POST", "/api/v1/settings/backup-key/confirm", { key }),
+  generateBackupKey: () =>
+    request<BackupKeyExport>("POST", "/api/v1/settings/backup-key"),
+  exportBackupKey: () =>
+    request<BackupKeyExport>("POST", "/api/v1/settings/backup-key/export"),
+  confirmBackupKey: (key: string) =>
+    request<BackupKeyInfo>("POST", "/api/v1/settings/backup-key/confirm", {
+      key,
+    }),
 
   // Storage targets (V2 §6). org undefined: platform targets (platform admin).
-  storageTargets: (org?: string) => getJSON<S["StorageTargetList"]>(org ? `/api/v1/orgs/${org}/storage-targets` : "/api/v1/admin/storage-targets"),
-  createStorageTarget: (org: string | undefined, b: S["StorageTargetRequest"]) =>
-    request<S["StorageTargetSaveResult"]>("POST", org ? `/api/v1/orgs/${org}/storage-targets` : "/api/v1/admin/storage-targets", b),
-  updateStorageTarget: (org: string | undefined, id: string, b: S["StorageTargetRequest"]) =>
-    request<S["StorageTargetSaveResult"]>("PATCH", org ? `/api/v1/orgs/${org}/storage-targets/${id}` : `/api/v1/admin/storage-targets/${id}`, b),
-  deleteStorageTarget: (org: string | undefined, id: string, acceptUnrestorable = false) =>
+  storageTargets: (org?: string) =>
+    getJSON<S["StorageTargetList"]>(
+      org
+        ? `/api/v1/orgs/${org}/storage-targets`
+        : "/api/v1/admin/storage-targets",
+    ),
+  createStorageTarget: (
+    org: string | undefined,
+    b: S["StorageTargetRequest"],
+  ) =>
+    request<S["StorageTargetSaveResult"]>(
+      "POST",
+      org
+        ? `/api/v1/orgs/${org}/storage-targets`
+        : "/api/v1/admin/storage-targets",
+      b,
+    ),
+  updateStorageTarget: (
+    org: string | undefined,
+    id: string,
+    b: S["StorageTargetRequest"],
+  ) =>
+    request<S["StorageTargetSaveResult"]>(
+      "PATCH",
+      org
+        ? `/api/v1/orgs/${org}/storage-targets/${id}`
+        : `/api/v1/admin/storage-targets/${id}`,
+      b,
+    ),
+  deleteStorageTarget: (
+    org: string | undefined,
+    id: string,
+    acceptUnrestorable = false,
+  ) =>
     request<void>(
       "DELETE",
       `${org ? `/api/v1/orgs/${org}/storage-targets/${id}` : `/api/v1/admin/storage-targets/${id}`}${qs({ accept_unrestorable: acceptUnrestorable ? "true" : undefined })}`,
     ),
-  testStorageTarget: (org: string | undefined, b: S["StorageTargetTestRequest"]) =>
-    request<StorageTestResult>("POST", `/api/v1/storage-targets/test${qs({ org })}`, b),
-  projectBackupStorage: (id: string) => getJSON<S["ProjectBackupStorage"]>(`/api/v1/projects/${id}/storage-target`),
+  testStorageTarget: (
+    org: string | undefined,
+    b: S["StorageTargetTestRequest"],
+  ) =>
+    request<StorageTestResult>(
+      "POST",
+      `/api/v1/storage-targets/test${qs({ org })}`,
+      b,
+    ),
+  projectBackupStorage: (id: string) =>
+    getJSON<S["ProjectBackupStorage"]>(`/api/v1/projects/${id}/storage-target`),
   setProjectStorageTarget: (id: string, b: S["ProjectStorageTargetRequest"]) =>
-    request<S["ProjectStorageTargetResult"]>("PUT", `/api/v1/projects/${id}/storage-target`, b),
-  enableProjectBackupKey: (id: string, rotate = false) => request<S["ProjectBackupKey"]>("POST", `/api/v1/projects/${id}/backup-key`, { rotate }),
+    request<S["ProjectStorageTargetResult"]>(
+      "PUT",
+      `/api/v1/projects/${id}/storage-target`,
+      b,
+    ),
+  enableProjectBackupKey: (id: string, rotate = false) =>
+    request<S["ProjectBackupKey"]>(
+      "POST",
+      `/api/v1/projects/${id}/backup-key`,
+      { rotate },
+    ),
   /** The key file (README + armored OpenPGP key); needs a recent re-authentication. */
   downloadProjectBackupKey: async (id: string): Promise<string> => {
-    const res = await fetch(`/api/v1/projects/${id}/backup-key/download`, { credentials: "same-origin" });
+    const res = await fetch(`/api/v1/projects/${id}/backup-key/download`, {
+      credentials: "same-origin",
+    });
     if (!res.ok) {
       let err: ApiErrorBody | undefined;
       try {
@@ -439,32 +1021,403 @@ export const api = {
     return res.text();
   },
 
-  importPreflight: (source_url: string) => request<ImportPreflight>("POST", "/api/v1/imports/preflight", { source_url }),
-  createImport: (b: S["ImportRequest"]) => request<ProjectCredentials>("POST", "/api/v1/imports", b),
+  importPreflight: (source_url: string) =>
+    request<ImportPreflight>("POST", "/api/v1/imports/preflight", {
+      source_url,
+    }),
+  createImport: (b: S["ImportRequest"]) =>
+    request<ProjectCredentials>("POST", "/api/v1/imports", b),
 
   nodes: () => getJSON<S["NodeList"]>("/api/v1/nodes"),
-  nodeToken: (id: string) => request<RegistrationToken>("POST", `/api/v1/nodes/${id}/registration-token`),
+  nodeToken: (id: string) =>
+    request<RegistrationToken>(
+      "POST",
+      `/api/v1/nodes/${id}/registration-token`,
+    ),
   node: (id: string) => getJSON<NodeDetail>(`/api/v1/nodes/${id}`),
-  createNode: (b: S["CreateNodeRequest"]) => request<NodeCreated>("POST", "/api/v1/nodes", b),
+  createNode: (b: S["CreateNodeRequest"]) =>
+    request<NodeCreated>("POST", "/api/v1/nodes", b),
   removeNode: (id: string) => request<void>("DELETE", `/api/v1/nodes/${id}`),
-  updateNode: (id: string, role: "shared" | "dedicated" | "both") => request<Node>("PATCH", `/api/v1/nodes/${id}`, { role }),
-  createSharedCluster: (id: string, memory_mb: number) => request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, { memory_mb }),
+  updateNode: (id: string, role: "shared" | "dedicated" | "both") =>
+    request<Node>("PATCH", `/api/v1/nodes/${id}`, { role }),
+  createSharedCluster: (id: string, memory_mb: number, pg_version?: number) =>
+    request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, {
+      memory_mb,
+      pg_version,
+    }),
 
-  operations: (p: { org?: string; platform?: string; project_id?: string; status?: string; kind?: string; limit?: number } = {}) =>
-    getJSON<S["OperationList"]>(`/api/v1/operations${qs(p)}`),
+  operations: (
+    p: {
+      org?: string;
+      platform?: string;
+      project_id?: string;
+      status?: string;
+      kind?: string;
+      limit?: number;
+    } = {},
+  ) => getJSON<S["OperationList"]>(`/api/v1/operations${qs(p)}`),
   operation: (id: string) => getJSON<Operation>(`/api/v1/operations/${id}`),
 
-
-  alerts: (status?: "firing" | "resolved") => getJSON<S["AlertList"]>(`/api/v1/alerts${qs({ status, limit: 200 })}`),
+  alerts: (status?: "firing" | "resolved") =>
+    getJSON<S["AlertList"]>(`/api/v1/alerts${qs({ status, limit: 200 })}`),
   alertSettings: () => getJSON<AlertSettings>("/api/v1/settings/alerts"),
-  saveAlertSettings: (b: AlertSettingsRequest) => request<AlertSettings>("PUT", "/api/v1/settings/alerts", b),
-  testAlerts: () => request<S["AlertTestResult"]>("POST", "/api/v1/settings/alerts/test"),
-  isolationChecks: () => getJSON<S["IsolationCheckList"]>("/api/v1/security/isolation-checks"),
-  runIsolationChecks: () => request<S["OperationList"]>("POST", "/api/v1/security/isolation-checks"),
+  saveAlertSettings: (b: AlertSettingsRequest) =>
+    request<AlertSettings>("PUT", "/api/v1/settings/alerts", b),
+  testAlerts: () =>
+    request<S["AlertTestResult"]>("POST", "/api/v1/settings/alerts/test"),
+  incidents: () => getJSON<S["IncidentList"]>("/api/v1/incidents"),
+  createIncident: (b: S["CreateIncidentRequest"]) =>
+    request<Incident>("POST", "/api/v1/incidents", b),
+  updateIncident: (id: string, b: S["UpdateIncidentRequest"]) =>
+    request<Incident>("PATCH", `/api/v1/incidents/${id}`, b),
+  postIncidentUpdate: (id: string, b: S["IncidentUpdateRequest"]) =>
+    request<Incident>("POST", `/api/v1/incidents/${id}/updates`, b),
+  poolerHosts: () => getJSON<S["PoolerHosts"]>("/api/v1/pooler-hosts"),
+  isolationChecks: () =>
+    getJSON<S["IsolationCheckList"]>("/api/v1/security/isolation-checks"),
+  runIsolationChecks: () =>
+    request<S["OperationList"]>("POST", "/api/v1/security/isolation-checks"),
+
+  // Billing (V3 §3): owners and billing members.
+  billing: (org: string) =>
+    getJSON<BillingAccount>(`/api/v1/orgs/${org}/billing`),
+  updateBilling: (org: string, b: S["BillingDetailsUpdate"]) =>
+    request<BillingAccount>("PATCH", `/api/v1/orgs/${org}/billing`, b),
+  changePlan: (org: string, b: PlanChangeRequest) =>
+    request<PlanChange>("POST", `/api/v1/orgs/${org}/billing/plan`, b),
+  billingContacts: (org: string) =>
+    getJSON<{ items: BillingContact[] }>(
+      `/api/v1/orgs/${org}/billing/contacts`,
+    ),
+  addBillingContact: (org: string, b: BillingContact) =>
+    request<BillingContact>("POST", `/api/v1/orgs/${org}/billing/contacts`, b),
+  removeBillingContact: (org: string, email: string) =>
+    request<void>(
+      "DELETE",
+      `/api/v1/orgs/${org}/billing/contacts/${encodeURIComponent(email)}`,
+    ),
+  forecast: (org: string) =>
+    getJSON<BillingForecast>(`/api/v1/orgs/${org}/billing/forecast`),
+  invoices: (org: string) =>
+    getJSON<S["InvoiceList"]>(`/api/v1/orgs/${org}/billing/invoices`),
+  invoice: (org: string, id: string) =>
+    getJSON<InvoiceDetail>(`/api/v1/orgs/${org}/billing/invoices/${id}`),
+  invoicePdfUrl: (org: string, id: string) =>
+    `/api/v1/orgs/${org}/billing/invoices/${id}/pdf`,
+  /** What a dedicated size, HA or sync replication costs; anyone in the org may ask. */
+  estimate: (org: string, b: EstimateRequest) =>
+    request<CostEstimate>("POST", `/api/v1/orgs/${org}/billing/estimate`, b),
+
+  checkout: (org: string, b: CheckoutRequest) =>
+    request<{ reference: string; checkout_url: string; amount_minor: number }>(
+      "POST",
+      `/api/v1/orgs/${org}/billing/checkout`,
+      b,
+    ),
+  virtualAccount: (org: string) =>
+    request<VirtualAccount>(
+      "POST",
+      `/api/v1/orgs/${org}/billing/virtual-account`,
+    ),
+  paymentMethods: (org: string) =>
+    getJSON<{ items: PaymentMethod[] }>(
+      `/api/v1/orgs/${org}/billing/payment-methods`,
+    ),
+  removePaymentMethod: (org: string, id: string) =>
+    request<void>(
+      "DELETE",
+      `/api/v1/orgs/${org}/billing/payment-methods/${id}`,
+    ),
+  defaultPaymentMethod: (org: string, id: string) =>
+    request<void>(
+      "POST",
+      `/api/v1/orgs/${org}/billing/payment-methods/${id}/default`,
+    ),
+  setAutoTopup: (org: string, b: S["AutoTopup"]) =>
+    request<void>("PUT", `/api/v1/orgs/${org}/billing/auto-topup`, b),
+  clearAutoTopup: (org: string) =>
+    request<void>("DELETE", `/api/v1/orgs/${org}/billing/auto-topup`),
+  payments: (org: string) =>
+    getJSON<S["PaymentList"]>(`/api/v1/orgs/${org}/billing/payments`),
+  receiptUrl: (org: string, id: string) =>
+    `/api/v1/orgs/${org}/billing/payments/${id}/receipt`,
+  uploadWht: (org: string, invoice: string, file: File) =>
+    uploadFile(
+      `/api/v1/orgs/${org}/billing/invoices/${invoice}/wht-certificate${qs({ filename: file.name })}`,
+      file,
+    ),
+
+  adminPayments: (p: { provider?: string } = {}) =>
+    getJSON<S["PaymentList"]>(`/api/v1/admin/payments${qs(p)}`),
+  recordPayment: (b: {
+    org_id: string;
+    amount_minor: number;
+    reference: string;
+    note?: string;
+    invoice_id?: string;
+    topup?: boolean;
+    received_at?: string;
+    proof_key?: string;
+  }) => request<Payment>("POST", "/api/v1/admin/payments", b),
+  uploadProof: (org: string, file: File) =>
+    uploadFile(
+      `/api/v1/admin/billing/documents${qs({ org_id: org, filename: file.name })}`,
+      file,
+    ) as Promise<{ key: string }>,
+  refundPayment: (
+    id: string,
+    amount_minor: number,
+    reason: string,
+    reopen_invoices = false,
+  ) =>
+    request<{ id: string; status: string; amount_minor: number }>(
+      "POST",
+      `/api/v1/admin/payments/${id}/refund`,
+      { amount_minor, reason, reopen_invoices },
+    ),
+  adminOrgBilling: (org: string) =>
+    getJSON<BillingAccount>(`/api/v1/admin/orgs/${org}/billing`),
+  paymentEvents: (outcome?: string) =>
+    getJSON<{ items: PaymentEvent[] }>(
+      `/api/v1/admin/payment-events${qs({ outcome })}`,
+    ),
+  attributeEvent: (id: number, org_id: string) =>
+    request<Payment>("POST", `/api/v1/admin/payment-events/${id}/attribute`, {
+      org_id,
+    }),
+  outstandingWht: () =>
+    getJSON<{ items: OutstandingWht[] }>("/api/v1/admin/wht"),
+  whtCsvUrl: () => "/api/v1/admin/wht?format=csv",
+  adminUploadWht: (invoice: string, file: File) =>
+    uploadFile(
+      `/api/v1/admin/invoices/${invoice}/wht-certificate${qs({ filename: file.name })}`,
+      file,
+    ),
+  reconciliation: () =>
+    getJSON<{ items: Reconciliation[] }>("/api/v1/admin/reconciliation"),
+  runReconciliation: (from?: string, to?: string) =>
+    request<{ items: Reconciliation[] }>(
+      "POST",
+      "/api/v1/admin/reconciliation",
+      { from, to },
+    ),
+  setGrace: (org: string, until: string | null) =>
+    request<void>("PUT", `/api/v1/admin/orgs/${org}/billing/grace`, { until }),
+
+  billingSettings: () =>
+    getJSON<BillingSettings>("/api/v1/admin/billing/settings"),
+  saveBillingSettings: (b: BillingSettings) =>
+    request<BillingSettings>("PUT", "/api/v1/admin/billing/settings", b),
+  priceBooks: () =>
+    getJSON<{ current_version: number; items: PriceBook[] }>(
+      "/api/v1/admin/price-books",
+    ),
+  createPriceBook: (b: S["PriceBookInput"]) =>
+    request<PriceBook>("POST", "/api/v1/admin/price-books", b),
+  updatePriceBook: (v: number, b: S["PriceBookInput"]) =>
+    request<PriceBook>("PUT", `/api/v1/admin/price-books/${v}`, b),
+  deletePriceBook: (v: number) =>
+    request<void>("DELETE", `/api/v1/admin/price-books/${v}`),
+  publishPriceBook: (v: number) =>
+    request<{ price_book: PriceBook; notified: number }>(
+      "POST",
+      `/api/v1/admin/price-books/${v}/publish`,
+    ),
+  previewPriceBook: (v: number, period?: string) =>
+    request<PricePreview>("POST", `/api/v1/admin/price-books/${v}/preview`, {
+      period,
+    }),
+  adminInvoices: (p: { status?: Invoice["status"]; period?: string } = {}) =>
+    getJSON<S["InvoiceList"]>(`/api/v1/admin/invoices${qs(p)}`),
+  adminInvoice: (id: string) =>
+    getJSON<InvoiceDetail>(`/api/v1/admin/invoices/${id}`),
+  adminInvoicePdfUrl: (id: string) => `/api/v1/admin/invoices/${id}/pdf`,
+  draftInvoices: (period: string, org_id?: string) =>
+    request<{ drafts: number }>("POST", "/api/v1/admin/invoices/draft", {
+      period,
+      org_id,
+    }),
+  holdInvoice: (id: string, held: boolean, reason?: string) =>
+    request<Invoice>("POST", `/api/v1/admin/invoices/${id}/hold`, {
+      held,
+      reason,
+    }),
+  issueInvoice: (id: string) =>
+    request<Invoice>("POST", `/api/v1/admin/invoices/${id}/issue`),
+  creditNote: (id: string, amount_minor: number, reason: string) =>
+    request<CreditNote>("POST", `/api/v1/admin/invoices/${id}/credit-notes`, {
+      amount_minor,
+      reason,
+    }),
+  ledgerCheck: () => getJSON<LedgerCheck>("/api/v1/admin/ledger/check"),
+  adminUpdateOrgBilling: (org: string, b: S["AdminBillingUpdate"]) =>
+    request<BillingAccount>("PATCH", `/api/v1/admin/orgs/${org}/billing`, b),
+
+  // Support (V3 §7.1): the organisation's tickets and WhatsApp numbers.
+  orgTickets: (org: string) =>
+    getJSON<S["TicketList"]>(`/api/v1/orgs/${org}/support/tickets`),
+  openTicket: (org: string, b: S["TicketOpen"]) =>
+    request<Ticket>("POST", `/api/v1/orgs/${org}/support/tickets`, b),
+  orgTicket: (org: string, id: string) =>
+    getJSON<TicketDetail>(`/api/v1/orgs/${org}/support/tickets/${id}`),
+  replyTicket: (org: string, id: string, body: string) =>
+    request<void>(
+      "POST",
+      `/api/v1/orgs/${org}/support/tickets/${id}/messages`,
+      { body },
+    ),
+  supportPhones: (org: string) =>
+    getJSON<{ items: SupportPhone[]; available: boolean }>(
+      `/api/v1/orgs/${org}/support/phones`,
+    ),
+  addSupportPhone: (org: string, phone: string) =>
+    request<SupportPhone>("POST", `/api/v1/orgs/${org}/support/phones`, {
+      phone,
+    }),
+  removeSupportPhone: (org: string, phone: string) =>
+    request<void>(
+      "DELETE",
+      `/api/v1/orgs/${org}/support/phones/${encodeURIComponent(phone)}`,
+    ),
+  // The support console (support staff and platform admins).
+  supportQueue: (
+    p: { status?: Ticket["status"]; assignee?: string; org_id?: string } = {},
+  ) => getJSON<TicketQueue>(`/api/v1/admin/support/tickets${qs(p)}`),
+  supportTicket: (id: string) =>
+    getJSON<TicketDetail>(`/api/v1/admin/support/tickets/${id}`),
+  updateTicket: (id: string, b: TicketUpdate) =>
+    request<Ticket>("PATCH", `/api/v1/admin/support/tickets/${id}`, b),
+  staffReply: (id: string, body: string, note: boolean) =>
+    request<void>("POST", `/api/v1/admin/support/tickets/${id}/messages`, {
+      body,
+      note,
+    }),
+  supportStaff: () =>
+    getJSON<{ items: SupportStaff[] }>("/api/v1/admin/support/staff"),
+  // The revenue dashboard (V3 §7.2).
+  revenue: (months = 12) =>
+    getJSON<Revenue>(`/api/v1/admin/revenue${qs({ months: String(months) })}`),
+  revenueCsvUrl: (months = 12) =>
+    `/api/v1/admin/revenue${qs({ months: String(months), format: "csv" })}`,
+  // Legal documents (V3 §7.3).
+  legal: () => getJSON<{ items: LegalDocument[] }>("/api/v1/legal"),
+  orgLegal: (org: string) => getJSON<OrgLegal>(`/api/v1/orgs/${org}/legal`),
+  acceptLegal: (org: string, id: string) =>
+    request<OrgLegal>("POST", `/api/v1/orgs/${org}/legal/${id}/accept`),
+  legalVersions: () =>
+    getJSON<{ items: LegalVersion[] }>("/api/v1/admin/legal"),
+  legalDocument: (id: string) =>
+    getJSON<LegalDocumentDetail>(`/api/v1/admin/legal/${id}`),
+  publishLegal: (b: S["LegalPublish"]) =>
+    request<LegalDocument>("POST", "/api/v1/admin/legal", b),
+  publishOrderForm: (org: string, b: S["OrderFormPublish"]) =>
+    request<LegalDocument>("POST", `/api/v1/admin/orgs/${org}/order-form`, b),
+
+  // Query insights (V3 §8).
+  insightQueries: (id: string, range: InsightRange, sort: InsightSort) =>
+    getJSON<S["InsightQueryList"]>(
+      `/api/v1/projects/${id}/insights/queries?range=${range}&sort=${sort}&limit=50`,
+    ),
+  insightQuery: (id: string, queryId: string, range: InsightRange) =>
+    getJSON<InsightQueryDetail>(
+      `/api/v1/projects/${id}/insights/queries/${encodeURIComponent(queryId)}?range=${range}`,
+    ),
+  explainQuery: (id: string, queryId: string, generic: boolean) =>
+    request<InsightPlan>("POST", `/api/v1/projects/${id}/insights/explain`, {
+      query_id: queryId,
+      generic,
+    }),
+  slowQueries: (id: string, range: InsightRange) =>
+    getJSON<S["SlowQueryList"]>(
+      `/api/v1/projects/${id}/insights/slow?range=${range}`,
+    ),
+  insightIndexes: (id: string) =>
+    getJSON<IndexReport>(`/api/v1/projects/${id}/insights/indexes`),
+  insightBloat: (id: string) =>
+    getJSON<S["BloatList"]>(`/api/v1/projects/${id}/insights/bloat`),
+  insightLocks: (id: string) =>
+    getJSON<S["LockList"]>(`/api/v1/projects/${id}/insights/locks`),
+  // Regions and data residency (V3 §6).
+  regions: () => getJSON<{ items: Region[] }>("/api/v1/regions"),
+  adminRegions: () => getJSON<AdminRegionList>("/api/v1/admin/regions"),
+  saveRegion: (id: string, b: AdminRegionRequest) =>
+    request<AdminRegion>(
+      "PUT",
+      `/api/v1/admin/regions/${encodeURIComponent(id)}`,
+      b,
+    ),
+  setResidency: (projectId: string, enabled: boolean) =>
+    request<ProjectResidencyResult>(
+      "PUT",
+      `/api/v1/projects/${projectId}/residency`,
+      { enabled },
+    ),
+  // Capacity automation (V3 §5).
+  capacity: () => getJSON<Capacity>("/api/v1/admin/capacity"),
+  saveCapacitySettings: (b: CapacitySettings) =>
+    request<CapacitySettings>("PUT", "/api/v1/admin/capacity/settings", b),
+  evaluateCapacity: () =>
+    request<{ items: CapacityProposal[] }>(
+      "POST",
+      "/api/v1/admin/capacity/evaluate",
+    ),
+  approveProposal: (id: string) =>
+    request<CapacityProposal>(
+      "POST",
+      `/api/v1/admin/capacity/proposals/${id}/approve`,
+    ),
+  rejectProposal: (id: string) =>
+    request<CapacityProposal>(
+      "POST",
+      `/api/v1/admin/capacity/proposals/${id}/reject`,
+    ),
+  planRebalance: () =>
+    request<{ batch?: string | null; moves: number }>(
+      "POST",
+      "/api/v1/admin/capacity/rebalance",
+    ),
+  decideBatch: (batch: string, approve: boolean) =>
+    request<{ moves: number }>(
+      "POST",
+      `/api/v1/admin/capacity/batches/${batch}`,
+      { approve },
+    ),
+  cloudCatalog: () =>
+    getJSON<{ provider: string; items: ServerPrice[] }>(
+      "/api/v1/admin/cloud/catalog",
+    ),
+  drainNode: (id: string) =>
+    request<{ node: Node; moves: number }>("POST", `/api/v1/nodes/${id}/drain`),
+  stopDrain: (id: string) =>
+    request<Node>("DELETE", `/api/v1/nodes/${id}/drain`),
+  setNodeCost: (id: string, b: S["NodeCost"]) =>
+    request<Node>("PUT", `/api/v1/nodes/${id}/cost`, b),
+  // Costs and margins (V3 §5.4, §7.2).
+  costs: (month?: string) =>
+    getJSON<Margins>(`/api/v1/admin/costs${qs({ month })}`),
+  costsCsvUrl: (month?: string) =>
+    `/api/v1/admin/costs${qs({ month, format: "csv" })}`,
+  attributeCosts: (from: string, to: string) =>
+    request<{ days: number }>("POST", "/api/v1/admin/costs/attribute", {
+      from,
+      to,
+    }),
+  costSettings: () => getJSON<CostSettings>("/api/v1/admin/costs/settings"),
+  saveCostSettings: (b: CostSettings) =>
+    request<CostSettings>("PUT", "/api/v1/admin/costs/settings", b),
+  fxRates: () =>
+    getJSON<{ current: FXRate[]; history: FXRate[] }>("/api/v1/admin/fx-rates"),
+  setFxRate: (currency: string, ngn_per_unit: number) =>
+    request<FXRate>("POST", "/api/v1/admin/fx-rates", {
+      currency,
+      ngn_per_unit,
+    }),
 
   generalSettings: () => getJSON<GeneralSettings>("/api/v1/settings/general"),
-  setDbHost: (db_host: string) => request<GeneralSettings>("PUT", "/api/v1/settings/db-host", { db_host }),
-  checkDbHost: (db_host: string) => request<DnsCheck>("POST", "/api/v1/settings/db-host/check", { db_host }),
+  setDbHost: (db_host: string) =>
+    request<GeneralSettings>("PUT", "/api/v1/settings/db-host", { db_host }),
+  checkDbHost: (db_host: string) =>
+    request<DnsCheck>("POST", "/api/v1/settings/db-host/check", { db_host }),
 };
 
 /** Turns any thrown value into a message fit for the UI. */

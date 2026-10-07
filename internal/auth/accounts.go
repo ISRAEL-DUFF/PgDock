@@ -221,6 +221,8 @@ type SignupParams struct {
 	// current one.
 	TermsVersion int
 	IP           *netip.Addr
+	// Challenge is the anti-bot token from the signup page.
+	Challenge string
 }
 
 // Signup creates an unverified account (inactive until approved, in
@@ -241,6 +243,23 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 	}
 	if !policy.allows(email) {
 		return ErrDomainNotAllowed
+	}
+	if s.guard.Check != nil {
+		if err := s.guard.Check.Verify(ctx, p.Challenge, p.IP); err != nil {
+			if !errors.Is(err, ErrChallengeFailed) {
+				s.log.Warn("signup challenge", "err", err)
+			}
+			return ErrChallengeFailed
+		}
+	}
+	if s.guard.PerIP > 0 && p.IP != nil {
+		n, err := store.New(s.db).CountSignupsFrom(ctx, store.CountSignupsFromParams{Ip: p.IP, Since: s.cfg.Now().Add(-24 * time.Hour)})
+		if err != nil {
+			return err
+		}
+		if n >= int64(s.guard.PerIP) {
+			return fmt.Errorf("%w: too many accounts were created from this address today", ErrRateLimited)
+		}
 	}
 	if err := CheckPasswordPolicy(p.Password); err != nil {
 		return err
@@ -279,7 +298,7 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 		}
 		var err error
 		u, err = qt.InsertUser(ctx, store.InsertUserParams{
-			Email: email, PasswordHash: hash, Name: namePtr, PlatformRole: RoleUser, ApprovedAt: approved,
+			Email: email, PasswordHash: hash, Name: namePtr, PlatformRole: RoleUser, ApprovedAt: approved, SignupIp: p.IP,
 		})
 		if err != nil {
 			return err
@@ -542,21 +561,30 @@ func (s *Service) EnsureTerms(ctx context.Context) error {
 	if err != nil || cur.Version != 0 {
 		return err
 	}
-	_, err = store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: DefaultTerms, PrivacyMd: DefaultPrivacy})
+	_, err = store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: DefaultTerms, PrivacyMd: DefaultPrivacy, AupMd: DefaultAUP})
 	return err
 }
 
 // PublishTerms publishes a new version; every user accepts it at their
 // next request.
-func (s *Service) PublishTerms(ctx context.Context, terms, privacy string, by uuid.UUID) (store.TermsVersion, error) {
-	terms, privacy = strings.TrimSpace(terms), strings.TrimSpace(privacy)
+func (s *Service) PublishTerms(ctx context.Context, terms, privacy, aup string, by uuid.UUID) (store.TermsVersion, error) {
+	terms, privacy, aup = strings.TrimSpace(terms), strings.TrimSpace(privacy), strings.TrimSpace(aup)
 	if terms == "" || privacy == "" {
 		return store.TermsVersion{}, errors.New("both the terms of use and the privacy notice are required")
 	}
-	if len(terms) > 200_000 || len(privacy) > 200_000 {
+	if len(terms) > 200_000 || len(privacy) > 200_000 || len(aup) > 200_000 {
 		return store.TermsVersion{}, errors.New("terms text is too long")
 	}
-	return store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: terms, PrivacyMd: privacy, PublishedBy: &by})
+	if aup == "" {
+		// Unchanged unless given: the acceptable use policy of the version
+		// in effect (V3 §7.3).
+		cur, err := s.CurrentTerms(ctx)
+		if err != nil {
+			return store.TermsVersion{}, err
+		}
+		aup = cur.AupMd
+	}
+	return store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: terms, PrivacyMd: privacy, AupMd: aup, PublishedBy: &by})
 }
 
 // ---- Account administration ---------------------------------------------------

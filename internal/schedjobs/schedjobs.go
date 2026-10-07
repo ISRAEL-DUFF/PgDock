@@ -486,8 +486,16 @@ func (s *Service) dispatch(ctx context.Context, j store.ScheduledJob, scheduledF
 	case p.Status != provision.StatusActive:
 		// Promoting, demoting, restoring, resetting (V2 §9.2).
 		return skip("the project is " + p.Status)
+	case p.Lifecycle != "active":
+		// Paused or archived for inactivity (V3 §4.2).
+		return skip("the project is " + p.Lifecycle)
 	case j.Kind == KindHTTP && o.OutboundDisabled:
 		return skip("outbound traffic is disabled for the organisation")
+	}
+	if capped, err := q.OrgSpendCapped(ctx, p.OrgID); err != nil {
+		return store.JobRun{}, err
+	} else if capped {
+		return skip("the organisation has reached its spend cap")
 	}
 	if j.Kind == KindHTTP && s.limits != nil {
 		if l, _, err := s.limits.Limits(ctx, p.OrgID); err == nil {

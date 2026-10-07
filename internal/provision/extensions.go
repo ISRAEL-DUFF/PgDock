@@ -5,7 +5,7 @@ import "slices"
 // SharedExtensions is the shared tier's extension allow-list (spec §7.4).
 var SharedExtensions = []string{
 	"pgcrypto", "uuid-ossp", "citext", "pg_trgm", "hstore", "unaccent",
-	"btree_gin", "btree_gist", "pg_stat_statements", "vector",
+	"btree_gin", "btree_gist", "pg_stat_statements", "vector", "hypopg",
 }
 
 // DedicatedExtensions are the extensions dedicated instances add.

@@ -78,7 +78,7 @@ func (e *env) node(t *testing.T, name, status string) store.Node {
 func (e *env) instance(t *testing.T, node store.Node, kind, age string) store.Instance {
 	t.Helper()
 	ctx := context.Background()
-	inst, err := store.New(e.db).InsertInstance(ctx, store.InsertInstanceParams{ID: uuid.New(), NodeID: node.ID, Kind: kind})
+	inst, err := store.New(e.db).InsertInstance(ctx, store.InsertInstanceParams{ID: uuid.New(), NodeID: node.ID, Kind: kind, PgVersion: 18})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,8 @@ func (e *env) project(t *testing.T, inst store.Instance, name string, deleted bo
 		t.Fatal(err)
 	}
 	p, err := store.New(e.db).InsertProject(ctx, store.InsertProjectParams{
-		ID: uuid.New(), OrgID: org, Name: name, Slug: name, DbName: name, OwnerRole: name + "_owner",
+		Region: "eu-central",
+		ID:     uuid.New(), OrgID: org, Name: name, Slug: name, DbName: name, OwnerRole: name + "_owner",
 		ScramVerifier: "SCRAM-SHA-256$4096:x$y:z", Tier: "dedicated", InstanceID: inst.ID, Settings: []byte(`{}`),
 	})
 	if err != nil {
@@ -187,7 +188,7 @@ func TestAddSharedClusterRefusesAnUnreachableNode(t *testing.T) {
 	e := setup(t)
 	n := e.node(t, "node2", "unreachable")
 
-	_, err := e.svc.AddSharedCluster(context.Background(), n.ID, 2048, nil)
+	_, err := e.svc.AddSharedCluster(context.Background(), n.ID, 2048, 18, nil)
 	if !errors.Is(err, provision.ErrConflict) || !strings.Contains(err.Error(), "node2 is unreachable") {
 		t.Fatalf("a shared cluster on an unreachable node: got %v, want a conflict naming the node and its state", err)
 	}
@@ -199,7 +200,7 @@ func TestAddSharedClusterRefusesAnUnreachableNode(t *testing.T) {
 	if _, err := e.db.Exec(context.Background(), `UPDATE nodes SET status = 'healthy' WHERE id = $1`, n.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.svc.AddSharedCluster(context.Background(), n.ID, 2048, nil); err != nil {
+	if _, err := e.svc.AddSharedCluster(context.Background(), n.ID, 2048, 18, nil); err != nil {
 		t.Fatalf("a shared cluster on a healthy node: %v", err)
 	}
 }

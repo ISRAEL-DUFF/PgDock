@@ -24,7 +24,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-agent-bin pg-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
 
 all: build
 
@@ -93,12 +93,13 @@ build-go:
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-server ./cmd/server
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-agent ./cmd/agent
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock ./cmd/cli
+	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-status ./cmd/status
 
 ## release-check: fail if the server binary embeds only the placeholder UI.
 release-check:
 	$(BIN)/pgdock-server -require-ui
 
-## release: linux/amd64 and linux/arm64 server and agent binaries (UI
+## release: linux/amd64 and linux/arm64 server, agent and status binaries (UI
 ## embedded), the pgdock CLI for linux, darwin and windows on amd64 and
 ## arm64, the install bundle (source at this commit), and SHA256SUMS, in
 ## dist/.
@@ -106,7 +107,7 @@ DIST := dist
 release: build-ui
 	rm -rf $(DIST) && mkdir -p $(DIST)
 	for arch in amd64 arm64; do \
-		for cmd in server agent; do \
+		for cmd in server agent status; do \
 			CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
 				-o $(DIST)/pgdock-$$cmd-$(VERSION)-linux-$$arch ./cmd/$$cmd; \
 		done; \
@@ -193,24 +194,49 @@ e2e-images:
 	docker build $(DOCKER_BUILD_FLAGS) --target agent -t pgdock-agent:local .
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-pebble:local -f test/e2e/bundle/Dockerfile.pebble test/e2e/bundle
 	docker build $(DOCKER_BUILD_FLAGS) -t pgdock-fakes3:local -f test/e2e/bundle/Dockerfile.fakes3 .
-	docker build $(DOCKER_BUILD_FLAGS) -t $(PG_IMAGE) deploy/images/postgres
+	for v in $(PG_VERSIONS); do \
+		docker build $(DOCKER_BUILD_FLAGS) --build-arg PG_MAJOR=$$v -t pgdock-postgres:$$v-walg3.0.9 deploy/images/postgres; \
+	done
 
 ## test-integration: provisioning end to end and the tenant-isolation suite,
 ## against real Postgres 18 and PgBouncer (the dev env plus test poolers).
-test-integration: pooler-seed test-agent-bin pg-image
+test-integration: pooler-seed test-agent-bin pg-image pooler-host-images status-image
 	$(COMPOSE) --profile test up -d --wait
-	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 ./test/...
+	@set -a; . ./deploy/dev/test.env; set +a; go test -race -count=1 -p 1 -timeout 60m ./test/...
+
+## test-move: M18's done-when at full size: a 20 GB dedicated project moves
+## nodes under continuous writes (PGDOCK_TEST_MOVE_GB=n for another size;
+## needs about three times that in free disk).
+PGDOCK_TEST_MOVE_GB ?= 20
+test-move: test-agent-bin pg-image
+	$(COMPOSE) --profile test up -d --wait
+	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_MOVE_GB=$(PGDOCK_TEST_MOVE_GB) \
+		go test -count=1 -p 1 -timeout 4h -run TestMoveUnderLoad -v ./test/integration/
 
 ## test-load: 150 shared projects, pgbench on 10 (spec §13); writes
-## tmp/load-report.md. Needs pgbench.
+## tmp/load-report.md. Needs pgbench. Then rating at 1,000 orgs (V3 M27).
 test-load: pooler-seed test-agent-bin
 	$(COMPOSE) --profile test --profile load up -d --wait
 	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 90m -v -run TestLoad ./test/load/
+	@set -a; . ./deploy/dev/test.env; set +a; PGDOCK_TEST_LOAD=1 go test -count=1 -timeout 30m -v -run TestRatingLoad ./internal/billing/
 
-## pg-image: the Postgres 18 + WAL-G image dedicated instances run.
+## pg-image: the Postgres + WAL-G images instances run, one per supported
+## major (V3 §2.4).
+PG_VERSIONS := 17 18
 PG_IMAGE := pgdock-postgres:18-walg3.0.9
 pg-image:
-	docker build $(DOCKER_BUILD_FLAGS) -t $(PG_IMAGE) deploy/images/postgres
+	for v in $(PG_VERSIONS); do \
+		docker build $(DOCKER_BUILD_FLAGS) --build-arg PG_MAJOR=$$v -t pgdock-postgres:$$v-walg3.0.9 deploy/images/postgres; \
+	done
+
+## pooler-host-images: the edge pooler host and its keepalived (V3 §2.1).
+pooler-host-images:
+	docker build $(DOCKER_BUILD_FLAGS) -f deploy/pooler-host/Dockerfile -t pgdock-pooler-host:local .
+	docker build $(DOCKER_BUILD_FLAGS) -f deploy/pooler-host/keepalived.Dockerfile -t pgdock-keepalived:local .
+
+## status-image: pgdock-status, the separately hosted status page (V3 §2.6).
+status-image:
+	docker build $(DOCKER_BUILD_FLAGS) -f deploy/status/Dockerfile -t pgdock-status:local .
 
 # The agent the integration tests run inside the agent-test container.
 test-agent-bin:

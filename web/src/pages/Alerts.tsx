@@ -14,7 +14,12 @@ const kindLabel: Record<string, string> = {
   node_unreachable: "Node unreachable",
   project_disk: "Project disk",
   pooler_down: "Pooler down",
+  pooler_host_not_ready: "Pooler host not ready",
+  pooler_split_brain: "Pooler split brain",
+  waker_down: "Waker down",
   isolation_check_failed: "Isolation check",
+  capacity_proposal: "Capacity proposal",
+  capacity_failed: "Provisioning failed",
 };
 
 function TargetLink({ a }: { a: AlertItem }) {

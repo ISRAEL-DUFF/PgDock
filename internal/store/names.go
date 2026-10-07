@@ -19,3 +19,7 @@ func ClientDBName(p Project) string {
 	}
 	return p.DbName
 }
+
+// ProbeRole is the SLA probe login of the project whose database is db: it
+// may connect and run SELECT 1, nothing else (V3 §2.7).
+func ProbeRole(db string) string { return db + "_sla" }

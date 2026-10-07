@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiRequestError, api, errorMessage, type InstanceSummary, type Project } from "../api/client";
 import { StorageBanner } from "../components/TenancyCards";
+import { LifecycleBanner } from "../components/FreeTier";
 import { SquareTerminal, Table2 } from "lucide-react";
 import { LineChart, type ChartSeries } from "../components/LineChart";
 import { fmt } from "../components/Metrics";
@@ -15,7 +16,13 @@ export function useProject() {
   return useQuery({
     queryKey: ["project", id],
     queryFn: () => api.project(id),
-    refetchInterval: (q) => (q.state.data && q.state.data.status !== "active" ? 2000 : 30_000),
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      if (d && d.status !== "active") return 2000;
+      // Paused or archived: notice a resume within a few seconds.
+      if (d && (d.lifecycle ?? "active") !== "active") return 5000;
+      return 30_000;
+    },
   });
 }
 
@@ -36,6 +43,7 @@ export function ProjectLayout() {
   // Navigation is the shell's rail and section menus (docs/ui-redesign.md).
   return (
     <>
+      <LifecycleBanner p={p} />
       <StorageBanner p={p} />
       <Outlet />
     </>
