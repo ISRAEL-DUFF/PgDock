@@ -1,8 +1,12 @@
 package edge
 
 import (
+	"context"
+	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/israel-duff/pgdock/internal/edgeapi"
 )
 
 // testCatalog: authors <- posts (author_id, editor_id) <- comments.
@@ -159,5 +163,13 @@ func TestCursor(t *testing.T) {
 	other, _ := orderKeys(posts, []Order{{Column: "title"}})
 	if _, err := (&builder{cat: cat}).after(posts, "t1", other, cur); err == nil {
 		t.Fatal("a cursor for another order was accepted")
+	}
+}
+
+func TestExploreMalformedPath(t *testing.T) {
+	e := New(Config{Name: "t", Domain: "x.invalid"})
+	code, _, body := e.Explore(context.Background(), edgeapi.Project{Ref: "k7f3m2q9", State: edgeapi.StateActive}, "anon", nil, "GET", "/data/v1/%zz", nil)
+	if code != http.StatusBadRequest || !strings.Contains(string(body), "invalid_path") {
+		t.Fatalf("%d %s", code, body)
 	}
 }

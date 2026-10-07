@@ -413,7 +413,13 @@ func (e *Edge) Explore(ctx context.Context, pc edgeapi.Project, role string, cla
 		rec.WriteHeader(http.StatusNotFound)
 		return rec.Code, rec.Header(), nil
 	}
-	r := httptest.NewRequestWithContext(ctx, method, "http://"+pc.Ref+".explorer"+path, bytes.NewReader(body))
+	r, err := http.NewRequestWithContext(ctx, method, "http://"+pc.Ref+".explorer"+path, bytes.NewReader(body))
+	if err != nil {
+		rec.Header().Set("Content-Type", "application/json")
+		rec.WriteHeader(http.StatusBadRequest)
+		_, _ = rec.WriteString(`{"error":{"code":"invalid_path","message":"the path is malformed"}}`)
+		return rec.Code, rec.Header(), rec.Body.Bytes()
+	}
 	if len(body) > 0 {
 		r.Header.Set("Content-Type", "application/json")
 	}
