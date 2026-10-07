@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
 	"github.com/israel-duff/pgdock/internal/jwtes"
@@ -63,12 +64,31 @@ func (e *Edge) withAuth(ctx context.Context, p *project, fn func(pgx.Tx) error) 
 	if err != nil {
 		return err
 	}
-	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT set_config('statement_timeout', '10000', true)`); err != nil {
+	// A connection the pooler dropped (a reload, a restart) fails before
+	// anything ran: that is retried once on a fresh connection.
+	for attempt := 0; ; attempt++ {
+		ran := false
+		err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `SELECT set_config('statement_timeout', '10000', true)`); err != nil {
+				return err
+			}
+			ran = true
+			return fn(tx)
+		})
+		if err == nil || ran || attempt > 0 || !connectionLost(err) {
 			return err
 		}
-		return fn(tx)
-	})
+	}
+}
+
+// connectionLost reports an error from a connection that broke or was
+// refused, not from SQL.
+func connectionLost(err error) bool {
+	var pe *pgconn.PgError
+	if errors.As(err, &pe) {
+		return unavailable(pe.Code)
+	}
+	return pgconn.SafeToRetry(err) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }
 
 // hash runs a password hash within the edge's hashing slots, so a burst of
