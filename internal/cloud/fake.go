@@ -23,6 +23,25 @@ type FakeHetzner struct {
 	volumes map[int64]int64 // volume → attached server (0: none)
 	ips     map[string]int64
 	types   []fakeType
+	groups  map[int64]*FakePlacementGroup
+}
+
+// FakePlacementGroup is a spread placement group the fake holds.
+type FakePlacementGroup struct {
+	ID      int64
+	Name    string
+	Servers []int64
+}
+
+// PlacementGroups returns the groups, by name.
+func (f *FakeHetzner) PlacementGroups() map[string]FakePlacementGroup {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := map[string]FakePlacementGroup{}
+	for _, g := range f.groups {
+		out[g.Name] = FakePlacementGroup{ID: g.ID, Name: g.Name, Servers: append([]int64(nil), g.Servers...)}
+	}
+	return out
 }
 
 // FakeServer is a server the fake holds.
@@ -34,6 +53,8 @@ type FakeServer struct {
 	Labels   map[string]string
 	UserData string
 	Deleted  bool
+	// PlacementGroup is the spread group it was created in (0: none).
+	PlacementGroup int64
 }
 
 type fakeType struct {
@@ -48,7 +69,7 @@ type fakeType struct {
 // NewFakeHetzner returns a fake with a few of Hetzner's shared-vCPU types
 // in fsn1 and nbg1, at prices close to the real ones.
 func NewFakeHetzner(token string) *FakeHetzner {
-	f := &FakeHetzner{Token: token, next: 1000, servers: map[int64]*FakeServer{}, volumes: map[int64]int64{}, ips: map[string]int64{}}
+	f := &FakeHetzner{Token: token, next: 1000, servers: map[int64]*FakeServer{}, volumes: map[int64]int64{}, ips: map[string]int64{}, groups: map[int64]*FakePlacementGroup{}}
 	for _, t := range []struct {
 		name  string
 		cores int
@@ -95,6 +116,10 @@ func (f *FakeHetzner) fail(w http.ResponseWriter, code int, c, msg string) {
 	f.json(w, code, map[string]any{"error": map[string]string{"code": c, "message": msg}})
 }
 
+func (f *FakeHetzner) groupView(g *FakePlacementGroup) map[string]any {
+	return map[string]any{"id": g.ID, "name": g.Name, "type": "spread", "servers": append([]int64{}, g.Servers...)}
+}
+
 func (s *FakeServer) view() map[string]any {
 	return map[string]any{
 		"id": s.ID, "name": s.Name, "status": "running", "labels": s.Labels,
@@ -112,7 +137,7 @@ func (f *FakeHetzner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := r.URL.Path
-	for _, root := range []string{"/servers", "/volumes", "/floating_ips", "/server_types"} {
+	for _, root := range []string{"/servers", "/volumes", "/floating_ips", "/server_types", "/placement_groups"} {
 		if i := strings.Index(path, root); i >= 0 {
 			path = path[i:]
 			break
@@ -122,6 +147,35 @@ func (f *FakeHetzner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	switch {
+	case parts[0] == "placement_groups" && len(parts) == 1 && r.Method == http.MethodGet:
+		name := r.URL.Query().Get("name")
+		out := []map[string]any{}
+		for _, g := range f.groups {
+			if name == "" || g.Name == name {
+				out = append(out, f.groupView(g))
+			}
+		}
+		f.json(w, http.StatusOK, map[string]any{"placement_groups": out})
+	case parts[0] == "placement_groups" && len(parts) == 1 && r.Method == http.MethodPost:
+		var in struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.Name == "" || in.Type != "spread" {
+			f.fail(w, http.StatusBadRequest, "invalid_input", "name and type spread are required")
+			return
+		}
+		for _, g := range f.groups {
+			if g.Name == in.Name {
+				f.fail(w, http.StatusConflict, "uniqueness_error", "placement group name is already used")
+				return
+			}
+		}
+		f.next++
+		g := &FakePlacementGroup{ID: f.next, Name: in.Name}
+		f.groups[g.ID] = g
+		f.json(w, http.StatusCreated, map[string]any{"placement_group": f.groupView(g)})
 	case parts[0] == "server_types" && r.Method == http.MethodGet:
 		var out []map[string]any
 		for _, t := range f.types {
@@ -143,6 +197,7 @@ func (f *FakeHetzner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Location   string            `json:"location"`
 			UserData   string            `json:"user_data"`
 			Labels     map[string]string `json:"labels"`
+			Group      int64             `json:"placement_group"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Name == "" || in.ServerType == "" {
 			f.fail(w, http.StatusBadRequest, "invalid_input", "name and server_type are required")
@@ -162,8 +217,22 @@ func (f *FakeHetzner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		var group *FakePlacementGroup
+		if in.Group != 0 {
+			if group = f.groups[in.Group]; group == nil {
+				f.fail(w, http.StatusNotFound, "not_found", "placement group not found")
+				return
+			}
+			if len(group.Servers) >= SpreadGroupLimit {
+				f.fail(w, http.StatusPreconditionFailed, "placement_error", "spread placement group is full")
+				return
+			}
+		}
 		f.next++
-		s := &FakeServer{ID: f.next, Name: in.Name, Type: in.ServerType, Location: in.Location, Labels: in.Labels, UserData: in.UserData}
+		s := &FakeServer{ID: f.next, Name: in.Name, Type: in.ServerType, Location: in.Location, Labels: in.Labels, UserData: in.UserData, PlacementGroup: in.Group}
+		if group != nil {
+			group.Servers = append(group.Servers, s.ID)
+		}
 		if s.Location == "" {
 			s.Location = "fsn1"
 		}
@@ -201,6 +270,14 @@ func (f *FakeHetzner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.Deleted = true
+		if g := f.groups[s.PlacementGroup]; g != nil {
+			for i, id := range g.Servers {
+				if id == s.ID {
+					g.Servers = append(g.Servers[:i], g.Servers[i+1:]...)
+					break
+				}
+			}
+		}
 		f.json(w, http.StatusOK, map[string]any{"action": map[string]any{"status": "running"}})
 	case parts[0] == "volumes" && len(parts) == 1 && r.Method == http.MethodPost:
 		var in struct {

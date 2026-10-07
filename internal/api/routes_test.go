@@ -599,6 +599,8 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/usage", "GET /api/v1/admin/shared-clusters",
 		// V3 §2.2 "a 3-member etcd cluster spread across the control node and two other nodes"
 		"GET /api/v1/admin/etcd", "POST /api/v1/admin/etcd",
+		// V3.1 §2.4 groups that share a failure domain
+		"GET /api/v1/admin/failure-domains",
 		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"
 		"GET /api/v1/admin/maintenance", "PUT /api/v1/admin/maintenance/window",
 		// V3 §3.6, §3.9: billing settings, price books, an org's billing terms

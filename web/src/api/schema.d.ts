@@ -1114,7 +1114,7 @@ export interface paths {
         delete: operations["removeNode"];
         options?: never;
         head?: never;
-        /** Change a node's role (where new projects may go) */
+        /** Change a node's role (where new projects may go) or failure domain */
         patch: operations["updateNode"];
         trace?: never;
     };
@@ -4854,6 +4854,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/failure-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4) */
+        get: operations["listFailureDomainProblems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/etcd": {
         parameters: {
             query?: never;
@@ -5664,6 +5681,27 @@ export interface components {
             empty_since?: string | null;
             /** @description Never deleted for being empty. */
             keep?: boolean;
+            /** @description What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded. */
+            failure_domain?: string | null;
+            /** @description The provider's spread placement group the server is in (Hetzner). */
+            placement_group?: string | null;
+            /** @description The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone). */
+            failure_domain_label?: string;
+        };
+        FailureDomainProblems: {
+            items: components["schemas"]["FailureDomainProblem"][];
+        };
+        FailureDomainProblem: {
+            /** @enum {string} */
+            group: "ha_pair" | "etcd" | "pooler_pair";
+            region: string;
+            /** @description The group's identity (the HA instance, etcd, or the region's pooler pair). */
+            key: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            /** @description The nodes that share a domain. */
+            nodes: string[];
+            detail: string;
         };
         AgentStatus: {
             registered: boolean;
@@ -5901,8 +5939,12 @@ export interface components {
             role: "shared" | "dedicated" | "both" | "pooler";
             /** @description The region the node is in (default the home region). A pooler host serves that region's projects. */
             region?: string;
+            /** @description What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores. */
+            failure_domain?: string;
         };
         NodeCreated: {
+            /** @description E.g. a second pooler host in the same failure domain as the first. */
+            warnings?: string[];
             node: components["schemas"]["Node"];
             token: string;
             /** Format: date-time */
@@ -5940,7 +5982,9 @@ export interface components {
         };
         UpdateNodeRequest: {
             /** @enum {string} */
-            role: "shared" | "dedicated" | "both";
+            role?: "shared" | "dedicated" | "both";
+            /** @description The node's failure domain; an empty string clears it. */
+            failure_domain?: string;
         };
         PromotionEstimate: {
             /** Format: int64 */
@@ -17098,6 +17142,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MinorUpgrade"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listFailureDomainProblems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The groups that break the rule; empty when none do. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailureDomainProblems"];
                 };
             };
             default: components["responses"]["Error"];

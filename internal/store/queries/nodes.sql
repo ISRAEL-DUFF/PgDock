@@ -52,3 +52,11 @@ SELECT count(*)::int FROM instances WHERE node_id = @node_id AND deleted_at IS N
 
 -- name: SetNodeRole :one
 UPDATE nodes SET role = @role WHERE id = @id AND status <> 'removed' RETURNING *;
+
+-- name: SetNodeFailureDomain :one
+-- V3.1 §2: what fails with the node (null: the node alone).
+UPDATE nodes SET failure_domain = sqlc.narg(failure_domain) WHERE id = @id AND status <> 'removed' RETURNING *;
+
+-- name: SetNodePlacementGroup :exec
+-- V3.1 §2.3: the provider's spread placement group the server is in.
+UPDATE nodes SET placement_group = sqlc.narg(placement_group) WHERE id = @id;

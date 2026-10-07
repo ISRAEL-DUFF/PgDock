@@ -25,6 +25,10 @@ network. Open 2379–2380 between the three nodes on the private network.
 
 API: `GET/POST /api/v1/admin/etcd`.
 
+The standby always goes on a node in another [failure
+domain](failure-domains.md) from the primary, and the etcd cluster's three
+members must be in three different ones (V3.1-M1).
+
 ## Turning HA on
 
 Project Settings → Compute → **High availability → Enable HA…**, `pgdock ha
@@ -141,5 +145,4 @@ has the minutes.
   up once, and PGDock doesn't yet re-run it while HA projects use it.
 - Excluding maintenance announced 72 hours ahead (V3 §2.7) from the
   availability record.
-- Placement groups at the provider (M24) and per-region etcd clusters
-  (M25).
+- Per-region etcd clusters (V3.1-M2).

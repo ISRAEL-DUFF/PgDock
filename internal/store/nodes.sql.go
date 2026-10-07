@@ -19,7 +19,7 @@ SET agent_cert_fp = $1, agent_host = $2, agent_port = $3,
     agent_version = $4, registration_token = NULL, registration_expires_at = NULL,
     last_heartbeat = now(), status = 'healthy'
 WHERE id = $5
-RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep
+RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group
 `
 
 type CompleteNodeRegistrationParams struct {
@@ -70,12 +70,14 @@ func (q *Queries) CompleteNodeRegistration(ctx context.Context, arg CompleteNode
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
 
 const firstAgentNode = `-- name: FirstAgentNode :one
-SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep FROM nodes WHERE agent_cert_fp IS NOT NULL AND role <> 'pooler' ORDER BY created_at LIMIT 1
+SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group FROM nodes WHERE agent_cert_fp IS NOT NULL AND role <> 'pooler' ORDER BY created_at LIMIT 1
 `
 
 // Pooler hosts are left out: they run no Postgres work (V3 §2.1).
@@ -113,12 +115,14 @@ func (q *Queries) FirstAgentNode(ctx context.Context) (Node, error) {
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
 
 const getNode = `-- name: GetNode :one
-SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep FROM nodes WHERE id = $1
+SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group FROM nodes WHERE id = $1
 `
 
 func (q *Queries) GetNode(ctx context.Context, id uuid.UUID) (Node, error) {
@@ -155,12 +159,14 @@ func (q *Queries) GetNode(ctx context.Context, id uuid.UUID) (Node, error) {
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
 
 const getNodeByName = `-- name: GetNodeByName :one
-SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep FROM nodes WHERE name = $1
+SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group FROM nodes WHERE name = $1
 `
 
 func (q *Queries) GetNodeByName(ctx context.Context, name string) (Node, error) {
@@ -197,12 +203,14 @@ func (q *Queries) GetNodeByName(ctx context.Context, name string) (Node, error) 
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
 
 const getNodeByRegistrationToken = `-- name: GetNodeByRegistrationToken :one
-SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep FROM nodes
+SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group FROM nodes
 WHERE registration_token = $1 AND registration_expires_at > now()
 FOR UPDATE
 `
@@ -241,6 +249,8 @@ func (q *Queries) GetNodeByRegistrationToken(ctx context.Context, registrationTo
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
@@ -248,7 +258,7 @@ func (q *Queries) GetNodeByRegistrationToken(ctx context.Context, registrationTo
 const insertNode = `-- name: InsertNode :one
 INSERT INTO nodes (name, private_addr, role, capacity, registration_token, registration_expires_at, region)
 VALUES ($1, $2, $3, '{}', $4, $5, $6)
-RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep
+RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group
 `
 
 type InsertNodeParams struct {
@@ -301,12 +311,14 @@ func (q *Queries) InsertNode(ctx context.Context, arg InsertNodeParams) (Node, e
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
 
 const listNodes = `-- name: ListNodes :many
-SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep FROM nodes ORDER BY created_at
+SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group FROM nodes ORDER BY created_at
 `
 
 func (q *Queries) ListNodes(ctx context.Context) ([]Node, error) {
@@ -349,6 +361,8 @@ func (q *Queries) ListNodes(ctx context.Context) ([]Node, error) {
 			&i.Lifecycle,
 			&i.EmptySince,
 			&i.Keep,
+			&i.FailureDomain,
+			&i.PlacementGroup,
 		); err != nil {
 			return nil, err
 		}
@@ -361,7 +375,7 @@ func (q *Queries) ListNodes(ctx context.Context) ([]Node, error) {
 }
 
 const nodeForInstance = `-- name: NodeForInstance :one
-SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at, n.last_reachable_at, n.provider_server_id, n.pooler_generation, n.pooler_hash, n.pooler_vrrp_state, n.pooler_ready, n.pooler_checked_at, n.provider, n.region, n.server_type, n.monthly_cost_minor, n.cost_currency, n.lifecycle, n.empty_since, n.keep FROM nodes n JOIN instances i ON i.node_id = n.id WHERE i.id = $1
+SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at, n.last_reachable_at, n.provider_server_id, n.pooler_generation, n.pooler_hash, n.pooler_vrrp_state, n.pooler_ready, n.pooler_checked_at, n.provider, n.region, n.server_type, n.monthly_cost_minor, n.cost_currency, n.lifecycle, n.empty_since, n.keep, n.failure_domain, n.placement_group FROM nodes n JOIN instances i ON i.node_id = n.id WHERE i.id = $1
 `
 
 func (q *Queries) NodeForInstance(ctx context.Context, instanceID uuid.UUID) (Node, error) {
@@ -398,6 +412,8 @@ func (q *Queries) NodeForInstance(ctx context.Context, instanceID uuid.UUID) (No
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }
@@ -445,8 +461,73 @@ func (q *Queries) RemoveNode(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const setNodeFailureDomain = `-- name: SetNodeFailureDomain :one
+UPDATE nodes SET failure_domain = $1 WHERE id = $2 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group
+`
+
+type SetNodeFailureDomainParams struct {
+	FailureDomain *string
+	ID            uuid.UUID
+}
+
+// V3.1 §2: what fails with the node (null: the node alone).
+func (q *Queries) SetNodeFailureDomain(ctx context.Context, arg SetNodeFailureDomainParams) (Node, error) {
+	row := q.db.QueryRow(ctx, setNodeFailureDomain, arg.FailureDomain, arg.ID)
+	var i Node
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.PrivateAddr,
+		&i.AgentPort,
+		&i.Role,
+		&i.AgentCertFp,
+		&i.PgAdminSecret,
+		&i.Capacity,
+		&i.Status,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+		&i.AgentHost,
+		&i.AgentVersion,
+		&i.RegistrationToken,
+		&i.RegistrationExpiresAt,
+		&i.LastReachableAt,
+		&i.ProviderServerID,
+		&i.PoolerGeneration,
+		&i.PoolerHash,
+		&i.PoolerVrrpState,
+		&i.PoolerReady,
+		&i.PoolerCheckedAt,
+		&i.Provider,
+		&i.Region,
+		&i.ServerType,
+		&i.MonthlyCostMinor,
+		&i.CostCurrency,
+		&i.Lifecycle,
+		&i.EmptySince,
+		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
+	)
+	return i, err
+}
+
+const setNodePlacementGroup = `-- name: SetNodePlacementGroup :exec
+UPDATE nodes SET placement_group = $1 WHERE id = $2
+`
+
+type SetNodePlacementGroupParams struct {
+	PlacementGroup *string
+	ID             uuid.UUID
+}
+
+// V3.1 §2.3: the provider's spread placement group the server is in.
+func (q *Queries) SetNodePlacementGroup(ctx context.Context, arg SetNodePlacementGroupParams) error {
+	_, err := q.db.Exec(ctx, setNodePlacementGroup, arg.PlacementGroup, arg.ID)
+	return err
+}
+
 const setNodeRole = `-- name: SetNodeRole :one
-UPDATE nodes SET role = $1 WHERE id = $2 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep
+UPDATE nodes SET role = $1 WHERE id = $2 AND status <> 'removed' RETURNING id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group
 `
 
 type SetNodeRoleParams struct {
@@ -488,6 +569,8 @@ func (q *Queries) SetNodeRole(ctx context.Context, arg SetNodeRoleParams) (Node,
 		&i.Lifecycle,
 		&i.EmptySince,
 		&i.Keep,
+		&i.FailureDomain,
+		&i.PlacementGroup,
 	)
 	return i, err
 }

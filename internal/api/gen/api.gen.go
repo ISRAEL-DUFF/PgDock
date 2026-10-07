@@ -794,6 +794,27 @@ func (e FailoverEventKind) Valid() bool {
 	}
 }
 
+// Defines values for FailureDomainProblemGroup.
+const (
+	Etcd       FailureDomainProblemGroup = "etcd"
+	HaPair     FailureDomainProblemGroup = "ha_pair"
+	PoolerPair FailureDomainProblemGroup = "pooler_pair"
+)
+
+// Valid indicates whether the value is a known member of the FailureDomainProblemGroup enum.
+func (e FailureDomainProblemGroup) Valid() bool {
+	switch e {
+	case Etcd:
+		return true
+	case HaPair:
+		return true
+	case PoolerPair:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HAMemberRole.
 const (
 	HAMemberRoleLeader      HAMemberRole = "leader"
@@ -4117,6 +4138,9 @@ type CreateIncidentRequest struct {
 
 // CreateNodeRequest defines model for CreateNodeRequest.
 type CreateNodeRequest struct {
+	// FailureDomain What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
 	// Name Example: node-b
 	Name string `json:"name"`
 
@@ -4617,6 +4641,28 @@ type FailoverEvent struct {
 
 // FailoverEventKind defines model for FailoverEvent.Kind.
 type FailoverEventKind string
+
+// FailureDomainProblem defines model for FailureDomainProblem.
+type FailureDomainProblem struct {
+	Detail string                    `json:"detail"`
+	Group  FailureDomainProblemGroup `json:"group"`
+
+	// Key The group's identity (the HA instance, etcd, or the region's pooler pair).
+	Key string `json:"key"`
+
+	// Nodes The nodes that share a domain.
+	Nodes     []string            `json:"nodes"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Region    string              `json:"region"`
+}
+
+// FailureDomainProblemGroup defines model for FailureDomainProblem.Group.
+type FailureDomainProblemGroup string
+
+// FailureDomainProblems defines model for FailureDomainProblems.
+type FailureDomainProblems struct {
+	Items []FailureDomainProblem `json:"items"`
+}
 
 // ForeignKey defines model for ForeignKey.
 type ForeignKey struct {
@@ -5488,11 +5534,17 @@ type MyInvitationList struct {
 
 // Node defines model for Node.
 type Node struct {
-	Agent        AgentStatus        `json:"agent"`
-	CostCurrency *string            `json:"cost_currency,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	EmptySince   *time.Time         `json:"empty_since,omitempty"`
-	Id           openapi_types.UUID `json:"id"`
+	Agent        AgentStatus `json:"agent"`
+	CostCurrency *string     `json:"cost_currency,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	EmptySince   *time.Time  `json:"empty_since,omitempty"`
+
+	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
+	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
+	Id                 openapi_types.UUID `json:"id"`
 
 	// Keep Never deleted for being empty.
 	Keep             *bool          `json:"keep,omitempty"`
@@ -5500,7 +5552,10 @@ type Node struct {
 	Lifecycle        *NodeLifecycle `json:"lifecycle,omitempty"`
 	MonthlyCostMinor *int64         `json:"monthly_cost_minor,omitempty"`
 	Name             string         `json:"name"`
-	PrivateAddr      string         `json:"private_addr"`
+
+	// PlacementGroup The provider's spread placement group the server is in (Hetzner).
+	PlacementGroup *string `json:"placement_group,omitempty"`
+	PrivateAddr    string  `json:"private_addr"`
 
 	// Provider manual (registered by hand) or the cloud provider that created it.
 	Provider   *string `json:"provider,omitempty"`
@@ -5528,6 +5583,9 @@ type NodeCreated struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Node      Node      `json:"node"`
 	Token     string    `json:"token"`
+
+	// Warnings E.g. a second pooler host in the same failure domain as the first.
+	Warnings *[]string `json:"warnings,omitempty"`
 }
 
 // NodeDetail defines model for NodeDetail.
@@ -7544,7 +7602,9 @@ type UpdateMeRequest struct {
 
 // UpdateNodeRequest defines model for UpdateNodeRequest.
 type UpdateNodeRequest struct {
-	Role UpdateNodeRequestRole `json:"role"`
+	// FailureDomain The node's failure domain; an empty string clears it.
+	FailureDomain *string                `json:"failure_domain,omitempty"`
+	Role          *UpdateNodeRequestRole `json:"role,omitempty"`
 }
 
 // UpdateNodeRequestRole defines model for UpdateNodeRequest.Role.
@@ -8895,6 +8955,9 @@ type ServerInterface interface {
 	// SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
 	// (POST /api/v1/admin/etcd)
 	SetupEtcdCluster(w http.ResponseWriter, r *http.Request)
+	// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+	// (GET /api/v1/admin/failure-domains)
+	ListFailureDomainProblems(w http.ResponseWriter, r *http.Request)
 	// ListFXRates Exchange rates (naira per unit), current and history
 	// (GET /api/v1/admin/fx-rates)
 	ListFXRates(w http.ResponseWriter, r *http.Request)
@@ -9258,7 +9321,7 @@ type ServerInterface interface {
 	// GetNode A node, its agent's health, and what runs on it
 	// (GET /api/v1/nodes/{id})
 	GetNode(w http.ResponseWriter, r *http.Request, id NodeID)
-	// UpdateNode Change a node's role (where new projects may go)
+	// UpdateNode Change a node's role (where new projects may go) or failure domain
 	// (PATCH /api/v1/nodes/{id})
 	UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID)
 	// SetNodeCost What a node costs (manual nodes; a provider's are priced from its catalog)
@@ -9957,6 +10020,12 @@ func (_ Unimplemented) GetEtcdCluster(w http.ResponseWriter, r *http.Request) {
 // SetupEtcdCluster Set up the etcd cluster, one member on each of three nodes
 // (POST /api/v1/admin/etcd)
 func (_ Unimplemented) SetupEtcdCluster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+// (GET /api/v1/admin/failure-domains)
+func (_ Unimplemented) ListFailureDomainProblems(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10686,7 +10755,7 @@ func (_ Unimplemented) GetNode(w http.ResponseWriter, r *http.Request, id NodeID
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// UpdateNode Change a node's role (where new projects may go)
+// UpdateNode Change a node's role (where new projects may go) or failure domain
 // (PATCH /api/v1/nodes/{id})
 func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, id NodeID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -12334,6 +12403,20 @@ func (siw *ServerInterfaceWrapper) SetupEtcdCluster(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetupEtcdCluster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFailureDomainProblems operation middleware
+func (siw *ServerInterfaceWrapper) ListFailureDomainProblems(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFailureDomainProblems(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -21920,6 +22003,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/instances/{instance_id}/minor-upgrade", wrapper.MinorUpgradeInstance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/failure-domains", wrapper.ListFailureDomainProblems)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/etcd", wrapper.GetEtcdCluster)

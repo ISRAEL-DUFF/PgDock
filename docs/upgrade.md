@@ -184,6 +184,17 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
     their password or code.
   - Before opening Lagos, work through [the Lagos launch](lagos-launch.md).
 
+## Upgrading to V3.1
+
+- **Failure domains** (migration 00033): nothing changes until you
+  record domains. Then record each node's rack (Platform → Nodes → the
+  node → Failure domain) and look for the banner on the Nodes page (or a
+  `failure_domain` alert) listing HA pairs, etcd members or pooler hosts
+  that share one. New Hetzner servers go into `pgdock-<region>` spread
+  placement groups that PGDock creates; the API token needs to be able to
+  manage placement groups (a read-and-write token can). See
+  [Failure domains](failure-domains.md).
+
 ## Rolling back
 
 Check out the previous tag and run `./install.sh` again. If the new

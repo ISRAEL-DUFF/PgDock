@@ -16,6 +16,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -616,6 +617,7 @@ func (s *Server) toAPINode(n store.Node) gen.Node {
 		Agent:  gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
 		Region: &n.Region, Provider: &n.Provider, ServerType: n.ServerType, MonthlyCostMinor: n.MonthlyCostMinor,
 		CostCurrency: &n.CostCurrency, EmptySince: n.EmptySince, Keep: &n.Keep,
+		FailureDomain: n.FailureDomain, PlacementGroup: n.PlacementGroup, FailureDomainLabel: ptrTo(faildomain.Label(n)),
 	}
 	lc := gen.NodeLifecycle(n.Lifecycle)
 	gn.Lifecycle = &lc

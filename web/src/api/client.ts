@@ -1040,6 +1040,10 @@ export const api = {
   removeNode: (id: string) => request<void>("DELETE", `/api/v1/nodes/${id}`),
   updateNode: (id: string, role: "shared" | "dedicated" | "both") =>
     request<Node>("PATCH", `/api/v1/nodes/${id}`, { role }),
+  setFailureDomain: (id: string, failure_domain: string) =>
+    request<Node>("PATCH", `/api/v1/nodes/${id}`, { failure_domain }),
+  failureDomainProblems: () =>
+    getJSON<S["FailureDomainProblems"]>("/api/v1/admin/failure-domains"),
   createSharedCluster: (id: string, memory_mb: number, pg_version?: number) =>
     request<Operation>("POST", `/api/v1/nodes/${id}/shared-cluster`, {
       memory_mb,

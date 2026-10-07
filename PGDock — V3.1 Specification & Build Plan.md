@@ -80,16 +80,16 @@ domains**:
 | An HA project's primary and standby | Different domains | Enabling HA is refused, naming the domains available; a switchover or failover never moves a member, so it doesn't apply. |
 | A region's etcd members | All three in different domains | Setup and member replacement are refused. |
 | A region's two pooler hosts | Different domains | Adding the second host warns, and the region page shows "pooler hosts share a failure domain". (Pooler hosts are added by the admin; PGDock can't move them.) |
-| A drain or rebalance move of an HA member | The target keeps the pair in different domains | That target is skipped; if none is left the move waits, as a move with no capacity does today. |
 
-Shared projects aren't affected: they have no pair to separate.
+Shared projects aren't affected: they have no pair to separate. Drains
+and rebalancing don't move HA members (V3 moves them by switchover), so
+they have nothing to check yet.
 
 ### 2.3 Hetzner placement groups
 
 `PGDOCK_HETZNER_PLACEMENT_GROUP_ID` is replaced by groups PGDock manages:
-one spread group per region and role (`pgdock-<region>-dedicated`,
-`pgdock-<region>-pooler`), created on first use and recorded in the
-regions table. Hetzner caps a spread group at 10 servers; when a group is
+one spread group per region (`pgdock-<region>`), created on first use and
+found by name at the provider; each server's group is recorded on its node. Hetzner caps a spread group at 10 servers; when a group is
 full, PGDock opens the next (`…-2`). Because only servers within one
 group are known to be apart, the planner keeps a region's HA and etcd
 nodes in the same group where it can, and places a pair across groups
@@ -233,8 +233,6 @@ the next announced window.
 -- §2 Failure domains
 ALTER TABLE nodes ADD COLUMN failure_domain text;      -- null: the node's own
 ALTER TABLE nodes ADD COLUMN placement_group text;     -- Hetzner group id
-ALTER TABLE regions ADD COLUMN placement_groups jsonb NOT NULL DEFAULT '{}';
-                                                       -- role -> [group ids]
 
 -- §3 etcd per region
 ALTER TABLE etcd_members ADD COLUMN region text REFERENCES regions(id);
@@ -315,8 +313,8 @@ Hetzner placement groups replacing the global variable, the rule enforced
 for enabling HA, etcd setup, pooler hosts and drain/rebalance targets, the
 daily check and `failure_domain` alert. **Done when:** with three Lagos
 nodes in two racks, enabling HA puts the standby in the other rack and is
-refused when only same-rack nodes are free; draining the standby's node
-moves it only to the other rack; capacity provisioning in a test region
+refused when only same-rack nodes are free; moving a node into its
+pair's rack raises the alert; capacity provisioning in a test region
 creates a spread group and records it on each server (fake Hetzner).
 
 ### V3.1-M2 — etcd per region and member replacement (Weeks 2–3)
@@ -368,8 +366,7 @@ announcement.
    Lagos colocation have at launch? Three domains are needed for a Lagos
    etcd cluster; with two, the third member must sit elsewhere (another
    Lagos facility, or the EU, which brings back the dependency §3 removes).
-2. **Branching.** Does V3.1 land on a new `feature/pgdock3.1` branch, or
-   on `feature/pgdock3` before it merges into `main`?
+2. ~~**Branching.**~~ Answered: V3.1 lands on `feature/pgdock3`, as V3 did.
 3. **Maintenance announcements by default.** Should the weekly window
    propose an announcement automatically 4 days ahead whenever work is
    queued (admin confirms), or should admins always create them by hand?

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
@@ -229,7 +230,8 @@ type haParams struct {
 }
 
 // standbyNode picks where the standby goes: a healthy dedicated-capable
-// node other than the primary's (V3 §2.2 "on different nodes").
+// node other than the primary's (V3 §2.2 "on different nodes"), in another
+// failure domain (V3.1 §2.2).
 func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid.UUID) (store.Node, error) {
 	q := store.New(s.db)
 	ns, err := q.ListNodes(ctx)
@@ -237,16 +239,26 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 		return store.Node{}, err
 	}
 	// The standby stays in the primary's region (V3 §6.1).
-	region := ""
+	var prim store.Node
 	for _, n := range ns {
 		if n.ID == primary {
-			region = n.Region
+			prim = n
 		}
 	}
+	region := prim.Region
 	var best *store.Node
 	bestCount := 1 << 30
+	var together []store.Node // eligible, but in the primary's failure domain
 	for i, n := range ns {
 		if n.ID == primary || n.AgentCertFp == nil || n.Status != "healthy" || (n.Role != "dedicated" && n.Role != "both") || n.Region != region {
+			continue
+		}
+		// And in another failure domain from the primary (V3.1 §2.2).
+		if !faildomain.Separated(prim, n) {
+			together = append(together, n)
+			if want != nil && n.ID == *want {
+				return store.Node{}, fmt.Errorf("%w: %s is in the primary's failure domain (%s); the standby must go where a single rack or host failure can't take both", provision.ErrConflict, n.Name, faildomain.Label(n))
+			}
 			continue
 		}
 		if want != nil {
@@ -265,6 +277,10 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 	}
 	if want != nil {
 		return store.Node{}, fmt.Errorf("%w: the standby must go on another healthy node in the primary's region (%s) that takes dedicated instances", provision.ErrConflict, region)
+	}
+	if best == nil && len(together) > 0 {
+		return store.Node{}, fmt.Errorf("%w: HA needs a node in %s outside the primary's failure domain; the free ones share it (%s)", provision.ErrConflict, region,
+			faildomain.Describe(append([]store.Node{prim}, together...)))
 	}
 	if best == nil {
 		return store.Node{}, fmt.Errorf("%w: HA needs a second healthy node in %s that takes dedicated instances", provision.ErrConflict, region)

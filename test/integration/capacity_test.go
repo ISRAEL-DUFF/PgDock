@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -115,6 +116,11 @@ func TestCapacityProvisionsAndJoins(t *testing.T) {
 	if srv.Type != "cpx31" || srv.Location != "fsn1" || srv.Labels["pgdock-region"] != "eu-central" || !strings.HasPrefix(srv.UserData, "#cloud-config") {
 		t.Fatalf("server: %+v", srv)
 	}
+	// V3.1 §2.3: the region's spread placement group, created on first use.
+	g, ok := e.Hetzner.PlacementGroups()["pgdock-eu-central"]
+	if !ok || srv.PlacementGroup != g.ID || len(g.Servers) != 1 {
+		t.Fatalf("placement group: %+v, server's %d", e.Hetzner.PlacementGroups(), srv.PlacementGroup)
+	}
 	// In this environment the "server" is the agent-test-2 container: that
 	// is its private address.
 	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(100 * time.Millisecond) {
@@ -151,7 +157,7 @@ func TestCapacityProvisionsAndJoins(t *testing.T) {
 		}
 	}
 	if node.Lifecycle == nil || *node.Lifecycle != gen.NodeLifecycleActive || node.PrivateAddr != "agent-test-2" || node.MonthlyCostMinor == nil || *node.MonthlyCostMinor != 1511 ||
-		node.Provider == nil || *node.Provider != "hetzner" {
+		node.Provider == nil || *node.Provider != "hetzner" || node.PlacementGroup == nil || *node.PlacementGroup != strconv.FormatInt(g.ID, 10) {
 		t.Fatalf("new node: %+v", node)
 	}
 	if capa.Proposals[0].Status != gen.CapacityProposalStatusDone || capa.BudgetUsedMinor != 1511 {

@@ -708,8 +708,13 @@ test.describe("with the saved session", () => {
     // M18: each instance shows its Postgres release (V3 §2.4).
     await expect(page.getByTestId("instance-version").first()).toContainText("18");
     await shot(page, "22-node");
+    // V3.1-M1: the node's failure domain (rack), shown on the Nodes page.
+    await page.getByLabel("Failure domain").fill("rack-a");
+    await page.getByRole("button", { name: "Save" }).first().click();
+    await expect(page.getByText("Now: rack-a.")).toBeVisible();
     // The maintenance window for minor releases, on the Nodes page.
     await platformNav(page, "Nodes");
+    await expect(page.getByTestId("node-domain").first()).toHaveText("rack-a");
     await expect(page.getByTestId("maintenance")).toBeVisible();
   });
   // The M5 "done when" (spec §14): a hobby project is promoted with its URL

@@ -21,6 +21,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
 	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
@@ -83,6 +84,7 @@ func (s *Service) Setup(ctx context.Context, nodeIDs []uuid.UUID, by *uuid.UUID)
 	}
 	seen := map[uuid.UUID]bool{}
 	q := store.New(s.db)
+	var picked []store.Node
 	for _, id := range nodeIDs {
 		if seen[id] {
 			return store.Operation{}, fmt.Errorf("%w: the %d nodes must be different", provision.ErrInvalid, Members)
@@ -98,6 +100,13 @@ func (s *Service) Setup(ctx context.Context, nodeIDs []uuid.UUID, by *uuid.UUID)
 		if n.AgentCertFp == nil || n.Status != "healthy" {
 			return store.Operation{}, fmt.Errorf("%w: node %s has no healthy agent (%s)", provision.ErrConflict, n.Name, n.Status)
 		}
+		picked = append(picked, n)
+	}
+	// One member per failure domain (V3.1 §2.2): two that fail together
+	// would take the quorum with them.
+	if ok, pair := faildomain.AllSeparated(picked); !ok {
+		return store.Operation{}, fmt.Errorf("%w: %s and %s are in the same failure domain; pick nodes in three different ones (%s)",
+			provision.ErrConflict, pair[0].Name, pair[1].Name, faildomain.Describe(picked))
 	}
 	existing, err := q.ListEtcdMembers(ctx)
 	if err != nil {

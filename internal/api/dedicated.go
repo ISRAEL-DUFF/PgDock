@@ -14,6 +14,8 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/faildomain"
+	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -146,19 +148,40 @@ func (s *Server) CreateNode(w http.ResponseWriter, r *http.Request) {
 	a := auditFrom(r.Context())
 	a.set("name", req.Name)
 	a.set("role", string(req.Role))
-	region := ""
+	region, domain := "", ""
 	if req.Region != nil {
 		region = *req.Region
 	}
-	n, tok, exp, err := s.nodes.CreateNode(r.Context(), req.Name, req.PrivateAddr, string(req.Role), region)
+	if req.FailureDomain != nil {
+		domain = *req.FailureDomain
+		a.set("failure_domain", domain)
+	}
+	n, tok, exp, err := s.nodes.CreateNode(r.Context(), req.Name, req.PrivateAddr, string(req.Role), region, domain)
 	if err != nil {
 		s.backupError(w, "create node", err)
 		return
 	}
 	a.target("node", n.ID.String())
-	writeJSON(w, http.StatusCreated, gen.NodeCreated{
+	out := gen.NodeCreated{
 		Node: s.toAPINode(n), Token: tok, ExpiresAt: exp, Command: registerCommand(r, tok, req.PrivateAddr),
-	})
+	}
+	var warnings []string
+	if n.Role == nodes.RolePooler {
+		// The region's pooler hosts should be apart (V3.1 §2.2); PGDock
+		// can't move them, so it says so rather than refusing.
+		if all, err := store.New(s.db).ListNodes(r.Context()); err == nil {
+			for _, o := range all {
+				if o.ID != n.ID && o.Role == nodes.RolePooler && o.Status != "removed" && o.Region == n.Region && !faildomain.Separated(o, n) {
+					msg := fmt.Sprintf("%s is in the same failure domain as pooler host %s (%s): one failure could take both", n.Name, o.Name, faildomain.Label(o))
+					warnings = append(warnings, msg)
+				}
+			}
+		}
+	}
+	if len(warnings) > 0 {
+		out.Warnings = &warnings
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 func registerCommand(r *http.Request, token, addr string) string {
@@ -260,11 +283,25 @@ func (s *Server) UpdateNode(w http.ResponseWriter, r *http.Request, id gen.NodeI
 	}
 	a := auditFrom(r.Context())
 	a.target("node", id.String())
-	a.set("role", string(req.Role))
-	n, err := s.nodes.SetRole(r.Context(), id, string(req.Role))
-	if err != nil {
-		s.backupError(w, "update node", err)
+	if req.Role == nil && req.FailureDomain == nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "nothing to change: give role or failure_domain")
 		return
+	}
+	var n store.Node
+	var err error
+	if req.Role != nil {
+		a.set("role", string(*req.Role))
+		if n, err = s.nodes.SetRole(r.Context(), id, string(*req.Role)); err != nil {
+			s.backupError(w, "update node", err)
+			return
+		}
+	}
+	if req.FailureDomain != nil {
+		a.set("failure_domain", *req.FailureDomain)
+		if n, err = s.nodes.SetFailureDomain(r.Context(), id, *req.FailureDomain); err != nil {
+			s.backupError(w, "update node", err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, s.toAPINode(n))
 }

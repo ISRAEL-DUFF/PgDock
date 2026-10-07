@@ -798,6 +798,27 @@ func (e FailoverEventKind) Valid() bool {
 	}
 }
 
+// Defines values for FailureDomainProblemGroup.
+const (
+	Etcd       FailureDomainProblemGroup = "etcd"
+	HaPair     FailureDomainProblemGroup = "ha_pair"
+	PoolerPair FailureDomainProblemGroup = "pooler_pair"
+)
+
+// Valid indicates whether the value is a known member of the FailureDomainProblemGroup enum.
+func (e FailureDomainProblemGroup) Valid() bool {
+	switch e {
+	case Etcd:
+		return true
+	case HaPair:
+		return true
+	case PoolerPair:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HAMemberRole.
 const (
 	HAMemberRoleLeader      HAMemberRole = "leader"
@@ -4121,6 +4142,9 @@ type CreateIncidentRequest struct {
 
 // CreateNodeRequest defines model for CreateNodeRequest.
 type CreateNodeRequest struct {
+	// FailureDomain What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
 	// Name Example: node-b
 	Name string `json:"name"`
 
@@ -4621,6 +4645,28 @@ type FailoverEvent struct {
 
 // FailoverEventKind defines model for FailoverEvent.Kind.
 type FailoverEventKind string
+
+// FailureDomainProblem defines model for FailureDomainProblem.
+type FailureDomainProblem struct {
+	Detail string                    `json:"detail"`
+	Group  FailureDomainProblemGroup `json:"group"`
+
+	// Key The group's identity (the HA instance, etcd, or the region's pooler pair).
+	Key string `json:"key"`
+
+	// Nodes The nodes that share a domain.
+	Nodes     []string            `json:"nodes"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	Region    string              `json:"region"`
+}
+
+// FailureDomainProblemGroup defines model for FailureDomainProblem.Group.
+type FailureDomainProblemGroup string
+
+// FailureDomainProblems defines model for FailureDomainProblems.
+type FailureDomainProblems struct {
+	Items []FailureDomainProblem `json:"items"`
+}
 
 // ForeignKey defines model for ForeignKey.
 type ForeignKey struct {
@@ -5492,11 +5538,17 @@ type MyInvitationList struct {
 
 // Node defines model for Node.
 type Node struct {
-	Agent        AgentStatus        `json:"agent"`
-	CostCurrency *string            `json:"cost_currency,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	EmptySince   *time.Time         `json:"empty_since,omitempty"`
-	Id           openapi_types.UUID `json:"id"`
+	Agent        AgentStatus `json:"agent"`
+	CostCurrency *string     `json:"cost_currency,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	EmptySince   *time.Time  `json:"empty_since,omitempty"`
+
+	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
+	FailureDomain *string `json:"failure_domain,omitempty"`
+
+	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
+	Id                 openapi_types.UUID `json:"id"`
 
 	// Keep Never deleted for being empty.
 	Keep             *bool          `json:"keep,omitempty"`
@@ -5504,7 +5556,10 @@ type Node struct {
 	Lifecycle        *NodeLifecycle `json:"lifecycle,omitempty"`
 	MonthlyCostMinor *int64         `json:"monthly_cost_minor,omitempty"`
 	Name             string         `json:"name"`
-	PrivateAddr      string         `json:"private_addr"`
+
+	// PlacementGroup The provider's spread placement group the server is in (Hetzner).
+	PlacementGroup *string `json:"placement_group,omitempty"`
+	PrivateAddr    string  `json:"private_addr"`
 
 	// Provider manual (registered by hand) or the cloud provider that created it.
 	Provider   *string `json:"provider,omitempty"`
@@ -5532,6 +5587,9 @@ type NodeCreated struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Node      Node      `json:"node"`
 	Token     string    `json:"token"`
+
+	// Warnings E.g. a second pooler host in the same failure domain as the first.
+	Warnings *[]string `json:"warnings,omitempty"`
 }
 
 // NodeDetail defines model for NodeDetail.
@@ -7548,7 +7606,9 @@ type UpdateMeRequest struct {
 
 // UpdateNodeRequest defines model for UpdateNodeRequest.
 type UpdateNodeRequest struct {
-	Role UpdateNodeRequestRole `json:"role"`
+	// FailureDomain The node's failure domain; an empty string clears it.
+	FailureDomain *string                `json:"failure_domain,omitempty"`
+	Role          *UpdateNodeRequestRole `json:"role,omitempty"`
 }
 
 // UpdateNodeRequestRole defines model for UpdateNodeRequest.Role.
@@ -9087,6 +9147,11 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+	//
+	// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+	ListFailureDomainProblems(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListFXRates Exchange rates (naira per unit), current and history
 	//
 	// Corresponds with GET /api/v1/admin/fx-rates (the `ListFXRates` operationId).
@@ -10365,14 +10430,14 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/nodes/{id} (the `GetNode` operationId).
 	GetNode(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateNodeWithBody Change a node's role (where new projects may go)
+	// UpdateNodeWithBody Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /api/v1/nodes/{id} (the `UpdateNode` operationId).
 	UpdateNodeWithBody(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateNode Change a node's role (where new projects may go)
+	// UpdateNode Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -12793,6 +12858,21 @@ func (c *Client) SetupEtcdClusterWithBody(ctx context.Context, contentType strin
 // Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 func (c *Client) SetupEtcdCluster(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetupEtcdClusterRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListFailureDomainProblems HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+//
+// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+func (c *Client) ListFailureDomainProblems(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFailureDomainProblemsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -15891,7 +15971,7 @@ func (c *Client) GetNode(ctx context.Context, id NodeID, reqEditors ...RequestEd
 	return c.Client.Do(req)
 }
 
-// UpdateNodeWithBody Change a node's role (where new projects may go)
+// UpdateNodeWithBody Change a node's role (where new projects may go) or failure domain
 //
 // Takes any type of body and a specified content type.
 //
@@ -15908,7 +15988,7 @@ func (c *Client) UpdateNodeWithBody(ctx context.Context, id NodeID, contentType 
 	return c.Client.Do(req)
 }
 
-// UpdateNode Change a node's role (where new projects may go)
+// UpdateNode Change a node's role (where new projects may go) or failure domain
 //
 // Takes a body of the `application/json` content type.
 //
@@ -21345,6 +21425,33 @@ func NewSetupEtcdClusterRequestWithBody(server string, contentType string, body 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListFailureDomainProblemsRequest constructs an http.Request for the ListFailureDomainProblems method
+func NewListFailureDomainProblemsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/failure-domains")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -34995,6 +35102,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/etcd (the `SetupEtcdCluster` operationId).
 	SetupEtcdClusterWithResponse(ctx context.Context, body SetupEtcdClusterJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupEtcdClusterResponse, error)
 
+	// ListFailureDomainProblemsWithResponse HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+	ListFailureDomainProblemsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFailureDomainProblemsResponse, error)
+
 	// ListFXRatesWithResponse Exchange rates (naira per unit), current and history
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -36393,14 +36507,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/nodes/{id} (the `GetNode` operationId).
 	GetNodeWithResponse(ctx context.Context, id NodeID, reqEditors ...RequestEditorFn) (*GetNodeResponse, error)
 
-	// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go)
+	// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /api/v1/nodes/{id} (the `UpdateNode` operationId).
 	UpdateNodeWithBodyWithResponse(ctx context.Context, id NodeID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNodeResponse, error)
 
-	// UpdateNodeWithResponse Change a node's role (where new projects may go)
+	// UpdateNodeWithResponse Change a node's role (where new projects may go) or failure domain
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -39597,6 +39711,54 @@ func (r SetupEtcdClusterResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetupEtcdClusterResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFailureDomainProblemsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FailureDomainProblems
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListFailureDomainProblemsResponse) GetJSON200() *FailureDomainProblems {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListFailureDomainProblemsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListFailureDomainProblemsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFailureDomainProblemsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFailureDomainProblemsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFailureDomainProblemsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -54668,6 +54830,19 @@ func (c *ClientWithResponses) SetupEtcdClusterWithResponse(ctx context.Context, 
 	return ParseSetupEtcdClusterResponse(rsp)
 }
 
+// ListFailureDomainProblemsWithResponse HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/failure-domains (the `ListFailureDomainProblems` operationId).
+func (c *ClientWithResponses) ListFailureDomainProblemsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFailureDomainProblemsResponse, error) {
+	rsp, err := c.ListFailureDomainProblems(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFailureDomainProblemsResponse(rsp)
+}
+
 // ListFXRatesWithResponse Exchange rates (naira per unit), current and history
 //
 // Returns a wrapper object for the known response body format(s).
@@ -57152,7 +57327,7 @@ func (c *ClientWithResponses) GetNodeWithResponse(ctx context.Context, id NodeID
 	return ParseGetNodeResponse(rsp)
 }
 
-// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go)
+// UpdateNodeWithBodyWithResponse Change a node's role (where new projects may go) or failure domain
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -57165,7 +57340,7 @@ func (c *ClientWithResponses) UpdateNodeWithBodyWithResponse(ctx context.Context
 	return ParseUpdateNodeResponse(rsp)
 }
 
-// UpdateNodeWithResponse Change a node's role (where new projects may go)
+// UpdateNodeWithResponse Change a node's role (where new projects may go) or failure domain
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -61603,6 +61778,39 @@ func ParseSetupEtcdClusterResponse(rsp *http.Response) (*SetupEtcdClusterRespons
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFailureDomainProblemsResponse parses an HTTP response from a ListFailureDomainProblemsWithResponse call
+func ParseListFailureDomainProblemsResponse(rsp *http.Response) (*ListFailureDomainProblemsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFailureDomainProblemsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FailureDomainProblems
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

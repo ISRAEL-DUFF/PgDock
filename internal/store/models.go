@@ -587,6 +587,8 @@ type Node struct {
 	Lifecycle             string
 	EmptySince            *time.Time
 	Keep                  bool
+	FailureDomain         *string
+	PlacementGroup        *string
 }
 
 type Operation struct {

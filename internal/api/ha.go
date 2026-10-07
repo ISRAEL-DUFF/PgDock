@@ -6,6 +6,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/ha"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -207,4 +208,19 @@ func (s *Server) SwitchoverProject(w http.ResponseWriter, r *http.Request, id ge
 		return
 	}
 	s.writeOperation(w, "switchover", op)
+}
+
+// ListFailureDomainProblems implements GET /api/v1/admin/failure-domains.
+func (s *Server) ListFailureDomainProblems(w http.ResponseWriter, r *http.Request) {
+	probs, err := faildomain.Check(r.Context(), store.New(s.db))
+	if err != nil {
+		s.internalError(w, "failure domains", err)
+		return
+	}
+	out := gen.FailureDomainProblems{Items: []gen.FailureDomainProblem{}}
+	for _, p := range probs {
+		out.Items = append(out.Items, gen.FailureDomainProblem{Group: gen.FailureDomainProblemGroup(p.Group), Region: p.Region, Key: p.Key,
+			ProjectId: p.ProjectID, Nodes: p.Nodes, Detail: p.Detail})
+	}
+	writeJSON(w, http.StatusOK, out)
 }

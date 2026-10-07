@@ -5,6 +5,17 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V3.1 (on feature/pgdock3)
+- Failure domains (V3.1-M1): each node can record what fails with it (a
+  rack, host or power feed); servers PGDock creates on Hetzner go into a
+  per-region spread placement group. An HA project's standby, the etcd
+  members and a region's pooler hosts are kept in different domains:
+  enabling HA and setting up etcd refuse otherwise, a second pooler host
+  in the same rack is warned about, and a `failure_domain` alert reports
+  existing groups that share one. Platform → Nodes. See
+  docs/failure-domains.md.
+- New migration 00033 (failure domains).
+
 ### V3 (in progress, on feature/pgdock3)
 - Standby edge pooler: two pooler hosts behind a floating IP with
   keepalived. pgdock-server pushes the PgBouncer configuration to both and

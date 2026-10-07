@@ -3,6 +3,7 @@ package cloud
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -63,6 +64,28 @@ func TestHetznerAgainstFake(t *testing.T) {
 	}
 	if list, _ := h.ListServers(ctx, Filter{}); len(list) != 0 {
 		t.Errorf("after delete: %+v", list)
+	}
+	// Spread placement groups (V3.1 §2.3): created once, found after.
+	g, err := h.EnsurePlacementGroup(ctx, "pgdock-ng-lagos", map[string]string{"pgdock-region": "ng-lagos"})
+	if err != nil || g.ID == "" || g.Servers != 0 {
+		t.Fatalf("placement group: %+v %v", g, err)
+	}
+	if again, err := h.EnsurePlacementGroup(ctx, "pgdock-ng-lagos", nil); err != nil || again.ID != g.ID {
+		t.Fatalf("placement group again: %+v %v", again, err)
+	}
+	for i := range SpreadGroupLimit {
+		if _, err := h.CreateServer(ctx, ServerSpec{Name: fmt.Sprintf("ng-%d", i), Type: "cpx11", PlacementGroup: g.ID}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if full, _ := h.EnsurePlacementGroup(ctx, "pgdock-ng-lagos", nil); full.Servers != SpreadGroupLimit {
+		t.Fatalf("full group: %+v", full)
+	}
+	if _, err := h.CreateServer(ctx, ServerSpec{Name: "ng-over", Type: "cpx11", PlacementGroup: g.ID}); err == nil || !strings.Contains(err.Error(), "full") {
+		t.Fatalf("an 11th server in a spread group: %v", err)
+	}
+	if _, err := (ManualProvider{}).EnsurePlacementGroup(ctx, "x", nil); !errors.Is(err, ErrManual) {
+		t.Errorf("manual placement group: %v", err)
 	}
 	bad := &HetznerProvider{API: srv.URL, Token: "wrong"}
 	if _, err := bad.ListServers(ctx, Filter{}); err == nil || !strings.Contains(err.Error(), "unauthorized") {

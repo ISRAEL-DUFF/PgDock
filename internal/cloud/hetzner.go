@@ -165,6 +165,42 @@ func (h *HetznerProvider) CreateServer(ctx context.Context, spec ServerSpec) (Se
 	return out.Server.server(), nil
 }
 
+type hPlacementGroup struct {
+	ID      int64   `json:"id"`
+	Name    string  `json:"name"`
+	Type    string  `json:"type"`
+	Servers []int64 `json:"servers"`
+}
+
+func (g hPlacementGroup) group() PlacementGroup {
+	return PlacementGroup{ID: strconv.FormatInt(g.ID, 10), Name: g.Name, Servers: len(g.Servers)}
+}
+
+// EnsurePlacementGroup finds the spread group called name, or creates it.
+func (h *HetznerProvider) EnsurePlacementGroup(ctx context.Context, name string, labels map[string]string) (PlacementGroup, error) {
+	var list struct {
+		PlacementGroups []hPlacementGroup `json:"placement_groups"`
+	}
+	if err := h.do(ctx, http.MethodGet, "/placement_groups?name="+url.QueryEscape(name), nil, &list); err != nil {
+		return PlacementGroup{}, err
+	}
+	for _, g := range list.PlacementGroups {
+		if g.Name == name {
+			if g.Type != "spread" {
+				return PlacementGroup{}, fmt.Errorf("hetzner placement group %s is %s, not spread", name, g.Type)
+			}
+			return g.group(), nil
+		}
+	}
+	var out struct {
+		PlacementGroup hPlacementGroup `json:"placement_group"`
+	}
+	if err := h.do(ctx, http.MethodPost, "/placement_groups", map[string]any{"name": name, "type": "spread", "labels": labels}, &out); err != nil {
+		return PlacementGroup{}, err
+	}
+	return out.PlacementGroup.group(), nil
+}
+
 // DeleteServer deletes a server; one already gone is not an error.
 func (h *HetznerProvider) DeleteServer(ctx context.Context, id string) error {
 	if _, err := id64("server", id); err != nil {

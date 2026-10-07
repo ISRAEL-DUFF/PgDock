@@ -34,7 +34,7 @@ The provider is where new servers come from. There are two.
 | `PGDOCK_HETZNER_TOKEN` (or `_FILE`) | A Hetzner Cloud API token with read and write access |
 | `PGDOCK_HETZNER_LOCATION` | Where servers go (default `fsn1`) |
 | `PGDOCK_HETZNER_NETWORK_ID` | The private network new servers join; use the network your other nodes and pgdock-server are on |
-| `PGDOCK_HETZNER_PLACEMENT_GROUP_ID` | Optional: a spread placement group |
+| `PGDOCK_HETZNER_PLACEMENT_GROUP_ID` | Optional: an existing spread placement group for the home region. Otherwise PGDock creates `pgdock-<region>` (then `-2`, … as each fills at 10 servers) and puts every new server in its region's group, so it counts as its own [failure domain](failure-domains.md). |
 | `PGDOCK_HETZNER_SSH_KEYS` | Comma-separated names of SSH keys in the Hetzner project, for root |
 | `PGDOCK_CLOUD_AGENT_IMAGE`, `PGDOCK_CLOUD_PG_IMAGE` | Images new servers can pull: the agent, and `pgdock-postgres` (with `{major}` for the Postgres version). Push your build to a registry; the bundle builds them locally only. |
 | `PGDOCK_CLOUD_SERVER_URL` | How agents reach pgdock-server (default `PGDOCK_PUBLIC_URL`) |

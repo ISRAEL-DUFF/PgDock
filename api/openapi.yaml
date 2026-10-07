@@ -1367,7 +1367,7 @@ paths:
           $ref: "#/components/responses/Error"
     patch:
       operationId: updateNode
-      summary: Change a node's role (where new projects may go)
+      summary: Change a node's role (where new projects may go) or failure domain
       tags: [nodes]
       parameters:
         - $ref: "#/components/parameters/NodeID"
@@ -6793,6 +6793,20 @@ paths:
                 $ref: "#/components/schemas/MinorUpgrade"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/failure-domains:
+    get:
+      operationId: listFailureDomainProblems
+      summary: HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4)
+      tags: [admin]
+      responses:
+        "200":
+          description: The groups that break the rule; empty when none do.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailureDomainProblems"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/etcd:
     get:
       operationId: getEtcdCluster
@@ -8437,6 +8451,48 @@ components:
         keep:
           type: boolean
           description: Never deleted for being empty.
+        failure_domain:
+          type: string
+          nullable: true
+          description: What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
+        placement_group:
+          type: string
+          nullable: true
+          description: The provider's spread placement group the server is in (Hetzner).
+        failure_domain_label:
+          type: string
+          description: The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+    FailureDomainProblems:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailureDomainProblem"
+    FailureDomainProblem:
+      type: object
+      required: [group, region, key, nodes, detail]
+      properties:
+        group:
+          type: string
+          enum: [ha_pair, etcd, pooler_pair]
+        region:
+          type: string
+        key:
+          type: string
+          description: The group's identity (the HA instance, etcd, or the region's pooler pair).
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        nodes:
+          type: array
+          items:
+            type: string
+          description: The nodes that share a domain.
+        detail:
+          type: string
     AgentStatus:
       type: object
       required: [registered, reachable]
@@ -8885,10 +8941,18 @@ components:
         region:
           type: string
           description: The region the node is in (default the home region). A pooler host serves that region's projects.
+        failure_domain:
+          type: string
+          description: What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores.
     NodeCreated:
       type: object
       required: [node, token, expires_at, command]
       properties:
+        warnings:
+          type: array
+          items:
+            type: string
+          description: E.g. a second pooler host in the same failure domain as the first.
         node:
           $ref: "#/components/schemas/Node"
         token:
@@ -8963,11 +9027,13 @@ components:
           description: Postgres major version; default the newest supported.
     UpdateNodeRequest:
       type: object
-      required: [role]
       properties:
         role:
           type: string
           enum: [shared, dedicated, both]
+        failure_domain:
+          type: string
+          description: The node's failure domain; an empty string clears it.
     PromotionEstimate:
       type: object
       required: [size_bytes, estimated_downtime_seconds]
