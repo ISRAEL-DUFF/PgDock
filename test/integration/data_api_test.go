@@ -409,10 +409,12 @@ func TestServicesSurviveRestore(t *testing.T) {
 	if op := e.WaitOperation(en.Operation.Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("enable: %s\n%s", op.Status, testenv.FormatLog(op))
 	}
-	var pub string
+	var pub, sec string
 	for _, k := range en.Keys {
 		if k.Key.Kind == gen.ApiKeyKindPublishable {
 			pub = k.Value
+		} else {
+			sec = k.Value
 		}
 	}
 	app := e.MustConnect(creds.Connection.PooledUrl)
@@ -431,6 +433,15 @@ func TestServicesSurviveRestore(t *testing.T) {
 	anon := apiClient{t, ed, *en.Services.Ref, pub, ""}
 	if r := anon.get("/data/v1/items?select=name"); r.Code != 200 || strings.Join(titles(r.rows(t), "name"), ",") != "shown" {
 		t.Fatalf("before: %d %s", r.Code, r.Body)
+	}
+	// An app user, who must come through every move (V4 §4.2).
+	users := authAPI{t: t, ed: ed, ref: *en.Services.Ref, key: pub}
+	if r := (authAPI{t: t, ed: ed, ref: *en.Services.Ref, key: sec}).post("/auth/v1/admin/users",
+		`{"email":"kept@example.com","password":"kept-password-1","email_confirm":true}`); r.Code != 201 {
+		t.Fatalf("an app user: %d %s", r.Code, r.Body)
+	}
+	signsIn := func() bool {
+		return users.post("/auth/v1/signin/password", `{"email":"kept@example.com","password":"kept-password-1"}`).Code == 200
 	}
 
 	var op gen.Operation
@@ -483,6 +494,7 @@ func TestServicesSurviveRestore(t *testing.T) {
 		r := anon.get("/data/v1/items?select=name")
 		return r.Code == 200 && strings.Join(titles(r.rows(t), "name"), ",") == "shown"
 	})
+	waitFor(t, 15*time.Second, "the app user after the restore", signsIn)
 
 	// Promotion to a dedicated instance copies the database keeping owners
 	// and grants: the request roles must exist there first, and the pgd_*
@@ -504,4 +516,5 @@ func TestServicesSurviveRestore(t *testing.T) {
 		r := anon.get("/data/v1/items?select=name")
 		return r.Code == 200 && strings.Join(titles(r.rows(t), "name"), ",") == "shown"
 	})
+	waitFor(t, 30*time.Second, "the app user after the promotion", signsIn)
 }

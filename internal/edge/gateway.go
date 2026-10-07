@@ -130,6 +130,9 @@ func (e *Edge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		c.fail(http.StatusServiceUnavailable, "project_resuming", "the project is paused and is resuming; retry shortly")
 		return
 	}
+	if e.keylessAuth(c) {
+		return
+	}
 	req, ok := e.authorize(c)
 	if !ok {
 		return
@@ -277,8 +280,9 @@ func (e *Edge) route(c *call, req Request) {
 		e.health(c, req)
 	case strings.HasPrefix(path, "/data/v1/"):
 		e.data(c, req)
-	case strings.HasPrefix(path, "/auth/v1/"),
-		strings.HasPrefix(path, "/storage/v1/"), strings.HasPrefix(path, "/realtime/v1"):
+	case strings.HasPrefix(path, "/auth/v1/"):
+		e.auth(c, req)
+	case strings.HasPrefix(path, "/storage/v1/"), strings.HasPrefix(path, "/realtime/v1"):
 		c.fail(http.StatusNotFound, "not_available", "this endpoint isn't available yet")
 	default:
 		c.fail(http.StatusNotFound, "no_such_endpoint", "no such endpoint")

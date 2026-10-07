@@ -3708,6 +3708,289 @@ paths:
           description: Resuming.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/edge/auth-email:
+    post:
+      operationId: edgeAuthEmail
+      summary: pgdock-edge asks for an auth email to be sent (signed; internal)
+      tags: [edge]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "202":
+          description: Queued.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/config:
+    get:
+      operationId: getAuthConfig
+      summary: The project's auth settings, email templates and SMTP server (V4 §4)
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthConfig"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateAuthConfig
+      summary: Change auth settings, templates or the project's SMTP server
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthConfigUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthConfig"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/smtp/test:
+    post:
+      operationId: testAuthSMTP
+      summary: Send a test email through the project's SMTP server (or the settings given)
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthSMTPTest"
+      responses:
+        "204":
+          description: Sent.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/templates/preview:
+    post:
+      operationId: previewAuthTemplate
+      summary: Render an email template with sample values
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthTemplatePreview"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthEmailTemplate"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/signing-keys:
+    get:
+      operationId: listSigningKeys
+      summary: The keys access tokens are signed and verified with
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigningKeyList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/signing-keys/rotate:
+    post:
+      operationId: rotateSigningKey
+      summary: Sign with a new key; the old one verifies until its tokens expire
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigningKeyList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/users:
+    get:
+      operationId: listAuthUsers
+      summary: The project's app users (search by email, phone or id)
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createAuthUser
+      summary: Invite a user, or add one with a password
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthUserCreate"
+      responses:
+        "201":
+          description: Added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/users/{userId}:
+    get:
+      operationId: getAuthUser
+      summary: A user with their identities, sessions and audit log
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserDetail"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateAuthUser
+      summary: Ban, unban or confirm a user, or change their metadata
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthUserUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteAuthUser
+      summary: Delete a user (their sessions end; rows referencing them follow the foreign keys)
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/users/{userId}/signout:
+    post:
+      operationId: signOutAuthUser
+      summary: End all of a user's sessions
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSignOutResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/audit:
+    get:
+      operationId: listAuthAudit
+      summary: The project's latest auth events
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthAuditList"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/transfer:
     post:
       operationId: transferProject
@@ -9345,6 +9628,359 @@ components:
         max_query_cost:
           type: integer
           description: Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
+    AuthSettings:
+      type: object
+      properties:
+        site_url:
+          type: string
+          description: Where links go when a request names no redirect (and the base of allowed redirects).
+        redirect_urls:
+          type: array
+          items:
+            type: string
+        allow_wildcard_redirects:
+          type: boolean
+        signup_enabled:
+          type: boolean
+        email_confirm:
+          type: boolean
+          description: New addresses must be confirmed before signing in.
+        magic_link_enabled:
+          type: boolean
+        password_min_length:
+          type: integer
+        password_require_mixed:
+          type: boolean
+        access_token_ttl:
+          type: integer
+          description: Seconds, 300 to 86400.
+        session_max_seconds:
+          type: integer
+        session_inactivity_seconds:
+          type: integer
+        single_session:
+          type: boolean
+    AuthEmailTemplate:
+      type: object
+      required: [subject, body]
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+    AuthSMTP:
+      type: object
+      required: [host, from]
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+          description: Write only; empty keeps the stored one.
+        from:
+          type: string
+        tls:
+          type: string
+          enum: [starttls, tls, none]
+    AuthConfig:
+      type: object
+      required: [settings, templates, default_templates, email, monthly_active_users, auth_url]
+      properties:
+        settings:
+          $ref: "#/components/schemas/AuthSettings"
+        templates:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/AuthEmailTemplate"
+        default_templates:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/AuthEmailTemplate"
+        smtp:
+          allOf:
+            - $ref: "#/components/schemas/AuthSMTP"
+          nullable: true
+        email:
+          type: object
+          required: [own_smtp, platform_per_hour, platform_left, sent_24h, failed_24h]
+          properties:
+            own_smtp:
+              type: boolean
+            platform_per_hour:
+              type: integer
+            platform_left:
+              type: integer
+            sent_24h:
+              type: integer
+            failed_24h:
+              type: integer
+        monthly_active_users:
+          type: integer
+          format: int64
+        auth_url:
+          type: string
+          description: The project's auth API, https://<ref>.<domain>/auth/v1.
+    AuthConfigUpdate:
+      type: object
+      properties:
+        settings:
+          $ref: "#/components/schemas/AuthSettings"
+        templates:
+          type: object
+          description: Overrides by kind; an empty subject and body goes back to the default.
+          additionalProperties:
+            $ref: "#/components/schemas/AuthEmailTemplate"
+        smtp:
+          $ref: "#/components/schemas/AuthSMTP"
+        clear_smtp:
+          type: boolean
+    AuthSMTPTest:
+      type: object
+      required: [to]
+      properties:
+        to:
+          type: string
+        smtp:
+          $ref: "#/components/schemas/AuthSMTP"
+    AuthTemplatePreview:
+      type: object
+      required: [kind, subject, body]
+      properties:
+        kind:
+          type: string
+          enum: [confirmation, magic_link, recovery, invite, email_change]
+        subject:
+          type: string
+        body:
+          type: string
+    SigningKey:
+      type: object
+      required: [id, kid, status, created_at, public_jwk]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kid:
+          type: string
+        status:
+          type: string
+          enum: [active, verifying, retired]
+        created_at:
+          type: string
+          format: date-time
+        verify_until:
+          type: string
+          format: date-time
+          nullable: true
+        public_jwk:
+          type: object
+          additionalProperties: true
+    SigningKeyList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SigningKey"
+    AuthUser:
+      type: object
+      required: [id, is_anonymous, app_metadata, user_metadata, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email_confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        phone_confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        invited_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_anonymous:
+          type: boolean
+        app_metadata:
+          type: object
+          additionalProperties: true
+        user_metadata:
+          type: object
+          additionalProperties: true
+        banned_until:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_sign_in_at:
+          type: string
+          format: date-time
+          nullable: true
+    AuthUserList:
+      type: object
+      required: [items, total, stats]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthUser"
+        total:
+          type: integer
+        stats:
+          type: object
+          required: [users, confirmed, banned, sessions]
+          properties:
+            users:
+              type: integer
+            confirmed:
+              type: integer
+            banned:
+              type: integer
+            sessions:
+              type: integer
+    AuthUserCreate:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        email_confirm:
+          type: boolean
+        invite:
+          type: boolean
+          description: Send an invitation link instead of setting a password.
+    AuthUserUpdate:
+      type: object
+      properties:
+        ban_duration:
+          type: string
+          description: '"none" lifts a ban; otherwise a duration such as "24h" ("876000h" for good).'
+        email_confirm:
+          type: boolean
+        user_metadata:
+          type: object
+          additionalProperties: true
+        app_metadata:
+          type: object
+          additionalProperties: true
+    AuthSession:
+      type: object
+      required: [id, aal, created_at, refreshed_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        aal:
+          type: string
+        user_agent:
+          type: string
+          nullable: true
+        ip:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        refreshed_at:
+          type: string
+          format: date-time
+        not_after:
+          type: string
+          format: date-time
+          nullable: true
+    AuthIdentity:
+      type: object
+      required: [id, provider, provider_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        provider_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_sign_in_at:
+          type: string
+          format: date-time
+          nullable: true
+    AuthAuditEntry:
+      type: object
+      required: [id, at, action, details]
+      properties:
+        id:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+        ip:
+          type: string
+          nullable: true
+        details:
+          type: object
+          additionalProperties: true
+    AuthAuditList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthAuditEntry"
+    AuthUserDetail:
+      type: object
+      required: [user, identities, sessions, audit]
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        identities:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthIdentity"
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthSession"
+        audit:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthAuditEntry"
+    AuthSignOutResult:
+      type: object
+      required: [sessions_ended]
+      properties:
+        sessions_ended:
+          type: integer
+          format: int64
     BackendServicesUpdate:
       type: object
       properties:

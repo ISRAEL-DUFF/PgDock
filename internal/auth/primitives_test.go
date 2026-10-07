@@ -7,7 +7,7 @@ import (
 )
 
 func TestPasswordHash(t *testing.T) {
-	fast := argonParams{memoryKiB: 1024, time: 1, threads: 1, keyLen: 32, saltLen: 16}
+	fast := argonParams{MemoryKiB: 1024, Time: 1, Threads: 1, KeyLen: 32, SaltLen: 16}
 	h, err := hashWith("correct horse battery", fast)
 	if err != nil {
 		t.Fatal(err)

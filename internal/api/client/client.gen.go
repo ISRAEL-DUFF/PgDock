@@ -327,6 +327,54 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AuthSMTPTls.
+const (
+	AuthSMTPTlsNone     AuthSMTPTls = "none"
+	AuthSMTPTlsStarttls AuthSMTPTls = "starttls"
+	AuthSMTPTlsTls      AuthSMTPTls = "tls"
+)
+
+// Valid indicates whether the value is a known member of the AuthSMTPTls enum.
+func (e AuthSMTPTls) Valid() bool {
+	switch e {
+	case AuthSMTPTlsNone:
+		return true
+	case AuthSMTPTlsStarttls:
+		return true
+	case AuthSMTPTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthTemplatePreviewKind.
+const (
+	Confirmation AuthTemplatePreviewKind = "confirmation"
+	EmailChange  AuthTemplatePreviewKind = "email_change"
+	Invite       AuthTemplatePreviewKind = "invite"
+	MagicLink    AuthTemplatePreviewKind = "magic_link"
+	Recovery     AuthTemplatePreviewKind = "recovery"
+)
+
+// Valid indicates whether the value is a known member of the AuthTemplatePreviewKind enum.
+func (e AuthTemplatePreviewKind) Valid() bool {
+	switch e {
+	case Confirmation:
+		return true
+	case EmailChange:
+		return true
+	case Invite:
+		return true
+	case MagicLink:
+		return true
+	case Recovery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupEncryption.
 const (
 	BackupEncryptionInstance BackupEncryption = "instance"
@@ -2292,6 +2340,27 @@ func (e SessionStateSignupMode) Valid() bool {
 	}
 }
 
+// Defines values for SigningKeyStatus.
+const (
+	SigningKeyStatusActive    SigningKeyStatus = "active"
+	SigningKeyStatusRetired   SigningKeyStatus = "retired"
+	SigningKeyStatusVerifying SigningKeyStatus = "verifying"
+)
+
+// Valid indicates whether the value is a known member of the SigningKeyStatus enum.
+func (e SigningKeyStatus) Valid() bool {
+	switch e {
+	case SigningKeyStatusActive:
+		return true
+	case SigningKeyStatusRetired:
+		return true
+	case SigningKeyStatusVerifying:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SignupSettingsMode.
 const (
 	SignupSettingsModeApproval   SignupSettingsMode = "approval"
@@ -3892,6 +3961,189 @@ type AuditEntryOutcome string
 type AuditList struct {
 	Items      []AuditEntry `json:"items"`
 	NextBefore *int64       `json:"next_before,omitempty"`
+}
+
+// AuthAuditEntry defines model for AuthAuditEntry.
+type AuthAuditEntry struct {
+	Action  string                 `json:"action"`
+	At      time.Time              `json:"at"`
+	Details map[string]interface{} `json:"details"`
+	Id      int64                  `json:"id"`
+	Ip      *string                `json:"ip,omitempty"`
+	UserId  *openapi_types.UUID    `json:"user_id,omitempty"`
+}
+
+// AuthAuditList defines model for AuthAuditList.
+type AuthAuditList struct {
+	Items []AuthAuditEntry `json:"items"`
+}
+
+// AuthConfig defines model for AuthConfig.
+type AuthConfig struct {
+	// AuthUrl The project's auth API, https://<ref>.<domain>/auth/v1.
+	AuthUrl          string                       `json:"auth_url"`
+	DefaultTemplates map[string]AuthEmailTemplate `json:"default_templates"`
+	Email            struct {
+		Failed24h       int  `json:"failed_24h"`
+		OwnSmtp         bool `json:"own_smtp"`
+		PlatformLeft    int  `json:"platform_left"`
+		PlatformPerHour int  `json:"platform_per_hour"`
+		Sent24h         int  `json:"sent_24h"`
+	} `json:"email"`
+	MonthlyActiveUsers int64                        `json:"monthly_active_users"`
+	Settings           AuthSettings                 `json:"settings"`
+	Smtp               *AuthSMTP                    `json:"smtp,omitempty"`
+	Templates          map[string]AuthEmailTemplate `json:"templates"`
+}
+
+// AuthConfigUpdate defines model for AuthConfigUpdate.
+type AuthConfigUpdate struct {
+	ClearSmtp *bool         `json:"clear_smtp,omitempty"`
+	Settings  *AuthSettings `json:"settings,omitempty"`
+	Smtp      *AuthSMTP     `json:"smtp,omitempty"`
+
+	// Templates Overrides by kind; an empty subject and body goes back to the default.
+	Templates *map[string]AuthEmailTemplate `json:"templates,omitempty"`
+}
+
+// AuthEmailTemplate defines model for AuthEmailTemplate.
+type AuthEmailTemplate struct {
+	Body    string `json:"body"`
+	Subject string `json:"subject"`
+}
+
+// AuthIdentity defines model for AuthIdentity.
+type AuthIdentity struct {
+	CreatedAt    time.Time          `json:"created_at"`
+	Id           openapi_types.UUID `json:"id"`
+	LastSignInAt *time.Time         `json:"last_sign_in_at,omitempty"`
+	Provider     string             `json:"provider"`
+	ProviderId   string             `json:"provider_id"`
+}
+
+// AuthSMTP defines model for AuthSMTP.
+type AuthSMTP struct {
+	From string `json:"from"`
+	Host string `json:"host"`
+
+	// Password Write only; empty keeps the stored one.
+	Password *string      `json:"password,omitempty"`
+	Port     *int         `json:"port,omitempty"`
+	Tls      *AuthSMTPTls `json:"tls,omitempty"`
+	Username *string      `json:"username,omitempty"`
+}
+
+// AuthSMTPTls defines model for AuthSMTP.Tls.
+type AuthSMTPTls string
+
+// AuthSMTPTest defines model for AuthSMTPTest.
+type AuthSMTPTest struct {
+	Smtp *AuthSMTP `json:"smtp,omitempty"`
+	To   string    `json:"to"`
+}
+
+// AuthSession defines model for AuthSession.
+type AuthSession struct {
+	Aal         string             `json:"aal"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Id          openapi_types.UUID `json:"id"`
+	Ip          *string            `json:"ip,omitempty"`
+	NotAfter    *time.Time         `json:"not_after,omitempty"`
+	RefreshedAt time.Time          `json:"refreshed_at"`
+	UserAgent   *string            `json:"user_agent,omitempty"`
+}
+
+// AuthSettings defines model for AuthSettings.
+type AuthSettings struct {
+	// AccessTokenTtl Seconds, 300 to 86400.
+	AccessTokenTtl         *int  `json:"access_token_ttl,omitempty"`
+	AllowWildcardRedirects *bool `json:"allow_wildcard_redirects,omitempty"`
+
+	// EmailConfirm New addresses must be confirmed before signing in.
+	EmailConfirm             *bool     `json:"email_confirm,omitempty"`
+	MagicLinkEnabled         *bool     `json:"magic_link_enabled,omitempty"`
+	PasswordMinLength        *int      `json:"password_min_length,omitempty"`
+	PasswordRequireMixed     *bool     `json:"password_require_mixed,omitempty"`
+	RedirectUrls             *[]string `json:"redirect_urls,omitempty"`
+	SessionInactivitySeconds *int      `json:"session_inactivity_seconds,omitempty"`
+	SessionMaxSeconds        *int      `json:"session_max_seconds,omitempty"`
+	SignupEnabled            *bool     `json:"signup_enabled,omitempty"`
+	SingleSession            *bool     `json:"single_session,omitempty"`
+
+	// SiteUrl Where links go when a request names no redirect (and the base of allowed redirects).
+	SiteUrl *string `json:"site_url,omitempty"`
+}
+
+// AuthSignOutResult defines model for AuthSignOutResult.
+type AuthSignOutResult struct {
+	SessionsEnded int64 `json:"sessions_ended"`
+}
+
+// AuthTemplatePreview defines model for AuthTemplatePreview.
+type AuthTemplatePreview struct {
+	Body    string                  `json:"body"`
+	Kind    AuthTemplatePreviewKind `json:"kind"`
+	Subject string                  `json:"subject"`
+}
+
+// AuthTemplatePreviewKind defines model for AuthTemplatePreview.Kind.
+type AuthTemplatePreviewKind string
+
+// AuthUser defines model for AuthUser.
+type AuthUser struct {
+	AppMetadata      map[string]interface{} `json:"app_metadata"`
+	BannedUntil      *time.Time             `json:"banned_until,omitempty"`
+	CreatedAt        time.Time              `json:"created_at"`
+	Email            *string                `json:"email,omitempty"`
+	EmailConfirmedAt *time.Time             `json:"email_confirmed_at,omitempty"`
+	Id               openapi_types.UUID     `json:"id"`
+	InvitedAt        *time.Time             `json:"invited_at,omitempty"`
+	IsAnonymous      bool                   `json:"is_anonymous"`
+	LastSignInAt     *time.Time             `json:"last_sign_in_at,omitempty"`
+	Phone            *string                `json:"phone,omitempty"`
+	PhoneConfirmedAt *time.Time             `json:"phone_confirmed_at,omitempty"`
+	UpdatedAt        time.Time              `json:"updated_at"`
+	UserMetadata     map[string]interface{} `json:"user_metadata"`
+}
+
+// AuthUserCreate defines model for AuthUserCreate.
+type AuthUserCreate struct {
+	Email        string `json:"email"`
+	EmailConfirm *bool  `json:"email_confirm,omitempty"`
+
+	// Invite Send an invitation link instead of setting a password.
+	Invite   *bool   `json:"invite,omitempty"`
+	Password *string `json:"password,omitempty"`
+}
+
+// AuthUserDetail defines model for AuthUserDetail.
+type AuthUserDetail struct {
+	Audit      []AuthAuditEntry `json:"audit"`
+	Identities []AuthIdentity   `json:"identities"`
+	Sessions   []AuthSession    `json:"sessions"`
+	User       AuthUser         `json:"user"`
+}
+
+// AuthUserList defines model for AuthUserList.
+type AuthUserList struct {
+	Items []AuthUser `json:"items"`
+	Stats struct {
+		Banned    int `json:"banned"`
+		Confirmed int `json:"confirmed"`
+		Sessions  int `json:"sessions"`
+		Users     int `json:"users"`
+	} `json:"stats"`
+	Total int `json:"total"`
+}
+
+// AuthUserUpdate defines model for AuthUserUpdate.
+type AuthUserUpdate struct {
+	AppMetadata *map[string]interface{} `json:"app_metadata,omitempty"`
+
+	// BanDuration "none" lifts a ban; otherwise a duration such as "24h" ("876000h" for good).
+	BanDuration  *string                 `json:"ban_duration,omitempty"`
+	EmailConfirm *bool                   `json:"email_confirm,omitempty"`
+	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
 // AutoTopup defines model for AutoTopup.
@@ -7383,6 +7635,24 @@ type SharedClusterRequest struct {
 	PgVersion *int `json:"pg_version,omitempty"`
 }
 
+// SigningKey defines model for SigningKey.
+type SigningKey struct {
+	CreatedAt   time.Time              `json:"created_at"`
+	Id          openapi_types.UUID     `json:"id"`
+	Kid         string                 `json:"kid"`
+	PublicJwk   map[string]interface{} `json:"public_jwk"`
+	Status      SigningKeyStatus       `json:"status"`
+	VerifyUntil *time.Time             `json:"verify_until,omitempty"`
+}
+
+// SigningKeyStatus defines model for SigningKey.Status.
+type SigningKeyStatus string
+
+// SigningKeyList defines model for SigningKeyList.
+type SigningKeyList struct {
+	Items []SigningKey `json:"items"`
+}
+
 // SignupRequest defines model for SignupRequest.
 type SignupRequest struct {
 	// Challenge The Turnstile token from the signup page, when the session state names a site key (V3 §7.4).
@@ -8571,6 +8841,9 @@ type GetBackupOverviewParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// EdgeAuthEmailJSONBody defines parameters for EdgeAuthEmail.
+type EdgeAuthEmailJSONBody map[string]interface{}
+
 // EdgeConfigParams defines parameters for EdgeConfig.
 type EdgeConfigParams struct {
 	Since *int64 `form:"since,omitempty" json:"since,omitempty"`
@@ -8719,6 +8992,13 @@ type ListProjectAuditParams struct {
 
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
+
+// ListAuthUsersParams defines parameters for ListAuthUsers.
+type ListAuthUsersParams struct {
+	Q       *string `form:"q,omitempty" json:"q,omitempty"`
+	Page    *int    `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int    `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
 
 // ListInsightQueriesParams defines parameters for ListInsightQueries.
 type ListInsightQueriesParams struct {
@@ -9063,6 +9343,9 @@ type RestoreBackupJSONRequestBody = RestoreRequest
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
 
+// EdgeAuthEmailJSONRequestBody defines body for EdgeAuthEmail for application/json ContentType.
+type EdgeAuthEmailJSONRequestBody EdgeAuthEmailJSONBody
+
 // EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
 type EdgeReportJSONRequestBody EdgeReportJSONBody
 
@@ -9167,6 +9450,21 @@ type PaymentWebhookJSONRequestBody PaymentWebhookJSONBody
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
+
+// UpdateAuthConfigJSONRequestBody defines body for UpdateAuthConfig for application/json ContentType.
+type UpdateAuthConfigJSONRequestBody = AuthConfigUpdate
+
+// TestAuthSMTPJSONRequestBody defines body for TestAuthSMTP for application/json ContentType.
+type TestAuthSMTPJSONRequestBody = AuthSMTPTest
+
+// PreviewAuthTemplateJSONRequestBody defines body for PreviewAuthTemplate for application/json ContentType.
+type PreviewAuthTemplateJSONRequestBody = AuthTemplatePreview
+
+// CreateAuthUserJSONRequestBody defines body for CreateAuthUser for application/json ContentType.
+type CreateAuthUserJSONRequestBody = AuthUserCreate
+
+// UpdateAuthUserJSONRequestBody defines body for UpdateAuthUser for application/json ContentType.
+type UpdateAuthUserJSONRequestBody = AuthUserUpdate
 
 // EnableProjectBackupKeyJSONRequestBody defines body for EnableProjectBackupKey for application/json ContentType.
 type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
@@ -10659,6 +10957,20 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperation(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// EdgeAuthEmailWithBody pgdock-edge asks for an auth email to be sent (signed; internal)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+	EdgeAuthEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+	EdgeAuthEmail(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
 	//
 	// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
@@ -11547,6 +11859,116 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/audit (the `ListProjectAudit` operationId).
 	ListProjectAudit(ctx context.Context, id ProjectID, params *ListProjectAuditParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAuthAudit The project's latest auth events
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/audit (the `ListAuthAudit` operationId).
+	ListAuthAudit(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuthConfig The project's auth settings, email templates and SMTP server (V4 §4)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/config (the `GetAuthConfig` operationId).
+	GetAuthConfig(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAuthConfigWithBody Change auth settings, templates or the project's SMTP server
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+	UpdateAuthConfigWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAuthConfig Change auth settings, templates or the project's SMTP server
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+	UpdateAuthConfig(ctx context.Context, id ProjectID, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSigningKeys The keys access tokens are signed and verified with
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/signing-keys (the `ListSigningKeys` operationId).
+	ListSigningKeys(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateSigningKey Sign with a new key; the old one verifies until its tokens expire
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/signing-keys/rotate (the `RotateSigningKey` operationId).
+	RotateSigningKey(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestAuthSMTPWithBody Send a test email through the project's SMTP server (or the settings given)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+	TestAuthSMTPWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestAuthSMTP Send a test email through the project's SMTP server (or the settings given)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+	TestAuthSMTP(ctx context.Context, id ProjectID, body TestAuthSMTPJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewAuthTemplateWithBody Render an email template with sample values
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+	PreviewAuthTemplateWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewAuthTemplate Render an email template with sample values
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+	PreviewAuthTemplate(ctx context.Context, id ProjectID, body PreviewAuthTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAuthUsers The project's app users (search by email, phone or id)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/users (the `ListAuthUsers` operationId).
+	ListAuthUsers(ctx context.Context, id ProjectID, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAuthUserWithBody Invite a user, or add one with a password
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+	CreateAuthUserWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAuthUser Invite a user, or add one with a password
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+	CreateAuthUser(ctx context.Context, id ProjectID, body CreateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAuthUser Delete a user (their sessions end; rows referencing them follow the foreign keys)
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/auth/users/{userId} (the `DeleteAuthUser` operationId).
+	DeleteAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuthUser A user with their identities, sessions and audit log
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/users/{userId} (the `GetAuthUser` operationId).
+	GetAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAuthUserWithBody Ban, unban or confirm a user, or change their metadata
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+	UpdateAuthUserWithBody(ctx context.Context, id ProjectID, userId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAuthUser Ban, unban or confirm a user, or change their metadata
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+	UpdateAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, body UpdateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SignOutAuthUser End all of a user's sessions
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/users/{userId}/signout (the `SignOutAuthUser` operationId).
+	SignOutAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EnableProjectBackupKeyWithBody Give the project its own backup key
 	//
@@ -16069,6 +16491,40 @@ func (c *Client) CreateDevOperation(ctx context.Context, body CreateDevOperation
 	return c.Client.Do(req)
 }
 
+// EdgeAuthEmailWithBody pgdock-edge asks for an auth email to be sent (signed; internal)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+func (c *Client) EdgeAuthEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeAuthEmailRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+func (c *Client) EdgeAuthEmail(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeAuthEmailRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
 //
 // Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
@@ -18318,6 +18774,296 @@ func (c *Client) GetProject(ctx context.Context, id ProjectID, reqEditors ...Req
 // Corresponds with GET /api/v1/projects/{id}/audit (the `ListProjectAudit` operationId).
 func (c *Client) ListProjectAudit(ctx context.Context, id ProjectID, params *ListProjectAuditParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectAuditRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAuthAudit The project's latest auth events
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/audit (the `ListAuthAudit` operationId).
+func (c *Client) ListAuthAudit(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuthAuditRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAuthConfig The project's auth settings, email templates and SMTP server (V4 §4)
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/config (the `GetAuthConfig` operationId).
+func (c *Client) GetAuthConfig(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuthConfigRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateAuthConfigWithBody Change auth settings, templates or the project's SMTP server
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+func (c *Client) UpdateAuthConfigWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthConfigRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateAuthConfig Change auth settings, templates or the project's SMTP server
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+func (c *Client) UpdateAuthConfig(ctx context.Context, id ProjectID, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthConfigRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListSigningKeys The keys access tokens are signed and verified with
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/signing-keys (the `ListSigningKeys` operationId).
+func (c *Client) ListSigningKeys(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSigningKeysRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RotateSigningKey Sign with a new key; the old one verifies until its tokens expire
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/signing-keys/rotate (the `RotateSigningKey` operationId).
+func (c *Client) RotateSigningKey(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateSigningKeyRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// TestAuthSMTPWithBody Send a test email through the project's SMTP server (or the settings given)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+func (c *Client) TestAuthSMTPWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestAuthSMTPRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// TestAuthSMTP Send a test email through the project's SMTP server (or the settings given)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+func (c *Client) TestAuthSMTP(ctx context.Context, id ProjectID, body TestAuthSMTPJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestAuthSMTPRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewAuthTemplateWithBody Render an email template with sample values
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+func (c *Client) PreviewAuthTemplateWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewAuthTemplateRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewAuthTemplate Render an email template with sample values
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+func (c *Client) PreviewAuthTemplate(ctx context.Context, id ProjectID, body PreviewAuthTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewAuthTemplateRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAuthUsers The project's app users (search by email, phone or id)
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/users (the `ListAuthUsers` operationId).
+func (c *Client) ListAuthUsers(ctx context.Context, id ProjectID, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuthUsersRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAuthUserWithBody Invite a user, or add one with a password
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+func (c *Client) CreateAuthUserWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuthUserRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAuthUser Invite a user, or add one with a password
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+func (c *Client) CreateAuthUser(ctx context.Context, id ProjectID, body CreateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuthUserRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteAuthUser Delete a user (their sessions end; rows referencing them follow the foreign keys)
+//
+// Corresponds with DELETE /api/v1/projects/{id}/auth/users/{userId} (the `DeleteAuthUser` operationId).
+func (c *Client) DeleteAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAuthUserRequest(c.Server, id, userId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAuthUser A user with their identities, sessions and audit log
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/users/{userId} (the `GetAuthUser` operationId).
+func (c *Client) GetAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuthUserRequest(c.Server, id, userId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateAuthUserWithBody Ban, unban or confirm a user, or change their metadata
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+func (c *Client) UpdateAuthUserWithBody(ctx context.Context, id ProjectID, userId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthUserRequestWithBody(c.Server, id, userId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateAuthUser Ban, unban or confirm a user, or change their metadata
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+func (c *Client) UpdateAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, body UpdateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthUserRequest(c.Server, id, userId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SignOutAuthUser End all of a user's sessions
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/users/{userId}/signout (the `SignOutAuthUser` operationId).
+func (c *Client) SignOutAuthUser(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSignOutAuthUserRequest(c.Server, id, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -26699,6 +27445,46 @@ func NewCreateDevOperationRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
+// NewEdgeAuthEmailRequest calls the generic EdgeAuthEmail builder with application/json body
+func NewEdgeAuthEmailRequest(server string, body EdgeAuthEmailJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEdgeAuthEmailRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEdgeAuthEmailRequestWithBody constructs an http.Request for the EdgeAuthEmail method, with any body, and a specified content type
+func NewEdgeAuthEmailRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/edge/auth-email")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewEdgeConfigRequest constructs an http.Request for the EdgeConfig method
 func NewEdgeConfigRequest(server string, params *EdgeConfigParams) (*http.Request, error) {
 	var err error
@@ -31080,6 +31866,592 @@ func NewListProjectAuditRequest(server string, id ProjectID, params *ListProject
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAuthAuditRequest constructs an http.Request for the ListAuthAudit method
+func NewListAuthAuditRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/audit", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAuthConfigRequest constructs an http.Request for the GetAuthConfig method
+func NewGetAuthConfigRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/config", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAuthConfigRequest calls the generic UpdateAuthConfig builder with application/json body
+func NewUpdateAuthConfigRequest(server string, id ProjectID, body UpdateAuthConfigJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAuthConfigRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateAuthConfigRequestWithBody constructs an http.Request for the UpdateAuthConfig method, with any body, and a specified content type
+func NewUpdateAuthConfigRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/config", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListSigningKeysRequest constructs an http.Request for the ListSigningKeys method
+func NewListSigningKeysRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/signing-keys", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRotateSigningKeyRequest constructs an http.Request for the RotateSigningKey method
+func NewRotateSigningKeyRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/signing-keys/rotate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewTestAuthSMTPRequest calls the generic TestAuthSMTP builder with application/json body
+func NewTestAuthSMTPRequest(server string, id ProjectID, body TestAuthSMTPJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTestAuthSMTPRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewTestAuthSMTPRequestWithBody constructs an http.Request for the TestAuthSMTP method, with any body, and a specified content type
+func NewTestAuthSMTPRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/smtp/test", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPreviewAuthTemplateRequest calls the generic PreviewAuthTemplate builder with application/json body
+func NewPreviewAuthTemplateRequest(server string, id ProjectID, body PreviewAuthTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewAuthTemplateRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPreviewAuthTemplateRequestWithBody constructs an http.Request for the PreviewAuthTemplate method, with any body, and a specified content type
+func NewPreviewAuthTemplateRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/templates/preview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAuthUsersRequest constructs an http.Request for the ListAuthUsers method
+func NewListAuthUsersRequest(server string, id ProjectID, params *ListAuthUsersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/users", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PerPage != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "per_page", *params.PerPage, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAuthUserRequest calls the generic CreateAuthUser builder with application/json body
+func NewCreateAuthUserRequest(server string, id ProjectID, body CreateAuthUserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAuthUserRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateAuthUserRequestWithBody constructs an http.Request for the CreateAuthUser method, with any body, and a specified content type
+func NewCreateAuthUserRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/users", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteAuthUserRequest constructs an http.Request for the DeleteAuthUser method
+func NewDeleteAuthUserRequest(server string, id ProjectID, userId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userId", userId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/users/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAuthUserRequest constructs an http.Request for the GetAuthUser method
+func NewGetAuthUserRequest(server string, id ProjectID, userId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userId", userId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/users/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAuthUserRequest calls the generic UpdateAuthUser builder with application/json body
+func NewUpdateAuthUserRequest(server string, id ProjectID, userId openapi_types.UUID, body UpdateAuthUserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAuthUserRequestWithBody(server, id, userId, "application/json", bodyReader)
+}
+
+// NewUpdateAuthUserRequestWithBody constructs an http.Request for the UpdateAuthUser method, with any body, and a specified content type
+func NewUpdateAuthUserRequestWithBody(server string, id ProjectID, userId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userId", userId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/users/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSignOutAuthUserRequest constructs an http.Request for the SignOutAuthUser method
+func NewSignOutAuthUserRequest(server string, id ProjectID, userId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userId", userId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/users/%s/signout", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -38109,6 +39481,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperationWithResponse(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDevOperationResponse, error)
 
+	// EdgeAuthEmailWithBodyWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+	EdgeAuthEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error)
+
+	// EdgeAuthEmailWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+	EdgeAuthEmailWithResponse(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error)
+
 	// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -39129,6 +40515,132 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/audit (the `ListProjectAudit` operationId).
 	ListProjectAuditWithResponse(ctx context.Context, id ProjectID, params *ListProjectAuditParams, reqEditors ...RequestEditorFn) (*ListProjectAuditResponse, error)
+
+	// ListAuthAuditWithResponse The project's latest auth events
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/audit (the `ListAuthAudit` operationId).
+	ListAuthAuditWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListAuthAuditResponse, error)
+
+	// GetAuthConfigWithResponse The project's auth settings, email templates and SMTP server (V4 §4)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/config (the `GetAuthConfig` operationId).
+	GetAuthConfigWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetAuthConfigResponse, error)
+
+	// UpdateAuthConfigWithBodyWithResponse Change auth settings, templates or the project's SMTP server
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+	UpdateAuthConfigWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthConfigResponse, error)
+
+	// UpdateAuthConfigWithResponse Change auth settings, templates or the project's SMTP server
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+	UpdateAuthConfigWithResponse(ctx context.Context, id ProjectID, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthConfigResponse, error)
+
+	// ListSigningKeysWithResponse The keys access tokens are signed and verified with
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/signing-keys (the `ListSigningKeys` operationId).
+	ListSigningKeysWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListSigningKeysResponse, error)
+
+	// RotateSigningKeyWithResponse Sign with a new key; the old one verifies until its tokens expire
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/signing-keys/rotate (the `RotateSigningKey` operationId).
+	RotateSigningKeyWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*RotateSigningKeyResponse, error)
+
+	// TestAuthSMTPWithBodyWithResponse Send a test email through the project's SMTP server (or the settings given)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+	TestAuthSMTPWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestAuthSMTPResponse, error)
+
+	// TestAuthSMTPWithResponse Send a test email through the project's SMTP server (or the settings given)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+	TestAuthSMTPWithResponse(ctx context.Context, id ProjectID, body TestAuthSMTPJSONRequestBody, reqEditors ...RequestEditorFn) (*TestAuthSMTPResponse, error)
+
+	// PreviewAuthTemplateWithBodyWithResponse Render an email template with sample values
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+	PreviewAuthTemplateWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewAuthTemplateResponse, error)
+
+	// PreviewAuthTemplateWithResponse Render an email template with sample values
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+	PreviewAuthTemplateWithResponse(ctx context.Context, id ProjectID, body PreviewAuthTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewAuthTemplateResponse, error)
+
+	// ListAuthUsersWithResponse The project's app users (search by email, phone or id)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/users (the `ListAuthUsers` operationId).
+	ListAuthUsersWithResponse(ctx context.Context, id ProjectID, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*ListAuthUsersResponse, error)
+
+	// CreateAuthUserWithBodyWithResponse Invite a user, or add one with a password
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+	CreateAuthUserWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuthUserResponse, error)
+
+	// CreateAuthUserWithResponse Invite a user, or add one with a password
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+	CreateAuthUserWithResponse(ctx context.Context, id ProjectID, body CreateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuthUserResponse, error)
+
+	// DeleteAuthUserWithResponse Delete a user (their sessions end; rows referencing them follow the foreign keys)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/auth/users/{userId} (the `DeleteAuthUser` operationId).
+	DeleteAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAuthUserResponse, error)
+
+	// GetAuthUserWithResponse A user with their identities, sessions and audit log
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/users/{userId} (the `GetAuthUser` operationId).
+	GetAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAuthUserResponse, error)
+
+	// UpdateAuthUserWithBodyWithResponse Ban, unban or confirm a user, or change their metadata
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+	UpdateAuthUserWithBodyWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthUserResponse, error)
+
+	// UpdateAuthUserWithResponse Ban, unban or confirm a user, or change their metadata
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+	UpdateAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, body UpdateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthUserResponse, error)
+
+	// SignOutAuthUserWithResponse End all of a user's sessions
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/auth/users/{userId}/signout (the `SignOutAuthUser` operationId).
+	SignOutAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SignOutAuthUserResponse, error)
 
 	// EnableProjectBackupKeyWithBodyWithResponse Give the project its own backup key
 	//
@@ -46595,6 +48107,47 @@ func (r CreateDevOperationResponse) ContentType() string {
 	return ""
 }
 
+type EdgeAuthEmailResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EdgeAuthEmailResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EdgeAuthEmailResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EdgeAuthEmailResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EdgeAuthEmailResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EdgeAuthEmailResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type EdgeConfigResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -51339,6 +52892,616 @@ func (r ListProjectAuditResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListProjectAuditResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAuthAuditResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthAuditList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuthAuditResponse) GetJSON200() *AuthAuditList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListAuthAuditResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAuthAuditResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuthAuditResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuthAuditResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuthAuditResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAuthConfigResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthConfig
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAuthConfigResponse) GetJSON200() *AuthConfig {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetAuthConfigResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAuthConfigResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuthConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuthConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuthConfigResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAuthConfigResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthConfig
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateAuthConfigResponse) GetJSON200() *AuthConfig {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateAuthConfigResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateAuthConfigResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAuthConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAuthConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAuthConfigResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSigningKeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SigningKeyList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListSigningKeysResponse) GetJSON200() *SigningKeyList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListSigningKeysResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListSigningKeysResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSigningKeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSigningKeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSigningKeysResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RotateSigningKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SigningKeyList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RotateSigningKeyResponse) GetJSON200() *SigningKeyList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RotateSigningKeyResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RotateSigningKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateSigningKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateSigningKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RotateSigningKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type TestAuthSMTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r TestAuthSMTPResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r TestAuthSMTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r TestAuthSMTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestAuthSMTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r TestAuthSMTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewAuthTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthEmailTemplate
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewAuthTemplateResponse) GetJSON200() *AuthEmailTemplate {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PreviewAuthTemplateResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewAuthTemplateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewAuthTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewAuthTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewAuthTemplateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAuthUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthUserList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuthUsersResponse) GetJSON200() *AuthUserList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListAuthUsersResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAuthUsersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuthUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuthUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuthUsersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateAuthUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *AuthUser
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateAuthUserResponse) GetJSON201() *AuthUser {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateAuthUserResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateAuthUserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAuthUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAuthUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAuthUserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAuthUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteAuthUserResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteAuthUserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAuthUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAuthUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAuthUserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAuthUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthUserDetail
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAuthUserResponse) GetJSON200() *AuthUserDetail {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetAuthUserResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAuthUserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuthUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuthUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuthUserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAuthUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthUser
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateAuthUserResponse) GetJSON200() *AuthUser {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateAuthUserResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateAuthUserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAuthUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAuthUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAuthUserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SignOutAuthUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthSignOutResult
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SignOutAuthUserResponse) GetJSON200() *AuthSignOutResult {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SignOutAuthUserResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SignOutAuthUserResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SignOutAuthUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SignOutAuthUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SignOutAuthUserResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -59779,6 +61942,32 @@ func (c *ClientWithResponses) CreateDevOperationWithResponse(ctx context.Context
 	return ParseCreateDevOperationResponse(rsp)
 }
 
+// EdgeAuthEmailWithBodyWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+func (c *ClientWithResponses) EdgeAuthEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error) {
+	rsp, err := c.EdgeAuthEmailWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeAuthEmailResponse(rsp)
+}
+
+// EdgeAuthEmailWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
+func (c *ClientWithResponses) EdgeAuthEmailWithResponse(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error) {
+	rsp, err := c.EdgeAuthEmail(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeAuthEmailResponse(rsp)
+}
+
 // EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -61620,6 +63809,240 @@ func (c *ClientWithResponses) ListProjectAuditWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseListProjectAuditResponse(rsp)
+}
+
+// ListAuthAuditWithResponse The project's latest auth events
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/audit (the `ListAuthAudit` operationId).
+func (c *ClientWithResponses) ListAuthAuditWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListAuthAuditResponse, error) {
+	rsp, err := c.ListAuthAudit(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuthAuditResponse(rsp)
+}
+
+// GetAuthConfigWithResponse The project's auth settings, email templates and SMTP server (V4 §4)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/config (the `GetAuthConfig` operationId).
+func (c *ClientWithResponses) GetAuthConfigWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetAuthConfigResponse, error) {
+	rsp, err := c.GetAuthConfig(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuthConfigResponse(rsp)
+}
+
+// UpdateAuthConfigWithBodyWithResponse Change auth settings, templates or the project's SMTP server
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+func (c *ClientWithResponses) UpdateAuthConfigWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthConfigResponse, error) {
+	rsp, err := c.UpdateAuthConfigWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthConfigResponse(rsp)
+}
+
+// UpdateAuthConfigWithResponse Change auth settings, templates or the project's SMTP server
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
+func (c *ClientWithResponses) UpdateAuthConfigWithResponse(ctx context.Context, id ProjectID, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthConfigResponse, error) {
+	rsp, err := c.UpdateAuthConfig(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthConfigResponse(rsp)
+}
+
+// ListSigningKeysWithResponse The keys access tokens are signed and verified with
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/signing-keys (the `ListSigningKeys` operationId).
+func (c *ClientWithResponses) ListSigningKeysWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListSigningKeysResponse, error) {
+	rsp, err := c.ListSigningKeys(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSigningKeysResponse(rsp)
+}
+
+// RotateSigningKeyWithResponse Sign with a new key; the old one verifies until its tokens expire
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/signing-keys/rotate (the `RotateSigningKey` operationId).
+func (c *ClientWithResponses) RotateSigningKeyWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*RotateSigningKeyResponse, error) {
+	rsp, err := c.RotateSigningKey(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateSigningKeyResponse(rsp)
+}
+
+// TestAuthSMTPWithBodyWithResponse Send a test email through the project's SMTP server (or the settings given)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+func (c *ClientWithResponses) TestAuthSMTPWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestAuthSMTPResponse, error) {
+	rsp, err := c.TestAuthSMTPWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestAuthSMTPResponse(rsp)
+}
+
+// TestAuthSMTPWithResponse Send a test email through the project's SMTP server (or the settings given)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/smtp/test (the `TestAuthSMTP` operationId).
+func (c *ClientWithResponses) TestAuthSMTPWithResponse(ctx context.Context, id ProjectID, body TestAuthSMTPJSONRequestBody, reqEditors ...RequestEditorFn) (*TestAuthSMTPResponse, error) {
+	rsp, err := c.TestAuthSMTP(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestAuthSMTPResponse(rsp)
+}
+
+// PreviewAuthTemplateWithBodyWithResponse Render an email template with sample values
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+func (c *ClientWithResponses) PreviewAuthTemplateWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewAuthTemplateResponse, error) {
+	rsp, err := c.PreviewAuthTemplateWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewAuthTemplateResponse(rsp)
+}
+
+// PreviewAuthTemplateWithResponse Render an email template with sample values
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/templates/preview (the `PreviewAuthTemplate` operationId).
+func (c *ClientWithResponses) PreviewAuthTemplateWithResponse(ctx context.Context, id ProjectID, body PreviewAuthTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewAuthTemplateResponse, error) {
+	rsp, err := c.PreviewAuthTemplate(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewAuthTemplateResponse(rsp)
+}
+
+// ListAuthUsersWithResponse The project's app users (search by email, phone or id)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/users (the `ListAuthUsers` operationId).
+func (c *ClientWithResponses) ListAuthUsersWithResponse(ctx context.Context, id ProjectID, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*ListAuthUsersResponse, error) {
+	rsp, err := c.ListAuthUsers(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuthUsersResponse(rsp)
+}
+
+// CreateAuthUserWithBodyWithResponse Invite a user, or add one with a password
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+func (c *ClientWithResponses) CreateAuthUserWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuthUserResponse, error) {
+	rsp, err := c.CreateAuthUserWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuthUserResponse(rsp)
+}
+
+// CreateAuthUserWithResponse Invite a user, or add one with a password
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/users (the `CreateAuthUser` operationId).
+func (c *ClientWithResponses) CreateAuthUserWithResponse(ctx context.Context, id ProjectID, body CreateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuthUserResponse, error) {
+	rsp, err := c.CreateAuthUser(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuthUserResponse(rsp)
+}
+
+// DeleteAuthUserWithResponse Delete a user (their sessions end; rows referencing them follow the foreign keys)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/auth/users/{userId} (the `DeleteAuthUser` operationId).
+func (c *ClientWithResponses) DeleteAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAuthUserResponse, error) {
+	rsp, err := c.DeleteAuthUser(ctx, id, userId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAuthUserResponse(rsp)
+}
+
+// GetAuthUserWithResponse A user with their identities, sessions and audit log
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/users/{userId} (the `GetAuthUser` operationId).
+func (c *ClientWithResponses) GetAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAuthUserResponse, error) {
+	rsp, err := c.GetAuthUser(ctx, id, userId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuthUserResponse(rsp)
+}
+
+// UpdateAuthUserWithBodyWithResponse Ban, unban or confirm a user, or change their metadata
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+func (c *ClientWithResponses) UpdateAuthUserWithBodyWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthUserResponse, error) {
+	rsp, err := c.UpdateAuthUserWithBody(ctx, id, userId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthUserResponse(rsp)
+}
+
+// UpdateAuthUserWithResponse Ban, unban or confirm a user, or change their metadata
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/auth/users/{userId} (the `UpdateAuthUser` operationId).
+func (c *ClientWithResponses) UpdateAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, body UpdateAuthUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthUserResponse, error) {
+	rsp, err := c.UpdateAuthUser(ctx, id, userId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthUserResponse(rsp)
+}
+
+// SignOutAuthUserWithResponse End all of a user's sessions
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/auth/users/{userId}/signout (the `SignOutAuthUser` operationId).
+func (c *ClientWithResponses) SignOutAuthUserWithResponse(ctx context.Context, id ProjectID, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SignOutAuthUserResponse, error) {
+	rsp, err := c.SignOutAuthUser(ctx, id, userId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSignOutAuthUserResponse(rsp)
 }
 
 // EnableProjectBackupKeyWithBodyWithResponse Give the project its own backup key
@@ -68323,6 +70746,35 @@ func ParseCreateDevOperationResponse(rsp *http.Response) (*CreateDevOperationRes
 	return response, nil
 }
 
+// ParseEdgeAuthEmailResponse parses an HTTP response from a EdgeAuthEmailWithResponse call
+func ParseEdgeAuthEmailResponse(rsp *http.Response) (*EdgeAuthEmailResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EdgeAuthEmailResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 202:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseEdgeConfigResponse parses an HTTP response from a EdgeConfigWithResponse call
 func ParseEdgeConfigResponse(rsp *http.Response) (*EdgeConfigResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -71586,6 +74038,427 @@ func ParseListProjectAuditResponse(rsp *http.Response) (*ListProjectAuditRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AuditList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAuthAuditResponse parses an HTTP response from a ListAuthAuditWithResponse call
+func ParseListAuthAuditResponse(rsp *http.Response) (*ListAuthAuditResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuthAuditResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthAuditList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAuthConfigResponse parses an HTTP response from a GetAuthConfigWithResponse call
+func ParseGetAuthConfigResponse(rsp *http.Response) (*GetAuthConfigResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuthConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAuthConfigResponse parses an HTTP response from a UpdateAuthConfigWithResponse call
+func ParseUpdateAuthConfigResponse(rsp *http.Response) (*UpdateAuthConfigResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAuthConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSigningKeysResponse parses an HTTP response from a ListSigningKeysWithResponse call
+func ParseListSigningKeysResponse(rsp *http.Response) (*ListSigningKeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSigningKeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SigningKeyList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateSigningKeyResponse parses an HTTP response from a RotateSigningKeyWithResponse call
+func ParseRotateSigningKeyResponse(rsp *http.Response) (*RotateSigningKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateSigningKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SigningKeyList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestAuthSMTPResponse parses an HTTP response from a TestAuthSMTPWithResponse call
+func ParseTestAuthSMTPResponse(rsp *http.Response) (*TestAuthSMTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestAuthSMTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewAuthTemplateResponse parses an HTTP response from a PreviewAuthTemplateWithResponse call
+func ParsePreviewAuthTemplateResponse(rsp *http.Response) (*PreviewAuthTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewAuthTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthEmailTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAuthUsersResponse parses an HTTP response from a ListAuthUsersWithResponse call
+func ParseListAuthUsersResponse(rsp *http.Response) (*ListAuthUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuthUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthUserList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAuthUserResponse parses an HTTP response from a CreateAuthUserWithResponse call
+func ParseCreateAuthUserResponse(rsp *http.Response) (*CreateAuthUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAuthUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AuthUser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAuthUserResponse parses an HTTP response from a DeleteAuthUserWithResponse call
+func ParseDeleteAuthUserResponse(rsp *http.Response) (*DeleteAuthUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAuthUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAuthUserResponse parses an HTTP response from a GetAuthUserWithResponse call
+func ParseGetAuthUserResponse(rsp *http.Response) (*GetAuthUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuthUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthUserDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAuthUserResponse parses an HTTP response from a UpdateAuthUserWithResponse call
+func ParseUpdateAuthUserResponse(rsp *http.Response) (*UpdateAuthUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAuthUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthUser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSignOutAuthUserResponse parses an HTTP response from a SignOutAuthUserWithResponse call
+func ParseSignOutAuthUserResponse(rsp *http.Response) (*SignOutAuthUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SignOutAuthUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthSignOutResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

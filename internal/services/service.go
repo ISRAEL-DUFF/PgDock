@@ -24,6 +24,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -64,11 +65,14 @@ type Service struct {
 	log      *slog.Logger
 	// Waker resumes a paused project (the free tier, V3 §4.2).
 	Waker func(ctx context.Context, projectID uuid.UUID) error
+	// Mail is the platform's email, for projects without their own SMTP.
+	Mail      *mail.Service
+	emailKick chan struct{}
 }
 
 // New returns the service.
 func New(db *pgxpool.Pool, projects *provision.Service, cfg Config, log *slog.Logger) *Service {
-	return &Service{db: db, keyring: projects.Keyring(), projects: projects, cfg: cfg, log: log}
+	return &Service{db: db, keyring: projects.Keyring(), projects: projects, cfg: cfg, log: log, emailKick: make(chan struct{}, 1)}
 }
 
 // Kinds are the operations it runs.
@@ -706,6 +710,12 @@ func (s *Service) Run(ctx context.Context, every time.Duration) {
 		}
 		if _, err := q.PruneEdgeReports(ctx, time.Now().Add(-7*24*time.Hour)); err != nil && ctx.Err() == nil {
 			s.log.Warn("pruning edge reports", "err", err)
+		}
+		if _, err := q.RetireJWTKeys(ctx); err != nil && ctx.Err() == nil {
+			s.log.Warn("retiring signing keys", "err", err)
+		}
+		if _, err := q.PruneAuthEmails(ctx, time.Now().Add(-7*24*time.Hour)); err != nil && ctx.Err() == nil {
+			s.log.Warn("pruning auth emails", "err", err)
 		}
 		select {
 		case <-ctx.Done():

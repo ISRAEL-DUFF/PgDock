@@ -323,6 +323,54 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AuthSMTPTls.
+const (
+	AuthSMTPTlsNone     AuthSMTPTls = "none"
+	AuthSMTPTlsStarttls AuthSMTPTls = "starttls"
+	AuthSMTPTlsTls      AuthSMTPTls = "tls"
+)
+
+// Valid indicates whether the value is a known member of the AuthSMTPTls enum.
+func (e AuthSMTPTls) Valid() bool {
+	switch e {
+	case AuthSMTPTlsNone:
+		return true
+	case AuthSMTPTlsStarttls:
+		return true
+	case AuthSMTPTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthTemplatePreviewKind.
+const (
+	Confirmation AuthTemplatePreviewKind = "confirmation"
+	EmailChange  AuthTemplatePreviewKind = "email_change"
+	Invite       AuthTemplatePreviewKind = "invite"
+	MagicLink    AuthTemplatePreviewKind = "magic_link"
+	Recovery     AuthTemplatePreviewKind = "recovery"
+)
+
+// Valid indicates whether the value is a known member of the AuthTemplatePreviewKind enum.
+func (e AuthTemplatePreviewKind) Valid() bool {
+	switch e {
+	case Confirmation:
+		return true
+	case EmailChange:
+		return true
+	case Invite:
+		return true
+	case MagicLink:
+		return true
+	case Recovery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupEncryption.
 const (
 	BackupEncryptionInstance BackupEncryption = "instance"
@@ -2288,6 +2336,27 @@ func (e SessionStateSignupMode) Valid() bool {
 	}
 }
 
+// Defines values for SigningKeyStatus.
+const (
+	SigningKeyStatusActive    SigningKeyStatus = "active"
+	SigningKeyStatusRetired   SigningKeyStatus = "retired"
+	SigningKeyStatusVerifying SigningKeyStatus = "verifying"
+)
+
+// Valid indicates whether the value is a known member of the SigningKeyStatus enum.
+func (e SigningKeyStatus) Valid() bool {
+	switch e {
+	case SigningKeyStatusActive:
+		return true
+	case SigningKeyStatusRetired:
+		return true
+	case SigningKeyStatusVerifying:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SignupSettingsMode.
 const (
 	SignupSettingsModeApproval   SignupSettingsMode = "approval"
@@ -3888,6 +3957,189 @@ type AuditEntryOutcome string
 type AuditList struct {
 	Items      []AuditEntry `json:"items"`
 	NextBefore *int64       `json:"next_before,omitempty"`
+}
+
+// AuthAuditEntry defines model for AuthAuditEntry.
+type AuthAuditEntry struct {
+	Action  string                 `json:"action"`
+	At      time.Time              `json:"at"`
+	Details map[string]interface{} `json:"details"`
+	Id      int64                  `json:"id"`
+	Ip      *string                `json:"ip,omitempty"`
+	UserId  *openapi_types.UUID    `json:"user_id,omitempty"`
+}
+
+// AuthAuditList defines model for AuthAuditList.
+type AuthAuditList struct {
+	Items []AuthAuditEntry `json:"items"`
+}
+
+// AuthConfig defines model for AuthConfig.
+type AuthConfig struct {
+	// AuthUrl The project's auth API, https://<ref>.<domain>/auth/v1.
+	AuthUrl          string                       `json:"auth_url"`
+	DefaultTemplates map[string]AuthEmailTemplate `json:"default_templates"`
+	Email            struct {
+		Failed24h       int  `json:"failed_24h"`
+		OwnSmtp         bool `json:"own_smtp"`
+		PlatformLeft    int  `json:"platform_left"`
+		PlatformPerHour int  `json:"platform_per_hour"`
+		Sent24h         int  `json:"sent_24h"`
+	} `json:"email"`
+	MonthlyActiveUsers int64                        `json:"monthly_active_users"`
+	Settings           AuthSettings                 `json:"settings"`
+	Smtp               *AuthSMTP                    `json:"smtp,omitempty"`
+	Templates          map[string]AuthEmailTemplate `json:"templates"`
+}
+
+// AuthConfigUpdate defines model for AuthConfigUpdate.
+type AuthConfigUpdate struct {
+	ClearSmtp *bool         `json:"clear_smtp,omitempty"`
+	Settings  *AuthSettings `json:"settings,omitempty"`
+	Smtp      *AuthSMTP     `json:"smtp,omitempty"`
+
+	// Templates Overrides by kind; an empty subject and body goes back to the default.
+	Templates *map[string]AuthEmailTemplate `json:"templates,omitempty"`
+}
+
+// AuthEmailTemplate defines model for AuthEmailTemplate.
+type AuthEmailTemplate struct {
+	Body    string `json:"body"`
+	Subject string `json:"subject"`
+}
+
+// AuthIdentity defines model for AuthIdentity.
+type AuthIdentity struct {
+	CreatedAt    time.Time          `json:"created_at"`
+	Id           openapi_types.UUID `json:"id"`
+	LastSignInAt *time.Time         `json:"last_sign_in_at,omitempty"`
+	Provider     string             `json:"provider"`
+	ProviderId   string             `json:"provider_id"`
+}
+
+// AuthSMTP defines model for AuthSMTP.
+type AuthSMTP struct {
+	From string `json:"from"`
+	Host string `json:"host"`
+
+	// Password Write only; empty keeps the stored one.
+	Password *string      `json:"password,omitempty"`
+	Port     *int         `json:"port,omitempty"`
+	Tls      *AuthSMTPTls `json:"tls,omitempty"`
+	Username *string      `json:"username,omitempty"`
+}
+
+// AuthSMTPTls defines model for AuthSMTP.Tls.
+type AuthSMTPTls string
+
+// AuthSMTPTest defines model for AuthSMTPTest.
+type AuthSMTPTest struct {
+	Smtp *AuthSMTP `json:"smtp,omitempty"`
+	To   string    `json:"to"`
+}
+
+// AuthSession defines model for AuthSession.
+type AuthSession struct {
+	Aal         string             `json:"aal"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Id          openapi_types.UUID `json:"id"`
+	Ip          *string            `json:"ip,omitempty"`
+	NotAfter    *time.Time         `json:"not_after,omitempty"`
+	RefreshedAt time.Time          `json:"refreshed_at"`
+	UserAgent   *string            `json:"user_agent,omitempty"`
+}
+
+// AuthSettings defines model for AuthSettings.
+type AuthSettings struct {
+	// AccessTokenTtl Seconds, 300 to 86400.
+	AccessTokenTtl         *int  `json:"access_token_ttl,omitempty"`
+	AllowWildcardRedirects *bool `json:"allow_wildcard_redirects,omitempty"`
+
+	// EmailConfirm New addresses must be confirmed before signing in.
+	EmailConfirm             *bool     `json:"email_confirm,omitempty"`
+	MagicLinkEnabled         *bool     `json:"magic_link_enabled,omitempty"`
+	PasswordMinLength        *int      `json:"password_min_length,omitempty"`
+	PasswordRequireMixed     *bool     `json:"password_require_mixed,omitempty"`
+	RedirectUrls             *[]string `json:"redirect_urls,omitempty"`
+	SessionInactivitySeconds *int      `json:"session_inactivity_seconds,omitempty"`
+	SessionMaxSeconds        *int      `json:"session_max_seconds,omitempty"`
+	SignupEnabled            *bool     `json:"signup_enabled,omitempty"`
+	SingleSession            *bool     `json:"single_session,omitempty"`
+
+	// SiteUrl Where links go when a request names no redirect (and the base of allowed redirects).
+	SiteUrl *string `json:"site_url,omitempty"`
+}
+
+// AuthSignOutResult defines model for AuthSignOutResult.
+type AuthSignOutResult struct {
+	SessionsEnded int64 `json:"sessions_ended"`
+}
+
+// AuthTemplatePreview defines model for AuthTemplatePreview.
+type AuthTemplatePreview struct {
+	Body    string                  `json:"body"`
+	Kind    AuthTemplatePreviewKind `json:"kind"`
+	Subject string                  `json:"subject"`
+}
+
+// AuthTemplatePreviewKind defines model for AuthTemplatePreview.Kind.
+type AuthTemplatePreviewKind string
+
+// AuthUser defines model for AuthUser.
+type AuthUser struct {
+	AppMetadata      map[string]interface{} `json:"app_metadata"`
+	BannedUntil      *time.Time             `json:"banned_until,omitempty"`
+	CreatedAt        time.Time              `json:"created_at"`
+	Email            *string                `json:"email,omitempty"`
+	EmailConfirmedAt *time.Time             `json:"email_confirmed_at,omitempty"`
+	Id               openapi_types.UUID     `json:"id"`
+	InvitedAt        *time.Time             `json:"invited_at,omitempty"`
+	IsAnonymous      bool                   `json:"is_anonymous"`
+	LastSignInAt     *time.Time             `json:"last_sign_in_at,omitempty"`
+	Phone            *string                `json:"phone,omitempty"`
+	PhoneConfirmedAt *time.Time             `json:"phone_confirmed_at,omitempty"`
+	UpdatedAt        time.Time              `json:"updated_at"`
+	UserMetadata     map[string]interface{} `json:"user_metadata"`
+}
+
+// AuthUserCreate defines model for AuthUserCreate.
+type AuthUserCreate struct {
+	Email        string `json:"email"`
+	EmailConfirm *bool  `json:"email_confirm,omitempty"`
+
+	// Invite Send an invitation link instead of setting a password.
+	Invite   *bool   `json:"invite,omitempty"`
+	Password *string `json:"password,omitempty"`
+}
+
+// AuthUserDetail defines model for AuthUserDetail.
+type AuthUserDetail struct {
+	Audit      []AuthAuditEntry `json:"audit"`
+	Identities []AuthIdentity   `json:"identities"`
+	Sessions   []AuthSession    `json:"sessions"`
+	User       AuthUser         `json:"user"`
+}
+
+// AuthUserList defines model for AuthUserList.
+type AuthUserList struct {
+	Items []AuthUser `json:"items"`
+	Stats struct {
+		Banned    int `json:"banned"`
+		Confirmed int `json:"confirmed"`
+		Sessions  int `json:"sessions"`
+		Users     int `json:"users"`
+	} `json:"stats"`
+	Total int `json:"total"`
+}
+
+// AuthUserUpdate defines model for AuthUserUpdate.
+type AuthUserUpdate struct {
+	AppMetadata *map[string]interface{} `json:"app_metadata,omitempty"`
+
+	// BanDuration "none" lifts a ban; otherwise a duration such as "24h" ("876000h" for good).
+	BanDuration  *string                 `json:"ban_duration,omitempty"`
+	EmailConfirm *bool                   `json:"email_confirm,omitempty"`
+	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
 // AutoTopup defines model for AutoTopup.
@@ -7379,6 +7631,24 @@ type SharedClusterRequest struct {
 	PgVersion *int `json:"pg_version,omitempty"`
 }
 
+// SigningKey defines model for SigningKey.
+type SigningKey struct {
+	CreatedAt   time.Time              `json:"created_at"`
+	Id          openapi_types.UUID     `json:"id"`
+	Kid         string                 `json:"kid"`
+	PublicJwk   map[string]interface{} `json:"public_jwk"`
+	Status      SigningKeyStatus       `json:"status"`
+	VerifyUntil *time.Time             `json:"verify_until,omitempty"`
+}
+
+// SigningKeyStatus defines model for SigningKey.Status.
+type SigningKeyStatus string
+
+// SigningKeyList defines model for SigningKeyList.
+type SigningKeyList struct {
+	Items []SigningKey `json:"items"`
+}
+
 // SignupRequest defines model for SignupRequest.
 type SignupRequest struct {
 	// Challenge The Turnstile token from the signup page, when the session state names a site key (V3 §7.4).
@@ -8567,6 +8837,9 @@ type GetBackupOverviewParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// EdgeAuthEmailJSONBody defines parameters for EdgeAuthEmail.
+type EdgeAuthEmailJSONBody map[string]interface{}
+
 // EdgeConfigParams defines parameters for EdgeConfig.
 type EdgeConfigParams struct {
 	Since *int64 `form:"since,omitempty" json:"since,omitempty"`
@@ -8715,6 +8988,13 @@ type ListProjectAuditParams struct {
 
 // ListProjectAuditParamsOutcome defines parameters for ListProjectAudit.
 type ListProjectAuditParamsOutcome string
+
+// ListAuthUsersParams defines parameters for ListAuthUsers.
+type ListAuthUsersParams struct {
+	Q       *string `form:"q,omitempty" json:"q,omitempty"`
+	Page    *int    `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int    `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
 
 // ListInsightQueriesParams defines parameters for ListInsightQueries.
 type ListInsightQueriesParams struct {
@@ -9059,6 +9339,9 @@ type RestoreBackupJSONRequestBody = RestoreRequest
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
 
+// EdgeAuthEmailJSONRequestBody defines body for EdgeAuthEmail for application/json ContentType.
+type EdgeAuthEmailJSONRequestBody EdgeAuthEmailJSONBody
+
 // EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
 type EdgeReportJSONRequestBody EdgeReportJSONBody
 
@@ -9163,6 +9446,21 @@ type PaymentWebhookJSONRequestBody PaymentWebhookJSONBody
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
+
+// UpdateAuthConfigJSONRequestBody defines body for UpdateAuthConfig for application/json ContentType.
+type UpdateAuthConfigJSONRequestBody = AuthConfigUpdate
+
+// TestAuthSMTPJSONRequestBody defines body for TestAuthSMTP for application/json ContentType.
+type TestAuthSMTPJSONRequestBody = AuthSMTPTest
+
+// PreviewAuthTemplateJSONRequestBody defines body for PreviewAuthTemplate for application/json ContentType.
+type PreviewAuthTemplateJSONRequestBody = AuthTemplatePreview
+
+// CreateAuthUserJSONRequestBody defines body for CreateAuthUser for application/json ContentType.
+type CreateAuthUserJSONRequestBody = AuthUserCreate
+
+// UpdateAuthUserJSONRequestBody defines body for UpdateAuthUser for application/json ContentType.
+type UpdateAuthUserJSONRequestBody = AuthUserUpdate
 
 // EnableProjectBackupKeyJSONRequestBody defines body for EnableProjectBackupKey for application/json ContentType.
 type EnableProjectBackupKeyJSONRequestBody = ProjectBackupKeyRequest
@@ -9691,6 +9989,9 @@ type ServerInterface interface {
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	// (POST /api/v1/dev/operations)
 	CreateDevOperation(w http.ResponseWriter, r *http.Request)
+	// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
+	// (POST /api/v1/edge/auth-email)
+	EdgeAuthEmail(w http.ResponseWriter, r *http.Request)
 	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
 	// (GET /api/v1/edge/config)
 	EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams)
@@ -9997,6 +10298,45 @@ type ServerInterface interface {
 	// ListProjectAudit The project's slice of its organisation's audit log
 	// (GET /api/v1/projects/{id}/audit)
 	ListProjectAudit(w http.ResponseWriter, r *http.Request, id ProjectID, params ListProjectAuditParams)
+	// ListAuthAudit The project's latest auth events
+	// (GET /api/v1/projects/{id}/auth/audit)
+	ListAuthAudit(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetAuthConfig The project's auth settings, email templates and SMTP server (V4 §4)
+	// (GET /api/v1/projects/{id}/auth/config)
+	GetAuthConfig(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpdateAuthConfig Change auth settings, templates or the project's SMTP server
+	// (PATCH /api/v1/projects/{id}/auth/config)
+	UpdateAuthConfig(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListSigningKeys The keys access tokens are signed and verified with
+	// (GET /api/v1/projects/{id}/auth/signing-keys)
+	ListSigningKeys(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// RotateSigningKey Sign with a new key; the old one verifies until its tokens expire
+	// (POST /api/v1/projects/{id}/auth/signing-keys/rotate)
+	RotateSigningKey(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// TestAuthSMTP Send a test email through the project's SMTP server (or the settings given)
+	// (POST /api/v1/projects/{id}/auth/smtp/test)
+	TestAuthSMTP(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// PreviewAuthTemplate Render an email template with sample values
+	// (POST /api/v1/projects/{id}/auth/templates/preview)
+	PreviewAuthTemplate(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListAuthUsers The project's app users (search by email, phone or id)
+	// (GET /api/v1/projects/{id}/auth/users)
+	ListAuthUsers(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAuthUsersParams)
+	// CreateAuthUser Invite a user, or add one with a password
+	// (POST /api/v1/projects/{id}/auth/users)
+	CreateAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteAuthUser Delete a user (their sessions end; rows referencing them follow the foreign keys)
+	// (DELETE /api/v1/projects/{id}/auth/users/{userId})
+	DeleteAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID)
+	// GetAuthUser A user with their identities, sessions and audit log
+	// (GET /api/v1/projects/{id}/auth/users/{userId})
+	GetAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID)
+	// UpdateAuthUser Ban, unban or confirm a user, or change their metadata
+	// (PATCH /api/v1/projects/{id}/auth/users/{userId})
+	UpdateAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID)
+	// SignOutAuthUser End all of a user's sessions
+	// (POST /api/v1/projects/{id}/auth/users/{userId}/signout)
+	SignOutAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID)
 	// EnableProjectBackupKey Give the project its own backup key
 	// (POST /api/v1/projects/{id}/backup-key)
 	EnableProjectBackupKey(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -11119,6 +11459,12 @@ func (_ Unimplemented) CreateDevOperation(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
+// (POST /api/v1/edge/auth-email)
+func (_ Unimplemented) EdgeAuthEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
 // (GET /api/v1/edge/config)
 func (_ Unimplemented) EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams) {
@@ -11728,6 +12074,84 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, id Pro
 // ListProjectAudit The project's slice of its organisation's audit log
 // (GET /api/v1/projects/{id}/audit)
 func (_ Unimplemented) ListProjectAudit(w http.ResponseWriter, r *http.Request, id ProjectID, params ListProjectAuditParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAuthAudit The project's latest auth events
+// (GET /api/v1/projects/{id}/auth/audit)
+func (_ Unimplemented) ListAuthAudit(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAuthConfig The project's auth settings, email templates and SMTP server (V4 §4)
+// (GET /api/v1/projects/{id}/auth/config)
+func (_ Unimplemented) GetAuthConfig(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateAuthConfig Change auth settings, templates or the project's SMTP server
+// (PATCH /api/v1/projects/{id}/auth/config)
+func (_ Unimplemented) UpdateAuthConfig(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSigningKeys The keys access tokens are signed and verified with
+// (GET /api/v1/projects/{id}/auth/signing-keys)
+func (_ Unimplemented) ListSigningKeys(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RotateSigningKey Sign with a new key; the old one verifies until its tokens expire
+// (POST /api/v1/projects/{id}/auth/signing-keys/rotate)
+func (_ Unimplemented) RotateSigningKey(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestAuthSMTP Send a test email through the project's SMTP server (or the settings given)
+// (POST /api/v1/projects/{id}/auth/smtp/test)
+func (_ Unimplemented) TestAuthSMTP(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewAuthTemplate Render an email template with sample values
+// (POST /api/v1/projects/{id}/auth/templates/preview)
+func (_ Unimplemented) PreviewAuthTemplate(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAuthUsers The project's app users (search by email, phone or id)
+// (GET /api/v1/projects/{id}/auth/users)
+func (_ Unimplemented) ListAuthUsers(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAuthUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateAuthUser Invite a user, or add one with a password
+// (POST /api/v1/projects/{id}/auth/users)
+func (_ Unimplemented) CreateAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteAuthUser Delete a user (their sessions end; rows referencing them follow the foreign keys)
+// (DELETE /api/v1/projects/{id}/auth/users/{userId})
+func (_ Unimplemented) DeleteAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAuthUser A user with their identities, sessions and audit log
+// (GET /api/v1/projects/{id}/auth/users/{userId})
+func (_ Unimplemented) GetAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateAuthUser Ban, unban or confirm a user, or change their metadata
+// (PATCH /api/v1/projects/{id}/auth/users/{userId})
+func (_ Unimplemented) UpdateAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SignOutAuthUser End all of a user's sessions
+// (POST /api/v1/projects/{id}/auth/users/{userId}/signout)
+func (_ Unimplemented) SignOutAuthUser(w http.ResponseWriter, r *http.Request, id ProjectID, userId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15395,6 +15819,20 @@ func (siw *ServerInterfaceWrapper) CreateDevOperation(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// EdgeAuthEmail operation middleware
+func (siw *ServerInterfaceWrapper) EdgeAuthEmail(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EdgeAuthEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EdgeConfig operation middleware
 func (siw *ServerInterfaceWrapper) EdgeConfig(w http.ResponseWriter, r *http.Request) {
 
@@ -18328,6 +18766,422 @@ func (siw *ServerInterfaceWrapper) ListProjectAudit(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListProjectAudit(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAuthAudit operation middleware
+func (siw *ServerInterfaceWrapper) ListAuthAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuthAudit(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuthConfig operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthConfig(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAuthConfig operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAuthConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAuthConfig(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSigningKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListSigningKeys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSigningKeys(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateSigningKey operation middleware
+func (siw *ServerInterfaceWrapper) RotateSigningKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateSigningKey(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestAuthSMTP operation middleware
+func (siw *ServerInterfaceWrapper) TestAuthSMTP(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestAuthSMTP(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewAuthTemplate operation middleware
+func (siw *ServerInterfaceWrapper) PreviewAuthTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewAuthTemplate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAuthUsers operation middleware
+func (siw *ServerInterfaceWrapper) ListAuthUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuthUsersParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", r.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "per_page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "per_page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuthUsers(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAuthUser operation middleware
+func (siw *ServerInterfaceWrapper) CreateAuthUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAuthUser(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAuthUser operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAuthUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", chi.URLParam(r, "userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAuthUser(w, r, id, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuthUser operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", chi.URLParam(r, "userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthUser(w, r, id, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAuthUser operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAuthUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", chi.URLParam(r, "userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAuthUser(w, r, id, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SignOutAuthUser operation middleware
+func (siw *ServerInterfaceWrapper) SignOutAuthUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", chi.URLParam(r, "userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SignOutAuthUser(w, r, id, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -22693,6 +23547,48 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/edge/wake", wrapper.EdgeWake)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/edge/auth-email", wrapper.EdgeAuthEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/config", wrapper.GetAuthConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/auth/config", wrapper.UpdateAuthConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/auth/smtp/test", wrapper.TestAuthSMTP)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/auth/templates/preview", wrapper.PreviewAuthTemplate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/signing-keys", wrapper.ListSigningKeys)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/auth/signing-keys/rotate", wrapper.RotateSigningKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/users", wrapper.ListAuthUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/auth/users", wrapper.CreateAuthUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/auth/users/{userId}", wrapper.DeleteAuthUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/users/{userId}", wrapper.GetAuthUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/auth/users/{userId}", wrapper.UpdateAuthUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/auth/users/{userId}/signout", wrapper.SignOutAuthUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/audit", wrapper.ListAuthAudit)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/transfer", wrapper.TransferProject)

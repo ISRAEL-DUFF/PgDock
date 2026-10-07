@@ -36,6 +36,8 @@ const (
 	// Backend services (V4 §11.1), reported by pgdock-edge.
 	MetricAPIRequests = "api_requests"
 	MetricAPIEgress   = "api_egress_gb"
+	// MetricAuthMAU counts each user once a month, when first active.
+	MetricAuthMAU = "auth_mau"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -58,6 +60,7 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricSyncReplication, "hours", "hour"},
 	{MetricAPIRequests, "requests", "hour"},
 	{MetricAPIEgress, "GB", "hour"},
+	{MetricAuthMAU, "users", "hour"},
 }
 
 const (

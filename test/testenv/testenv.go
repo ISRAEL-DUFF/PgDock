@@ -380,6 +380,7 @@ func Start(t testing.TB, opts Options) *Env {
 	// Backend services (V4 §2), served by an in-process pgdock-edge
 	// (Env.StartEdge).
 	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret}, log)
+	servicesSvc.Mail = mailSvc
 	servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
 		_, err := freeSvc.Resume(ctx, projectID, nil)
 		if errors.Is(err, freetier.ErrConflict) {
@@ -397,7 +398,8 @@ func Start(t testing.TB, opts Options) *Env {
 		PollInterval: 100 * time.Millisecond, RetryBase: 50 * time.Millisecond, RetryMax: 200 * time.Millisecond,
 	}, kinds)
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
+	go func() { defer wg.Done(); servicesSvc.RunAuthEmail(ctx) }()
 	go func() { defer wg.Done(); _ = wakerSrv.Serve(ctx, wakerLn) }()
 	go func() { defer wg.Done(); notifier.Run(ctx) }()
 	go func() { defer wg.Done(); runner.Run(ctx) }()

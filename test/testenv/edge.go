@@ -30,7 +30,7 @@ type Edge struct {
 func (e *Env) StartEdge() *Edge {
 	e.t.Helper()
 	ed := edge.New(edge.Config{Name: "edge-test", ControlURL: e.URL, Secret: EdgeSecret, Domain: EdgeDomain,
-		PoolerSSLMode: "require", PollWait: 2 * time.Second, ResyncEvery: time.Hour, ReportEvery: time.Hour})
+		PoolerSSLMode: "require", PollWait: 2 * time.Second, ResyncEvery: time.Hour, ReportEvery: time.Hour, AuthRateScale: 20})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { defer close(done); ed.Run(ctx) }()
@@ -62,7 +62,7 @@ func (x *Edge) Do(ref, method, path string, body io.Reader, headers ...string) (
 	for i := 0; i+1 < len(headers); i += 2 {
 		req.Header.Set(headers[i], headers[i+1])
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := noRedirects.Do(req)
 	if err != nil {
 		x.t.Fatal(err)
 	}
@@ -70,3 +70,6 @@ func (x *Edge) Do(ref, method, path string, body io.Reader, headers ...string) (
 	b, _ := io.ReadAll(res.Body)
 	return res.StatusCode, res.Header, strings.TrimSpace(string(b))
 }
+
+// noRedirects returns a redirect as it is (an auth link's 303).
+var noRedirects = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}

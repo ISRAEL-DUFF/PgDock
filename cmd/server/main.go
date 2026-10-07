@@ -386,7 +386,10 @@ func run() error {
 			backups.Dedicated.ServiceRoles = servicesSvc.EnsureRolesOn
 		}
 		bg.Add(1)
+		servicesSvc.Mail = mailSvc
 		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, 15*time.Second) }()
+		bg.Add(1)
+		go func() { defer bg.Done(); servicesSvc.RunAuthEmail(bgCtx) }()
 	}
 
 	// Support (V3 §7.1): tickets from the dashboard, email and WhatsApp.

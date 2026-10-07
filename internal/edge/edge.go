@@ -21,6 +21,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,7 +56,10 @@ type Config struct {
 	PollWait    time.Duration
 	ResyncEvery time.Duration
 	ReportEvery time.Duration
-	Log         *slog.Logger
+	// AuthRateScale multiplies the per-IP limits on auth endpoints (tests
+	// sign in many times from one address); 0 means 1.
+	AuthRateScale int
+	Log           *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -89,6 +93,8 @@ type Edge struct {
 	meter  *meter
 	limits *limiter
 	waking sync.Map // ref -> time.Time of the last wake asked
+	// hashSlots bound concurrent password hashes.
+	hashSlots chan struct{}
 }
 
 // project is one project's configuration and its database pool.
@@ -140,11 +146,12 @@ func (d *dbconn) close() {
 func New(cfg Config) *Edge {
 	cfg.defaults()
 	return &Edge{
-		cfg:    cfg,
-		client: &edgeapi.Client{URL: cfg.ControlURL, Secret: cfg.Secret},
-		byRef:  map[string]*project{},
-		meter:  newMeter(),
-		limits: newLimiter(),
+		cfg:       cfg,
+		client:    &edgeapi.Client{URL: cfg.ControlURL, Secret: cfg.Secret},
+		byRef:     map[string]*project{},
+		meter:     newMeter(),
+		limits:    newLimiter(),
+		hashSlots: make(chan struct{}, max(2, runtime.GOMAXPROCS(0))),
 	}
 }
 

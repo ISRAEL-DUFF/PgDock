@@ -31,6 +31,8 @@ const (
 	PathConfig = "/api/v1/edge/config"
 	PathReport = "/api/v1/edge/report"
 	PathWake   = "/api/v1/edge/wake"
+	// PathAuthEmail queues an auth email (V4 §4.5).
+	PathAuthEmail = "/api/v1/edge/auth-email"
 )
 
 // Key kinds.
@@ -108,6 +110,73 @@ type Project struct {
 	Settings       Settings `json:"settings"`
 	// JWKs are the public keys user tokens are verified with (JWK JSON).
 	JWKs []json.RawMessage `json:"jwks,omitempty"`
+	// SigningKey is the active key access tokens are signed with (V4 §4.4).
+	SigningKey *SigningKey `json:"signing_key,omitempty"`
+	// Auth is the project's auth settings, defaults filled in.
+	Auth AuthConfig `json:"auth"`
+}
+
+// SigningKey is a project's active signing key: its kid and PKCS#8 private
+// key.
+type SigningKey struct {
+	Kid     string `json:"kid"`
+	Private []byte `json:"private"`
+}
+
+// AuthConfig is a project's auth settings (V4 §4), as the edge applies
+// them.
+type AuthConfig struct {
+	// SiteURL is where links go when a request names no redirect.
+	SiteURL string `json:"site_url"`
+	// RedirectURLs are the allowed redirect_to values: exact, or with
+	// "*" (any characters but "/") and "**" (anything) when
+	// AllowWildcardRedirects is on.
+	RedirectURLs           []string `json:"redirect_urls"`
+	AllowWildcardRedirects bool     `json:"allow_wildcard_redirects"`
+	SignupEnabled          bool     `json:"signup_enabled"`
+	// EmailConfirm requires a new address to be confirmed before the user
+	// can sign in.
+	EmailConfirm     bool `json:"email_confirm"`
+	MagicLinkEnabled bool `json:"magic_link_enabled"`
+	// PasswordMinLength and PasswordRequireMixed (letters and digits)
+	// are the password rules.
+	PasswordMinLength    int  `json:"password_min_length"`
+	PasswordRequireMixed bool `json:"password_require_mixed"`
+	// AccessTokenTTL is the access tokens' lifetime in seconds.
+	AccessTokenTTL int `json:"access_token_ttl"`
+	// SessionMaxSeconds and SessionInactivitySeconds end sessions (0:
+	// never); SingleSession signs a user's other sessions out at sign-in.
+	SessionMaxSeconds        int  `json:"session_max_seconds"`
+	SessionInactivitySeconds int  `json:"session_inactivity_seconds"`
+	SingleSession            bool `json:"single_session"`
+}
+
+// Auth email kinds.
+const (
+	EmailConfirmation = "confirmation"
+	EmailMagicLink    = "magic_link"
+	EmailRecovery     = "recovery"
+	EmailInvite       = "invite"
+	EmailChange       = "email_change"
+)
+
+// AuthEmail asks pgdock-server to send one auth email for a project.
+type AuthEmail struct {
+	Ref  string `json:"ref"`
+	Kind string `json:"kind"`
+	To   string `json:"to"`
+	// Code is the 6-digit code and Link the one-click link (both in the
+	// message; templates use either).
+	Code string `json:"code"`
+	Link string `json:"link"`
+}
+
+// ActiveUser is a user who signed in or refreshed a token (monthly active
+// users, V4 §12).
+type ActiveUser struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	At        time.Time `json:"at"`
 }
 
 // Config is a page of the feed: projects changed after the request's
@@ -153,6 +222,8 @@ type Report struct {
 	Usage    []Usage     `json:"usage,omitempty"`
 	Logs     []Log       `json:"logs,omitempty"`
 	KeysUsed []uuid.UUID `json:"keys_used,omitempty"`
+	// ActiveUsers is who used auth since the last report, once each.
+	ActiveUsers []ActiveUser `json:"active_users,omitempty"`
 }
 
 // Wake asks for a paused project to be resumed.
@@ -210,7 +281,7 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 64<<20))
 	if res.StatusCode/100 != 2 {
-		return fmt.Errorf("pgdock-server %s %s: %s: %s", method, path, res.Status, bytes.TrimSpace(raw))
+		return &StatusError{Status: res.StatusCode, Method: method, Path: path, Body: string(bytes.TrimSpace(raw))}
 	}
 	if out == nil {
 		return nil
@@ -232,6 +303,23 @@ func (c *Client) Config(ctx context.Context, region string, since int64, wait ti
 // Report sends usage and logs.
 func (c *Client) Report(ctx context.Context, r Report) error {
 	return c.do(ctx, http.MethodPost, PathReport, r, nil)
+}
+
+// StatusError is pgdock-server answering with a non-2xx status.
+type StatusError struct {
+	Status       int
+	Method, Path string
+	Body         string
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("pgdock-server %s %s: %d: %s", e.Method, e.Path, e.Status, e.Body)
+}
+
+// SendAuthEmail queues an auth email; a *StatusError with 429 means the
+// project's email rate is used up.
+func (c *Client) SendAuthEmail(ctx context.Context, m AuthEmail) error {
+	return c.do(ctx, http.MethodPost, PathAuthEmail, m, nil)
 }
 
 // Wake asks for a project to be resumed.

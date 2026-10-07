@@ -97,6 +97,25 @@ type AuthChallenge struct {
 	CreatedAt time.Time
 }
 
+type AuthEmailOutbox struct {
+	ID            uuid.UUID
+	ProjectID     uuid.UUID
+	Kind          string
+	Via           string
+	MessageEnc    []byte
+	Attempts      int32
+	NextAttemptAt time.Time
+	LastError     *string
+	CreatedAt     time.Time
+	SentAt        *time.Time
+}
+
+type AuthMau struct {
+	ProjectID uuid.UUID
+	Month     pgtype.Date
+	UserID    uuid.UUID
+}
+
 type AvailabilityMinute struct {
 	ProjectID  uuid.UUID
 	Minute     time.Time
@@ -546,6 +565,19 @@ type LegalDocument struct {
 	PublishedAt time.Time
 }
 
+type MessageSend struct {
+	ID        int64
+	ProjectID uuid.UUID
+	Channel   string
+	Provider  string
+	Kind      string
+	Country   *string
+	Status    string
+	CostMinor *int64
+	Currency  *string
+	CreatedAt time.Time
+}
+
 type MetricPoint struct {
 	Scope      string
 	ScopeID    uuid.UUID
@@ -869,6 +901,14 @@ type ProjectApiKey struct {
 	CreatedAt  time.Time
 }
 
+type ProjectAuthConfig struct {
+	ProjectID    uuid.UUID
+	Config       json.RawMessage
+	ProvidersEnc []byte
+	Templates    json.RawMessage
+	UpdatedAt    time.Time
+}
+
 type ProjectDbUser struct {
 	ProjectID     uuid.UUID
 	UserID        uuid.UUID
@@ -881,15 +921,16 @@ type ProjectDbUser struct {
 }
 
 type ProjectJwtKey struct {
-	ID         uuid.UUID
-	ProjectID  uuid.UUID
-	Kid        string
-	Algorithm  string
-	PublicJwk  json.RawMessage
-	PrivateEnc []byte
-	Status     string
-	CreatedAt  time.Time
-	RetiredAt  *time.Time
+	ID          uuid.UUID
+	ProjectID   uuid.UUID
+	Kid         string
+	Algorithm   string
+	PublicJwk   json.RawMessage
+	PrivateEnc  []byte
+	Status      string
+	CreatedAt   time.Time
+	RetiredAt   *time.Time
+	VerifyUntil *time.Time
 }
 
 type ProjectMember struct {

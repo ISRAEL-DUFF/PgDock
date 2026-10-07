@@ -14,7 +14,7 @@ import (
 )
 
 const activeJWTKey = `-- name: ActiveJWTKey :one
-SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at FROM project_jwt_keys WHERE project_id = $1 AND status = 'active'
+SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at, verify_until FROM project_jwt_keys WHERE project_id = $1 AND status = 'active'
 `
 
 // tenant: system - a project the caller resolved.
@@ -31,6 +31,7 @@ func (q *Queries) ActiveJWTKey(ctx context.Context, projectID uuid.UUID) (Projec
 		&i.Status,
 		&i.CreatedAt,
 		&i.RetiredAt,
+		&i.VerifyUntil,
 	)
 	return i, err
 }
@@ -322,7 +323,7 @@ func (q *Queries) InsertEdgeReport(ctx context.Context, arg InsertEdgeReportPara
 const insertJWTKey = `-- name: InsertJWTKey :one
 INSERT INTO project_jwt_keys (id, project_id, kid, public_jwk, private_enc, status)
 VALUES ($1, $2, $3, $4, $5, 'active')
-RETURNING id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at
+RETURNING id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at, verify_until
 `
 
 type InsertJWTKeyParams struct {
@@ -353,6 +354,7 @@ func (q *Queries) InsertJWTKey(ctx context.Context, arg InsertJWTKeyParams) (Pro
 		&i.Status,
 		&i.CreatedAt,
 		&i.RetiredAt,
+		&i.VerifyUntil,
 	)
 	return i, err
 }
@@ -452,7 +454,7 @@ func (q *Queries) PoolerEdgeUsers(ctx context.Context) ([]PoolerEdgeUsersRow, er
 }
 
 const projectJWTKeys = `-- name: ProjectJWTKeys :many
-SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at FROM project_jwt_keys WHERE project_id = $1 AND status <> 'retired' ORDER BY created_at
+SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at, verify_until FROM project_jwt_keys WHERE project_id = $1 AND status <> 'retired' ORDER BY created_at
 `
 
 // tenant: system - a project the request already authorized.
@@ -475,6 +477,7 @@ func (q *Queries) ProjectJWTKeys(ctx context.Context, projectID uuid.UUID) ([]Pr
 			&i.Status,
 			&i.CreatedAt,
 			&i.RetiredAt,
+			&i.VerifyUntil,
 		); err != nil {
 			return nil, err
 		}

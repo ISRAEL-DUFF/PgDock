@@ -29,13 +29,24 @@ type meter struct {
 	logs    []edgeapi.Log
 	dropped int
 	keys    map[uuid.UUID]bool
+	active  map[[2]uuid.UUID]time.Time // project, user -> when
 	// pending are reports not yet accepted, retried in order with their
 	// batch ids.
 	pending []edgeapi.Report
 }
 
 func newMeter() *meter {
-	return &meter{usage: map[usageKey]*edgeapi.Usage{}, keys: map[uuid.UUID]bool{}}
+	return &meter{usage: map[usageKey]*edgeapi.Usage{}, keys: map[uuid.UUID]bool{}, active: map[[2]uuid.UUID]time.Time{}}
+}
+
+// activeUser notes a user who signed in or refreshed (monthly active
+// users); pgdock-server counts each once a month.
+func (m *meter) activeUser(project, user uuid.UUID) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.active) < maxLogs {
+		m.active[[2]uuid.UUID{project, user}] = time.Now().UTC()
+	}
 }
 
 // record counts a request; billed requests passed the key check.
@@ -66,7 +77,7 @@ func (m *meter) record(l edgeapi.Log, billed bool) {
 func (m *meter) take(edge string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if len(m.usage) == 0 && len(m.logs) == 0 && len(m.keys) == 0 {
+	if len(m.usage) == 0 && len(m.logs) == 0 && len(m.keys) == 0 && len(m.active) == 0 {
 		return
 	}
 	r := edgeapi.Report{BatchID: uuid.NewString(), Edge: edge, At: time.Now().UTC(), Logs: m.logs}
@@ -76,7 +87,10 @@ func (m *meter) take(edge string) {
 	for k := range m.keys {
 		r.KeysUsed = append(r.KeysUsed, k)
 	}
-	m.usage, m.logs, m.keys = map[usageKey]*edgeapi.Usage{}, nil, map[uuid.UUID]bool{}
+	for k, at := range m.active {
+		r.ActiveUsers = append(r.ActiveUsers, edgeapi.ActiveUser{ProjectID: k[0], UserID: k[1], At: at})
+	}
+	m.usage, m.logs, m.keys, m.active = map[usageKey]*edgeapi.Usage{}, nil, map[uuid.UUID]bool{}, map[[2]uuid.UUID]time.Time{}
 	m.pending = append(m.pending, r)
 	if len(m.pending) > maxPending {
 		// The oldest reports go first: losing them under-bills, which is
