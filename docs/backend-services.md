@@ -154,13 +154,130 @@ hides a column from anonymous callers.
 
 | Status | Codes |
 | --- | --- |
-| 400 | `invalid_filter`, `invalid_select`, `invalid_value`, `unknown_column`, `unknown_relation`, `ambiguous_relation`, `invalid_cursor`, `invalid_limit`, `query_too_expensive`, … |
+| 400 | `invalid_filter`, `invalid_select`, `invalid_value`, `unknown_column`, `unknown_relation`, `ambiguous_relation`, `invalid_cursor`, `invalid_limit`, `query_too_expensive`, `filter_required`, `too_many_rows`, `invalid_body`, `no_matching_function`, `ambiguous_function`, … |
 | 401 | `key_required`, `invalid_key`, `invalid_token` |
 | 403 | `rls_required`, `permission_denied`, `secret_key_in_browser`, `origin_not_allowed`, `project_suspended` |
-| 404 | `unknown_table`, `not_found` |
+| 404 | `unknown_table`, `unknown_function`, `not_found` |
+| 409, 422 | `unique_violation`, `foreign_key_violation`; `not_null_violation`, `check_violation` |
+| 405 | `method_not_allowed`, `volatile_function` |
 | 413 | `result_too_large` |
 | 429 | `rate_limited` |
 | 503, 504 | `project_resuming`, `database_unavailable`, `statement_timeout` |
+
+## Writing data
+
+Writes run as the caller's role in one transaction, so row-level security's
+`USING` and `WITH CHECK` decide what each caller may change. With the
+publishable key, a table is writable only with row-level security on (a
+view only with `security_invoker`); **public tables are readable, never
+writable, without it**.
+
+```sh
+# Insert one row or a list (up to 1,000); the new rows come back.
+curl -X POST https://k7f3m2q9.api.pgdock.ng/data/v1/todos \
+  -H "apikey: pgd_pub_…" -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{"owner_id":"…","title":"Buy milk"}'
+# {"affected":1,"data":[{"id":7,"owner_id":"…","title":"Buy milk","done":false}]}
+
+# Update the rows a filter matches, or one row by key.
+curl -X PATCH ".../data/v1/todos?where=done:eq:false" -d '{"done":true}'
+curl -X PATCH ".../data/v1/todos/7" -d '{"title":"Buy oat milk"}'
+
+# Delete.
+curl -X DELETE ".../data/v1/todos?where=title:eq:Buy%20milk"
+curl -X DELETE ".../data/v1/todos/7"
+```
+
+| Parameter | |
+| --- | --- |
+| `on_conflict` | Upsert: the columns of a unique constraint (`on_conflict=email`). Conflicting rows are updated with the sent columns; with `resolution=ignore` they are left alone. |
+| `select` | Which columns of the written rows come back (the read API's `select`, without relations). |
+| `return` | `representation` (default) or `minimal` (only `affected`). |
+| `where`, `or` | Which rows an update or delete changes, as for reads. **An update or delete needs a filter or a key**: `400 filter_required` otherwise. |
+| `max_affected` | Refuse (`400 too_many_rows`, nothing changed) when more rows would change; 1,000 by default, at most 100,000. |
+
+`PUT` isn't used: insert or upsert with `POST`, change with `PATCH`.
+
+### Batches
+
+`POST /data/v1/batch` runs up to 50 writes in one transaction: all of them
+happen or none do.
+
+```json
+{"operations":[
+  {"op":"insert","table":"orders","rows":[{"item":"tea"}]},
+  {"op":"upsert","table":"stock","rows":{"item":"tea","n":9},"on_conflict":["item"]},
+  {"op":"update","table":"carts","where":{"column":"id","op":"eq","value":4},"set":{"closed":true}},
+  {"op":"delete","table":"cart_items","key":4,"return":"minimal"}]}
+```
+
+The answer is `{"results":[…]}`, one per operation. When one fails, the error
+names it (`details.operation`, counted from 0) and says nothing was changed.
+
+## Functions
+
+`/data/v1/rpc/<function>` calls a function in the exposed schemas as the
+caller, with named arguments:
+
+```sh
+curl -X POST .../data/v1/rpc/close_cart -d '{"cart_id": 4}'
+curl ".../data/v1/rpc/search_todos?q=milk&limit=5"   # STABLE or IMMUTABLE only
+```
+
+- `POST` takes the arguments as a JSON object; `GET` takes them as query
+  parameters and works only for `STABLE` or `IMMUTABLE` functions
+  (`405 volatile_function` otherwise).
+- A scalar result comes back as `{"data": 42}`; a set or a table as a list,
+  with the read API's `select`, `where`, `order` and `limit` applied to its
+  rows.
+- Overloads are chosen by the argument names given; `400
+  ambiguous_function` when more than one fits.
+- `SECURITY DEFINER` functions run as their owner and skip row-level
+  security: the security advisor lists them.
+
+## Generated types
+
+Typed rows, inserts and updates for every table, view and function the data
+API exposes:
+
+```sh
+pgdock gen types --lang ts --project my-app > src/database.types.ts
+pgdock gen types --lang dart --project my-app -o lib/database_types.dart
+pgdock gen types --lang go --project my-app --package db -o db/types.go
+```
+
+- **TypeScript:** a `Database` interface (`Database["public"]["Tables"]["todos"]["Row" | "Insert" | "Update"]`, `Views`, `Functions` with `Args` and `Returns`) and `Tables<"todos">`-style helpers. Columns with a default or that accept null are optional in `Insert`; generated columns are left out.
+- **Dart:** a class per table and view with `fromJson` and `toJson`.
+- **Go:** a struct per table and view, `…Insert` and `…Update` structs (pointers with `omitempty` for what may be left out) and a `…Table` constant per name.
+
+The same files download from Project → Settings → API → Generate types, or
+`GET /api/v1/projects/{id}/services/types?lang=ts|dart|go`.
+
+## Security advisor
+
+Project → Settings → API → Security advisor (or
+`GET /api/v1/projects/{id}/services/advisor`) checks the exposed schemas:
+
+| Level | Finding |
+| --- | --- |
+| danger | A table without row-level security (`rls_disabled`); a write policy open to anon (or `PUBLIC`) with no condition (`policy_allows_everything`). |
+| warn | `SECURITY DEFINER` functions (`security_definer_function`); views that don't run as the caller (`view_not_invoker`); columns named like secrets (password, token, secret…) readable by anon or user (`secret_column`). |
+| info | Public tables; row-level security with no policies (only the secret key gets in); read policies open to everyone. |
+
+Each finding says what to do and, where one statement fixes it, gives it.
+
+**The policy helper:** in the Table Editor, **Policies** on a table turns on
+row-level security and writes the policies for one of three templates
+(owner only, members of an organisation through a membership table, public
+read with owner writes), showing the SQL before it runs.
+
+## Request explorer
+
+Project → Settings → API → Request explorer sends a data API request as
+anon, as a user (by their id, which becomes the token's `sub`) or as the
+service role and shows the answer, without handing out a key or token
+(`POST /api/v1/projects/{id}/services/explore`; developers and up). Writes
+made there are real.
 
 ## Settings
 
@@ -226,7 +343,6 @@ first configuration has loaded.
 
 ## Not yet
 
-These come in the next milestones (V4 §14): the data API's writes, functions
-and type generation (M30), auth (M31–M32), storage (M33), realtime (M34) and
+These come in the next milestones (V4 §14): auth (M31–M32), storage (M33), realtime (M34) and
 read replicas (M35). Rating the new usage on invoices and per-plan limits come
 with billing (M37).

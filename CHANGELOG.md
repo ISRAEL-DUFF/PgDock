@@ -27,6 +27,14 @@ bundle share one version (spec §11.5).
   picked up within seconds. Exposed schemas and public tables are in
   Project → Settings → API. Backups, restores and promotions of projects
   with backend services keep their `pgd_*` schemas and grants.
+- Data API writes, functions and types (V4-M30): insert and upsert
+  (`POST /data/v1/<table>`, `on_conflict`), update and delete with a
+  required filter and `max_affected`, all-or-nothing batches
+  (`POST /data/v1/batch`), and function calls (`/data/v1/rpc/<fn>`, GET for
+  stable functions). Typed clients for TypeScript, Dart and Go
+  (`pgdock gen types`, or a download on the API page), a security advisor,
+  a request explorer that runs as anon, a user or the service role, and a
+  row-level security policy helper in the Table Editor.
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a

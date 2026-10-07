@@ -680,6 +680,8 @@ Schema introspection and DDL-driven refresh; select with embeds, filters, JSON p
 
 Insert, upsert, update/delete with required filters and `max_affected`, batch transactions, RPC (GET for stable functions), type generation for TS/Dart/Go, request explorer, security advisor (first version), RLS policy helper in the table editor. **Done when:** a sample todo app runs end to end with only the publishable key and generated types.
 
+*(As built: public tables are never writable without row-level security; functions take named arguments only; the explorer is in Project → Settings → API with the advisor and type downloads. See `docs/decisions.md`, V4-M30.)*
+
 ### M31 — Auth core (Weeks 8–10)
 
 `pgd_auth` schema; email/password, magic link, email OTP; ES256 keys, JWKS, rotation; access and refresh tokens with rotation and reuse detection; sessions; rate limits and lockout; platform email with templates; custom SMTP; admin user API; auth dashboard (users, detail, ban, delete). **Done when:** sign-up, sign-in, refresh, sign-out-everywhere, and reuse detection pass their tests, and RLS policies using `pgd_auth.uid()` enforce per-user data.
