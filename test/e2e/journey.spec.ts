@@ -1892,6 +1892,30 @@ test.describe("with the saved session", () => {
     await explorer.getByLabel("Path").fill("/data/v1/notes");
     await explorer.getByRole("button", { name: "Send" }).click();
     await expect(explorer.getByTestId("explorer-result")).toContainText("200");
+
+    // M31: the app's users on Project → Authentication.
+    await page.goto(`/projects/${id}/auth`);
+    await expect(page.getByTestId("auth-users-empty")).toBeVisible();
+    await page.getByRole("button", { name: "Add user" }).click();
+    const add = page.getByTestId("add-auth-user");
+    await add.getByLabel("Email").fill("ada@example.com");
+    await add.getByRole("checkbox").first().click(); // a password instead of an invitation
+    await add.getByLabel("Password").fill("ada-password-1");
+    await add.getByRole("button", { name: "Create user" }).click();
+    const userRow = page.getByTestId("auth-user-row").filter({ hasText: "ada@example.com" });
+    await expect(userRow).toContainText("confirmed");
+    await userRow.click();
+    const panel = page.getByTestId("auth-user-panel");
+    await panel.getByRole("button", { name: "Ban for 24 hours" }).click();
+    await expect(panel).toContainText("Banned until");
+    await shot(page, "74-auth-user");
+    await page.keyboard.press("Escape");
+    await expect(userRow).toContainText("banned");
+    await page.getByRole("tab", { name: "Signing keys" }).click();
+    await expect(page.getByTestId("signing-key-row")).toHaveCount(1);
+    await page.getByRole("tab", { name: "Emails" }).click();
+    await expect(page.getByTestId("auth-email-sending")).toContainText("Platform email");
+    await shot(page, "75-auth-emails");
   });
 
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {

@@ -279,6 +279,112 @@ service role and shows the answer, without handing out a key or token
 (`POST /api/v1/projects/{id}/services/explore`; developers and up). Writes
 made there are real.
 
+## Auth
+
+Users live in the project's own database, in `pgd_auth` (V4 §4.2), so they
+move with it: backups, restores, branches and promotions keep them, and
+data residency covers them. Only pgdock-edge reads the auth tables; your
+SQL sees the safe view `pgd_auth.user_profiles` (no password hashes,
+tokens or codes) and may reference `pgd_auth.users(id)` from its own
+tables:
+
+```sql
+CREATE TABLE todos (
+  id bigserial PRIMARY KEY,
+  owner_id uuid NOT NULL DEFAULT pgd_auth.uid() REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+  title text NOT NULL
+);
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY own ON todos FOR ALL TO "<db>_user"
+  USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid());
+```
+
+### Signing up and in
+
+All at `https://<ref>.<domain>/auth/v1/`, with the publishable key:
+
+```sh
+curl -X POST .../auth/v1/signup -H "apikey: pgd_pub_…" \
+  -d '{"email":"ada@example.com","password":"…","data":{"name":"Ada"},"redirect_to":"https://app.example.com/welcome"}'
+# {"confirmation_sent":true}       (or a session, when confirmation is off)
+
+curl -X POST .../auth/v1/signin/password -H "apikey: pgd_pub_…" -d '{"email":"ada@example.com","password":"…"}'
+# {"access_token":"eyJ…","token_type":"bearer","expires_in":3600,"expires_at":…,"refresh_token":"…","user":{…}}
+```
+
+| Endpoint | |
+| --- | --- |
+| `POST signup` | Email and password (argon2id). With **Confirm email addresses** on (the default) the user gets a link and a 6-digit code and can't sign in with the password until they use one; the answer is the same whether or not the address was new. |
+| `POST signin/password` (or `POST token?grant_type=password`) | A session. Five wrong passwords in a row lock the user for a minute, doubling with each further failure (`429 user_locked`). |
+| `POST signin/otp` | A magic link and a code by email (`create_user: false` to only sign in existing users). |
+| `POST verify` | `{"type":"signup"\|"magiclink"\|"email"\|"recovery"\|"invite"\|"email_change","email":"…","token":"123456"}`, or `{"type":…,"token_hash":"…"}` with the link's token: a session. A code works once, for 10 minutes (invitations a day), and 5 wrong tries use it up. |
+| `GET verify?token=…&type=…&redirect_to=…` | The link in the email (no key needed): redirects to `redirect_to` with the session in the fragment (`#access_token=…&refresh_token=…`), or `#error=access_denied&error_code=otp_expired`. |
+| `POST resend` | Another confirmation email (`{"type":"signup","email":…}`). |
+| `POST recover` | A password-reset link and code; verifying it signs the user in to set a new password. |
+| `POST token?grant_type=refresh_token` | `{"refresh_token":"…"}`: new tokens; the refresh token is single use. |
+| `POST signout?scope=local\|others\|global` | With the access token: this session, the others, or every session. |
+| `GET user`, `PATCH user` | The signed-in user; change the password, `data` (merged into the user's metadata), or the email (confirmed by a link sent to the new address). |
+| `GET settings` | Which methods are on and the password rules, for your sign-in form. |
+| `GET .well-known/jwks.json` | The public keys (no key needed). |
+
+Links go only to the **site URL** (and pages under it) or the exact
+**redirect URLs** you list (`*` and `**` wildcards when allowed);
+anything else is `400 redirect_not_allowed`.
+
+### Tokens and sessions
+
+- The access token is an ES256 JWT signed with the project's key, an hour
+  by default (5 minutes to 24 hours): `sub` (the user id), `role: "user"`,
+  `aud` (the project ref), `session_id`, `aal`, `amr`, `email`,
+  `app_metadata`, `user_metadata`. Send it as `Authorization: Bearer …`
+  with the publishable key: requests run as `<db>_user` and
+  `pgd_auth.uid()` is its `sub`.
+- **Your servers verify tokens with the JWKS endpoint**; there is no shared
+  secret. Rotating the key (Authentication → Signing keys, or
+  `pgdock auth rotate-key`) signs new tokens with a new key and keeps the
+  old one in the JWKS for a day, so nobody is signed out.
+- Refresh tokens rotate on every use. **Presenting a refresh token that was
+  already used ends its whole session** (`400 refresh_token_reused`): a
+  stolen token is good for one refresh at most, and only until the
+  rightful app refreshes. Apps should refresh once at a time.
+- Sessions can be limited in length and by inactivity, or to one per user.
+  A ban or a deletion takes effect at the next refresh; signing out
+  revokes refresh tokens at once, and the access token's lifetime bounds
+  the rest.
+
+### Emails
+
+Confirmation, magic-link (with the code), password-reset, invitation and
+email-change emails are sent by pgdock-server from the project's
+templates (Authentication → Emails: plain text with `{{.Code}}`,
+`{{.Link}}`, `{{.Email}}`, `{{.SiteURL}}`, with a preview).
+
+- **Platform email** works out of the box for development, at 30 emails an
+  hour per project (`429 over_email_send_rate_limit` past that).
+- **Your own SMTP server** (Authentication → Emails) sends from your
+  domain without that limit. Its password is encrypted; **Send test**
+  checks it before saving.
+- One address gets at most one code a minute; sends are counted in the
+  usage (`message_sends`) and shown with failures.
+
+### Managing users
+
+- **Dashboard:** Project → Authentication lists users (search by email,
+  phone or id), shows a user's sessions and recent activity, and invites,
+  bans, unbans, confirms, signs out and deletes them. Developers and up.
+- **Admin API**, with the **secret key**: `GET|POST /auth/v1/admin/users`,
+  `GET|PATCH|DELETE /auth/v1/admin/users/{id}` (`ban_duration: "24h"` or
+  `"none"`), `POST /auth/v1/admin/users/{id}/signout`,
+  `POST /auth/v1/admin/invite`, `POST /auth/v1/admin/generate-link`
+  (a link and code without sending them, for your own emails).
+- **CLI:** `pgdock auth users list|show|invite|ban|unban|signout|delete`.
+
+Deleting a user deletes their sessions and sign-in methods; rows of your
+tables that reference them follow your foreign keys.
+
+Monthly active users (anyone who signed in or refreshed a token in the
+month) are recorded as usage (`auth_mau`) and shown on the Users tab.
+
 ## Settings
 
 - **Allowed origins**: the pages that may call the API. Empty allows any
@@ -343,6 +449,7 @@ first configuration has loaded.
 
 ## Not yet
 
-These come in the next milestones (V4 §14): auth (M31–M32), storage (M33), realtime (M34) and
+These come in the next milestones (V4 §14): phone, OAuth, MFA, anonymous
+users and hooks (M32), storage (M33), realtime (M34) and
 read replicas (M35). Rating the new usage on invoices and per-plan limits come
 with billing (M37).

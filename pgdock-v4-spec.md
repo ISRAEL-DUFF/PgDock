@@ -686,6 +686,8 @@ Insert, upsert, update/delete with required filters and `max_affected`, batch tr
 
 `pgd_auth` schema; email/password, magic link, email OTP; ES256 keys, JWKS, rotation; access and refresh tokens with rotation and reuse detection; sessions; rate limits and lockout; platform email with templates; custom SMTP; admin user API; auth dashboard (users, detail, ban, delete). **Done when:** sign-up, sign-in, refresh, sign-out-everywhere, and reuse detection pass their tests, and RLS policies using `pgd_auth.uid()` enforce per-user data.
 
+*(As built: pgdock-edge signs tokens with the active key it receives in the feed and sends auth emails through pgdock-server, which keeps SMTP credentials; rotation is a synchronous call, not an operation; a reused refresh token ends the whole session with no grace window. See `docs/decisions.md`, V4-M31.)*
+
 ### M32 — Auth: phone, OAuth, MFA, hooks (Weeks 11–13)
 
 Message provider interface; platform SMS and WhatsApp OTP with caps, country allow-list, and metering; BYO providers; OAuth (Google, Apple, GitHub, Facebook, Microsoft) with PKCE; anonymous users and identity linking; MFA (TOTP, phone); custom-claims and before-sign-up Postgres hooks; webhook hooks; captcha. **Done when:** a Flutter sample app signs in with WhatsApp OTP and Google, a custom-claims hook adds `org_id` used by RLS, and an SMS-pumping simulation is stopped by caps.

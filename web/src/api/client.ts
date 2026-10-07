@@ -1145,6 +1145,49 @@ export const api = {
       `/api/v1/projects/${id}/services/explore`,
       b,
     ),
+  // Auth (V4 §4.9).
+  authConfig: (id: string) =>
+    getJSON<S["AuthConfig"]>(`/api/v1/projects/${id}/auth/config`),
+  updateAuthConfig: (id: string, b: S["AuthConfigUpdate"]) =>
+    request<S["AuthConfig"]>("PATCH", `/api/v1/projects/${id}/auth/config`, b),
+  testAuthSMTP: (id: string, b: S["AuthSMTPTest"]) =>
+    request<void>("POST", `/api/v1/projects/${id}/auth/smtp/test`, b),
+  previewAuthTemplate: (id: string, b: S["AuthTemplatePreview"]) =>
+    request<S["AuthEmailTemplate"]>(
+      "POST",
+      `/api/v1/projects/${id}/auth/templates/preview`,
+      b,
+    ),
+  signingKeys: (id: string) =>
+    getJSON<S["SigningKeyList"]>(`/api/v1/projects/${id}/auth/signing-keys`),
+  rotateSigningKey: (id: string) =>
+    request<S["SigningKeyList"]>(
+      "POST",
+      `/api/v1/projects/${id}/auth/signing-keys/rotate`,
+    ),
+  authUsers: (id: string, q?: string, page?: number) =>
+    getJSON<S["AuthUserList"]>(
+      `/api/v1/projects/${id}/auth/users${qs({ q, page, per_page: 50 })}`,
+    ),
+  createAuthUser: (id: string, b: S["AuthUserCreate"]) =>
+    request<S["AuthUser"]>("POST", `/api/v1/projects/${id}/auth/users`, b),
+  authUser: (id: string, userId: string) =>
+    getJSON<S["AuthUserDetail"]>(`/api/v1/projects/${id}/auth/users/${userId}`),
+  updateAuthUser: (id: string, userId: string, b: S["AuthUserUpdate"]) =>
+    request<S["AuthUser"]>(
+      "PATCH",
+      `/api/v1/projects/${id}/auth/users/${userId}`,
+      b,
+    ),
+  deleteAuthUser: (id: string, userId: string) =>
+    request<void>("DELETE", `/api/v1/projects/${id}/auth/users/${userId}`),
+  signOutAuthUser: (id: string, userId: string) =>
+    request<S["AuthSignOutResult"]>(
+      "POST",
+      `/api/v1/projects/${id}/auth/users/${userId}/signout`,
+    ),
+  authAudit: (id: string) =>
+    getJSON<S["AuthAuditList"]>(`/api/v1/projects/${id}/auth/audit`),
   maintenanceAnnouncements: () =>
     getJSON<S["MaintenanceAnnouncementList"]>(
       "/api/v1/admin/maintenance/announcements",

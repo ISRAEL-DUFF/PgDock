@@ -35,6 +35,17 @@ bundle share one version (spec §11.5).
   (`pgdock gen types`, or a download on the API page), a security advisor,
   a request explorer that runs as anon, a user or the service role, and a
   row-level security policy helper in the Table Editor.
+- Auth core (V4-M31): users in the project's own database (`pgd_auth`),
+  signing up and in by email and password, confirmation by link or code,
+  magic links and email codes, password recovery and email change; ES256
+  access tokens verified with the project's JWKS, refresh tokens that
+  rotate on every use and end the session when reused, sign-out of one
+  session, the others or all; lockout and per-address limits; an admin API
+  with the secret key. Project → Authentication lists, invites, bans,
+  signs out and deletes users, and sets the sign-in rules, email templates,
+  the project's own SMTP server and signing-key rotation; `pgdock auth`.
+  Monthly active users are recorded (`auth_mau`).
+- New migration 00037 (auth).
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a

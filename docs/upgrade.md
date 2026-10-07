@@ -217,6 +217,12 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   `*.<domain>` at each region's pgdock-edge, and run pgdock-edge there with
   the same secret ([Backend services](backend-services.md)). Rotating the
   master key also re-seals the projects' signing keys.
+- **Auth core** (migration 00037, project schema version 2): projects with
+  backend services get the `pgd_auth` tables within a minute of the upgrade
+  (the reconciler applies them; nothing to run). Auth emails go through the
+  platform SMTP at 30 an hour per project until a project sets its own; set
+  up the platform SMTP first if it isn't. pgdock-edge needs this release too:
+  upgrade pgdock-server first, then the edges.
 
 ## Rolling back
 
