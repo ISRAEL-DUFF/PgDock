@@ -1869,7 +1869,7 @@ test.describe("with the saved session", () => {
     const advisor = page.getByTestId("services-advisor");
     await expect(async () => {
       await advisor.getByRole("button", { name: "Check again" }).click();
-      await expect(advisor.getByTestId("advisor-finding").filter({ hasText: "public.notes" })).toContainText("row-level security", { timeout: 2_000 });
+      await expect(advisor.getByTestId("advisor-finding").filter({ hasText: "public.notes" })).toContainText(/row-level security is off/i, { timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
     const explorer = page.getByTestId("services-explorer");
     await explorer.getByLabel("Path").fill("/data/v1/notes");
