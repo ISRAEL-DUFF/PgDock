@@ -19,6 +19,9 @@ type Availability struct {
 	// Percent is nil until something was measured.
 	Percent *float64
 	Recent  []store.AvailabilityMinute
+	// Excluded are the month's minutes excluded for announced maintenance,
+	// by announcement (V3.1 §4.2).
+	Excluded []store.AvailabilityExclusionsRow
 }
 
 // Availability reports the month containing now.
@@ -36,6 +39,17 @@ func (s *Service) Availability(ctx context.Context, projectID uuid.UUID, now tim
 		p := 100 * float64(sum.Measured-sum.Unavailable) / float64(sum.Measured)
 		out.Percent = &p
 	}
-	out.Recent, err = q.RecentOutageMinutes(ctx, store.RecentOutageMinutesParams{ProjectID: projectID, Since: from, Lim: 60})
+	if out.Recent, err = q.RecentOutageMinutes(ctx, store.RecentOutageMinutesParams{ProjectID: projectID, Since: from, Lim: 60}); err != nil {
+		return out, err
+	}
+	out.Excluded, err = q.AvailabilityExclusions(ctx, store.AvailabilityExclusionsParams{ProjectID: projectID, FromTs: from, ToTs: to})
 	return out, err
+}
+
+// ApplyMaintenanceExclusions excludes the availability minutes in
+// [from, to) that fall in maintenance announced to their project at least
+// 72 hours before them (V3.1 §4.2). The prober runs it every tick over
+// the last hours; over a month it re-derives the month's exclusions.
+func (s *Service) ApplyMaintenanceExclusions(ctx context.Context, from, to time.Time) (int64, error) {
+	return store.New(s.db).ApplyMaintenanceExclusions(ctx, store.ApplyMaintenanceExclusionsParams{FromTs: from, ToTs: to})
 }

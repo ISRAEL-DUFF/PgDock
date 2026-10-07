@@ -3718,7 +3718,10 @@ type AutoTopup struct {
 
 // Availability defines model for Availability.
 type Availability struct {
-	MeasuredMinutes int `json:"measured_minutes"`
+	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
+	ExcludedMinutes *int                     `json:"excluded_minutes,omitempty"`
+	Exclusions      *[]AvailabilityExclusion `json:"exclusions,omitempty"`
+	MeasuredMinutes int                      `json:"measured_minutes"`
 
 	// Month The calendar month (UTC), YYYY-MM.
 	Month string `json:"month"`
@@ -3727,6 +3730,15 @@ type Availability struct {
 	Percent            *float32        `json:"percent,omitempty"`
 	RecentOutages      *[]OutageMinute `json:"recent_outages,omitempty"`
 	UnavailableMinutes int             `json:"unavailable_minutes"`
+}
+
+// AvailabilityExclusion defines model for AvailabilityExclusion.
+type AvailabilityExclusion struct {
+	IncidentId     openapi_types.UUID `json:"incident_id"`
+	Minutes        int                `json:"minutes"`
+	ScheduledEnd   *time.Time         `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time         `json:"scheduled_start,omitempty"`
+	Title          string             `json:"title"`
 }
 
 // Backup defines model for Backup.
@@ -5428,6 +5440,50 @@ type MailSettingsRequest struct {
 
 // MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
 type MailSettingsRequestTls string
+
+// MaintenanceAnnouncement defines model for MaintenanceAnnouncement.
+type MaintenanceAnnouncement struct {
+	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
+	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
+	Emailed     *int       `json:"emailed,omitempty"`
+
+	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
+	Incident       Incident             `json:"incident"`
+	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
+	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
+	ScopeProjects  []openapi_types.UUID `json:"scope_projects"`
+
+	// ShortNotice Announced less than 72 hours ahead, so minutes before excluded_from count.
+	ShortNotice *bool `json:"short_notice,omitempty"`
+}
+
+// MaintenanceAnnouncementList defines model for MaintenanceAnnouncementList.
+type MaintenanceAnnouncementList struct {
+	Items []MaintenanceAnnouncement `json:"items"`
+}
+
+// MaintenanceAnnouncementRequest defines model for MaintenanceAnnouncementRequest.
+type MaintenanceAnnouncementRequest struct {
+	// Body What will happen; the window and region are added.
+	Body *string   `json:"body,omitempty"`
+	End  time.Time `json:"end"`
+
+	// NodeIds Only projects with a member on these nodes.
+	NodeIds *[]openapi_types.UUID `json:"node_ids,omitempty"`
+
+	// ProjectIds Only these projects (with node_ids, either covers).
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+
+	// Region The region it covers (empty for all).
+	Region *string `json:"region,omitempty"`
+
+	// Replaces An announcement this one reschedules; it is cancelled.
+	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
+	Start    time.Time           `json:"start"`
+	Title    *string             `json:"title,omitempty"`
+}
 
 // MaintenanceStatus defines model for MaintenanceStatus.
 type MaintenanceStatus struct {
@@ -8546,6 +8602,9 @@ type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
 // AdminPublishLegalJSONRequestBody defines body for AdminPublishLegal for application/json ContentType.
 type AdminPublishLegalJSONRequestBody = LegalPublish
 
+// AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
+type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -9049,6 +9108,15 @@ type ServerInterface interface {
 	// GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 	// (GET /api/v1/admin/maintenance)
 	GetMaintenance(w http.ResponseWriter, r *http.Request)
+	// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+	// (GET /api/v1/admin/maintenance/announcements)
+	ListMaintenanceAnnouncements(w http.ResponseWriter, r *http.Request)
+	// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	// (POST /api/v1/admin/maintenance/announcements)
+	AnnounceMaintenance(w http.ResponseWriter, r *http.Request)
+	// CancelMaintenance Cancel an announced maintenance window
+	// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
+	CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
 	// PutMaintenanceWindow Change the weekly maintenance window (UTC)
 	// (PUT /api/v1/admin/maintenance/window)
 	PutMaintenanceWindow(w http.ResponseWriter, r *http.Request)
@@ -10183,6 +10251,24 @@ func (_ Unimplemented) AdminGetLegal(w http.ResponseWriter, r *http.Request, doc
 // GetMaintenance The maintenance window, instances behind their image's Postgres release, and recent minor upgrades
 // (GET /api/v1/admin/maintenance)
 func (_ Unimplemented) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+// (GET /api/v1/admin/maintenance/announcements)
+func (_ Unimplemented) ListMaintenanceAnnouncements(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+// (POST /api/v1/admin/maintenance/announcements)
+func (_ Unimplemented) AnnounceMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CancelMaintenance Cancel an announced maintenance window
+// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
+func (_ Unimplemented) CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12933,6 +13019,60 @@ func (siw *ServerInterfaceWrapper) GetMaintenance(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMaintenanceAnnouncements operation middleware
+func (siw *ServerInterfaceWrapper) ListMaintenanceAnnouncements(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMaintenanceAnnouncements(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AnnounceMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) AnnounceMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnnounceMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) CancelMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "incident_id" -------------
+	var incidentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "incident_id", chi.URLParam(r, "incident_id"), &incidentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "incident_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelMaintenance(w, r, incidentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -22117,6 +22257,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/admin/orgs/{org}/billing/grace", wrapper.AdminSetGrace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/maintenance/announcements", wrapper.ListMaintenanceAnnouncements)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements", wrapper.AnnounceMaintenance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}", wrapper.CancelMaintenance)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/maintenance", wrapper.GetMaintenance)

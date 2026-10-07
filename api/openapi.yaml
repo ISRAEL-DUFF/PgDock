@@ -6755,6 +6755,60 @@ paths:
           description: Set.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements:
+    get:
+      operationId: listMaintenanceAnnouncements
+      summary: Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+      tags: [admin]
+      responses:
+        "200":
+          description: Announcements, newest window first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceAnnouncementList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: announceMaintenance
+      summary: Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenanceAnnouncementRequest"
+      responses:
+        "201":
+          description: Announced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceAnnouncement"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements/{incident_id}:
+    delete:
+      operationId: cancelMaintenance
+      summary: Cancel an announced maintenance window
+      tags: [admin]
+      parameters:
+        - name: incident_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceAnnouncement"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/maintenance:
     get:
       operationId: getMaintenance
@@ -8845,6 +8899,112 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OutageMinute"
+        excluded_minutes:
+          type: integer
+          description: Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
+        exclusions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityExclusion"
+    AvailabilityExclusion:
+      type: object
+      required: [incident_id, title, minutes]
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        scheduled_start:
+          type: string
+          format: date-time
+          nullable: true
+        scheduled_end:
+          type: string
+          format: date-time
+          nullable: true
+        minutes:
+          type: integer
+    MaintenanceAnnouncementRequest:
+      type: object
+      required: [start, end]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+          description: What will happen; the window and region are added.
+        region:
+          type: string
+          description: The region it covers (empty for all).
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        project_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Only these projects (with node_ids, either covers).
+        node_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Only projects with a member on these nodes.
+        replaces:
+          type: string
+          format: uuid
+          description: An announcement this one reschedules; it is cancelled.
+    MaintenanceAnnouncement:
+      type: object
+      required: [incident, scope_projects, scope_nodes]
+      properties:
+        incident:
+          $ref: "#/components/schemas/Incident"
+        scheduled_start:
+          type: string
+          format: date-time
+        scheduled_end:
+          type: string
+          format: date-time
+        announced_at:
+          type: string
+          format: date-time
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        excluded_from:
+          type: string
+          format: date-time
+          description: When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+        short_notice:
+          type: boolean
+          description: Announced less than 72 hours ahead, so minutes before excluded_from count.
+        emailed:
+          type: integer
+        scope_projects:
+          type: array
+          items:
+            type: string
+            format: uuid
+        scope_nodes:
+          type: array
+          items:
+            type: string
+            format: uuid
+    MaintenanceAnnouncementList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaintenanceAnnouncement"
     OutageMinute:
       type: object
       required: [minute]

@@ -13,6 +13,79 @@ import (
 	"github.com/google/uuid"
 )
 
+const applyMaintenanceExclusions = `-- name: ApplyMaintenanceExclusions :execrows
+UPDATE availability_minutes a SET excluded = true, excluded_by = i.id
+FROM incidents i, projects p
+WHERE a.project_id = p.id AND a.minute >= $1 AND a.minute < $2 AND a.excluded_by IS NULL
+  AND i.severity = 'maintenance' AND i.announced_at IS NOT NULL
+  AND a.minute >= i.scheduled_start AND a.minute < i.scheduled_end
+  AND i.announced_at <= a.minute - interval '72 hours'
+  AND (i.cancelled_at IS NULL OR i.cancelled_at > a.minute)
+  AND maintenance_covers(i, p)
+`
+
+type ApplyMaintenanceExclusionsParams struct {
+	FromTs time.Time
+	ToTs   time.Time
+}
+
+// tenant: system - the SLA prober: minutes inside maintenance announced 72 hours ahead are excluded (V3.1 4.2).
+func (q *Queries) ApplyMaintenanceExclusions(ctx context.Context, arg ApplyMaintenanceExclusionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, applyMaintenanceExclusions, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const availabilityExclusions = `-- name: AvailabilityExclusions :many
+SELECT i.id, i.title, i.scheduled_start, i.scheduled_end, count(*)::int AS minutes
+FROM availability_minutes a JOIN incidents i ON i.id = a.excluded_by
+WHERE a.project_id = $1 AND a.minute >= $2 AND a.minute < $3
+GROUP BY i.id, i.title, i.scheduled_start, i.scheduled_end ORDER BY i.scheduled_start
+`
+
+type AvailabilityExclusionsParams struct {
+	ProjectID uuid.UUID
+	FromTs    time.Time
+	ToTs      time.Time
+}
+
+type AvailabilityExclusionsRow struct {
+	ID             uuid.UUID
+	Title          string
+	ScheduledStart *time.Time
+	ScheduledEnd   *time.Time
+	Minutes        int32
+}
+
+// tenant: system - a project the request already authorized: excluded minutes by announcement.
+func (q *Queries) AvailabilityExclusions(ctx context.Context, arg AvailabilityExclusionsParams) ([]AvailabilityExclusionsRow, error) {
+	rows, err := q.db.Query(ctx, availabilityExclusions, arg.ProjectID, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AvailabilityExclusionsRow
+	for rows.Next() {
+		var i AvailabilityExclusionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.ScheduledStart,
+			&i.ScheduledEnd,
+			&i.Minutes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const availabilitySummary = `-- name: AvailabilitySummary :one
 SELECT count(*) FILTER (WHERE NOT excluded)::int AS measured,
        count(*) FILTER (WHERE NOT available AND NOT excluded)::int AS unavailable
@@ -654,7 +727,7 @@ func (q *Queries) ProjectOnInstance(ctx context.Context, instanceID uuid.UUID) (
 }
 
 const recentOutageMinutes = `-- name: RecentOutageMinutes :many
-SELECT project_id, minute, internal_ok, external_ok, excluded, available FROM availability_minutes
+SELECT project_id, minute, internal_ok, external_ok, excluded, available, excluded_by FROM availability_minutes
 WHERE project_id = $1 AND NOT available AND NOT excluded AND minute >= $2
 ORDER BY minute DESC LIMIT $3
 `
@@ -682,6 +755,7 @@ func (q *Queries) RecentOutageMinutes(ctx context.Context, arg RecentOutageMinut
 			&i.ExternalOk,
 			&i.Excluded,
 			&i.Available,
+			&i.ExcludedBy,
 		); err != nil {
 			return nil, err
 		}

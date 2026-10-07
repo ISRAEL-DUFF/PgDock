@@ -4823,6 +4823,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/maintenance/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Announced maintenance windows not yet over, and the last month's (V3.1 §4) */
+        get: operations["listMaintenanceAnnouncements"];
+        put?: never;
+        /** Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA */
+        post: operations["announceMaintenance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel an announced maintenance window */
+        delete: operations["cancelMaintenance"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/maintenance": {
         parameters: {
             query?: never;
@@ -5901,6 +5936,63 @@ export interface components {
             /** @description Available share of measured minutes, or null before the first probe. */
             percent?: number | null;
             recent_outages?: components["schemas"]["OutageMinute"][];
+            /** @description Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2). */
+            excluded_minutes?: number;
+            exclusions?: components["schemas"]["AvailabilityExclusion"][];
+        };
+        AvailabilityExclusion: {
+            /** Format: uuid */
+            incident_id: string;
+            title: string;
+            /** Format: date-time */
+            scheduled_start?: string | null;
+            /** Format: date-time */
+            scheduled_end?: string | null;
+            minutes: number;
+        };
+        MaintenanceAnnouncementRequest: {
+            title?: string;
+            /** @description What will happen; the window and region are added. */
+            body?: string;
+            /** @description The region it covers (empty for all). */
+            region?: string;
+            /** Format: date-time */
+            start: string;
+            /** Format: date-time */
+            end: string;
+            /** @description Only these projects (with node_ids, either covers). */
+            project_ids?: string[];
+            /** @description Only projects with a member on these nodes. */
+            node_ids?: string[];
+            /**
+             * Format: uuid
+             * @description An announcement this one reschedules; it is cancelled.
+             */
+            replaces?: string;
+        };
+        MaintenanceAnnouncement: {
+            incident: components["schemas"]["Incident"];
+            /** Format: date-time */
+            scheduled_start?: string;
+            /** Format: date-time */
+            scheduled_end?: string;
+            /** Format: date-time */
+            announced_at?: string;
+            /** Format: date-time */
+            cancelled_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+             */
+            excluded_from?: string;
+            /** @description Announced less than 72 hours ahead, so minutes before excluded_from count. */
+            short_notice?: boolean;
+            emailed?: number;
+            scope_projects: string[];
+            scope_nodes: string[];
+        };
+        MaintenanceAnnouncementList: {
+            items: components["schemas"]["MaintenanceAnnouncement"][];
         };
         OutageMinute: {
             /** Format: date-time */
@@ -17159,6 +17251,75 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMaintenanceAnnouncements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Announcements, newest window first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncementList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    announceMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceAnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description Announced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
             };
             default: components["responses"]["Error"];
         };

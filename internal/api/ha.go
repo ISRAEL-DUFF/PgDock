@@ -172,6 +172,14 @@ func (s *Server) haStatus(w http.ResponseWriter, r *http.Request, id gen.Project
 				outages = append(outages, gen.OutageMinute{Minute: m.Minute, InternalOk: m.InternalOk, ExternalOk: m.ExternalOk})
 			}
 			av.RecentOutages = &outages
+			excluded := 0
+			exclusions := []gen.AvailabilityExclusion{}
+			for _, x := range a.Excluded {
+				excluded += int(x.Minutes)
+				exclusions = append(exclusions, gen.AvailabilityExclusion{IncidentId: x.ID, Title: x.Title, ScheduledStart: x.ScheduledStart,
+					ScheduledEnd: x.ScheduledEnd, Minutes: int(x.Minutes)})
+			}
+			av.ExcludedMinutes, av.Exclusions = &excluded, &exclusions
 			out.Availability = &av
 		} else {
 			s.log.Warn("availability", "project", p.ID, "err", err)

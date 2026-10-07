@@ -265,6 +265,8 @@ type apiStatus struct {
 	} `json:"components"`
 	Active []statusapi.Incident `json:"active_incidents"`
 	Recent []statusapi.Incident `json:"recent_incidents"`
+	// Upcoming is announced maintenance not yet started (V3.1 §4.1).
+	Upcoming []statusapi.Incident `json:"upcoming_maintenance"`
 }
 
 func (a apiStatus) component(id string) (string, *float64) {
@@ -396,6 +398,25 @@ func TestServiceEndToEnd(t *testing.T) {
 	manual.Updates = append(manual.Updates, statusapi.IncidentUpdate{ID: "2", Status: "resolved", Body: "Caught up.", PostedAt: resolvedAt})
 	if code := push(t, svc, ts, "PUT", statusapi.PathIncidents+"inc-1", manual); code != http.StatusNoContent {
 		t.Fatalf("push incident update: %d", code)
+	}
+	// Announced maintenance (V3.1 §4.1): upcoming until its window,
+	// and the components it names stay as they are.
+	soon := now.Add(72 * time.Hour)
+	if code := push(t, svc, ts, "PUT", statusapi.PathIncidents+"maint-1", statusapi.Incident{ID: "maint-1", Title: "Kernel updates",
+		Components: []string{"backups"}, Severity: "maintenance", Status: "identified", StartedAt: soon,
+		Updates: []statusapi.IncidentUpdate{{ID: "1", Status: "identified", Body: "Scheduled for later.", PostedAt: *now}}}); code != http.StatusNoContent {
+		t.Fatalf("push maintenance: %d", code)
+	}
+	tick()
+	getJSON(t, ts.URL+"/api/v1/status", &st)
+	if len(st.Upcoming) != 1 || st.Upcoming[0].ID != "maint-1" || len(st.Active) != 0 {
+		t.Fatalf("upcoming maintenance: upcoming %+v active %+v", st.Upcoming, st.Active)
+	}
+	if s, _ := st.component("backups"); s == statusapi.Degraded {
+		t.Fatalf("upcoming maintenance degraded its component")
+	}
+	if b := getBody(t, ts.URL+"/"); !strings.Contains(b, "data-upcoming") || !strings.Contains(b, "Kernel updates") {
+		t.Fatalf("no upcoming maintenance on the page:\n%s", b)
 	}
 	// Replaying the same push notifies nobody again.
 	push(t, svc, ts, "PUT", statusapi.PathIncidents+"inc-1", manual)
@@ -533,4 +554,15 @@ func doCode(t *testing.T, req *http.Request) int {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return resp.StatusCode
+}
+
+func getBody(t *testing.T, u string) string {
+	t.Helper()
+	resp, err := http.Get(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	b, _ := io.ReadAll(resp.Body)
+	return string(b)
 }

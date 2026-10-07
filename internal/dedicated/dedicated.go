@@ -64,6 +64,10 @@ type Config struct {
 	// MoveWait tunes when a logical move cuts over (defaults: lag under
 	// 1 MB for 30 s, checked every 2 s).
 	MoveWait MoveWait
+	// RequireAnnouncement: the maintenance window restarts an HA project
+	// only inside maintenance announced to it at least 72 hours before
+	// (V3.1 §4.3; PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT).
+	RequireAnnouncement bool
 }
 
 // Service manages dedicated instances.

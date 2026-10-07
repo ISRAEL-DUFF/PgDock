@@ -55,3 +55,53 @@ SELECT count(*) AS total,
     SELECT 1 FROM alerts a WHERE a.status = 'firing' AND a.kind = 'node_unreachable' AND a.target_id = n.id::text
   )) AS unreachable
 FROM nodes n WHERE n.role IN ('dedicated', 'both') AND n.status <> 'removed';
+
+-- ---- Announced maintenance (V3.1 4) -----------------------------------------
+
+-- name: InsertMaintenance :one
+-- tenant: system - platform maintenance announcements.
+INSERT INTO incidents (title, components, region_id, severity, status, created_by, started_at, scheduled_start, scheduled_end, announced_at, replaces)
+VALUES (@title, @components, sqlc.narg(region_id), 'maintenance', 'identified', sqlc.narg(created_by), @scheduled_start, @scheduled_start, @scheduled_end, now(), sqlc.narg(replaces))
+RETURNING *;
+
+-- name: InsertIncidentScope :exec
+-- tenant: system - what a maintenance announcement covers.
+INSERT INTO incident_scope (incident_id, project_id, node_id) VALUES (@incident_id, sqlc.narg(project_id), sqlc.narg(node_id));
+
+-- name: IncidentScope :many
+-- tenant: system - what a maintenance announcement covers.
+SELECT * FROM incident_scope WHERE incident_id = @incident_id;
+
+-- name: CancelMaintenance :one
+-- tenant: system - a maintenance announcement called off.
+UPDATE incidents SET cancelled_at = now(), status = 'resolved', resolved_at = now(), updated_at = now()
+WHERE id = @id AND severity = 'maintenance' AND announced_at IS NOT NULL AND cancelled_at IS NULL AND resolved_at IS NULL
+RETURNING *;
+
+-- name: MaintenanceDone :many
+-- tenant: system - announced maintenance whose window has ended.
+UPDATE incidents SET status = 'resolved', resolved_at = scheduled_end, updated_at = now()
+WHERE severity = 'maintenance' AND announced_at IS NOT NULL AND resolved_at IS NULL AND scheduled_end <= @at::timestamptz
+RETURNING *;
+
+-- name: ListMaintenance :many
+-- tenant: system - maintenance announcements, newest window first.
+SELECT * FROM incidents WHERE announced_at IS NOT NULL AND scheduled_end >= @since::timestamptz
+ORDER BY scheduled_start DESC LIMIT @lim;
+
+-- name: MaintenanceOrgEmails :many
+-- tenant: system - who is told of an announcement: owners and admins of the organisations with live projects it covers.
+SELECT DISTINCT u.email FROM users u
+JOIN org_members m ON m.user_id = u.id AND m.role IN ('owner', 'admin')
+JOIN projects p ON p.org_id = m.org_id AND p.deleted_at IS NULL
+JOIN incidents i ON i.id = @incident_id
+WHERE u.disabled_at IS NULL AND maintenance_covers(i, p)
+ORDER BY u.email;
+
+-- name: AnnouncedMaintenanceFor :one
+-- tenant: system - the announcement, made 72 hours ahead, covering a project at a moment (the maintenance window's gate).
+SELECT i.id FROM incidents i, projects p, (SELECT sqlc.arg(at)::timestamptz AS at) w
+WHERE p.id = sqlc.arg(project_id) AND i.severity = 'maintenance' AND i.announced_at IS NOT NULL AND i.cancelled_at IS NULL
+  AND w.at >= i.scheduled_start AND w.at < i.scheduled_end
+  AND i.announced_at <= w.at - interval '72 hours' AND maintenance_covers(i, p)
+ORDER BY i.announced_at LIMIT 1;

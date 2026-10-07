@@ -146,3 +146,21 @@ ON CONFLICT (project_id, minute) DO UPDATE SET
   external_ok = CASE WHEN EXCLUDED.external_ok IS NULL THEN availability_minutes.external_ok
                      ELSE coalesce(availability_minutes.external_ok, true) AND EXCLUDED.external_ok END,
   excluded = availability_minutes.excluded OR EXCLUDED.excluded;
+
+-- name: ApplyMaintenanceExclusions :execrows
+-- tenant: system - the SLA prober: minutes inside maintenance announced 72 hours ahead are excluded (V3.1 4.2).
+UPDATE availability_minutes a SET excluded = true, excluded_by = i.id
+FROM incidents i, projects p
+WHERE a.project_id = p.id AND a.minute >= @from_ts AND a.minute < @to_ts AND a.excluded_by IS NULL
+  AND i.severity = 'maintenance' AND i.announced_at IS NOT NULL
+  AND a.minute >= i.scheduled_start AND a.minute < i.scheduled_end
+  AND i.announced_at <= a.minute - interval '72 hours'
+  AND (i.cancelled_at IS NULL OR i.cancelled_at > a.minute)
+  AND maintenance_covers(i, p);
+
+-- name: AvailabilityExclusions :many
+-- tenant: system - a project the request already authorized: excluded minutes by announcement.
+SELECT i.id, i.title, i.scheduled_start, i.scheduled_end, count(*)::int AS minutes
+FROM availability_minutes a JOIN incidents i ON i.id = a.excluded_by
+WHERE a.project_id = @project_id AND a.minute >= @from_ts AND a.minute < @to_ts
+GROUP BY i.id, i.title, i.scheduled_start, i.scheduled_end ORDER BY i.scheduled_start;

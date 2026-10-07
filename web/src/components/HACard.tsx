@@ -204,6 +204,22 @@ export function HACard({ p }: { p: Project }) {
               ({a.unavailable_minutes} unavailable of {a.measured_minutes}{" "}
               measured minutes; the SLA is 99.9%)
             </span>
+            {a.exclusions && a.exclusions.length > 0 && (
+              <ul
+                className="mt-1 text-xs text-muted"
+                data-testid="ha-exclusions"
+              >
+                {a.exclusions.map((x) => (
+                  <li key={x.incident_id}>
+                    {x.minutes} minutes excluded for announced maintenance:{" "}
+                    {x.title}
+                    {x.scheduled_start
+                      ? ` (${formatDate(x.scheduled_start)})`
+                      : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         {st && st.failovers.length > 0 && (

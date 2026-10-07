@@ -1085,6 +1085,21 @@ export const api = {
     request<Incident>("PATCH", `/api/v1/incidents/${id}`, b),
   postIncidentUpdate: (id: string, b: S["IncidentUpdateRequest"]) =>
     request<Incident>("POST", `/api/v1/incidents/${id}/updates`, b),
+  maintenanceAnnouncements: () =>
+    getJSON<S["MaintenanceAnnouncementList"]>(
+      "/api/v1/admin/maintenance/announcements",
+    ),
+  announceMaintenance: (b: S["MaintenanceAnnouncementRequest"]) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "POST",
+      "/api/v1/admin/maintenance/announcements",
+      b,
+    ),
+  cancelMaintenance: (id: string) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "DELETE",
+      `/api/v1/admin/maintenance/announcements/${id}`,
+    ),
   poolerHosts: () => getJSON<S["PoolerHosts"]>("/api/v1/pooler-hosts"),
   isolationChecks: () =>
     getJSON<S["IsolationCheckList"]>("/api/v1/security/isolation-checks"),

@@ -200,6 +200,13 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   Nodes → etcd cluster for HA, pick the region), then use **Move to the
   region's etcd** on each of those projects' HA cards. Upgrade the agents
   with the server: member replacement uses a new agent endpoint.
+- **Announced maintenance** (migration 00035): from this release the
+  weekly window's minor upgrades **wait for an announcement** before
+  switching over an HA project. Announce the next window (Admin →
+  Incidents → Schedule maintenance) at least 72 hours ahead, or set
+  `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false` to keep upgrading HA
+  projects in every window, as V3 did. Announcements email organisation
+  owners and admins, so check the SMTP settings first.
 
 ## Rolling back
 

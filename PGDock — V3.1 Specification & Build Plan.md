@@ -264,8 +264,8 @@ ALTER TABLE availability_minutes ADD COLUMN excluded_by uuid REFERENCES incident
 | `GET /api/v1/admin/etcd?region=…`, `POST /api/v1/admin/etcd` | A region's cluster; set up (as built, on the existing paths). |
 | `POST /api/v1/admin/etcd/members/{node_id}/replace` | Replace a member (`{"node_id": …}`), an operation. |
 | `POST /api/v1/projects/{id}/ha/etcd-move` | Move an HA project onto its region's cluster (§3.3). |
-| `POST /api/v1/admin/maintenance` | Announce (`start`, `end`, `region`, optional `projects`/`nodes`, `title`, `body`). |
-| `DELETE /api/v1/admin/maintenance/{id}` | Cancel. |
+| `POST /api/v1/admin/maintenance/announcements` | Announce (`start`, `end`, `region`, optional `project_ids`/`node_ids`, `title`, `body`, `replaces`); as built under `/announcements`, with `GET` to list. |
+| `DELETE /api/v1/admin/maintenance/announcements/{id}` | Cancel. |
 | `GET /api/v1/projects/{id}/ha` | `availability` gains `excluded_minutes` and the announcements behind them. |
 
 `GET/POST /api/v1/admin/etcd` stays as the home region's, for the CLI and
@@ -327,6 +327,11 @@ minutes for the projects in scope and not for others; one announced 71
 hours ahead excludes nothing; work queued for an unannounced window
 waits; the month's SLA report lists excluded minutes with their
 announcement.
+
+(As built: the admin creates announcements; PGDock doesn't propose them
+yet. Emails go to owners and admins. The outage minutes in the done-when
+test are inserted rather than produced by a switchover. See
+`docs/decisions.md`, V3.1-M3.)
 
 ### Timeline summary
 

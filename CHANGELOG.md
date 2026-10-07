@@ -24,6 +24,16 @@ bundle share one version (spec §11.5).
   cluster gets **Move to the region's etcd** on its HA card (one restart,
   writes paused a few seconds). See docs/ha.md.
 - New migration 00034 (etcd per region).
+- Announced maintenance (V3.1-M3): Admin → Incidents → **Schedule
+  maintenance** announces a window for a region or some projects. It
+  shows on the status page as upcoming, is emailed to the owners and
+  admins of the organisations it covers, and resolves by itself. HA
+  projects' availability minutes inside a window announced at least 72
+  hours ahead are excluded from the SLA, listed per announcement on the
+  HA card. The weekly minor-upgrade sweep waits for an announced window
+  before switching over an HA project
+  (`PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, on by default).
+- New migration 00035 (announced maintenance).
 
 ### V3 (in progress, on feature/pgdock3)
 - Standby edge pooler: two pooler hosts behind a floating IP with

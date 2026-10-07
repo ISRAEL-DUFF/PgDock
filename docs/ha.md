@@ -188,7 +188,38 @@ restore, a move) or its organisation is suspended are excluded. The
 project's HA card shows the month so far; `GET /api/v1/projects/{id}/ha`
 has the minutes.
 
+### Announced maintenance
+
+Planned work is announced from Admin → Incidents → **Schedule
+maintenance** (or `POST /api/v1/admin/maintenance/announcements`): a
+window of at most 24 hours, a region (or all), and optionally the
+projects it covers. PGDock posts it to the status page as upcoming,
+emails the owners and admins of every organisation with a project it
+covers, and fixes the announcement time. A window can't be edited:
+cancel it (or announce a new one with `replaces`) and announce again.
+
+A minute of an HA project's record is **excluded** when it falls inside an
+announcement that covers the project (it, a node one of its members is
+on, or its region) and was made **at least 72 hours before that minute**.
+An announcement made with less notice is still posted, but only its
+minutes from 72 hours after the announcement are excluded: the form warns,
+and the list shows **short notice**. A cancelled announcement stops
+excluding minutes from when it was cancelled. Maintenance done outside any
+announcement isn't excluded.
+
+The SLA prober applies exclusions every minute over the last six hours, so
+a minute probed by pgdock-status a little late is excluded too. The HA
+card and `availability.exclusions` list the excluded minutes per
+announcement, so customers can see what was left out and why.
+
+With `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT` on (the default), the
+weekly window's minor-upgrade sweep only switches over an HA project
+inside an announcement covering it, made 72 hours ahead. Without one, the
+upgrade waits for a window that has one. Non-HA projects aren't covered by
+the SLA and are upgraded in every window, as before.
+
 ## Not yet
 
-- Excluding maintenance announced 72 hours ahead (V3 §2.7) from the
-  availability record (V3.1-M3).
+- PGDock proposing an announcement for the next window when work is
+  queued (V3.1 §4.1): the admin announces it.
+- A preview of the announcement email in the form.

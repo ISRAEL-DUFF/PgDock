@@ -83,6 +83,10 @@ type Backups struct {
 	// "network" (the address agents report; the Compose bundle) or
 	// "published" (the port published on the node).
 	DedicatedAdminVia string
+	// RequireMaintenanceAnnouncement: the maintenance window restarts HA
+	// projects only inside maintenance announced 72 hours ahead
+	// (PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT, default true; V3.1 §4.3).
+	RequireMaintenanceAnnouncement bool
 }
 
 // Load reads configuration from PGDOCK_* environment variables, applying
@@ -224,6 +228,14 @@ func loadBackups(getenv func(string) string, cfg *Config) []error {
 			errs = append(errs, fmt.Errorf("PGDOCK_BACKUP_JITTER: must be a duration from 1m to 12h, got %q", v))
 		}
 		b.Jitter = d
+	}
+	b.RequireMaintenanceAnnouncement = true
+	switch v := strings.ToLower(getenv("PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT")); v {
+	case "", "true", "1", "yes", "on":
+	case "false", "0", "no", "off":
+		b.RequireMaintenanceAnnouncement = false
+	default:
+		errs = append(errs, fmt.Errorf("PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT: must be true or false, got %q", v))
 	}
 	switch v := getenv("PGDOCK_DEDICATED_ADMIN_VIA"); v {
 	case "", "network", "published":

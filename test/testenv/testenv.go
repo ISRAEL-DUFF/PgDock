@@ -418,6 +418,7 @@ func Start(t testing.TB, opts Options) *Env {
 	svc.RefreshWebhooks = webhookSvc.Reinstall
 	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
 	incidentSvc := incidents.New(db, incidents.Config{URL: opts.StatusURL, Secret: opts.StatusSecret}, log)
+	incidentSvc.SetMailer(mailSvc, "https://pgdock.test")
 	billingSvc := billing.New(db, mailSvc, "https://pgdock.test", log)
 	costSvc := costs.New(db, billingSvc, "eu-central", log)
 	capacitySvc.SetConverter(costSvc)

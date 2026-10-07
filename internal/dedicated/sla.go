@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -122,10 +123,16 @@ func (s *Service) SLATick(ctx context.Context, status *statusapi.Client) error {
 		}(t.ID, url)
 	}
 	wg.Wait()
-	if status == nil {
-		return nil
+	var errs []error
+	if status != nil {
+		errs = append(errs, s.exchangeSLA(ctx, status, targets, now))
 	}
-	return s.exchangeSLA(ctx, status, targets, now)
+	// Announced maintenance, over the minutes either vantage point may
+	// still be filling in.
+	if _, err := s.ApplyMaintenanceExclusions(ctx, now.Add(-6*time.Hour), now.Add(time.Minute)); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 // exchangeSLA pushes the targets when they change and records the status

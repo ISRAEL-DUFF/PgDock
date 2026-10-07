@@ -3722,7 +3722,10 @@ type AutoTopup struct {
 
 // Availability defines model for Availability.
 type Availability struct {
-	MeasuredMinutes int `json:"measured_minutes"`
+	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
+	ExcludedMinutes *int                     `json:"excluded_minutes,omitempty"`
+	Exclusions      *[]AvailabilityExclusion `json:"exclusions,omitempty"`
+	MeasuredMinutes int                      `json:"measured_minutes"`
 
 	// Month The calendar month (UTC), YYYY-MM.
 	Month string `json:"month"`
@@ -3731,6 +3734,15 @@ type Availability struct {
 	Percent            *float32        `json:"percent,omitempty"`
 	RecentOutages      *[]OutageMinute `json:"recent_outages,omitempty"`
 	UnavailableMinutes int             `json:"unavailable_minutes"`
+}
+
+// AvailabilityExclusion defines model for AvailabilityExclusion.
+type AvailabilityExclusion struct {
+	IncidentId     openapi_types.UUID `json:"incident_id"`
+	Minutes        int                `json:"minutes"`
+	ScheduledEnd   *time.Time         `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time         `json:"scheduled_start,omitempty"`
+	Title          string             `json:"title"`
 }
 
 // Backup defines model for Backup.
@@ -5432,6 +5444,50 @@ type MailSettingsRequest struct {
 
 // MailSettingsRequestTls defines model for MailSettingsRequest.Tls.
 type MailSettingsRequestTls string
+
+// MaintenanceAnnouncement defines model for MaintenanceAnnouncement.
+type MaintenanceAnnouncement struct {
+	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
+	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
+	Emailed     *int       `json:"emailed,omitempty"`
+
+	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
+	Incident       Incident             `json:"incident"`
+	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
+	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
+	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
+	ScopeProjects  []openapi_types.UUID `json:"scope_projects"`
+
+	// ShortNotice Announced less than 72 hours ahead, so minutes before excluded_from count.
+	ShortNotice *bool `json:"short_notice,omitempty"`
+}
+
+// MaintenanceAnnouncementList defines model for MaintenanceAnnouncementList.
+type MaintenanceAnnouncementList struct {
+	Items []MaintenanceAnnouncement `json:"items"`
+}
+
+// MaintenanceAnnouncementRequest defines model for MaintenanceAnnouncementRequest.
+type MaintenanceAnnouncementRequest struct {
+	// Body What will happen; the window and region are added.
+	Body *string   `json:"body,omitempty"`
+	End  time.Time `json:"end"`
+
+	// NodeIds Only projects with a member on these nodes.
+	NodeIds *[]openapi_types.UUID `json:"node_ids,omitempty"`
+
+	// ProjectIds Only these projects (with node_ids, either covers).
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+
+	// Region The region it covers (empty for all).
+	Region *string `json:"region,omitempty"`
+
+	// Replaces An announcement this one reschedules; it is cancelled.
+	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
+	Start    time.Time           `json:"start"`
+	Title    *string             `json:"title,omitempty"`
+}
 
 // MaintenanceStatus defines model for MaintenanceStatus.
 type MaintenanceStatus struct {
@@ -8550,6 +8606,9 @@ type AdminHoldInvoiceJSONRequestBody AdminHoldInvoiceJSONBody
 // AdminPublishLegalJSONRequestBody defines body for AdminPublishLegal for application/json ContentType.
 type AdminPublishLegalJSONRequestBody = LegalPublish
 
+// AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
+type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -9351,6 +9410,30 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
 	GetMaintenance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+	//
+	// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+	ListMaintenanceAnnouncements(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AnnounceMaintenanceWithBody Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenanceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenance(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelMaintenance Cancel an announced maintenance window
+	//
+	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+	CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutMaintenanceWindowWithBody Change the weekly maintenance window (UTC)
 	//
@@ -13368,6 +13451,70 @@ func (c *Client) AdminGetLegal(ctx context.Context, documentId openapi_types.UUI
 // Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
 func (c *Client) GetMaintenance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMaintenanceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListMaintenanceAnnouncements Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+//
+// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+func (c *Client) ListMaintenanceAnnouncements(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMaintenanceAnnouncementsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AnnounceMaintenanceWithBody Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *Client) AnnounceMaintenanceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAnnounceMaintenanceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *Client) AnnounceMaintenance(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAnnounceMaintenanceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelMaintenance Cancel an announced maintenance window
+//
+// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+func (c *Client) CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelMaintenanceRequest(c.Server, incidentId)
 	if err != nil {
 		return nil, err
 	}
@@ -22352,6 +22499,107 @@ func NewGetMaintenanceRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListMaintenanceAnnouncementsRequest constructs an http.Request for the ListMaintenanceAnnouncements method
+func NewListMaintenanceAnnouncementsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAnnounceMaintenanceRequest calls the generic AnnounceMaintenance builder with application/json body
+func NewAnnounceMaintenanceRequest(server string, body AnnounceMaintenanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAnnounceMaintenanceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAnnounceMaintenanceRequestWithBody constructs an http.Request for the AnnounceMaintenance method, with any body, and a specified content type
+func NewAnnounceMaintenanceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCancelMaintenanceRequest constructs an http.Request for the CancelMaintenance method
+func NewCancelMaintenanceRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "incident_id", incidentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -35521,6 +35769,34 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/admin/maintenance (the `GetMaintenance` operationId).
 	GetMaintenanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMaintenanceResponse, error)
 
+	// ListMaintenanceAnnouncementsWithResponse Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+	ListMaintenanceAnnouncementsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMaintenanceAnnouncementsResponse, error)
+
+	// AnnounceMaintenanceWithBodyWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenanceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error)
+
+	// AnnounceMaintenanceWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+	AnnounceMaintenanceWithResponse(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error)
+
+	// CancelMaintenanceWithResponse Cancel an announced maintenance window
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+	CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error)
+
 	// PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -40948,6 +41224,150 @@ func (r GetMaintenanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMaintenanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListMaintenanceAnnouncementsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncementList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListMaintenanceAnnouncementsResponse) GetJSON200() *MaintenanceAnnouncementList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListMaintenanceAnnouncementsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListMaintenanceAnnouncementsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMaintenanceAnnouncementsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMaintenanceAnnouncementsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListMaintenanceAnnouncementsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AnnounceMaintenanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AnnounceMaintenanceResponse) GetJSON201() *MaintenanceAnnouncement {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AnnounceMaintenanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AnnounceMaintenanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AnnounceMaintenanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AnnounceMaintenanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AnnounceMaintenanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelMaintenanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelMaintenanceResponse) GetJSON200() *MaintenanceAnnouncement {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CancelMaintenanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelMaintenanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelMaintenanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelMaintenanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelMaintenanceResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -55540,6 +55960,58 @@ func (c *ClientWithResponses) GetMaintenanceWithResponse(ctx context.Context, re
 	return ParseGetMaintenanceResponse(rsp)
 }
 
+// ListMaintenanceAnnouncementsWithResponse Announced maintenance windows not yet over, and the last month's (V3.1 §4)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/maintenance/announcements (the `ListMaintenanceAnnouncements` operationId).
+func (c *ClientWithResponses) ListMaintenanceAnnouncementsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMaintenanceAnnouncementsResponse, error) {
+	rsp, err := c.ListMaintenanceAnnouncements(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMaintenanceAnnouncementsResponse(rsp)
+}
+
+// AnnounceMaintenanceWithBodyWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *ClientWithResponses) AnnounceMaintenanceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error) {
+	rsp, err := c.AnnounceMaintenanceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAnnounceMaintenanceResponse(rsp)
+}
+
+// AnnounceMaintenanceWithResponse Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
+func (c *ClientWithResponses) AnnounceMaintenanceWithResponse(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error) {
+	rsp, err := c.AnnounceMaintenance(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAnnounceMaintenanceResponse(rsp)
+}
+
+// CancelMaintenanceWithResponse Cancel an announced maintenance window
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
+func (c *ClientWithResponses) CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error) {
+	rsp, err := c.CancelMaintenance(ctx, incidentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelMaintenanceResponse(rsp)
+}
+
 // PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -62841,6 +63313,105 @@ func ParseGetMaintenanceResponse(rsp *http.Response) (*GetMaintenanceResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MaintenanceStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListMaintenanceAnnouncementsResponse parses an HTTP response from a ListMaintenanceAnnouncementsWithResponse call
+func ParseListMaintenanceAnnouncementsResponse(rsp *http.Response) (*ListMaintenanceAnnouncementsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMaintenanceAnnouncementsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncementList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAnnounceMaintenanceResponse parses an HTTP response from a AnnounceMaintenanceWithResponse call
+func ParseAnnounceMaintenanceResponse(rsp *http.Response) (*AnnounceMaintenanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AnnounceMaintenanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest MaintenanceAnnouncement
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelMaintenanceResponse parses an HTTP response from a CancelMaintenanceWithResponse call
+func ParseCancelMaintenanceResponse(rsp *http.Response) (*CancelMaintenanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelMaintenanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncement
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

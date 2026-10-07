@@ -12,6 +12,59 @@ import (
 	"github.com/google/uuid"
 )
 
+const announcedMaintenanceFor = `-- name: AnnouncedMaintenanceFor :one
+SELECT i.id FROM incidents i, projects p, (SELECT $1::timestamptz AS at) w
+WHERE p.id = $2 AND i.severity = 'maintenance' AND i.announced_at IS NOT NULL AND i.cancelled_at IS NULL
+  AND w.at >= i.scheduled_start AND w.at < i.scheduled_end
+  AND i.announced_at <= w.at - interval '72 hours' AND maintenance_covers(i, p)
+ORDER BY i.announced_at LIMIT 1
+`
+
+type AnnouncedMaintenanceForParams struct {
+	At        time.Time
+	ProjectID uuid.UUID
+}
+
+// tenant: system - the announcement, made 72 hours ahead, covering a project at a moment (the maintenance window's gate).
+func (q *Queries) AnnouncedMaintenanceFor(ctx context.Context, arg AnnouncedMaintenanceForParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, announcedMaintenanceFor, arg.At, arg.ProjectID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const cancelMaintenance = `-- name: CancelMaintenance :one
+UPDATE incidents SET cancelled_at = now(), status = 'resolved', resolved_at = now(), updated_at = now()
+WHERE id = $1 AND severity = 'maintenance' AND announced_at IS NOT NULL AND cancelled_at IS NULL AND resolved_at IS NULL
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+`
+
+// tenant: system - a maintenance announcement called off.
+func (q *Queries) CancelMaintenance(ctx context.Context, id uuid.UUID) (Incident, error) {
+	row := q.db.QueryRow(ctx, cancelMaintenance, id)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Components,
+		&i.RegionID,
+		&i.Severity,
+		&i.Status,
+		&i.StartedAt,
+		&i.ResolvedAt,
+		&i.CreatedBy,
+		&i.PushedAt,
+		&i.PushError,
+		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
+	)
+	return i, err
+}
+
 const dedicatedNodeHealth = `-- name: DedicatedNodeHealth :one
 SELECT count(*) AS total,
   count(*) FILTER (WHERE EXISTS (
@@ -36,7 +89,7 @@ func (q *Queries) DedicatedNodeHealth(ctx context.Context) (DedicatedNodeHealthR
 }
 
 const getIncident = `-- name: GetIncident :one
-SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at FROM incidents WHERE id = $1
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents WHERE id = $1
 `
 
 func (q *Queries) GetIncident(ctx context.Context, id uuid.UUID) (Incident, error) {
@@ -55,8 +108,38 @@ func (q *Queries) GetIncident(ctx context.Context, id uuid.UUID) (Incident, erro
 		&i.PushedAt,
 		&i.PushError,
 		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
 	)
 	return i, err
+}
+
+const incidentScope = `-- name: IncidentScope :many
+SELECT incident_id, project_id, node_id FROM incident_scope WHERE incident_id = $1
+`
+
+// tenant: system - what a maintenance announcement covers.
+func (q *Queries) IncidentScope(ctx context.Context, incidentID uuid.UUID) ([]IncidentScope, error) {
+	rows, err := q.db.Query(ctx, incidentScope, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IncidentScope
+	for rows.Next() {
+		var i IncidentScope
+		if err := rows.Scan(&i.IncidentID, &i.ProjectID, &i.NodeID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const incidentUpdates = `-- name: IncidentUpdates :many
@@ -108,7 +191,7 @@ const insertIncident = `-- name: InsertIncident :one
 
 INSERT INTO incidents (title, components, region_id, severity, status, created_by)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
 `
 
 type InsertIncidentParams struct {
@@ -144,8 +227,29 @@ func (q *Queries) InsertIncident(ctx context.Context, arg InsertIncidentParams) 
 		&i.PushedAt,
 		&i.PushError,
 		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
 	)
 	return i, err
+}
+
+const insertIncidentScope = `-- name: InsertIncidentScope :exec
+INSERT INTO incident_scope (incident_id, project_id, node_id) VALUES ($1, $2, $3)
+`
+
+type InsertIncidentScopeParams struct {
+	IncidentID uuid.UUID
+	ProjectID  *uuid.UUID
+	NodeID     *uuid.UUID
+}
+
+// tenant: system - what a maintenance announcement covers.
+func (q *Queries) InsertIncidentScope(ctx context.Context, arg InsertIncidentScopeParams) error {
+	_, err := q.db.Exec(ctx, insertIncidentScope, arg.IncidentID, arg.ProjectID, arg.NodeID)
+	return err
 }
 
 const insertIncidentUpdate = `-- name: InsertIncidentUpdate :one
@@ -180,8 +284,60 @@ func (q *Queries) InsertIncidentUpdate(ctx context.Context, arg InsertIncidentUp
 	return i, err
 }
 
+const insertMaintenance = `-- name: InsertMaintenance :one
+
+INSERT INTO incidents (title, components, region_id, severity, status, created_by, started_at, scheduled_start, scheduled_end, announced_at, replaces)
+VALUES ($1, $2, $3, 'maintenance', 'identified', $4, $5, $5, $6, now(), $7)
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+`
+
+type InsertMaintenanceParams struct {
+	Title          string
+	Components     []string
+	RegionID       *string
+	CreatedBy      *uuid.UUID
+	ScheduledStart time.Time
+	ScheduledEnd   *time.Time
+	Replaces       *uuid.UUID
+}
+
+// ---- Announced maintenance (V3.1 4) -----------------------------------------
+// tenant: system - platform maintenance announcements.
+func (q *Queries) InsertMaintenance(ctx context.Context, arg InsertMaintenanceParams) (Incident, error) {
+	row := q.db.QueryRow(ctx, insertMaintenance,
+		arg.Title,
+		arg.Components,
+		arg.RegionID,
+		arg.CreatedBy,
+		arg.ScheduledStart,
+		arg.ScheduledEnd,
+		arg.Replaces,
+	)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Components,
+		&i.RegionID,
+		&i.Severity,
+		&i.Status,
+		&i.StartedAt,
+		&i.ResolvedAt,
+		&i.CreatedBy,
+		&i.PushedAt,
+		&i.PushError,
+		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
+	)
+	return i, err
+}
+
 const listIncidents = `-- name: ListIncidents :many
-SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at FROM incidents ORDER BY (resolved_at IS NULL) DESC, started_at DESC LIMIT $1
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents ORDER BY (resolved_at IS NULL) DESC, started_at DESC LIMIT $1
 `
 
 func (q *Queries) ListIncidents(ctx context.Context, lim int32) ([]Incident, error) {
@@ -206,10 +362,139 @@ func (q *Queries) ListIncidents(ctx context.Context, lim int32) ([]Incident, err
 			&i.PushedAt,
 			&i.PushError,
 			&i.UpdatedAt,
+			&i.ScheduledStart,
+			&i.ScheduledEnd,
+			&i.AnnouncedAt,
+			&i.CancelledAt,
+			&i.Replaces,
 		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMaintenance = `-- name: ListMaintenance :many
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents WHERE announced_at IS NOT NULL AND scheduled_end >= $1::timestamptz
+ORDER BY scheduled_start DESC LIMIT $2
+`
+
+type ListMaintenanceParams struct {
+	Since time.Time
+	Lim   int32
+}
+
+// tenant: system - maintenance announcements, newest window first.
+func (q *Queries) ListMaintenance(ctx context.Context, arg ListMaintenanceParams) ([]Incident, error) {
+	rows, err := q.db.Query(ctx, listMaintenance, arg.Since, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Incident
+	for rows.Next() {
+		var i Incident
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Components,
+			&i.RegionID,
+			&i.Severity,
+			&i.Status,
+			&i.StartedAt,
+			&i.ResolvedAt,
+			&i.CreatedBy,
+			&i.PushedAt,
+			&i.PushError,
+			&i.UpdatedAt,
+			&i.ScheduledStart,
+			&i.ScheduledEnd,
+			&i.AnnouncedAt,
+			&i.CancelledAt,
+			&i.Replaces,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const maintenanceDone = `-- name: MaintenanceDone :many
+UPDATE incidents SET status = 'resolved', resolved_at = scheduled_end, updated_at = now()
+WHERE severity = 'maintenance' AND announced_at IS NOT NULL AND resolved_at IS NULL AND scheduled_end <= $1::timestamptz
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+`
+
+// tenant: system - announced maintenance whose window has ended.
+func (q *Queries) MaintenanceDone(ctx context.Context, at time.Time) ([]Incident, error) {
+	rows, err := q.db.Query(ctx, maintenanceDone, at)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Incident
+	for rows.Next() {
+		var i Incident
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Components,
+			&i.RegionID,
+			&i.Severity,
+			&i.Status,
+			&i.StartedAt,
+			&i.ResolvedAt,
+			&i.CreatedBy,
+			&i.PushedAt,
+			&i.PushError,
+			&i.UpdatedAt,
+			&i.ScheduledStart,
+			&i.ScheduledEnd,
+			&i.AnnouncedAt,
+			&i.CancelledAt,
+			&i.Replaces,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const maintenanceOrgEmails = `-- name: MaintenanceOrgEmails :many
+SELECT DISTINCT u.email FROM users u
+JOIN org_members m ON m.user_id = u.id AND m.role IN ('owner', 'admin')
+JOIN projects p ON p.org_id = m.org_id AND p.deleted_at IS NULL
+JOIN incidents i ON i.id = $1
+WHERE u.disabled_at IS NULL AND maintenance_covers(i, p)
+ORDER BY u.email
+`
+
+// tenant: system - who is told of an announcement: owners and admins of the organisations with live projects it covers.
+func (q *Queries) MaintenanceOrgEmails(ctx context.Context, incidentID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, maintenanceOrgEmails, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var email string
+		if err := rows.Scan(&email); err != nil {
+			return nil, err
+		}
+		items = append(items, email)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -261,7 +546,7 @@ func (q *Queries) OverdueJobs(ctx context.Context) (int64, error) {
 }
 
 const unpushedIncidents = `-- name: UnpushedIncidents :many
-SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at FROM incidents WHERE pushed_at IS NULL ORDER BY updated_at LIMIT 20
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents WHERE pushed_at IS NULL ORDER BY updated_at LIMIT 20
 `
 
 // Changed since the last push (or never pushed), oldest change first.
@@ -287,6 +572,11 @@ func (q *Queries) UnpushedIncidents(ctx context.Context) ([]Incident, error) {
 			&i.PushedAt,
 			&i.PushError,
 			&i.UpdatedAt,
+			&i.ScheduledStart,
+			&i.ScheduledEnd,
+			&i.AnnouncedAt,
+			&i.CancelledAt,
+			&i.Replaces,
 		); err != nil {
 			return nil, err
 		}
@@ -302,7 +592,7 @@ const updateIncident = `-- name: UpdateIncident :one
 UPDATE incidents SET title = $1, components = $2, region_id = $3, severity = $4,
   status = $5, resolved_at = $6, pushed_at = NULL, updated_at = now()
 WHERE id = $7
-RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
 `
 
 type UpdateIncidentParams struct {
@@ -340,6 +630,11 @@ func (q *Queries) UpdateIncident(ctx context.Context, arg UpdateIncidentParams) 
 		&i.PushedAt,
 		&i.PushError,
 		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
 	)
 	return i, err
 }
