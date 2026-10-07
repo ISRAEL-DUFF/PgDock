@@ -236,7 +236,9 @@ func (a AuthSettings) Validate() error {
 	for what, u := range map[string]*string{"before_signup_url": a.BeforeSignupURL, "after_signup_url": a.AfterSignupURL,
 		"after_signin_url": a.AfterSigninURL, "send_message_url": a.SendMessageURL} {
 		if v := strOr(u, ""); v != "" {
-			if pu, err := url.Parse(v); err != nil || pu.Scheme != "https" || pu.Host == "" {
+			// http:// works only to hosts the platform admin allow-listed
+			// (checked when sending, V2 §9.1).
+			if pu, err := url.Parse(v); err != nil || (pu.Scheme != "https" && pu.Scheme != "http") || pu.Host == "" || len(v) > 500 {
 				return bad("%s must be an https URL", what)
 			}
 		}
@@ -403,6 +405,15 @@ func edgeAuth(st AuthSettings, prov sealedProviders, captchaURL string) edgeapi.
 		a.CaptchaSecret, a.CaptchaVerifyURL = prov.CaptchaSecret, captchaURL
 	}
 	return a
+}
+
+// SMSTemplate is the project's SMS text (the default if unset).
+func SMSTemplate(st AuthSettings) string { return strOr(st.SMSTemplate, DefaultSMSTemplate) }
+
+// PlatformChannels reports which of SMS and WhatsApp this install sends for
+// projects without their own provider.
+func (s *Service) PlatformChannels() (sms, whatsapp bool) {
+	return s.Phone.SMS != nil, s.Phone.WhatsApp != nil
 }
 
 func renderSMS(tpl, code string) (string, error) {

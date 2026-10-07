@@ -48,6 +48,11 @@ const (
 	CodeRecovery    = "recovery"
 	CodeInvite      = "invite"
 	CodeEmailChange = "email_change"
+	// Phone codes (V4 §4.1): sign-up, sign-in and confirmation of a
+	// number, and a new number.
+	CodePhone       = "phone"
+	CodePhoneSignup = "phone_signup"
+	CodePhoneChange = "phone_change"
 )
 
 // CodeTTL is how long a code or link works (V4 §4.1); invitations last
@@ -144,6 +149,15 @@ func GetUser(ctx context.Context, q Querier, id uuid.UUID, lock bool) (*User, er
 	return scanUser(q.QueryRow(ctx, sql, id))
 }
 
+// UserByPhone is the user with phone (E.164), or ErrNotFound.
+func UserByPhone(ctx context.Context, q Querier, phone string, lock bool) (*User, error) {
+	sql := `SELECT ` + userCols + ` FROM pgd_auth.users WHERE phone = $1`
+	if lock {
+		sql += ` FOR UPDATE`
+	}
+	return scanUser(q.QueryRow(ctx, sql, phone))
+}
+
 // UserByEmail is the user with email (normalized), or ErrNotFound.
 func UserByEmail(ctx context.Context, q Querier, email string, lock bool) (*User, error) {
 	sql := `SELECT ` + userCols + ` FROM pgd_auth.users WHERE email = $1`
@@ -193,9 +207,12 @@ func escapeLike(s string) string {
 // NewUser is a user to create.
 type NewUser struct {
 	Email          string
+	Phone          string // E.164
 	PasswordHash   string // "" for none
 	EmailConfirmed bool
+	PhoneConfirmed bool
 	Invited        bool
+	Anonymous      bool
 	AppMetadata    json.RawMessage
 	UserMetadata   json.RawMessage
 }
@@ -219,17 +236,21 @@ func nilIfEmpty(s string) *string {
 // CreateUser inserts n; ErrExists when the email is taken.
 func CreateUser(ctx context.Context, q Querier, n NewUser) (*User, error) {
 	now := time.Now()
-	var confirmed, invited *time.Time
+	var confirmed, phoneConfirmed, invited *time.Time
 	if n.EmailConfirmed {
 		confirmed = &now
+	}
+	if n.PhoneConfirmed {
+		phoneConfirmed = &now
 	}
 	if n.Invited {
 		invited = &now
 	}
-	u, err := scanUser(q.QueryRow(ctx, `INSERT INTO pgd_auth.users (email, encrypted_password, email_confirmed_at, invited_at,
-		  app_metadata, user_metadata) VALUES ($1, $2, $3, $4, $5, $6) RETURNING `+userCols,
-		nilIfEmpty(NormalizeEmail(n.Email)), nilIfEmpty(n.PasswordHash), confirmed, invited,
-		orEmptyObject(n.AppMetadata), orEmptyObject(n.UserMetadata)))
+	u, err := scanUser(q.QueryRow(ctx, `INSERT INTO pgd_auth.users (email, phone, encrypted_password, email_confirmed_at,
+		  phone_confirmed_at, invited_at, is_anonymous, app_metadata, user_metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING `+userCols,
+		nilIfEmpty(NormalizeEmail(n.Email)), nilIfEmpty(n.Phone), nilIfEmpty(n.PasswordHash), confirmed, phoneConfirmed, invited,
+		n.Anonymous, orEmptyObject(n.AppMetadata), orEmptyObject(n.UserMetadata)))
 	return u, uniqueErr(err)
 }
 
@@ -246,6 +267,12 @@ type Update struct {
 	Email        *string
 	PasswordHash *string
 	ConfirmEmail bool
+	// Phone sets the number (unconfirmed unless ConfirmPhone).
+	Phone        *string
+	ConfirmPhone bool
+	// NotAnonymous makes an anonymous user a permanent one (a method was
+	// linked).
+	NotAnonymous bool
 	AppMetadata  json.RawMessage
 	UserMetadata json.RawMessage
 	// Ban sets banned_until (a zero time lifts a ban).
@@ -267,6 +294,18 @@ func UpdateUser(ctx context.Context, q Querier, id uuid.UUID, up Update) (*User,
 	}
 	if up.ConfirmEmail {
 		sets = append(sets, "email_confirmed_at = coalesce(email_confirmed_at, now())")
+	}
+	if up.Phone != nil {
+		add("phone", nilIfEmpty(*up.Phone))
+		if !up.ConfirmPhone {
+			sets = append(sets, "phone_confirmed_at = NULL")
+		}
+	}
+	if up.ConfirmPhone {
+		sets = append(sets, "phone_confirmed_at = coalesce(phone_confirmed_at, now())")
+	}
+	if up.NotAnonymous {
+		sets = append(sets, "is_anonymous = false")
 	}
 	if up.PasswordHash != nil {
 		add("encrypted_password", nilIfEmpty(*up.PasswordHash))
@@ -367,6 +406,15 @@ func scanSession(row pgx.Row) (*Session, error) {
 	return &s, err
 }
 
+// LastMethod is the latest way the session was authenticated.
+func (s *Session) LastMethod() string {
+	var amr []AMR
+	if json.Unmarshal(s.AMR, &amr) != nil || len(amr) == 0 {
+		return ""
+	}
+	return amr[len(amr)-1].Method
+}
+
 // AMR is how a session was authenticated.
 type AMR struct {
 	Method    string `json:"method"`
@@ -389,6 +437,15 @@ func NewSession(ctx context.Context, q Querier, userID uuid.UUID, method, userAg
 	}
 	tok, err := newRefreshToken(ctx, q, s.ID, nil)
 	return s, tok, err
+}
+
+// NewSessionToken revokes the session's refresh tokens and makes a fresh
+// one (the session changed: a factor verified).
+func NewSessionToken(ctx context.Context, q Querier, sessionID uuid.UUID) (string, error) {
+	if _, err := q.Exec(ctx, `UPDATE pgd_auth.refresh_tokens SET revoked = true WHERE session_id = $1 AND NOT revoked`, sessionID); err != nil {
+		return "", err
+	}
+	return newRefreshToken(ctx, q, sessionID, nil)
 }
 
 func trunc(s string, n int) string {
@@ -616,7 +673,7 @@ func VerifyToken(ctx context.Context, q Querier, token string, kinds []string) (
 
 // ---- Identities and the audit log --------------------------------------------
 
-// Identity is a way a user signs in (email now; phone and OAuth with M32).
+// Identity is a way a user signs in: email, phone, or an OAuth provider.
 type Identity struct {
 	ID           uuid.UUID       `json:"id"`
 	Provider     string          `json:"provider"`
@@ -628,12 +685,67 @@ type Identity struct {
 
 // EnsureEmailIdentity records the email identity of a user.
 func EnsureEmailIdentity(ctx context.Context, q Querier, userID uuid.UUID, email string) error {
-	data, _ := json.Marshal(map[string]any{"email": NormalizeEmail(email), "sub": userID.String()})
-	_, err := q.Exec(ctx, `INSERT INTO pgd_auth.identities (user_id, provider, provider_id, identity_data, last_sign_in_at)
-		VALUES ($1, 'email', $2, $3, now())
-		ON CONFLICT (provider, provider_id) DO UPDATE SET identity_data = EXCLUDED.identity_data, last_sign_in_at = now()`,
-		userID, userID.String(), string(data))
-	return err
+	return EnsureIdentity(ctx, q, userID, "email", userID.String(), map[string]any{"email": NormalizeEmail(email), "sub": userID.String()})
+}
+
+// EnsurePhoneIdentity records the phone identity of a user.
+func EnsurePhoneIdentity(ctx context.Context, q Querier, userID uuid.UUID, phone string) error {
+	return EnsureIdentity(ctx, q, userID, "phone", userID.String(), map[string]any{"phone": phone, "sub": userID.String()})
+}
+
+// EnsureIdentity records (or refreshes) userID's identity at provider;
+// ErrExists when another user holds it.
+func EnsureIdentity(ctx context.Context, q Querier, userID uuid.UUID, provider, providerID string, data map[string]any) error {
+	b, _ := json.Marshal(data)
+	var owner uuid.UUID
+	err := q.QueryRow(ctx, `INSERT INTO pgd_auth.identities (user_id, provider, provider_id, identity_data, last_sign_in_at)
+		VALUES ($1, $2, $3, $4, now())
+		ON CONFLICT (provider, provider_id) DO UPDATE SET identity_data = EXCLUDED.identity_data, last_sign_in_at = now()
+		RETURNING user_id`, userID, provider, providerID, string(b)).Scan(&owner)
+	if err != nil {
+		return err
+	}
+	if owner != userID {
+		return ErrExists
+	}
+	return nil
+}
+
+// IdentityOwner is the user holding provider's providerID, or ErrNotFound.
+func IdentityOwner(ctx context.Context, q Querier, provider, providerID string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := q.QueryRow(ctx, `SELECT user_id FROM pgd_auth.identities WHERE provider = $1 AND provider_id = $2`,
+		provider, providerID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	return id, err
+}
+
+// ErrLastIdentity refuses to unlink a user's only way to sign in.
+var ErrLastIdentity = errors.New("the user's only identity can't be unlinked")
+
+// UnlinkIdentity removes userID's identity id; it refuses the last one.
+// It returns the identity removed.
+func UnlinkIdentity(ctx context.Context, q Querier, userID, id uuid.UUID) (Identity, error) {
+	ids, err := Identities(ctx, q, userID)
+	if err != nil {
+		return Identity{}, err
+	}
+	var found *Identity
+	for i := range ids {
+		if ids[i].ID == id {
+			found = &ids[i]
+		}
+	}
+	if found == nil {
+		return Identity{}, ErrNotFound
+	}
+	if len(ids) < 2 {
+		return Identity{}, ErrLastIdentity
+	}
+	_, err = q.Exec(ctx, `DELETE FROM pgd_auth.identities WHERE id = $1 AND user_id = $2`, id, userID)
+	return *found, err
 }
 
 // Identities are a user's identities.
@@ -678,6 +790,15 @@ const (
 	ActAdminSignOut   = "admin_signout"
 	ActEmailChanged   = "user_email_changed"
 	ActPasswordChange = "user_password_changed"
+	ActPhoneChanged   = "user_phone_changed"
+	ActAnonymous      = "anonymous_signin"
+	ActLinked         = "identity_linked"
+	ActUnlinked       = "identity_unlinked"
+	ActMFAEnrolled    = "mfa_factor_enrolled"
+	ActMFAVerified    = "mfa_verified"
+	ActMFAFailed      = "mfa_failed"
+	ActMFAUnenrolled  = "mfa_factor_deleted"
+	ActHookRejected   = "signup_rejected_by_hook"
 )
 
 // Audit records an event (details may be nil).

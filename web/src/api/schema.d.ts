@@ -2771,6 +2771,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/auth/hooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's recent auth webhook deliveries (V4 §4.7) */
+        get: operations["listAuthHookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/auth/config": {
         parameters: {
             query?: never;
@@ -6414,6 +6431,72 @@ export interface components {
             session_max_seconds?: number;
             session_inactivity_seconds?: number;
             single_session?: boolean;
+            /** @description How phone codes may go; empty turns phone sign-in off. */
+            phone_channels?: ("sms" | "whatsapp")[];
+            /** @description A phone sign-up must confirm its number by code before signing in with a password. */
+            phone_confirm?: boolean;
+            /** @description ISO country codes numbers may be in (default NG); "*" allows any. */
+            phone_countries?: string[];
+            /** @description SMS and WhatsApp codes a day (default 200). */
+            phone_daily_cap?: number;
+            /** @description The SMS text, with {{.Code}}. */
+            sms_template?: string;
+            anonymous_enabled?: boolean;
+            /**
+             * @description required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+             * @enum {string}
+             */
+            mfa_policy?: "off" | "optional" | "required" | "claim";
+            /** @description Phone codes as a second factor. */
+            mfa_phone?: boolean;
+            /** @description Signed-in users may link and unlink identities. */
+            manual_linking?: boolean;
+            oauth?: {
+                [key: string]: components["schemas"]["AuthOAuthSetting"];
+            };
+            /** @description A Postgres function "schema.name" (event jsonb) returns jsonb, run as the hook role when a token is issued. */
+            custom_claims_hook?: string;
+            /** @description A Postgres function "schema.name" (event jsonb) returns jsonb that may return {"decision":"reject"}. */
+            before_signup_hook?: string;
+            /** @description A webhook asked before a sign-up (instead of a Postgres hook). */
+            before_signup_url?: string;
+            after_signup_url?: string;
+            after_signin_url?: string;
+            /** @description A webhook that sends the project's emails and codes instead of PGDock. */
+            send_message_url?: string;
+            captcha_enabled?: boolean;
+            captcha_site_key?: string;
+        };
+        AuthOAuthSetting: {
+            enabled: boolean;
+            client_id: string;
+            scopes?: string[];
+            /** @description Apple only. */
+            team_id?: string;
+            /** @description Apple only. */
+            key_id?: string;
+        };
+        AuthOAuthSecret: {
+            client_secret?: string;
+            /** @description Apple's .p8 key (PEM). */
+            private_key?: string;
+        };
+        /** @description The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones. */
+        AuthPhoneProvider: {
+            /** @enum {string} */
+            provider: "termii" | "africastalking" | "twilio" | "whatsapp_cloud";
+            api_key?: string;
+            sender_id?: string;
+            base_url?: string;
+            username?: string;
+            account_sid?: string;
+            auth_token?: string;
+            from?: string;
+            messaging_service_sid?: string;
+            phone_number_id?: string;
+            access_token?: string;
+            template?: string;
+            language?: string;
         };
         AuthEmailTemplate: {
             subject: string;
@@ -6449,6 +6532,34 @@ export interface components {
             monthly_active_users: number;
             /** @description The project's auth API, https://<ref>.<domain>/auth/v1. */
             auth_url: string;
+            /** @description The redirect URI to register with OAuth providers. */
+            oauth_callback_url?: string;
+            sms?: components["schemas"]["AuthPhoneProvider"] | null;
+            whatsapp?: components["schemas"]["AuthPhoneProvider"] | null;
+            oauth_secret_set?: {
+                [key: string]: boolean;
+            };
+            captcha_secret_set?: boolean;
+            /** @description Signs webhook hooks (PGDock-Signature); set once a hook URL is. */
+            hook_secret?: string;
+            /** @description The role Postgres hooks run as; grant it what they read. */
+            hook_role?: string;
+            phone?: {
+                /** @description This install sends SMS for projects without their own provider. */
+                platform_sms: boolean;
+                platform_whatsapp: boolean;
+                /** Format: int64 */
+                sent_24h: number;
+                daily_cap: number;
+                month: {
+                    channel: string;
+                    /** Format: int64 */
+                    messages: number;
+                    /** Format: int64 */
+                    cost_minor: number;
+                }[];
+                currency?: string;
+            };
         };
         AuthConfigUpdate: {
             settings?: components["schemas"]["AuthSettings"];
@@ -6458,6 +6569,33 @@ export interface components {
             };
             smtp?: components["schemas"]["AuthSMTP"];
             clear_smtp?: boolean;
+            sms?: components["schemas"]["AuthPhoneProvider"];
+            whatsapp?: components["schemas"]["AuthPhoneProvider"];
+            clear_sms?: boolean;
+            clear_whatsapp?: boolean;
+            oauth_secrets?: {
+                [key: string]: components["schemas"]["AuthOAuthSecret"];
+            };
+            /** @description The Turnstile secret key; "" removes it. */
+            captcha_secret?: string | null;
+            rotate_hook_secret?: boolean;
+        };
+        AuthHookDelivery: {
+            /** Format: uuid */
+            id: string;
+            event: string;
+            attempts: number;
+            last_status?: number | null;
+            last_error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            delivered_at?: string | null;
+            /** Format: date-time */
+            failed_at?: string | null;
+        };
+        AuthHookDeliveryList: {
+            items: components["schemas"]["AuthHookDelivery"][];
         };
         AuthSMTPTest: {
             to: string;
@@ -14288,6 +14426,29 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuthHookDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthHookDeliveryList"];
                 };
             };
             default: components["responses"]["Error"];

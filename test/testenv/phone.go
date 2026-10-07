@@ -153,3 +153,15 @@ func sixDigitsIn(s string) string {
 	}
 	return ""
 }
+
+// FakeTurnstile answers Turnstile's siteverify: the token "pass" passes.
+type FakeTurnstile struct{ *httptest.Server }
+
+// NewFakeTurnstile starts one.
+func NewFakeTurnstile() FakeTurnstile {
+	return FakeTurnstile{httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		ok := r.Form.Get("response") == "pass" && r.Form.Get("secret") != ""
+		_ = json.NewEncoder(w).Encode(map[string]any{"success": ok})
+	}))}
+}

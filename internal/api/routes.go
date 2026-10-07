@@ -197,6 +197,7 @@ var routeRules = map[string]rule{
 	"POST /api/v1/projects/{id}/services/explore":         {scope: scopeProject, action: authz.ConsoleWrite},
 	// Auth (V4 §4.9).
 	"GET /api/v1/projects/{id}/auth/config":                        {scope: scopeProject, action: authz.ServicesLogs},
+	"GET /api/v1/projects/{id}/auth/hooks":                         {scope: scopeProject, action: authz.ServicesLogs},
 	"PATCH /api/v1/projects/{id}/auth/config":                      {scope: scopeProject, action: authz.ServicesManage},
 	"POST /api/v1/projects/{id}/auth/smtp/test":                    {scope: scopeProject, action: authz.ServicesManage},
 	"POST /api/v1/projects/{id}/auth/templates/preview":            {scope: scopeProject, action: authz.ServicesManage},

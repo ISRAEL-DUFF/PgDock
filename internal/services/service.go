@@ -597,6 +597,7 @@ func (s *Service) ensureRolesOn(ctx context.Context, p store.Project, instance u
 		{store.UserRole(p.DbName), "NOLOGIN NOINHERIT NOBYPASSRLS " + none},
 		// Bypasses row-level security, still not a superuser.
 		{store.ServiceRole(p.DbName), "NOLOGIN NOINHERIT BYPASSRLS " + none},
+		{store.AuthHookRole(p.DbName), "NOLOGIN NOINHERIT NOBYPASSRLS " + none},
 		{edge, fmt.Sprintf("LOGIN NOINHERIT NOBYPASSRLS %s CONNECTION LIMIT %d PASSWORD '%s'", none, edgeConnLimit, verifier)},
 	} {
 		if err := create(r.role, r.attrs); err != nil {
@@ -604,9 +605,9 @@ func (s *Service) ensureRolesOn(ctx context.Context, p store.Project, instance u
 		}
 	}
 	stmts := []string{
-		// The edge holds nothing itself: it can only become one of the three.
+		// The edge holds nothing itself: it can only become one of the four.
 		"GRANT " + id(store.AnonRole(p.DbName)) + ", " + id(store.UserRole(p.DbName)) + ", " + id(store.ServiceRole(p.DbName)) +
-			" TO " + id(edge) + " WITH INHERIT FALSE, SET TRUE",
+			", " + id(store.AuthHookRole(p.DbName)) + " TO " + id(edge) + " WITH INHERIT FALSE, SET TRUE",
 		"GRANT CONNECT ON DATABASE " + id(p.DbName) + " TO " + id(edge),
 	}
 	if p.Tier == provision.TierShared {
@@ -690,7 +691,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			continue
 		}
 		moved := svc.RolesInstance == nil || *svc.RolesInstance != p.InstanceID
-		if moved {
+		// A newer schema version may use a role this release added.
+		if moved || svc.SchemaVersion < int32(SchemaVersion) {
 			if err := s.ensureRoles(ctx, p); err != nil {
 				errs = append(errs, fmt.Errorf("%s roles: %w", p.DbName, err))
 				continue

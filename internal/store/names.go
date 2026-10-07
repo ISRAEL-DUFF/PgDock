@@ -31,7 +31,11 @@ func AnonRole(db string) string    { return db + "_anon" }
 func UserRole(db string) string    { return db + "_user" }
 func ServiceRole(db string) string { return db + "_service" }
 
-// ServiceRoles are all four, the login first.
+// AuthHookRole runs the project's Postgres auth hooks (V4 §4.7): it holds
+// only what the owner grants it.
+func AuthHookRole(db string) string { return db + "_auth_hook" }
+
+// ServiceRoles are all five, the login first.
 func ServiceRoles(db string) []string {
-	return []string{EdgeRole(db), AnonRole(db), UserRole(db), ServiceRole(db)}
+	return []string{EdgeRole(db), AnonRole(db), UserRole(db), ServiceRole(db), AuthHookRole(db)}
 }

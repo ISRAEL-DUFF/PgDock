@@ -441,7 +441,7 @@ var specMatrix = map[authz.Action][]string{
 	},
 	// V4 §8.3 API logs, and the auth settings and keys to read
 	authz.ServicesLogs: {"GET /api/v1/projects/{id}/services/logs", "GET /api/v1/projects/{id}/auth/config",
-		"GET /api/v1/projects/{id}/auth/signing-keys"},
+		"GET /api/v1/projects/{id}/auth/signing-keys", "GET /api/v1/projects/{id}/auth/hooks"},
 	// V4 §4.9 the project's app users
 	authz.AuthUsers: {"GET /api/v1/projects/{id}/auth/users", "GET /api/v1/projects/{id}/auth/users/{userId}",
 		"GET /api/v1/projects/{id}/auth/audit"},

@@ -21,7 +21,7 @@ type schemaVersion struct {
 var SchemaVersion = schemaVersions[len(schemaVersions)-1].n
 
 // Placeholders the statements use: {{anon}}, {{user}}, {{service}},
-// {{edge}}, {{owner}} (quoted identifiers).
+// {{edge}}, {{hook}}, {{owner}} (quoted identifiers).
 var schemaVersions = []schemaVersion{
 	{1, []string{
 		// The schemas, owned by the platform's admin: the project's owner can
@@ -158,6 +158,67 @@ var schemaVersions = []schemaVersion{
 		// referential actions run as the referencing table's owner).
 		`GRANT REFERENCES (id) ON pgd_auth.users TO {{owner}}`,
 	}},
+	{3, []string{
+		// OAuth sign-ins in progress (V4 §4.1): the provider's state and
+		// PKCE verifier, then the code the app exchanges with its own
+		// verifier (only hashes of both codes are kept).
+		`CREATE TABLE IF NOT EXISTS pgd_auth.flow_state (
+		  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+		  provider              text NOT NULL,
+		  state_hash            text NOT NULL UNIQUE,
+		  provider_verifier     text NOT NULL,
+		  nonce                 text,
+		  code_challenge        text NOT NULL,
+		  code_challenge_method text NOT NULL,
+		  redirect_to           text NOT NULL,
+		  link_user_id          uuid REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+		  user_id               uuid REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+		  auth_code_hash        text UNIQUE,
+		  provider_tokens       jsonb,
+		  created_at            timestamptz NOT NULL DEFAULT now(),
+		  expires_at            timestamptz NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS flow_state_expires ON pgd_auth.flow_state (expires_at)`,
+		// Second factors: TOTP secrets and phone numbers.
+		`CREATE TABLE IF NOT EXISTS pgd_auth.mfa_factors (
+		  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+		  user_id       uuid NOT NULL REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+		  factor_type   text NOT NULL CHECK (factor_type IN ('totp', 'phone')),
+		  friendly_name text,
+		  status        text NOT NULL DEFAULT 'unverified' CHECK (status IN ('unverified', 'verified')),
+		  secret        text,
+		  phone         text,
+		  last_used_step bigint,
+		  created_at    timestamptz NOT NULL DEFAULT now(),
+		  updated_at    timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS mfa_factors_user ON pgd_auth.mfa_factors (user_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS mfa_factors_name ON pgd_auth.mfa_factors (user_id, friendly_name) WHERE friendly_name IS NOT NULL`,
+		`CREATE TABLE IF NOT EXISTS pgd_auth.mfa_challenges (
+		  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+		  factor_id   uuid NOT NULL REFERENCES pgd_auth.mfa_factors (id) ON DELETE CASCADE,
+		  code_hash   text,
+		  attempts    int NOT NULL DEFAULT 0,
+		  ip          text,
+		  created_at  timestamptz NOT NULL DEFAULT now(),
+		  expires_at  timestamptz NOT NULL,
+		  verified_at timestamptz
+		)`,
+		`CREATE INDEX IF NOT EXISTS mfa_challenges_factor ON pgd_auth.mfa_challenges (factor_id)`,
+		`CREATE OR REPLACE FUNCTION pgd_auth.aal() RETURNS text LANGUAGE sql STABLE SECURITY INVOKER AS
+		$$ SELECT coalesce(pgd_auth.claims() ->> 'aal', 'aal1') $$`,
+		`CREATE OR REPLACE FUNCTION pgd_auth.is_anonymous() RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER AS
+		$$ SELECT coalesce((pgd_auth.claims() ->> 'is_anonymous')::boolean, false) $$`,
+		`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pgd_auth TO {{owner}}, {{anon}}, {{user}}, {{service}}, {{hook}}`,
+		`REVOKE ALL ON pgd_auth.flow_state, pgd_auth.mfa_factors, pgd_auth.mfa_challenges FROM PUBLIC`,
+		`GRANT SELECT, INSERT, UPDATE, DELETE ON pgd_auth.flow_state, pgd_auth.mfa_factors, pgd_auth.mfa_challenges TO {{edge}}`,
+		// Postgres hooks (V4 §4.7) run as the hook role, which holds only
+		// what the owner grants it: it may use pgd_auth's functions and see
+		// the public schema, and reads users through the safe view.
+		`GRANT USAGE ON SCHEMA pgd_auth TO {{hook}}`,
+		`GRANT USAGE ON SCHEMA public TO {{hook}}`,
+		`GRANT SELECT ON pgd_auth.user_profiles TO {{hook}}`,
+	}},
 }
 
 // exposureStmts let the request roles use what the owner makes in an
@@ -206,6 +267,7 @@ func expand(stmt string, p store.Project) string {
 		"{{user}}", q(store.UserRole(p.DbName)),
 		"{{service}}", q(store.ServiceRole(p.DbName)),
 		"{{edge}}", q(store.EdgeRole(p.DbName)),
+		"{{hook}}", q(store.AuthHookRole(p.DbName)),
 		"{{owner}}", q(p.OwnerRole),
 	).Replace(stmt)
 }

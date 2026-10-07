@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -45,12 +46,77 @@ func auditOut(a projauth.AuditEntry) gen.AuthAuditEntry {
 
 func ptr[T any](v T) *T { return &v }
 
-func authSettingsOut(a edgeapi.AuthConfig) gen.AuthSettings {
-	return gen.AuthSettings{SiteUrl: ptr(a.SiteURL), RedirectUrls: ptr(append([]string{}, a.RedirectURLs...)),
+func authSettingsOut(a edgeapi.AuthConfig, st services.AuthSettings) gen.AuthSettings {
+	out := gen.AuthSettings{SiteUrl: ptr(a.SiteURL), RedirectUrls: ptr(append([]string{}, a.RedirectURLs...)),
 		AllowWildcardRedirects: ptr(a.AllowWildcardRedirects), SignupEnabled: ptr(a.SignupEnabled), EmailConfirm: ptr(a.EmailConfirm),
 		MagicLinkEnabled: ptr(a.MagicLinkEnabled), PasswordMinLength: ptr(a.PasswordMinLength), PasswordRequireMixed: ptr(a.PasswordRequireMixed),
 		AccessTokenTtl: ptr(a.AccessTokenTTL), SessionMaxSeconds: ptr(a.SessionMaxSeconds),
-		SessionInactivitySeconds: ptr(a.SessionInactivitySeconds), SingleSession: ptr(a.SingleSession)}
+		SessionInactivitySeconds: ptr(a.SessionInactivitySeconds), SingleSession: ptr(a.SingleSession),
+		PhoneConfirm: ptr(a.PhoneConfirm), PhoneCountries: ptr(append([]string{}, a.PhoneCountries...)), PhoneDailyCap: ptr(st.DailyCap()),
+		SmsTemplate: ptr(services.SMSTemplate(st)), AnonymousEnabled: ptr(a.AnonymousEnabled), MfaPolicy: ptr(gen.AuthSettingsMfaPolicy(a.MFA)),
+		MfaPhone: ptr(a.MFAPhone), ManualLinking: ptr(a.ManualLinking), CustomClaimsHook: ptr(a.CustomClaimsHook),
+		BeforeSignupHook: ptr(a.BeforeSignupHook), BeforeSignupUrl: st.BeforeSignupURL, AfterSignupUrl: st.AfterSignupURL,
+		AfterSigninUrl: st.AfterSigninURL, SendMessageUrl: st.SendMessageURL, CaptchaEnabled: ptr(st.CaptchaEnabled != nil && *st.CaptchaEnabled),
+		CaptchaSiteKey: st.CaptchaSiteKey}
+	chans := []gen.AuthSettingsPhoneChannels{}
+	for _, c := range a.PhoneChannels {
+		chans = append(chans, gen.AuthSettingsPhoneChannels(c))
+	}
+	out.PhoneChannels = &chans
+	oauth := map[string]gen.AuthOAuthSetting{}
+	for name, o := range st.OAuth {
+		g := gen.AuthOAuthSetting{Enabled: o.Enabled, ClientId: o.ClientID}
+		if len(o.Scopes) > 0 {
+			g.Scopes = ptr(append([]string{}, o.Scopes...))
+		}
+		if o.TeamID != "" {
+			g.TeamId = ptr(o.TeamID)
+		}
+		if o.KeyID != "" {
+			g.KeyId = ptr(o.KeyID)
+		}
+		oauth[name] = g
+	}
+	out.Oauth = &oauth
+	return out
+}
+
+func phoneProviderOut(p *services.PhoneProvider) *gen.AuthPhoneProvider {
+	if p == nil {
+		return nil
+	}
+	o := gen.AuthPhoneProvider{Provider: gen.AuthPhoneProviderProvider(p.Provider)}
+	set := func(dst **string, v string) {
+		if v != "" {
+			*dst = ptr(v)
+		}
+	}
+	set(&o.SenderId, p.SenderID)
+	set(&o.BaseUrl, p.BaseURL)
+	set(&o.Username, p.Username)
+	set(&o.AccountSid, p.AccountSID)
+	set(&o.From, p.From)
+	set(&o.MessagingServiceSid, p.MessagingServiceSID)
+	set(&o.PhoneNumberId, p.PhoneNumberID)
+	set(&o.Template, p.Template)
+	set(&o.Language, p.Language)
+	return &o
+}
+
+func phoneProviderIn(p *gen.AuthPhoneProvider) *services.PhoneProvider {
+	if p == nil {
+		return nil
+	}
+	v := func(s *string) string {
+		if s == nil {
+			return ""
+		}
+		return strings.TrimSpace(*s)
+	}
+	return &services.PhoneProvider{Provider: string(p.Provider), APIKey: v(p.ApiKey), SenderID: v(p.SenderId), BaseURL: v(p.BaseUrl),
+		Username: v(p.Username), AccountSID: v(p.AccountSid), AuthToken: v(p.AuthToken), From: v(p.From),
+		MessagingServiceSID: v(p.MessagingServiceSid), PhoneNumberID: v(p.PhoneNumberId), AccessToken: v(p.AccessToken),
+		Template: v(p.Template), Language: v(p.Language)}
 }
 
 func templatesOut(m map[string]services.Template) map[string]gen.AuthEmailTemplate {
@@ -82,8 +148,12 @@ func smtpIn(m *gen.AuthSMTP) *services.SMTPSettings {
 }
 
 func (s *Server) authConfigOut(r *http.Request, id uuid.UUID, c services.AuthConfig) (gen.AuthConfig, error) {
-	out := gen.AuthConfig{Settings: authSettingsOut(c.Resolved), Templates: templatesOut(c.Templates),
-		DefaultTemplates: templatesOut(services.DefaultTemplates)}
+	out := gen.AuthConfig{Settings: authSettingsOut(c.Resolved, c.Settings), Templates: templatesOut(c.Templates),
+		DefaultTemplates: templatesOut(services.DefaultTemplates), Sms: phoneProviderOut(c.SMS), Whatsapp: phoneProviderOut(c.WhatsApp),
+		OauthSecretSet: &c.OAuthSecretSet, CaptchaSecretSet: ptr(c.CaptchaSecret)}
+	if c.HookSecret != "" {
+		out.HookSecret = ptr(c.HookSecret)
+	}
 	if c.SMTP != nil {
 		tls := gen.AuthSMTPTls(c.SMTP.TLS)
 		out.Smtp = &gen.AuthSMTP{Host: c.SMTP.Host, Port: ptr(c.SMTP.Port), Username: ptr(c.SMTP.Username), From: c.SMTP.From, Tls: &tls}
@@ -104,12 +174,41 @@ func (s *Server) authConfigOut(r *http.Request, id uuid.UUID, c services.AuthCon
 		}
 	}
 	out.MonthlyActiveUsers = u.MonthlyActive
+	sms, wa := s.services.PlatformChannels()
+	out.Phone = &struct {
+		Currency *string `json:"currency,omitempty"`
+		DailyCap int     `json:"daily_cap"`
+		Month    []struct {
+			Channel   string `json:"channel"`
+			CostMinor int64  `json:"cost_minor"`
+			Messages  int64  `json:"messages"`
+		} `json:"month"`
+		PlatformSms      bool  `json:"platform_sms"`
+		PlatformWhatsapp bool  `json:"platform_whatsapp"`
+		Sent24h          int64 `json:"sent_24h"`
+	}{DailyCap: u.DailyCap, PlatformSms: sms, PlatformWhatsapp: wa, Sent24h: u.PhoneToday, Currency: ptr(s.services.Phone.Currency)}
+	for _, m := range u.Phone {
+		out.Phone.Month = append(out.Phone.Month, struct {
+			Channel   string `json:"channel"`
+			CostMinor int64  `json:"cost_minor"`
+			Messages  int64  `json:"messages"`
+		}{Channel: m.Channel, CostMinor: m.CostMinor, Messages: m.N})
+	}
+	if out.Phone.Month == nil {
+		out.Phone.Month = []struct {
+			Channel   string `json:"channel"`
+			CostMinor int64  `json:"cost_minor"`
+			Messages  int64  `json:"messages"`
+		}{}
+	}
 	p, err := store.New(s.db).GetProject(r.Context(), id)
 	if err != nil {
 		return out, err
 	}
+	out.HookRole = ptr(store.AuthHookRole(p.DbName))
 	if svc, err := store.New(s.db).GetProjectServices(r.Context(), id); err == nil {
 		out.AuthUrl = s.services.URL(svc.Ref, p.Region) + "/auth/v1"
+		out.OauthCallbackUrl = ptr(out.AuthUrl + "/callback")
 	}
 	return out, nil
 }
@@ -170,7 +269,74 @@ func mergeAuthSettings(st services.AuthSettings, in gen.AuthSettings) services.A
 	if in.SingleSession != nil {
 		st.SingleSession = in.SingleSession
 	}
+	if in.PhoneChannels != nil {
+		st.PhoneChannels = []string{}
+		for _, c := range *in.PhoneChannels {
+			st.PhoneChannels = append(st.PhoneChannels, string(c))
+		}
+	}
+	if in.PhoneConfirm != nil {
+		st.PhoneConfirm = in.PhoneConfirm
+	}
+	if in.PhoneCountries != nil {
+		st.PhoneCountries = *in.PhoneCountries
+	}
+	if in.PhoneDailyCap != nil {
+		st.PhoneDailyCap = in.PhoneDailyCap
+	}
+	if in.SmsTemplate != nil {
+		st.SMSTemplate = emptyNil(in.SmsTemplate)
+	}
+	if in.AnonymousEnabled != nil {
+		st.AnonymousEnabled = in.AnonymousEnabled
+	}
+	if in.MfaPolicy != nil {
+		st.MFAPolicy = ptr(string(*in.MfaPolicy))
+	}
+	if in.MfaPhone != nil {
+		st.MFAPhone = in.MfaPhone
+	}
+	if in.ManualLinking != nil {
+		st.ManualLinking = in.ManualLinking
+	}
+	if in.Oauth != nil {
+		st.OAuth = map[string]services.OAuthSetting{}
+		for name, o := range *in.Oauth {
+			v := services.OAuthSetting{Enabled: o.Enabled, ClientID: strings.TrimSpace(o.ClientId)}
+			if o.Scopes != nil {
+				v.Scopes = *o.Scopes
+			}
+			if o.TeamId != nil {
+				v.TeamID = strings.TrimSpace(*o.TeamId)
+			}
+			if o.KeyId != nil {
+				v.KeyID = strings.TrimSpace(*o.KeyId)
+			}
+			st.OAuth[name] = v
+		}
+	}
+	for _, f := range []struct {
+		in  *string
+		dst **string
+	}{{in.CustomClaimsHook, &st.CustomClaimsHook}, {in.BeforeSignupHook, &st.BeforeSignupHook}, {in.BeforeSignupUrl, &st.BeforeSignupURL},
+		{in.AfterSignupUrl, &st.AfterSignupURL}, {in.AfterSigninUrl, &st.AfterSigninURL}, {in.SendMessageUrl, &st.SendMessageURL},
+		{in.CaptchaSiteKey, &st.CaptchaSiteKey}} {
+		if f.in != nil {
+			*f.dst = emptyNil(f.in)
+		}
+	}
+	if in.CaptchaEnabled != nil {
+		st.CaptchaEnabled = in.CaptchaEnabled
+	}
 	return st
+}
+
+// emptyNil is nil for an empty string (back to the default, or off).
+func emptyNil(s *string) *string {
+	if v := strings.TrimSpace(*s); v != "" {
+		return &v
+	}
+	return nil
 }
 
 // UpdateAuthConfig implements PATCH /api/v1/projects/{id}/auth/config.
@@ -208,6 +374,42 @@ func (s *Server) UpdateAuthConfig(w http.ResponseWriter, r *http.Request, id gen
 	} else if req.Smtp != nil {
 		up.SMTP = smtpIn(req.Smtp)
 		a.set("smtp", req.Smtp.Host)
+	}
+	if req.ClearSms != nil && *req.ClearSms {
+		up.ClearSMS = true
+		a.set("sms", "cleared")
+	} else if req.Sms != nil {
+		up.SMS = phoneProviderIn(req.Sms)
+		a.set("sms", string(req.Sms.Provider))
+	}
+	if req.ClearWhatsapp != nil && *req.ClearWhatsapp {
+		up.ClearWhatsApp = true
+		a.set("whatsapp", "cleared")
+	} else if req.Whatsapp != nil {
+		up.WhatsApp = phoneProviderIn(req.Whatsapp)
+		a.set("whatsapp", string(req.Whatsapp.Provider))
+	}
+	if req.OauthSecrets != nil {
+		up.OAuthSecrets = map[string]services.OAuthSecret{}
+		for name, sec := range *req.OauthSecrets {
+			var v services.OAuthSecret
+			if sec.ClientSecret != nil {
+				v.ClientSecret = strings.TrimSpace(*sec.ClientSecret)
+			}
+			if sec.PrivateKey != nil {
+				v.PrivateKey = strings.TrimSpace(*sec.PrivateKey)
+			}
+			up.OAuthSecrets[name] = v
+		}
+		a.set("oauth_secrets", "changed")
+	}
+	if req.CaptchaSecret != nil {
+		up.CaptchaSecret = req.CaptchaSecret
+		a.set("captcha_secret", "changed")
+	}
+	if req.RotateHookSecret != nil && *req.RotateHookSecret {
+		up.RotateHookSecret = true
+		a.set("hook_secret", "rotated")
 	}
 	c, err := s.services.UpdateAuthConfig(r.Context(), id, up)
 	if err != nil {
@@ -515,4 +717,26 @@ func (s *Server) EdgeAuthHook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, d)
+}
+
+// ListAuthHookDeliveries implements GET /api/v1/projects/{id}/auth/hooks.
+func (s *Server) ListAuthHookDeliveries(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	if !s.requireServices(w) {
+		return
+	}
+	rows, err := s.services.AuthHooks(r.Context(), id)
+	if err != nil {
+		s.servicesError(w, "auth hooks", err)
+		return
+	}
+	out := gen.AuthHookDeliveryList{Items: []gen.AuthHookDelivery{}}
+	for _, h := range rows {
+		d := gen.AuthHookDelivery{Id: h.ID, Event: h.Event, Attempts: int(h.Attempts), LastError: h.LastError, CreatedAt: h.CreatedAt,
+			DeliveredAt: h.DeliveredAt, FailedAt: h.FailedAt}
+		if h.LastStatus != nil {
+			d.LastStatus = ptr(int(*h.LastStatus))
+		}
+		out.Items = append(out.Items, d)
+	}
+	writeJSON(w, http.StatusOK, out)
 }

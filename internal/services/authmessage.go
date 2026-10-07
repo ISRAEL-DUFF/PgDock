@@ -198,6 +198,14 @@ func (s *Service) queuePhone(ctx context.Context, projectID uuid.UUID, m edgeapi
 	}
 	hash := recipientHash(projectID, to)
 	daily := st.DailyCap()
+	// Alerts go out after the transaction (they use their own connection).
+	type alertMsg struct{ kind, body string }
+	var alerts []alertMsg
+	defer func() {
+		for _, a := range alerts {
+			s.alert(ctx, projectID, a.kind, a.body)
+		}
+	}()
 	return s.enqueue(ctx, projectID, m.Channel, m.Kind, via, queuedMessage{To: to, Body: body, Code: m.Code}, hash, country,
 		func(q *store.Queries) error {
 			n, err := q.CountRecipientMessages(ctx, store.CountRecipientMessagesParams{ProjectID: projectID, RecipientHash: &hash,
@@ -213,17 +221,17 @@ func (s *Service) queuePhone(ctx context.Context, projectID uuid.UUID, m edgeapi
 				return err
 			}
 			if today >= int64(daily) {
-				s.alert(ctx, projectID, "phone_daily_cap", fmt.Sprintf(
+				alerts = append(alerts, alertMsg{"phone_daily_cap", fmt.Sprintf(
 					"Your project's SMS and WhatsApp codes reached their daily cap (%d in 24 hours), so PGDock stopped sending them. "+
 						"If this wasn't your users, someone may be pumping codes to numbers they profit from: check Authentication → Phone, "+
-						"limit the countries, turn on captcha, and raise the cap only if the traffic is yours.", daily))
+						"limit the countries, turn on captcha, and raise the cap only if the traffic is yours.", daily)})
 				return &LimitError{Limit: "daily"}
 			}
 			if hour, err := q.CountPhoneMessages(ctx, store.CountPhoneMessagesParams{ProjectID: projectID, Since: time.Now().Add(-time.Hour)}); err == nil &&
 				daily >= 20 && hour+1 >= int64(daily/4) {
-				s.alert(ctx, projectID, "phone_spike", fmt.Sprintf(
+				alerts = append(alerts, alertMsg{"phone_spike", fmt.Sprintf(
 					"Your project sent %d SMS and WhatsApp codes in the last hour, a quarter of its daily cap (%d). "+
-						"If that isn't your users, it may be SMS pumping: check Authentication → Phone.", hour+1, daily))
+						"If that isn't your users, it may be SMS pumping: check Authentication → Phone.", hour+1, daily)})
 			}
 			return nil
 		})

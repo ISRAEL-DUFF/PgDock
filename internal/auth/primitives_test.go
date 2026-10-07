@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base32"
 	"strings"
 	"testing"
 	"time"
@@ -47,7 +48,7 @@ func TestPasswordPolicy(t *testing.T) {
 // RFC 6238 appendix B, SHA-1, secret "12345678901234567890", 8 digits; the
 // 6-digit codes are the last six digits.
 func TestTOTPVectors(t *testing.T) {
-	secret := b32.EncodeToString([]byte("12345678901234567890"))
+	secret := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte("12345678901234567890"))
 	for unix, want := range map[int64]string{
 		59:          "287082",
 		1111111109:  "081804",

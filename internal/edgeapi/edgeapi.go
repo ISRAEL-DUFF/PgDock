@@ -95,14 +95,16 @@ type Project struct {
 	Seq       int64     `json:"seq"`
 	// Database is the pooler database name; the edge logs in as EdgeUser
 	// and SETs ROLE to AnonRole, UserRole or ServiceRole per request.
-	Database    string   `json:"database,omitempty"`
-	EdgeUser    string   `json:"edge_user,omitempty"`
-	Password    string   `json:"password,omitempty"`
-	PoolerHost  string   `json:"pooler_host,omitempty"`
-	PoolerPort  int      `json:"pooler_port,omitempty"`
-	AnonRole    string   `json:"anon_role,omitempty"`
-	UserRole    string   `json:"user_role,omitempty"`
-	ServiceRole string   `json:"service_role,omitempty"`
+	Database    string `json:"database,omitempty"`
+	EdgeUser    string `json:"edge_user,omitempty"`
+	Password    string `json:"password,omitempty"`
+	PoolerHost  string `json:"pooler_host,omitempty"`
+	PoolerPort  int    `json:"pooler_port,omitempty"`
+	AnonRole    string `json:"anon_role,omitempty"`
+	UserRole    string `json:"user_role,omitempty"`
+	ServiceRole string `json:"service_role,omitempty"`
+	// HookRole runs the project's Postgres auth hooks.
+	HookRole    string   `json:"hook_role,omitempty"`
 	Keys        []Key    `json:"keys,omitempty"`
 	CORSOrigins []string `json:"cors_origins,omitempty"`
 	// ExposedSchemas are the schemas the data API serves; PublicTables

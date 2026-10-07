@@ -21,6 +21,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
 	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/pgdock/internal/messaging"
 	"github.com/israel-duff/pgdock/internal/projauth"
 )
 
@@ -91,6 +92,12 @@ func (e *Edge) keylessAuth(c *call) bool {
 		}
 		e.verifyLink(c)
 		return true
+	case c.r.URL.Path == "/auth/v1/authorize" && c.r.Method == http.MethodGet:
+		e.oauthAuthorize(c, nil)
+		return true
+	case c.r.URL.Path == "/auth/v1/callback" && (c.r.Method == http.MethodGet || c.r.Method == http.MethodPost):
+		e.callback(c)
+		return true
 	}
 	return false
 }
@@ -122,9 +129,14 @@ func (e *Edge) auth(c *call, req Request) {
 		e.jwks(c)
 	case path == "settings" && m == http.MethodGet:
 		a := c.p.cfg.Auth
+		external := map[string]bool{"email": true, "phone": len(a.PhoneChannels) > 0, "anonymous_users": a.AnonymousEnabled}
+		for name := range a.OAuth {
+			external[name] = true
+		}
 		c.json(http.StatusOK, map[string]any{"signup_enabled": a.SignupEnabled, "email_confirm": a.EmailConfirm,
 			"magic_link_enabled": a.MagicLinkEnabled, "password_min_length": a.PasswordMinLength,
-			"password_require_mixed": a.PasswordRequireMixed})
+			"password_require_mixed": a.PasswordRequireMixed, "external": external, "phone_channels": a.PhoneChannels,
+			"phone_confirm": a.PhoneConfirm, "mfa": a.MFA, "mfa_phone": a.MFAPhone, "captcha": a.CaptchaSecret != ""})
 	case path == "signup" && m == http.MethodPost:
 		if e.authLimit(c, "signup") {
 			e.signup(c)
@@ -143,8 +155,12 @@ func (e *Edge) auth(c *call, req Request) {
 			if e.authLimit(c, "signin") {
 				e.signinPassword(c)
 			}
+		case "pkce":
+			if e.authLimit(c, "token") {
+				e.exchangePKCE(c)
+			}
 		default:
-			c.fail(http.StatusBadRequest, "unsupported_grant_type", "grant_type is refresh_token or password")
+			c.fail(http.StatusBadRequest, "unsupported_grant_type", "grant_type is refresh_token, password or pkce")
 		}
 	case path == "signin/otp" && m == http.MethodPost:
 		if e.authLimit(c, "otp") {
@@ -168,6 +184,12 @@ func (e *Edge) auth(c *call, req Request) {
 		e.getUser(c, req)
 	case path == "user" && (m == http.MethodPatch || m == http.MethodPut):
 		e.updateUser(c, req)
+	case strings.HasPrefix(path, "user/identities/") && m == http.MethodDelete:
+		e.unlinkIdentity(c, req, strings.TrimPrefix(path, "user/identities/"))
+	case path == "user/identities/authorize" && m == http.MethodGet:
+		e.oauthAuthorize(c, &req)
+	case strings.HasPrefix(path, "factors") || strings.HasPrefix(path, "mfa/"):
+		e.mfa(c, req, path)
 	case strings.HasPrefix(path, "admin/"):
 		if req.Role != "service" {
 			c.fail(http.StatusForbidden, "admin_only", "the admin API needs the project's secret key")
@@ -325,7 +347,7 @@ type tokenResponse struct {
 }
 
 // issue signs an access token for u in session s.
-func (e *Edge) issue(p *project, u *projauth.User, s *projauth.Session, refresh string) (tokenResponse, error) {
+func (e *Edge) issue(ctx context.Context, p *project, u *projauth.User, s *projauth.Session, refresh string) (tokenResponse, error) {
 	if p.cfg.SigningKey == nil {
 		return tokenResponse{}, errNoSigningKey
 	}
@@ -345,6 +367,10 @@ func (e *Edge) issue(p *project, u *projauth.User, s *projauth.Session, refresh 
 	}
 	if u.Phone != nil {
 		claims["phone"] = *u.Phone
+	}
+	claims, err := e.customClaims(ctx, p, u, s.LastMethod(), claims)
+	if err != nil {
+		return tokenResponse{}, err
 	}
 	tok, err := jwtes.Sign(p.cfg.SigningKey.Private, p.cfg.SigningKey.Kid, claims)
 	if err != nil {
@@ -378,7 +404,11 @@ func (e *Edge) startSession(ctx context.Context, c *call, tx pgx.Tx, u *projauth
 	}
 	e.meter.activeUser(c.p.cfg.ProjectID, u.ID)
 	c.userID = &u.ID
-	return e.issue(c.p, fresh, s, refresh)
+	if a.AfterSigninHook {
+		c.hooks = append(c.hooks, edgeapi.AuthHook{Ref: c.p.cfg.Ref, Event: "after_signin",
+			Payload: map[string]any{"user": fresh, "method": method, "session_id": s.ID}})
+	}
+	return e.issue(ctx, c.p, fresh, s, refresh)
 }
 
 // ---- Email --------------------------------------------------------------------
@@ -399,7 +429,7 @@ func (e *Edge) verifyLink(c *call) {
 	}
 	var out tokenResponse
 	var fail *apiErr
-	err := e.withAuth(c.r.Context(), c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		v, err := projauth.VerifyToken(c.r.Context(), tx, token, kinds)
 		if err != nil {
 			return err
@@ -487,10 +517,14 @@ func tooSoon(ctx context.Context, tx pgx.Tx, target string, kinds []string) (*ap
 
 func (e *Edge) signup(c *call) {
 	var in struct {
-		Email      string          `json:"email"`
-		Password   string          `json:"password"`
-		Data       json.RawMessage `json:"data"`
-		RedirectTo string          `json:"redirect_to"`
+		Email        string          `json:"email"`
+		Phone        string          `json:"phone"`
+		Channel      string          `json:"channel"`
+		Password     string          `json:"password"`
+		Data         json.RawMessage `json:"data"`
+		RedirectTo   string          `json:"redirect_to"`
+		Security     security        `json:"gotrue_meta_security"`
+		CaptchaToken string          `json:"captcha_token"`
 	}
 	if !authBody(c, &in) {
 		return
@@ -500,6 +534,17 @@ func (e *Edge) signup(c *call) {
 	switch {
 	case !a.SignupEnabled:
 		c.fail(http.StatusForbidden, "signup_disabled", "sign-ups are turned off for this project")
+		return
+	case !jsonObject(in.Data):
+		c.fail(http.StatusBadRequest, "invalid_body", "data must be a JSON object")
+		return
+	case !e.captcha(c, in.Security, in.CaptchaToken):
+		return
+	case in.Email == "" && in.Phone == "" && in.Password == "":
+		e.signinAnonymous(c, in.Data)
+		return
+	case in.Phone != "" && in.Email == "":
+		e.signupPhone(c, in.Phone, in.Channel, in.Password, in.Data)
 		return
 	case !validEmail(email):
 		c.fail(http.StatusBadRequest, "invalid_email", "a valid email address is required")
@@ -527,7 +572,7 @@ func (e *Edge) signup(c *call) {
 	}
 	var out *tokenResponse
 	ctx := c.r.Context()
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		existing, err := projauth.UserByEmail(ctx, tx, email, true)
 		if err != nil && !errors.Is(err, projauth.ErrNotFound) {
 			return err
@@ -549,15 +594,12 @@ func (e *Edge) signup(c *call) {
 			}
 			return e.sendEmail(ctx, c.p, edgeapi.EmailConfirmation, "signup", email, code, redirect)
 		}
-		u, err := projauth.CreateUser(ctx, tx, projauth.NewUser{Email: email, PasswordHash: hash, EmailConfirmed: !a.EmailConfirm,
-			UserMetadata: in.Data})
+		u, err := e.createUser(ctx, c, tx, projauth.NewUser{Email: email, PasswordHash: hash, EmailConfirmed: !a.EmailConfirm,
+			UserMetadata: in.Data}, "password")
 		if err != nil {
 			return err
 		}
 		if err := projauth.EnsureEmailIdentity(ctx, tx, u.ID, email); err != nil {
-			return err
-		}
-		if err := projauth.Audit(ctx, tx, &u.ID, projauth.ActSignup, c.ip, nil); err != nil {
 			return err
 		}
 		if a.EmailConfirm {
@@ -591,22 +633,42 @@ func jsonObject(b json.RawMessage) bool {
 
 func (e *Edge) signinPassword(c *call) {
 	var in struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email        string   `json:"email"`
+		Phone        string   `json:"phone"`
+		Password     string   `json:"password"`
+		Security     security `json:"gotrue_meta_security"`
+		CaptchaToken string   `json:"captcha_token"`
 	}
 	if !authBody(c, &in) {
 		return
 	}
 	email := projauth.NormalizeEmail(in.Email)
-	if email == "" || in.Password == "" || len(in.Password) > maxPassLen {
-		c.fail(http.StatusBadRequest, "invalid_credentials", "email and password are required")
+	var phone string
+	if email == "" && in.Phone != "" {
+		var err error
+		if phone, err = messaging.Normalize(in.Phone); err != nil {
+			c.fail(http.StatusBadRequest, "invalid_credentials", "invalid phone or password")
+			return
+		}
+	}
+	if (email == "" && phone == "") || in.Password == "" || len(in.Password) > maxPassLen {
+		c.fail(http.StatusBadRequest, "invalid_credentials", "email (or phone) and password are required")
+		return
+	}
+	if !e.captcha(c, in.Security, in.CaptchaToken) {
 		return
 	}
 	var out tokenResponse
 	var fail *apiErr
 	ctx := c.r.Context()
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
-		u, err := projauth.UserByEmail(ctx, tx, email, true)
+	err := e.authTx(c, func(tx pgx.Tx) error {
+		var u *projauth.User
+		var err error
+		if phone != "" {
+			u, err = projauth.UserByPhone(ctx, tx, phone, true)
+		} else {
+			u, err = projauth.UserByEmail(ctx, tx, email, true)
+		}
 		if err != nil && !errors.Is(err, projauth.ErrNotFound) {
 			return err
 		}
@@ -619,7 +681,7 @@ func (e *Edge) signinPassword(c *call) {
 		var ok bool
 		e.hash(func() { ok = projauth.CheckPassword(u, in.Password) })
 		if !ok {
-			fail = refuse(http.StatusBadRequest, "invalid_credentials", "invalid email or password")
+			fail = refuse(http.StatusBadRequest, "invalid_credentials", "invalid login credentials")
 			if u == nil {
 				return nil
 			}
@@ -639,8 +701,12 @@ func (e *Edge) signinPassword(c *call) {
 			fail = refuse(http.StatusForbidden, "user_banned", "this user is banned")
 			return nil
 		}
-		if c.p.cfg.Auth.EmailConfirm && u.EmailConfirmedAt == nil {
+		if phone == "" && c.p.cfg.Auth.EmailConfirm && u.EmailConfirmedAt == nil {
 			fail = refuse(http.StatusForbidden, "email_not_confirmed", "confirm the email address first")
+			return nil
+		}
+		if phone != "" && c.p.cfg.Auth.PhoneConfirm && u.PhoneConfirmedAt == nil {
+			fail = refuse(http.StatusForbidden, "phone_not_confirmed", "confirm the phone number first")
 			return nil
 		}
 		out, err = e.startSession(ctx, c, tx, u, "password")
@@ -662,16 +728,31 @@ func (e *Edge) signinPassword(c *call) {
 // is the same.
 func (e *Edge) signinOTP(c *call) {
 	var in struct {
-		Email      string          `json:"email"`
-		CreateUser *bool           `json:"create_user"`
-		Data       json.RawMessage `json:"data"`
-		RedirectTo string          `json:"redirect_to"`
+		Email        string          `json:"email"`
+		Phone        string          `json:"phone"`
+		Channel      string          `json:"channel"`
+		CreateUser   *bool           `json:"create_user"`
+		Data         json.RawMessage `json:"data"`
+		RedirectTo   string          `json:"redirect_to"`
+		Security     security        `json:"gotrue_meta_security"`
+		CaptchaToken string          `json:"captcha_token"`
 	}
 	if !authBody(c, &in) {
 		return
 	}
 	a := c.p.cfg.Auth
 	email := projauth.NormalizeEmail(in.Email)
+	if !jsonObject(in.Data) {
+		c.fail(http.StatusBadRequest, "invalid_body", "data must be a JSON object")
+		return
+	}
+	if !e.captcha(c, in.Security, in.CaptchaToken) {
+		return
+	}
+	if in.Phone != "" && in.Email == "" {
+		e.signinPhoneOTP(c, in.Phone, in.Channel, in.CreateUser == nil || *in.CreateUser, in.Data)
+		return
+	}
 	switch {
 	case !a.MagicLinkEnabled:
 		c.fail(http.StatusForbidden, "otp_disabled", "magic links and email codes are turned off for this project")
@@ -691,7 +772,7 @@ func (e *Edge) signinOTP(c *call) {
 	create := in.CreateUser == nil || *in.CreateUser
 	ctx := c.r.Context()
 	var fail *apiErr
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		if soon, err := tooSoon(ctx, tx, email, []string{projauth.CodeMagicLink}); err != nil || soon != nil {
 			fail = soon
 			return err
@@ -701,10 +782,7 @@ func (e *Edge) signinOTP(c *call) {
 			if !create || !a.SignupEnabled {
 				return nil
 			}
-			if u, err = projauth.CreateUser(ctx, tx, projauth.NewUser{Email: email, UserMetadata: in.Data}); err != nil {
-				return err
-			}
-			if err := projauth.Audit(ctx, tx, &u.ID, projauth.ActSignup, c.ip, map[string]any{"method": "magiclink"}); err != nil {
+			if u, err = e.createUser(ctx, c, tx, projauth.NewUser{Email: email, UserMetadata: in.Data}, "magiclink"); err != nil {
 				return err
 			}
 		} else if err != nil {
@@ -745,6 +823,10 @@ func verifyKinds(typ string) []string {
 		return []string{projauth.CodeInvite}
 	case "email_change":
 		return []string{projauth.CodeEmailChange}
+	case "sms", "whatsapp", "phone":
+		return []string{projauth.CodePhone, projauth.CodePhoneSignup}
+	case "phone_change":
+		return []string{projauth.CodePhoneChange}
 	}
 	return nil
 }
@@ -762,6 +844,9 @@ func (e *Edge) useVerified(ctx context.Context, c *call, tx pgx.Tx, v projauth.V
 	if u.Banned(time.Now()) {
 		return tokenResponse{}, refuse(http.StatusForbidden, "user_banned", "this user is banned"), nil
 	}
+	if v.Kind == projauth.CodePhone || v.Kind == projauth.CodePhoneSignup || v.Kind == projauth.CodePhoneChange {
+		return e.usePhoneVerified(ctx, c, tx, u, v)
+	}
 	up := projauth.Update{ConfirmEmail: true}
 	action := projauth.ActConfirmed
 	// A magic link or reset proves the address for the first time: a
@@ -777,7 +862,7 @@ func (e *Edge) useVerified(ctx context.Context, c *call, tx pgx.Tx, v projauth.V
 		}
 	}
 	if v.Kind == projauth.CodeEmailChange {
-		up.Email, action = &v.Target, projauth.ActEmailChanged
+		up.Email, action, up.NotAnonymous = &v.Target, projauth.ActEmailChanged, true
 	} else if u.Email == nil || *u.Email != v.Target {
 		// The address changed since the code was sent.
 		return tokenResponse{}, refuse(http.StatusForbidden, "otp_expired", "the code is invalid or has expired"), nil
@@ -806,6 +891,7 @@ func (e *Edge) verify(c *call) {
 	var in struct {
 		Type      string `json:"type"`
 		Email     string `json:"email"`
+		Phone     string `json:"phone"`
 		Token     string `json:"token"`
 		TokenHash string `json:"token_hash"`
 	}
@@ -814,23 +900,31 @@ func (e *Edge) verify(c *call) {
 	}
 	kinds := verifyKinds(in.Type)
 	if kinds == nil {
-		c.fail(http.StatusBadRequest, "invalid_type", "type is signup, magiclink, email, recovery, invite or email_change")
+		c.fail(http.StatusBadRequest, "invalid_type", "type is signup, magiclink, email, recovery, invite, email_change, sms, whatsapp or phone_change")
 		return
 	}
-	if in.TokenHash == "" && (in.Email == "" || in.Token == "") {
+	target := in.Email
+	if kinds[0] == projauth.CodePhone || kinds[0] == projauth.CodePhoneChange {
+		phone, err := messaging.Normalize(in.Phone)
+		if err != nil || in.Token == "" {
+			c.fail(http.StatusBadRequest, "invalid_body", "send phone and token (the 6-digit code)")
+			return
+		}
+		target, in.TokenHash = phone, ""
+	} else if in.TokenHash == "" && (in.Email == "" || in.Token == "") {
 		c.fail(http.StatusBadRequest, "invalid_body", "send email and token (the 6-digit code), or token_hash (the link's token)")
 		return
 	}
 	ctx := c.r.Context()
 	var out tokenResponse
 	var fail *apiErr
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		var v projauth.Verified
 		var err error
 		if in.TokenHash != "" {
 			v, err = projauth.VerifyToken(ctx, tx, in.TokenHash, kinds)
 		} else {
-			v, err = projauth.VerifyCode(ctx, tx, in.Email, kinds, in.Token)
+			v, err = projauth.VerifyCode(ctx, tx, target, kinds, in.Token)
 		}
 		if err != nil {
 			return err
@@ -857,13 +951,23 @@ func (e *Edge) resend(c *call) {
 	var in struct {
 		Type       string `json:"type"`
 		Email      string `json:"email"`
+		Phone      string `json:"phone"`
+		Channel    string `json:"channel"`
 		RedirectTo string `json:"redirect_to"`
 	}
 	if !authBody(c, &in) {
 		return
 	}
+	if in.Type == "sms" || in.Type == "whatsapp" {
+		ch := in.Channel
+		if ch == "" && in.Type == "whatsapp" {
+			ch = edgeapi.ChannelWhatsApp
+		}
+		e.signinPhoneOTP(c, in.Phone, ch, false, nil)
+		return
+	}
 	if in.Type != "signup" {
-		c.fail(http.StatusBadRequest, "invalid_type", "type is signup (an email change is resent by asking for it again)")
+		c.fail(http.StatusBadRequest, "invalid_type", "type is signup or sms (a change is resent by asking for it again)")
 		return
 	}
 	email := projauth.NormalizeEmail(in.Email)
@@ -874,7 +978,7 @@ func (e *Edge) resend(c *call) {
 	}
 	ctx := c.r.Context()
 	var fail *apiErr
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		if soon, err := tooSoon(ctx, tx, email, []string{projauth.CodeSignup}); err != nil || soon != nil {
 			fail = soon
 			return err
@@ -923,7 +1027,7 @@ func (e *Edge) recover(c *call) {
 	}
 	ctx := c.r.Context()
 	var fail *apiErr
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		if soon, err := tooSoon(ctx, tx, email, []string{projauth.CodeRecovery}); err != nil || soon != nil {
 			fail = soon
 			return err
@@ -973,7 +1077,7 @@ func (e *Edge) refresh(c *call) {
 	ctx := c.r.Context()
 	var out tokenResponse
 	var fail *apiErr
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		r, err := projauth.Refresh(ctx, tx, in.RefreshToken,
 			projauth.SessionLimits{Inactivity: time.Duration(c.p.cfg.Auth.SessionInactivitySeconds) * time.Second})
 		if errors.Is(err, projauth.ErrNotFound) {
@@ -997,7 +1101,7 @@ func (e *Edge) refresh(c *call) {
 		}
 		e.meter.activeUser(c.p.cfg.ProjectID, r.User.ID)
 		c.userID = &r.User.ID
-		out, err = e.issue(c.p, r.User, r.Session, r.Token)
+		out, err = e.issue(ctx, c.p, r.User, r.Session, r.Token)
 		return err
 	})
 	if err != nil {
@@ -1040,7 +1144,7 @@ func (e *Edge) signout(c *call, req Request) {
 		return
 	}
 	ctx := c.r.Context()
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		var err error
 		switch scope {
 		case "local":
@@ -1082,11 +1186,15 @@ func (e *Edge) getUser(c *call, req Request) {
 		return
 	}
 	ctx := c.r.Context()
-	var u *projauth.User
+	var out userOut
 	var fail *apiErr
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
-		var err error
-		u, fail, err = e.liveUser(ctx, tx, uid, sid, false)
+	err := e.authTx(c, func(tx pgx.Tx) error {
+		u, f, err := e.liveUser(ctx, tx, uid, sid, false)
+		if err != nil || f != nil {
+			fail = f
+			return err
+		}
+		out, err = e.userWithIdentities(c, tx, u)
 		return err
 	})
 	if err != nil {
@@ -1097,7 +1205,7 @@ func (e *Edge) getUser(c *call, req Request) {
 		fail.send(c)
 		return
 	}
-	c.json(http.StatusOK, u)
+	c.json(http.StatusOK, out)
 }
 
 // mergeObject overlays b's top-level keys on a (both JSON objects).
@@ -1129,6 +1237,8 @@ func (e *Edge) updateUser(c *call, req Request) {
 	}
 	var in struct {
 		Email           *string         `json:"email"`
+		Phone           *string         `json:"phone"`
+		Channel         string          `json:"channel"`
 		Password        *string         `json:"password"`
 		Data            json.RawMessage `json:"data"`
 		EmailRedirectTo string          `json:"email_redirect_to"`
@@ -1164,6 +1274,18 @@ func (e *Edge) updateUser(c *call, req Request) {
 			return
 		}
 	}
+	var newPhone, channel string
+	if in.Phone != nil {
+		if !phoneOn(c) {
+			return
+		}
+		if newPhone, ok = phoneIn(c, *in.Phone); !ok {
+			return
+		}
+		if channel, ok = channelIn(c, in.Channel); !ok {
+			return
+		}
+	}
 	redirect, ok := redirectFor(a, in.EmailRedirectTo)
 	if !ok {
 		c.fail(http.StatusBadRequest, "redirect_not_allowed", "email_redirect_to isn't one of the project's redirect URLs")
@@ -1172,7 +1294,7 @@ func (e *Edge) updateUser(c *call, req Request) {
 	ctx := c.r.Context()
 	var u *projauth.User
 	var fail *apiErr
-	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
+	err := e.authTx(c, func(tx pgx.Tx) error {
 		var err error
 		if u, fail, err = e.liveUser(ctx, tx, uid, sid, true); err != nil || fail != nil {
 			return err
@@ -1210,7 +1332,22 @@ func (e *Edge) updateUser(c *call, req Request) {
 			if err != nil {
 				return err
 			}
-			return e.sendEmail(ctx, c.p, edgeapi.EmailChange, "email_change", newEmail, code, redirect)
+			if err := e.sendEmail(ctx, c.p, edgeapi.EmailChange, "email_change", newEmail, code, redirect); err != nil {
+				return err
+			}
+		}
+		if newPhone != "" && (u.Phone == nil || *u.Phone != newPhone) {
+			if other, err := projauth.UserByPhone(ctx, tx, newPhone, false); err == nil && other.ID != uid {
+				fail = refuse(http.StatusUnprocessableEntity, "phone_exists", "another user has this phone number")
+				return nil
+			} else if err != nil && !errors.Is(err, projauth.ErrNotFound) {
+				return err
+			}
+			if soon, err := phoneTooSoon(ctx, tx, newPhone, []string{projauth.CodePhoneChange}); err != nil || soon != nil {
+				fail = soon
+				return err
+			}
+			return e.newPhoneCode(ctx, c, tx, uid, projauth.CodePhoneChange, channel, newPhone)
 		}
 		return nil
 	})

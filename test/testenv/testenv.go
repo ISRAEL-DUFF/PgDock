@@ -128,7 +128,8 @@ type Env struct {
 	wakerLn   net.Listener
 	wakerAddr string
 	wakerCtx  context.Context
-	// Phone fakes Termii and WhatsApp for the platform's auth codes.
+	// Phone fakes Termii and WhatsApp for the platform's auth codes (Free
+	// projects may use them here, unlike by default).
 	Phone *FakePhone
 	// Support runs tickets (V3 §7.1); WhatsApp fakes the Cloud API, whose
 	// webhook reaches the API. SupportInboundSecret authenticates inbound email.
@@ -382,14 +383,16 @@ func Start(t testing.TB, opts Options) *Env {
 	pm.SetWaker(wakerHost, wakerPort)
 	// Backend services (V4 §2), served by an in-process pgdock-edge
 	// (Env.StartEdge).
-	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret}, log)
+	turnstile := NewFakeTurnstile()
+	t.Cleanup(turnstile.Close)
+	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret, CaptchaVerifyURL: turnstile.URL}, log)
 	servicesSvc.Mail = mailSvc
 	phone := NewFakePhone()
 	t.Cleanup(phone.Close)
 	servicesSvc.Phone = services.PlatformPhone{
 		SMS:          messaging.Termii{BaseURL: phone.URL, APIKey: "termii-test", SenderID: "PGDock"},
 		WhatsApp:     messaging.WhatsAppCloud{BaseURL: phone.URL, PhoneNumberID: "1001", AccessToken: "wa-test", Template: "pgdock_code"},
-		SMSCostMinor: 450, WhatsAppCostMinor: 1500, Currency: "NGN", DisallowFreePlans: true,
+		SMSCostMinor: 450, WhatsAppCostMinor: 1500, Currency: "NGN",
 	}
 	servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
 		_, err := freeSvc.Resume(ctx, projectID, nil)

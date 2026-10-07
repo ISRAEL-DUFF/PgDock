@@ -327,6 +327,30 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AuthPhoneProviderProvider.
+const (
+	Africastalking AuthPhoneProviderProvider = "africastalking"
+	Termii         AuthPhoneProviderProvider = "termii"
+	Twilio         AuthPhoneProviderProvider = "twilio"
+	WhatsappCloud  AuthPhoneProviderProvider = "whatsapp_cloud"
+)
+
+// Valid indicates whether the value is a known member of the AuthPhoneProviderProvider enum.
+func (e AuthPhoneProviderProvider) Valid() bool {
+	switch e {
+	case Africastalking:
+		return true
+	case Termii:
+		return true
+	case Twilio:
+		return true
+	case WhatsappCloud:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthSMTPTls.
 const (
 	AuthSMTPTlsNone     AuthSMTPTls = "none"
@@ -342,6 +366,48 @@ func (e AuthSMTPTls) Valid() bool {
 	case AuthSMTPTlsStarttls:
 		return true
 	case AuthSMTPTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthSettingsMfaPolicy.
+const (
+	AuthSettingsMfaPolicyClaim    AuthSettingsMfaPolicy = "claim"
+	AuthSettingsMfaPolicyOff      AuthSettingsMfaPolicy = "off"
+	AuthSettingsMfaPolicyOptional AuthSettingsMfaPolicy = "optional"
+	AuthSettingsMfaPolicyRequired AuthSettingsMfaPolicy = "required"
+)
+
+// Valid indicates whether the value is a known member of the AuthSettingsMfaPolicy enum.
+func (e AuthSettingsMfaPolicy) Valid() bool {
+	switch e {
+	case AuthSettingsMfaPolicyClaim:
+		return true
+	case AuthSettingsMfaPolicyOff:
+		return true
+	case AuthSettingsMfaPolicyOptional:
+		return true
+	case AuthSettingsMfaPolicyRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthSettingsPhoneChannels.
+const (
+	AuthSettingsPhoneChannelsSms      AuthSettingsPhoneChannels = "sms"
+	AuthSettingsPhoneChannelsWhatsapp AuthSettingsPhoneChannels = "whatsapp"
+)
+
+// Valid indicates whether the value is a known member of the AuthSettingsPhoneChannels enum.
+func (e AuthSettingsPhoneChannels) Valid() bool {
+	switch e {
+	case AuthSettingsPhoneChannelsSms:
+		return true
+	case AuthSettingsPhoneChannelsWhatsapp:
 		return true
 	default:
 		return false
@@ -2522,19 +2588,19 @@ func (e TablePageOrder) Valid() bool {
 
 // Defines values for TicketChannel.
 const (
-	Dashboard TicketChannel = "dashboard"
-	Email     TicketChannel = "email"
-	Whatsapp  TicketChannel = "whatsapp"
+	TicketChannelDashboard TicketChannel = "dashboard"
+	TicketChannelEmail     TicketChannel = "email"
+	TicketChannelWhatsapp  TicketChannel = "whatsapp"
 )
 
 // Valid indicates whether the value is a known member of the TicketChannel enum.
 func (e TicketChannel) Valid() bool {
 	switch e {
-	case Dashboard:
+	case TicketChannelDashboard:
 		return true
-	case Email:
+	case TicketChannelEmail:
 		return true
-	case Whatsapp:
+	case TicketChannelWhatsapp:
 		return true
 	default:
 		return false
@@ -3982,6 +4048,7 @@ type AuthAuditList struct {
 type AuthConfig struct {
 	// AuthUrl The project's auth API, https://<ref>.<domain>/auth/v1.
 	AuthUrl          string                       `json:"auth_url"`
+	CaptchaSecretSet *bool                        `json:"captcha_secret_set,omitempty"`
 	DefaultTemplates map[string]AuthEmailTemplate `json:"default_templates"`
 	Email            struct {
 		Failed24h       int  `json:"failed_24h"`
@@ -3990,26 +4057,81 @@ type AuthConfig struct {
 		PlatformPerHour int  `json:"platform_per_hour"`
 		Sent24h         int  `json:"sent_24h"`
 	} `json:"email"`
-	MonthlyActiveUsers int64                        `json:"monthly_active_users"`
-	Settings           AuthSettings                 `json:"settings"`
-	Smtp               *AuthSMTP                    `json:"smtp,omitempty"`
-	Templates          map[string]AuthEmailTemplate `json:"templates"`
+
+	// HookRole The role Postgres hooks run as; grant it what they read.
+	HookRole *string `json:"hook_role,omitempty"`
+
+	// HookSecret Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+	HookSecret         *string `json:"hook_secret,omitempty"`
+	MonthlyActiveUsers int64   `json:"monthly_active_users"`
+
+	// OauthCallbackUrl The redirect URI to register with OAuth providers.
+	OauthCallbackUrl *string          `json:"oauth_callback_url,omitempty"`
+	OauthSecretSet   *map[string]bool `json:"oauth_secret_set,omitempty"`
+	Phone            *struct {
+		Currency *string `json:"currency,omitempty"`
+		DailyCap int     `json:"daily_cap"`
+		Month    []struct {
+			Channel   string `json:"channel"`
+			CostMinor int64  `json:"cost_minor"`
+			Messages  int64  `json:"messages"`
+		} `json:"month"`
+
+		// PlatformSms This install sends SMS for projects without their own provider.
+		PlatformSms      bool  `json:"platform_sms"`
+		PlatformWhatsapp bool  `json:"platform_whatsapp"`
+		Sent24h          int64 `json:"sent_24h"`
+	} `json:"phone,omitempty"`
+	Settings  AuthSettings                 `json:"settings"`
+	Sms       *AuthPhoneProvider           `json:"sms,omitempty"`
+	Smtp      *AuthSMTP                    `json:"smtp,omitempty"`
+	Templates map[string]AuthEmailTemplate `json:"templates"`
+	Whatsapp  *AuthPhoneProvider           `json:"whatsapp,omitempty"`
 }
 
 // AuthConfigUpdate defines model for AuthConfigUpdate.
 type AuthConfigUpdate struct {
-	ClearSmtp *bool         `json:"clear_smtp,omitempty"`
-	Settings  *AuthSettings `json:"settings,omitempty"`
-	Smtp      *AuthSMTP     `json:"smtp,omitempty"`
+	// CaptchaSecret The Turnstile secret key; "" removes it.
+	CaptchaSecret    *string                     `json:"captcha_secret,omitempty"`
+	ClearSms         *bool                       `json:"clear_sms,omitempty"`
+	ClearSmtp        *bool                       `json:"clear_smtp,omitempty"`
+	ClearWhatsapp    *bool                       `json:"clear_whatsapp,omitempty"`
+	OauthSecrets     *map[string]AuthOAuthSecret `json:"oauth_secrets,omitempty"`
+	RotateHookSecret *bool                       `json:"rotate_hook_secret,omitempty"`
+	Settings         *AuthSettings               `json:"settings,omitempty"`
+
+	// Sms The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones.
+	Sms  *AuthPhoneProvider `json:"sms,omitempty"`
+	Smtp *AuthSMTP          `json:"smtp,omitempty"`
 
 	// Templates Overrides by kind; an empty subject and body goes back to the default.
 	Templates *map[string]AuthEmailTemplate `json:"templates,omitempty"`
+
+	// Whatsapp The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones.
+	Whatsapp *AuthPhoneProvider `json:"whatsapp,omitempty"`
 }
 
 // AuthEmailTemplate defines model for AuthEmailTemplate.
 type AuthEmailTemplate struct {
 	Body    string `json:"body"`
 	Subject string `json:"subject"`
+}
+
+// AuthHookDelivery defines model for AuthHookDelivery.
+type AuthHookDelivery struct {
+	Attempts    int                `json:"attempts"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DeliveredAt *time.Time         `json:"delivered_at,omitempty"`
+	Event       string             `json:"event"`
+	FailedAt    *time.Time         `json:"failed_at,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	LastError   *string            `json:"last_error,omitempty"`
+	LastStatus  *int               `json:"last_status,omitempty"`
+}
+
+// AuthHookDeliveryList defines model for AuthHookDeliveryList.
+type AuthHookDeliveryList struct {
+	Items []AuthHookDelivery `json:"items"`
 }
 
 // AuthIdentity defines model for AuthIdentity.
@@ -4020,6 +4142,47 @@ type AuthIdentity struct {
 	Provider     string             `json:"provider"`
 	ProviderId   string             `json:"provider_id"`
 }
+
+// AuthOAuthSecret defines model for AuthOAuthSecret.
+type AuthOAuthSecret struct {
+	ClientSecret *string `json:"client_secret,omitempty"`
+
+	// PrivateKey Apple's .p8 key (PEM).
+	PrivateKey *string `json:"private_key,omitempty"`
+}
+
+// AuthOAuthSetting defines model for AuthOAuthSetting.
+type AuthOAuthSetting struct {
+	ClientId string `json:"client_id"`
+	Enabled  bool   `json:"enabled"`
+
+	// KeyId Apple only.
+	KeyId  *string   `json:"key_id,omitempty"`
+	Scopes *[]string `json:"scopes,omitempty"`
+
+	// TeamId Apple only.
+	TeamId *string `json:"team_id,omitempty"`
+}
+
+// AuthPhoneProvider The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones.
+type AuthPhoneProvider struct {
+	AccessToken         *string                   `json:"access_token,omitempty"`
+	AccountSid          *string                   `json:"account_sid,omitempty"`
+	ApiKey              *string                   `json:"api_key,omitempty"`
+	AuthToken           *string                   `json:"auth_token,omitempty"`
+	BaseUrl             *string                   `json:"base_url,omitempty"`
+	From                *string                   `json:"from,omitempty"`
+	Language            *string                   `json:"language,omitempty"`
+	MessagingServiceSid *string                   `json:"messaging_service_sid,omitempty"`
+	PhoneNumberId       *string                   `json:"phone_number_id,omitempty"`
+	Provider            AuthPhoneProviderProvider `json:"provider"`
+	SenderId            *string                   `json:"sender_id,omitempty"`
+	Template            *string                   `json:"template,omitempty"`
+	Username            *string                   `json:"username,omitempty"`
+}
+
+// AuthPhoneProviderProvider defines model for AuthPhoneProvider.Provider.
+type AuthPhoneProviderProvider string
 
 // AuthSMTP defines model for AuthSMTP.
 type AuthSMTP struct {
@@ -4056,23 +4219,71 @@ type AuthSession struct {
 // AuthSettings defines model for AuthSettings.
 type AuthSettings struct {
 	// AccessTokenTtl Seconds, 300 to 86400.
-	AccessTokenTtl         *int  `json:"access_token_ttl,omitempty"`
-	AllowWildcardRedirects *bool `json:"allow_wildcard_redirects,omitempty"`
+	AccessTokenTtl         *int    `json:"access_token_ttl,omitempty"`
+	AfterSigninUrl         *string `json:"after_signin_url,omitempty"`
+	AfterSignupUrl         *string `json:"after_signup_url,omitempty"`
+	AllowWildcardRedirects *bool   `json:"allow_wildcard_redirects,omitempty"`
+	AnonymousEnabled       *bool   `json:"anonymous_enabled,omitempty"`
+
+	// BeforeSignupHook A Postgres function "schema.name" (event jsonb) returns jsonb that may return {"decision":"reject"}.
+	BeforeSignupHook *string `json:"before_signup_hook,omitempty"`
+
+	// BeforeSignupUrl A webhook asked before a sign-up (instead of a Postgres hook).
+	BeforeSignupUrl *string `json:"before_signup_url,omitempty"`
+	CaptchaEnabled  *bool   `json:"captcha_enabled,omitempty"`
+	CaptchaSiteKey  *string `json:"captcha_site_key,omitempty"`
+
+	// CustomClaimsHook A Postgres function "schema.name" (event jsonb) returns jsonb, run as the hook role when a token is issued.
+	CustomClaimsHook *string `json:"custom_claims_hook,omitempty"`
 
 	// EmailConfirm New addresses must be confirmed before signing in.
-	EmailConfirm             *bool     `json:"email_confirm,omitempty"`
-	MagicLinkEnabled         *bool     `json:"magic_link_enabled,omitempty"`
-	PasswordMinLength        *int      `json:"password_min_length,omitempty"`
-	PasswordRequireMixed     *bool     `json:"password_require_mixed,omitempty"`
-	RedirectUrls             *[]string `json:"redirect_urls,omitempty"`
-	SessionInactivitySeconds *int      `json:"session_inactivity_seconds,omitempty"`
-	SessionMaxSeconds        *int      `json:"session_max_seconds,omitempty"`
-	SignupEnabled            *bool     `json:"signup_enabled,omitempty"`
-	SingleSession            *bool     `json:"single_session,omitempty"`
+	EmailConfirm     *bool `json:"email_confirm,omitempty"`
+	MagicLinkEnabled *bool `json:"magic_link_enabled,omitempty"`
+
+	// ManualLinking Signed-in users may link and unlink identities.
+	ManualLinking *bool `json:"manual_linking,omitempty"`
+
+	// MfaPhone Phone codes as a second factor.
+	MfaPhone *bool `json:"mfa_phone,omitempty"`
+
+	// MfaPolicy required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+	MfaPolicy            *AuthSettingsMfaPolicy       `json:"mfa_policy,omitempty"`
+	Oauth                *map[string]AuthOAuthSetting `json:"oauth,omitempty"`
+	PasswordMinLength    *int                         `json:"password_min_length,omitempty"`
+	PasswordRequireMixed *bool                        `json:"password_require_mixed,omitempty"`
+
+	// PhoneChannels How phone codes may go; empty turns phone sign-in off.
+	PhoneChannels *[]AuthSettingsPhoneChannels `json:"phone_channels,omitempty"`
+
+	// PhoneConfirm A phone sign-up must confirm its number by code before signing in with a password.
+	PhoneConfirm *bool `json:"phone_confirm,omitempty"`
+
+	// PhoneCountries ISO country codes numbers may be in (default NG); "*" allows any.
+	PhoneCountries *[]string `json:"phone_countries,omitempty"`
+
+	// PhoneDailyCap SMS and WhatsApp codes a day (default 200).
+	PhoneDailyCap *int      `json:"phone_daily_cap,omitempty"`
+	RedirectUrls  *[]string `json:"redirect_urls,omitempty"`
+
+	// SendMessageUrl A webhook that sends the project's emails and codes instead of PGDock.
+	SendMessageUrl           *string `json:"send_message_url,omitempty"`
+	SessionInactivitySeconds *int    `json:"session_inactivity_seconds,omitempty"`
+	SessionMaxSeconds        *int    `json:"session_max_seconds,omitempty"`
+	SignupEnabled            *bool   `json:"signup_enabled,omitempty"`
+	SingleSession            *bool   `json:"single_session,omitempty"`
 
 	// SiteUrl Where links go when a request names no redirect (and the base of allowed redirects).
 	SiteUrl *string `json:"site_url,omitempty"`
+
+	// SmsTemplate The SMS text, with {{.Code}}.
+	SmsTemplate *string `json:"sms_template,omitempty"`
 }
+
+// AuthSettingsMfaPolicy required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+type AuthSettingsMfaPolicy string
+
+// AuthSettingsPhoneChannels defines model for AuthSettings.PhoneChannels.
+type AuthSettingsPhoneChannels string
 
 // AuthSignOutResult defines model for AuthSignOutResult.
 type AuthSignOutResult struct {
@@ -11904,6 +12115,11 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
 	UpdateAuthConfig(ctx context.Context, id ProjectID, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAuthHookDeliveries The project's recent auth webhook deliveries (V4 §4.7)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/hooks (the `ListAuthHookDeliveries` operationId).
+	ListAuthHookDeliveries(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSigningKeys The keys access tokens are signed and verified with
 	//
 	// Corresponds with GET /api/v1/projects/{id}/auth/signing-keys (the `ListSigningKeys` operationId).
@@ -18892,6 +19108,21 @@ func (c *Client) UpdateAuthConfigWithBody(ctx context.Context, id ProjectID, con
 // Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
 func (c *Client) UpdateAuthConfig(ctx context.Context, id ProjectID, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateAuthConfigRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAuthHookDeliveries The project's recent auth webhook deliveries (V4 §4.7)
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/hooks (the `ListAuthHookDeliveries` operationId).
+func (c *Client) ListAuthHookDeliveries(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuthHookDeliveriesRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -32082,6 +32313,40 @@ func NewUpdateAuthConfigRequestWithBody(server string, id ProjectID, contentType
 	return req, nil
 }
 
+// NewListAuthHookDeliveriesRequest constructs an http.Request for the ListAuthHookDeliveries method
+func NewListAuthHookDeliveriesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/auth/hooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListSigningKeysRequest constructs an http.Request for the ListSigningKeys method
 func NewListSigningKeysRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -40651,6 +40916,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PATCH /api/v1/projects/{id}/auth/config (the `UpdateAuthConfig` operationId).
 	UpdateAuthConfigWithResponse(ctx context.Context, id ProjectID, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthConfigResponse, error)
+
+	// ListAuthHookDeliveriesWithResponse The project's recent auth webhook deliveries (V4 §4.7)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/auth/hooks (the `ListAuthHookDeliveries` operationId).
+	ListAuthHookDeliveriesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListAuthHookDeliveriesResponse, error)
 
 	// ListSigningKeysWithResponse The keys access tokens are signed and verified with
 	//
@@ -53198,6 +53470,54 @@ func (r UpdateAuthConfigResponse) ContentType() string {
 	return ""
 }
 
+type ListAuthHookDeliveriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuthHookDeliveryList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuthHookDeliveriesResponse) GetJSON200() *AuthHookDeliveryList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListAuthHookDeliveriesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAuthHookDeliveriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuthHookDeliveriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuthHookDeliveriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuthHookDeliveriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListSigningKeysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -64045,6 +64365,19 @@ func (c *ClientWithResponses) UpdateAuthConfigWithResponse(ctx context.Context, 
 	return ParseUpdateAuthConfigResponse(rsp)
 }
 
+// ListAuthHookDeliveriesWithResponse The project's recent auth webhook deliveries (V4 §4.7)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/auth/hooks (the `ListAuthHookDeliveries` operationId).
+func (c *ClientWithResponses) ListAuthHookDeliveriesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListAuthHookDeliveriesResponse, error) {
+	rsp, err := c.ListAuthHookDeliveries(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuthHookDeliveriesResponse(rsp)
+}
+
 // ListSigningKeysWithResponse The keys access tokens are signed and verified with
 //
 // Returns a wrapper object for the known response body format(s).
@@ -74352,6 +74685,39 @@ func ParseUpdateAuthConfigResponse(rsp *http.Response) (*UpdateAuthConfigRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AuthConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAuthHookDeliveriesResponse parses an HTTP response from a ListAuthHookDeliveriesWithResponse call
+func ParseListAuthHookDeliveriesResponse(rsp *http.Response) (*ListAuthHookDeliveriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuthHookDeliveriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthHookDeliveryList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -134,6 +134,7 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		p.Database, p.EdgeUser, p.Password = r.DbName, edge, s.edgePassword(edge)
 		p.PoolerHost, p.PoolerPort = host, port
 		p.AnonRole, p.UserRole, p.ServiceRole = store.AnonRole(r.DbName), store.UserRole(r.DbName), store.ServiceRole(r.DbName)
+		p.HookRole = store.AuthHookRole(r.DbName)
 		p.Keys, p.JWKs, p.CORSOrigins = keys[r.ProjectID], jwks[r.ProjectID], r.CorsOrigins
 		p.ExposedSchemas, p.PublicTables = r.ExposedSchemas, r.PublicTables
 		p.SigningKey = signing[r.ProjectID]

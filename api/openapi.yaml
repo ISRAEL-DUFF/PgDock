@@ -3749,6 +3749,22 @@ paths:
                 additionalProperties: true
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/auth/hooks:
+    get:
+      operationId: listAuthHookDeliveries
+      summary: The project's recent auth webhook deliveries (V4 §4.7)
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthHookDeliveryList"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/auth/config:
     get:
       operationId: getAuthConfig
@@ -9683,6 +9699,120 @@ components:
           type: integer
         single_session:
           type: boolean
+        phone_channels:
+          type: array
+          description: How phone codes may go; empty turns phone sign-in off.
+          items:
+            type: string
+            enum: [sms, whatsapp]
+        phone_confirm:
+          type: boolean
+          description: A phone sign-up must confirm its number by code before signing in with a password.
+        phone_countries:
+          type: array
+          description: ISO country codes numbers may be in (default NG); "*" allows any.
+          items:
+            type: string
+        phone_daily_cap:
+          type: integer
+          description: SMS and WhatsApp codes a day (default 200).
+        sms_template:
+          type: string
+          description: The SMS text, with {{.Code}}.
+        anonymous_enabled:
+          type: boolean
+        mfa_policy:
+          type: string
+          enum: [off, optional, required, claim]
+          description: required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+        mfa_phone:
+          type: boolean
+          description: Phone codes as a second factor.
+        manual_linking:
+          type: boolean
+          description: Signed-in users may link and unlink identities.
+        oauth:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/AuthOAuthSetting"
+        custom_claims_hook:
+          type: string
+          description: A Postgres function "schema.name" (event jsonb) returns jsonb, run as the hook role when a token is issued.
+        before_signup_hook:
+          type: string
+          description: A Postgres function "schema.name" (event jsonb) returns jsonb that may return {"decision":"reject"}.
+        before_signup_url:
+          type: string
+          description: A webhook asked before a sign-up (instead of a Postgres hook).
+        after_signup_url:
+          type: string
+        after_signin_url:
+          type: string
+        send_message_url:
+          type: string
+          description: A webhook that sends the project's emails and codes instead of PGDock.
+        captcha_enabled:
+          type: boolean
+        captcha_site_key:
+          type: string
+    AuthOAuthSetting:
+      type: object
+      required: [enabled, client_id]
+      properties:
+        enabled:
+          type: boolean
+        client_id:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        team_id:
+          type: string
+          description: Apple only.
+        key_id:
+          type: string
+          description: Apple only.
+    AuthOAuthSecret:
+      type: object
+      properties:
+        client_secret:
+          type: string
+        private_key:
+          type: string
+          description: Apple's .p8 key (PEM).
+    AuthPhoneProvider:
+      type: object
+      required: [provider]
+      description: The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones.
+      properties:
+        provider:
+          type: string
+          enum: [termii, africastalking, twilio, whatsapp_cloud]
+        api_key:
+          type: string
+        sender_id:
+          type: string
+        base_url:
+          type: string
+        username:
+          type: string
+        account_sid:
+          type: string
+        auth_token:
+          type: string
+        from:
+          type: string
+        messaging_service_sid:
+          type: string
+        phone_number_id:
+          type: string
+        access_token:
+          type: string
+        template:
+          type: string
+        language:
+          type: string
     AuthEmailTemplate:
       type: object
       required: [subject, body]
@@ -9747,6 +9877,59 @@ components:
         auth_url:
           type: string
           description: The project's auth API, https://<ref>.<domain>/auth/v1.
+        oauth_callback_url:
+          type: string
+          description: The redirect URI to register with OAuth providers.
+        sms:
+          allOf:
+            - $ref: "#/components/schemas/AuthPhoneProvider"
+          nullable: true
+        whatsapp:
+          allOf:
+            - $ref: "#/components/schemas/AuthPhoneProvider"
+          nullable: true
+        oauth_secret_set:
+          type: object
+          additionalProperties:
+            type: boolean
+        captcha_secret_set:
+          type: boolean
+        hook_secret:
+          type: string
+          description: Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+        hook_role:
+          type: string
+          description: The role Postgres hooks run as; grant it what they read.
+        phone:
+          type: object
+          required: [platform_sms, platform_whatsapp, sent_24h, daily_cap, month]
+          properties:
+            platform_sms:
+              type: boolean
+              description: This install sends SMS for projects without their own provider.
+            platform_whatsapp:
+              type: boolean
+            sent_24h:
+              type: integer
+              format: int64
+            daily_cap:
+              type: integer
+            month:
+              type: array
+              items:
+                type: object
+                required: [channel, messages, cost_minor]
+                properties:
+                  channel:
+                    type: string
+                  messages:
+                    type: integer
+                    format: int64
+                  cost_minor:
+                    type: integer
+                    format: int64
+            currency:
+              type: string
     AuthConfigUpdate:
       type: object
       properties:
@@ -9761,6 +9944,60 @@ components:
           $ref: "#/components/schemas/AuthSMTP"
         clear_smtp:
           type: boolean
+        sms:
+          $ref: "#/components/schemas/AuthPhoneProvider"
+        whatsapp:
+          $ref: "#/components/schemas/AuthPhoneProvider"
+        clear_sms:
+          type: boolean
+        clear_whatsapp:
+          type: boolean
+        oauth_secrets:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/AuthOAuthSecret"
+        captcha_secret:
+          type: string
+          nullable: true
+          description: The Turnstile secret key; "" removes it.
+        rotate_hook_secret:
+          type: boolean
+    AuthHookDelivery:
+      type: object
+      required: [id, event, attempts, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        event:
+          type: string
+        attempts:
+          type: integer
+        last_status:
+          type: integer
+          nullable: true
+        last_error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+    AuthHookDeliveryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthHookDelivery"
     AuthSMTPTest:
       type: object
       required: [to]

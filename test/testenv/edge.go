@@ -27,10 +27,14 @@ type Edge struct {
 
 // StartEdge runs pgdock-edge against this environment's server and
 // poolers, and waits for its first configuration.
-func (e *Env) StartEdge() *Edge {
+func (e *Env) StartEdge(opts ...func(*edge.Config)) *Edge {
 	e.t.Helper()
-	ed := edge.New(edge.Config{Name: "edge-test", ControlURL: e.URL, Secret: EdgeSecret, Domain: EdgeDomain,
-		PoolerSSLMode: "require", PollWait: 2 * time.Second, ResyncEvery: time.Hour, ReportEvery: time.Hour, AuthRateScale: 20})
+	cfg := edge.Config{Name: "edge-test", ControlURL: e.URL, Secret: EdgeSecret, Domain: EdgeDomain,
+		PoolerSSLMode: "require", PollWait: 2 * time.Second, ResyncEvery: time.Hour, ReportEvery: time.Hour, AuthRateScale: 20}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	ed := edge.New(cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { defer close(done); ed.Run(ctx) }()

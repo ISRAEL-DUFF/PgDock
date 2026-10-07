@@ -59,7 +59,12 @@ type Config struct {
 	// AuthRateScale multiplies the per-IP limits on auth endpoints (tests
 	// sign in many times from one address); 0 means 1.
 	AuthRateScale int
-	Log           *slog.Logger
+	// HTTPClient reaches OAuth providers and the captcha service (default:
+	// a 10-second client).
+	HTTPClient *http.Client
+	// OAuthEndpoints overrides providers' endpoints (tests' fake providers).
+	OAuthEndpoints map[string]OAuthEndpoints
+	Log            *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -154,6 +159,17 @@ func New(cfg Config) *Edge {
 		hashSlots: make(chan struct{}, max(2, runtime.GOMAXPROCS(0))),
 	}
 }
+
+func (e *Edge) httpClient() *http.Client {
+	if e.cfg.HTTPClient != nil {
+		return e.cfg.HTTPClient
+	}
+	return defaultHTTP
+}
+
+var defaultHTTP = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
+}}
 
 // Run follows the configuration feed and sends reports until ctx ends.
 func (e *Edge) Run(ctx context.Context) {

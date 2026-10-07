@@ -323,6 +323,30 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for AuthPhoneProviderProvider.
+const (
+	Africastalking AuthPhoneProviderProvider = "africastalking"
+	Termii         AuthPhoneProviderProvider = "termii"
+	Twilio         AuthPhoneProviderProvider = "twilio"
+	WhatsappCloud  AuthPhoneProviderProvider = "whatsapp_cloud"
+)
+
+// Valid indicates whether the value is a known member of the AuthPhoneProviderProvider enum.
+func (e AuthPhoneProviderProvider) Valid() bool {
+	switch e {
+	case Africastalking:
+		return true
+	case Termii:
+		return true
+	case Twilio:
+		return true
+	case WhatsappCloud:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthSMTPTls.
 const (
 	AuthSMTPTlsNone     AuthSMTPTls = "none"
@@ -338,6 +362,48 @@ func (e AuthSMTPTls) Valid() bool {
 	case AuthSMTPTlsStarttls:
 		return true
 	case AuthSMTPTlsTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthSettingsMfaPolicy.
+const (
+	AuthSettingsMfaPolicyClaim    AuthSettingsMfaPolicy = "claim"
+	AuthSettingsMfaPolicyOff      AuthSettingsMfaPolicy = "off"
+	AuthSettingsMfaPolicyOptional AuthSettingsMfaPolicy = "optional"
+	AuthSettingsMfaPolicyRequired AuthSettingsMfaPolicy = "required"
+)
+
+// Valid indicates whether the value is a known member of the AuthSettingsMfaPolicy enum.
+func (e AuthSettingsMfaPolicy) Valid() bool {
+	switch e {
+	case AuthSettingsMfaPolicyClaim:
+		return true
+	case AuthSettingsMfaPolicyOff:
+		return true
+	case AuthSettingsMfaPolicyOptional:
+		return true
+	case AuthSettingsMfaPolicyRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthSettingsPhoneChannels.
+const (
+	AuthSettingsPhoneChannelsSms      AuthSettingsPhoneChannels = "sms"
+	AuthSettingsPhoneChannelsWhatsapp AuthSettingsPhoneChannels = "whatsapp"
+)
+
+// Valid indicates whether the value is a known member of the AuthSettingsPhoneChannels enum.
+func (e AuthSettingsPhoneChannels) Valid() bool {
+	switch e {
+	case AuthSettingsPhoneChannelsSms:
+		return true
+	case AuthSettingsPhoneChannelsWhatsapp:
 		return true
 	default:
 		return false
@@ -2518,19 +2584,19 @@ func (e TablePageOrder) Valid() bool {
 
 // Defines values for TicketChannel.
 const (
-	Dashboard TicketChannel = "dashboard"
-	Email     TicketChannel = "email"
-	Whatsapp  TicketChannel = "whatsapp"
+	TicketChannelDashboard TicketChannel = "dashboard"
+	TicketChannelEmail     TicketChannel = "email"
+	TicketChannelWhatsapp  TicketChannel = "whatsapp"
 )
 
 // Valid indicates whether the value is a known member of the TicketChannel enum.
 func (e TicketChannel) Valid() bool {
 	switch e {
-	case Dashboard:
+	case TicketChannelDashboard:
 		return true
-	case Email:
+	case TicketChannelEmail:
 		return true
-	case Whatsapp:
+	case TicketChannelWhatsapp:
 		return true
 	default:
 		return false
@@ -3978,6 +4044,7 @@ type AuthAuditList struct {
 type AuthConfig struct {
 	// AuthUrl The project's auth API, https://<ref>.<domain>/auth/v1.
 	AuthUrl          string                       `json:"auth_url"`
+	CaptchaSecretSet *bool                        `json:"captcha_secret_set,omitempty"`
 	DefaultTemplates map[string]AuthEmailTemplate `json:"default_templates"`
 	Email            struct {
 		Failed24h       int  `json:"failed_24h"`
@@ -3986,26 +4053,81 @@ type AuthConfig struct {
 		PlatformPerHour int  `json:"platform_per_hour"`
 		Sent24h         int  `json:"sent_24h"`
 	} `json:"email"`
-	MonthlyActiveUsers int64                        `json:"monthly_active_users"`
-	Settings           AuthSettings                 `json:"settings"`
-	Smtp               *AuthSMTP                    `json:"smtp,omitempty"`
-	Templates          map[string]AuthEmailTemplate `json:"templates"`
+
+	// HookRole The role Postgres hooks run as; grant it what they read.
+	HookRole *string `json:"hook_role,omitempty"`
+
+	// HookSecret Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+	HookSecret         *string `json:"hook_secret,omitempty"`
+	MonthlyActiveUsers int64   `json:"monthly_active_users"`
+
+	// OauthCallbackUrl The redirect URI to register with OAuth providers.
+	OauthCallbackUrl *string          `json:"oauth_callback_url,omitempty"`
+	OauthSecretSet   *map[string]bool `json:"oauth_secret_set,omitempty"`
+	Phone            *struct {
+		Currency *string `json:"currency,omitempty"`
+		DailyCap int     `json:"daily_cap"`
+		Month    []struct {
+			Channel   string `json:"channel"`
+			CostMinor int64  `json:"cost_minor"`
+			Messages  int64  `json:"messages"`
+		} `json:"month"`
+
+		// PlatformSms This install sends SMS for projects without their own provider.
+		PlatformSms      bool  `json:"platform_sms"`
+		PlatformWhatsapp bool  `json:"platform_whatsapp"`
+		Sent24h          int64 `json:"sent_24h"`
+	} `json:"phone,omitempty"`
+	Settings  AuthSettings                 `json:"settings"`
+	Sms       *AuthPhoneProvider           `json:"sms,omitempty"`
+	Smtp      *AuthSMTP                    `json:"smtp,omitempty"`
+	Templates map[string]AuthEmailTemplate `json:"templates"`
+	Whatsapp  *AuthPhoneProvider           `json:"whatsapp,omitempty"`
 }
 
 // AuthConfigUpdate defines model for AuthConfigUpdate.
 type AuthConfigUpdate struct {
-	ClearSmtp *bool         `json:"clear_smtp,omitempty"`
-	Settings  *AuthSettings `json:"settings,omitempty"`
-	Smtp      *AuthSMTP     `json:"smtp,omitempty"`
+	// CaptchaSecret The Turnstile secret key; "" removes it.
+	CaptchaSecret    *string                     `json:"captcha_secret,omitempty"`
+	ClearSms         *bool                       `json:"clear_sms,omitempty"`
+	ClearSmtp        *bool                       `json:"clear_smtp,omitempty"`
+	ClearWhatsapp    *bool                       `json:"clear_whatsapp,omitempty"`
+	OauthSecrets     *map[string]AuthOAuthSecret `json:"oauth_secrets,omitempty"`
+	RotateHookSecret *bool                       `json:"rotate_hook_secret,omitempty"`
+	Settings         *AuthSettings               `json:"settings,omitempty"`
+
+	// Sms The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones.
+	Sms  *AuthPhoneProvider `json:"sms,omitempty"`
+	Smtp *AuthSMTP          `json:"smtp,omitempty"`
 
 	// Templates Overrides by kind; an empty subject and body goes back to the default.
 	Templates *map[string]AuthEmailTemplate `json:"templates,omitempty"`
+
+	// Whatsapp The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones.
+	Whatsapp *AuthPhoneProvider `json:"whatsapp,omitempty"`
 }
 
 // AuthEmailTemplate defines model for AuthEmailTemplate.
 type AuthEmailTemplate struct {
 	Body    string `json:"body"`
 	Subject string `json:"subject"`
+}
+
+// AuthHookDelivery defines model for AuthHookDelivery.
+type AuthHookDelivery struct {
+	Attempts    int                `json:"attempts"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DeliveredAt *time.Time         `json:"delivered_at,omitempty"`
+	Event       string             `json:"event"`
+	FailedAt    *time.Time         `json:"failed_at,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	LastError   *string            `json:"last_error,omitempty"`
+	LastStatus  *int               `json:"last_status,omitempty"`
+}
+
+// AuthHookDeliveryList defines model for AuthHookDeliveryList.
+type AuthHookDeliveryList struct {
+	Items []AuthHookDelivery `json:"items"`
 }
 
 // AuthIdentity defines model for AuthIdentity.
@@ -4016,6 +4138,47 @@ type AuthIdentity struct {
 	Provider     string             `json:"provider"`
 	ProviderId   string             `json:"provider_id"`
 }
+
+// AuthOAuthSecret defines model for AuthOAuthSecret.
+type AuthOAuthSecret struct {
+	ClientSecret *string `json:"client_secret,omitempty"`
+
+	// PrivateKey Apple's .p8 key (PEM).
+	PrivateKey *string `json:"private_key,omitempty"`
+}
+
+// AuthOAuthSetting defines model for AuthOAuthSetting.
+type AuthOAuthSetting struct {
+	ClientId string `json:"client_id"`
+	Enabled  bool   `json:"enabled"`
+
+	// KeyId Apple only.
+	KeyId  *string   `json:"key_id,omitempty"`
+	Scopes *[]string `json:"scopes,omitempty"`
+
+	// TeamId Apple only.
+	TeamId *string `json:"team_id,omitempty"`
+}
+
+// AuthPhoneProvider The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones.
+type AuthPhoneProvider struct {
+	AccessToken         *string                   `json:"access_token,omitempty"`
+	AccountSid          *string                   `json:"account_sid,omitempty"`
+	ApiKey              *string                   `json:"api_key,omitempty"`
+	AuthToken           *string                   `json:"auth_token,omitempty"`
+	BaseUrl             *string                   `json:"base_url,omitempty"`
+	From                *string                   `json:"from,omitempty"`
+	Language            *string                   `json:"language,omitempty"`
+	MessagingServiceSid *string                   `json:"messaging_service_sid,omitempty"`
+	PhoneNumberId       *string                   `json:"phone_number_id,omitempty"`
+	Provider            AuthPhoneProviderProvider `json:"provider"`
+	SenderId            *string                   `json:"sender_id,omitempty"`
+	Template            *string                   `json:"template,omitempty"`
+	Username            *string                   `json:"username,omitempty"`
+}
+
+// AuthPhoneProviderProvider defines model for AuthPhoneProvider.Provider.
+type AuthPhoneProviderProvider string
 
 // AuthSMTP defines model for AuthSMTP.
 type AuthSMTP struct {
@@ -4052,23 +4215,71 @@ type AuthSession struct {
 // AuthSettings defines model for AuthSettings.
 type AuthSettings struct {
 	// AccessTokenTtl Seconds, 300 to 86400.
-	AccessTokenTtl         *int  `json:"access_token_ttl,omitempty"`
-	AllowWildcardRedirects *bool `json:"allow_wildcard_redirects,omitempty"`
+	AccessTokenTtl         *int    `json:"access_token_ttl,omitempty"`
+	AfterSigninUrl         *string `json:"after_signin_url,omitempty"`
+	AfterSignupUrl         *string `json:"after_signup_url,omitempty"`
+	AllowWildcardRedirects *bool   `json:"allow_wildcard_redirects,omitempty"`
+	AnonymousEnabled       *bool   `json:"anonymous_enabled,omitempty"`
+
+	// BeforeSignupHook A Postgres function "schema.name" (event jsonb) returns jsonb that may return {"decision":"reject"}.
+	BeforeSignupHook *string `json:"before_signup_hook,omitempty"`
+
+	// BeforeSignupUrl A webhook asked before a sign-up (instead of a Postgres hook).
+	BeforeSignupUrl *string `json:"before_signup_url,omitempty"`
+	CaptchaEnabled  *bool   `json:"captcha_enabled,omitempty"`
+	CaptchaSiteKey  *string `json:"captcha_site_key,omitempty"`
+
+	// CustomClaimsHook A Postgres function "schema.name" (event jsonb) returns jsonb, run as the hook role when a token is issued.
+	CustomClaimsHook *string `json:"custom_claims_hook,omitempty"`
 
 	// EmailConfirm New addresses must be confirmed before signing in.
-	EmailConfirm             *bool     `json:"email_confirm,omitempty"`
-	MagicLinkEnabled         *bool     `json:"magic_link_enabled,omitempty"`
-	PasswordMinLength        *int      `json:"password_min_length,omitempty"`
-	PasswordRequireMixed     *bool     `json:"password_require_mixed,omitempty"`
-	RedirectUrls             *[]string `json:"redirect_urls,omitempty"`
-	SessionInactivitySeconds *int      `json:"session_inactivity_seconds,omitempty"`
-	SessionMaxSeconds        *int      `json:"session_max_seconds,omitempty"`
-	SignupEnabled            *bool     `json:"signup_enabled,omitempty"`
-	SingleSession            *bool     `json:"single_session,omitempty"`
+	EmailConfirm     *bool `json:"email_confirm,omitempty"`
+	MagicLinkEnabled *bool `json:"magic_link_enabled,omitempty"`
+
+	// ManualLinking Signed-in users may link and unlink identities.
+	ManualLinking *bool `json:"manual_linking,omitempty"`
+
+	// MfaPhone Phone codes as a second factor.
+	MfaPhone *bool `json:"mfa_phone,omitempty"`
+
+	// MfaPolicy required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+	MfaPolicy            *AuthSettingsMfaPolicy       `json:"mfa_policy,omitempty"`
+	Oauth                *map[string]AuthOAuthSetting `json:"oauth,omitempty"`
+	PasswordMinLength    *int                         `json:"password_min_length,omitempty"`
+	PasswordRequireMixed *bool                        `json:"password_require_mixed,omitempty"`
+
+	// PhoneChannels How phone codes may go; empty turns phone sign-in off.
+	PhoneChannels *[]AuthSettingsPhoneChannels `json:"phone_channels,omitempty"`
+
+	// PhoneConfirm A phone sign-up must confirm its number by code before signing in with a password.
+	PhoneConfirm *bool `json:"phone_confirm,omitempty"`
+
+	// PhoneCountries ISO country codes numbers may be in (default NG); "*" allows any.
+	PhoneCountries *[]string `json:"phone_countries,omitempty"`
+
+	// PhoneDailyCap SMS and WhatsApp codes a day (default 200).
+	PhoneDailyCap *int      `json:"phone_daily_cap,omitempty"`
+	RedirectUrls  *[]string `json:"redirect_urls,omitempty"`
+
+	// SendMessageUrl A webhook that sends the project's emails and codes instead of PGDock.
+	SendMessageUrl           *string `json:"send_message_url,omitempty"`
+	SessionInactivitySeconds *int    `json:"session_inactivity_seconds,omitempty"`
+	SessionMaxSeconds        *int    `json:"session_max_seconds,omitempty"`
+	SignupEnabled            *bool   `json:"signup_enabled,omitempty"`
+	SingleSession            *bool   `json:"single_session,omitempty"`
 
 	// SiteUrl Where links go when a request names no redirect (and the base of allowed redirects).
 	SiteUrl *string `json:"site_url,omitempty"`
+
+	// SmsTemplate The SMS text, with {{.Code}}.
+	SmsTemplate *string `json:"sms_template,omitempty"`
 }
+
+// AuthSettingsMfaPolicy required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+type AuthSettingsMfaPolicy string
+
+// AuthSettingsPhoneChannels defines model for AuthSettings.PhoneChannels.
+type AuthSettingsPhoneChannels string
 
 // AuthSignOutResult defines model for AuthSignOutResult.
 type AuthSignOutResult struct {
@@ -10316,6 +10527,9 @@ type ServerInterface interface {
 	// UpdateAuthConfig Change auth settings, templates or the project's SMTP server
 	// (PATCH /api/v1/projects/{id}/auth/config)
 	UpdateAuthConfig(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListAuthHookDeliveries The project's recent auth webhook deliveries (V4 §4.7)
+	// (GET /api/v1/projects/{id}/auth/hooks)
+	ListAuthHookDeliveries(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ListSigningKeys The keys access tokens are signed and verified with
 	// (GET /api/v1/projects/{id}/auth/signing-keys)
 	ListSigningKeys(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -12107,6 +12321,12 @@ func (_ Unimplemented) GetAuthConfig(w http.ResponseWriter, r *http.Request, id 
 // UpdateAuthConfig Change auth settings, templates or the project's SMTP server
 // (PATCH /api/v1/projects/{id}/auth/config)
 func (_ Unimplemented) UpdateAuthConfig(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAuthHookDeliveries The project's recent auth webhook deliveries (V4 §4.7)
+// (GET /api/v1/projects/{id}/auth/hooks)
+func (_ Unimplemented) ListAuthHookDeliveries(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18882,6 +19102,32 @@ func (siw *ServerInterfaceWrapper) UpdateAuthConfig(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ListAuthHookDeliveries operation middleware
+func (siw *ServerInterfaceWrapper) ListAuthHookDeliveries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuthHookDeliveries(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListSigningKeys operation middleware
 func (siw *ServerInterfaceWrapper) ListSigningKeys(w http.ResponseWriter, r *http.Request) {
 
@@ -23582,6 +23828,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/edge/auth-hook", wrapper.EdgeAuthHook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/hooks", wrapper.ListAuthHookDeliveries)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/config", wrapper.GetAuthConfig)

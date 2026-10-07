@@ -40,6 +40,9 @@ type call struct {
 	role   string
 	userID *uuid.UUID
 	billed bool
+	// hooks are auth webhook events to send once the auth transaction
+	// commits.
+	hooks []edgeapi.AuthHook
 }
 
 type recorder struct {
@@ -279,6 +282,10 @@ func (e *Edge) route(c *call, req Request) {
 	case path == "/data/v1/health" && (c.r.Method == http.MethodGet || c.r.Method == http.MethodHead):
 		e.health(c, req)
 	case strings.HasPrefix(path, "/data/v1/"):
+		if mfaRequired(c.p.cfg.Auth, req) {
+			c.fail(http.StatusForbidden, "mfa_required", "this project requires a second factor: verify one to reach aal2")
+			return
+		}
 		e.data(c, req)
 	case strings.HasPrefix(path, "/auth/v1/"):
 		e.auth(c, req)
