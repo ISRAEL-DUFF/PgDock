@@ -254,8 +254,13 @@ func (s *Service) Create(ctx context.Context, p store.Project, in Params, by *uu
 		return Created{}, err
 	}
 	secret := newSecret()
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
+	if err != nil {
+		return Created{}, err
+	}
+	defer conn.Close(context.Background())
 	var out Created
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		id := uuid.New()
 		sec, err := s.keyring.Encrypt([]byte(secret), secretAAD(id))
@@ -284,7 +289,7 @@ func (s *Service) Create(ctx context.Context, p store.Project, in Params, by *uu
 			}
 			return err
 		}
-		if err := s.install(ctx, p, w); err != nil {
+		if err := installOn(ctx, conn, w); err != nil {
 			return err
 		}
 		out = Created{Webhook: w, Secret: secret}
@@ -325,8 +330,13 @@ func (s *Service) Update(ctx context.Context, p store.Project, w store.Webhook, 
 	case !old.Enabled || old.Status == StatusBroken || old.Status == StatusPaused:
 		w.Status, w.StatusReason, w.ConsecutiveFailures = StatusHealthy, nil, 0
 	}
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
+	if err != nil {
+		return old, err
+	}
+	defer conn.Close(context.Background())
 	var out store.Webhook
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var err error
 		if out, err = store.New(tx).UpdateWebhook(ctx, updateParams(w, hdr)); err != nil {
 			var pe *pgconn.PgError
@@ -335,7 +345,7 @@ func (s *Service) Update(ctx context.Context, p store.Project, w store.Webhook, 
 			}
 			return err
 		}
-		return s.install(ctx, p, out)
+		return installOn(ctx, conn, out)
 	})
 	if err == nil && out.Enabled {
 		s.Kick(p.ID)
@@ -498,10 +508,18 @@ func (s *Service) install(ctx context.Context, p store.Project, w store.Webhook)
 		return err
 	}
 	defer conn.Close(context.Background())
+	return installOn(ctx, conn, w)
+}
+
+// installOn is install on a connection the caller opened: Create and Update
+// open it before their metadata transaction, so they never hold one
+// metadata connection while waiting for another (AdminConn reads the
+// instance), which deadlocks once the pool is busy.
+func installOn(ctx context.Context, conn *pgx.Conn, w store.Webhook) error {
 	if _, err := conn.Exec(ctx, outboxDDL); err != nil {
 		return fmt.Errorf("install the webhook outbox: %w", err)
 	}
-	err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+	err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '5s'`); err != nil {
 			return err
 		}
