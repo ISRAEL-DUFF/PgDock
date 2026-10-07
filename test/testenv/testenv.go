@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -73,6 +74,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/regions"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
+	"github.com/israel-duff/pgdock/internal/services"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -117,6 +119,8 @@ type Env struct {
 	// FreeTier pauses and archives idle Free projects (V3 §4); tests call
 	// FreeTier.Sweep. Waker is its waker, reached by the test poolers.
 	FreeTier *freetier.Service
+	// Services is backend services (V4 §2).
+	Services *services.Service
 	Waker    *waker.Server
 	// wakerLn, wakerAddr and wakerCtx let tests stop and start the waker
 	// (StopWaker).
@@ -373,6 +377,19 @@ func Start(t testing.TB, opts Options) *Env {
 	wakerSrv := waker.New(freeSvc, log)
 	wakerPort := wakerLn.Addr().(*net.TCPAddr).Port
 	pm.SetWaker(wakerHost, wakerPort)
+	// Backend services (V4 §2), served by an in-process pgdock-edge
+	// (Env.StartEdge).
+	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret}, log)
+	servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
+		_, err := freeSvc.Resume(ctx, projectID, nil)
+		if errors.Is(err, freetier.ErrConflict) {
+			return nil
+		}
+		return err
+	}
+	for name, k := range servicesSvc.Kinds() {
+		kinds[name] = k
+	}
 	notifier := jobs.NewNotifier(db, log)
 	runner := jobs.NewRunner(db, notifier, log, jobs.RunnerConfig{
 		PollInterval: 100 * time.Millisecond, RetryBase: 50 * time.Millisecond, RetryMax: 200 * time.Millisecond,
@@ -452,7 +469,7 @@ func Start(t testing.TB, opts Options) *Env {
 		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc, Regions: regionSvc, Insights: insightSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
-		Tokens: tokenSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
+		Tokens: tokenSvc, Services: servicesSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
 		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, IsoChecks: isoChecks, Alerts: alertSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
@@ -473,7 +490,7 @@ func Start(t testing.TB, opts Options) *Env {
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
-		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Tokens: tokenSvc, Branches: branchSvc,
+		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Services: servicesSvc, Tokens: tokenSvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,

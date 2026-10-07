@@ -1,0 +1,627 @@
+// Package services runs backend services' control-plane side (V4 §2):
+// enabling and disabling them per project (roles and pgd_* schemas in the
+// project database, API keys, the signing key), keeping the roles current
+// when a project moves, and the configuration feed and reports pgdock-edge
+// uses.
+package services
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/pgdock/internal/jobs"
+	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/store"
+)
+
+// Operation kinds (V4 §11.1).
+const (
+	KindEnable  = "enable_services"
+	KindDisable = "disable_services"
+)
+
+// Errors.
+var (
+	ErrNotFound = errors.New("not found")
+	ErrConflict = errors.New("conflict")
+	ErrInvalid  = errors.New("invalid")
+)
+
+// edgeConnLimit caps the edge login's sessions per project database.
+const edgeConnLimit = 20
+
+// Config is the service's configuration.
+type Config struct {
+	// Domain is the API hostname suffix: a project's URL is
+	// https://<ref>.<Domain> (V4 §2.1). RegionDomain, when set, gives a
+	// region its own.
+	Domain       string
+	RegionDomain func(region string) string
+	// EdgeSecret signs pgdock-edge's requests. Empty disables the feed.
+	EdgeSecret string
+}
+
+// Service is the control plane's side of backend services.
+type Service struct {
+	db       *pgxpool.Pool
+	keyring  *crypto.Keyring
+	projects *provision.Service
+	cfg      Config
+	log      *slog.Logger
+	// Waker resumes a paused project (the free tier, V3 §4.2).
+	Waker func(ctx context.Context, projectID uuid.UUID) error
+}
+
+// New returns the service.
+func New(db *pgxpool.Pool, projects *provision.Service, cfg Config, log *slog.Logger) *Service {
+	return &Service{db: db, keyring: projects.Keyring(), projects: projects, cfg: cfg, log: log}
+}
+
+// Kinds are the operations it runs.
+func (s *Service) Kinds() map[string]jobs.Kind {
+	return map[string]jobs.Kind{
+		KindEnable:  {Handler: s.runEnable, MaxAttempts: 3, Timeout: 10 * time.Minute},
+		KindDisable: {Handler: s.runDisable, MaxAttempts: 3, Timeout: 10 * time.Minute},
+	}
+}
+
+// URL is a project's API base URL.
+func (s *Service) URL(ref, region string) string {
+	d := s.cfg.Domain
+	if s.cfg.RegionDomain != nil {
+		if r := s.cfg.RegionDomain(region); r != "" {
+			d = r
+		}
+	}
+	if d == "" {
+		return ""
+	}
+	return "https://" + ref + "." + d
+}
+
+// FeedEnabled reports whether pgdock-edge can connect.
+func (s *Service) FeedEnabled() bool { return s.cfg.EdgeSecret != "" }
+
+// CreatedKey is an API key made now; Key is shown once for a secret key.
+type CreatedKey struct {
+	store.ProjectApiKey
+	Key string
+}
+
+// Enabled is what Enable returns: the operation, and the first keys when it
+// made them.
+type Enabled struct {
+	Services  store.ProjectService
+	Operation store.Operation
+	Keys      []CreatedKey
+}
+
+// Enable queues turning backend services on for p. The first time (and
+// after a disable, which revokes keys) it makes a publishable and a secret
+// key, returned here once.
+func (s *Service) Enable(ctx context.Context, projectID uuid.UUID, by *uuid.UUID) (Enabled, error) {
+	var out Enabled
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		p, err := q.GetLiveProjectForUpdate(ctx, projectID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if p.Status != provision.StatusActive {
+			return fmt.Errorf("%w: the project is %s", ErrConflict, p.Status)
+		}
+		if busy, err := q.ProjectHasActiveOperation(ctx, &p.ID); err != nil {
+			return err
+		} else if busy {
+			return fmt.Errorf("%w: another operation is in progress on this project", ErrConflict)
+		}
+		svc, err := ensureRow(ctx, q, p.ID)
+		if err != nil {
+			return err
+		}
+		if svc.Enabled {
+			return fmt.Errorf("%w: backend services are already enabled", ErrConflict)
+		}
+		keys, err := q.ListAPIKeys(ctx, p.ID)
+		if err != nil {
+			return err
+		}
+		live := 0
+		for _, k := range keys {
+			if k.RevokedAt == nil {
+				live++
+			}
+		}
+		if live == 0 {
+			for _, kind := range []string{KindPublishable, KindSecret} {
+				k, err := insertKey(ctx, q, p.ID, kind, "default", by)
+				if err != nil {
+					return err
+				}
+				out.Keys = append(out.Keys, k)
+			}
+		}
+		out.Services = svc
+		out.Operation, err = jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindEnable, ProjectID: &p.ID, CreatedBy: by})
+		return err
+	})
+	return out, err
+}
+
+// Disable queues turning backend services off: the edge stops serving p,
+// its keys are revoked and the edge login is switched off. The pgd_*
+// schemas and their data stay (V4 §2.4).
+func (s *Service) Disable(ctx context.Context, projectID uuid.UUID, by *uuid.UUID) (store.Operation, error) {
+	var op store.Operation
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		p, err := q.GetLiveProjectForUpdate(ctx, projectID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		svc, err := q.GetProjectServices(ctx, p.ID)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && !svc.Enabled) {
+			return fmt.Errorf("%w: backend services aren't enabled", ErrConflict)
+		}
+		if err != nil {
+			return err
+		}
+		if busy, err := q.ProjectHasActiveOperation(ctx, &p.ID); err != nil {
+			return err
+		} else if busy {
+			return fmt.Errorf("%w: another operation is in progress on this project", ErrConflict)
+		}
+		// The edge stops at once; the rest follows in the operation.
+		if _, err := q.SetServicesEnabled(ctx, store.SetServicesEnabledParams{ProjectID: p.ID, Enabled: false}); err != nil {
+			return err
+		}
+		if err := q.RevokeProjectAPIKeys(ctx, p.ID); err != nil {
+			return err
+		}
+		op, err = jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindDisable, ProjectID: &p.ID, CreatedBy: by})
+		return err
+	})
+	return op, err
+}
+
+func ensureRow(ctx context.Context, q *store.Queries, projectID uuid.UUID) (store.ProjectService, error) {
+	svc, err := q.GetProjectServices(ctx, projectID)
+	if err == nil {
+		return svc, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return svc, err
+	}
+	for range 5 {
+		ref, err := NewRef()
+		if err != nil {
+			return svc, err
+		}
+		svc, err = q.CreateProjectServices(ctx, store.CreateProjectServicesParams{ProjectID: projectID, Ref: ref})
+		var pe *pgconn.PgError
+		if errors.As(err, &pe) && pe.Code == "23505" {
+			continue // ref taken: another
+		}
+		return svc, err
+	}
+	return svc, errors.New("could not pick a free project reference")
+}
+
+func insertKey(ctx context.Context, q *store.Queries, projectID uuid.UUID, kind, name string, by *uuid.UUID) (CreatedKey, error) {
+	key, hash, prefix, err := GenerateKey(kind)
+	if err != nil {
+		return CreatedKey{}, err
+	}
+	var display *string
+	if kind == KindPublishable {
+		display = &key
+	}
+	k, err := q.InsertAPIKey(ctx, store.InsertAPIKeyParams{ProjectID: projectID, Kind: kind, Name: name, KeyHash: hash,
+		Prefix: prefix, Display: display, CreatedBy: by})
+	return CreatedKey{ProjectApiKey: k, Key: key}, err
+}
+
+// CreateKey makes another key (for rotation without downtime).
+func (s *Service) CreateKey(ctx context.Context, projectID uuid.UUID, kind, name string, by *uuid.UUID) (CreatedKey, error) {
+	name = strings.TrimSpace(name)
+	if kind != KindPublishable && kind != KindSecret {
+		return CreatedKey{}, fmt.Errorf("%w: kind must be publishable or secret", ErrInvalid)
+	}
+	if name == "" || len(name) > 64 {
+		return CreatedKey{}, fmt.Errorf("%w: a key needs a name of 1 to 64 characters", ErrInvalid)
+	}
+	q := store.New(s.db)
+	svc, err := q.GetProjectServices(ctx, projectID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !svc.Enabled) {
+		return CreatedKey{}, fmt.Errorf("%w: backend services aren't enabled", ErrConflict)
+	}
+	if err != nil {
+		return CreatedKey{}, err
+	}
+	return insertKey(ctx, q, projectID, kind, name, by)
+}
+
+// RevokeKey revokes a key; the edge refuses it within seconds.
+func (s *Service) RevokeKey(ctx context.Context, projectID, keyID uuid.UUID) (store.ProjectApiKey, error) {
+	k, err := store.New(s.db).RevokeAPIKey(ctx, store.RevokeAPIKeyParams{ID: keyID, ProjectID: projectID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return k, fmt.Errorf("%w: no such live key", ErrNotFound)
+	}
+	return k, err
+}
+
+// Settings are a project's gateway settings as stored (zero is the
+// default).
+type Settings struct {
+	StatementTimeoutMs   int  `json:"statement_timeout_ms,omitempty"`
+	RatePerIP            int  `json:"rate_per_ip,omitempty"`
+	RatePerKey           int  `json:"rate_per_key,omitempty"`
+	AllowSecretInBrowser bool `json:"allow_secret_in_browser,omitempty"`
+}
+
+// Defaults.
+const (
+	DefaultStatementTimeoutMs = 8000
+	DefaultRatePerIP          = 600   // per minute
+	DefaultRatePerKey         = 12000 // per minute
+	MaxStatementTimeoutMs     = 15000
+)
+
+// DecodeSettings reads stored settings.
+func DecodeSettings(raw []byte) (Settings, error) {
+	var st Settings
+	if len(raw) == 0 {
+		return st, nil
+	}
+	return st, json.Unmarshal(raw, &st)
+}
+
+// Validate checks the settings' ranges.
+func (st Settings) Validate() error {
+	switch {
+	case st.StatementTimeoutMs < 0 || st.StatementTimeoutMs > MaxStatementTimeoutMs:
+		return fmt.Errorf("%w: statement_timeout_ms must be up to %d", ErrInvalid, MaxStatementTimeoutMs)
+	case st.RatePerIP < 0 || st.RatePerIP > 1_000_000, st.RatePerKey < 0 || st.RatePerKey > 10_000_000:
+		return fmt.Errorf("%w: rate limits are requests per minute", ErrInvalid)
+	}
+	return nil
+}
+
+// UpdateSettings changes CORS origins and gateway settings.
+func (s *Service) UpdateSettings(ctx context.Context, projectID uuid.UUID, origins []string, st Settings) (store.ProjectService, error) {
+	if err := st.Validate(); err != nil {
+		return store.ProjectService{}, err
+	}
+	clean := []string{}
+	for _, o := range origins {
+		o = strings.TrimRight(strings.TrimSpace(o), "/")
+		if o == "" {
+			continue
+		}
+		web := strings.HasPrefix(o, "https://") || strings.HasPrefix(o, "http://")
+		if (o != "*" && !web) || strings.ContainsAny(o, " ,") {
+			return store.ProjectService{}, fmt.Errorf("%w: %q is not an origin (https://app.example.com)", ErrInvalid, o)
+		}
+		clean = append(clean, o)
+	}
+	raw, err := json.Marshal(st)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	svc, err := store.New(s.db).UpdateServicesSettings(ctx, store.UpdateServicesSettingsParams{ProjectID: projectID, CorsOrigins: clean, Settings: raw})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return svc, fmt.Errorf("%w: backend services were never enabled", ErrNotFound)
+	}
+	return svc, err
+}
+
+// ---- Operations -------------------------------------------------------------
+
+func (s *Service) runEnable(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
+	q := store.New(s.db)
+	p, err := q.GetProject(ctx, *op.ProjectID)
+	if err != nil {
+		return err
+	}
+	if p.DeletedAt != nil {
+		return jobs.Permanent(fmt.Errorf("the project was deleted"))
+	}
+	if err := s.ensureRoles(ctx, p); err != nil {
+		return fmt.Errorf("roles: %w", err)
+	}
+	if err := log.Info(ctx, "roles", "roles %s ready", strings.Join(store.ServiceRoles(p.DbName), ", ")); err != nil {
+		return err
+	}
+	if err := s.applySchema(ctx, p, true); err != nil {
+		return fmt.Errorf("pgd schemas: %w", err)
+	}
+	if err := log.Info(ctx, "schema", "pgd_auth, pgd_storage and pgd_realtime at version %d", SchemaVersion); err != nil {
+		return err
+	}
+	if _, err := s.ensureJWTKey(ctx, p.ID); err != nil {
+		return fmt.Errorf("signing key: %w", err)
+	}
+	if err := log.Info(ctx, "keys", "ES256 signing key ready"); err != nil {
+		return err
+	}
+	svc, err := q.SetServicesEnabled(ctx, store.SetServicesEnabledParams{ProjectID: p.ID, Enabled: true})
+	if err != nil {
+		return err
+	}
+	if err := s.projects.SyncPooler(ctx, log, "pooler", "edge login added to the poolers"); err != nil {
+		return err
+	}
+	return log.Info(ctx, "enabled", "serving at %s", s.URL(svc.Ref, p.Region))
+}
+
+func (s *Service) runDisable(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
+	q := store.New(s.db)
+	p, err := q.GetProject(ctx, *op.ProjectID)
+	if err != nil {
+		return err
+	}
+	if err := s.projects.SyncPooler(ctx, log, "pooler", "edge login removed from the poolers"); err != nil {
+		return err
+	}
+	if p.DeletedAt == nil {
+		conn, err := s.projects.AdminConn(ctx, p.InstanceID, "postgres")
+		if err != nil {
+			return err
+		}
+		defer conn.Close(context.Background())
+		edge := store.EdgeRole(p.DbName)
+		var exists bool
+		if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, edge).Scan(&exists); err != nil {
+			return err
+		}
+		if exists {
+			if _, err := conn.Exec(ctx, "ALTER ROLE "+provision.Ident(edge)+" NOLOGIN"); err != nil {
+				return err
+			}
+			if _, err := conn.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = $1`, edge); err != nil {
+				return err
+			}
+		}
+	}
+	return log.Info(ctx, "disabled", "keys revoked and the edge login switched off; the pgd_* schemas are kept")
+}
+
+// edgePassword is the edge login's password, derived from the master key,
+// so it is never stored.
+func (s *Service) edgePassword(role string) string {
+	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("pgdock edge role "+role, 32))
+}
+
+// ensureRoles creates or repairs the four roles on p's instance (V4 §2.3).
+func (s *Service) ensureRoles(ctx context.Context, p store.Project) error {
+	q := store.New(s.db)
+	svc, err := q.GetProjectServices(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	edge := store.EdgeRole(p.DbName)
+	verifier := ""
+	if svc.EdgeVerifier != nil {
+		verifier = *svc.EdgeVerifier
+	} else if verifier, err = crypto.SCRAMVerifier(s.edgePassword(edge)); err != nil {
+		return err
+	}
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, "postgres")
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+	id := provision.Ident
+	create := func(role, attrs string) error {
+		var exists bool
+		if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, role).Scan(&exists); err != nil {
+			return err
+		}
+		verb := "CREATE"
+		if exists {
+			verb = "ALTER"
+		}
+		_, err := conn.Exec(ctx, verb+" ROLE "+id(role)+" "+attrs)
+		var pe *pgconn.PgError
+		if verb == "CREATE" && errors.As(err, &pe) && pe.Code == "42710" {
+			_, err = conn.Exec(ctx, "ALTER ROLE "+id(role)+" "+attrs)
+		}
+		return err
+	}
+	const none = "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"
+	for _, r := range []struct{ role, attrs string }{
+		{store.AnonRole(p.DbName), "NOLOGIN NOINHERIT NOBYPASSRLS " + none},
+		{store.UserRole(p.DbName), "NOLOGIN NOINHERIT NOBYPASSRLS " + none},
+		// Bypasses row-level security, still not a superuser.
+		{store.ServiceRole(p.DbName), "NOLOGIN NOINHERIT BYPASSRLS " + none},
+		{edge, fmt.Sprintf("LOGIN NOINHERIT NOBYPASSRLS %s CONNECTION LIMIT %d PASSWORD '%s'", none, edgeConnLimit, verifier)},
+	} {
+		if err := create(r.role, r.attrs); err != nil {
+			return fmt.Errorf("%s: %w", r.role, err)
+		}
+	}
+	stmts := []string{
+		// The edge holds nothing itself: it can only become one of the three.
+		"GRANT " + id(store.AnonRole(p.DbName)) + ", " + id(store.UserRole(p.DbName)) + ", " + id(store.ServiceRole(p.DbName)) +
+			" TO " + id(edge) + " WITH INHERIT FALSE, SET TRUE",
+		"GRANT CONNECT ON DATABASE " + id(p.DbName) + " TO " + id(edge),
+	}
+	if p.Tier == provision.TierShared {
+		stmts = append(stmts, "ALTER ROLE "+id(edge)+" SET temp_file_limit = '"+provision.TempFileLimit+"'")
+	}
+	for _, st := range stmts {
+		if _, err := conn.Exec(ctx, st); err != nil {
+			return fmt.Errorf("%s: %w", st, err)
+		}
+	}
+	return q.SetServicesRoles(ctx, store.SetServicesRolesParams{ProjectID: p.ID, EdgeVerifier: &verifier,
+		SchemaVersion: svc.SchemaVersion, RolesInstance: &p.InstanceID})
+}
+
+// applySchema brings p's pgd_* schemas to SchemaVersion; with all, it
+// re-runs every version (after a move, so grants to the roles hold).
+func (s *Service) applySchema(ctx context.Context, p store.Project, all bool) error {
+	q := store.New(s.db)
+	svc, err := q.GetProjectServices(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+	from := int(svc.SchemaVersion)
+	if all {
+		from = 0
+	}
+	for _, v := range schemaVersions {
+		if v.n <= from {
+			continue
+		}
+		if err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+			for _, st := range v.stmts {
+				if _, err := tx.Exec(ctx, expand(st, p)); err != nil {
+					return fmt.Errorf("version %d: %w", v.n, err)
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return q.SetServicesRoles(ctx, store.SetServicesRolesParams{ProjectID: p.ID, EdgeVerifier: svc.EdgeVerifier,
+		SchemaVersion: int32(SchemaVersion), RolesInstance: svc.RolesInstance})
+}
+
+// Reconcile re-applies roles and schemas for enabled projects that moved
+// to another instance or whose schemas are behind this release.
+func (s *Service) Reconcile(ctx context.Context) error {
+	ps, err := store.New(s.db).ServicesToReconcile(ctx, int32(SchemaVersion))
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, p := range ps {
+		svc, err := store.New(s.db).GetProjectServices(ctx, p.ID)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		moved := svc.RolesInstance == nil || *svc.RolesInstance != p.InstanceID
+		if moved {
+			if err := s.ensureRoles(ctx, p); err != nil {
+				errs = append(errs, fmt.Errorf("%s roles: %w", p.DbName, err))
+				continue
+			}
+		}
+		if err := s.applySchema(ctx, p, moved); err != nil {
+			errs = append(errs, fmt.Errorf("%s schema: %w", p.DbName, err))
+			continue
+		}
+		s.log.Info("backend services roles reconciled", "project_id", p.ID, "moved", moved)
+	}
+	return errors.Join(errs...)
+}
+
+// Run reconciles and prunes request logs every interval.
+func (s *Service) Run(ctx context.Context, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		if err := s.Reconcile(ctx); err != nil && ctx.Err() == nil {
+			s.log.Warn("backend services reconcile", "err", err)
+		}
+		q := store.New(s.db)
+		if _, err := q.PruneRequestLogs(ctx, time.Now().Add(-7*24*time.Hour)); err != nil && ctx.Err() == nil {
+			s.log.Warn("pruning API request logs", "err", err)
+		}
+		if _, err := q.PruneEdgeReports(ctx, time.Now().Add(-7*24*time.Hour)); err != nil && ctx.Err() == nil {
+			s.log.Warn("pruning edge reports", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// ---- Signing keys -----------------------------------------------------------
+
+func jwtAAD(keyID uuid.UUID) []byte { return []byte("project_jwt_keys.private_enc:" + keyID.String()) }
+
+// JWTKeyAAD is the associated data a signing key's private half is sealed
+// with (for master-key rotation).
+func JWTKeyAAD(keyID uuid.UUID) []byte { return jwtAAD(keyID) }
+
+func (s *Service) ensureJWTKey(ctx context.Context, projectID uuid.UUID) (store.ProjectJwtKey, error) {
+	q := store.New(s.db)
+	k, err := q.ActiveJWTKey(ctx, projectID)
+	if err == nil || !errors.Is(err, pgx.ErrNoRows) {
+		return k, err
+	}
+	kid, err := randomFrom(refRest, 16)
+	if err != nil {
+		return k, err
+	}
+	der, jwk, err := jwtes.Generate(kid)
+	if err != nil {
+		return k, err
+	}
+	pub, err := json.Marshal(jwk)
+	if err != nil {
+		return k, err
+	}
+	// The row's id is the sealing context, so make it first.
+	id := uuid.New()
+	sealed, err := s.keyring.Encrypt(der, jwtAAD(id))
+	if err != nil {
+		return k, err
+	}
+	return q.InsertJWTKey(ctx, store.InsertJWTKeyParams{ID: id, ProjectID: projectID, Kid: kid, PublicJwk: pub, PrivateEnc: sealed})
+}
+
+// MintToken signs an access token for p with its active key: the auth
+// service's (V4 §4.4), and tests'. claims gets aud, iat and exp added.
+func (s *Service) MintToken(ctx context.Context, projectID uuid.UUID, claims map[string]any, ttl time.Duration) (string, error) {
+	q := store.New(s.db)
+	svc, err := q.GetProjectServices(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	k, err := q.ActiveJWTKey(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	der, err := s.keyring.Decrypt(k.PrivateEnc, jwtAAD(k.ID))
+	if err != nil {
+		return "", err
+	}
+	now := time.Now()
+	c := map[string]any{}
+	for k, v := range claims {
+		c[k] = v
+	}
+	c["aud"], c["iat"], c["exp"] = svc.Ref, now.Unix(), now.Add(ttl).Unix()
+	return jwtes.Sign(der, k.Kid, c)
+}

@@ -2564,6 +2564,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's backend services (V4 §2.4) - URL, keys, settings */
+        get: operations["getBackendServices"];
+        put?: never;
+        /** Turn backend services on; the first publishable and secret keys are returned once */
+        post: operations["enableBackendServices"];
+        /** Turn backend services off (keys revoked; the pgd_* schemas and their data stay) */
+        delete: operations["disableBackendServices"];
+        options?: never;
+        head?: never;
+        /** Change allowed origins and gateway settings */
+        patch: operations["updateBackendServices"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make another API key (for rotation); a secret key is shown once */
+        post: operations["createAPIKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/keys/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an API key; the edge refuses it within seconds */
+        delete: operations["revokeAPIKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The API's request logs (7 days), newest first */
+        get: operations["listAPIRequestLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** pgdock-edge's configuration feed (signed with the edge secret; internal) */
+        get: operations["edgeConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** pgdock-edge's usage and request logs (signed; internal) */
+        post: operations["edgeReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/wake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** pgdock-edge asks for a paused project to resume (signed; internal) */
+        post: operations["edgeWake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/transfer": {
         parameters: {
             query?: never;
@@ -5993,6 +6115,93 @@ export interface components {
         };
         MaintenanceAnnouncementList: {
             items: components["schemas"]["MaintenanceAnnouncement"][];
+        };
+        BackendServices: {
+            enabled: boolean;
+            /**
+             * @description The project reference in the API hostname.
+             * @example k7f3m2q9
+             */
+            ref?: string;
+            /** @description The API base URL (https://<ref>.<domain>); empty when no API domain is configured. */
+            url?: string;
+            /** Format: date-time */
+            enabled_at?: string | null;
+            keys: components["schemas"]["ApiKey"][];
+            /** @description Origins browsers may call from; empty allows any. */
+            cors_origins: string[];
+            settings: components["schemas"]["BackendServicesSettings"];
+            /** @description pgdock-server has an edge secret, so a pgdock-edge can serve the project. */
+            feed_configured: boolean;
+        };
+        BackendServicesSettings: {
+            /** @description Each request's statement timeout (0 for the default, 8000). */
+            statement_timeout_ms?: number;
+            /** @description Requests per minute from one IP address (0 for the default, 600). */
+            rate_per_ip?: number;
+            /** @description Requests per minute with one key (0 for the default, 12000). */
+            rate_per_key?: number;
+            /** @description Accept the secret key from a page (a request with an Origin header). Off by default. */
+            allow_secret_in_browser?: boolean;
+        };
+        BackendServicesUpdate: {
+            cors_origins?: string[];
+            settings?: components["schemas"]["BackendServicesSettings"];
+        };
+        BackendServicesEnabled: {
+            services: components["schemas"]["BackendServices"];
+            operation: components["schemas"]["Operation"];
+            /** @description The keys made now (the first time, or after a disable); the secret key is never shown again. */
+            keys: components["schemas"]["CreatedApiKey"][];
+        };
+        ApiKey: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "publishable" | "secret";
+            name: string;
+            /** @description The start of the key, to tell keys apart. */
+            prefix: string;
+            /** @description The whole publishable key (secret keys are only shown when made). */
+            key?: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CreateApiKeyRequest: {
+            /** @enum {string} */
+            kind: "publishable" | "secret";
+            name: string;
+        };
+        CreatedApiKey: {
+            key: components["schemas"]["ApiKey"];
+            /** @description The key itself. For a secret key this is the only time it is shown. */
+            value: string;
+        };
+        ApiRequestLog: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            request_id: string;
+            method: string;
+            path: string;
+            status: number;
+            latency_ms: number;
+            role?: string | null;
+            /** Format: uuid */
+            user_id?: string | null;
+            /** Format: uuid */
+            key_id?: string | null;
+            ip?: string | null;
+            /** Format: int64 */
+            bytes_out: number;
+        };
+        ApiRequestLogList: {
+            items: components["schemas"]["ApiRequestLog"][];
         };
         OutageMinute: {
             /** Format: date-time */
@@ -13218,6 +13427,258 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PersonalCredentials"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The project's backend services, or enabled false with nothing else when they were never turned on. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendServices"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabling; the keys are live once the operation succeeds. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendServicesEnabled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disableBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disabling. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackendServicesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated; the edge applies it within seconds. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendServices"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description The key. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAPIRequestLogs: {
+        parameters: {
+            query?: {
+                /** @description A log id from the previous page. */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiRequestLogList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeConfig: {
+        parameters: {
+            query?: {
+                since?: number;
+                /** @description Seconds to wait for a change (at most 30). */
+                wait?: number;
+                region?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the feed (see internal/edgeapi). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Recorded (or already recorded). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeWake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Resuming. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

@@ -107,6 +107,8 @@ var expected = map[authz.Action][]string{
 	authz.BranchManage:       {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.AutomationManage:   {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.ProjectSettings:    {rOwner, rAdmin, rProjAdmin},
+	authz.ServicesManage:     {rOwner, rAdmin, rProjAdmin},
+	authz.ServicesLogs:       {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.ProjectMembers:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectDelete:      {rOwner, rAdmin, rProjAdmin},
@@ -424,7 +426,16 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects/{id}/branches",
 		// V3 §2.3: a project's moves between instances
 		"GET /api/v1/projects/{id}/ha", "GET /api/v1/projects/{id}/moves",
+		// V4 §2.2 the API URL and keys (publishable keys are meant to be seen)
+		"GET /api/v1/projects/{id}/services",
 	},
+	// V4 §2.4 enabling backend services, keys, gateway settings
+	authz.ServicesManage: {
+		"POST /api/v1/projects/{id}/services", "PATCH /api/v1/projects/{id}/services", "DELETE /api/v1/projects/{id}/services",
+		"POST /api/v1/projects/{id}/services/keys", "DELETE /api/v1/projects/{id}/services/keys/{key_id}",
+	},
+	// V4 §8.3 API logs
+	authz.ServicesLogs: {"GET /api/v1/projects/{id}/services/logs"},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
 	// "SQL console - read" (writes are re-checked in the handler)

@@ -33,6 +33,9 @@ const (
 	MetricHARAM           = "ha_ram_gb_hours"
 	MetricHADisk          = "ha_disk_gb_hours"
 	MetricSyncReplication = "sync_replication_hours"
+	// Backend services (V4 §11.1), reported by pgdock-edge.
+	MetricAPIRequests = "api_requests"
+	MetricAPIEgress   = "api_egress_gb"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -53,6 +56,8 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricHARAM, "GB-RAM-hours", "hour"},
 	{MetricHADisk, "GB-disk-hours", "hour"},
 	{MetricSyncReplication, "hours", "hour"},
+	{MetricAPIRequests, "requests", "hour"},
+	{MetricAPIEgress, "GB", "hour"},
 }
 
 const (

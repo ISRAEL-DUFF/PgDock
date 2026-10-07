@@ -358,6 +358,17 @@ func (m *Manager) Sync(ctx context.Context) error {
 		})
 	}
 
+	// Backend services' edge logins (V4 §2.3).
+	edges, err := q.PoolerEdgeUsers(ctx)
+	if err != nil {
+		return fmt.Errorf("pooler sync: load edge logins: %w", err)
+	}
+	for _, u := range edges {
+		add(served(u.Region, u.ForwardRegion, u.ForwardUntil), func(cfg *Config) {
+			cfg.Users = append(cfg.Users, User{Name: store.EdgeRole(u.DbName), Secret: u.EdgeVerifier})
+		})
+	}
+
 	for region, cfg := range cfgs {
 		dir := m.RegionDir(region)
 		if err := os.MkdirAll(dir, 0o750); err != nil {

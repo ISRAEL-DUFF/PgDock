@@ -337,6 +337,13 @@ func (s *Service) teardown(ctx context.Context, p store.Project, log *jobs.StepL
 	if err := s.dropMemberRoles(ctx, p); err != nil {
 		return fmt.Errorf("drop member logins: %w", err)
 	}
+	// Backend services' roles (V4 §2.3); they own nothing outside the
+	// dropped database.
+	for _, r := range store.ServiceRoles(p.DbName) {
+		if _, err := conn.Exec(ctx, "DROP ROLE IF EXISTS "+ident(r)); err != nil {
+			return fmt.Errorf("drop role %s: %w", r, err)
+		}
+	}
 	if _, err := conn.Exec(ctx, "DROP ROLE IF EXISTS "+ident(p.OwnerRole)); err != nil {
 		return fmt.Errorf("drop role: %w", err)
 	}

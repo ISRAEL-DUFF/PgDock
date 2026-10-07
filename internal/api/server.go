@@ -39,6 +39,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/regions"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
+	"github.com/israel-duff/pgdock/internal/services"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/support"
@@ -74,6 +75,8 @@ type Server struct {
 	mail      *mail.Service
 	tenancy   *tenancy.Service
 	tokens    *tokens.Service
+	// services is backend services (V4 §2); nil when not set up.
+	services  *services.Service
 	branches  *branching.Service
 	freetier  *freetier.Service
 	support   *support.Service
@@ -178,7 +181,9 @@ type Options struct {
 	// Tokens issues and checks API tokens and device logins; nil disables
 	// bearer authentication. TokenRate and OrgTokenRate are requests per
 	// minute per token and per organisation's tokens (defaults 600, 1200).
-	Tokens       *tokens.Service
+	Tokens *tokens.Service
+	// Services is backend services (V4 §2).
+	Services     *services.Service
 	TokenRate    int
 	OrgTokenRate int
 	// PublicURL is the UI's address, for device-login links; the request's
@@ -202,7 +207,7 @@ func NewHandler(opts Options) http.Handler {
 		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches, freetier: opts.FreeTier, support: opts.Support, legal: opts.Legal, capacity: opts.Capacity, costs: opts.Costs, regions: opts.Regions, insights: opts.Insights,
 		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound, billing: opts.Billing,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
-		tokens: opts.Tokens, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
+		tokens: opts.Tokens, services: opts.Services, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,
 	}
 	if s.clock == nil {
 		s.clock = time.Now

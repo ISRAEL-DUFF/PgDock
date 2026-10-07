@@ -52,6 +52,8 @@ type Config struct {
 	Insight Insight
 	// Status connects to the status page (V3 §2.6).
 	Status Status
+	// Edge configures backend services' gateway (V4 §2.1).
+	Edge Edge
 	// Payments configures the payment providers (V3 §3.4).
 	Payments Payments
 	// FreeTier configures pausing and archiving Free projects (V3 §4).
@@ -170,6 +172,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadBackups(getenv, &cfg)...)
 	errs = append(errs, loadInsight(getenv, &cfg)...)
 	errs = append(errs, loadStatus(getenv, readFile, &cfg)...)
+	errs = append(errs, loadEdge(getenv, readFile, &cfg)...)
 	errs = append(errs, loadPayments(getenv, readFile, &cfg)...)
 	errs = append(errs, loadFreeTier(getenv, readFile, &cfg)...)
 	errs = append(errs, loadSupport(getenv, readFile, &cfg)...)

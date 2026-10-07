@@ -242,6 +242,24 @@ func (e AlertSmtpTls) Valid() bool {
 	}
 }
 
+// Defines values for ApiKeyKind.
+const (
+	ApiKeyKindPublishable ApiKeyKind = "publishable"
+	ApiKeyKindSecret      ApiKeyKind = "secret"
+)
+
+// Valid indicates whether the value is a known member of the ApiKeyKind enum.
+func (e ApiKeyKind) Valid() bool {
+	switch e {
+	case ApiKeyKindPublishable:
+		return true
+	case ApiKeyKindSecret:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuditEntryActorKind.
 const (
 	Session AuditEntryActorKind = "session"
@@ -545,6 +563,24 @@ func (e ColumnRefOnUpdate) Valid() bool {
 	case ColumnRefOnUpdateSETDEFAULT:
 		return true
 	case ColumnRefOnUpdateSETNULL:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateApiKeyRequestKind.
+const (
+	CreateApiKeyRequestKindPublishable CreateApiKeyRequestKind = "publishable"
+	CreateApiKeyRequestKindSecret      CreateApiKeyRequestKind = "secret"
+)
+
+// Valid indicates whether the value is a known member of the CreateApiKeyRequestKind enum.
+func (e CreateApiKeyRequestKind) Valid() bool {
+	switch e {
+	case CreateApiKeyRequestKindPublishable:
+		return true
+	case CreateApiKeyRequestKindSecret:
 		return true
 	default:
 		return false
@@ -3665,6 +3701,46 @@ type AlertTestResult struct {
 	} `json:"results"`
 }
 
+// ApiKey defines model for ApiKey.
+type ApiKey struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Key The whole publishable key (secret keys are only shown when made).
+	Key        *string    `json:"key,omitempty"`
+	Kind       ApiKeyKind `json:"kind"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	Name       string     `json:"name"`
+
+	// Prefix The start of the key, to tell keys apart.
+	Prefix    string     `json:"prefix"`
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+}
+
+// ApiKeyKind defines model for ApiKey.Kind.
+type ApiKeyKind string
+
+// ApiRequestLog defines model for ApiRequestLog.
+type ApiRequestLog struct {
+	At        time.Time           `json:"at"`
+	BytesOut  int64               `json:"bytes_out"`
+	Id        int64               `json:"id"`
+	Ip        *string             `json:"ip,omitempty"`
+	KeyId     *openapi_types.UUID `json:"key_id,omitempty"`
+	LatencyMs int                 `json:"latency_ms"`
+	Method    string              `json:"method"`
+	Path      string              `json:"path"`
+	RequestId string              `json:"request_id"`
+	Role      *string             `json:"role,omitempty"`
+	Status    int                 `json:"status"`
+	UserId    *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// ApiRequestLogList defines model for ApiRequestLogList.
+type ApiRequestLogList struct {
+	Items []ApiRequestLog `json:"items"`
+}
+
 // AttributeRequest defines model for AttributeRequest.
 type AttributeRequest struct {
 	From openapi_types.Date `json:"from"`
@@ -3739,6 +3815,56 @@ type AvailabilityExclusion struct {
 	ScheduledEnd   *time.Time         `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time         `json:"scheduled_start,omitempty"`
 	Title          string             `json:"title"`
+}
+
+// BackendServices defines model for BackendServices.
+type BackendServices struct {
+	// CorsOrigins Origins browsers may call from; empty allows any.
+	CorsOrigins []string   `json:"cors_origins"`
+	Enabled     bool       `json:"enabled"`
+	EnabledAt   *time.Time `json:"enabled_at,omitempty"`
+
+	// FeedConfigured pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+	FeedConfigured bool     `json:"feed_configured"`
+	Keys           []ApiKey `json:"keys"`
+
+	// Ref The project reference in the API hostname.
+	//
+	// Example: k7f3m2q9
+	Ref      *string                 `json:"ref,omitempty"`
+	Settings BackendServicesSettings `json:"settings"`
+
+	// Url The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
+	Url *string `json:"url,omitempty"`
+}
+
+// BackendServicesEnabled defines model for BackendServicesEnabled.
+type BackendServicesEnabled struct {
+	// Keys The keys made now (the first time, or after a disable); the secret key is never shown again.
+	Keys      []CreatedApiKey `json:"keys"`
+	Operation Operation       `json:"operation"`
+	Services  BackendServices `json:"services"`
+}
+
+// BackendServicesSettings defines model for BackendServicesSettings.
+type BackendServicesSettings struct {
+	// AllowSecretInBrowser Accept the secret key from a page (a request with an Origin header). Off by default.
+	AllowSecretInBrowser *bool `json:"allow_secret_in_browser,omitempty"`
+
+	// RatePerIp Requests per minute from one IP address (0 for the default, 600).
+	RatePerIp *int `json:"rate_per_ip,omitempty"`
+
+	// RatePerKey Requests per minute with one key (0 for the default, 12000).
+	RatePerKey *int `json:"rate_per_key,omitempty"`
+
+	// StatementTimeoutMs Each request's statement timeout (0 for the default, 8000).
+	StatementTimeoutMs *int `json:"statement_timeout_ms,omitempty"`
+}
+
+// BackendServicesUpdate defines model for BackendServicesUpdate.
+type BackendServicesUpdate struct {
+	CorsOrigins *[]string                `json:"cors_origins,omitempty"`
+	Settings    *BackendServicesSettings `json:"settings,omitempty"`
 }
 
 // Backup defines model for Backup.
@@ -4138,6 +4264,15 @@ type CostSettings struct {
 	Overheads                 []Overhead `json:"overheads"`
 }
 
+// CreateApiKeyRequest defines model for CreateApiKeyRequest.
+type CreateApiKeyRequest struct {
+	Kind CreateApiKeyRequestKind `json:"kind"`
+	Name string                  `json:"name"`
+}
+
+// CreateApiKeyRequestKind defines model for CreateApiKeyRequest.Kind.
+type CreateApiKeyRequestKind string
+
 // CreateIncidentRequest defines model for CreateIncidentRequest.
 type CreateIncidentRequest struct {
 	Body       string           `json:"body"`
@@ -4213,6 +4348,14 @@ type CreateTokenRequest struct {
 	OrgId         openapi_types.UUID    `json:"org_id"`
 	ProjectIds    *[]openapi_types.UUID `json:"project_ids,omitempty"`
 	Scopes        []TokenScope          `json:"scopes"`
+}
+
+// CreatedApiKey defines model for CreatedApiKey.
+type CreatedApiKey struct {
+	Key ApiKey `json:"key"`
+
+	// Value The key itself. For a secret key this is the only time it is shown.
+	Value string `json:"value"`
 }
 
 // CreatedToken defines model for CreatedToken.
@@ -8275,6 +8418,21 @@ type GetBackupOverviewParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
+// EdgeConfigParams defines parameters for EdgeConfig.
+type EdgeConfigParams struct {
+	Since *int64 `form:"since,omitempty" json:"since,omitempty"`
+
+	// Wait Seconds to wait for a change (at most 30).
+	Wait   *int    `form:"wait,omitempty" json:"wait,omitempty"`
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
+
+// EdgeReportJSONBody defines parameters for EdgeReport.
+type EdgeReportJSONBody map[string]interface{}
+
+// EdgeWakeJSONBody defines parameters for EdgeWake.
+type EdgeWakeJSONBody map[string]interface{}
+
 // GetNodeMetricsParams defines parameters for GetNodeMetrics.
 type GetNodeMetricsParams struct {
 	Range *GetNodeMetricsParamsRange `form:"range,omitempty" json:"range,omitempty"`
@@ -8457,6 +8615,13 @@ type GetProjectMetricsParamsRange string
 // SetSavedQueryFavoriteJSONBody defines parameters for SetSavedQueryFavorite.
 type SetSavedQueryFavoriteJSONBody struct {
 	Favorite bool `json:"favorite"`
+}
+
+// ListAPIRequestLogsParams defines parameters for ListAPIRequestLogs.
+type ListAPIRequestLogsParams struct {
+	// Before A log id from the previous page.
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // CountTableRowsParams defines parameters for CountTableRows.
@@ -8734,6 +8899,12 @@ type RestoreBackupJSONRequestBody = RestoreRequest
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
 
+// EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
+type EdgeReportJSONRequestBody EdgeReportJSONBody
+
+// EdgeWakeJSONRequestBody defines body for EdgeWake for application/json ContentType.
+type EdgeWakeJSONRequestBody EdgeWakeJSONBody
+
 // CreateImportJSONRequestBody defines body for CreateImport for application/json ContentType.
 type CreateImportJSONRequestBody = ImportRequest
 
@@ -8904,6 +9075,12 @@ type SchemaMigrationJSONRequestBody = SchemaMigrationRequest
 
 // PreviewSchemaChangeJSONRequestBody defines body for PreviewSchemaChange for application/json ContentType.
 type PreviewSchemaChangeJSONRequestBody = SchemaPreviewRequest
+
+// UpdateBackendServicesJSONRequestBody defines body for UpdateBackendServices for application/json ContentType.
+type UpdateBackendServicesJSONRequestBody = BackendServicesUpdate
+
+// CreateAPIKeyJSONRequestBody defines body for CreateAPIKey for application/json ContentType.
+type CreateAPIKeyJSONRequestBody = CreateApiKeyRequest
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
@@ -9351,6 +9528,15 @@ type ServerInterface interface {
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	// (POST /api/v1/dev/operations)
 	CreateDevOperation(w http.ResponseWriter, r *http.Request)
+	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+	// (GET /api/v1/edge/config)
+	EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams)
+	// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+	// (POST /api/v1/edge/report)
+	EdgeReport(w http.ResponseWriter, r *http.Request)
+	// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+	// (POST /api/v1/edge/wake)
+	EdgeWake(w http.ResponseWriter, r *http.Request)
 	// CreateImport Import an existing database into a new project
 	// (POST /api/v1/imports)
 	CreateImport(w http.ResponseWriter, r *http.Request)
@@ -9822,6 +10008,27 @@ type ServerInterface interface {
 	// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
 	// (POST /api/v1/projects/{id}/schema/preview)
 	PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	// (DELETE /api/v1/projects/{id}/services)
+	DisableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetBackendServices The project's backend services (V4 §2.4) - URL, keys, settings
+	// (GET /api/v1/projects/{id}/services)
+	GetBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// UpdateBackendServices Change allowed origins and gateway settings
+	// (PATCH /api/v1/projects/{id}/services)
+	UpdateBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// EnableBackendServices Turn backend services on; the first publishable and secret keys are returned once
+	// (POST /api/v1/projects/{id}/services)
+	EnableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateAPIKey Make another API key (for rotation); a secret key is shown once
+	// (POST /api/v1/projects/{id}/services/keys)
+	CreateAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// RevokeAPIKey Revoke an API key; the edge refuses it within seconds
+	// (DELETE /api/v1/projects/{id}/services/keys/{key_id})
+	RevokeAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID, keyId openapi_types.UUID)
+	// ListAPIRequestLogs The API's request logs (7 days), newest first
+	// (GET /api/v1/projects/{id}/services/logs)
+	ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -10737,6 +10944,24 @@ func (_ Unimplemented) RestoreBackup(w http.ResponseWriter, r *http.Request, id 
 // CreateDevOperation Enqueue a dummy operation (development only)
 // (POST /api/v1/dev/operations)
 func (_ Unimplemented) CreateDevOperation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+// (GET /api/v1/edge/config)
+func (_ Unimplemented) EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+// (POST /api/v1/edge/report)
+func (_ Unimplemented) EdgeReport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+// (POST /api/v1/edge/wake)
+func (_ Unimplemented) EdgeWake(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11679,6 +11904,48 @@ func (_ Unimplemented) SchemaMigration(w http.ResponseWriter, r *http.Request, i
 // PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
 // (POST /api/v1/projects/{id}/schema/preview)
 func (_ Unimplemented) PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+// (DELETE /api/v1/projects/{id}/services)
+func (_ Unimplemented) DisableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetBackendServices The project's backend services (V4 §2.4) - URL, keys, settings
+// (GET /api/v1/projects/{id}/services)
+func (_ Unimplemented) GetBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateBackendServices Change allowed origins and gateway settings
+// (PATCH /api/v1/projects/{id}/services)
+func (_ Unimplemented) UpdateBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableBackendServices Turn backend services on; the first publishable and secret keys are returned once
+// (POST /api/v1/projects/{id}/services)
+func (_ Unimplemented) EnableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateAPIKey Make another API key (for rotation); a secret key is shown once
+// (POST /api/v1/projects/{id}/services/keys)
+func (_ Unimplemented) CreateAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeAPIKey Revoke an API key; the edge refuses it within seconds
+// (DELETE /api/v1/projects/{id}/services/keys/{key_id})
+func (_ Unimplemented) RevokeAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID, keyId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAPIRequestLogs The API's request logs (7 days), newest first
+// (GET /api/v1/projects/{id}/services/logs)
+func (_ Unimplemented) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14929,6 +15196,93 @@ func (siw *ServerInterfaceWrapper) CreateDevOperation(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateDevOperation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EdgeConfig operation middleware
+func (siw *ServerInterfaceWrapper) EdgeConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EdgeConfigParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "wait" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "wait", r.URL.Query(), &params.Wait, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "wait"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "wait", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "region" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "region", r.URL.Query(), &params.Region, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "region"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EdgeConfig(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EdgeReport operation middleware
+func (siw *ServerInterfaceWrapper) EdgeReport(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EdgeReport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EdgeWake operation middleware
+func (siw *ServerInterfaceWrapper) EdgeWake(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EdgeWake(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19528,6 +19882,226 @@ func (siw *ServerInterfaceWrapper) PreviewSchemaChange(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// DisableBackendServices operation middleware
+func (siw *ServerInterfaceWrapper) DisableBackendServices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableBackendServices(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBackendServices operation middleware
+func (siw *ServerInterfaceWrapper) GetBackendServices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBackendServices(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBackendServices operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBackendServices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBackendServices(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableBackendServices operation middleware
+func (siw *ServerInterfaceWrapper) EnableBackendServices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableBackendServices(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAPIKey(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "key_id" -------------
+	var keyId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key_id", chi.URLParam(r, "key_id"), &keyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeAPIKey(w, r, id, keyId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAPIRequestLogs operation middleware
+func (siw *ServerInterfaceWrapper) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAPIRequestLogsParams
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAPIRequestLogs(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateProject operation middleware
 func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.Request) {
 
@@ -21783,6 +22357,36 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/credentials", wrapper.IssueMyCredentials)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/services", wrapper.DisableBackendServices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services", wrapper.GetBackendServices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/services", wrapper.UpdateBackendServices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/services", wrapper.EnableBackendServices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/services/keys", wrapper.CreateAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/services/keys/{key_id}", wrapper.RevokeAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/logs", wrapper.ListAPIRequestLogs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/edge/config", wrapper.EdgeConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/edge/report", wrapper.EdgeReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/edge/wake", wrapper.EdgeWake)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/transfer", wrapper.TransferProject)

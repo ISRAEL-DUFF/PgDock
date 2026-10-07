@@ -63,6 +63,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/regions"
 	"github.com/israel-duff/pgdock/internal/rotate"
 	"github.com/israel-duff/pgdock/internal/schedjobs"
+	"github.com/israel-duff/pgdock/internal/services"
 	"github.com/israel-duff/pgdock/internal/settings"
 	"github.com/israel-duff/pgdock/internal/statusapi"
 	"github.com/israel-duff/pgdock/internal/storage"
@@ -363,6 +364,27 @@ func run() error {
 		go func() { defer bg.Done(); freeSvc.Run(bgCtx, time.Hour) }()
 	}
 
+	// Backend services (V4 §2): per-project API keys, roles and the feed
+	// pgdock-edge follows.
+	var servicesSvc *services.Service
+	if projects != nil {
+		servicesSvc = services.New(pool, projects, services.Config{Domain: cfg.Edge.Domain, EdgeSecret: cfg.Edge.Secret}, log)
+		if freeSvc != nil {
+			servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
+				_, err := freeSvc.Resume(ctx, projectID, nil)
+				if errors.Is(err, freetier.ErrConflict) {
+					return nil // already waking
+				}
+				return err
+			}
+		}
+		for name, k := range servicesSvc.Kinds() {
+			kinds[name] = k
+		}
+		bg.Add(1)
+		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, time.Minute) }()
+	}
+
 	// Support (V3 §7.1): tickets from the dashboard, email and WhatsApp.
 	supportSvc := support.New(pool, mailSvc, support.Config{
 		Address: cfg.Support.Email, PublicURL: cfg.Insight.PublicURL, InboundSecret: cfg.Support.InboundSecret,
@@ -537,6 +559,7 @@ func run() error {
 		PoolerArbiter:   poolerArbiter,
 		Billing:         billingSvc,
 		Tokens:          tokenSvc,
+		Services:        servicesSvc,
 		PublicURL:       cfg.Insight.PublicURL,
 		MetricsInterval: cfg.Insight.MetricsInterval,
 		MetricsToken:    cfg.Insight.MetricsToken,

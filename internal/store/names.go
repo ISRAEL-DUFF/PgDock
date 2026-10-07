@@ -23,3 +23,15 @@ func ClientDBName(p Project) string {
 // ProbeRole is the SLA probe login of the project whose database is db: it
 // may connect and run SELECT 1, nothing else (V3 §2.7).
 func ProbeRole(db string) string { return db + "_sla" }
+
+// Backend services' roles in the project whose database is db (V4 §2.3):
+// the login pgdock-edge uses, which can only SET ROLE to the other three.
+func EdgeRole(db string) string    { return db + "_edge" }
+func AnonRole(db string) string    { return db + "_anon" }
+func UserRole(db string) string    { return db + "_user" }
+func ServiceRole(db string) string { return db + "_service" }
+
+// ServiceRoles are all four, the login first.
+func ServiceRoles(db string) []string {
+	return []string{EdgeRole(db), AnonRole(db), UserRole(db), ServiceRole(db)}
+}
