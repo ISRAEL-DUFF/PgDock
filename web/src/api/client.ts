@@ -1150,6 +1150,8 @@ export const api = {
     getJSON<S["AuthConfig"]>(`/api/v1/projects/${id}/auth/config`),
   updateAuthConfig: (id: string, b: S["AuthConfigUpdate"]) =>
     request<S["AuthConfig"]>("PATCH", `/api/v1/projects/${id}/auth/config`, b),
+  authHookDeliveries: (id: string) =>
+    getJSON<S["AuthHookDeliveryList"]>(`/api/v1/projects/${id}/auth/hooks`),
   testAuthSMTP: (id: string, b: S["AuthSMTPTest"]) =>
     request<void>("POST", `/api/v1/projects/${id}/auth/smtp/test`, b),
   previewAuthTemplate: (id: string, b: S["AuthTemplatePreview"]) =>

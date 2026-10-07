@@ -46,6 +46,21 @@ bundle share one version (spec §11.5).
   the project's own SMTP server and signing-key rotation; `pgdock auth`.
   Monthly active users are recorded (`auth_mau`).
 - New migration 00037 (auth).
+- Auth: phone, OAuth, MFA, hooks (V4-M32): sign-in with SMS and WhatsApp
+  codes (Termii and PGDock's WhatsApp number by default, or the project's
+  own Termii, Africa's Talking, Twilio or WhatsApp Cloud API account), phone
+  and password sign-up, phone changes; SMS-pumping limits (allowed
+  countries, 5 codes an hour per number, a daily cap with alerts) and
+  per-message metering with spend; OAuth with Google, Apple, GitHub,
+  Facebook and Microsoft (PKCE), linking by verified email and identity
+  linking; anonymous users; TOTP and phone second factors with an MFA
+  policy; custom-claims and before-sign-up Postgres hooks (as the new
+  `<db>_auth_hook` role), after-sign-up/in and send-message webhooks;
+  Turnstile captcha. Project → Authentication gains Phone, Providers, MFA
+  and captcha, and Hooks; `pgdock auth config|set|hooks`. A Flutter sample
+  is in docs/examples/flutter-auth.
+- New migration 00038 (auth messages, hooks and alerts); project schema
+  version 3.
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a

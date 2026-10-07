@@ -28,6 +28,7 @@ import {
   TabsTrigger,
 } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
+import { HooksTab, PhoneTab, ProvidersTab, SecurityTab } from "./ProjectAuthMore";
 import { useProject } from "./ProjectOverview";
 
 type S = components["schemas"];
@@ -51,7 +52,7 @@ export function ProjectAuthPage() {
   return (
     <Page
       title="Authentication"
-      description="Your app's users: sign-up and sign-in by email, sessions and tokens, and the emails they're sent."
+      description="Your app's users: sign-in by email, phone, WhatsApp and OAuth, second factors, hooks, sessions and tokens."
       testId="project-auth"
     >
       <AuthTabs p={p} />
@@ -97,6 +98,10 @@ function AuthTabs({ p }: { p: Project }) {
         <TabsTrigger value="users">Users</TabsTrigger>
         <TabsTrigger value="settings">Sign-in and sessions</TabsTrigger>
         <TabsTrigger value="emails">Emails</TabsTrigger>
+        <TabsTrigger value="phone">Phone</TabsTrigger>
+        <TabsTrigger value="providers">Providers</TabsTrigger>
+        <TabsTrigger value="security">MFA and captcha</TabsTrigger>
+        <TabsTrigger value="hooks">Hooks</TabsTrigger>
         <TabsTrigger value="keys">Signing keys</TabsTrigger>
       </TabsList>
       <TabsContent value="users" className="pt-4">
@@ -107,6 +112,18 @@ function AuthTabs({ p }: { p: Project }) {
       </TabsContent>
       <TabsContent value="emails" className="pt-4">
         <EmailsTab p={p} cfg={cfg.data} admin={admin} />
+      </TabsContent>
+      <TabsContent value="phone" className="pt-4">
+        <PhoneTab p={p} cfg={cfg.data} admin={admin} />
+      </TabsContent>
+      <TabsContent value="providers" className="pt-4">
+        <ProvidersTab p={p} cfg={cfg.data} admin={admin} />
+      </TabsContent>
+      <TabsContent value="security" className="pt-4">
+        <SecurityTab p={p} cfg={cfg.data} admin={admin} />
+      </TabsContent>
+      <TabsContent value="hooks" className="pt-4">
+        <HooksTab p={p} cfg={cfg.data} admin={admin} />
       </TabsContent>
       <TabsContent value="keys" className="pt-4">
         <KeysTab p={p} admin={admin} />

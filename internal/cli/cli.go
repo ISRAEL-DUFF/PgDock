@@ -249,6 +249,9 @@ func (a *App) commands() []command {
 				{name: "delete", summary: "delete <p> <user id>", run: (*App).authUsersDelete},
 			}},
 			{name: "rotate-key", summary: "Sign tokens with a new key: rotate-key <p>", run: (*App).authRotateKey},
+			{name: "config", summary: "Sign-in settings, providers, phone spend and caps: config <p>", run: (*App).authConfig},
+			{name: "set", summary: `Change settings: set <p> '{"settings":{"phone_channels":["whatsapp"]}}' (an AuthConfigUpdate)`, run: (*App).authSet},
+			{name: "hooks", summary: "Recent auth webhook deliveries: hooks <p>", run: (*App).authHooks},
 		}},
 		{name: "gen", summary: "Generate code", sub: []command{
 			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},

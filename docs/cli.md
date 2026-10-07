@@ -147,6 +147,9 @@ pgdock gen types --lang ts|dart|go --project <p> [-o file] [--package name]   # 
 pgdock auth users list <p> [--search …] | show <p> <user> | invite <p> <email>   # the app's users
 pgdock auth users ban <p> <user> [--for 24h] | unban <p> <user> | signout <p> <user> | delete <p> <user>
 pgdock auth rotate-key <p>   # sign access tokens with a new key
+pgdock auth config <p>       # sign-in methods, phone caps and this month's spend
+pgdock auth set <p> '{"settings":{"phone_channels":["whatsapp"],"mfa_policy":"optional"}}'   # any AuthConfigUpdate
+pgdock auth hooks <p>        # recent auth webhook deliveries
 
 pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
 pgdock billing invoices | invoice <number|id> [--pdf file.pdf]

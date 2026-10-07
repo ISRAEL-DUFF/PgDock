@@ -1,10 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"sort"
+	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -235,6 +239,153 @@ func (a *App) authRotateKey(args []string) error {
 	return a.emit(r.JSON200, func(w io.Writer) {
 		for _, k := range r.JSON200.Items {
 			fmt.Fprintf(w, "%s  %s\n", k.Kid, k.Status)
+		}
+	})
+}
+
+func (a *App) printAuthConfig(c *client.AuthConfig) {
+	_ = a.emit(c, func(w io.Writer) {
+		st := c.Settings
+		fmt.Fprintf(w, "Auth API     %s\n", c.AuthUrl)
+		if c.OauthCallbackUrl != nil {
+			fmt.Fprintf(w, "Callback     %s\n", *c.OauthCallbackUrl)
+		}
+		var oauth []string
+		if st.Oauth != nil {
+			for name, o := range *st.Oauth {
+				if o.Enabled {
+					oauth = append(oauth, name)
+				}
+			}
+		}
+		sort.Strings(oauth)
+		var chans []string
+		if st.PhoneChannels != nil {
+			for _, ch := range *st.PhoneChannels {
+				chans = append(chans, string(ch))
+			}
+		}
+		fmt.Fprintf(w, "OAuth        %s\n", orNone(strings.Join(oauth, ", ")))
+		fmt.Fprintf(w, "Phone        %s (countries %s)\n", orNone(strings.Join(chans, ", ")), strings.Join(derefList(st.PhoneCountries), ", "))
+		if st.MfaPolicy != nil {
+			fmt.Fprintf(w, "MFA          %s\n", *st.MfaPolicy)
+		}
+		if c.Phone != nil {
+			fmt.Fprintf(w, "Codes today  %d of %d\n", c.Phone.Sent24h, c.Phone.DailyCap)
+			cur := ""
+			if c.Phone.Currency != nil {
+				cur = *c.Phone.Currency + " "
+			}
+			for _, m := range c.Phone.Month {
+				fmt.Fprintf(w, "This month   %s: %d messages, %s%.2f\n", m.Channel, m.Messages, cur, float64(m.CostMinor)/100)
+			}
+		}
+		if c.HookRole != nil {
+			fmt.Fprintf(w, "Hook role    %s\n", *c.HookRole)
+		}
+	})
+}
+
+func orNone(s string) string {
+	if s == "" {
+		return "none"
+	}
+	return s
+}
+
+func derefList(s *[]string) []string {
+	if s == nil {
+		return nil
+	}
+	return *s
+}
+
+func (a *App) authConfig(args []string) error {
+	pos, err := parse(flag.NewFlagSet("auth config", flag.ContinueOnError), args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 1, "auth config <project>"); err != nil {
+		return err
+	}
+	p, err := a.project(pos[0])
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.GetAuthConfigWithResponse(c, p.Id)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	a.printAuthConfig(r.JSON200)
+	return nil
+}
+
+func (a *App) authSet(args []string) error {
+	pos, err := parse(flag.NewFlagSet("auth set", flag.ContinueOnError), args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 2, `auth set <project> '{"settings":{...}}'`); err != nil {
+		return err
+	}
+	var up client.AuthConfigUpdate
+	dec := json.NewDecoder(strings.NewReader(pos[1]))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&up); err != nil {
+		return fmt.Errorf("the change must be an AuthConfigUpdate as JSON: %w", err)
+	}
+	p, err := a.project(pos[0])
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.UpdateAuthConfigWithResponse(c, p.Id, up)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	a.printAuthConfig(r.JSON200)
+	return nil
+}
+
+func (a *App) authHooks(args []string) error {
+	pos, err := parse(flag.NewFlagSet("auth hooks", flag.ContinueOnError), args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 1, "auth hooks <project>"); err != nil {
+		return err
+	}
+	p, err := a.project(pos[0])
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.ListAuthHookDeliveriesWithResponse(c, p.Id)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.emit(r.JSON200, func(w io.Writer) {
+		if len(r.JSON200.Items) == 0 {
+			fmt.Fprintln(w, "No webhook deliveries yet.")
+			return
+		}
+		for _, d := range r.JSON200.Items {
+			state := "retrying"
+			switch {
+			case d.DeliveredAt != nil:
+				state = "delivered"
+			case d.FailedAt != nil:
+				state = "failed"
+			}
+			last := ""
+			if d.LastError != nil && d.DeliveredAt == nil {
+				last = "  " + *d.LastError
+			}
+			fmt.Fprintf(w, "%s  %-13s %-9s tries=%d%s\n", d.CreatedAt.Format(time.RFC3339), d.Event, state, d.Attempts, last)
 		}
 	})
 }

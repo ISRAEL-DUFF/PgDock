@@ -223,6 +223,14 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   platform SMTP at 30 an hour per project until a project sets its own; set
   up the platform SMTP first if it isn't. pgdock-edge needs this release too:
   upgrade pgdock-server first, then the edges.
+- **Auth: phone, OAuth, MFA, hooks** (migration 00038, project schema
+  version 3): the auth email queue is renamed and widened to SMS and
+  WhatsApp, and projects with backend services get a `<db>_auth_hook` role
+  and the OAuth and MFA tables within a minute (nothing to run). To offer
+  phone sign-in on the platform's accounts, set the Termii and WhatsApp
+  template variables ([Backend services](backend-services.md#platform-sms-and-whatsapp-operators));
+  without them only projects with their own provider can use it. Upgrade
+  pgdock-server first, then the edges.
 
 ## Rolling back
 
