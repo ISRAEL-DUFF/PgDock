@@ -58,7 +58,7 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 	keys := map[uuid.UUID][]edgeapi.Key{}
 	jwks := map[uuid.UUID][]json.RawMessage{}
 	signing := map[uuid.UUID]*edgeapi.SigningKey{}
-	auth := map[uuid.UUID]AuthSettings{}
+	auth := map[uuid.UUID]edgeapi.AuthConfig{}
 	if len(live) > 0 {
 		ks, err := q.EdgeAPIKeys(ctx, live)
 		if err != nil {
@@ -94,7 +94,17 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 			if err := json.Unmarshal(a.Config, &st); err != nil {
 				return out, fmt.Errorf("auth settings: %w", err)
 			}
-			auth[a.ProjectID] = st
+			var prov sealedProviders
+			if len(a.ProvidersEnc) > 0 {
+				raw, err := s.keyring.Decrypt(a.ProvidersEnc, smtpAAD(a.ProjectID))
+				if err != nil {
+					return out, fmt.Errorf("auth providers: %w", err)
+				}
+				if err := json.Unmarshal(raw, &prov); err != nil {
+					return out, fmt.Errorf("auth providers: %w", err)
+				}
+			}
+			auth[a.ProjectID] = edgeAuth(st, prov, s.cfg.CaptchaVerifyURL)
 		}
 	}
 	for _, r := range rows {
@@ -126,7 +136,12 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		p.AnonRole, p.UserRole, p.ServiceRole = store.AnonRole(r.DbName), store.UserRole(r.DbName), store.ServiceRole(r.DbName)
 		p.Keys, p.JWKs, p.CORSOrigins = keys[r.ProjectID], jwks[r.ProjectID], r.CorsOrigins
 		p.ExposedSchemas, p.PublicTables = r.ExposedSchemas, r.PublicTables
-		p.SigningKey, p.Auth = signing[r.ProjectID], auth[r.ProjectID].Resolve()
+		p.SigningKey = signing[r.ProjectID]
+		if a, ok := auth[r.ProjectID]; ok {
+			p.Auth = a
+		} else {
+			p.Auth = AuthSettings{}.Resolve()
+		}
 		p.Settings = edgeapi.Settings{StatementTimeoutMs: or(st.StatementTimeoutMs, DefaultStatementTimeoutMs),
 			RatePerIP: or(st.RatePerIP, DefaultRatePerIP), RatePerKey: or(st.RatePerKey, DefaultRatePerKey),
 			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost))}

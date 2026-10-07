@@ -62,6 +62,8 @@ type Config struct {
 	Signup Signup
 	// Support configures support's channels (V3 §7.1).
 	Support Support
+	// AuthPhone is the platform's SMS and WhatsApp for auth codes (V4 §6.2).
+	AuthPhone AuthPhone
 	// Cloud configures the provider servers are created with (V3 §5.1).
 	Cloud Cloud
 	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
@@ -176,6 +178,7 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadPayments(getenv, readFile, &cfg)...)
 	errs = append(errs, loadFreeTier(getenv, readFile, &cfg)...)
 	errs = append(errs, loadSupport(getenv, readFile, &cfg)...)
+	errs = append(errs, loadAuthPhone(getenv, readFile, &cfg)...)
 	errs = append(errs, loadCloud(getenv, readFile, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {

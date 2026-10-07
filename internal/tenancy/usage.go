@@ -38,6 +38,9 @@ const (
 	MetricAPIEgress   = "api_egress_gb"
 	// MetricAuthMAU counts each user once a month, when first active.
 	MetricAuthMAU = "auth_mau"
+	// Auth codes sent over the platform's SMS and WhatsApp (V4 §6.2).
+	MetricMessagesSMS      = "messages_sms"
+	MetricMessagesWhatsApp = "messages_whatsapp"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -61,6 +64,8 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricAPIRequests, "requests", "hour"},
 	{MetricAPIEgress, "GB", "hour"},
 	{MetricAuthMAU, "users", "hour"},
+	{MetricMessagesSMS, "messages", "hour"},
+	{MetricMessagesWhatsApp, "messages", "hour"},
 }
 
 const (

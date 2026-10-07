@@ -25,6 +25,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/jwtes"
 	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -54,6 +55,9 @@ type Config struct {
 	RegionDomain func(region string) string
 	// EdgeSecret signs pgdock-edge's requests. Empty disables the feed.
 	EdgeSecret string
+	// CaptchaVerifyURL is Turnstile's siteverify endpoint (tests point it
+	// at a fake); empty is Cloudflare's.
+	CaptchaVerifyURL string
 }
 
 // Service is the control plane's side of backend services.
@@ -66,7 +70,12 @@ type Service struct {
 	// Waker resumes a paused project (the free tier, V3 §4.2).
 	Waker func(ctx context.Context, projectID uuid.UUID) error
 	// Mail is the platform's email, for projects without their own SMTP.
-	Mail      *mail.Service
+	Mail *mail.Service
+	// Phone is the platform's SMS and WhatsApp, for projects without their
+	// own provider (V4 §6.2).
+	Phone PlatformPhone
+	// Outbound makes hook calls (V4 §6.5).
+	Outbound  *outbound.Service
 	emailKick chan struct{}
 }
 

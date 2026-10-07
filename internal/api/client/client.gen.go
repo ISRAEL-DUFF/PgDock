@@ -8841,8 +8841,11 @@ type GetBackupOverviewParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
-// EdgeAuthEmailJSONBody defines parameters for EdgeAuthEmail.
-type EdgeAuthEmailJSONBody map[string]interface{}
+// EdgeAuthHookJSONBody defines parameters for EdgeAuthHook.
+type EdgeAuthHookJSONBody map[string]interface{}
+
+// EdgeAuthMessageJSONBody defines parameters for EdgeAuthMessage.
+type EdgeAuthMessageJSONBody map[string]interface{}
 
 // EdgeConfigParams defines parameters for EdgeConfig.
 type EdgeConfigParams struct {
@@ -9343,8 +9346,11 @@ type RestoreBackupJSONRequestBody = RestoreRequest
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
 
-// EdgeAuthEmailJSONRequestBody defines body for EdgeAuthEmail for application/json ContentType.
-type EdgeAuthEmailJSONRequestBody EdgeAuthEmailJSONBody
+// EdgeAuthHookJSONRequestBody defines body for EdgeAuthHook for application/json ContentType.
+type EdgeAuthHookJSONRequestBody EdgeAuthHookJSONBody
+
+// EdgeAuthMessageJSONRequestBody defines body for EdgeAuthMessage for application/json ContentType.
+type EdgeAuthMessageJSONRequestBody EdgeAuthMessageJSONBody
 
 // EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
 type EdgeReportJSONRequestBody EdgeReportJSONBody
@@ -10957,19 +10963,33 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperation(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthEmailWithBody pgdock-edge asks for an auth email to be sent (signed; internal)
+	// EdgeAuthHookWithBody pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
-	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-	EdgeAuthEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+	EdgeAuthHookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
+	// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
-	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-	EdgeAuthEmail(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+	EdgeAuthHook(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeAuthMessageWithBody pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+	EdgeAuthMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+	EdgeAuthMessage(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
 	//
@@ -16491,13 +16511,13 @@ func (c *Client) CreateDevOperation(ctx context.Context, body CreateDevOperation
 	return c.Client.Do(req)
 }
 
-// EdgeAuthEmailWithBody pgdock-edge asks for an auth email to be sent (signed; internal)
+// EdgeAuthHookWithBody pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
-// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-func (c *Client) EdgeAuthEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEdgeAuthEmailRequestWithBody(c.Server, contentType, body)
+// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+func (c *Client) EdgeAuthHookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeAuthHookRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -16508,13 +16528,47 @@ func (c *Client) EdgeAuthEmailWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
+// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
-// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-func (c *Client) EdgeAuthEmail(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEdgeAuthEmailRequest(c.Server, body)
+// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+func (c *Client) EdgeAuthHook(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeAuthHookRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeAuthMessageWithBody pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+func (c *Client) EdgeAuthMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeAuthMessageRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+func (c *Client) EdgeAuthMessage(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeAuthMessageRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -27445,19 +27499,19 @@ func NewCreateDevOperationRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
-// NewEdgeAuthEmailRequest calls the generic EdgeAuthEmail builder with application/json body
-func NewEdgeAuthEmailRequest(server string, body EdgeAuthEmailJSONRequestBody) (*http.Request, error) {
+// NewEdgeAuthHookRequest calls the generic EdgeAuthHook builder with application/json body
+func NewEdgeAuthHookRequest(server string, body EdgeAuthHookJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewEdgeAuthEmailRequestWithBody(server, "application/json", bodyReader)
+	return NewEdgeAuthHookRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewEdgeAuthEmailRequestWithBody constructs an http.Request for the EdgeAuthEmail method, with any body, and a specified content type
-func NewEdgeAuthEmailRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewEdgeAuthHookRequestWithBody constructs an http.Request for the EdgeAuthHook method, with any body, and a specified content type
+func NewEdgeAuthHookRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -27465,7 +27519,47 @@ func NewEdgeAuthEmailRequestWithBody(server string, contentType string, body io.
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/edge/auth-email")
+	operationPath := fmt.Sprintf("/api/v1/edge/auth-hook")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEdgeAuthMessageRequest calls the generic EdgeAuthMessage builder with application/json body
+func NewEdgeAuthMessageRequest(server string, body EdgeAuthMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEdgeAuthMessageRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEdgeAuthMessageRequestWithBody constructs an http.Request for the EdgeAuthMessage method, with any body, and a specified content type
+func NewEdgeAuthMessageRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/edge/auth-message")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -39481,19 +39575,33 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperationWithResponse(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDevOperationResponse, error)
 
-	// EdgeAuthEmailWithBodyWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+	// EdgeAuthHookWithBodyWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-	EdgeAuthEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error)
+	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+	EdgeAuthHookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error)
 
-	// EdgeAuthEmailWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+	// EdgeAuthHookWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-	EdgeAuthEmailWithResponse(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error)
+	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+	EdgeAuthHookWithResponse(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error)
+
+	// EdgeAuthMessageWithBodyWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+	EdgeAuthMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error)
+
+	// EdgeAuthMessageWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+	EdgeAuthMessageWithResponse(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error)
 
 	// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
 	//
@@ -48107,25 +48215,32 @@ func (r CreateDevOperationResponse) ContentType() string {
 	return ""
 }
 
-type EdgeAuthEmailResponse struct {
+type EdgeAuthHookResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *map[string]interface{}
 	// JSONDefault the response for an HTTP default `application/json` response
 	JSONDefault *Error
 }
 
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EdgeAuthHookResponse) GetJSON200() *map[string]interface{} {
+	return r.JSON200
+}
+
 // GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r EdgeAuthEmailResponse) GetJSONDefault() *Error {
+func (r EdgeAuthHookResponse) GetJSONDefault() *Error {
 	return r.JSONDefault
 }
 
 // GetBody returns the raw response body bytes
-func (r EdgeAuthEmailResponse) GetBody() []byte {
+func (r EdgeAuthHookResponse) GetBody() []byte {
 	return r.Body
 }
 
 // Status returns HTTPResponse.Status
-func (r EdgeAuthEmailResponse) Status() string {
+func (r EdgeAuthHookResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -48133,7 +48248,7 @@ func (r EdgeAuthEmailResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r EdgeAuthEmailResponse) StatusCode() int {
+func (r EdgeAuthHookResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -48141,7 +48256,48 @@ func (r EdgeAuthEmailResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r EdgeAuthEmailResponse) ContentType() string {
+func (r EdgeAuthHookResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EdgeAuthMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EdgeAuthMessageResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EdgeAuthMessageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EdgeAuthMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EdgeAuthMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EdgeAuthMessageResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -61942,30 +62098,56 @@ func (c *ClientWithResponses) CreateDevOperationWithResponse(ctx context.Context
 	return ParseCreateDevOperationResponse(rsp)
 }
 
-// EdgeAuthEmailWithBodyWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+// EdgeAuthHookWithBodyWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
-// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-func (c *ClientWithResponses) EdgeAuthEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error) {
-	rsp, err := c.EdgeAuthEmailWithBody(ctx, contentType, body, reqEditors...)
+// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+func (c *ClientWithResponses) EdgeAuthHookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error) {
+	rsp, err := c.EdgeAuthHookWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEdgeAuthEmailResponse(rsp)
+	return ParseEdgeAuthHookResponse(rsp)
 }
 
-// EdgeAuthEmailWithResponse pgdock-edge asks for an auth email to be sent (signed; internal)
+// EdgeAuthHookWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Corresponds with POST /api/v1/edge/auth-email (the `EdgeAuthEmail` operationId).
-func (c *ClientWithResponses) EdgeAuthEmailWithResponse(ctx context.Context, body EdgeAuthEmailJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthEmailResponse, error) {
-	rsp, err := c.EdgeAuthEmail(ctx, body, reqEditors...)
+// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
+func (c *ClientWithResponses) EdgeAuthHookWithResponse(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error) {
+	rsp, err := c.EdgeAuthHook(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEdgeAuthEmailResponse(rsp)
+	return ParseEdgeAuthHookResponse(rsp)
+}
+
+// EdgeAuthMessageWithBodyWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+func (c *ClientWithResponses) EdgeAuthMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error) {
+	rsp, err := c.EdgeAuthMessageWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeAuthMessageResponse(rsp)
+}
+
+// EdgeAuthMessageWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
+func (c *ClientWithResponses) EdgeAuthMessageWithResponse(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error) {
+	rsp, err := c.EdgeAuthMessage(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeAuthMessageResponse(rsp)
 }
 
 // EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
@@ -70746,15 +70928,48 @@ func ParseCreateDevOperationResponse(rsp *http.Response) (*CreateDevOperationRes
 	return response, nil
 }
 
-// ParseEdgeAuthEmailResponse parses an HTTP response from a EdgeAuthEmailWithResponse call
-func ParseEdgeAuthEmailResponse(rsp *http.Response) (*EdgeAuthEmailResponse, error) {
+// ParseEdgeAuthHookResponse parses an HTTP response from a EdgeAuthHookWithResponse call
+func ParseEdgeAuthHookResponse(rsp *http.Response) (*EdgeAuthHookResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &EdgeAuthEmailResponse{
+	response := &EdgeAuthHookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEdgeAuthMessageResponse parses an HTTP response from a EdgeAuthMessageWithResponse call
+func ParseEdgeAuthMessageResponse(rsp *http.Response) (*EdgeAuthMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EdgeAuthMessageResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

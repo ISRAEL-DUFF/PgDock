@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/big"
@@ -70,6 +71,23 @@ func (j JWK) Public() (*ecdsa.PublicKey, error) {
 		return nil, errors.New("jwtes: point not on the curve")
 	}
 	return pub, nil
+}
+
+// ParsePEM reads a PEM PKCS#8 P-256 private key (an Apple .p8 key) and
+// returns its DER, for Sign.
+func ParsePEM(s string) ([]byte, error) {
+	b, _ := pem.Decode([]byte(strings.TrimSpace(s)))
+	if b == nil {
+		return nil, errors.New("jwtes: not a PEM key")
+	}
+	key, err := x509.ParsePKCS8PrivateKey(b.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("jwtes: %w", err)
+	}
+	if k, ok := key.(*ecdsa.PrivateKey); !ok || k.Curve != elliptic.P256() {
+		return nil, errors.New("jwtes: not a P-256 key")
+	}
+	return b.Bytes, nil
 }
 
 // Sign returns a compact JWT of claims signed with the PKCS#8 key der.

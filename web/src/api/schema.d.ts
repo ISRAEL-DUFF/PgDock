@@ -2737,7 +2737,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/edge/auth-email": {
+    "/api/v1/edge/auth-message": {
         parameters: {
             query?: never;
             header?: never;
@@ -2746,8 +2746,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** pgdock-edge asks for an auth email to be sent (signed; internal) */
-        post: operations["edgeAuthEmail"];
+        /** pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal) */
+        post: operations["edgeAuthMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/auth-hook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal) */
+        post: operations["edgeAuthHook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14222,7 +14239,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    edgeAuthEmail: {
+    edgeAuthMessage: {
         parameters: {
             query?: never;
             header?: never;
@@ -14243,6 +14260,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeAuthHook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description The decision (before_signup) or queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             default: components["responses"]["Error"];
         };

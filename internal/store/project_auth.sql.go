@@ -14,8 +14,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countPhoneMessages = `-- name: CountPhoneMessages :one
+SELECT count(*) FROM auth_message_outbox WHERE project_id = $1 AND channel <> 'email' AND created_at > $2
+`
+
+type CountPhoneMessagesParams struct {
+	ProjectID uuid.UUID
+	Since     time.Time
+}
+
+// tenant: system - a project the caller resolved: SMS and WhatsApp codes since a time.
+func (q *Queries) CountPhoneMessages(ctx context.Context, arg CountPhoneMessagesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPhoneMessages, arg.ProjectID, arg.Since)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPlatformAuthEmails = `-- name: CountPlatformAuthEmails :one
-SELECT count(*) FROM auth_email_outbox WHERE project_id = $1 AND via = 'platform' AND created_at > $2
+SELECT count(*) FROM auth_message_outbox WHERE project_id = $1 AND channel = 'email' AND via = 'platform' AND created_at > $2
 `
 
 type CountPlatformAuthEmailsParams struct {
@@ -26,6 +43,24 @@ type CountPlatformAuthEmailsParams struct {
 // tenant: system - a project the caller resolved.
 func (q *Queries) CountPlatformAuthEmails(ctx context.Context, arg CountPlatformAuthEmailsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countPlatformAuthEmails, arg.ProjectID, arg.Since)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRecipientMessages = `-- name: CountRecipientMessages :one
+SELECT count(*) FROM auth_message_outbox WHERE project_id = $1 AND recipient_hash = $2 AND created_at > $3
+`
+
+type CountRecipientMessagesParams struct {
+	ProjectID     uuid.UUID
+	RecipientHash *string
+	Since         time.Time
+}
+
+// tenant: system - a project the caller resolved: codes to one number since a time.
+func (q *Queries) CountRecipientMessages(ctx context.Context, arg CountRecipientMessagesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRecipientMessages, arg.ProjectID, arg.RecipientHash, arg.Since)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -48,7 +83,7 @@ func (q *Queries) DemoteActiveJWTKey(ctx context.Context, arg DemoteActiveJWTKey
 }
 
 const dueAuthEmails = `-- name: DueAuthEmails :many
-SELECT id, project_id, kind, via, message_enc, attempts, next_attempt_at, last_error, created_at, sent_at FROM auth_email_outbox
+SELECT id, project_id, kind, via, message_enc, attempts, next_attempt_at, last_error, created_at, sent_at, channel, recipient_hash, country FROM auth_message_outbox
 WHERE sent_at IS NULL AND message_enc IS NOT NULL AND next_attempt_at <= now()
 ORDER BY next_attempt_at
 LIMIT $1
@@ -56,15 +91,15 @@ FOR UPDATE SKIP LOCKED
 `
 
 // tenant: system - the auth email sender across all projects.
-func (q *Queries) DueAuthEmails(ctx context.Context, lim int32) ([]AuthEmailOutbox, error) {
+func (q *Queries) DueAuthEmails(ctx context.Context, lim int32) ([]AuthMessageOutbox, error) {
 	rows, err := q.db.Query(ctx, dueAuthEmails, lim)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AuthEmailOutbox
+	var items []AuthMessageOutbox
 	for rows.Next() {
-		var i AuthEmailOutbox
+		var i AuthMessageOutbox
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -76,6 +111,47 @@ func (q *Queries) DueAuthEmails(ctx context.Context, lim int32) ([]AuthEmailOutb
 			&i.LastError,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.Channel,
+			&i.RecipientHash,
+			&i.Country,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const dueAuthHooks = `-- name: DueAuthHooks :many
+SELECT id, project_id, event, payload, attempts, next_attempt_at, last_error, last_status, created_at, delivered_at, failed_at FROM auth_hook_outbox WHERE delivered_at IS NULL AND failed_at IS NULL AND next_attempt_at <= now()
+ORDER BY next_attempt_at LIMIT $1 FOR UPDATE SKIP LOCKED
+`
+
+// tenant: system - the auth hook sender across all projects.
+func (q *Queries) DueAuthHooks(ctx context.Context, lim int32) ([]AuthHookOutbox, error) {
+	rows, err := q.db.Query(ctx, dueAuthHooks, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuthHookOutbox
+	for rows.Next() {
+		var i AuthHookOutbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Event,
+			&i.Payload,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.LastError,
+			&i.LastStatus,
+			&i.CreatedAt,
+			&i.DeliveredAt,
+			&i.FailedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -88,12 +164,13 @@ func (q *Queries) DueAuthEmails(ctx context.Context, lim int32) ([]AuthEmailOutb
 }
 
 const edgeAuthConfigs = `-- name: EdgeAuthConfigs :many
-SELECT project_id, config FROM project_auth_config WHERE project_id = ANY($1::uuid[])
+SELECT project_id, config, providers_enc FROM project_auth_config WHERE project_id = ANY($1::uuid[])
 `
 
 type EdgeAuthConfigsRow struct {
-	ProjectID uuid.UUID
-	Config    json.RawMessage
+	ProjectID    uuid.UUID
+	Config       json.RawMessage
+	ProvidersEnc []byte
 }
 
 // tenant: system - pgdock-edge's configuration feed: auth settings.
@@ -106,7 +183,7 @@ func (q *Queries) EdgeAuthConfigs(ctx context.Context, projectIds []uuid.UUID) (
 	var items []EdgeAuthConfigsRow
 	for rows.Next() {
 		var i EdgeAuthConfigsRow
-		if err := rows.Scan(&i.ProjectID, &i.Config); err != nil {
+		if err := rows.Scan(&i.ProjectID, &i.Config, &i.ProvidersEnc); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -194,32 +271,87 @@ func (q *Queries) InsertActiveUser(ctx context.Context, arg InsertActiveUserPara
 	return result.RowsAffected(), nil
 }
 
-const insertAuthEmail = `-- name: InsertAuthEmail :exec
-INSERT INTO auth_email_outbox (id, project_id, kind, via, message_enc) VALUES ($1, $2, $3, $4, $5)
+const insertAuthAlert = `-- name: InsertAuthAlert :execrows
+INSERT INTO auth_alerts (project_id, kind, day, details) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING
 `
 
-type InsertAuthEmailParams struct {
-	ID         uuid.UUID
-	ProjectID  uuid.UUID
-	Kind       string
-	Via        string
-	MessageEnc []byte
+type InsertAuthAlertParams struct {
+	ProjectID uuid.UUID
+	Kind      string
+	Day       pgtype.Date
+	Details   json.RawMessage
 }
 
-// tenant: system - an email pgdock-edge asked for, for the project it named.
-func (q *Queries) InsertAuthEmail(ctx context.Context, arg InsertAuthEmailParams) error {
-	_, err := q.db.Exec(ctx, insertAuthEmail,
+// tenant: system - a project the caller resolved: an alert, once a day per kind.
+func (q *Queries) InsertAuthAlert(ctx context.Context, arg InsertAuthAlertParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertAuthAlert,
+		arg.ProjectID,
+		arg.Kind,
+		arg.Day,
+		arg.Details,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertAuthHook = `-- name: InsertAuthHook :exec
+INSERT INTO auth_hook_outbox (id, project_id, event, payload) VALUES ($1, $2, $3, $4)
+`
+
+type InsertAuthHookParams struct {
+	ID        uuid.UUID
+	ProjectID uuid.UUID
+	Event     string
+	Payload   json.RawMessage
+}
+
+// tenant: system - a hook event pgdock-edge sent, for the project it named.
+func (q *Queries) InsertAuthHook(ctx context.Context, arg InsertAuthHookParams) error {
+	_, err := q.db.Exec(ctx, insertAuthHook,
 		arg.ID,
 		arg.ProjectID,
+		arg.Event,
+		arg.Payload,
+	)
+	return err
+}
+
+const insertAuthMessage = `-- name: InsertAuthMessage :exec
+INSERT INTO auth_message_outbox (id, project_id, channel, kind, via, message_enc, recipient_hash, country)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type InsertAuthMessageParams struct {
+	ID            uuid.UUID
+	ProjectID     uuid.UUID
+	Channel       string
+	Kind          string
+	Via           string
+	MessageEnc    []byte
+	RecipientHash *string
+	Country       *string
+}
+
+// tenant: system - a message pgdock-edge asked for, for the project it named.
+func (q *Queries) InsertAuthMessage(ctx context.Context, arg InsertAuthMessageParams) error {
+	_, err := q.db.Exec(ctx, insertAuthMessage,
+		arg.ID,
+		arg.ProjectID,
+		arg.Channel,
 		arg.Kind,
 		arg.Via,
 		arg.MessageEnc,
+		arg.RecipientHash,
+		arg.Country,
 	)
 	return err
 }
 
 const insertMessageSend = `-- name: InsertMessageSend :exec
-INSERT INTO message_sends (project_id, channel, provider, kind, status) VALUES ($1, $2, $3, $4, $5)
+INSERT INTO message_sends (project_id, channel, provider, kind, status, country, cost_minor, currency)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type InsertMessageSendParams struct {
@@ -228,6 +360,9 @@ type InsertMessageSendParams struct {
 	Provider  string
 	Kind      string
 	Status    string
+	Country   *string
+	CostMinor *int64
+	Currency  *string
 }
 
 // tenant: system - a message sent for the project the caller resolved.
@@ -238,12 +373,15 @@ func (q *Queries) InsertMessageSend(ctx context.Context, arg InsertMessageSendPa
 		arg.Provider,
 		arg.Kind,
 		arg.Status,
+		arg.Country,
+		arg.CostMinor,
+		arg.Currency,
 	)
 	return err
 }
 
 const markAuthEmailFailed = `-- name: MarkAuthEmailFailed :exec
-UPDATE auth_email_outbox SET attempts = attempts + 1, last_error = $1, next_attempt_at = $2,
+UPDATE auth_message_outbox SET attempts = attempts + 1, last_error = $1, next_attempt_at = $2,
   message_enc = CASE WHEN $3::boolean THEN NULL ELSE message_enc END
 WHERE id = $4
 `
@@ -267,13 +405,89 @@ func (q *Queries) MarkAuthEmailFailed(ctx context.Context, arg MarkAuthEmailFail
 }
 
 const markAuthEmailSent = `-- name: MarkAuthEmailSent :exec
-UPDATE auth_email_outbox SET sent_at = now(), message_enc = NULL, attempts = attempts + 1, last_error = NULL WHERE id = $1
+UPDATE auth_message_outbox SET sent_at = now(), message_enc = NULL, attempts = attempts + 1, last_error = NULL WHERE id = $1
 `
 
 // tenant: system - the auth email sender.
 func (q *Queries) MarkAuthEmailSent(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markAuthEmailSent, id)
 	return err
+}
+
+const markAuthHook = `-- name: MarkAuthHook :exec
+UPDATE auth_hook_outbox SET attempts = attempts + 1, last_status = $1, last_error = $2,
+  delivered_at = CASE WHEN $3::boolean THEN now() END,
+  failed_at = CASE WHEN $4::boolean THEN now() END,
+  next_attempt_at = $5
+WHERE id = $6
+`
+
+type MarkAuthHookParams struct {
+	LastStatus    *int32
+	LastError     *string
+	Delivered     bool
+	Failed        bool
+	NextAttemptAt time.Time
+	ID            uuid.UUID
+}
+
+// tenant: system - the auth hook sender.
+func (q *Queries) MarkAuthHook(ctx context.Context, arg MarkAuthHookParams) error {
+	_, err := q.db.Exec(ctx, markAuthHook,
+		arg.LastStatus,
+		arg.LastError,
+		arg.Delivered,
+		arg.Failed,
+		arg.NextAttemptAt,
+		arg.ID,
+	)
+	return err
+}
+
+const projectAuthHooks = `-- name: ProjectAuthHooks :many
+SELECT id, event, attempts, last_status, last_error, created_at, delivered_at, failed_at FROM auth_hook_outbox
+WHERE project_id = $1 ORDER BY created_at DESC LIMIT 50
+`
+
+type ProjectAuthHooksRow struct {
+	ID          uuid.UUID
+	Event       string
+	Attempts    int32
+	LastStatus  *int32
+	LastError   *string
+	CreatedAt   time.Time
+	DeliveredAt *time.Time
+	FailedAt    *time.Time
+}
+
+// tenant: system - a project the request already authorized: recent hook deliveries.
+func (q *Queries) ProjectAuthHooks(ctx context.Context, projectID uuid.UUID) ([]ProjectAuthHooksRow, error) {
+	rows, err := q.db.Query(ctx, projectAuthHooks, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectAuthHooksRow
+	for rows.Next() {
+		var i ProjectAuthHooksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Event,
+			&i.Attempts,
+			&i.LastStatus,
+			&i.LastError,
+			&i.CreatedAt,
+			&i.DeliveredAt,
+			&i.FailedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const projectMAU = `-- name: ProjectMAU :one
@@ -337,13 +551,64 @@ func (q *Queries) ProjectMessageSends(ctx context.Context, arg ProjectMessageSen
 	return items, nil
 }
 
+const projectMessageSpend = `-- name: ProjectMessageSpend :many
+SELECT channel, count(*)::bigint AS n, coalesce(sum(cost_minor), 0)::bigint AS cost_minor FROM message_sends
+WHERE project_id = $1 AND created_at >= $2 AND status = 'sent' AND channel <> 'email'
+GROUP BY channel ORDER BY channel
+`
+
+type ProjectMessageSpendParams struct {
+	ProjectID uuid.UUID
+	Since     time.Time
+}
+
+type ProjectMessageSpendRow struct {
+	Channel   string
+	N         int64
+	CostMinor int64
+}
+
+// tenant: system - a project the request already authorized: this month's platform sends and their cost.
+func (q *Queries) ProjectMessageSpend(ctx context.Context, arg ProjectMessageSpendParams) ([]ProjectMessageSpendRow, error) {
+	rows, err := q.db.Query(ctx, projectMessageSpend, arg.ProjectID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectMessageSpendRow
+	for rows.Next() {
+		var i ProjectMessageSpendRow
+		if err := rows.Scan(&i.Channel, &i.N, &i.CostMinor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pruneAuthEmails = `-- name: PruneAuthEmails :execrows
-DELETE FROM auth_email_outbox WHERE created_at < $1
+DELETE FROM auth_message_outbox WHERE created_at < $1
 `
 
 // tenant: system - the auth email sender across all projects.
 func (q *Queries) PruneAuthEmails(ctx context.Context, before time.Time) (int64, error) {
 	result, err := q.db.Exec(ctx, pruneAuthEmails, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const pruneAuthHooks = `-- name: PruneAuthHooks :execrows
+DELETE FROM auth_hook_outbox WHERE created_at < $1
+`
+
+// tenant: system - the auth hook sender across all projects.
+func (q *Queries) PruneAuthHooks(ctx context.Context, before time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneAuthHooks, before)
 	if err != nil {
 		return 0, err
 	}

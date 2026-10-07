@@ -8837,8 +8837,11 @@ type GetBackupOverviewParams struct {
 	Org *OrgQuery `form:"org,omitempty" json:"org,omitempty"`
 }
 
-// EdgeAuthEmailJSONBody defines parameters for EdgeAuthEmail.
-type EdgeAuthEmailJSONBody map[string]interface{}
+// EdgeAuthHookJSONBody defines parameters for EdgeAuthHook.
+type EdgeAuthHookJSONBody map[string]interface{}
+
+// EdgeAuthMessageJSONBody defines parameters for EdgeAuthMessage.
+type EdgeAuthMessageJSONBody map[string]interface{}
 
 // EdgeConfigParams defines parameters for EdgeConfig.
 type EdgeConfigParams struct {
@@ -9339,8 +9342,11 @@ type RestoreBackupJSONRequestBody = RestoreRequest
 // CreateDevOperationJSONRequestBody defines body for CreateDevOperation for application/json ContentType.
 type CreateDevOperationJSONRequestBody = NoopParams
 
-// EdgeAuthEmailJSONRequestBody defines body for EdgeAuthEmail for application/json ContentType.
-type EdgeAuthEmailJSONRequestBody EdgeAuthEmailJSONBody
+// EdgeAuthHookJSONRequestBody defines body for EdgeAuthHook for application/json ContentType.
+type EdgeAuthHookJSONRequestBody EdgeAuthHookJSONBody
+
+// EdgeAuthMessageJSONRequestBody defines body for EdgeAuthMessage for application/json ContentType.
+type EdgeAuthMessageJSONRequestBody EdgeAuthMessageJSONBody
 
 // EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
 type EdgeReportJSONRequestBody EdgeReportJSONBody
@@ -9989,9 +9995,12 @@ type ServerInterface interface {
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	// (POST /api/v1/dev/operations)
 	CreateDevOperation(w http.ResponseWriter, r *http.Request)
-	// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
-	// (POST /api/v1/edge/auth-email)
-	EdgeAuthEmail(w http.ResponseWriter, r *http.Request)
+	// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// (POST /api/v1/edge/auth-hook)
+	EdgeAuthHook(w http.ResponseWriter, r *http.Request)
+	// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// (POST /api/v1/edge/auth-message)
+	EdgeAuthMessage(w http.ResponseWriter, r *http.Request)
 	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
 	// (GET /api/v1/edge/config)
 	EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams)
@@ -11459,9 +11468,15 @@ func (_ Unimplemented) CreateDevOperation(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeAuthEmail pgdock-edge asks for an auth email to be sent (signed; internal)
-// (POST /api/v1/edge/auth-email)
-func (_ Unimplemented) EdgeAuthEmail(w http.ResponseWriter, r *http.Request) {
+// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// (POST /api/v1/edge/auth-hook)
+func (_ Unimplemented) EdgeAuthHook(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// (POST /api/v1/edge/auth-message)
+func (_ Unimplemented) EdgeAuthMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15819,11 +15834,25 @@ func (siw *ServerInterfaceWrapper) CreateDevOperation(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
-// EdgeAuthEmail operation middleware
-func (siw *ServerInterfaceWrapper) EdgeAuthEmail(w http.ResponseWriter, r *http.Request) {
+// EdgeAuthHook operation middleware
+func (siw *ServerInterfaceWrapper) EdgeAuthHook(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.EdgeAuthEmail(w, r)
+		siw.Handler.EdgeAuthHook(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EdgeAuthMessage operation middleware
+func (siw *ServerInterfaceWrapper) EdgeAuthMessage(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EdgeAuthMessage(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -23549,7 +23578,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/edge/wake", wrapper.EdgeWake)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/edge/auth-email", wrapper.EdgeAuthEmail)
+		r.Post(options.BaseURL+"/api/v1/edge/auth-message", wrapper.EdgeAuthMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/edge/auth-hook", wrapper.EdgeAuthHook)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/config", wrapper.GetAuthConfig)

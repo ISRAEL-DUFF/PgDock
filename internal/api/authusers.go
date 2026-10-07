@@ -468,24 +468,51 @@ func (s *Server) ListAuthAudit(w http.ResponseWriter, r *http.Request, id gen.Pr
 	writeJSON(w, http.StatusOK, out)
 }
 
-// EdgeAuthEmail implements POST /api/v1/edge/auth-email.
-func (s *Server) EdgeAuthEmail(w http.ResponseWriter, r *http.Request) {
+// EdgeAuthMessage implements POST /api/v1/edge/auth-message.
+func (s *Server) EdgeAuthMessage(w http.ResponseWriter, r *http.Request) {
 	body, ok := s.edgeAuth(w, r)
 	if !ok {
 		return
 	}
-	var m edgeapi.AuthEmail
+	var m edgeapi.AuthMessage
 	if err := json.Unmarshal(body, &m); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "not an auth email")
+		writeError(w, http.StatusBadRequest, "bad_request", "not an auth message")
 		return
 	}
-	if err := s.services.QueueAuthEmail(r.Context(), m); err != nil {
-		if errors.Is(err, services.ErrRateLimited) {
+	if err := s.services.QueueAuthMessage(r.Context(), m); err != nil {
+		var le *services.LimitError
+		switch {
+		case errors.As(err, &le):
+			writeError(w, http.StatusTooManyRequests, "rate_limited", le.Limit)
+		case errors.Is(err, services.ErrRateLimited):
 			writeError(w, http.StatusTooManyRequests, "rate_limited", "the project's platform email allowance is used up")
-			return
+		case errors.Is(err, services.ErrNotAllowed):
+			writeError(w, http.StatusForbidden, "not_allowed", err.Error())
+		case errors.Is(err, services.ErrUnavailable):
+			writeError(w, http.StatusServiceUnavailable, "unavailable", err.Error())
+		default:
+			s.servicesError(w, "auth message", err)
 		}
-		s.servicesError(w, "auth email", err)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// EdgeAuthHook implements POST /api/v1/edge/auth-hook.
+func (s *Server) EdgeAuthHook(w http.ResponseWriter, r *http.Request) {
+	body, ok := s.edgeAuth(w, r)
+	if !ok {
+		return
+	}
+	var h edgeapi.AuthHook
+	if err := json.Unmarshal(body, &h); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "not an auth hook event")
+		return
+	}
+	d, err := s.services.AuthHook(r.Context(), h)
+	if err != nil {
+		s.servicesError(w, "auth hook", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, d)
 }

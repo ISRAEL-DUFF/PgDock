@@ -140,7 +140,7 @@ func (s *Service) CreateAuthUser(ctx context.Context, projectID uuid.UUID, n New
 		}
 	}
 	var u *projauth.User
-	var invite *edgeapi.AuthEmail
+	var invite *edgeapi.AuthMessage
 	err = s.withProjectAuth(ctx, projectID, func(p store.Project, tx pgx.Tx) error {
 		var err error
 		if u, err = projauth.CreateUser(ctx, tx, projauth.NewUser{Email: email, PasswordHash: hash,
@@ -165,7 +165,7 @@ func (s *Service) CreateAuthUser(ctx context.Context, projectID uuid.UUID, n New
 			if cfg.Resolved.SiteURL != "" {
 				q.Set("redirect_to", cfg.Resolved.SiteURL)
 			}
-			invite = &edgeapi.AuthEmail{Ref: svc.Ref, Kind: edgeapi.EmailInvite, To: email,
+			invite = &edgeapi.AuthMessage{Ref: svc.Ref, Channel: edgeapi.ChannelEmail, Kind: edgeapi.EmailInvite, To: email,
 				Link: s.URL(svc.Ref, p.Region) + "/auth/v1/verify?" + q.Encode()}
 		}
 		return projauth.Audit(ctx, tx, &u.ID, action, "", map[string]any{"by": by})
@@ -174,7 +174,7 @@ func (s *Service) CreateAuthUser(ctx context.Context, projectID uuid.UUID, n New
 		return nil, authUserErr(err)
 	}
 	if invite != nil {
-		if err := s.QueueAuthEmail(ctx, *invite); err != nil {
+		if err := s.QueueAuthMessage(ctx, *invite); err != nil {
 			return u, fmt.Errorf("the user was added, but the invitation couldn't be sent: %w", err)
 		}
 	}

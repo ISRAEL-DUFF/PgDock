@@ -54,6 +54,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/pgdock/internal/messaging"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
@@ -387,6 +388,7 @@ func run() error {
 		}
 		bg.Add(1)
 		servicesSvc.Mail = mailSvc
+		servicesSvc.Phone = platformPhone(cfg)
 		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, 15*time.Second) }()
 		bg.Add(1)
 		go func() { defer bg.Done(); servicesSvc.RunAuthEmail(bgCtx) }()
@@ -436,6 +438,9 @@ func run() error {
 	var outboundSvc *outbound.Service
 	if projects != nil && tenancySvc != nil {
 		outboundSvc = outbound.New(pool, outbound.Config{Blocked: cfg.Insight.OutboundBlock}, log)
+		if servicesSvc != nil {
+			servicesSvc.Outbound = outboundSvc
+		}
 		webhookSvc = webhooks.New(pool, keyring, projects, outboundSvc, tenancySvc, mailSvc, webhooks.Config{PublicURL: cfg.Insight.PublicURL}, log)
 		// SQL jobs run through the console's login (it holds no privileges
 		// of its own), whether or not the console itself is turned off.
@@ -956,4 +961,20 @@ func cloudProvider(c config.Cloud) cloud.Provider {
 		return &cloud.HetznerProvider{API: c.HetznerAPI, Token: c.HetznerToken}
 	}
 	return cloud.ManualProvider{}
+}
+
+// platformPhone is the platform's SMS (Termii) and WhatsApp (support's
+// number, an authentication template) for project auth codes (V4 §6.2).
+func platformPhone(cfg config.Config) services.PlatformPhone {
+	a := cfg.AuthPhone
+	p := services.PlatformPhone{SMSCostMinor: a.SMSPriceMinor, WhatsAppCostMinor: a.WhatsAppPriceMinor, Currency: a.Currency,
+		DisallowFreePlans: !a.FreeAllowed}
+	if a.SMSOn() {
+		p.SMS = messaging.Termii{BaseURL: a.TermiiURL, APIKey: a.TermiiAPIKey, SenderID: a.TermiiSenderID}
+	}
+	if a.WhatsAppTemplate != "" && cfg.Support.WhatsAppOn() {
+		p.WhatsApp = messaging.WhatsAppCloud{BaseURL: cfg.Support.WhatsAppGraphURL, PhoneNumberID: cfg.Support.WhatsAppPhoneNumberID,
+			AccessToken: cfg.Support.WhatsAppAccessToken, Template: a.WhatsAppTemplate, Language: a.WhatsAppLanguage}
+	}
+	return p
 }

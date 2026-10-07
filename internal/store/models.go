@@ -87,6 +87,14 @@ type AuditLog struct {
 	BreakGlass bool
 }
 
+type AuthAlert struct {
+	ProjectID uuid.UUID
+	Kind      string
+	Day       pgtype.Date
+	Details   json.RawMessage
+	CreatedAt time.Time
+}
+
 type AuthChallenge struct {
 	ID        string
 	Kind      string
@@ -97,7 +105,27 @@ type AuthChallenge struct {
 	CreatedAt time.Time
 }
 
-type AuthEmailOutbox struct {
+type AuthHookOutbox struct {
+	ID            uuid.UUID
+	ProjectID     uuid.UUID
+	Event         string
+	Payload       json.RawMessage
+	Attempts      int32
+	NextAttemptAt time.Time
+	LastError     *string
+	LastStatus    *int32
+	CreatedAt     time.Time
+	DeliveredAt   *time.Time
+	FailedAt      *time.Time
+}
+
+type AuthMau struct {
+	ProjectID uuid.UUID
+	Month     pgtype.Date
+	UserID    uuid.UUID
+}
+
+type AuthMessageOutbox struct {
 	ID            uuid.UUID
 	ProjectID     uuid.UUID
 	Kind          string
@@ -108,12 +136,9 @@ type AuthEmailOutbox struct {
 	LastError     *string
 	CreatedAt     time.Time
 	SentAt        *time.Time
-}
-
-type AuthMau struct {
-	ProjectID uuid.UUID
-	Month     pgtype.Date
-	UserID    uuid.UUID
+	Channel       string
+	RecipientHash *string
+	Country       *string
 }
 
 type AvailabilityMinute struct {

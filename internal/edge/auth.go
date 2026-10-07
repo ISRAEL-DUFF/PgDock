@@ -460,7 +460,7 @@ func (e *Edge) sendEmail(ctx context.Context, p *project, kind, linkType, to str
 		q.Set("redirect_to", redirect)
 	}
 	link := "https://" + p.cfg.Ref + "." + e.cfg.Domain + "/auth/v1/verify?" + q.Encode()
-	err := e.client.SendAuthEmail(ctx, edgeapi.AuthEmail{Ref: p.cfg.Ref, Kind: kind, To: to, Code: code.Code, Link: link})
+	err := e.client.SendAuthMessage(ctx, edgeapi.AuthMessage{Ref: p.cfg.Ref, Channel: edgeapi.ChannelEmail, Kind: kind, To: to, Code: code.Code, Link: link})
 	var se *edgeapi.StatusError
 	if errors.As(err, &se) && se.Status == http.StatusTooManyRequests {
 		return errEmailRate

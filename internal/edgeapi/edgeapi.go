@@ -31,8 +31,11 @@ const (
 	PathConfig = "/api/v1/edge/config"
 	PathReport = "/api/v1/edge/report"
 	PathWake   = "/api/v1/edge/wake"
-	// PathAuthEmail queues an auth email (V4 §4.5).
-	PathAuthEmail = "/api/v1/edge/auth-email"
+	// PathAuthMessage queues an auth email or code (V4 §4.5, §4.6).
+	PathAuthMessage = "/api/v1/edge/auth-message"
+	// PathAuthHook delivers an auth event to the project's webhooks, or
+	// asks its before-sign-up webhook (V4 §4.7).
+	PathAuthHook = "/api/v1/edge/auth-hook"
 )
 
 // Key kinds.
@@ -149,6 +152,53 @@ type AuthConfig struct {
 	SessionMaxSeconds        int  `json:"session_max_seconds"`
 	SessionInactivitySeconds int  `json:"session_inactivity_seconds"`
 	SingleSession            bool `json:"single_session"`
+
+	// Phone sign-in (V4 §4.1): the channels on (sms, whatsapp), whether a
+	// phone sign-up needs its code, and the countries numbers may be in
+	// (ISO codes, "*" for any).
+	PhoneChannels  []string `json:"phone_channels,omitempty"`
+	PhoneConfirm   bool     `json:"phone_confirm"`
+	PhoneCountries []string `json:"phone_countries,omitempty"`
+	// AnonymousEnabled allows sign-in without credentials.
+	AnonymousEnabled bool `json:"anonymous_enabled"`
+	// MFA is off, optional, required (every user, aal2 for the data API)
+	// or claim (those whose app_metadata.mfa_required is true); MFAPhone
+	// allows phone factors.
+	MFA      string `json:"mfa"`
+	MFAPhone bool   `json:"mfa_phone"`
+	// OAuth are the providers turned on, with their credentials.
+	OAuth map[string]OAuthClient `json:"oauth,omitempty"`
+	// Hooks (V4 §4.7): Postgres functions ("schema.name") called as the
+	// project's auth hook role, and whether webhooks wait for events.
+	CustomClaimsHook string `json:"custom_claims_hook,omitempty"`
+	BeforeSignupHook string `json:"before_signup_hook,omitempty"`
+	BeforeSignupURL  bool   `json:"before_signup_url"`
+	AfterSignupHook  bool   `json:"after_signup_hook"`
+	AfterSigninHook  bool   `json:"after_signin_hook"`
+	CaptchaSecret    string `json:"captcha_secret,omitempty"`
+	CaptchaVerifyURL string `json:"captcha_verify_url,omitempty"`
+	ManualLinking    bool   `json:"manual_linking"`
+}
+
+// OAuthClient is a project's OAuth app at a provider (V4 §4.1).
+type OAuthClient struct {
+	ClientID     string   `json:"client_id"`
+	ClientSecret string   `json:"client_secret,omitempty"`
+	Scopes       []string `json:"scopes,omitempty"`
+	// Apple signs its client secret: the team, key id and private key.
+	TeamID     string `json:"team_id,omitempty"`
+	KeyID      string `json:"key_id,omitempty"`
+	PrivateKey string `json:"private_key,omitempty"`
+}
+
+// HasChannel reports whether phone codes may go by ch.
+func (a AuthConfig) HasChannel(ch string) bool {
+	for _, c := range a.PhoneChannels {
+		if c == ch {
+			return true
+		}
+	}
+	return false
 }
 
 // Auth email kinds.
@@ -160,11 +210,27 @@ const (
 	EmailChange       = "email_change"
 )
 
-// AuthEmail asks pgdock-server to send one auth email for a project.
-type AuthEmail struct {
-	Ref  string `json:"ref"`
-	Kind string `json:"kind"`
-	To   string `json:"to"`
+// Message channels.
+const (
+	ChannelEmail    = "email"
+	ChannelSMS      = "sms"
+	ChannelWhatsApp = "whatsapp"
+)
+
+// Phone message kinds.
+const (
+	PhoneCode   = "phone_code"   // sign-up, sign-in, confirmation
+	PhoneChange = "phone_change" // a new number
+	PhoneMFA    = "phone_mfa"    // a second factor
+)
+
+// AuthMessage asks pgdock-server to send one auth message for a project:
+// an email, or a code by SMS or WhatsApp.
+type AuthMessage struct {
+	Ref     string `json:"ref"`
+	Channel string `json:"channel"` // email (default) | sms | whatsapp
+	Kind    string `json:"kind"`
+	To      string `json:"to"`
 	// Code is the 6-digit code and Link the one-click link (both in the
 	// message; templates use either).
 	Code string `json:"code"`
@@ -316,10 +382,35 @@ func (e *StatusError) Error() string {
 	return fmt.Sprintf("pgdock-server %s %s: %d: %s", e.Method, e.Path, e.Status, e.Body)
 }
 
-// SendAuthEmail queues an auth email; a *StatusError with 429 means the
-// project's email rate is used up.
-func (c *Client) SendAuthEmail(ctx context.Context, m AuthEmail) error {
-	return c.do(ctx, http.MethodPost, PathAuthEmail, m, nil)
+// SendAuthMessage queues an auth email or code; a *StatusError with 429
+// means a limit is reached (its body says which), 403 a number the
+// project may not send to.
+func (c *Client) SendAuthMessage(ctx context.Context, m AuthMessage) error {
+	return c.do(ctx, http.MethodPost, PathAuthMessage, m, nil)
+}
+
+// AuthHook is an auth event for the project's webhooks. With Wait, it is
+// the before-sign-up hook, answered with a decision.
+type AuthHook struct {
+	Ref     string         `json:"ref"`
+	Event   string         `json:"event"` // before_signup | after_signup | after_signin
+	Payload map[string]any `json:"payload"`
+	Wait    bool           `json:"wait"`
+}
+
+// HookDecision is a before-sign-up hook's answer.
+type HookDecision struct {
+	Reject  bool   `json:"reject"`
+	Message string `json:"message,omitempty"`
+}
+
+// SendAuthHook queues an event (or, with Wait, asks for a decision).
+func (c *Client) SendAuthHook(ctx context.Context, h AuthHook) (HookDecision, error) {
+	var d HookDecision
+	if !h.Wait {
+		return d, c.do(ctx, http.MethodPost, PathAuthHook, h, nil)
+	}
+	return d, c.do(ctx, http.MethodPost, PathAuthHook, h, &d)
 }
 
 // Wake asks for a project to be resumed.

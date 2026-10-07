@@ -45,10 +45,11 @@ var routeRules = map[string]rule{
 	"POST /api/v1/payments/webhooks/{provider}": {scope: scopePublic},
 	// pgdock-edge's feed (V4 §2.1): signed with the edge secret, checked in
 	// the handler.
-	"GET /api/v1/edge/config":      {scope: scopePublic},
-	"POST /api/v1/edge/report":     {scope: scopePublic},
-	"POST /api/v1/edge/wake":       {scope: scopePublic},
-	"POST /api/v1/edge/auth-email": {scope: scopePublic},
+	"GET /api/v1/edge/config":        {scope: scopePublic},
+	"POST /api/v1/edge/report":       {scope: scopePublic},
+	"POST /api/v1/edge/wake":         {scope: scopePublic},
+	"POST /api/v1/edge/auth-message": {scope: scopePublic},
+	"POST /api/v1/edge/auth-hook":    {scope: scopePublic},
 	// Support's inbound channels (V3 §7.1), authenticated per channel.
 	"POST /api/v1/support/inbound/email": {scope: scopePublic},
 	"GET /api/v1/support/whatsapp":       {scope: scopePublic},

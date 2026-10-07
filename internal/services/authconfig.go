@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -44,7 +46,64 @@ type AuthSettings struct {
 	SessionMaxSeconds        *int     `json:"session_max_seconds,omitempty"`
 	SessionInactivitySeconds *int     `json:"session_inactivity_seconds,omitempty"`
 	SingleSession            *bool    `json:"single_session,omitempty"`
+
+	// Phone (V4 §4.1, §4.6).
+	PhoneChannels  []string `json:"phone_channels,omitempty"` // sms, whatsapp; none: phone sign-in off
+	PhoneConfirm   *bool    `json:"phone_confirm,omitempty"`
+	PhoneCountries []string `json:"phone_countries,omitempty"`
+	PhoneDailyCap  *int     `json:"phone_daily_cap,omitempty"`
+	SMSTemplate    *string  `json:"sms_template,omitempty"`
+	// Anonymous users, MFA, identity linking.
+	AnonymousEnabled *bool   `json:"anonymous_enabled,omitempty"`
+	MFAPolicy        *string `json:"mfa_policy,omitempty"`
+	MFAPhone         *bool   `json:"mfa_phone,omitempty"`
+	ManualLinking    *bool   `json:"manual_linking,omitempty"`
+	// OAuth providers (their secrets are sealed apart).
+	OAuth map[string]OAuthSetting `json:"oauth,omitempty"`
+	// Hooks (V4 §4.7) and captcha (§4.8).
+	CustomClaimsHook *string `json:"custom_claims_hook,omitempty"`
+	BeforeSignupHook *string `json:"before_signup_hook,omitempty"`
+	BeforeSignupURL  *string `json:"before_signup_url,omitempty"`
+	AfterSignupURL   *string `json:"after_signup_url,omitempty"`
+	AfterSigninURL   *string `json:"after_signin_url,omitempty"`
+	SendMessageURL   *string `json:"send_message_url,omitempty"`
+	CaptchaEnabled   *bool   `json:"captcha_enabled,omitempty"`
+	CaptchaSiteKey   *string `json:"captcha_site_key,omitempty"`
 }
+
+// OAuthSetting is a provider's public settings.
+type OAuthSetting struct {
+	Enabled  bool     `json:"enabled"`
+	ClientID string   `json:"client_id"`
+	Scopes   []string `json:"scopes,omitempty"`
+	TeamID   string   `json:"team_id,omitempty"` // Apple
+	KeyID    string   `json:"key_id,omitempty"`  // Apple
+}
+
+// OAuthProviders are the providers PGDock signs in with (V4 §4.1).
+var OAuthProviders = []string{"google", "apple", "github", "facebook", "microsoft"}
+
+// MFA policies.
+var mfaPolicies = map[string]bool{"off": true, "optional": true, "required": true, "claim": true}
+
+// Phone defaults (V4 §4.6, §10.2): Nigeria only, and a daily cap per
+// project that stops SMS pumping long before it gets expensive.
+const (
+	DefaultPhoneDailyCap = 200
+	MaxPhoneDailyCap     = 100000
+	// PerNumberPerHour bounds codes to one number.
+	PerNumberPerHour   = 5
+	DefaultSMSTemplate = "{{.Code}} is your verification code. It expires in 10 minutes."
+)
+
+func strOr(s *string, d string) string {
+	if s == nil {
+		return d
+	}
+	return *s
+}
+
+var hookFnRe = regexp.MustCompile(`^[a-z_][a-z0-9_]{0,62}\.[a-z_][a-z0-9_]{0,62}$`)
 
 func boolOr(b *bool, d bool) bool {
 	if b == nil {
@@ -76,9 +135,32 @@ func (a AuthSettings) Resolve() edgeapi.AuthConfig {
 		PasswordRequireMixed:   boolOr(a.PasswordRequireMixed, false),
 		AccessTokenTTL:         intOr(a.AccessTokenTTL, DefaultAccessTokenTTL),
 		SessionMaxSeconds:      intOr(a.SessionMaxSeconds, 0), SessionInactivitySeconds: intOr(a.SessionInactivitySeconds, 0),
-		SingleSession: boolOr(a.SingleSession, false),
+		SingleSession:    boolOr(a.SingleSession, false),
+		PhoneChannels:    append([]string{}, a.PhoneChannels...),
+		PhoneConfirm:     boolOr(a.PhoneConfirm, true),
+		PhoneCountries:   a.Countries(),
+		AnonymousEnabled: boolOr(a.AnonymousEnabled, false),
+		MFA:              strOr(a.MFAPolicy, "optional"),
+		MFAPhone:         boolOr(a.MFAPhone, false),
+		ManualLinking:    boolOr(a.ManualLinking, true),
+		CustomClaimsHook: strOr(a.CustomClaimsHook, ""),
+		BeforeSignupHook: strOr(a.BeforeSignupHook, ""),
+		BeforeSignupURL:  strOr(a.BeforeSignupURL, "") != "",
+		AfterSignupHook:  strOr(a.AfterSignupURL, "") != "",
+		AfterSigninHook:  strOr(a.AfterSigninURL, "") != "",
 	}
 }
+
+// Countries are the countries phone numbers may be in (Nigeria by default).
+func (a AuthSettings) Countries() []string {
+	if len(a.PhoneCountries) == 0 {
+		return []string{"NG"}
+	}
+	return append([]string{}, a.PhoneCountries...)
+}
+
+// DailyCap is the project's SMS and WhatsApp codes a day.
+func (a AuthSettings) DailyCap() int { return intOr(a.PhoneDailyCap, DefaultPhoneDailyCap) }
 
 // Validate checks values a caller set.
 func (a AuthSettings) Validate() error {
@@ -107,6 +189,57 @@ func (a AuthSettings) Validate() error {
 	}
 	if n := intOr(a.SessionInactivitySeconds, 0); n != 0 && n < 600 {
 		return bad("session_inactivity_seconds is 0 (no limit) or at least 600")
+	}
+	for _, c := range a.PhoneChannels {
+		if c != edgeapi.ChannelSMS && c != edgeapi.ChannelWhatsApp {
+			return bad("phone channels are sms and whatsapp")
+		}
+	}
+	for _, c := range a.PhoneCountries {
+		if c != "*" && (len(c) != 2 || strings.ToUpper(c) != c) {
+			return bad("phone countries are ISO codes such as NG (or * for any)")
+		}
+	}
+	if n := a.DailyCap(); n < 1 || n > MaxPhoneDailyCap {
+		return bad("phone_daily_cap is 1 to %d", MaxPhoneDailyCap)
+	}
+	if t := strOr(a.SMSTemplate, ""); t != "" {
+		if len(t) > 300 || !strings.Contains(t, "{{.Code}}") {
+			return bad("sms_template is at most 300 characters and must contain {{.Code}}")
+		}
+		if _, err := renderSMS(t, "123456"); err != nil {
+			return err
+		}
+	}
+	if p := strOr(a.MFAPolicy, "optional"); !mfaPolicies[p] {
+		return bad("mfa_policy is off, optional, required or claim")
+	}
+	for name, o := range a.OAuth {
+		if !slices.Contains(OAuthProviders, name) {
+			return bad("no OAuth provider %q (%s)", name, strings.Join(OAuthProviders, ", "))
+		}
+		if o.Enabled && strings.TrimSpace(o.ClientID) == "" {
+			return bad("%s needs a client id", name)
+		}
+		if name == "apple" && o.Enabled && (o.TeamID == "" || o.KeyID == "") {
+			return bad("apple needs the team id and key id")
+		}
+	}
+	for what, fn := range map[string]*string{"custom_claims_hook": a.CustomClaimsHook, "before_signup_hook": a.BeforeSignupHook} {
+		if v := strOr(fn, ""); v != "" && !hookFnRe.MatchString(v) {
+			return bad("%s is a function as schema.name (lower case)", what)
+		}
+	}
+	if strOr(a.BeforeSignupHook, "") != "" && strOr(a.BeforeSignupURL, "") != "" {
+		return bad("the before-sign-up hook is a function or a URL, not both")
+	}
+	for what, u := range map[string]*string{"before_signup_url": a.BeforeSignupURL, "after_signup_url": a.AfterSignupURL,
+		"after_signin_url": a.AfterSigninURL, "send_message_url": a.SendMessageURL} {
+		if v := strOr(u, ""); v != "" {
+			if pu, err := url.Parse(v); err != nil || pu.Scheme != "https" || pu.Host == "" {
+				return bad("%s must be an https URL", what)
+			}
+		}
 	}
 	return nil
 }
@@ -193,6 +326,15 @@ type AuthConfig struct {
 	Templates map[string]Template
 	// SMTP is the project's own SMTP server without its password, or nil.
 	SMTP *SMTPSettings
+	// SMS and WhatsApp are the project's own providers without their
+	// secrets, or nil (the platform's).
+	SMS, WhatsApp *PhoneProvider
+	// OAuthSecretSet says which providers have their secret stored.
+	OAuthSecretSet map[string]bool
+	CaptchaSecret  bool
+	// HookSecret signs the project's webhook hooks (shown to set up the
+	// receiver).
+	HookSecret string
 }
 
 func smtpAAD(projectID uuid.UUID) []byte {
@@ -201,6 +343,78 @@ func smtpAAD(projectID uuid.UUID) []byte {
 
 type sealedProviders struct {
 	SMTP *SMTPSettings `json:"smtp,omitempty"`
+	// The project's own SMS and WhatsApp providers (V4 §4.6).
+	SMS      *PhoneProvider `json:"sms,omitempty"`
+	WhatsApp *PhoneProvider `json:"whatsapp,omitempty"`
+	// OAuth client secrets (Apple: its private key), the captcha secret,
+	// and the secret webhook hooks are signed with.
+	OAuth         map[string]OAuthSecret `json:"oauth,omitempty"`
+	CaptchaSecret string                 `json:"captcha_secret,omitempty"`
+	HookSecret    string                 `json:"hook_secret,omitempty"`
+}
+
+func (p sealedProviders) empty() bool {
+	return p.SMTP == nil && p.SMS == nil && p.WhatsApp == nil && len(p.OAuth) == 0 && p.CaptchaSecret == "" && p.HookSecret == ""
+}
+
+// OAuthSecret is a provider's secret half.
+type OAuthSecret struct {
+	ClientSecret string `json:"client_secret,omitempty"`
+	PrivateKey   string `json:"private_key,omitempty"`
+}
+
+// PhoneProvider is a project's own SMS or WhatsApp provider: one of
+// termii, twilio, africastalking (SMS), whatsapp_cloud, twilio (WhatsApp).
+type PhoneProvider struct {
+	Provider string `json:"provider"`
+	// Termii and Africa's Talking.
+	APIKey   string `json:"api_key,omitempty"`
+	SenderID string `json:"sender_id,omitempty"`
+	BaseURL  string `json:"base_url,omitempty"`
+	Username string `json:"username,omitempty"`
+	// Twilio.
+	AccountSID          string `json:"account_sid,omitempty"`
+	AuthToken           string `json:"auth_token,omitempty"`
+	From                string `json:"from,omitempty"`
+	MessagingServiceSID string `json:"messaging_service_sid,omitempty"`
+	// WhatsApp Cloud API.
+	PhoneNumberID string `json:"phone_number_id,omitempty"`
+	AccessToken   string `json:"access_token,omitempty"`
+	Template      string `json:"template,omitempty"`
+	Language      string `json:"language,omitempty"`
+}
+
+// edgeAuth is what pgdock-edge needs: the settings and the OAuth and
+// captcha secrets.
+func edgeAuth(st AuthSettings, prov sealedProviders, captchaURL string) edgeapi.AuthConfig {
+	a := st.Resolve()
+	for name, o := range st.OAuth {
+		if !o.Enabled {
+			continue
+		}
+		if a.OAuth == nil {
+			a.OAuth = map[string]edgeapi.OAuthClient{}
+		}
+		sec := prov.OAuth[name]
+		a.OAuth[name] = edgeapi.OAuthClient{ClientID: o.ClientID, ClientSecret: sec.ClientSecret, Scopes: o.Scopes,
+			TeamID: o.TeamID, KeyID: o.KeyID, PrivateKey: sec.PrivateKey}
+	}
+	if boolOr(st.CaptchaEnabled, false) && prov.CaptchaSecret != "" {
+		a.CaptchaSecret, a.CaptchaVerifyURL = prov.CaptchaSecret, captchaURL
+	}
+	return a
+}
+
+func renderSMS(tpl, code string) (string, error) {
+	t, err := template.New("sms").Option("missingkey=error").Parse(tpl)
+	if err != nil {
+		return "", fmt.Errorf("%w: sms_template: %w", ErrInvalid, err)
+	}
+	var b strings.Builder
+	if err := t.Execute(&b, TemplateVars{Code: code}); err != nil {
+		return "", fmt.Errorf("%w: sms_template: %w", ErrInvalid, err)
+	}
+	return b.String(), nil
 }
 
 func (s *Service) loadAuth(ctx context.Context, projectID uuid.UUID) (AuthSettings, map[string]Template, sealedProviders, error) {
@@ -240,13 +454,74 @@ func (s *Service) GetAuthConfig(ctx context.Context, projectID uuid.UUID) (AuthC
 	if err != nil {
 		return AuthConfig{}, err
 	}
-	out := AuthConfig{Settings: st, Resolved: st.Resolve(), Templates: tpl}
+	out := AuthConfig{Settings: st, Resolved: st.Resolve(), Templates: tpl, OAuthSecretSet: map[string]bool{},
+		CaptchaSecret: prov.CaptchaSecret != "", HookSecret: prov.HookSecret}
 	if prov.SMTP != nil {
 		m := *prov.SMTP
 		m.Password = ""
 		out.SMTP = &m
 	}
+	out.SMS, out.WhatsApp = prov.SMS.public(), prov.WhatsApp.public()
+	for name, sec := range prov.OAuth {
+		out.OAuthSecretSet[name] = sec.ClientSecret != "" || sec.PrivateKey != ""
+	}
 	return out, nil
+}
+
+// public is p without its secrets.
+func (p *PhoneProvider) public() *PhoneProvider {
+	if p == nil {
+		return nil
+	}
+	c := *p
+	c.APIKey, c.AuthToken, c.AccessToken = "", "", ""
+	return &c
+}
+
+// keepSecrets fills secrets left empty from the stored provider.
+func (p *PhoneProvider) keepSecrets(old *PhoneProvider) {
+	if old == nil || old.Provider != p.Provider {
+		return
+	}
+	if p.APIKey == "" {
+		p.APIKey = old.APIKey
+	}
+	if p.AuthToken == "" {
+		p.AuthToken = old.AuthToken
+	}
+	if p.AccessToken == "" {
+		p.AccessToken = old.AccessToken
+	}
+}
+
+func (p *PhoneProvider) validate(channel string) error {
+	bad := func(f string, args ...any) error { return fmt.Errorf("%w: "+f, append([]any{ErrInvalid}, args...)...) }
+	switch {
+	case channel == edgeapi.ChannelSMS && p.Provider == "termii":
+		if p.APIKey == "" || p.SenderID == "" {
+			return bad("Termii needs an API key and a sender id")
+		}
+	case channel == edgeapi.ChannelSMS && p.Provider == "africastalking":
+		if p.APIKey == "" || p.Username == "" {
+			return bad("Africa's Talking needs a username and an API key")
+		}
+	case p.Provider == "twilio":
+		if p.AccountSID == "" || p.AuthToken == "" || (p.From == "" && p.MessagingServiceSID == "") {
+			return bad("Twilio needs the account SID, auth token and a sender")
+		}
+	case channel == edgeapi.ChannelWhatsApp && p.Provider == "whatsapp_cloud":
+		if p.PhoneNumberID == "" || p.AccessToken == "" || p.Template == "" {
+			return bad("the WhatsApp Cloud API needs the phone number id, an access token and an authentication template")
+		}
+	default:
+		return bad("%s providers are termii, africastalking and twilio for SMS; whatsapp_cloud and twilio for WhatsApp", channel)
+	}
+	if p.BaseURL != "" {
+		if u, err := url.Parse(p.BaseURL); err != nil || u.Scheme != "https" {
+			return bad("base_url must be an https URL")
+		}
+	}
+	return nil
 }
 
 // AuthUpdate changes some of a project's auth settings: nil leaves a part
@@ -257,6 +532,15 @@ type AuthUpdate struct {
 	Templates map[string]Template
 	SMTP      *SMTPSettings
 	ClearSMTP bool
+	// The project's own SMS and WhatsApp providers (empty secrets keep the
+	// stored ones; Clear goes back to the platform's).
+	SMS, WhatsApp           *PhoneProvider
+	ClearSMS, ClearWhatsApp bool
+	// OAuthSecrets by provider (empty keeps); CaptchaSecret (nil keeps,
+	// "" removes); RotateHookSecret makes a new hook signing secret.
+	OAuthSecrets     map[string]OAuthSecret
+	CaptchaSecret    *string
+	RotateHookSecret bool
 }
 
 // UpdateAuthConfig applies u, after checking it.
@@ -304,6 +588,64 @@ func (s *Service) UpdateAuthConfig(ctx context.Context, projectID uuid.UUID, u A
 		m.Port, m.TLS = c.Port, c.TLS
 		prov.SMTP = &m
 	}
+	for _, c := range []struct {
+		in    *PhoneProvider
+		clear bool
+		cur   **PhoneProvider
+		ch    string
+	}{{u.SMS, u.ClearSMS, &prov.SMS, edgeapi.ChannelSMS}, {u.WhatsApp, u.ClearWhatsApp, &prov.WhatsApp, edgeapi.ChannelWhatsApp}} {
+		switch {
+		case c.clear:
+			*c.cur = nil
+		case c.in != nil:
+			p := *c.in
+			p.keepSecrets(*c.cur)
+			if err := p.validate(c.ch); err != nil {
+				return AuthConfig{}, err
+			}
+			*c.cur = &p
+		}
+	}
+	for name, sec := range u.OAuthSecrets {
+		if !slices.Contains(OAuthProviders, name) {
+			return AuthConfig{}, fmt.Errorf("%w: no OAuth provider %q", ErrInvalid, name)
+		}
+		if prov.OAuth == nil {
+			prov.OAuth = map[string]OAuthSecret{}
+		}
+		cur := prov.OAuth[name]
+		if sec.ClientSecret != "" {
+			cur.ClientSecret = sec.ClientSecret
+		}
+		if sec.PrivateKey != "" {
+			if _, err := jwtes.ParsePEM(sec.PrivateKey); err != nil {
+				return AuthConfig{}, fmt.Errorf("%w: the Apple private key: %w", ErrInvalid, err)
+			}
+			cur.PrivateKey = sec.PrivateKey
+		}
+		prov.OAuth[name] = cur
+	}
+	for name, o := range st.OAuth {
+		sec := prov.OAuth[name]
+		if o.Enabled && sec.ClientSecret == "" && sec.PrivateKey == "" {
+			return AuthConfig{}, fmt.Errorf("%w: %s needs its client secret (Apple: its private key)", ErrInvalid, name)
+		}
+	}
+	if u.CaptchaSecret != nil {
+		prov.CaptchaSecret = strings.TrimSpace(*u.CaptchaSecret)
+	}
+	if boolOr(st.CaptchaEnabled, false) && prov.CaptchaSecret == "" {
+		return AuthConfig{}, fmt.Errorf("%w: captcha needs its secret key", ErrInvalid)
+	}
+	hooks := strOr(st.BeforeSignupURL, "") != "" || strOr(st.AfterSignupURL, "") != "" || strOr(st.AfterSigninURL, "") != "" ||
+		strOr(st.SendMessageURL, "") != ""
+	if u.RotateHookSecret || (hooks && prov.HookSecret == "") {
+		sec, err := randomFrom(refRest+"ABCDEFGHJKLMNPQRSTUVWXYZ", 40)
+		if err != nil {
+			return AuthConfig{}, err
+		}
+		prov.HookSecret = "whsec_" + sec
+	}
 	cfg, err := json.Marshal(st)
 	if err != nil {
 		return AuthConfig{}, err
@@ -313,7 +655,7 @@ func (s *Service) UpdateAuthConfig(ctx context.Context, projectID uuid.UUID, u A
 		return AuthConfig{}, err
 	}
 	var sealed []byte
-	if prov.SMTP != nil {
+	if !prov.empty() {
 		raw, err := json.Marshal(prov)
 		if err != nil {
 			return AuthConfig{}, err

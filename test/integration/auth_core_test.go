@@ -520,7 +520,7 @@ func TestAuthCore(t *testing.T) {
 	// ---- The platform's email allowance, then the project's own SMTP --------------------------
 	var err429 error
 	for i := range services.PlatformEmailsPerHour + 1 {
-		if err429 = e.Services.QueueAuthEmail(ctx, edgeapi.AuthEmail{Ref: ref, Kind: edgeapi.EmailMagicLink,
+		if err429 = e.Services.QueueAuthMessage(ctx, edgeapi.AuthMessage{Ref: ref, Kind: edgeapi.EmailMagicLink,
 			To: fmt.Sprintf("bulk%d@example.com", i), Code: "123456", Link: "https://x"}); err429 != nil {
 			break
 		}

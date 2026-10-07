@@ -66,6 +66,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/pgdock/internal/messaging"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
@@ -127,6 +128,8 @@ type Env struct {
 	wakerLn   net.Listener
 	wakerAddr string
 	wakerCtx  context.Context
+	// Phone fakes Termii and WhatsApp for the platform's auth codes.
+	Phone *FakePhone
 	// Support runs tickets (V3 §7.1); WhatsApp fakes the Cloud API, whose
 	// webhook reaches the API. SupportInboundSecret authenticates inbound email.
 	Support  *support.Service
@@ -381,6 +384,13 @@ func Start(t testing.TB, opts Options) *Env {
 	// (Env.StartEdge).
 	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret}, log)
 	servicesSvc.Mail = mailSvc
+	phone := NewFakePhone()
+	t.Cleanup(phone.Close)
+	servicesSvc.Phone = services.PlatformPhone{
+		SMS:          messaging.Termii{BaseURL: phone.URL, APIKey: "termii-test", SenderID: "PGDock"},
+		WhatsApp:     messaging.WhatsAppCloud{BaseURL: phone.URL, PhoneNumberID: "1001", AccessToken: "wa-test", Template: "pgdock_code"},
+		SMSCostMinor: 450, WhatsAppCostMinor: 1500, Currency: "NGN", DisallowFreePlans: true,
+	}
 	servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
 		_, err := freeSvc.Resume(ctx, projectID, nil)
 		if errors.Is(err, freetier.ErrConflict) {
@@ -434,6 +444,7 @@ func Start(t testing.TB, opts Options) *Env {
 	// every 200ms.
 	autoNow := func() time.Time { return time.Now().Add(time.Duration(e.automationOffset.Load())) }
 	outboundSvc := outbound.New(db, outbound.Config{Now: autoNow}, log)
+	servicesSvc.Outbound = outboundSvc
 	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall
@@ -495,7 +506,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Services: servicesSvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

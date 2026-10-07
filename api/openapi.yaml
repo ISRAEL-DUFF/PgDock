@@ -3708,10 +3708,10 @@ paths:
           description: Resuming.
         default:
           $ref: "#/components/responses/Error"
-  /api/v1/edge/auth-email:
+  /api/v1/edge/auth-message:
     post:
-      operationId: edgeAuthEmail
-      summary: pgdock-edge asks for an auth email to be sent (signed; internal)
+      operationId: edgeAuthMessage
+      summary: pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
       tags: [edge]
       security: []
       requestBody:
@@ -3724,6 +3724,29 @@ paths:
       responses:
         "202":
           description: Queued.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/edge/auth-hook:
+    post:
+      operationId: edgeAuthHook
+      summary: pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+      tags: [edge]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: The decision (before_signup) or queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         default:
           $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/auth/config:
