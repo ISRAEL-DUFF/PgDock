@@ -231,7 +231,9 @@ func (e *Edge) authDBError(c *call, err error) {
 
 // ---- Rules -------------------------------------------------------------------
 
-var emailRe = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+// emailRe is a plain address (dot-atom local part, a dotted domain): no
+// quoting, commas or brackets that could reach an email header.
+var emailRe = regexp.MustCompile(`^[A-Za-z0-9.!#$%&'*+/=?^_` + "`" + `{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$`)
 
 func validEmail(s string) bool { return len(s) <= 254 && emailRe.MatchString(s) }
 
@@ -762,6 +764,18 @@ func (e *Edge) useVerified(ctx context.Context, c *call, tx pgx.Tx, v projauth.V
 	}
 	up := projauth.Update{ConfirmEmail: true}
 	action := projauth.ActConfirmed
+	// A magic link or reset proves the address for the first time: a
+	// password (and sessions) set before by whoever signed up with it
+	// unconfirmed must not come with it (pre-registration takeover).
+	if u.EmailConfirmedAt == nil && (v.Kind == projauth.CodeMagicLink || v.Kind == projauth.CodeRecovery) {
+		if u.HasPassword() {
+			none := ""
+			up.PasswordHash = &none
+		}
+		if _, err := projauth.EndSessions(ctx, tx, u.ID, nil); err != nil {
+			return tokenResponse{}, nil, err
+		}
+	}
 	if v.Kind == projauth.CodeEmailChange {
 		up.Email, action = &v.Target, projauth.ActEmailChanged
 	} else if u.Email == nil || *u.Email != v.Target {

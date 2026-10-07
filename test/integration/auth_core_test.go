@@ -187,7 +187,11 @@ func TestAuthCore(t *testing.T) {
 	api := authAPI{t: t, ed: ed, ref: ref, key: pub}
 	admin := authAPI{t: t, ed: ed, ref: ref, key: sec}
 	box := &mailbox{e: e, seen: map[string]int{}}
-	// The edge has the new settings once the password rule applies.
+	// The edge reaches the database (the poolers know its login) …
+	waitFor(t, 30*time.Second, "the edge reaches the project's database", func() bool {
+		return api.call("GET", "/data/v1/health", "", "").Code == 200
+	})
+	// … and has the new settings once the password rule applies.
 	waitFor(t, 30*time.Second, "the auth settings reach the edge", func() bool {
 		r := api.call("GET", "/auth/v1/settings", "", "")
 		return strings.Contains(r.Body, `"password_min_length":10`)
@@ -352,6 +356,25 @@ func TestAuthCore(t *testing.T) {
 		t.Fatalf("a new user by magic link: %d %s", r.Code, r.Body)
 	}
 	carol := r.Session
+	// Someone signs up with another's address and leaves it unconfirmed; the
+	// owner of the address signs in by code; the squatter's password is gone.
+	if r := api.post("/auth/v1/signup", `{"email":"victim@example.com","password":"squatter-pass-1"}`); r.Code != 200 {
+		t.Fatalf("squatter signup: %d %s", r.Code, r.Body)
+	}
+	box.next(t, "victim@example.com") // the confirmation, which the squatter never sees
+	if r := api.post("/auth/v1/signin/otp", `{"email":"victim@example.com"}`); r.Code != 200 {
+		t.Fatalf("victim magic link: %d %s", r.Code, r.Body)
+	}
+	code, _ = box.next(t, "victim@example.com")
+	if r := api.post("/auth/v1/verify", fmt.Sprintf(`{"type":"magiclink","email":"victim@example.com","token":%q}`, code)); r.Code != 200 {
+		t.Fatalf("victim signs in: %d %s", r.Code, r.Body)
+	}
+	if r := api.post("/auth/v1/signin/password", `{"email":"victim@example.com","password":"squatter-pass-1"}`); r.Code != 400 {
+		t.Fatalf("the squatter's password after the owner confirmed: %d %s", r.Code, r.Body)
+	}
+	if r := api.post("/auth/v1/signup", `{"email":"bad,addr@example.com","password":"whatever-pass-1"}`); r.Code != 400 || r.Error.Code != "invalid_email" {
+		t.Fatalf("a comma in an address: %d %s", r.Code, r.Body)
+	}
 
 	// ---- Recovery, then a new password ----------------------------------------------
 	if r := api.post("/auth/v1/recover", `{"email":"nobody@example.com"}`); r.Code != 200 {
@@ -398,7 +421,7 @@ func TestAuthCore(t *testing.T) {
 		Total int              `json:"total"`
 	}
 	r = admin.call("GET", "/auth/v1/admin/users?q=example.com", "", "")
-	if err := json.Unmarshal([]byte(r.Body), &list); err != nil || r.Code != 200 || list.Total != 3 || strings.Contains(r.Body, "argon2") {
+	if err := json.Unmarshal([]byte(r.Body), &list); err != nil || r.Code != 200 || list.Total != 4 || strings.Contains(r.Body, "argon2") {
 		t.Fatalf("admin list: %d %s", r.Code, r.Body)
 	}
 	if r := admin.post("/auth/v1/admin/users", `{"email":"dave@example.com","password":"dave-password-1","email_confirm":true}`); r.Code != 201 {
@@ -461,11 +484,11 @@ func TestAuthCore(t *testing.T) {
 
 	// ---- Monthly active users, the audit log and the dashboard ------------------------------
 	ed.Flush(ctx)
-	if code := e.Do("GET", base+"/auth/config", nil, &cfg); code != 200 || cfg.MonthlyActiveUsers < 4 || cfg.Email.Sent24h < 5 || cfg.Email.PlatformLeft != services.PlatformEmailsPerHour-5 {
+	if code := e.Do("GET", base+"/auth/config", nil, &cfg); code != 200 || cfg.MonthlyActiveUsers < 4 || cfg.Email.Sent24h < 7 || cfg.Email.PlatformLeft != services.PlatformEmailsPerHour-7 {
 		t.Fatalf("auth usage: %d mau=%d email=%+v", code, cfg.MonthlyActiveUsers, cfg.Email)
 	}
 	var users gen.AuthUserList
-	if code := e.Do("GET", base+"/auth/users?q=alice", nil, &users); code != 200 || users.Total != 1 || users.Stats.Users != 3 {
+	if code := e.Do("GET", base+"/auth/users?q=alice", nil, &users); code != 200 || users.Total != 1 || users.Stats.Users != 4 {
 		t.Fatalf("dashboard users: %d %+v", code, users)
 	}
 	var detail gen.AuthUserDetail
