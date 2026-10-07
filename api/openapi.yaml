@@ -3576,6 +3576,71 @@ paths:
                 $ref: "#/components/schemas/ApiRequestLogList"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/types:
+    get:
+      operationId: getServiceTypes
+      summary: Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ts, dart, go]
+        - name: package
+          in: query
+          description: Go's package name (default pgdtypes).
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The source.
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/advisor:
+    get:
+      operationId: getSecurityAdvisor
+      summary: What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: Findings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdvisorFindings"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/explore:
+    post:
+      operationId: exploreDataAPI
+      summary: Run a data API request as anon, a user or service (the request explorer)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExploreRequest"
+      responses:
+        "200":
+          description: The data API's response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreResponse"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/edge/config:
     get:
       operationId: edgeConfig
@@ -9252,6 +9317,16 @@ components:
         feed_configured:
           type: boolean
           description: pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+        roles:
+          type: object
+          description: The project's request roles, for row-level security policies.
+          properties:
+            anon:
+              type: string
+            user:
+              type: string
+            service:
+              type: string
     BackendServicesSettings:
       type: object
       properties:
@@ -9300,6 +9375,59 @@ components:
           description: The keys made now (the first time, or after a disable); the secret key is never shown again.
           items:
             $ref: "#/components/schemas/CreatedApiKey"
+    AdvisorFinding:
+      type: object
+      required: [level, code, object, message]
+      properties:
+        level:
+          type: string
+          enum: [danger, warn, info]
+        code:
+          type: string
+        object:
+          type: string
+        message:
+          type: string
+        fix:
+          type: string
+    AdvisorFindings:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdvisorFinding"
+    ExploreRequest:
+      type: object
+      required: [method, path, role]
+      properties:
+        method:
+          type: string
+          enum: [GET, POST, PATCH, DELETE]
+        path:
+          type: string
+          example: /data/v1/todos?select=id,title
+        body:
+          type: string
+          description: The request body (JSON), for POST and PATCH.
+        role:
+          type: string
+          enum: [anon, user, service]
+        user_id:
+          type: string
+          format: uuid
+          description: With role user, the signed-in user to act as (their id is the sub claim).
+    ExploreResponse:
+      type: object
+      required: [status, body]
+      properties:
+        status:
+          type: integer
+        content_type:
+          type: string
+        body:
+          type: string
     ApiKey:
       type: object
       required: [id, kind, name, prefix, created_at]

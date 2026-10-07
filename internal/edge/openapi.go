@@ -97,10 +97,31 @@ func openAPIDoc(p *project, cat *Catalog) map[string]any {
 		list := map[string]any{"type": "object", "properties": map[string]any{
 			"data": map[string]any{"type": "array", "items": ref}, "next_cursor": map[string]any{"type": "string"},
 			"count": map[string]any{"type": "integer"}}}
-		paths["/data/v1/"+name] = map[string]any{"get": map[string]any{
+		ops := map[string]any{"get": map[string]any{
 			"summary": "Read " + name, "parameters": listParams,
 			"responses": map[string]any{"200": map[string]any{"description": "Rows", "content": map[string]any{"application/json": map[string]any{"schema": list}}}},
 		}}
+		if t.Kind == kindTable || t.Kind == kindPart || (t.Kind == kindView && t.Invoker) {
+			body := map[string]any{"content": map[string]any{"application/json": map[string]any{"schema": map[string]any{
+				"oneOf": []any{ref, map[string]any{"type": "array", "items": ref, "maxItems": maxWriteRows}}}}}}
+			written := map[string]any{"description": "The rows written", "content": map[string]any{"application/json": map[string]any{
+				"schema": map[string]any{"type": "object", "properties": map[string]any{"affected": map[string]any{"type": "integer"},
+					"data": map[string]any{"type": "array", "items": ref}}}}}}
+			filtered := []any{
+				map[string]any{"name": "where", "in": "query", "required": true, "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}},
+				map[string]any{"name": "max_affected", "in": "query", "schema": map[string]any{"type": "integer", "default": defaultMaxAffected}},
+				map[string]any{"name": "return", "in": "query", "schema": map[string]any{"type": "string", "enum": []string{"representation", "minimal"}}},
+			}
+			ops["post"] = map[string]any{"summary": "Insert into " + name + " (upsert with on_conflict)", "requestBody": body,
+				"parameters": []any{map[string]any{"name": "on_conflict", "in": "query", "schema": map[string]any{"type": "string"}},
+					map[string]any{"name": "resolution", "in": "query", "schema": map[string]any{"type": "string", "enum": []string{"merge", "ignore"}}},
+					map[string]any{"name": "return", "in": "query", "schema": map[string]any{"type": "string", "enum": []string{"representation", "minimal"}}}},
+				"responses": map[string]any{"201": written}}
+			ops["patch"] = map[string]any{"summary": "Update " + name + " rows matching a filter", "parameters": filtered,
+				"requestBody": map[string]any{"content": map[string]any{"application/json": map[string]any{"schema": ref}}}, "responses": map[string]any{"200": written}}
+			ops["delete"] = map[string]any{"summary": "Delete " + name + " rows matching a filter", "parameters": filtered, "responses": map[string]any{"200": written}}
+		}
+		paths["/data/v1/"+name] = ops
 		paths["/data/v1/"+name+"/query"] = map[string]any{"post": map[string]any{
 			"summary":   "Read " + name + " with a JSON query",
 			"responses": map[string]any{"200": map[string]any{"description": "Rows", "content": map[string]any{"application/json": map[string]any{"schema": list}}}},
@@ -114,6 +135,27 @@ func openAPIDoc(p *project, cat *Catalog) map[string]any {
 					"schema": map[string]any{"type": "object", "properties": map[string]any{"data": ref}}}}}},
 			}}
 		}
+	}
+	for key, fs := range cat.Functions {
+		f := fs[0]
+		name := f.Name
+		if f.Schema != cat.Schemas[0] {
+			name = key
+		}
+		props := map[string]any{}
+		for _, a := range f.Args {
+			if a.Name != "" {
+				props[a.Name] = jsonType(&Column{TypName: a.TypName, Category: a.Category, Type: a.Type})
+			}
+		}
+		op := map[string]any{"summary": "Call " + name, "requestBody": map[string]any{"content": map[string]any{"application/json": map[string]any{
+			"schema": map[string]any{"type": "object", "properties": props}}}},
+			"responses": map[string]any{"200": map[string]any{"description": "The result as data"}}}
+		item := map[string]any{"post": op}
+		if f.Volatile != 'v' {
+			item["get"] = map[string]any{"summary": "Call " + name + " (stable)", "responses": map[string]any{"200": map[string]any{"description": "The result as data"}}}
+		}
+		paths["/data/v1/rpc/"+name] = item
 	}
 	doc := map[string]any{
 		"openapi": "3.0.3",

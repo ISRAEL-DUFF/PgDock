@@ -71,6 +71,15 @@ func (e *Edge) data(c *call, req Request) {
 	}
 	m := c.r.Method
 	switch {
+	case len(segs) == 2 && segs[0] == "rpc" && segs[1] != "":
+		e.rpc(c, req, segs[1])
+	case len(segs) == 1 && segs[0] == "batch" && m == http.MethodPost:
+		e.batch(c, req)
+	case len(segs) == 1 && segs[0] != "" && segs[0] != "openapi.json" && (m == http.MethodPost || m == http.MethodPatch || m == http.MethodDelete):
+		e.write(c, req, segs[0], nil)
+	case len(segs) == 2 && segs[1] != "" && segs[1] != "query" && (m == http.MethodPatch || m == http.MethodDelete):
+		pk := segs[1]
+		e.write(c, req, segs[0], &pk)
 	case len(segs) == 1 && segs[0] == "openapi.json" && m == http.MethodGet:
 		e.openAPI(c, req)
 	case len(segs) == 1 && segs[0] != "" && m == http.MethodGet:
@@ -101,8 +110,8 @@ func (e *Edge) data(c *call, req Request) {
 		pk := segs[1]
 		q.PKValue = &pk
 		e.read(c, req, segs[0], q, true)
-	case len(segs) <= 2 && (m == http.MethodPost || m == http.MethodPatch || m == http.MethodDelete || m == http.MethodPut):
-		c.fail(http.StatusMethodNotAllowed, "not_available", "writes through the data API aren't available yet")
+	case m == http.MethodPut:
+		c.fail(http.StatusMethodNotAllowed, "method_not_allowed", "use POST to insert or upsert, PATCH to update")
 	default:
 		c.fail(http.StatusNotFound, "no_such_endpoint", "no such endpoint")
 	}
@@ -573,16 +582,26 @@ var pgErrors = map[string]struct {
 }
 
 func (e *Edge) dataDBError(c *call, err error) {
-	var pe *pgconn.PgError
-	if errors.As(err, &pe) {
-		if pe.Code == "42P01" || pe.Code == "42703" {
-			c.p.catalog.invalidate()
-		}
-		if m, ok := pgErrors[pe.Code]; ok {
-			c.json(m.status, map[string]Error{"error": {Code: m.code, Message: pe.Message,
-				Details: map[string]any{"pg_code": pe.Code}, RequestID: c.id}})
-			return
-		}
+	if ae := pgAPIError(c, err); ae != nil {
+		c.apiFail(ae)
+		return
 	}
 	e.dbError(c, err)
+}
+
+// pgAPIError maps a Postgres error the data API explains to the caller (a
+// constraint, a policy, a bad value) to an API error, and nil for the rest.
+func pgAPIError(c *call, err error) *apiError {
+	var pe *pgconn.PgError
+	if !errors.As(err, &pe) {
+		return nil
+	}
+	if pe.Code == "42P01" || pe.Code == "42703" {
+		c.p.catalog.invalidate()
+	}
+	m, ok := pgErrors[pe.Code]
+	if !ok {
+		return nil
+	}
+	return &apiError{Status: m.status, Code: m.code, Message: pe.Message, Details: map[string]any{"pg_code": pe.Code}}
 }

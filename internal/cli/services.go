@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"text/tabwriter"
 
 	"github.com/google/uuid"
@@ -197,4 +198,46 @@ func (a *App) keysRevoke(args []string) error {
 	return a.emit(r.JSON200, func(w io.Writer) {
 		fmt.Fprintf(w, "revoked %s (%s); the edge refuses it within seconds\n", r.JSON200.Name, r.JSON200.Prefix)
 	})
+}
+
+func (a *App) genTypes(args []string) error {
+	fs := flag.NewFlagSet("gen types", flag.ContinueOnError)
+	lang := fs.String("lang", "ts", "ts, dart or go")
+	pkg := fs.String("package", "", "Go's package name (default pgdtypes)")
+	out := fs.String("o", "", "write to this file instead of standard output")
+	project := fs.String("project", "", "the project (or as the first argument)")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	name := *project
+	if name == "" && len(pos) > 0 {
+		name = pos[0]
+	}
+	if name == "" {
+		return usageErrorf("gen types --lang ts|dart|go --project <p> [-o file]")
+	}
+	p, err := a.project(name)
+	if err != nil {
+		return err
+	}
+	params := &client.GetServiceTypesParams{Lang: client.GetServiceTypesParamsLang(*lang)}
+	if *pkg != "" {
+		params.Package = pkg
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.GetServiceTypesWithResponse(c, p.Id, params)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	if *out == "" {
+		_, err := a.Stdout.Write(r.Body)
+		return err
+	}
+	if err := os.WriteFile(*out, r.Body, 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(a.Stderr, "wrote %s (%d bytes)\n", *out, len(r.Body))
+	return nil
 }

@@ -238,6 +238,9 @@ func (a *App) commands() []command {
 			{name: "enable", summary: "Turn on (prints the first keys once): enable <p>", run: (*App).servicesEnable},
 			{name: "disable", summary: "Turn off (keys revoked): disable <p>", run: (*App).servicesDisable},
 		}},
+		{name: "gen", summary: "Generate code", sub: []command{
+			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},
+		}},
 		{name: "keys", summary: "Backend services' API keys", sub: []command{
 			{name: "list", summary: "List: list <p>", run: (*App).keysList},
 			{name: "create", summary: "create <p> --name … [--kind publishable|secret]", run: (*App).keysCreate},

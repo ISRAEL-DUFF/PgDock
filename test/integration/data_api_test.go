@@ -312,7 +312,7 @@ func TestDataAPIReads(t *testing.T) {
 		{user1, "GET", "/data/v1/nothing", 404, "unknown_table"},
 		{user1, "GET", "/data/v1/todos?limit=5000", 400, "invalid_limit"},
 		{user1, "GET", "/data/v1/todos?bogus=1", 400, "unknown_parameter"},
-		{user1, "POST", "/data/v1/todos", 405, "not_available"},
+		{user1, "PUT", "/data/v1/todos", 405, "method_not_allowed"},
 		{anon, "GET", "/data/v1/pgd_auth.claims", 404, "unknown_table"},
 	} {
 		r := c.cl.do(c.method, c.path, "")

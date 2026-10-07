@@ -8,10 +8,10 @@ import (
 // testCatalog: authors <- posts (author_id, editor_id) <- comments.
 func testCatalog() *Catalog {
 	mk := func(name string, rls bool, cols ...*Column) *Table {
-		t := &Table{Schema: "public", Name: name, Kind: kindTable, RLS: rls, byName: map[string]*Column{}}
+		t := &Table{Schema: "public", Name: name, Kind: kindTable, RLS: rls, ByName: map[string]*Column{}}
 		for _, c := range cols {
 			t.Columns = append(t.Columns, c)
-			t.byName[c.Name] = c
+			t.ByName[c.Name] = c
 		}
 		return t
 	}
@@ -34,10 +34,10 @@ func testCatalog() *Catalog {
 	fk("posts_author_id_fkey", posts, "author_id", authors, "id")
 	fk("posts_editor_id_fkey", posts, "editor_id", authors, "id")
 	fk("comments_post_id_fkey", comments, "post_id", posts, "id")
-	cat := &Catalog{Schemas: []string{"public"}, byName: map[string]*Table{}}
+	cat := &Catalog{Schemas: []string{"public"}, ByName: map[string]*Table{}}
 	for _, t := range []*Table{authors, posts, comments} {
-		cat.byName["public."+t.Name] = t
-		cat.ordered = append(cat.ordered, t)
+		cat.ByName["public."+t.Name] = t
+		cat.Ordered = append(cat.Ordered, t)
 	}
 	return cat
 }

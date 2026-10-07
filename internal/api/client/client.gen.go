@@ -168,6 +168,27 @@ func (e AdminUserPlatformRole) Valid() bool {
 	}
 }
 
+// Defines values for AdvisorFindingLevel.
+const (
+	AdvisorFindingLevelDanger AdvisorFindingLevel = "danger"
+	AdvisorFindingLevelInfo   AdvisorFindingLevel = "info"
+	AdvisorFindingLevelWarn   AdvisorFindingLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the AdvisorFindingLevel enum.
+func (e AdvisorFindingLevel) Valid() bool {
+	switch e {
+	case AdvisorFindingLevelDanger:
+		return true
+	case AdvisorFindingLevelInfo:
+		return true
+	case AdvisorFindingLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertSeverity.
 const (
 	AlertSeverityCritical AlertSeverity = "critical"
@@ -792,6 +813,51 @@ func (e EtcdMemberStatus) Valid() bool {
 	case EtcdMemberStatusStarting:
 		return true
 	case EtcdMemberStatusUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExploreRequestMethod.
+const (
+	ExploreRequestMethodDELETE ExploreRequestMethod = "DELETE"
+	ExploreRequestMethodGET    ExploreRequestMethod = "GET"
+	ExploreRequestMethodPATCH  ExploreRequestMethod = "PATCH"
+	ExploreRequestMethodPOST   ExploreRequestMethod = "POST"
+)
+
+// Valid indicates whether the value is a known member of the ExploreRequestMethod enum.
+func (e ExploreRequestMethod) Valid() bool {
+	switch e {
+	case ExploreRequestMethodDELETE:
+		return true
+	case ExploreRequestMethodGET:
+		return true
+	case ExploreRequestMethodPATCH:
+		return true
+	case ExploreRequestMethodPOST:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExploreRequestRole.
+const (
+	ExploreRequestRoleAnon    ExploreRequestRole = "anon"
+	ExploreRequestRoleService ExploreRequestRole = "service"
+	ExploreRequestRoleUser    ExploreRequestRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the ExploreRequestRole enum.
+func (e ExploreRequestRole) Valid() bool {
+	switch e {
+	case ExploreRequestRoleAnon:
+		return true
+	case ExploreRequestRoleService:
+		return true
+	case ExploreRequestRoleUser:
 		return true
 	default:
 		return false
@@ -3372,6 +3438,27 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for GetServiceTypesParamsLang.
+const (
+	Dart GetServiceTypesParamsLang = "dart"
+	Go   GetServiceTypesParamsLang = "go"
+	Ts   GetServiceTypesParamsLang = "ts"
+)
+
+// Valid indicates whether the value is a known member of the GetServiceTypesParamsLang enum.
+func (e GetServiceTypesParamsLang) Valid() bool {
+	switch e {
+	case Dart:
+		return true
+	case Go:
+		return true
+	case Ts:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExportTableRowsParamsFormat.
 const (
 	ExportTableRowsParamsFormatCsv  ExportTableRowsParamsFormat = "csv"
@@ -3591,6 +3678,23 @@ type AdminUser struct {
 
 // AdminUserPlatformRole defines model for AdminUser.PlatformRole.
 type AdminUserPlatformRole string
+
+// AdvisorFinding defines model for AdvisorFinding.
+type AdvisorFinding struct {
+	Code    string              `json:"code"`
+	Fix     *string             `json:"fix,omitempty"`
+	Level   AdvisorFindingLevel `json:"level"`
+	Message string              `json:"message"`
+	Object  string              `json:"object"`
+}
+
+// AdvisorFindingLevel defines model for AdvisorFinding.Level.
+type AdvisorFindingLevel string
+
+// AdvisorFindings defines model for AdvisorFindings.
+type AdvisorFindings struct {
+	Items []AdvisorFinding `json:"items"`
+}
 
 // AgentRegisterRequest defines model for AgentRegisterRequest.
 type AgentRegisterRequest struct {
@@ -3841,7 +3945,14 @@ type BackendServices struct {
 	// Ref The project reference in the API hostname.
 	//
 	// Example: k7f3m2q9
-	Ref      *string                 `json:"ref,omitempty"`
+	Ref *string `json:"ref,omitempty"`
+
+	// Roles The project's request roles, for row-level security policies.
+	Roles *struct {
+		Anon    *string `json:"anon,omitempty"`
+		Service *string `json:"service,omitempty"`
+		User    *string `json:"user,omitempty"`
+	} `json:"roles,omitempty"`
 	Settings BackendServicesSettings `json:"settings"`
 
 	// Url The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
@@ -4760,6 +4871,33 @@ type EtcdReplaceRequest struct {
 // EtcdSetupRequest defines model for EtcdSetupRequest.
 type EtcdSetupRequest struct {
 	NodeIds []openapi_types.UUID `json:"node_ids"`
+}
+
+// ExploreRequest defines model for ExploreRequest.
+type ExploreRequest struct {
+	// Body The request body (JSON), for POST and PATCH.
+	Body   *string              `json:"body,omitempty"`
+	Method ExploreRequestMethod `json:"method"`
+
+	// Path Example: /data/v1/todos?select=id,title
+	Path string             `json:"path"`
+	Role ExploreRequestRole `json:"role"`
+
+	// UserId With role user, the signed-in user to act as (their id is the sub claim).
+	UserId *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// ExploreRequestMethod defines model for ExploreRequest.Method.
+type ExploreRequestMethod string
+
+// ExploreRequestRole defines model for ExploreRequest.Role.
+type ExploreRequestRole string
+
+// ExploreResponse defines model for ExploreResponse.
+type ExploreResponse struct {
+	Body        string  `json:"body"`
+	ContentType *string `json:"content_type,omitempty"`
+	Status      int     `json:"status"`
 }
 
 // Extension defines model for Extension.
@@ -8639,6 +8777,17 @@ type ListAPIRequestLogsParams struct {
 	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetServiceTypesParams defines parameters for GetServiceTypes.
+type GetServiceTypesParams struct {
+	Lang GetServiceTypesParamsLang `form:"lang" json:"lang"`
+
+	// Package Go's package name (default pgdtypes).
+	Package *string `form:"package,omitempty" json:"package,omitempty"`
+}
+
+// GetServiceTypesParamsLang defines parameters for GetServiceTypes.
+type GetServiceTypesParamsLang string
+
 // CountTableRowsParams defines parameters for CountTableRows.
 type CountTableRowsParams struct {
 	// Filter Repeatable, as for the rows.
@@ -9093,6 +9242,9 @@ type PreviewSchemaChangeJSONRequestBody = SchemaPreviewRequest
 
 // UpdateBackendServicesJSONRequestBody defines body for UpdateBackendServices for application/json ContentType.
 type UpdateBackendServicesJSONRequestBody = BackendServicesUpdate
+
+// ExploreDataAPIJSONRequestBody defines body for ExploreDataAPI for application/json ContentType.
+type ExploreDataAPIJSONRequestBody = ExploreRequest
 
 // CreateAPIKeyJSONRequestBody defines body for CreateAPIKey for application/json ContentType.
 type CreateAPIKeyJSONRequestBody = CreateApiKeyRequest
@@ -12099,6 +12251,25 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/services (the `EnableBackendServices` operationId).
 	EnableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+	GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPIWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPI(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateAPIKeyWithBody Make another API key (for rotation); a secret key is shown once
 	//
 	// Takes any type of body and a specified content type.
@@ -12122,6 +12293,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 	ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+	GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateProjectWithBody Update a project's name, description, or guardrails
 	//
@@ -19725,6 +19901,55 @@ func (c *Client) EnableBackendServices(ctx context.Context, id ProjectID, reqEdi
 	return c.Client.Do(req)
 }
 
+// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+//
+// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+func (c *Client) GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSecurityAdvisorRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *Client) ExploreDataAPIWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExploreDataAPIRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *Client) ExploreDataAPI(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExploreDataAPIRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CreateAPIKeyWithBody Make another API key (for rotation); a secret key is shown once
 //
 // Takes any type of body and a specified content type.
@@ -19779,6 +20004,21 @@ func (c *Client) RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_t
 // Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAPIRequestLogsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+//
+// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+func (c *Client) GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServiceTypesRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -33535,6 +33775,87 @@ func NewEnableBackendServicesRequest(server string, id ProjectID) (*http.Request
 	return req, nil
 }
 
+// NewGetSecurityAdvisorRequest constructs an http.Request for the GetSecurityAdvisor method
+func NewGetSecurityAdvisorRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/advisor", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewExploreDataAPIRequest calls the generic ExploreDataAPI builder with application/json body
+func NewExploreDataAPIRequest(server string, id ProjectID, body ExploreDataAPIJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExploreDataAPIRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewExploreDataAPIRequestWithBody constructs an http.Request for the ExploreDataAPI method, with any body, and a specified content type
+func NewExploreDataAPIRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/explore", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewCreateAPIKeyRequest calls the generic CreateAPIKey builder with application/json body
 func NewCreateAPIKeyRequest(server string, id ProjectID, body CreateAPIKeyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -33673,6 +33994,75 @@ func NewListAPIRequestLogsRequest(server string, id ProjectID, params *ListAPIRe
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetServiceTypesRequest constructs an http.Request for the GetServiceTypes method
+func NewGetServiceTypesRequest(server string, id ProjectID, params *GetServiceTypesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/types", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "lang", params.Lang, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Package != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "package", *params.Package, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -39517,6 +39907,27 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/services (the `EnableBackendServices` operationId).
 	EnableBackendServicesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*EnableBackendServicesResponse, error)
 
+	// GetSecurityAdvisorWithResponse What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+	GetSecurityAdvisorWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetSecurityAdvisorResponse, error)
+
+	// ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPIWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error)
+
+	// ExploreDataAPIWithResponse Run a data API request as anon, a user or service (the request explorer)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+	ExploreDataAPIWithResponse(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error)
+
 	// CreateAPIKeyWithBodyWithResponse Make another API key (for rotation); a secret key is shown once
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -39544,6 +39955,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 	ListAPIRequestLogsWithResponse(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*ListAPIRequestLogsResponse, error)
+
+	// GetServiceTypesWithResponse Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+	GetServiceTypesWithResponse(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*GetServiceTypesResponse, error)
 
 	// UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
 	//
@@ -53875,6 +54293,102 @@ func (r EnableBackendServicesResponse) ContentType() string {
 	return ""
 }
 
+type GetSecurityAdvisorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AdvisorFindings
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSecurityAdvisorResponse) GetJSON200() *AdvisorFindings {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetSecurityAdvisorResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetSecurityAdvisorResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSecurityAdvisorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSecurityAdvisorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSecurityAdvisorResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExploreDataAPIResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ExploreResponse
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExploreDataAPIResponse) GetJSON200() *ExploreResponse {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ExploreDataAPIResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ExploreDataAPIResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExploreDataAPIResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExploreDataAPIResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExploreDataAPIResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CreateAPIKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54013,6 +54527,47 @@ func (r ListAPIRequestLogsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListAPIRequestLogsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetServiceTypesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetServiceTypesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetServiceTypesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServiceTypesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServiceTypesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetServiceTypesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -62366,6 +62921,45 @@ func (c *ClientWithResponses) EnableBackendServicesWithResponse(ctx context.Cont
 	return ParseEnableBackendServicesResponse(rsp)
 }
 
+// GetSecurityAdvisorWithResponse What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
+func (c *ClientWithResponses) GetSecurityAdvisorWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetSecurityAdvisorResponse, error) {
+	rsp, err := c.GetSecurityAdvisor(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSecurityAdvisorResponse(rsp)
+}
+
+// ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *ClientWithResponses) ExploreDataAPIWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error) {
+	rsp, err := c.ExploreDataAPIWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExploreDataAPIResponse(rsp)
+}
+
+// ExploreDataAPIWithResponse Run a data API request as anon, a user or service (the request explorer)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/services/explore (the `ExploreDataAPI` operationId).
+func (c *ClientWithResponses) ExploreDataAPIWithResponse(ctx context.Context, id ProjectID, body ExploreDataAPIJSONRequestBody, reqEditors ...RequestEditorFn) (*ExploreDataAPIResponse, error) {
+	rsp, err := c.ExploreDataAPI(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExploreDataAPIResponse(rsp)
+}
+
 // CreateAPIKeyWithBodyWithResponse Make another API key (for rotation); a secret key is shown once
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -62416,6 +63010,19 @@ func (c *ClientWithResponses) ListAPIRequestLogsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseListAPIRequestLogsResponse(rsp)
+}
+
+// GetServiceTypesWithResponse Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
+func (c *ClientWithResponses) GetServiceTypesWithResponse(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*GetServiceTypesResponse, error) {
+	rsp, err := c.GetServiceTypes(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServiceTypesResponse(rsp)
 }
 
 // UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
@@ -73026,6 +73633,72 @@ func ParseEnableBackendServicesResponse(rsp *http.Response) (*EnableBackendServi
 	return response, nil
 }
 
+// ParseGetSecurityAdvisorResponse parses an HTTP response from a GetSecurityAdvisorWithResponse call
+func ParseGetSecurityAdvisorResponse(rsp *http.Response) (*GetSecurityAdvisorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSecurityAdvisorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdvisorFindings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExploreDataAPIResponse parses an HTTP response from a ExploreDataAPIWithResponse call
+func ParseExploreDataAPIResponse(rsp *http.Response) (*ExploreDataAPIResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExploreDataAPIResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ExploreResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateAPIKeyResponse parses an HTTP response from a CreateAPIKeyWithResponse call
 func ParseCreateAPIKeyResponse(rsp *http.Response) (*CreateAPIKeyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -73113,6 +73786,32 @@ func ParseListAPIRequestLogsResponse(rsp *http.Response) (*ListAPIRequestLogsRes
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetServiceTypesResponse parses an HTTP response from a GetServiceTypesWithResponse call
+func ParseGetServiceTypesResponse(rsp *http.Response) (*GetServiceTypesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServiceTypesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

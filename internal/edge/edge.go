@@ -9,6 +9,7 @@
 package edge
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
@@ -16,6 +17,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"net/netip"
 	"net/url"
 	"strconv"
@@ -397,4 +400,24 @@ func (e *Edge) WithRequest(ctx context.Context, p *project, req Request, fn func
 		}
 		return fn(tx)
 	})
+}
+
+// Explore serves one data API request for the project pc as role with
+// claims, without a key or the rate limits: pgdock-server's request
+// explorer. The project's pool is kept between calls.
+func (e *Edge) Explore(ctx context.Context, pc edgeapi.Project, role string, claims map[string]any, method, path string, body []byte) (int, http.Header, []byte) {
+	e.apply([]edgeapi.Project{pc})
+	p := e.lookup(pc.Ref)
+	rec := httptest.NewRecorder()
+	if p == nil {
+		rec.WriteHeader(http.StatusNotFound)
+		return rec.Code, rec.Header(), nil
+	}
+	r := httptest.NewRequestWithContext(ctx, method, "http://"+pc.Ref+".explorer"+path, bytes.NewReader(body))
+	if len(body) > 0 {
+		r.Header.Set("Content-Type", "application/json")
+	}
+	c := &call{id: newRequestID(), start: time.Now(), w: &recorder{ResponseWriter: rec}, r: r, p: p, role: role}
+	e.route(c, Request{Role: role, Claims: claims, Timeout: time.Duration(p.cfg.Settings.StatementTimeoutMs) * time.Millisecond})
+	return rec.Code, rec.Header(), rec.Body.Bytes()
 }

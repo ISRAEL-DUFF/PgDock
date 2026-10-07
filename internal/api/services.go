@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -58,6 +59,12 @@ func (s *Server) backendServicesOut(r *http.Request, p store.Project, svc *store
 	ref, url := svc.Ref, s.services.URL(svc.Ref, p.Region)
 	out.Enabled, out.Ref, out.Url, out.EnabledAt, out.CorsOrigins = svc.Enabled, &ref, &url, svc.EnabledAt, svc.CorsOrigins
 	out.ExposedSchemas, out.PublicTables = svc.ExposedSchemas, svc.PublicTables
+	anon, user, service := store.AnonRole(p.DbName), store.UserRole(p.DbName), store.ServiceRole(p.DbName)
+	out.Roles = &struct {
+		Anon    *string `json:"anon,omitempty"`
+		Service *string `json:"service,omitempty"`
+		User    *string `json:"user,omitempty"`
+	}{Anon: &anon, User: &user, Service: &service}
 	out.Settings = gen.BackendServicesSettings{StatementTimeoutMs: &st.StatementTimeoutMs, RatePerIp: &st.RatePerIP,
 		RatePerKey: &st.RatePerKey, AllowSecretInBrowser: &st.AllowSecretInBrowser, MaxQueryCost: &st.MaxQueryCost}
 	keys, err := store.New(s.db).ListAPIKeys(r.Context(), p.ID)
@@ -345,4 +352,88 @@ func (s *Server) EdgeWake(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetServiceTypes implements GET /api/v1/projects/{id}/services/types.
+func (s *Server) GetServiceTypes(w http.ResponseWriter, r *http.Request, id gen.ProjectID, params gen.GetServiceTypesParams) {
+	if !s.requireServices(w) {
+		return
+	}
+	p, err := store.New(s.db).GetProject(r.Context(), id)
+	if err != nil {
+		s.provisionError(w, "types", err)
+		return
+	}
+	pkg := ""
+	if params.Package != nil {
+		pkg = *params.Package
+		if !goPackageRe.MatchString(pkg) {
+			writeError(w, http.StatusBadRequest, "bad_request", "package is a Go package name")
+			return
+		}
+	}
+	src, err := s.services.Types(r.Context(), p, string(params.Lang), pkg)
+	if err != nil {
+		s.servicesError(w, "types", err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.WriteString(w, src)
+}
+
+var goPackageRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,40}$`)
+
+// GetSecurityAdvisor implements GET /api/v1/projects/{id}/services/advisor.
+func (s *Server) GetSecurityAdvisor(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	if !s.requireServices(w) {
+		return
+	}
+	p, err := store.New(s.db).GetProject(r.Context(), id)
+	if err != nil {
+		s.provisionError(w, "advisor", err)
+		return
+	}
+	fs, err := s.services.Advisor(r.Context(), p)
+	if err != nil {
+		s.servicesError(w, "advisor", err)
+		return
+	}
+	out := gen.AdvisorFindings{Items: []gen.AdvisorFinding{}}
+	for _, f := range fs {
+		g := gen.AdvisorFinding{Level: gen.AdvisorFindingLevel(f.Level), Code: f.Code, Object: f.Object, Message: f.Message}
+		if f.Fix != "" {
+			fix := f.Fix
+			g.Fix = &fix
+		}
+		out.Items = append(out.Items, g)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// ExploreDataAPI implements POST /api/v1/projects/{id}/services/explore.
+func (s *Server) ExploreDataAPI(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	if !s.requireServices(w) {
+		return
+	}
+	var req gen.ExploreRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	a.set("method", string(req.Method))
+	a.set("path", req.Path)
+	a.set("role", string(req.Role))
+	var body []byte
+	if req.Body != nil {
+		body = []byte(*req.Body)
+	}
+	res, err := s.services.Explore(r.Context(), id, string(req.Role), req.UserId, string(req.Method), req.Path, body)
+	if err != nil {
+		s.servicesError(w, "explore", err)
+		return
+	}
+	ct := res.ContentType
+	writeJSON(w, http.StatusOK, gen.ExploreResponse{Status: res.Status, ContentType: &ct, Body: res.Body})
 }

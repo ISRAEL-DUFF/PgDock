@@ -164,6 +164,27 @@ func (e AdminUserPlatformRole) Valid() bool {
 	}
 }
 
+// Defines values for AdvisorFindingLevel.
+const (
+	AdvisorFindingLevelDanger AdvisorFindingLevel = "danger"
+	AdvisorFindingLevelInfo   AdvisorFindingLevel = "info"
+	AdvisorFindingLevelWarn   AdvisorFindingLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the AdvisorFindingLevel enum.
+func (e AdvisorFindingLevel) Valid() bool {
+	switch e {
+	case AdvisorFindingLevelDanger:
+		return true
+	case AdvisorFindingLevelInfo:
+		return true
+	case AdvisorFindingLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertSeverity.
 const (
 	AlertSeverityCritical AlertSeverity = "critical"
@@ -788,6 +809,51 @@ func (e EtcdMemberStatus) Valid() bool {
 	case EtcdMemberStatusStarting:
 		return true
 	case EtcdMemberStatusUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExploreRequestMethod.
+const (
+	ExploreRequestMethodDELETE ExploreRequestMethod = "DELETE"
+	ExploreRequestMethodGET    ExploreRequestMethod = "GET"
+	ExploreRequestMethodPATCH  ExploreRequestMethod = "PATCH"
+	ExploreRequestMethodPOST   ExploreRequestMethod = "POST"
+)
+
+// Valid indicates whether the value is a known member of the ExploreRequestMethod enum.
+func (e ExploreRequestMethod) Valid() bool {
+	switch e {
+	case ExploreRequestMethodDELETE:
+		return true
+	case ExploreRequestMethodGET:
+		return true
+	case ExploreRequestMethodPATCH:
+		return true
+	case ExploreRequestMethodPOST:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExploreRequestRole.
+const (
+	ExploreRequestRoleAnon    ExploreRequestRole = "anon"
+	ExploreRequestRoleService ExploreRequestRole = "service"
+	ExploreRequestRoleUser    ExploreRequestRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the ExploreRequestRole enum.
+func (e ExploreRequestRole) Valid() bool {
+	switch e {
+	case ExploreRequestRoleAnon:
+		return true
+	case ExploreRequestRoleService:
+		return true
+	case ExploreRequestRoleUser:
 		return true
 	default:
 		return false
@@ -3368,6 +3434,27 @@ func (e GetProjectMetricsParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for GetServiceTypesParamsLang.
+const (
+	Dart GetServiceTypesParamsLang = "dart"
+	Go   GetServiceTypesParamsLang = "go"
+	Ts   GetServiceTypesParamsLang = "ts"
+)
+
+// Valid indicates whether the value is a known member of the GetServiceTypesParamsLang enum.
+func (e GetServiceTypesParamsLang) Valid() bool {
+	switch e {
+	case Dart:
+		return true
+	case Go:
+		return true
+	case Ts:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExportTableRowsParamsFormat.
 const (
 	ExportTableRowsParamsFormatCsv  ExportTableRowsParamsFormat = "csv"
@@ -3587,6 +3674,23 @@ type AdminUser struct {
 
 // AdminUserPlatformRole defines model for AdminUser.PlatformRole.
 type AdminUserPlatformRole string
+
+// AdvisorFinding defines model for AdvisorFinding.
+type AdvisorFinding struct {
+	Code    string              `json:"code"`
+	Fix     *string             `json:"fix,omitempty"`
+	Level   AdvisorFindingLevel `json:"level"`
+	Message string              `json:"message"`
+	Object  string              `json:"object"`
+}
+
+// AdvisorFindingLevel defines model for AdvisorFinding.Level.
+type AdvisorFindingLevel string
+
+// AdvisorFindings defines model for AdvisorFindings.
+type AdvisorFindings struct {
+	Items []AdvisorFinding `json:"items"`
+}
 
 // AgentRegisterRequest defines model for AgentRegisterRequest.
 type AgentRegisterRequest struct {
@@ -3837,7 +3941,14 @@ type BackendServices struct {
 	// Ref The project reference in the API hostname.
 	//
 	// Example: k7f3m2q9
-	Ref      *string                 `json:"ref,omitempty"`
+	Ref *string `json:"ref,omitempty"`
+
+	// Roles The project's request roles, for row-level security policies.
+	Roles *struct {
+		Anon    *string `json:"anon,omitempty"`
+		Service *string `json:"service,omitempty"`
+		User    *string `json:"user,omitempty"`
+	} `json:"roles,omitempty"`
 	Settings BackendServicesSettings `json:"settings"`
 
 	// Url The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
@@ -4756,6 +4867,33 @@ type EtcdReplaceRequest struct {
 // EtcdSetupRequest defines model for EtcdSetupRequest.
 type EtcdSetupRequest struct {
 	NodeIds []openapi_types.UUID `json:"node_ids"`
+}
+
+// ExploreRequest defines model for ExploreRequest.
+type ExploreRequest struct {
+	// Body The request body (JSON), for POST and PATCH.
+	Body   *string              `json:"body,omitempty"`
+	Method ExploreRequestMethod `json:"method"`
+
+	// Path Example: /data/v1/todos?select=id,title
+	Path string             `json:"path"`
+	Role ExploreRequestRole `json:"role"`
+
+	// UserId With role user, the signed-in user to act as (their id is the sub claim).
+	UserId *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// ExploreRequestMethod defines model for ExploreRequest.Method.
+type ExploreRequestMethod string
+
+// ExploreRequestRole defines model for ExploreRequest.Role.
+type ExploreRequestRole string
+
+// ExploreResponse defines model for ExploreResponse.
+type ExploreResponse struct {
+	Body        string  `json:"body"`
+	ContentType *string `json:"content_type,omitempty"`
+	Status      int     `json:"status"`
 }
 
 // Extension defines model for Extension.
@@ -8635,6 +8773,17 @@ type ListAPIRequestLogsParams struct {
 	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetServiceTypesParams defines parameters for GetServiceTypes.
+type GetServiceTypesParams struct {
+	Lang GetServiceTypesParamsLang `form:"lang" json:"lang"`
+
+	// Package Go's package name (default pgdtypes).
+	Package *string `form:"package,omitempty" json:"package,omitempty"`
+}
+
+// GetServiceTypesParamsLang defines parameters for GetServiceTypes.
+type GetServiceTypesParamsLang string
+
 // CountTableRowsParams defines parameters for CountTableRows.
 type CountTableRowsParams struct {
 	// Filter Repeatable, as for the rows.
@@ -9089,6 +9238,9 @@ type PreviewSchemaChangeJSONRequestBody = SchemaPreviewRequest
 
 // UpdateBackendServicesJSONRequestBody defines body for UpdateBackendServices for application/json ContentType.
 type UpdateBackendServicesJSONRequestBody = BackendServicesUpdate
+
+// ExploreDataAPIJSONRequestBody defines body for ExploreDataAPI for application/json ContentType.
+type ExploreDataAPIJSONRequestBody = ExploreRequest
 
 // CreateAPIKeyJSONRequestBody defines body for CreateAPIKey for application/json ContentType.
 type CreateAPIKeyJSONRequestBody = CreateApiKeyRequest
@@ -10031,6 +10183,12 @@ type ServerInterface interface {
 	// EnableBackendServices Turn backend services on; the first publishable and secret keys are returned once
 	// (POST /api/v1/projects/{id}/services)
 	EnableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+	// (GET /api/v1/projects/{id}/services/advisor)
+	GetSecurityAdvisor(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
+	// (POST /api/v1/projects/{id}/services/explore)
+	ExploreDataAPI(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// CreateAPIKey Make another API key (for rotation); a secret key is shown once
 	// (POST /api/v1/projects/{id}/services/keys)
 	CreateAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -10040,6 +10198,9 @@ type ServerInterface interface {
 	// ListAPIRequestLogs The API's request logs (7 days), newest first
 	// (GET /api/v1/projects/{id}/services/logs)
 	ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams)
+	// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+	// (GET /api/v1/projects/{id}/services/types)
+	GetServiceTypes(w http.ResponseWriter, r *http.Request, id ProjectID, params GetServiceTypesParams)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -11942,6 +12103,18 @@ func (_ Unimplemented) EnableBackendServices(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
+// (GET /api/v1/projects/{id}/services/advisor)
+func (_ Unimplemented) GetSecurityAdvisor(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
+// (POST /api/v1/projects/{id}/services/explore)
+func (_ Unimplemented) ExploreDataAPI(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CreateAPIKey Make another API key (for rotation); a secret key is shown once
 // (POST /api/v1/projects/{id}/services/keys)
 func (_ Unimplemented) CreateAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -11957,6 +12130,12 @@ func (_ Unimplemented) RevokeAPIKey(w http.ResponseWriter, r *http.Request, id P
 // ListAPIRequestLogs The API's request logs (7 days), newest first
 // (GET /api/v1/projects/{id}/services/logs)
 func (_ Unimplemented) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
+// (GET /api/v1/projects/{id}/services/types)
+func (_ Unimplemented) GetServiceTypes(w http.ResponseWriter, r *http.Request, id ProjectID, params GetServiceTypesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -19997,6 +20176,58 @@ func (siw *ServerInterfaceWrapper) EnableBackendServices(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// GetSecurityAdvisor operation middleware
+func (siw *ServerInterfaceWrapper) GetSecurityAdvisor(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSecurityAdvisor(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExploreDataAPI operation middleware
+func (siw *ServerInterfaceWrapper) ExploreDataAPI(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExploreDataAPI(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateAPIKey operation middleware
 func (siw *ServerInterfaceWrapper) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 
@@ -20104,6 +20335,61 @@ func (siw *ServerInterfaceWrapper) ListAPIRequestLogs(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAPIRequestLogs(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetServiceTypes operation middleware
+func (siw *ServerInterfaceWrapper) GetServiceTypes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetServiceTypesParams
+
+	// ------------- Required query parameter "lang" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "lang", r.URL.Query(), &params.Lang, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "lang"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "lang", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "package" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "package", r.URL.Query(), &params.Package, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "package"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "package", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServiceTypes(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -22389,6 +22675,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/logs", wrapper.ListAPIRequestLogs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/types", wrapper.GetServiceTypes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/advisor", wrapper.GetSecurityAdvisor)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/services/explore", wrapper.ExploreDataAPI)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/edge/config", wrapper.EdgeConfig)
