@@ -1085,6 +1085,37 @@ export const api = {
     request<Incident>("PATCH", `/api/v1/incidents/${id}`, b),
   postIncidentUpdate: (id: string, b: S["IncidentUpdateRequest"]) =>
     request<Incident>("POST", `/api/v1/incidents/${id}/updates`, b),
+  // Backend services (V4 §2).
+  backendServices: (id: string) =>
+    getJSON<S["BackendServices"]>(`/api/v1/projects/${id}/services`),
+  enableBackendServices: (id: string) =>
+    request<S["BackendServicesEnabled"]>(
+      "POST",
+      `/api/v1/projects/${id}/services`,
+    ),
+  disableBackendServices: (id: string) =>
+    request<Operation>("DELETE", `/api/v1/projects/${id}/services`),
+  updateBackendServices: (id: string, b: S["BackendServicesUpdate"]) =>
+    request<S["BackendServices"]>(
+      "PATCH",
+      `/api/v1/projects/${id}/services`,
+      b,
+    ),
+  createAPIKey: (id: string, b: S["CreateApiKeyRequest"]) =>
+    request<S["CreatedApiKey"]>(
+      "POST",
+      `/api/v1/projects/${id}/services/keys`,
+      b,
+    ),
+  revokeAPIKey: (id: string, keyId: string) =>
+    request<S["ApiKey"]>(
+      "DELETE",
+      `/api/v1/projects/${id}/services/keys/${keyId}`,
+    ),
+  apiRequestLogs: (id: string, before?: number) =>
+    getJSON<S["ApiRequestLogList"]>(
+      `/api/v1/projects/${id}/services/logs${qs({ before, limit: 100 })}`,
+    ),
   maintenanceAnnouncements: () =>
     getJSON<S["MaintenanceAnnouncementList"]>(
       "/api/v1/admin/maintenance/announcements",

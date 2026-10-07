@@ -233,6 +233,16 @@ func (a *App) commands() []command {
 			{name: "transfer", summary: "Show the bank account to transfer to", run: (*App).billingTransfer},
 			{name: "payments", summary: "List payments received", run: (*App).billingPayments},
 		}},
+		{name: "services", summary: "Backend services: the project's data API, auth, storage and realtime", sub: []command{
+			{name: "status", summary: "URL and keys: status <p>", run: (*App).servicesStatus},
+			{name: "enable", summary: "Turn on (prints the first keys once): enable <p>", run: (*App).servicesEnable},
+			{name: "disable", summary: "Turn off (keys revoked): disable <p>", run: (*App).servicesDisable},
+		}},
+		{name: "keys", summary: "Backend services' API keys", sub: []command{
+			{name: "list", summary: "List: list <p>", run: (*App).keysList},
+			{name: "create", summary: "create <p> --name … [--kind publishable|secret]", run: (*App).keysCreate},
+			{name: "revoke", summary: "Revoke: revoke <p> <key id>", run: (*App).keysRevoke},
+		}},
 		{name: "tokens", summary: "API tokens", sub: []command{
 			{name: "list", summary: "List your tokens", run: (*App).tokensList},
 			{name: "create", summary: "create --name … --scopes read,write [--project <p>] [--expires 90d]", run: (*App).tokensCreate},

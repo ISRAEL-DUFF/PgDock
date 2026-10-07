@@ -5,6 +5,20 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V4 (on feature/pgdock4)
+- Backend services' edge foundation (V4-M28): a project can turn on backend
+  services (Project → Settings → API, `pgdock services enable`) and gets an
+  API hostname, `https://<ref>.<domain>`, with a publishable key for apps
+  and a secret key for servers. `pgdock-edge`, a new binary run in each
+  region, serves them: it checks the key (and a signed-in user's ES256
+  token) against that project only, applies the allowed origins and rate
+  limits, and runs each request in one transaction through the pooler as
+  the project's anon, user or service role. Requests are metered
+  (`api_requests`, `api_egress_gb`) and logged for 7 days.
+  `GET /data/v1/health` is the first endpoint; the data API, auth, storage
+  and realtime follow. See docs/backend-services.md.
+- New migration 00036 (backend services).
+
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a
   rack, host or power feed); servers PGDock creates on Hetzner go into a
