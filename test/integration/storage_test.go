@@ -282,7 +282,7 @@ func TestStorage(t *testing.T) {
 		var out struct {
 			Items []json.RawMessage `json:"items"`
 		}
-		if json.Unmarshal(r.Body, &out); r.Code != 200 || len(out.Items) != tc.n {
+		if _ = json.Unmarshal(r.Body, &out); r.Code != 200 || len(out.Items) != tc.n {
 			t.Fatalf("list: %s", r)
 		}
 	}
@@ -296,7 +296,7 @@ func TestStorage(t *testing.T) {
 	var signed struct {
 		SignedURL string `json:"signed_url"`
 	}
-	if json.Unmarshal(r.Body, &signed); r.Code != 200 || signed.SignedURL == "" {
+	if _ = json.Unmarshal(r.Body, &signed); r.Code != 200 || signed.SignedURL == "" {
 		t.Fatalf("sign: %s", r)
 	}
 	if r := anon.json("POST", "/storage/v1/object/sign/avatars/"+sp.aliceID.String()+"/me.png", `{}`, bob); r.Code != 404 {
@@ -333,7 +333,7 @@ func TestStorage(t *testing.T) {
 	var up struct {
 		URL string `json:"url"`
 	}
-	if json.Unmarshal(r.Body, &up); r.Code != 200 || up.URL == "" {
+	if _ = json.Unmarshal(r.Body, &up); r.Code != 200 || up.URL == "" {
 		t.Fatalf("sign an upload: %s", r)
 	}
 	uu, _ := url.Parse(up.URL)
@@ -424,7 +424,7 @@ func TestStorage(t *testing.T) {
 	})
 	r = anon.json("DELETE", "/storage/v1/object/avatars", fmt.Sprintf(`{"paths":["%s/moved.png","%s/via-url.png","%s/none.png"]}`, sp.aliceID, sp.aliceID, sp.aliceID), alice)
 	var gone []json.RawMessage
-	if json.Unmarshal(r.Body, &gone); r.Code != 200 || len(gone) != 2 {
+	if _ = json.Unmarshal(r.Body, &gone); r.Code != 200 || len(gone) != 2 {
 		t.Fatalf("bulk delete: %s", r)
 	}
 	if r := admin.do("DELETE", "/storage/v1/bucket/site", nil, ""); r.Code != 409 || r.Error.Code != "bucket_not_empty" {
@@ -522,7 +522,7 @@ func TestStorageLargeUpload(t *testing.T) {
 			URL    string `json:"url"`
 		} `json:"parts"`
 	}
-	if json.Unmarshal(r.Body, &start); r.Code != 200 || len(start.Parts) == 0 {
+	if _ = json.Unmarshal(r.Body, &start); r.Code != 200 || len(start.Parts) == 0 {
 		t.Fatalf("start: %s", r)
 	}
 	// The bytes: a deterministic stream, hashed as it goes.

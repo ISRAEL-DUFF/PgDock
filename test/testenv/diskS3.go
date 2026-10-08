@@ -214,11 +214,10 @@ func (d *DiskS3) get(w http.ResponseWriter, r *http.Request, bucket, key string)
 	if rng := r.Header.Get("Range"); rng != "" {
 		spec := strings.TrimPrefix(rng, "bytes=")
 		a, b, _ := strings.Cut(spec, "-")
-		switch {
-		case a == "":
+		if a == "" {
 			n, _ := strconv.ParseInt(b, 10, 64)
 			start = max(0, size-n)
-		default:
+		} else {
 			start, _ = strconv.ParseInt(a, 10, 64)
 			if b != "" {
 				end, _ = strconv.ParseInt(b, 10, 64)
