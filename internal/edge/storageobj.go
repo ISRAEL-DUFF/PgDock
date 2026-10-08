@@ -26,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/pgdock/internal/files"
 	"github.com/israel-duff/pgdock/internal/storage"
 )
 
@@ -45,8 +46,6 @@ type Object struct {
 	version      uuid.UUID
 }
 
-const objectCols = `id, bucket, path, version, size, mime_type, etag, checksum, owner, user_metadata, created_at, updated_at`
-
 func scanObject(row pgx.Row) (*Object, error) {
 	var o Object
 	if err := row.Scan(&o.ID, &o.Bucket, &o.Path, &o.version, &o.Size, &o.MIMEType, &o.ETag, &o.Checksum, &o.Owner,
@@ -59,7 +58,7 @@ func scanObject(row pgx.Row) (*Object, error) {
 // getObject reads bucket/path in q's transaction (as its role: policies
 // decide whether the row is there); nil when it isn't.
 func getObject(ctx context.Context, q pgx.Tx, bucket, path string) (*Object, error) {
-	o, err := scanObject(q.QueryRow(ctx, `SELECT `+objectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
+	o, err := scanObject(q.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -258,7 +257,7 @@ func (e *Edge) edgeObject(ctx context.Context, p *project, bucket, path string) 
 	if err != nil {
 		return nil, err
 	}
-	o, err := scanObject(pool.QueryRow(ctx, `SELECT `+objectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
+	o, err := scanObject(pool.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -300,19 +299,6 @@ type upload struct {
 	upsert       bool
 }
 
-// insertSQL writes u's row; on conflict it replaces the object (upsert) or
-// fails with a unique violation.
-func insertSQL(upsert bool) string {
-	s := `INSERT INTO pgd_storage.objects (bucket, path, version, size, mime_type, etag, checksum, owner, user_metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	if upsert {
-		s += ` ON CONFLICT (bucket, path) DO UPDATE SET version = EXCLUDED.version, size = EXCLUDED.size,
-		  mime_type = EXCLUDED.mime_type, etag = EXCLUDED.etag, checksum = EXCLUDED.checksum, owner = EXCLUDED.owner,
-		  user_metadata = EXCLUDED.user_metadata, updated_at = now()`
-	}
-	return s + ` RETURNING ` + objectCols
-}
-
 func (u upload) args() []any {
 	md := u.metadata
 	if len(md) == 0 {
@@ -329,7 +315,7 @@ var errDryRun = errors.New("dry run")
 func (e *Edge) mayWrite(ctx context.Context, c *call, req Request, u upload) error {
 	u.version, u.etag, u.size = uuid.New(), "pending", max(u.size, 0)
 	err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
-		if _, err := scanObject(tx.QueryRow(ctx, insertSQL(u.upsert), u.args()...)); err != nil {
+		if _, err := scanObject(tx.QueryRow(ctx, files.InsertSQL(u.upsert), u.args()...)); err != nil {
 			return err
 		}
 		return errDryRun
@@ -349,7 +335,7 @@ func (e *Edge) commit(ctx context.Context, c *call, req *Request, sc *edgeapi.St
 	if req != nil {
 		err = e.asRole(ctx, c, *req, func(tx pgx.Tx) error {
 			var err error
-			o, err = scanObject(tx.QueryRow(ctx, insertSQL(u.upsert), u.args()...))
+			o, err = scanObject(tx.QueryRow(ctx, files.InsertSQL(u.upsert), u.args()...))
 			return err
 		})
 	} else {
@@ -357,7 +343,7 @@ func (e *Edge) commit(ctx context.Context, c *call, req *Request, sc *edgeapi.St
 			QueryRow(context.Context, string, ...any) pgx.Row
 		}
 		if pool, err = e.dbPool(ctx, c.p); err == nil {
-			o, err = scanObject(pool.QueryRow(ctx, insertSQL(u.upsert), u.args()...))
+			o, err = scanObject(pool.QueryRow(ctx, files.InsertSQL(u.upsert), u.args()...))
 		}
 	}
 	if err != nil {
@@ -406,52 +392,20 @@ func uploadLimit(sc *edgeapi.StorageConfig, b *Bucket, ceiling int64) int64 {
 	return limit
 }
 
-// mimeFor decides an upload's type from what it declares and what its first
-// bytes are: a declared image, video or audio type that the bytes contradict
-// is refused (MIME spoofing, V4 §13).
+// mimeFor decides an upload's type (files.DetectMIME) as an API error.
 func mimeFor(declared string, head []byte) (string, error) {
-	declared = strings.ToLower(strings.TrimSpace(declared))
-	if t, _, err := mime.ParseMediaType(declared); err == nil {
-		declared = t
-	} else {
-		declared = ""
-	}
-	sniffed, _, _ := mime.ParseMediaType(http.DetectContentType(head))
-	if declared == "" || declared == "application/octet-stream" {
-		if len(head) == 0 {
-			return "application/octet-stream", nil
-		}
-		return sniffed, nil
-	}
-	top, _, _ := strings.Cut(declared, "/")
-	stop, _, _ := strings.Cut(sniffed, "/")
-	if (top == "image" || top == "video" || top == "audio") && len(head) > 0 && sniffed != "application/octet-stream" && stop != top {
-		// SVG sniffs as XML or text.
-		if declared != "image/svg+xml" || (sniffed != "text/xml" && sniffed != "text/plain") {
-			return "", refuse(http.StatusBadRequest, "mime_mismatch", fmt.Sprintf("the file is declared %s but its contents are %s", declared, sniffed))
-		}
-	}
-	if !mimeTypeRe.MatchString(declared) {
+	t, err := files.DetectMIME(declared, head)
+	switch {
+	case errors.Is(err, files.ErrMIMEMismatch):
+		return "", refuse(http.StatusBadRequest, "mime_mismatch", strings.TrimPrefix(err.Error(), files.ErrMIMEMismatch.Error()+": "))
+	case err != nil:
 		return "", refuse(http.StatusBadRequest, "invalid_mime_type", "the Content-Type isn't a valid MIME type")
 	}
-	return declared, nil
+	return t, nil
 }
-
-var mimeTypeRe = regexp.MustCompile(`^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$`)
 
 // mimeAllowed checks a type against a bucket's list (empty: any).
-func mimeAllowed(b *Bucket, t string) bool {
-	if len(b.AllowedMIMETypes) == 0 {
-		return true
-	}
-	top, _, _ := strings.Cut(t, "/")
-	for _, a := range b.AllowedMIMETypes {
-		if a == t || a == top+"/*" || a == "*/*" {
-			return true
-		}
-	}
-	return false
-}
+func mimeAllowed(b *Bucket, t string) bool { return files.MIMEAllowed(b.AllowedMIMETypes, t) }
 
 // metadataFrom parses user metadata (a JSON object, at most 8 KB).
 func metadataFrom(raw string) (json.RawMessage, error) {
@@ -652,10 +606,6 @@ type listInput struct {
 	Recursive bool   `json:"recursive"`
 }
 
-func likePrefix(p string) string {
-	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(p) + "%"
-}
-
 // list answers a bucket's objects the caller may see, a folder at a time
 // (or every path under a prefix with recursive).
 func (e *Edge) list(c *call, req Request, bucket string, in listInput) {
@@ -666,7 +616,7 @@ func (e *Edge) list(c *call, req Request, bucket string, in listInput) {
 	if prefix != "" && !strings.HasSuffix(prefix, "/") && !in.Recursive {
 		prefix += "/"
 	}
-	if len(prefix) > maxPath || !utf8.ValidString(prefix) {
+	if len(prefix) > files.MaxPath || !utf8.ValidString(prefix) {
 		c.fail(http.StatusBadRequest, "invalid_prefix", "the prefix isn't a valid path")
 		return
 	}
@@ -676,8 +626,8 @@ func (e *Edge) list(c *call, req Request, bucket string, in listInput) {
 	next := ""
 	err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
 		if in.Recursive {
-			rows, err := tx.Query(ctx, `SELECT `+objectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path LIKE $2 ESCAPE '\'
-				AND path > $3 ORDER BY path LIMIT $4`, bucket, likePrefix(prefix), in.Cursor, in.Limit+1)
+			rows, err := tx.Query(ctx, `SELECT `+files.ObjectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path LIKE $2 ESCAPE '\'
+				AND path > $3 ORDER BY path LIMIT $4`, bucket, files.LikePrefix(prefix), in.Cursor, in.Limit+1)
 			if err != nil {
 				return err
 			}
@@ -710,21 +660,8 @@ func (e *Edge) list(c *call, req Request, bucket string, in listInput) {
 			}
 			curName, curFolder = cur.N, cur.F
 		}
-		rows, err := tx.Query(ctx, `SELECT name, folder,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(id))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(version))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(size))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(mime_type))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(etag))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(owner))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(user_metadata))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(created_at))[1] END,
-			  CASE WHEN folder THEN NULL ELSE (array_agg(updated_at))[1] END
-			FROM (SELECT split_part(substr(path, $3), '/', 1) AS name, strpos(substr(path, $3), '/') > 0 AS folder, o.*
-			      FROM pgd_storage.objects o WHERE bucket = $1 AND path LIKE $2 ESCAPE '\') x
-			WHERE (name, folder) > ($4, $5)
-			GROUP BY name, folder ORDER BY name, folder LIMIT $6`,
-			bucket, likePrefix(prefix), utf8.RuneCountInString(prefix)+1, curName, curFolder, in.Limit+1)
+		rows, err := tx.Query(ctx, files.ListFolderSQL,
+			bucket, files.LikePrefix(prefix), utf8.RuneCountInString(prefix)+1, curName, curFolder, in.Limit+1)
 		if err != nil {
 			return err
 		}
@@ -802,10 +739,10 @@ func (in *moveInput) normalize() *apiErr {
 	if in.ToBucket == "" {
 		in.ToBucket = in.Bucket
 	}
-	if !bucketRe.MatchString(in.Bucket) || !bucketRe.MatchString(in.ToBucket) {
+	if !files.BucketRe.MatchString(in.Bucket) || !files.BucketRe.MatchString(in.ToBucket) {
 		return refuse(http.StatusBadRequest, "invalid_bucket", "bucket and to_bucket must name buckets")
 	}
-	if !validPath(in.From) || !validPath(in.To) {
+	if !files.ValidPath(in.From) || !files.ValidPath(in.To) {
 		return refuse(http.StatusBadRequest, "invalid_path", "from and to must be object paths")
 	}
 	return nil
@@ -859,7 +796,7 @@ func (e *Edge) moveOrCopy(c *call, req Request, copyIt bool) {
 		err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
 			var err error
 			o, err = scanObject(tx.QueryRow(ctx, `UPDATE pgd_storage.objects SET bucket = $3, path = $4, updated_at = now()
-				WHERE bucket = $1 AND path = $2 RETURNING `+objectCols, in.Bucket, in.From, in.ToBucket, in.To))
+				WHERE bucket = $1 AND path = $2 RETURNING `+files.ObjectCols, in.Bucket, in.From, in.ToBucket, in.To))
 			if errors.Is(err, pgx.ErrNoRows) {
 				return refuse(http.StatusForbidden, "not_allowed", "the project's storage policies don't allow moving this object")
 			}
@@ -904,7 +841,7 @@ func (e *Edge) remove(c *call, req Request, bucket string, paths []string, singl
 		return
 	}
 	for _, p := range paths {
-		if !validPath(p) {
+		if !files.ValidPath(p) {
 			c.fail(http.StatusBadRequest, "invalid_path", "not an object path: "+p)
 			return
 		}
@@ -913,7 +850,7 @@ func (e *Edge) remove(c *call, req Request, bucket string, paths []string, singl
 	defer cancel()
 	deleted := []*Object{}
 	err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `DELETE FROM pgd_storage.objects WHERE bucket = $1 AND path = ANY($2) RETURNING `+objectCols, bucket, paths)
+		rows, err := tx.Query(ctx, `DELETE FROM pgd_storage.objects WHERE bucket = $1 AND path = ANY($2) RETURNING `+files.ObjectCols, bucket, paths)
 		if err != nil {
 			return err
 		}
@@ -1015,7 +952,7 @@ func (e *Edge) collect(ctx context.Context, p *project) (int, error) {
 					if err := cl.Delete(ctx, objectKey(sc, v)); err != nil {
 						return err
 					}
-					if _, err := cl.DeletePrefix(ctx, sc.Prefix+"transforms/"+v.String()); err != nil {
+					if _, err := cl.DeletePrefix(ctx, files.TransformsPrefix(sc.Prefix, v)); err != nil {
 						return err
 					}
 				}

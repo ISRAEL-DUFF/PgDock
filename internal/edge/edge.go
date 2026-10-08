@@ -120,7 +120,7 @@ type project struct {
 	db      *dbconn
 	catalog *catalogState
 	// files is the object store client, kept while the store is the same.
-	files *files
+	files *fileStore
 }
 
 // exposed are the schemas the data API serves.
@@ -304,7 +304,7 @@ func (e *Edge) apply(ps []edgeapi.Project) {
 			}
 		}
 		if pc.Storage != nil {
-			np.files = &files{}
+			np.files = &fileStore{}
 		}
 		if old != nil {
 			np.catalog = old.catalog

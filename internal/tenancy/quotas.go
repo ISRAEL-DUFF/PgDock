@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -304,6 +306,26 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 	if err != nil {
 		return nil, o, err
 	}
+	// Backend services' files (V4 §10): what the sweep measured, and this
+	// month's downloads and image renders.
+	fileRows, err := q.OrgFileBytes(ctx, orgID)
+	if err != nil {
+		return nil, o, err
+	}
+	var fileBytes float64
+	for _, f := range fileRows {
+		fileBytes += float64(f.Bytes)
+	}
+	month := time.Now().UTC()
+	month = time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, time.UTC)
+	egress, err := q.OrgUsageSince(ctx, store.OrgUsageSinceParams{OrgID: orgID, Metric: MetricStorageEgress, Since: month})
+	if err != nil {
+		return nil, o, err
+	}
+	renders, err := q.OrgUsageSince(ctx, store.OrgUsageSinceParams{OrgID: orgID, Metric: MetricImageTransforms, Since: month})
+	if err != nil {
+		return nil, o, err
+	}
 	s.consoleMu.Lock()
 	console := s.console[orgID]
 	s.consoleMu.Unlock()
@@ -315,6 +337,9 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 		store.LimitOperationsInFlight: float64(ops),
 		store.LimitConsoleQueries:     float64(console),
 		store.LimitBackupStorageMB:    backups / (1 << 20),
+		store.LimitFileStorageMB:      fileBytes / (1 << 20),
+		store.LimitStorageEgressMBMo:  numericValue(egress) * 1000,
+		store.LimitImageTransformsMo:  numericValue(renders),
 	}
 	var out []Quota
 	for _, k := range store.LimitKeys {
@@ -325,4 +350,12 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 		out = append(out, qt)
 	}
 	return out, o, nil
+}
+
+func numericValue(n pgtype.Numeric) float64 {
+	f, err := n.Float64Value()
+	if err != nil || !f.Valid {
+		return 0
+	}
+	return f.Float64
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/pgdock/internal/files"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
@@ -193,7 +194,7 @@ func (s *Service) storageConfig(ctx context.Context, r store.EdgeConfigChangesRo
 }
 
 // FilesPrefix is where a project's files are in its region's object store.
-func FilesPrefix(ref string) string { return "files/" + ref + "/" }
+func FilesPrefix(ref string) string { return files.Prefix(ref) }
 
 // storageSecret signs a project's file URLs.
 func (s *Service) storageSecret(ref string) []byte {
@@ -274,6 +275,18 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 			if u.EgressBytes > 0 {
 				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricAPIEgress,
 					PeriodStart: hour, Quantity: gbNumeric(u.EgressBytes), PlanID: o.PlanID}); err != nil {
+					return err
+				}
+			}
+			if u.StorageEgressBytes > 0 {
+				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricStorageEgress,
+					PeriodStart: hour, Quantity: gbNumeric(u.StorageEgressBytes), PlanID: o.PlanID}); err != nil {
+					return err
+				}
+			}
+			if u.Transforms > 0 {
+				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricImageTransforms,
+					PeriodStart: hour, Quantity: intNumeric(u.Transforms), PlanID: o.PlanID}); err != nil {
 					return err
 				}
 			}

@@ -17,6 +17,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/edge"
 	"github.com/israel-duff/pgdock/internal/services"
+	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
@@ -609,4 +611,224 @@ func (p *prng) Read(b []byte) (int, error) {
 		p.left -= int64(k)
 	}
 	return n, nil
+}
+
+// fakePurger records CDN purges.
+type fakePurger struct {
+	mu       sync.Mutex
+	prefixes []string
+}
+
+func (f *fakePurger) PurgePrefixes(_ context.Context, ps []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.prefixes = append(f.prefixes, ps...)
+	return nil
+}
+
+func (f *fakePurger) has(s string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, p := range f.prefixes {
+		if strings.Contains(p, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestStorageSweep covers storage's control plane (V4 §5.6, §10): the
+// dashboard's buckets and files, metering (storage GB-hours, download
+// egress, image transforms), the organisation's file quota and monthly
+// transform allowance reaching the edge, removal of bytes deleted from SQL,
+// the reconciler's orphans and missing files, CDN purges, and a deleted
+// project's files going after the retention.
+func TestStorageSweep(t *testing.T) {
+	sp := newStorageProject(t, "files-ops", false)
+	e, ctx := sp.e, context.Background()
+	purger := &fakePurger{}
+	e.Services.CDN = purger
+	base := "/api/v1/projects/" + sp.pid.String() + "/files"
+
+	// ---- The dashboard: buckets and files --------------------------------------
+	var b gen.StorageBucket
+	if code := e.Do("POST", base+"/buckets", gen.StorageBucketInput{Id: "docs", Public: ptr(true)}, &b); code != 201 || !b.Public {
+		t.Fatalf("create docs: %d %+v", code, b)
+	}
+	if code := e.Do("POST", base+"/buckets", gen.StorageBucketInput{Id: "Bad Name"}, nil); code != 400 {
+		t.Fatalf("a bad bucket id: %d", code)
+	}
+	code, raw := e.DoBytes("PUT", base+"/buckets/docs/object?path="+url.QueryEscape("guides/start.txt"), "text/plain", []byte("hello, files"))
+	if code != 200 {
+		t.Fatalf("upload: %d %s", code, raw)
+	}
+	logo := pngOf(t, 64, 64)
+	if code, raw := e.DoBytes("PUT", base+"/buckets/docs/object?path=logo.png", "image/png", logo); code != 200 {
+		t.Fatalf("upload logo: %d %s", code, raw)
+	}
+	var list gen.StorageObjectList
+	if code := e.Do("GET", base+"/buckets/docs/objects", nil, &list); code != 200 || len(list.Items) != 2 || !list.Items[0].Folder ||
+		list.Items[0].Name != "guides" || list.Items[1].Object == nil || list.Items[1].Object.MimeType != "image/png" {
+		t.Fatalf("list: %d %+v", code, list)
+	}
+	if code, raw := e.DoBytes("GET", base+"/buckets/docs/object?path="+url.QueryEscape("guides/start.txt"), "", nil); code != 200 || string(raw) != "hello, files" {
+		t.Fatalf("download: %d %s", code, raw)
+	}
+	var signed struct {
+		SignedURL string `json:"signed_url"`
+	}
+	if code := e.Do("POST", base+"/buckets/docs/sign", map[string]any{"path": "guides/start.txt"}, &signed); code != 200 {
+		t.Fatalf("sign: %d", code)
+	}
+	su, _ := url.Parse(signed.SignedURL)
+	keyless := files{t: t, ed: sp.ed, ref: sp.ref}
+	if r := keyless.do("GET", su.RequestURI(), nil, ""); r.Code != 200 || string(r.Body) != "hello, files" {
+		t.Fatalf("the dashboard's signed URL at the edge: %s", r)
+	}
+
+	// ---- Metering --------------------------------------------------------------
+	if r := keyless.do("GET", "/storage/v1/public/docs/logo.png", nil, ""); r.Code != 200 {
+		t.Fatalf("public download: %s", r)
+	}
+	if r := keyless.do("GET", "/storage/v1/render/docs/logo.png?width=32", nil, ""); r.Code != 200 || r.Header.Get("X-Cache") != "MISS" {
+		t.Fatalf("public render: %d %v", r.Code, r.Header)
+	}
+	sp.ed.Flush(ctx)
+	if err := e.Services.StorageSweep(ctx); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	var egress, renders, gbHours float64
+	if err := e.DB.QueryRow(ctx, `SELECT
+		coalesce(sum(quantity) FILTER (WHERE metric = 'storage_egress_gb'), 0)::float8,
+		coalesce(sum(quantity) FILTER (WHERE metric = 'image_transforms'), 0)::float8,
+		coalesce(sum(quantity) FILTER (WHERE metric = 'storage_gb_hours'), 0)::float8
+		FROM usage_records WHERE project_id = $1`, sp.pid).Scan(&egress, &renders, &gbHours); err != nil {
+		t.Fatal(err)
+	}
+	if egress <= 0 || renders != 1 || gbHours <= 0 {
+		t.Fatalf("metered: egress %v GB, %v transforms, %v GB-hours", egress, renders, gbHours)
+	}
+	var st gen.StorageOverview
+	if code := e.Do("GET", base, nil, &st); code != 200 || st.Objects != 2 || st.Bytes != int64(len(logo))+12 || len(st.Buckets) != 1 ||
+		st.Buckets[0].Objects != 2 {
+		t.Fatalf("overview: %d %+v", code, st)
+	}
+
+	// ---- Quotas reach the edge -------------------------------------------------
+	if _, err := e.DB.Exec(ctx, `UPDATE organizations SET limit_overrides = limit_overrides || '{"file_storage_mb": 1, "image_transforms_per_month": 1}'
+		WHERE id = (SELECT org_id FROM projects WHERE id = $1)`, sp.pid); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Services.StorageSweep(ctx); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	big := make([]byte, 1<<20)
+	copy(big, "big file")
+	waitFor(t, 20*time.Second, "the file quota reaches the edge", func() bool {
+		r := sp.admin.do("POST", "/storage/v1/object/docs/big.bin", bytes.NewReader(big), "", "Content-Type", "application/octet-stream")
+		return r.Code == 413 && r.Error.Code == "quota_exceeded"
+	})
+	if r := keyless.do("GET", "/storage/v1/render/docs/logo.png?width=32", nil, ""); r.Code != 200 || r.Header.Get("X-Cache") != "HIT" {
+		t.Fatalf("a cached render past the allowance: %d %v", r.Code, r.Header)
+	}
+	if r := keyless.do("GET", "/storage/v1/render/docs/logo.png?width=16", nil, ""); r.Code != 429 || r.Error.Code != "transform_limit" {
+		t.Fatalf("a new render past the allowance: %s", r)
+	}
+
+	// ---- Bytes deleted from SQL go with the sweep ------------------------------------
+	before := len(objectKeys(t, sp))
+	adm := sp.adminConn(t)
+	defer adm.Close(ctx)
+	if _, err := adm.Exec(ctx, `DELETE FROM pgd_storage.objects WHERE bucket = 'docs' AND path = 'guides/start.txt'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Services.StorageSweep(ctx); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if n := len(objectKeys(t, sp)); n != before-1 {
+		t.Fatalf("keys after a SQL delete and a sweep: %d, want %d", n, before-1)
+	}
+
+	// ---- The reconciler: orphans go, missing bytes are reported ----------------------
+	fc, err := storage.New(e.S3.Target("pgdock-test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphan := "pgdock/" + services.FilesPrefix(sp.ref) + "objects/" + uuid.NewString()
+	if _, err := fc.Put(ctx, orphan, strings.NewReader("orphan"), 6, "text/plain"); err != nil {
+		t.Fatal(err)
+	}
+	var logoVersion uuid.UUID
+	if err := adm.QueryRow(ctx, `SELECT version FROM pgd_storage.objects WHERE path = 'logo.png'`).Scan(&logoVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := fc.Delete(ctx, "pgdock/"+services.FilesPrefix(sp.ref)+"objects/"+logoVersion.String()); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Services.ReconcileStorageNow(ctx, sp.pid); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	for _, k := range objectKeys(t, sp) {
+		if strings.HasSuffix(orphan, k) || k == orphan {
+			t.Fatalf("the orphan %s is still there", k)
+		}
+	}
+	if code := e.Do("GET", base, nil, &st); code != 200 || st.MissingObjects != 1 || len(st.MissingSample) != 1 || st.MissingSample[0] != "docs/logo.png" {
+		t.Fatalf("missing bytes: %d %+v", code, st)
+	}
+
+	// ---- A bucket made private leaves the CDN's cache -----------------------------
+	if code := e.Do("PATCH", base+"/buckets/docs", gen.StorageBucketUpdate{Public: ptr(false)}, &b); code != 200 || b.Public {
+		t.Fatalf("make docs private: %d %+v", code, b)
+	}
+	if !purger.has(sp.ref + "." + testenv.EdgeDomain + "/storage/v1/public/docs/") {
+		t.Fatalf("no purge: %v", purger.prefixes)
+	}
+	if r := sp.admin.json("POST", "/storage/v1/bucket", `{"id":"pics","public":true}`, ""); r.Code != 201 {
+		t.Fatalf("create pics: %s", r)
+	}
+	if r := sp.admin.json("PUT", "/storage/v1/bucket/pics", `{"public":false}`, ""); r.Code != 200 {
+		t.Fatalf("make pics private at the edge: %s", r)
+	}
+	waitFor(t, 10*time.Second, "the edge's storage event purges the CDN", func() bool {
+		return purger.has("/storage/v1/public/pics/")
+	})
+
+	// ---- A deleted project's files go after the final backups' retention -----------
+	if code := e.Do("DELETE", base+"/buckets/docs", nil, nil); code != 409 {
+		t.Fatalf("delete a bucket with files: %d", code)
+	}
+	if code := e.Do("DELETE", base+"/buckets/docs?empty=true", nil, nil); code != 204 {
+		t.Fatalf("delete with empty: %d", code)
+	}
+	if code, raw := e.DoBytes("PUT", base+"/buckets/pics/object?path=keep.txt", "text/plain", []byte("kept for 30 days")); code != 200 {
+		t.Fatalf("upload: %d %s", code, raw)
+	}
+	var op gen.Operation
+	if code := e.Do("DELETE", "/api/v1/projects/"+sp.pid.String()+"?skip_final_backup=true&confirm=files-ops", nil, &op); code != http.StatusAccepted {
+		t.Fatalf("delete the project: %d", code)
+	}
+	if op := e.WaitOperation(op.Id); op.Status != gen.OperationStatusSucceeded {
+		t.Fatalf("delete: %s\n%s", op.Status, testenv.FormatLog(op))
+	}
+	if err := e.Services.StorageSweep(ctx); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	var notBefore time.Time
+	if err := e.DB.QueryRow(ctx, `SELECT not_before FROM storage_cleanups WHERE project_id = $1`, sp.pid).Scan(&notBefore); err != nil ||
+		time.Until(notBefore) < 29*24*time.Hour {
+		t.Fatalf("clean-up scheduled for %v: %v", notBefore, err)
+	}
+	if len(objectKeys(t, sp)) == 0 {
+		t.Fatal("the files went before the retention")
+	}
+	if _, err := e.DB.Exec(ctx, `UPDATE storage_cleanups SET not_before = now() WHERE project_id = $1`, sp.pid); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Services.StorageSweep(ctx); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if keys := objectKeys(t, sp); len(keys) != 0 {
+		t.Fatalf("a deleted project's files after the retention: %v", keys)
+	}
 }

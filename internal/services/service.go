@@ -84,8 +84,13 @@ type Service struct {
 	Outbound *outbound.Service
 	// Files resolves the object store for files of projects in a region
 	// (V4 §5.1); nil turns storage off.
-	Files     func(ctx context.Context, region string, residency bool) (storage.Target, error)
-	emailKick chan struct{}
+	Files func(ctx context.Context, region string, residency bool) (storage.Target, error)
+	// CDN purges public files when their bucket goes private (V4 §5.4).
+	CDN CDNPurger
+	// StorageGrace is how long replaced and deleted files' bytes stay for
+	// downloads in flight (a minute by default; tests shorten it).
+	StorageGrace time.Duration
+	emailKick    chan struct{}
 }
 
 // New returns the service.
@@ -759,7 +764,23 @@ func (s *Service) Reconcile(ctx context.Context) error {
 func (s *Service) Run(ctx context.Context, every time.Duration) {
 	t := time.NewTicker(every)
 	defer t.Stop()
+	var swept, reconciled time.Time
 	for {
+		if time.Since(swept) >= StorageSweepEvery {
+			if err := s.StorageSweep(ctx); err != nil && ctx.Err() == nil {
+				s.log.Warn("storage sweep", "err", err)
+			}
+			swept = time.Now()
+		}
+		if time.Since(reconciled) >= ReconcileStorageEvery {
+			// The first run waits a sweep, so a restart doesn't reconcile.
+			if !reconciled.IsZero() {
+				if err := s.ReconcileStorage(ctx); err != nil && ctx.Err() == nil {
+					s.log.Warn("storage reconcile", "err", err)
+				}
+			}
+			reconciled = time.Now()
+		}
 		if err := s.Reconcile(ctx); err != nil && ctx.Err() == nil {
 			s.log.Warn("backend services reconcile", "err", err)
 		}

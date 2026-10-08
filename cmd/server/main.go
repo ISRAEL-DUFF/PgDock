@@ -38,6 +38,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/capacity"
+	"github.com/israel-duff/pgdock/internal/cdn"
 	"github.com/israel-duff/pgdock/internal/cloud"
 	"github.com/israel-duff/pgdock/internal/config"
 	"github.com/israel-duff/pgdock/internal/console"
@@ -391,6 +392,9 @@ func run() error {
 		servicesSvc.Phone = platformPhone(cfg)
 		if backups != nil {
 			servicesSvc.Files = backups.FilesTarget
+		}
+		if cfg.CDN.On() {
+			servicesSvc.CDN = cdn.Cloudflare{ZoneID: cfg.CDN.CloudflareZoneID, Token: cfg.CDN.CloudflareToken}
 		}
 		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, 15*time.Second) }()
 	}

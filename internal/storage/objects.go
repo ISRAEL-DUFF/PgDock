@@ -250,6 +250,9 @@ func (c *Client) Multiparts(ctx context.Context, rel string) ([]Upload, error) {
 	for {
 		res, err := c.s3.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{Bucket: aws.String(c.t.Bucket), Prefix: aws.String(prefix),
 			KeyMarker: keyMarker, UploadIdMarker: idMarker})
+		if err != nil && notFound(err) {
+			return out, nil // some stores answer so when there are none
+		}
 		if err != nil {
 			return nil, fmt.Errorf("list uploads: %w", err)
 		}

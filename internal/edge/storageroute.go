@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/israel-duff/pgdock/internal/files"
 )
 
 // Storage routes (V4 §5.2). Paths follow the spec, with the Supabase
@@ -119,7 +121,7 @@ func (e *Edge) storageRoute(c *call, req Request) {
 			e.signUpload(c, req, b, p)
 		}
 	case m == http.MethodPost && cut(rest, &tail, "object/sign/", "sign/"):
-		if !strings.Contains(tail, "/") && bucketRe.MatchString(tail) {
+		if !strings.Contains(tail, "/") && files.BucketRe.MatchString(tail) {
 			e.signDownload(c, req, tail, "")
 			return
 		}
@@ -127,7 +129,7 @@ func (e *Edge) storageRoute(c *call, req Request) {
 			e.signDownload(c, req, b, p)
 		}
 	case get && cut(rest, &tail, "list/"):
-		if !bucketRe.MatchString(tail) {
+		if !files.BucketRe.MatchString(tail) {
 			c.fail(http.StatusBadRequest, "invalid_bucket", "the URL must name a bucket")
 			return
 		}
@@ -135,7 +137,7 @@ func (e *Edge) storageRoute(c *call, req Request) {
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		e.list(c, req, tail, listInput{Prefix: q.Get("prefix"), Cursor: q.Get("cursor"), Limit: limit, Recursive: q.Get("recursive") == "true"})
 	case m == http.MethodPost && cut(rest, &tail, "object/list/"):
-		if !bucketRe.MatchString(tail) {
+		if !files.BucketRe.MatchString(tail) {
 			c.fail(http.StatusBadRequest, "invalid_bucket", "the URL must name a bucket")
 			return
 		}
@@ -155,7 +157,7 @@ func (e *Edge) storageRoute(c *call, req Request) {
 			tail = strings.TrimPrefix(tail, "authenticated/")
 		}
 		if !strings.Contains(tail, "/") && m == http.MethodDelete {
-			if !bucketRe.MatchString(tail) {
+			if !files.BucketRe.MatchString(tail) {
 				c.fail(http.StatusBadRequest, "invalid_bucket", "the URL must name a bucket")
 				return
 			}

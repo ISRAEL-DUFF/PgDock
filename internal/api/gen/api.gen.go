@@ -7962,6 +7962,89 @@ type SqlStatementResult struct {
 	Truncated bool `json:"truncated"`
 }
 
+// StorageBucket defines model for StorageBucket.
+type StorageBucket struct {
+	AllowedMimeTypes []string  `json:"allowed_mime_types"`
+	Bytes            int64     `json:"bytes"`
+	CacheSeconds     int       `json:"cache_seconds"`
+	CreatedAt        time.Time `json:"created_at"`
+	FileSizeLimit    *int64    `json:"file_size_limit,omitempty"`
+	Id               string    `json:"id"`
+	Objects          int64     `json:"objects"`
+	Public           bool      `json:"public"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// StorageBucketInput defines model for StorageBucketInput.
+type StorageBucketInput struct {
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+	CacheSeconds     *int      `json:"cache_seconds,omitempty"`
+	FileSizeLimit    *int64    `json:"file_size_limit,omitempty"`
+	Id               string    `json:"id"`
+	Public           *bool     `json:"public,omitempty"`
+}
+
+// StorageBucketUpdate defines model for StorageBucketUpdate.
+type StorageBucketUpdate struct {
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+	CacheSeconds     *int      `json:"cache_seconds,omitempty"`
+
+	// FileSizeLimit Bytes; null removes the bucket's limit
+	FileSizeLimit *int64 `json:"file_size_limit,omitempty"`
+	Public        *bool  `json:"public,omitempty"`
+}
+
+// StorageEntry defines model for StorageEntry.
+type StorageEntry struct {
+	Folder bool           `json:"folder"`
+	Name   string         `json:"name"`
+	Object *StorageObject `json:"object,omitempty"`
+	Path   string         `json:"path"`
+}
+
+// StorageObject defines model for StorageObject.
+type StorageObject struct {
+	Bucket    string              `json:"bucket"`
+	Checksum  *string             `json:"checksum,omitempty"`
+	CreatedAt time.Time           `json:"created_at"`
+	Etag      string              `json:"etag"`
+	Id        openapi_types.UUID  `json:"id"`
+	MimeType  string              `json:"mime_type"`
+	Owner     *openapi_types.UUID `json:"owner,omitempty"`
+	Path      string              `json:"path"`
+	Size      int64               `json:"size"`
+	UpdatedAt time.Time           `json:"updated_at"`
+}
+
+// StorageObjectList defines model for StorageObjectList.
+type StorageObjectList struct {
+	Items      []StorageEntry `json:"items"`
+	NextCursor *string        `json:"next_cursor,omitempty"`
+}
+
+// StorageOverview defines model for StorageOverview.
+type StorageOverview struct {
+	Buckets []StorageBucket `json:"buckets"`
+	Bytes   int64           `json:"bytes"`
+
+	// EgressBlocked The month's file download allowance is used up
+	EgressBlocked bool       `json:"egress_blocked"`
+	MeasuredAt    *time.Time `json:"measured_at,omitempty"`
+
+	// MissingObjects Files whose data the nightly reconciler couldn't find
+	MissingObjects int      `json:"missing_objects"`
+	MissingSample  []string `json:"missing_sample"`
+	Objects        int64    `json:"objects"`
+
+	// QuotaBytes What the project's files may add up to (its organisation's quota less its other projects'); null is unlimited
+	QuotaBytes   *int64     `json:"quota_bytes,omitempty"`
+	ReconciledAt *time.Time `json:"reconciled_at,omitempty"`
+
+	// TransformsBlocked The month's image transforms are used up
+	TransformsBlocked bool  `json:"transforms_blocked"`
+	UploadMaxBytes    int64 `json:"upload_max_bytes"`
+}
+
 // StorageRequest defines model for StorageRequest.
 type StorageRequest struct {
 	AccessKey string `json:"access_key"`
@@ -8758,6 +8841,9 @@ type AuditTarget = string
 // BackupID defines model for BackupID.
 type BackupID = openapi_types.UUID
 
+// BucketID defines model for BucketID.
+type BucketID = string
+
 // IncidentID defines model for IncidentID.
 type IncidentID = openapi_types.UUID
 
@@ -8787,6 +8873,9 @@ type MetricRange string
 
 // NodeID defines model for NodeID.
 type NodeID = openapi_types.UUID
+
+// ObjectPath defines model for ObjectPath.
+type ObjectPath = string
 
 // OperationID defines model for OperationID.
 type OperationID = openapi_types.UUID
@@ -9066,6 +9155,9 @@ type EdgeConfigParams struct {
 // EdgeReportJSONBody defines parameters for EdgeReport.
 type EdgeReportJSONBody map[string]interface{}
 
+// EdgeStorageEventJSONBody defines parameters for EdgeStorageEvent.
+type EdgeStorageEventJSONBody map[string]interface{}
+
 // EdgeWakeJSONBody defines parameters for EdgeWake.
 type EdgeWakeJSONBody map[string]interface{}
 
@@ -9208,6 +9300,42 @@ type ListAuthUsersParams struct {
 	Q       *string `form:"q,omitempty" json:"q,omitempty"`
 	Page    *int    `form:"page,omitempty" json:"page,omitempty"`
 	PerPage *int    `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
+// DeleteStorageBucketParams defines parameters for DeleteStorageBucket.
+type DeleteStorageBucketParams struct {
+	Empty *bool `form:"empty,omitempty" json:"empty,omitempty"`
+}
+
+// DownloadStorageObjectParams defines parameters for DownloadStorageObject.
+type DownloadStorageObjectParams struct {
+	// Path The file's path in the bucket
+	Path ObjectPath `form:"path" json:"path"`
+}
+
+// UploadStorageObjectParams defines parameters for UploadStorageObject.
+type UploadStorageObjectParams struct {
+	// Path The file's path in the bucket
+	Path ObjectPath `form:"path" json:"path"`
+}
+
+// DeleteStorageObjectsJSONBody defines parameters for DeleteStorageObjects.
+type DeleteStorageObjectsJSONBody struct {
+	Paths []string `json:"paths"`
+}
+
+// ListStorageObjectsParams defines parameters for ListStorageObjects.
+type ListStorageObjectsParams struct {
+	Prefix *string `form:"prefix,omitempty" json:"prefix,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SignStorageObjectJSONBody defines parameters for SignStorageObject.
+type SignStorageObjectJSONBody struct {
+	// ExpiresIn Seconds (1 hour by default, at most 7 days)
+	ExpiresIn *int   `json:"expires_in,omitempty"`
+	Path      string `json:"path"`
 }
 
 // ListInsightQueriesParams defines parameters for ListInsightQueries.
@@ -9562,6 +9690,9 @@ type EdgeAuthMessageJSONRequestBody EdgeAuthMessageJSONBody
 // EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
 type EdgeReportJSONRequestBody EdgeReportJSONBody
 
+// EdgeStorageEventJSONRequestBody defines body for EdgeStorageEvent for application/json ContentType.
+type EdgeStorageEventJSONRequestBody EdgeStorageEventJSONBody
+
 // EdgeWakeJSONRequestBody defines body for EdgeWake for application/json ContentType.
 type EdgeWakeJSONRequestBody EdgeWakeJSONBody
 
@@ -9693,6 +9824,18 @@ type DemotePreflightJSONRequestBody = DemoteRequest
 
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
+
+// CreateStorageBucketJSONRequestBody defines body for CreateStorageBucket for application/json ContentType.
+type CreateStorageBucketJSONRequestBody = StorageBucketInput
+
+// UpdateStorageBucketJSONRequestBody defines body for UpdateStorageBucket for application/json ContentType.
+type UpdateStorageBucketJSONRequestBody = StorageBucketUpdate
+
+// DeleteStorageObjectsJSONRequestBody defines body for DeleteStorageObjects for application/json ContentType.
+type DeleteStorageObjectsJSONRequestBody DeleteStorageObjectsJSONBody
+
+// SignStorageObjectJSONRequestBody defines body for SignStorageObject for application/json ContentType.
+type SignStorageObjectJSONRequestBody SignStorageObjectJSONBody
 
 // UpdateProjectHAJSONRequestBody defines body for UpdateProjectHA for application/json ContentType.
 type UpdateProjectHAJSONRequestBody = HAUpdateRequest
@@ -10218,6 +10361,9 @@ type ServerInterface interface {
 	// EdgeReport pgdock-edge's usage and request logs (signed; internal)
 	// (POST /api/v1/edge/report)
 	EdgeReport(w http.ResponseWriter, r *http.Request)
+	// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// (POST /api/v1/edge/storage-event)
+	EdgeStorageEvent(w http.ResponseWriter, r *http.Request)
 	// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
 	// (POST /api/v1/edge/wake)
 	EdgeWake(w http.ResponseWriter, r *http.Request)
@@ -10599,6 +10745,33 @@ type ServerInterface interface {
 	// EnableProjectExtension Enable an allow-listed extension
 	// (POST /api/v1/projects/{id}/extensions)
 	EnableProjectExtension(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetProjectFiles The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets
+	// (GET /api/v1/projects/{id}/files)
+	GetProjectFiles(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateStorageBucket Create a bucket
+	// (POST /api/v1/projects/{id}/files/buckets)
+	CreateStorageBucket(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteStorageBucket Delete a bucket (empty, or with empty=true its files first)
+	// (DELETE /api/v1/projects/{id}/files/buckets/{bucket})
+	DeleteStorageBucket(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params DeleteStorageBucketParams)
+	// UpdateStorageBucket Change a bucket's settings (making it private purges its files from the CDN)
+	// (PATCH /api/v1/projects/{id}/files/buckets/{bucket})
+	UpdateStorageBucket(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID)
+	// DownloadStorageObject Download a file
+	// (GET /api/v1/projects/{id}/files/buckets/{bucket}/object)
+	DownloadStorageObject(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params DownloadStorageObjectParams)
+	// UploadStorageObject Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type.
+	// (PUT /api/v1/projects/{id}/files/buckets/{bucket}/object)
+	UploadStorageObject(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params UploadStorageObjectParams)
+	// DeleteStorageObjects Delete files, or folders with everything under them
+	// (DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects)
+	DeleteStorageObjects(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID)
+	// ListStorageObjects A folder of a bucket - its files and subfolders
+	// (GET /api/v1/projects/{id}/files/buckets/{bucket}/objects)
+	ListStorageObjects(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params ListStorageObjectsParams)
+	// SignStorageObject A signed download URL for a file
+	// (POST /api/v1/projects/{id}/files/buckets/{bucket}/sign)
+	SignStorageObject(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID)
 	// DisableProjectHA Turn HA off (the standby is removed)
 	// (DELETE /api/v1/projects/{id}/ha)
 	DisableProjectHA(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -11706,6 +11879,12 @@ func (_ Unimplemented) EdgeReport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// (POST /api/v1/edge/storage-event)
+func (_ Unimplemented) EdgeStorageEvent(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
 // (POST /api/v1/edge/wake)
 func (_ Unimplemented) EdgeWake(w http.ResponseWriter, r *http.Request) {
@@ -12465,6 +12644,60 @@ func (_ Unimplemented) ListProjectExtensions(w http.ResponseWriter, r *http.Requ
 // EnableProjectExtension Enable an allow-listed extension
 // (POST /api/v1/projects/{id}/extensions)
 func (_ Unimplemented) EnableProjectExtension(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProjectFiles The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets
+// (GET /api/v1/projects/{id}/files)
+func (_ Unimplemented) GetProjectFiles(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateStorageBucket Create a bucket
+// (POST /api/v1/projects/{id}/files/buckets)
+func (_ Unimplemented) CreateStorageBucket(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteStorageBucket Delete a bucket (empty, or with empty=true its files first)
+// (DELETE /api/v1/projects/{id}/files/buckets/{bucket})
+func (_ Unimplemented) DeleteStorageBucket(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params DeleteStorageBucketParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateStorageBucket Change a bucket's settings (making it private purges its files from the CDN)
+// (PATCH /api/v1/projects/{id}/files/buckets/{bucket})
+func (_ Unimplemented) UpdateStorageBucket(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DownloadStorageObject Download a file
+// (GET /api/v1/projects/{id}/files/buckets/{bucket}/object)
+func (_ Unimplemented) DownloadStorageObject(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params DownloadStorageObjectParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UploadStorageObject Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type.
+// (PUT /api/v1/projects/{id}/files/buckets/{bucket}/object)
+func (_ Unimplemented) UploadStorageObject(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params UploadStorageObjectParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteStorageObjects Delete files, or folders with everything under them
+// (DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects)
+func (_ Unimplemented) DeleteStorageObjects(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListStorageObjects A folder of a bucket - its files and subfolders
+// (GET /api/v1/projects/{id}/files/buckets/{bucket}/objects)
+func (_ Unimplemented) ListStorageObjects(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID, params ListStorageObjectsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SignStorageObject A signed download URL for a file
+// (POST /api/v1/projects/{id}/files/buckets/{bucket}/sign)
+func (_ Unimplemented) SignStorageObject(w http.ResponseWriter, r *http.Request, id ProjectID, bucket BucketID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -16155,6 +16388,20 @@ func (siw *ServerInterfaceWrapper) EdgeReport(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// EdgeStorageEvent operation middleware
+func (siw *ServerInterfaceWrapper) EdgeStorageEvent(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EdgeStorageEvent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EdgeWake operation middleware
 func (siw *ServerInterfaceWrapper) EdgeWake(w http.ResponseWriter, r *http.Request) {
 
@@ -19795,6 +20042,393 @@ func (siw *ServerInterfaceWrapper) EnableProjectExtension(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.EnableProjectExtension(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectFiles operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectFiles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectFiles(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateStorageBucket operation middleware
+func (siw *ServerInterfaceWrapper) CreateStorageBucket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateStorageBucket(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteStorageBucket operation middleware
+func (siw *ServerInterfaceWrapper) DeleteStorageBucket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket BucketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", chi.URLParam(r, "bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteStorageBucketParams
+
+	// ------------- Optional query parameter "empty" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "empty", r.URL.Query(), &params.Empty, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "empty"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "empty", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteStorageBucket(w, r, id, bucket, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateStorageBucket operation middleware
+func (siw *ServerInterfaceWrapper) UpdateStorageBucket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket BucketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", chi.URLParam(r, "bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateStorageBucket(w, r, id, bucket)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadStorageObject operation middleware
+func (siw *ServerInterfaceWrapper) DownloadStorageObject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket BucketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", chi.URLParam(r, "bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadStorageObjectParams
+
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadStorageObject(w, r, id, bucket, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadStorageObject operation middleware
+func (siw *ServerInterfaceWrapper) UploadStorageObject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket BucketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", chi.URLParam(r, "bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UploadStorageObjectParams
+
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadStorageObject(w, r, id, bucket, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteStorageObjects operation middleware
+func (siw *ServerInterfaceWrapper) DeleteStorageObjects(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket BucketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", chi.URLParam(r, "bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteStorageObjects(w, r, id, bucket)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStorageObjects operation middleware
+func (siw *ServerInterfaceWrapper) ListStorageObjects(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket BucketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", chi.URLParam(r, "bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListStorageObjectsParams
+
+	// ------------- Optional query parameter "prefix" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "prefix", r.URL.Query(), &params.Prefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "prefix"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "prefix", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStorageObjects(w, r, id, bucket, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SignStorageObject operation middleware
+func (siw *ServerInterfaceWrapper) SignStorageObject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket BucketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", chi.URLParam(r, "bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SignStorageObject(w, r, id, bucket)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -23828,6 +24462,36 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/edge/auth-hook", wrapper.EdgeAuthHook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/edge/storage-event", wrapper.EdgeStorageEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/files", wrapper.GetProjectFiles)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/files/buckets", wrapper.CreateStorageBucket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/files/buckets/{bucket}", wrapper.DeleteStorageBucket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/files/buckets/{bucket}", wrapper.UpdateStorageBucket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/files/buckets/{bucket}/objects", wrapper.DeleteStorageObjects)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/files/buckets/{bucket}/objects", wrapper.ListStorageObjects)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/files/buckets/{bucket}/object", wrapper.DownloadStorageObject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/files/buckets/{bucket}/object", wrapper.UploadStorageObject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/files/buckets/{bucket}/sign", wrapper.SignStorageObject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/auth/hooks", wrapper.ListAuthHookDeliveries)

@@ -75,6 +75,8 @@ var actionScope = map[Action]string{
 	ServicesLogs:       ScopeRead,
 	AuthUsers:          ScopeRead,
 	AuthUsersManage:    ScopeWrite,
+	FilesView:          ScopeRead,
+	FilesManage:        ScopeWrite,
 	ProjectMembers:     ScopeAdmin,
 	ProjectPromote:     ScopeAdmin,
 	ProjectDelete:      ScopeAdmin,
@@ -182,6 +184,10 @@ const (
 	// ServicesManage.
 	AuthUsers       Action = "project.auth_users"        // developer
 	AuthUsersManage Action = "project.auth_users_manage" // developer
+	// FilesView browses and downloads the project's stored files (V4 §5);
+	// FilesManage uploads, deletes and changes buckets.
+	FilesView   Action = "project.files"        // developer
+	FilesManage Action = "project.files_manage" // developer
 	// ProjectExport downloads a project's data (a backup as a pg_dump
 	// archive, V2 §10.10): organisation owners only, and like any project
 	// action invisible to those who can't see the project.
@@ -208,6 +214,8 @@ var projectMin = map[Action]string{
 	ServicesLogs:       ProjectDeveloper,
 	AuthUsers:          ProjectDeveloper,
 	AuthUsersManage:    ProjectDeveloper,
+	FilesView:          ProjectDeveloper,
+	FilesManage:        ProjectDeveloper,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,
 	ProjectDelete:      ProjectAdmin,

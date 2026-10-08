@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const activeJWTKey = `-- name: ActiveJWTKey :one
@@ -73,6 +74,41 @@ func (q *Queries) CreateProjectServices(ctx context.Context, arg CreateProjectSe
 		&i.TransformsBlocked,
 	)
 	return i, err
+}
+
+const dueStorageCleanups = `-- name: DueStorageCleanups :many
+SELECT id, project_id, region, prefix, residency, not_before, attempts, last_error, created_at FROM storage_cleanups WHERE not_before <= now() AND attempts < 50 ORDER BY not_before LIMIT 20
+`
+
+// tenant: system - the storage sweep: deleted projects' files due to go.
+func (q *Queries) DueStorageCleanups(ctx context.Context) ([]StorageCleanup, error) {
+	rows, err := q.db.Query(ctx, dueStorageCleanups)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StorageCleanup
+	for rows.Next() {
+		var i StorageCleanup
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Region,
+			&i.Prefix,
+			&i.Residency,
+			&i.NotBefore,
+			&i.Attempts,
+			&i.LastError,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const edgeAPIKeys = `-- name: EdgeAPIKeys :many
@@ -244,6 +280,31 @@ func (q *Queries) EdgeJWTKeys(ctx context.Context, projectIds []uuid.UUID) ([]Ed
 	return items, nil
 }
 
+const failStorageCleanup = `-- name: FailStorageCleanup :exec
+UPDATE storage_cleanups SET attempts = attempts + 1, last_error = $1, not_before = now() + interval '1 hour' WHERE id = $2
+`
+
+type FailStorageCleanupParams struct {
+	LastError *string
+	ID        uuid.UUID
+}
+
+// tenant: system - the storage sweep: a clean-up to retry later.
+func (q *Queries) FailStorageCleanup(ctx context.Context, arg FailStorageCleanupParams) error {
+	_, err := q.db.Exec(ctx, failStorageCleanup, arg.LastError, arg.ID)
+	return err
+}
+
+const finishStorageCleanup = `-- name: FinishStorageCleanup :exec
+UPDATE storage_cleanups SET attempts = attempts + 1, last_error = NULL, not_before = 'infinity' WHERE id = $1
+`
+
+// tenant: system - the storage sweep: a deleted project's files are gone (the row stays as the record it was done).
+func (q *Queries) FinishStorageCleanup(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, finishStorageCleanup, id)
+	return err
+}
+
 const getProjectServices = `-- name: GetProjectServices :one
 
 SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked FROM project_services WHERE project_id = $1
@@ -275,6 +336,27 @@ func (q *Queries) GetProjectServices(ctx context.Context, projectID uuid.UUID) (
 		&i.UploadMaxBytes,
 		&i.StorageEgressBlocked,
 		&i.TransformsBlocked,
+	)
+	return i, err
+}
+
+const getProjectStorage = `-- name: GetProjectStorage :one
+SELECT project_id, bytes, objects, measured_at, missing_objects, missing_sample, orphans_removed, reconciled_at FROM project_storage WHERE project_id = $1
+`
+
+// tenant: system - a project the request already authorized: its measured files.
+func (q *Queries) GetProjectStorage(ctx context.Context, projectID uuid.UUID) (ProjectStorage, error) {
+	row := q.db.QueryRow(ctx, getProjectStorage, projectID)
+	var i ProjectStorage
+	err := row.Scan(
+		&i.ProjectID,
+		&i.Bytes,
+		&i.Objects,
+		&i.MeasuredAt,
+		&i.MissingObjects,
+		&i.MissingSample,
+		&i.OrphansRemoved,
+		&i.ReconciledAt,
 	)
 	return i, err
 }
@@ -430,6 +512,55 @@ func (q *Queries) ListAPIKeys(ctx context.Context, projectID uuid.UUID) ([]Proje
 		return nil, err
 	}
 	return items, nil
+}
+
+const orgFileBytes = `-- name: OrgFileBytes :many
+SELECT ps.project_id, ps.bytes FROM project_storage ps JOIN projects p ON p.id = ps.project_id
+WHERE p.org_id = $1 AND p.deleted_at IS NULL
+`
+
+type OrgFileBytesRow struct {
+	ProjectID uuid.UUID
+	Bytes     int64
+}
+
+// tenant: system - the storage sweep: each live project's measured files in an organisation.
+func (q *Queries) OrgFileBytes(ctx context.Context, orgID uuid.UUID) ([]OrgFileBytesRow, error) {
+	rows, err := q.db.Query(ctx, orgFileBytes, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrgFileBytesRow
+	for rows.Next() {
+		var i OrgFileBytesRow
+		if err := rows.Scan(&i.ProjectID, &i.Bytes); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const orgUsageSince = `-- name: OrgUsageSince :one
+SELECT coalesce(sum(quantity), 0)::numeric FROM usage_records WHERE org_id = $1 AND metric = $2 AND period_start >= $3
+`
+
+type OrgUsageSinceParams struct {
+	OrgID  uuid.UUID
+	Metric string
+	Since  time.Time
+}
+
+// tenant: system - the storage sweep: an organisation's use of a metric since a point (this month).
+func (q *Queries) OrgUsageSince(ctx context.Context, arg OrgUsageSinceParams) (pgtype.Numeric, error) {
+	row := q.db.QueryRow(ctx, orgUsageSince, arg.OrgID, arg.Metric, arg.Since)
+	var column_1 pgtype.Numeric
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const poolerEdgeUsers = `-- name: PoolerEdgeUsers :many
@@ -714,6 +845,23 @@ func (q *Queries) RevokeProjectAPIKeys(ctx context.Context, projectID uuid.UUID)
 	return err
 }
 
+const scheduleStorageCleanups = `-- name: ScheduleStorageCleanups :execrows
+INSERT INTO storage_cleanups (project_id, region, prefix, residency, not_before)
+SELECT p.id, p.region, 'files/' || s.ref || '/', p.data_residency, coalesce(p.deleted_at, now()) + make_interval(days => $1::int)
+FROM project_services s JOIN projects p ON p.id = s.project_id
+WHERE s.schema_version >= 4 AND p.status = 'deleted'
+  AND NOT EXISTS (SELECT 1 FROM storage_cleanups c WHERE c.project_id = p.id)
+`
+
+// tenant: system - the storage sweep: deleted projects' files go after the final backups' retention (V2 §10.10).
+func (q *Queries) ScheduleStorageCleanups(ctx context.Context, keepDays int32) (int64, error) {
+	result, err := q.db.Exec(ctx, scheduleStorageCleanups, keepDays)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const servicesToReconcile = `-- name: ServicesToReconcile :many
 SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM project_services s JOIN projects p ON p.id = s.project_id
 WHERE s.enabled AND p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active'
@@ -853,6 +1001,147 @@ func (q *Queries) SetServicesRoles(ctx context.Context, arg SetServicesRolesPara
 	return err
 }
 
+const setStorageLimits = `-- name: SetStorageLimits :execrows
+UPDATE project_services SET storage_quota_bytes = $1, upload_max_bytes = $2,
+  storage_egress_blocked = $3, transforms_blocked = $4
+WHERE project_id = $5 AND (storage_quota_bytes IS DISTINCT FROM $1 OR upload_max_bytes IS DISTINCT FROM $2
+  OR storage_egress_blocked <> $3 OR transforms_blocked <> $4)
+`
+
+type SetStorageLimitsParams struct {
+	QuotaBytes        *int64
+	UploadMaxBytes    *int64
+	EgressBlocked     bool
+	TransformsBlocked bool
+	ProjectID         uuid.UUID
+}
+
+// tenant: system - the storage sweep: what the edge enforces, changed only when it differs (a change moves the feed).
+func (q *Queries) SetStorageLimits(ctx context.Context, arg SetStorageLimitsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setStorageLimits,
+		arg.QuotaBytes,
+		arg.UploadMaxBytes,
+		arg.EgressBlocked,
+		arg.TransformsBlocked,
+		arg.ProjectID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setStorageReconciled = `-- name: SetStorageReconciled :exec
+INSERT INTO project_storage (project_id, missing_objects, missing_sample, orphans_removed, reconciled_at)
+VALUES ($1, $2, $3, $4, now())
+ON CONFLICT (project_id) DO UPDATE SET missing_objects = EXCLUDED.missing_objects, missing_sample = EXCLUDED.missing_sample,
+  orphans_removed = project_storage.orphans_removed + EXCLUDED.orphans_removed, reconciled_at = now()
+`
+
+type SetStorageReconciledParams struct {
+	ProjectID      uuid.UUID
+	MissingObjects int32
+	MissingSample  []string
+	OrphansRemoved int64
+}
+
+// tenant: system - the nightly storage reconciler's findings.
+func (q *Queries) SetStorageReconciled(ctx context.Context, arg SetStorageReconciledParams) error {
+	_, err := q.db.Exec(ctx, setStorageReconciled,
+		arg.ProjectID,
+		arg.MissingObjects,
+		arg.MissingSample,
+		arg.OrphansRemoved,
+	)
+	return err
+}
+
+const storageProjects = `-- name: StorageProjects :many
+SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until, s.ref, s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked
+FROM project_services s JOIN projects p ON p.id = s.project_id
+WHERE s.enabled AND s.schema_version >= 4 AND p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active'
+ORDER BY p.org_id, p.id
+`
+
+type StorageProjectsRow struct {
+	Project              Project
+	Ref                  string
+	StorageQuotaBytes    *int64
+	UploadMaxBytes       *int64
+	StorageEgressBlocked bool
+	TransformsBlocked    bool
+}
+
+// tenant: system - the storage sweep: running projects with backend services' storage.
+func (q *Queries) StorageProjects(ctx context.Context) ([]StorageProjectsRow, error) {
+	rows, err := q.db.Query(ctx, storageProjects)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StorageProjectsRow
+	for rows.Next() {
+		var i StorageProjectsRow
+		if err := rows.Scan(
+			&i.Project.ID,
+			&i.Project.Name,
+			&i.Project.Slug,
+			&i.Project.DbName,
+			&i.Project.OwnerRole,
+			&i.Project.ScramVerifier,
+			&i.Project.Tier,
+			&i.Project.InstanceID,
+			&i.Project.Status,
+			&i.Project.Settings,
+			&i.Project.StorageTargetID,
+			&i.Project.Extensions,
+			&i.Project.Description,
+			&i.Project.CreatedBy,
+			&i.Project.CreatedAt,
+			&i.Project.DeletedAt,
+			&i.Project.OrgID,
+			&i.Project.AliasDbName,
+			&i.Project.LegacyOwnerRole,
+			&i.Project.LegacyScramVerifier,
+			&i.Project.LegacyUntil,
+			&i.Project.StorageState,
+			&i.Project.StorageStateAt,
+			&i.Project.BackupKeyID,
+			&i.Project.ParentProjectID,
+			&i.Project.BranchSource,
+			&i.Project.BranchSchemaOnly,
+			&i.Project.ExpiresAt,
+			&i.Project.ExpiryNotifiedAt,
+			&i.Project.BranchBackups,
+			&i.Project.SensitiveData,
+			&i.Project.ProbeVerifier,
+			&i.Project.Lifecycle,
+			&i.Project.LastActiveAt,
+			&i.Project.PauseWarnedAt,
+			&i.Project.PausedAt,
+			&i.Project.ArchivedAt,
+			&i.Project.ArchiveBackupID,
+			&i.Project.ArchiveNoticeDays,
+			&i.Project.Region,
+			&i.Project.DataResidency,
+			&i.Project.ForwardRegion,
+			&i.Project.ForwardUntil,
+			&i.Ref,
+			&i.StorageQuotaBytes,
+			&i.UploadMaxBytes,
+			&i.StorageEgressBlocked,
+			&i.TransformsBlocked,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const touchAPIKeys = `-- name: TouchAPIKeys :exec
 UPDATE project_api_keys SET last_used_at = greatest(coalesce(last_used_at, '-infinity'), $1::timestamptz)
 WHERE id = ANY($2::uuid[])
@@ -916,4 +1205,21 @@ func (q *Queries) UpdateServicesSettings(ctx context.Context, arg UpdateServices
 		&i.TransformsBlocked,
 	)
 	return i, err
+}
+
+const upsertProjectStorage = `-- name: UpsertProjectStorage :exec
+INSERT INTO project_storage (project_id, bytes, objects, measured_at) VALUES ($1, $2, $3, now())
+ON CONFLICT (project_id) DO UPDATE SET bytes = EXCLUDED.bytes, objects = EXCLUDED.objects, measured_at = now()
+`
+
+type UpsertProjectStorageParams struct {
+	ProjectID uuid.UUID
+	Bytes     int64
+	Objects   int64
+}
+
+// tenant: system - the storage sweep's measurement.
+func (q *Queries) UpsertProjectStorage(ctx context.Context, arg UpsertProjectStorageParams) error {
+	_, err := q.db.Exec(ctx, upsertProjectStorage, arg.ProjectID, arg.Bytes, arg.Objects)
+	return err
 }

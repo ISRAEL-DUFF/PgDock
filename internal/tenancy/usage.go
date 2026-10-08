@@ -41,6 +41,11 @@ const (
 	// Auth codes sent over the platform's SMS and WhatsApp (V4 §6.2).
 	MetricMessagesSMS      = "messages_sms"
 	MetricMessagesWhatsApp = "messages_whatsapp"
+
+	// Backend services' storage (V4 §5, §11.1).
+	MetricStorageGBHours  = "storage_gb_hours"
+	MetricStorageEgress   = "storage_egress_gb"
+	MetricImageTransforms = "image_transforms"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.

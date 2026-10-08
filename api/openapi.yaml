@@ -3749,6 +3749,245 @@ paths:
                 additionalProperties: true
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/edge/storage-event:
+    post:
+      operationId: edgeStorageEvent
+      summary: pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+      tags: [edge]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "204":
+          description: Done.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/files:
+    get:
+      operationId: getProjectFiles
+      summary: The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageOverview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/files/buckets:
+    post:
+      operationId: createStorageBucket
+      summary: Create a bucket
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageBucketInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageBucket"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/files/buckets/{bucket}:
+    patch:
+      operationId: updateStorageBucket
+      summary: Change a bucket's settings (making it private purges its files from the CDN)
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/BucketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageBucketUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageBucket"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteStorageBucket
+      summary: Delete a bucket (empty, or with empty=true its files first)
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/BucketID"
+        - name: empty
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "204":
+          description: Deleted
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/files/buckets/{bucket}/objects:
+    get:
+      operationId: listStorageObjects
+      summary: A folder of a bucket - its files and subfolders
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/BucketID"
+        - name: prefix
+          in: query
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageObjectList"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteStorageObjects
+      summary: Delete files, or folders with everything under them
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/BucketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paths]
+              properties:
+                paths:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: integer
+                    format: int64
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/files/buckets/{bucket}/object:
+    get:
+      operationId: downloadStorageObject
+      summary: Download a file
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/BucketID"
+        - $ref: "#/components/parameters/ObjectPath"
+      responses:
+        "200":
+          description: The file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: uploadStorageObject
+      summary: Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type.
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/BucketID"
+        - $ref: "#/components/parameters/ObjectPath"
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageObject"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/files/buckets/{bucket}/sign:
+    post:
+      operationId: signStorageObject
+      summary: A signed download URL for a file
+      tags: [storage]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/BucketID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                expires_in:
+                  type: integer
+                  description: Seconds (1 hour by default, at most 7 days)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [signed_url, expires_at]
+                properties:
+                  signed_url:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/auth/hooks:
     get:
       operationId: listAuthHookDeliveries
@@ -7772,6 +8011,19 @@ components:
       schema:
         type: string
         format: uuid
+    BucketID:
+      name: bucket
+      in: path
+      required: true
+      schema:
+        type: string
+    ObjectPath:
+      name: path
+      in: query
+      required: true
+      description: The file's path in the bucket
+      schema:
+        type: string
   responses:
     Error:
       description: Error response.
@@ -9990,6 +10242,165 @@ components:
           type: string
           format: date-time
           nullable: true
+    StorageBucket:
+      type: object
+      required: [id, public, allowed_mime_types, cache_seconds, objects, bytes, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        public:
+          type: boolean
+        file_size_limit:
+          type: integer
+          format: int64
+          nullable: true
+        allowed_mime_types:
+          type: array
+          items:
+            type: string
+        cache_seconds:
+          type: integer
+        objects:
+          type: integer
+          format: int64
+        bytes:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    StorageBucketInput:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        public:
+          type: boolean
+        file_size_limit:
+          type: integer
+          format: int64
+        allowed_mime_types:
+          type: array
+          items:
+            type: string
+        cache_seconds:
+          type: integer
+    StorageBucketUpdate:
+      type: object
+      properties:
+        public:
+          type: boolean
+        file_size_limit:
+          type: integer
+          format: int64
+          nullable: true
+          description: Bytes; null removes the bucket's limit
+        allowed_mime_types:
+          type: array
+          items:
+            type: string
+        cache_seconds:
+          type: integer
+    StorageOverview:
+      type: object
+      required: [bytes, objects, upload_max_bytes, egress_blocked, transforms_blocked, missing_objects, missing_sample, buckets]
+      properties:
+        bytes:
+          type: integer
+          format: int64
+        objects:
+          type: integer
+          format: int64
+        quota_bytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: What the project's files may add up to (its organisation's quota less its other projects'); null is unlimited
+        upload_max_bytes:
+          type: integer
+          format: int64
+        egress_blocked:
+          type: boolean
+          description: The month's file download allowance is used up
+        transforms_blocked:
+          type: boolean
+          description: The month's image transforms are used up
+        measured_at:
+          type: string
+          format: date-time
+          nullable: true
+        missing_objects:
+          type: integer
+          description: Files whose data the nightly reconciler couldn't find
+        missing_sample:
+          type: array
+          items:
+            type: string
+        reconciled_at:
+          type: string
+          format: date-time
+          nullable: true
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageBucket"
+    StorageObject:
+      type: object
+      required: [id, bucket, path, size, mime_type, etag, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        bucket:
+          type: string
+        path:
+          type: string
+        size:
+          type: integer
+          format: int64
+        mime_type:
+          type: string
+        etag:
+          type: string
+        checksum:
+          type: string
+          nullable: true
+        owner:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    StorageEntry:
+      type: object
+      required: [name, path, folder]
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        folder:
+          type: boolean
+        object:
+          $ref: "#/components/schemas/StorageObject"
+    StorageObjectList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageEntry"
+        next_cursor:
+          type: string
     AuthHookDeliveryList:
       type: object
       required: [items]

@@ -24,6 +24,7 @@ import (
 	xdraw "golang.org/x/image/draw"
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/pgdock/internal/files"
 	"github.com/israel-duff/pgdock/internal/storage"
 )
 
@@ -38,15 +39,7 @@ const (
 	maxSide         = 2500
 )
 
-type transform struct {
-	Width   int    `json:"width,omitempty"`
-	Height  int    `json:"height,omitempty"`
-	Resize  string `json:"resize,omitempty"`  // cover (default) | contain | fill
-	Format  string `json:"format,omitempty"`  // origin (default) | webp | avif | jpeg | png
-	Quality int    `json:"quality,omitempty"` // 20–100, 80 by default
-}
-
-func (t *transform) check() *apiErr {
+func checkTransform(t *files.Transform) *apiErr {
 	switch {
 	case t.Width < 0 || t.Width > maxSide || t.Height < 0 || t.Height > maxSide:
 		return refuse(http.StatusBadRequest, "invalid_transform", fmt.Sprintf("width and height are 1–%d pixels", maxSide))
@@ -60,8 +53,8 @@ func (t *transform) check() *apiErr {
 	return nil
 }
 
-// key is the transform's part of its cache key.
-func (t transform) key() string {
+// transformKey is the transform's part of its cache key.
+func transformKey(t files.Transform) string {
 	q := t.Quality
 	if q == 0 {
 		q = 80
@@ -73,20 +66,20 @@ func (t transform) key() string {
 	return fmt.Sprintf("w%d-h%d-%s-%s-q%d", t.Width, t.Height, r, t.Format, q)
 }
 
-func transformFromQuery(c *call) (transform, *apiErr) {
+func transformFromQuery(c *call) (files.Transform, *apiErr) {
 	q := c.r.URL.Query()
 	atoi := func(k string) int {
 		n, _ := strconv.Atoi(q.Get(k))
 		return n
 	}
-	t := transform{Width: atoi("width"), Height: atoi("height"), Resize: q.Get("resize"), Format: q.Get("format"), Quality: atoi("quality")}
+	t := files.Transform{Width: atoi("width"), Height: atoi("height"), Resize: q.Get("resize"), Format: q.Get("format"), Quality: atoi("quality")}
 	if t.Resize == "" {
 		t.Resize = q.Get("fit")
 	}
 	if (q.Get("width") != "" && t.Width <= 0) || (q.Get("height") != "" && t.Height <= 0) {
 		return t, refuse(http.StatusBadRequest, "invalid_transform", fmt.Sprintf("width and height are 1–%d pixels", maxSide))
 	}
-	return t, t.check()
+	return t, checkTransform(&t)
 }
 
 type renderMode int
@@ -108,12 +101,12 @@ func (e *Edge) render(c *call, req *Request, bucket, path string, mode renderMod
 	}
 	ctx, cancel := context.WithTimeout(c.r.Context(), 2*time.Minute)
 	defer cancel()
-	var t transform
+	var t files.Transform
 	var o *Object
 	cache, public := 0, false
 	switch mode {
 	case renderSigned:
-		tok, ok := verifyToken(sc.SigningSecret, c.r.URL.Query().Get("token"), tokenGet, c.p.cfg.Ref, bucket, path, time.Now())
+		tok, ok := files.Verify(sc.SigningSecret, c.r.URL.Query().Get("token"), files.TokenGet, c.p.cfg.Ref, bucket, path, time.Now())
 		if !ok || tok.Transform == nil {
 			c.fail(http.StatusBadRequest, "invalid_signature", "the URL's token is invalid or has expired")
 			return
@@ -187,8 +180,8 @@ func (e *Edge) render(c *call, req *Request, bucket, path string, mode renderMod
 			format = "png" // a still of the first frame
 		}
 	}
-	sum := sha256.Sum256([]byte(t.key()))
-	key := sc.Prefix + "transforms/" + o.version.String() + "/" + hex.EncodeToString(sum[:16]) + "." + format
+	sum := sha256.Sum256([]byte(transformKey(t)))
+	key := files.TransformsPrefix(sc.Prefix, o.version) + "/" + hex.EncodeToString(sum[:16]) + "." + format
 	ctype := "image/" + format
 	if got, err := cl.Get(ctx, key, ""); err == nil {
 		defer got.Body.Close()
@@ -254,7 +247,7 @@ func (e *Edge) serveRender(c *call, sc *edgeapi.StorageConfig, body io.Reader, n
 }
 
 // renderImage decodes the source, resizes it and encodes it as format.
-func (e *Edge) renderImage(ctx context.Context, cl *storage.Client, src string, t transform, format string) ([]byte, error) {
+func (e *Edge) renderImage(ctx context.Context, cl *storage.Client, src string, t files.Transform, format string) ([]byte, error) {
 	obj, err := cl.Get(ctx, src, "")
 	if err != nil {
 		return nil, storeErr(err)
@@ -339,7 +332,7 @@ func decodeImage(data []byte, kind string) (image.Image, error) {
 
 // resize scales img per t, never up: cover fills the box and crops the
 // middle, contain fits inside it, fill stretches to it.
-func resize(img image.Image, t transform) image.Image {
+func resize(img image.Image, t files.Transform) image.Image {
 	b := img.Bounds()
 	sw, sh := b.Dx(), b.Dy()
 	if t.Width == 0 && t.Height == 0 || sw == 0 || sh == 0 {

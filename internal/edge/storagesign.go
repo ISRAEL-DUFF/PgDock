@@ -2,17 +2,14 @@ package edge
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/israel-duff/pgdock/internal/files"
 )
 
 // Signed URLs (V4 §5.4): a token over the project, bucket, path and expiry,
@@ -20,58 +17,10 @@ import (
 // policy query; the policies were checked when it was made.
 
 const (
-	tokenGet = "get"
-	tokenPut = "put"
-
 	defaultSignTTL = time.Hour
 	maxSignTTL     = 7 * 24 * time.Hour
 	uploadSignTTL  = 2 * time.Hour
 )
-
-type urlToken struct {
-	Kind      string     `json:"k"`
-	Ref       string     `json:"r"`
-	Bucket    string     `json:"b"`
-	Path      string     `json:"p"`
-	Exp       int64      `json:"e"`
-	Download  string     `json:"d,omitempty"`
-	Transform *transform `json:"t,omitempty"`
-	Upsert    bool       `json:"u,omitempty"`
-	Owner     *uuid.UUID `json:"o,omitempty"`
-}
-
-func signToken(secret []byte, t urlToken) string {
-	raw, _ := json.Marshal(t)
-	payload := base64.RawURLEncoding.EncodeToString(raw)
-	return payload + "." + base64.RawURLEncoding.EncodeToString(tokenMAC(secret, payload))
-}
-
-func tokenMAC(secret []byte, payload string) []byte {
-	m := hmac.New(sha256.New, secret)
-	m.Write([]byte("pgdock storage url\x00" + payload))
-	return m.Sum(nil)
-}
-
-// verifyToken checks tok is a live token of kind for ref's bucket/path.
-func verifyToken(secret []byte, tok, kind, ref, bucket, path string, now time.Time) (urlToken, bool) {
-	payload, sig, ok := strings.Cut(tok, ".")
-	if !ok {
-		return urlToken{}, false
-	}
-	got, err := base64.RawURLEncoding.DecodeString(sig)
-	if err != nil || !hmac.Equal(got, tokenMAC(secret, payload)) {
-		return urlToken{}, false
-	}
-	raw, err := base64.RawURLEncoding.DecodeString(payload)
-	if err != nil {
-		return urlToken{}, false
-	}
-	var t urlToken
-	if json.Unmarshal(raw, &t) != nil || t.Kind != kind || t.Ref != ref || t.Bucket != bucket || t.Path != path || now.Unix() >= t.Exp {
-		return urlToken{}, false
-	}
-	return t, true
-}
 
 // baseURL is how the caller reached the edge, for absolute URLs.
 func baseURL(c *call) string {
@@ -83,23 +32,15 @@ func baseURL(c *call) string {
 }
 
 func objectURL(prefix, bucket, path string) string {
-	return "/storage/v1/" + prefix + "/" + url.PathEscape(bucket) + "/" + escapePath(path)
-}
-
-func escapePath(p string) string {
-	segs := strings.Split(p, "/")
-	for i, s := range segs {
-		segs[i] = url.PathEscape(s)
-	}
-	return strings.Join(segs, "/")
+	return "/storage/v1/" + prefix + "/" + url.PathEscape(bucket) + "/" + files.EscapePath(path)
 }
 
 type signInput struct {
-	ExpiresIn int        `json:"expires_in"`
-	Download  any        `json:"download"`
-	Transform *transform `json:"transform"`
-	Paths     []string   `json:"paths"`
-	Upsert    bool       `json:"upsert"`
+	ExpiresIn int              `json:"expires_in"`
+	Download  any              `json:"download"`
+	Transform *files.Transform `json:"transform"`
+	Paths     []string         `json:"paths"`
+	Upsert    bool             `json:"upsert"`
 }
 
 func (in signInput) ttl(def time.Duration) time.Duration {
@@ -141,13 +82,13 @@ func (e *Edge) signDownload(c *call, req Request, bucket, path string) {
 		return
 	}
 	for _, p := range paths {
-		if !validPath(p) {
+		if !files.ValidPath(p) {
 			c.fail(http.StatusBadRequest, "invalid_path", "not an object path: "+p)
 			return
 		}
 	}
 	if in.Transform != nil {
-		if a := in.Transform.check(); a != nil {
+		if a := checkTransform(in.Transform); a != nil {
 			a.send(c)
 			return
 		}
@@ -183,12 +124,12 @@ func (e *Edge) signDownload(c *call, req Request, bucket, path string) {
 			out = append(out, signed{Path: p, Error: &msg})
 			continue
 		}
-		t := urlToken{Kind: tokenGet, Ref: c.p.cfg.Ref, Bucket: bucket, Path: p, Exp: exp, Download: in.download(), Transform: in.Transform}
+		t := files.Token{Kind: files.TokenGet, Ref: c.p.cfg.Ref, Bucket: bucket, Path: p, Exp: exp, Download: in.download(), Transform: in.Transform}
 		where := "object/sign"
 		if in.Transform != nil {
 			where = "render/sign"
 		}
-		u := baseURL(c) + objectURL(where, bucket, p) + "?token=" + signToken(sc.SigningSecret, t)
+		u := baseURL(c) + objectURL(where, bucket, p) + "?token=" + files.Sign(sc.SigningSecret, t)
 		out = append(out, signed{Path: p, SignedURL: &u})
 	}
 	if path != "" {
@@ -208,7 +149,7 @@ func (e *Edge) signedDownload(c *call, bucket, path string) {
 	if !ok {
 		return
 	}
-	t, ok := verifyToken(sc.SigningSecret, c.r.URL.Query().Get("token"), tokenGet, c.p.cfg.Ref, bucket, path, time.Now())
+	t, ok := files.Verify(sc.SigningSecret, c.r.URL.Query().Get("token"), files.TokenGet, c.p.cfg.Ref, bucket, path, time.Now())
 	if !ok {
 		c.fail(http.StatusBadRequest, "invalid_signature", "the URL's token is invalid or has expired")
 		return
@@ -255,7 +196,7 @@ func (e *Edge) signUpload(c *call, req Request, bucket, path string) {
 		return
 	}
 	exp := time.Now().Add(in.ttl(uploadSignTTL)).Unix()
-	tok := signToken(sc.SigningSecret, urlToken{Kind: tokenPut, Ref: c.p.cfg.Ref, Bucket: bucket, Path: path, Exp: exp, Upsert: upsert, Owner: c.userID})
+	tok := files.Sign(sc.SigningSecret, files.Token{Kind: files.TokenPut, Ref: c.p.cfg.Ref, Bucket: bucket, Path: path, Exp: exp, Upsert: upsert, Owner: c.userID})
 	c.json(http.StatusOK, map[string]any{"url": baseURL(c) + objectURL("upload/sign", bucket, path) + "?token=" + tok,
 		"token": tok, "path": path, "expires_at": time.Unix(exp, 0).UTC()})
 }
@@ -270,7 +211,7 @@ func (e *Edge) signedUpload(c *call, bucket, path string) {
 	if tok == "" {
 		tok = strings.TrimPrefix(c.r.Header.Get("Authorization"), "Bearer ")
 	}
-	t, ok := verifyToken(sc.SigningSecret, tok, tokenPut, c.p.cfg.Ref, bucket, path, time.Now())
+	t, ok := files.Verify(sc.SigningSecret, tok, files.TokenPut, c.p.cfg.Ref, bucket, path, time.Now())
 	if !ok {
 		c.fail(http.StatusBadRequest, "invalid_signature", "the URL's token is invalid or has expired")
 		return

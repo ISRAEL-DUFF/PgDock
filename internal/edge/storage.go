@@ -5,17 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/pgdock/internal/files"
 	"github.com/israel-duff/pgdock/internal/storage"
 )
 
@@ -25,17 +24,13 @@ import (
 // in the region's object store under the object's version, which no caller
 // chooses.
 
-const (
-	// directMax is the largest upload through the edge; larger ones go to
-	// the object store with presigned multipart URLs (V4 §5.3).
-	directMax = 50 << 20
-	// maxPath bounds an object path, in bytes.
-	maxPath = 1024
-)
+// directMax is the largest upload through the edge; larger ones go to the
+// object store with presigned multipart URLs (V4 §5.3).
+const directMax = 50 << 20
 
-// files is a project's object store client, kept across configuration
+// fileStore is a project's object store client, kept across configuration
 // copies while the store doesn't change.
-type files struct {
+type fileStore struct {
 	mu     sync.Mutex
 	target storage.Target
 	client *storage.Client
@@ -66,7 +61,7 @@ func (e *Edge) store(c *call) (*edgeapi.StorageConfig, *storage.Client, bool) {
 }
 
 // get is the client for sc's store, made the first time.
-func (f *files) get(sc *edgeapi.StorageConfig) (*storage.Client, error) {
+func (f *fileStore) get(sc *edgeapi.StorageConfig) (*storage.Client, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.client == nil || f.target != sc.Target {
@@ -81,51 +76,13 @@ func (f *files) get(sc *edgeapi.StorageConfig) (*storage.Client, error) {
 
 // objectKey is where an object version's bytes are.
 func objectKey(sc *edgeapi.StorageConfig, version uuid.UUID) string {
-	return sc.Prefix + "objects/" + version.String()
-}
-
-// ---- Names ---------------------------------------------------------------------
-
-var bucketRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,62}$`)
-
-// reservedBuckets are path words the endpoints use after /object/.
-var reservedBuckets = map[string]bool{"public": true, "sign": true, "authenticated": true, "info": true, "move": true,
-	"copy": true, "list": true, "upload": true, "render": true, "bucket": true}
-
-// validBucket reports whether id may name a bucket: lowercase letters,
-// digits, '_', '.', '-', not a reserved word and not shaped like an upload
-// id.
-func validBucket(id string) bool {
-	if !bucketRe.MatchString(id) || reservedBuckets[id] {
-		return false
-	}
-	_, err := uuid.Parse(id)
-	return err != nil
-}
-
-// validPath reports whether p may name an object: UTF-8 segments joined by
-// '/', none empty, '.' or '..', no control characters.
-func validPath(p string) bool {
-	if p == "" || len(p) > maxPath || !utf8.ValidString(p) {
-		return false
-	}
-	for _, r := range p {
-		if r < 0x20 || r == 0x7f {
-			return false
-		}
-	}
-	for _, seg := range strings.Split(p, "/") {
-		if seg == "" || seg == "." || seg == ".." {
-			return false
-		}
-	}
-	return true
+	return files.ObjectKey(sc.Prefix, version)
 }
 
 // splitBucketPath parses "bucket/path..." (the rest of a URL path).
 func splitBucketPath(rest string) (string, string, bool) {
 	b, p, ok := strings.Cut(rest, "/")
-	if !ok || !bucketRe.MatchString(b) || !validPath(p) {
+	if !ok || !files.BucketRe.MatchString(b) || !files.ValidPath(p) {
 		return "", "", false
 	}
 	return b, p, true
@@ -144,8 +101,6 @@ type Bucket struct {
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
-
-const bucketCols = `id, public, file_size_limit, allowed_mime_types, cache_seconds, created_at, updated_at`
 
 func scanBucket(row pgx.Row) (*Bucket, error) {
 	var b Bucket
@@ -167,7 +122,7 @@ func (e *Edge) bucket(ctx context.Context, p *project, id string) (*Bucket, erro
 	if err != nil {
 		return nil, err
 	}
-	b, err := scanBucket(pool.QueryRow(ctx, `SELECT `+bucketCols+` FROM pgd_storage.buckets WHERE id = $1`, id))
+	b, err := scanBucket(pool.QueryRow(ctx, `SELECT `+files.BucketCols+` FROM pgd_storage.buckets WHERE id = $1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, errNoBucket
 	}
@@ -196,15 +151,13 @@ func (in bucketInput) check() *apiErr {
 			return refuse(http.StatusBadRequest, "invalid_bucket", "at most 100 allowed MIME types")
 		}
 		for _, m := range *in.AllowedMIMETypes {
-			if !mimePatternRe.MatchString(m) {
+			if !files.MIMEPatternRe.MatchString(m) {
 				return refuse(http.StatusBadRequest, "invalid_bucket", "allowed_mime_types holds types like image/png or image/*")
 			}
 		}
 	}
 	return nil
 }
-
-var mimePatternRe = regexp.MustCompile(`^([a-z0-9][a-z0-9!#$&^_.+-]*)/([a-z0-9][a-z0-9!#$&^_.+-]*|\*)$`)
 
 // buckets serves /storage/v1/bucket[/{id}[/empty]], for the secret key.
 func (e *Edge) buckets(c *call, req Request, rest string) {
@@ -222,7 +175,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 	id, sub, _ := strings.Cut(strings.Trim(rest, "/"), "/")
 	switch {
 	case id == "" && c.r.Method == http.MethodGet:
-		rows, err := pool.Query(ctx, `SELECT `+bucketCols+` FROM pgd_storage.buckets ORDER BY id`)
+		rows, err := pool.Query(ctx, `SELECT `+files.BucketCols+` FROM pgd_storage.buckets ORDER BY id`)
 		if err != nil {
 			e.dbError(c, err)
 			return
@@ -250,8 +203,8 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 		if in.ID == "" {
 			in.ID = in.Name
 		}
-		if !validBucket(in.ID) {
-			c.fail(http.StatusBadRequest, "invalid_bucket", "a bucket id is 1–63 lowercase letters, digits, '_', '.' or '-', starting with a letter or digit, and not a reserved word")
+		if !files.ValidBucket(in.ID) {
+			c.fail(http.StatusBadRequest, "invalid_bucket", files.BucketRule)
 			return
 		}
 		if a := in.check(); a != nil {
@@ -267,7 +220,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 			mimes = *in.AllowedMIMETypes
 		}
 		b, err := scanBucket(pool.QueryRow(ctx, `INSERT INTO pgd_storage.buckets (id, public, file_size_limit, allowed_mime_types, cache_seconds)
-			VALUES ($1, $2, $3, $4, $5) RETURNING `+bucketCols, in.ID, in.Public != nil && *in.Public, in.FileSizeLimit, mimes, cache))
+			VALUES ($1, $2, $3, $4, $5) RETURNING `+files.BucketCols, in.ID, in.Public != nil && *in.Public, in.FileSizeLimit, mimes, cache))
 		var pe *pgconn.PgError
 		if errors.As(err, &pe) && pe.Code == "23505" {
 			c.fail(http.StatusConflict, "bucket_exists", "a bucket with this id already exists")
@@ -316,7 +269,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 			cache = *in.CacheSeconds
 		}
 		b, err := scanBucket(pool.QueryRow(ctx, `UPDATE pgd_storage.buckets SET public = $2, file_size_limit = $3, allowed_mime_types = $4,
-			cache_seconds = $5, updated_at = now() WHERE id = $1 RETURNING `+bucketCols, id, public, limit, mimes, cache))
+			cache_seconds = $5, updated_at = now() WHERE id = $1 RETURNING `+files.BucketCols, id, public, limit, mimes, cache))
 		if errors.Is(err, pgx.ErrNoRows) {
 			errNoBucket.send(c)
 			return
