@@ -56,6 +56,9 @@ type rtHub struct {
 	conns atomic.Int64
 	msgs  atomic.Int64 // messages to and from clients, since the last report
 
+	meterMu   sync.Mutex
+	meteredAt time.Time
+
 	mu        sync.Mutex
 	channels  map[*rtChannel]struct{}
 	byTopic   map[string]map[*rtChannel]struct{}
@@ -98,6 +101,7 @@ func (e *Edge) hub(ref string) *rtHub {
 		h = &rtHub{e: e, ref: ref, channels: map[*rtChannel]struct{}{}, byTopic: map[string]map[*rtChannel]struct{}{},
 			subs: map[string]map[*rtSub]struct{}{}}
 		h.bc.init()
+		h.meteredAt = time.Now()
 		e.hubs[ref] = h
 	}
 	return h
@@ -265,12 +269,24 @@ func (h *rtHub) forgetTables() {
 // listen holds the project's LISTEN connection and reads its outbox until
 // the hub has been idle for rtLinger.
 func (h *rtHub) listen() {
-	ctx, cancel := context.WithCancel(context.Background())
+	h.e.rtMu.Lock()
+	life := h.e.life
+	h.e.rtMu.Unlock()
+	if life == nil {
+		life = context.Background()
+	}
+	ctx, cancel := context.WithCancel(life)
 	defer cancel()
 	backoff := time.Second
 	first := true
 	for {
 		if h.idle() {
+			return
+		}
+		if ctx.Err() != nil {
+			h.mu.Lock()
+			h.listening = false
+			h.mu.Unlock()
 			return
 		}
 		p := h.e.lookup(h.ref)
@@ -284,7 +300,10 @@ func (h *rtHub) listen() {
 		conn, err := h.e.sessionConn(ctx, p)
 		if err != nil && !errors.Is(err, errNoSession) {
 			h.e.cfg.Log.Warn("realtime listen", "ref", h.ref, "err", err)
-			time.Sleep(backoff)
+			select {
+			case <-ctx.Done():
+			case <-time.After(backoff):
+			}
 			backoff = min(backoff*2, 30*time.Second)
 			continue
 		}
@@ -856,24 +875,33 @@ func (h *rtHub) closeAll(reason string) {
 	}
 }
 
-// meterRealtime adds each project's connection time and messages to the
-// usage report; called every interval.
-func (e *Edge) meterRealtime(interval time.Duration) {
+// meterRealtime adds each project's connection time since the last count
+// and its messages to the usage report.
+func (e *Edge) meterRealtime() {
 	e.rtMu.Lock()
 	hubs := make([]*rtHub, 0, len(e.hubs))
 	for _, h := range e.hubs {
 		hubs = append(hubs, h)
 	}
 	e.rtMu.Unlock()
+	now := time.Now()
 	for _, h := range hubs {
+		h.meterMu.Lock()
+		elapsed := now.Sub(h.meteredAt)
+		if h.meteredAt.IsZero() {
+			elapsed = 0
+		}
+		h.meteredAt = now
+		h.meterMu.Unlock()
 		conns, msgs := h.conns.Load(), h.msgs.Swap(0)
-		if conns <= 0 && msgs == 0 {
+		secs := max(conns, 0) * int64(elapsed.Round(time.Second)/time.Second)
+		if secs <= 0 && msgs == 0 {
 			continue
 		}
 		p := e.lookup(h.ref)
 		if p == nil {
 			continue
 		}
-		e.meter.realtime(p.cfg.ProjectID, max(conns, 0)*int64(interval/time.Second), msgs)
+		e.meter.realtime(p.cfg.ProjectID, secs, msgs)
 	}
 }

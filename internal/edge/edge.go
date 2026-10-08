@@ -116,6 +116,8 @@ type Edge struct {
 	hubs     map[string]*rtHub
 	nodeOnce sync.Once
 	nodeID   string
+	// life ends with Run: realtime's listeners stop with it.
+	life context.Context
 }
 
 // project is one project's configuration and its database pool.
@@ -194,6 +196,9 @@ var defaultHTTP = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*h
 
 // Run follows the configuration feed and sends reports until ctx ends.
 func (e *Edge) Run(ctx context.Context) {
+	e.rtMu.Lock()
+	e.life = ctx
+	e.rtMu.Unlock()
 	var wg sync.WaitGroup
 	wg.Add(3)
 	go func() { defer wg.Done(); e.follow(ctx) }()
@@ -205,10 +210,10 @@ func (e *Edge) Run(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				e.meterRealtime(rtMeterEvery)
+				e.meterRealtime()
 				return
 			case <-t.C:
-				e.meterRealtime(rtMeterEvery)
+				e.meterRealtime()
 			}
 		}
 	}()

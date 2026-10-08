@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/edge"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
@@ -433,4 +434,195 @@ func TestRealtime(t *testing.T) {
 	// ---- Heartbeats ------------------------------------------------------------------
 	ref := alice.send("phoenix", "heartbeat", map[string]any{})
 	alice.next(5*time.Second, "heartbeat reply", func(m rtMessage) bool { return m.Event == "phx_reply" && m.Ref != nil && *m.Ref == ref })
+}
+
+func isBroadcast(event string) func(rtMessage) bool {
+	return func(m rtMessage) bool {
+		if m.Event != "broadcast" {
+			return false
+		}
+		var b struct {
+			Event string `json:"event"`
+		}
+		_ = json.Unmarshal(m.Payload, &b)
+		return b.Event == event
+	}
+}
+
+// TestRealtimeBroadcast: broadcast and presence between clients on two
+// pgdock-edge processes (relayed through the project's database), private
+// channels decided by policies on pgd_realtime.channel_access, persisted
+// history, the HTTP broadcast, the change rate cap, the connection limit,
+// and metering.
+func TestRealtimeBroadcast(t *testing.T) {
+	rp := newRealtimeProject(t, "rt-chat")
+	ctx := context.Background()
+	// Topics kept as history are read every few seconds: list it first.
+	owner := rp.ownerConn(t)
+	if _, err := owner.Exec(ctx, `INSERT INTO pgd_realtime.persisted_topics (topic) VALUES ('vip')`); err != nil {
+		t.Fatal(err)
+	}
+	owner.Close(ctx)
+	ed2 := rp.e.StartEdge(func(c *edge.Config) { c.Name = "edge-test-2" })
+	waitFor(t, 30*time.Second, "the second edge reaches the project", func() bool {
+		code, _, _ := ed2.Do(rp.ref, "GET", "/data/v1/health", nil, "apikey", rp.pub)
+		return code == 200
+	})
+	alice := connectRT(t, rp.ed, rp.ref, rp.pub)
+	bob := connectRT(t, ed2, rp.ref, rp.pub)
+	room := map[string]any{"broadcast": map[string]any{"self": false, "ack": true}, "presence": map[string]any{"key": "alice"}}
+	if st, _ := alice.join("realtime:room1", room, rp.alice); st != "ok" {
+		t.Fatal("alice joins room1")
+	}
+	room2 := map[string]any{"broadcast": map[string]any{"self": true}, "presence": map[string]any{"key": "bob"}}
+	if st, _ := bob.join("realtime:room1", room2, rp.bob); st != "ok" {
+		t.Fatal("bob joins room1")
+	}
+
+	// ---- Broadcast across processes ----------------------------------------------
+	waitFor(t, 30*time.Second, "a broadcast crosses from one edge process to the other", func() bool {
+		alice.send("realtime:room1", "broadcast", map[string]any{"type": "broadcast", "event": "ping", "payload": map[string]any{"n": 1}})
+		select {
+		case m := <-bob.in:
+			return isBroadcast("ping")(m)
+		case <-time.After(500 * time.Millisecond):
+			return false
+		}
+	})
+	ref := alice.send("realtime:room1", "broadcast", map[string]any{"type": "broadcast", "event": "cursor", "payload": map[string]any{"x": 3}})
+	alice.next(5*time.Second, "the broadcast ack", func(m rtMessage) bool { return m.Event == "phx_reply" && m.Ref != nil && *m.Ref == ref })
+	m := bob.next(5*time.Second, "alice's cursor at bob", isBroadcast("cursor"))
+	if !strings.Contains(string(m.Payload), `"x":3`) {
+		t.Fatalf("broadcast payload: %s", m.Payload)
+	}
+	alice.quiet(500*time.Millisecond, "alice's own broadcast (self is off)", isBroadcast("cursor"))
+	bob.send("realtime:room1", "broadcast", map[string]any{"type": "broadcast", "event": "echo", "payload": map[string]any{}})
+	bob.next(5*time.Second, "bob's own broadcast (self is on)", isBroadcast("echo"))
+	alice.next(5*time.Second, "bob's broadcast at alice", isBroadcast("echo"))
+
+	// ---- Presence across processes ----------------------------------------------
+	alice.send("realtime:room1", "presence", map[string]any{"type": "presence", "event": "track", "payload": map[string]any{"status": "online"}})
+	bob.next(10*time.Second, "alice's presence at bob", func(m rtMessage) bool {
+		return m.Event == "presence_diff" && strings.Contains(string(m.Payload), `"alice"`) && strings.Contains(string(m.Payload), "online")
+	})
+	carol := connectRT(t, ed2, rp.ref, rp.pub)
+	if st, _ := carol.join("realtime:room1", map[string]any{"presence": map[string]any{"key": "carol"}}, ""); st != "ok" {
+		t.Fatal("carol joins")
+	}
+	carol.next(5*time.Second, "the presence state with alice", func(m rtMessage) bool {
+		return m.Event == "presence_state" && strings.Contains(string(m.Payload), `"alice"`)
+	})
+	_ = alice.ws.Close(websocket.StatusNormalClosure, "")
+	bob.next(10*time.Second, "alice leaving", func(m rtMessage) bool {
+		return m.Event == "presence_diff" && strings.Contains(string(m.Payload), `"leaves":{"alice"`)
+	})
+
+	// ---- Private channels -----------------------------------------------------------
+	app := rp.ownerConn(t)
+	defer app.Close(ctx)
+	for _, st := range []string{
+		`CREATE TABLE members (room text NOT NULL, user_id uuid NOT NULL, PRIMARY KEY (room, user_id))`,
+		fmt.Sprintf(`INSERT INTO members VALUES ('vip', '%s')`, rp.bobID),
+		fmt.Sprintf(`GRANT SELECT ON members TO %q`, store.UserRole(rp.db)),
+		fmt.Sprintf(`CREATE POLICY room_members ON pgd_realtime.channel_access FOR SELECT TO %q
+		  USING (EXISTS (SELECT 1 FROM members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()))`, store.UserRole(rp.db)),
+	} {
+		if _, err := app.Exec(ctx, st); err != nil {
+			t.Fatalf("%s: %v", st, err)
+		}
+	}
+	private := map[string]any{"private": true, "broadcast": map[string]any{"ack": true}}
+	alice = connectRT(t, rp.ed, rp.ref, rp.pub)
+	if st, resp := alice.join("realtime:vip", private, rp.alice); st != "error" || !strings.Contains(string(resp), "not allowed") {
+		t.Fatalf("a non-member joins a private channel: %s %s", st, resp)
+	}
+	if st, resp := bob.join("realtime:vip", private, rp.bob); st != "ok" {
+		t.Fatalf("a member joins: %s %s", st, resp)
+	}
+	// Without an INSERT policy the member may read but not send.
+	ref = bob.send("realtime:vip", "broadcast", map[string]any{"type": "broadcast", "event": "hi", "payload": map[string]any{}})
+	bob.next(5*time.Second, "the refused send", func(m rtMessage) bool {
+		return m.Event == "phx_reply" && m.Ref != nil && *m.Ref == ref && strings.Contains(string(m.Payload), "not allowed to send")
+	})
+	if _, err := app.Exec(ctx, fmt.Sprintf(`CREATE POLICY room_send ON pgd_realtime.channel_access FOR INSERT TO %q
+		WITH CHECK (EXISTS (SELECT 1 FROM members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()))`, store.UserRole(rp.db))); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := bob.join("realtime:vip", private, rp.bob); st != "ok" {
+		t.Fatal("rejoin")
+	}
+	ref = bob.send("realtime:vip", "broadcast", map[string]any{"type": "broadcast", "event": "secret", "payload": map[string]any{"msg": "for members"}})
+	bob.next(5*time.Second, "the send's ack", func(m rtMessage) bool {
+		return m.Event == "phx_reply" && m.Ref != nil && *m.Ref == ref && strings.Contains(string(m.Payload), `"ok"`)
+	})
+	// A public channel of the same name doesn't hear the private one.
+	if st, _ := alice.join("realtime:vip", map[string]any{}, rp.alice); st != "ok" {
+		t.Fatal("alice joins the public vip")
+	}
+	alice.quiet(time.Second, "a private broadcast on the public channel", isBroadcast("secret"))
+
+	// ---- History and the HTTP broadcast ------------------------------------------
+	code, _, body := rp.ed.Do(rp.ref, "GET", "/realtime/v1/history/vip?private=true", nil, "apikey", rp.pub, "Authorization", "Bearer "+rp.bob)
+	if code != 200 || !strings.Contains(body, "for members") {
+		t.Fatalf("history as a member: %d %s", code, body)
+	}
+	if code, _, body := rp.ed.Do(rp.ref, "GET", "/realtime/v1/history/vip?private=true", nil, "apikey", rp.pub, "Authorization", "Bearer "+rp.alice); code != 403 {
+		t.Fatalf("history as a non-member: %d %s", code, body)
+	}
+	if code, _, body := rp.ed.Do(rp.ref, "POST", "/realtime/v1/api/broadcast", strings.NewReader(`{"messages":[{"topic":"room1","event":"notice","payload":{"text":"from the server"}}]}`),
+		"apikey", rp.pub, "Content-Type", "application/json"); code != 403 {
+		t.Fatalf("HTTP broadcast with the publishable key: %d %s", code, body)
+	}
+	if code, _, body := rp.ed.Do(rp.ref, "POST", "/realtime/v1/api/broadcast", strings.NewReader(`{"messages":[{"topic":"room1","event":"notice","payload":{"text":"from the server"}}]}`),
+		"apikey", rp.sec, "Content-Type", "application/json"); code != 202 {
+		t.Fatalf("HTTP broadcast: %d %s", code, body)
+	}
+	bob.next(10*time.Second, "the server's broadcast on the other edge", isBroadcast("notice"))
+
+	// ---- The change rate cap: past it, subscribers are told to resync --------
+	todos := map[string]any{"postgres_changes": []map[string]any{{"event": "*", "schema": "public", "table": "todos"}}}
+	if st, _ := carol.join("realtime:todos", todos, rp.bob); st != "ok" {
+		t.Fatal("carol subscribes")
+	}
+	if _, err := app.Exec(ctx, `INSERT INTO todos (owner, body) SELECT $1, 'bulk ' || g FROM generate_series(1, 500) g`, rp.bobID); err != nil {
+		t.Fatal(err)
+	}
+	carol.next(15*time.Second, "a resync past the change rate", func(m rtMessage) bool {
+		return m.Event == "system" && strings.Contains(string(m.Payload), "resync")
+	})
+
+	// ---- The connection limit (per edge process; alice holds the first edge's one) --
+	if _, err := rp.e.DB.Exec(ctx, `UPDATE project_services SET realtime_max_connections = 1 WHERE project_id = $1`, rp.pid); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, 30*time.Second, "the connection limit reaches the edge", func() bool {
+		u := strings.Replace(rp.ed.URL, "http://", "ws://", 1) + "/realtime/v1/websocket?apikey=" + url.QueryEscape(rp.pub)
+		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		ws, res, err := websocket.Dial(cctx, u, &websocket.DialOptions{Host: rp.ref + "." + testenv.EdgeDomain})
+		if res != nil && res.Body != nil {
+			_ = res.Body.Close()
+		}
+		if err == nil {
+			_ = ws.Close(websocket.StatusNormalClosure, "")
+			return false
+		}
+		return res != nil && res.StatusCode == http.StatusTooManyRequests
+	})
+
+	// ---- Metering --------------------------------------------------------------------
+	for _, ed := range []*testenv.Edge{rp.ed, ed2} {
+		ed.Flush(ctx)
+	}
+	var conns, msgs float64
+	waitFor(t, 30*time.Second, "realtime usage is recorded", func() bool {
+		for _, ed := range []*testenv.Edge{rp.ed, ed2} {
+			ed.Flush(ctx)
+		}
+		_ = rp.e.DB.QueryRow(ctx, `SELECT
+			coalesce(sum(quantity) FILTER (WHERE metric = 'realtime_connection_minutes'), 0)::float8,
+			coalesce(sum(quantity) FILTER (WHERE metric = 'realtime_messages'), 0)::float8
+			FROM usage_records WHERE project_id = $1`, rp.pid).Scan(&conns, &msgs)
+		return conns > 0 && msgs > 0
+	})
 }

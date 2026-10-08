@@ -169,4 +169,7 @@ func (e *Edge) flush(ctx context.Context) {
 }
 
 // Flush sends a report now (tests).
-func (e *Edge) Flush(ctx context.Context) { e.flush(ctx) }
+func (e *Edge) Flush(ctx context.Context) {
+	e.meterRealtime()
+	e.flush(ctx)
+}
