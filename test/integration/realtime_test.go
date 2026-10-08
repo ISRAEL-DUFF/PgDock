@@ -199,6 +199,24 @@ func TestRealtimeCapture(t *testing.T) {
 		fmt.Sprint(o.PersistedTopics) != "[room1 room2]" {
 		t.Fatalf("overview: %+v", o)
 	}
+
+	// ---- The CLI -------------------------------------------------------------------
+	bin := buildCLI(t)
+	token := rp.e.CreateToken(map[string]any{"name": "rt", "org_id": rp.e.OrgID, "scopes": []string{"read", "write"}})
+	env := []string{"PGDOCK_SERVER=" + rp.e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	pid := rp.pid.String()
+	for _, args := range [][]string{{"realtime", "disable", pid, "todos"}, {"realtime", "enable", pid, "public.todos"}, {"realtime", "history", pid, "lobby"}} {
+		if r := runCLI(t, bin, env, args...); r.code != 0 {
+			t.Fatalf("%v: exit %d\n%s\n%s", args, r.code, r.stdout, r.stderr)
+		}
+	}
+	if r := runCLI(t, bin, env, "realtime", "status", pid); r.code != 0 || !strings.Contains(r.stdout, "public.todos") ||
+		!strings.Contains(r.stdout, "no primary key") || !strings.Contains(r.stdout, "History kept for: lobby") {
+		t.Fatalf("status: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "realtime", "enable", pid, "nokey"); r.code == 0 || !strings.Contains(r.stderr, "primary key") {
+		t.Fatalf("enable a table without a key: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
 }
 
 // rtClient is a realtime WebSocket client speaking the Phoenix protocol
