@@ -1963,10 +1963,10 @@ test.describe("with the saved session", () => {
     await expect(fileRow).toContainText("text/plain");
     await expect(fileRow).toContainText("12 B");
     await expect(page.getByTestId("files-stat-bytes")).toContainText("12 B", { timeout: 10_000 });
-    await fileRow.getByRole("button", { name: "Signed URL" }).click();
-    await expect(page.getByLabel("Signed URL")).toHaveValue(/\/storage\/v1\/object\/sign\/docs\/hello\.txt\?token=/);
+    // This install has no API domain, so there is no URL to sign.
+    await expect(fileRow.getByRole("button", { name: "Signed URL" })).toHaveCount(0);
+    await expect(fileRow.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/files\/buckets\/docs\/object\?path=hello\.txt$/);
     await shot(page, "79-storage");
-    await page.keyboard.press("Escape");
     page.once("dialog", (d) => void d.accept());
     await fileRow.getByTestId("delete-file").click();
     await expect(page.getByTestId("files-empty")).toBeVisible();

@@ -385,9 +385,12 @@ function Browser({
                           value={`${apiURL}/storage/v1/object/public/${b.id}/${e.path.split("/").map(encodeURIComponent).join("/")}`}
                         />
                       ) : (
-                        <Button variant="ghost" onClick={() => sign(e.path)}>
-                          Signed URL
-                        </Button>
+                        // Links are on the API's hostname: none without one.
+                        apiURL && (
+                          <Button variant="ghost" onClick={() => sign(e.path)}>
+                            Signed URL
+                          </Button>
+                        )
                       )}
                       {manage && (
                         <Button
