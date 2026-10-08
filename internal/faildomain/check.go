@@ -62,6 +62,9 @@ func Check(ctx context.Context, q *store.Queries) ([]Problem, error) {
 		var ns []store.Node
 		region := ""
 		for _, m := range members {
+			if m.Replica {
+				continue // read replicas don't take over (V4 §7)
+			}
 			if n, ok := byID[m.NodeID]; ok {
 				ns = append(ns, n)
 				region = n.Region

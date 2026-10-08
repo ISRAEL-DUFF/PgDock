@@ -802,6 +802,11 @@ connection time (`realtime_connection_minutes`) are metered.
 - **Public tables**: tables and views the publishable key may read without
   row-level security. Anyone with your app can read them.
 - **Maximum query cost**: the cost guard's limit (above).
+- **Read from replicas by default** (dedicated projects with read
+  replicas): publishable-key data API GETs go to the replicas without a
+  `Read-Replica` header. Any GET can ask with `Read-Replica: allowed`, or
+  stay on the primary with `Read-Replica: primary`. Replicas trail writes
+  by up to 10 seconds; see docs/read-replicas.md.
 
 A paused Free project answers `503 project_resuming` with `Retry-After` and
 is woken, as a database connection would wake it. A suspended

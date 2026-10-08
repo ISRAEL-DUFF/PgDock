@@ -1983,6 +1983,39 @@ func (e PromotionEstimateCopyMode) Valid() bool {
 	}
 }
 
+// Defines values for ReadReplicaStatus.
+const (
+	ReadReplicaStatusCreating  ReadReplicaStatus = "creating"
+	ReadReplicaStatusDeleting  ReadReplicaStatus = "deleting"
+	ReadReplicaStatusDetaching ReadReplicaStatus = "detaching"
+	ReadReplicaStatusDown      ReadReplicaStatus = "down"
+	ReadReplicaStatusFailed    ReadReplicaStatus = "failed"
+	ReadReplicaStatusLagging   ReadReplicaStatus = "lagging"
+	ReadReplicaStatusStreaming ReadReplicaStatus = "streaming"
+)
+
+// Valid indicates whether the value is a known member of the ReadReplicaStatus enum.
+func (e ReadReplicaStatus) Valid() bool {
+	switch e {
+	case ReadReplicaStatusCreating:
+		return true
+	case ReadReplicaStatusDeleting:
+		return true
+	case ReadReplicaStatusDetaching:
+		return true
+	case ReadReplicaStatusDown:
+		return true
+	case ReadReplicaStatusFailed:
+		return true
+	case ReadReplicaStatusLagging:
+		return true
+	case ReadReplicaStatusStreaming:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReapedSessionKind.
 const (
 	IdleInTransaction ReapedSessionKind = "idle_in_transaction"
@@ -4443,6 +4476,9 @@ type BackendServicesSettings struct {
 
 	// RatePerKey Requests per minute with one key (0 for the default, 12000).
 	RatePerKey *int `json:"rate_per_key,omitempty"`
+
+	// ReplicaReads Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default.
+	ReplicaReads *bool `json:"replica_reads,omitempty"`
 
 	// StatementTimeoutMs Each request's statement timeout (0 for the default, 8000).
 	StatementTimeoutMs *int `json:"statement_timeout_ms,omitempty"`
@@ -7272,6 +7308,31 @@ type QuotaItem struct {
 	Used float32 `json:"used"`
 }
 
+// ReadReplica defines model for ReadReplica.
+type ReadReplica struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Error     *string            `json:"error,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// InRotation The read-only route sends reads to it.
+	InRotation bool   `json:"in_rotation"`
+	LagBytes   *int64 `json:"lag_bytes,omitempty"`
+
+	// LagMs How long ago the primary wrote what it has not replayed yet.
+	LagMs             *int64             `json:"lag_ms,omitempty"`
+	NodeId            openapi_types.UUID `json:"node_id"`
+	NodeName          string             `json:"node_name"`
+	Region            string             `json:"region"`
+	RotationChangedAt *time.Time         `json:"rotation_changed_at,omitempty"`
+
+	// Size The instance profile it runs with (the primary's).
+	Size   string            `json:"size"`
+	Status ReadReplicaStatus `json:"status"`
+}
+
+// ReadReplicaStatus defines model for ReadReplica.Status.
+type ReadReplicaStatus string
+
 // RealtimeOverview defines model for RealtimeOverview.
 type RealtimeOverview struct {
 	// ChangesPerSecond Database changes delivered per second before subscribers are told to resync
@@ -7463,6 +7524,35 @@ type ReplayRequest struct {
 // ReplayResult defines model for ReplayResult.
 type ReplayResult struct {
 	Queued int `json:"queued"`
+}
+
+// ReplicaCreateRequest defines model for ReplicaCreateRequest.
+type ReplicaCreateRequest struct {
+	// NodeId Where the replica goes (default the least loaded eligible node in the region).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+
+	// Region The region it goes in (default the project's).
+	Region *string `json:"region,omitempty"`
+}
+
+// ReplicaDetachRequest defines model for ReplicaDetachRequest.
+type ReplicaDetachRequest struct {
+	// Name The new project's name.
+	Name string `json:"name"`
+}
+
+// ReplicaList defines model for ReplicaList.
+type ReplicaList struct {
+	// MaxLagMs A replica further behind leaves rotation until it catches up.
+	MaxLagMs    int64 `json:"max_lag_ms"`
+	MaxReplicas int   `json:"max_replicas"`
+
+	// ReadDatabase The pooler database name of the read-only route (<db>_ro); with no replica in rotation it reaches the primary, read-only.
+	ReadDatabase string `json:"read_database"`
+
+	// ReadUrl The read-only route's connection string, without a password.
+	ReadUrl  *string       `json:"read_url,omitempty"`
+	Replicas []ReadReplica `json:"replicas"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -8931,6 +9021,9 @@ type PriceBookVersion = int
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
 
+// ReplicaID defines model for ReplicaID.
+type ReplicaID = openapi_types.UUID
+
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
 
@@ -9930,6 +10023,12 @@ type SetRealtimeTableJSONRequestBody SetRealtimeTableJSONBody
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
+
+// CreateProjectReplicaJSONRequestBody defines body for CreateProjectReplica for application/json ContentType.
+type CreateProjectReplicaJSONRequestBody = ReplicaCreateRequest
+
+// DetachProjectReplicaJSONRequestBody defines body for DetachProjectReplica for application/json ContentType.
+type DetachProjectReplicaJSONRequestBody = ReplicaDetachRequest
 
 // ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
 type ResetBranchJSONRequestBody = BranchResetRequest
@@ -13083,6 +13182,68 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/reclaim-space (the `ReclaimSpace` operationId).
 	ReclaimSpace(ctx context.Context, id ProjectID, body ReclaimSpaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectReplicas Read replicas of a dedicated project (V4 §7)
+	//
+	// Each replica's node, region, status, lag and whether the read-only route sends reads to it.
+	//
+	// Corresponds with GET /api/v1/projects/{id}/replicas (the `ListProjectReplicas` operationId).
+	ListProjectReplicas(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectReplicaWithBody Add a read replica
+	//
+	// Queues a `create_replica` operation: a streaming standby, tagged never
+	// to be promoted, on another node (in the project's region unless
+	// another is named; a project with data residency stays in its
+	// region). A project not yet under Patroni restarts under it first
+	// (writes pause for a few seconds). Up to 2 per project.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+	CreateProjectReplicaWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectReplica Add a read replica
+	//
+	// Queues a `create_replica` operation: a streaming standby, tagged never
+	// to be promoted, on another node (in the project's region unless
+	// another is named; a project with data residency stays in its
+	// region). A project not yet under Patroni restarts under it first
+	// (writes pause for a few seconds). Up to 2 per project.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+	CreateProjectReplica(ctx context.Context, id ProjectID, body CreateProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectReplica Remove a read replica
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/replicas/{replica_id} (the `DeleteProjectReplica` operationId).
+	DeleteProjectReplica(ctx context.Context, id ProjectID, replicaId ReplicaID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DetachProjectReplicaWithBody Promote a read replica into a standalone project
+	//
+	// The replica leaves the project's cluster, is promoted on its own data
+	// and becomes a new dedicated project (its database, owner and password
+	// are the new project's). The response carries the new project's
+	// password once. The source project is not changed.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+	DetachProjectReplicaWithBody(ctx context.Context, id ProjectID, replicaId ReplicaID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DetachProjectReplica Promote a read replica into a standalone project
+	//
+	// The replica leaves the project's cluster, is promoted on its own data
+	// and becomes a new dedicated project (its database, owner and password
+	// are the new project's). The response carries the new project's
+	// password once. The source project is not changed.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+	DetachProjectReplica(ctx context.Context, id ProjectID, replicaId ReplicaID, body DetachProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ResetBranchWithBody Reset a branch from its parent
 	//
@@ -21247,6 +21408,128 @@ func (c *Client) ReclaimSpaceWithBody(ctx context.Context, id ProjectID, content
 // Corresponds with POST /api/v1/projects/{id}/reclaim-space (the `ReclaimSpace` operationId).
 func (c *Client) ReclaimSpace(ctx context.Context, id ProjectID, body ReclaimSpaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewReclaimSpaceRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListProjectReplicas Read replicas of a dedicated project (V4 §7)
+//
+// Each replica's node, region, status, lag and whether the read-only route sends reads to it.
+//
+// Corresponds with GET /api/v1/projects/{id}/replicas (the `ListProjectReplicas` operationId).
+func (c *Client) ListProjectReplicas(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectReplicasRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateProjectReplicaWithBody Add a read replica
+//
+// Queues a `create_replica` operation: a streaming standby, tagged never
+// to be promoted, on another node (in the project's region unless
+// another is named; a project with data residency stays in its
+// region). A project not yet under Patroni restarts under it first
+// (writes pause for a few seconds). Up to 2 per project.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+func (c *Client) CreateProjectReplicaWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectReplicaRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateProjectReplica Add a read replica
+//
+// Queues a `create_replica` operation: a streaming standby, tagged never
+// to be promoted, on another node (in the project's region unless
+// another is named; a project with data residency stays in its
+// region). A project not yet under Patroni restarts under it first
+// (writes pause for a few seconds). Up to 2 per project.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+func (c *Client) CreateProjectReplica(ctx context.Context, id ProjectID, body CreateProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectReplicaRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteProjectReplica Remove a read replica
+//
+// Corresponds with DELETE /api/v1/projects/{id}/replicas/{replica_id} (the `DeleteProjectReplica` operationId).
+func (c *Client) DeleteProjectReplica(ctx context.Context, id ProjectID, replicaId ReplicaID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectReplicaRequest(c.Server, id, replicaId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DetachProjectReplicaWithBody Promote a read replica into a standalone project
+//
+// The replica leaves the project's cluster, is promoted on its own data
+// and becomes a new dedicated project (its database, owner and password
+// are the new project's). The response carries the new project's
+// password once. The source project is not changed.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+func (c *Client) DetachProjectReplicaWithBody(ctx context.Context, id ProjectID, replicaId ReplicaID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetachProjectReplicaRequestWithBody(c.Server, id, replicaId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DetachProjectReplica Promote a read replica into a standalone project
+//
+// The replica leaves the project's cluster, is promoted on its own data
+// and becomes a new dedicated project (its database, owner and password
+// are the new project's). The response carries the new project's
+// password once. The source project is not changed.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+func (c *Client) DetachProjectReplica(ctx context.Context, id ProjectID, replicaId ReplicaID, body DetachProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetachProjectReplicaRequest(c.Server, id, replicaId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -36386,6 +36669,182 @@ func NewReclaimSpaceRequestWithBody(server string, id ProjectID, contentType str
 	return req, nil
 }
 
+// NewListProjectReplicasRequest constructs an http.Request for the ListProjectReplicas method
+func NewListProjectReplicasRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/replicas", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateProjectReplicaRequest calls the generic CreateProjectReplica builder with application/json body
+func NewCreateProjectReplicaRequest(server string, id ProjectID, body CreateProjectReplicaJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectReplicaRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateProjectReplicaRequestWithBody constructs an http.Request for the CreateProjectReplica method, with any body, and a specified content type
+func NewCreateProjectReplicaRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/replicas", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProjectReplicaRequest constructs an http.Request for the DeleteProjectReplica method
+func NewDeleteProjectReplicaRequest(server string, id ProjectID, replicaId ReplicaID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "replica_id", replicaId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/replicas/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDetachProjectReplicaRequest calls the generic DetachProjectReplica builder with application/json body
+func NewDetachProjectReplicaRequest(server string, id ProjectID, replicaId ReplicaID, body DetachProjectReplicaJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDetachProjectReplicaRequestWithBody(server, id, replicaId, "application/json", bodyReader)
+}
+
+// NewDetachProjectReplicaRequestWithBody constructs an http.Request for the DetachProjectReplica method, with any body, and a specified content type
+func NewDetachProjectReplicaRequestWithBody(server string, id ProjectID, replicaId ReplicaID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "replica_id", replicaId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/replicas/%s/detach", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewResetBranchRequest calls the generic ResetBranch builder with application/json body
 func NewResetBranchRequest(server string, id ProjectID, body ResetBranchJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -43146,6 +43605,72 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/reclaim-space (the `ReclaimSpace` operationId).
 	ReclaimSpaceWithResponse(ctx context.Context, id ProjectID, body ReclaimSpaceJSONRequestBody, reqEditors ...RequestEditorFn) (*ReclaimSpaceResponse, error)
+
+	// ListProjectReplicasWithResponse Read replicas of a dedicated project (V4 §7)
+	//
+	// Each replica's node, region, status, lag and whether the read-only route sends reads to it.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/replicas (the `ListProjectReplicas` operationId).
+	ListProjectReplicasWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListProjectReplicasResponse, error)
+
+	// CreateProjectReplicaWithBodyWithResponse Add a read replica
+	//
+	// Queues a `create_replica` operation: a streaming standby, tagged never
+	// to be promoted, on another node (in the project's region unless
+	// another is named; a project with data residency stays in its
+	// region). A project not yet under Patroni restarts under it first
+	// (writes pause for a few seconds). Up to 2 per project.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+	CreateProjectReplicaWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectReplicaResponse, error)
+
+	// CreateProjectReplicaWithResponse Add a read replica
+	//
+	// Queues a `create_replica` operation: a streaming standby, tagged never
+	// to be promoted, on another node (in the project's region unless
+	// another is named; a project with data residency stays in its
+	// region). A project not yet under Patroni restarts under it first
+	// (writes pause for a few seconds). Up to 2 per project.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+	CreateProjectReplicaWithResponse(ctx context.Context, id ProjectID, body CreateProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectReplicaResponse, error)
+
+	// DeleteProjectReplicaWithResponse Remove a read replica
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/replicas/{replica_id} (the `DeleteProjectReplica` operationId).
+	DeleteProjectReplicaWithResponse(ctx context.Context, id ProjectID, replicaId ReplicaID, reqEditors ...RequestEditorFn) (*DeleteProjectReplicaResponse, error)
+
+	// DetachProjectReplicaWithBodyWithResponse Promote a read replica into a standalone project
+	//
+	// The replica leaves the project's cluster, is promoted on its own data
+	// and becomes a new dedicated project (its database, owner and password
+	// are the new project's). The response carries the new project's
+	// password once. The source project is not changed.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+	DetachProjectReplicaWithBodyWithResponse(ctx context.Context, id ProjectID, replicaId ReplicaID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DetachProjectReplicaResponse, error)
+
+	// DetachProjectReplicaWithResponse Promote a read replica into a standalone project
+	//
+	// The replica leaves the project's cluster, is promoted on its own data
+	// and becomes a new dedicated project (its database, owner and password
+	// are the new project's). The response carries the new project's
+	// password once. The source project is not changed.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+	DetachProjectReplicaWithResponse(ctx context.Context, id ProjectID, replicaId ReplicaID, body DetachProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*DetachProjectReplicaResponse, error)
 
 	// ResetBranchWithBodyWithResponse Reset a branch from its parent
 	//
@@ -58461,6 +58986,198 @@ func (r ReclaimSpaceResponse) ContentType() string {
 	return ""
 }
 
+type ListProjectReplicasResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReplicaList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProjectReplicasResponse) GetJSON200() *ReplicaList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListProjectReplicasResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListProjectReplicasResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectReplicasResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectReplicasResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectReplicasResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateProjectReplicaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CreateProjectReplicaResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateProjectReplicaResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateProjectReplicaResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectReplicaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectReplicaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateProjectReplicaResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteProjectReplicaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r DeleteProjectReplicaResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteProjectReplicaResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteProjectReplicaResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectReplicaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectReplicaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProjectReplicaResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DetachProjectReplicaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *ProjectCredentials
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r DetachProjectReplicaResponse) GetJSON202() *ProjectCredentials {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DetachProjectReplicaResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DetachProjectReplicaResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DetachProjectReplicaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DetachProjectReplicaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DetachProjectReplicaResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ResetBranchResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -67956,6 +68673,108 @@ func (c *ClientWithResponses) ReclaimSpaceWithResponse(ctx context.Context, id P
 		return nil, err
 	}
 	return ParseReclaimSpaceResponse(rsp)
+}
+
+// ListProjectReplicasWithResponse Read replicas of a dedicated project (V4 §7)
+//
+// Each replica's node, region, status, lag and whether the read-only route sends reads to it.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/replicas (the `ListProjectReplicas` operationId).
+func (c *ClientWithResponses) ListProjectReplicasWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*ListProjectReplicasResponse, error) {
+	rsp, err := c.ListProjectReplicas(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectReplicasResponse(rsp)
+}
+
+// CreateProjectReplicaWithBodyWithResponse Add a read replica
+//
+// Queues a `create_replica` operation: a streaming standby, tagged never
+// to be promoted, on another node (in the project's region unless
+// another is named; a project with data residency stays in its
+// region). A project not yet under Patroni restarts under it first
+// (writes pause for a few seconds). Up to 2 per project.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+func (c *ClientWithResponses) CreateProjectReplicaWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectReplicaResponse, error) {
+	rsp, err := c.CreateProjectReplicaWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectReplicaResponse(rsp)
+}
+
+// CreateProjectReplicaWithResponse Add a read replica
+//
+// Queues a `create_replica` operation: a streaming standby, tagged never
+// to be promoted, on another node (in the project's region unless
+// another is named; a project with data residency stays in its
+// region). A project not yet under Patroni restarts under it first
+// (writes pause for a few seconds). Up to 2 per project.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas (the `CreateProjectReplica` operationId).
+func (c *ClientWithResponses) CreateProjectReplicaWithResponse(ctx context.Context, id ProjectID, body CreateProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectReplicaResponse, error) {
+	rsp, err := c.CreateProjectReplica(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectReplicaResponse(rsp)
+}
+
+// DeleteProjectReplicaWithResponse Remove a read replica
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/replicas/{replica_id} (the `DeleteProjectReplica` operationId).
+func (c *ClientWithResponses) DeleteProjectReplicaWithResponse(ctx context.Context, id ProjectID, replicaId ReplicaID, reqEditors ...RequestEditorFn) (*DeleteProjectReplicaResponse, error) {
+	rsp, err := c.DeleteProjectReplica(ctx, id, replicaId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectReplicaResponse(rsp)
+}
+
+// DetachProjectReplicaWithBodyWithResponse Promote a read replica into a standalone project
+//
+// The replica leaves the project's cluster, is promoted on its own data
+// and becomes a new dedicated project (its database, owner and password
+// are the new project's). The response carries the new project's
+// password once. The source project is not changed.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+func (c *ClientWithResponses) DetachProjectReplicaWithBodyWithResponse(ctx context.Context, id ProjectID, replicaId ReplicaID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DetachProjectReplicaResponse, error) {
+	rsp, err := c.DetachProjectReplicaWithBody(ctx, id, replicaId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetachProjectReplicaResponse(rsp)
+}
+
+// DetachProjectReplicaWithResponse Promote a read replica into a standalone project
+//
+// The replica leaves the project's cluster, is promoted on its own data
+// and becomes a new dedicated project (its database, owner and password
+// are the new project's). The response carries the new project's
+// password once. The source project is not changed.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/replicas/{replica_id}/detach (the `DetachProjectReplica` operationId).
+func (c *ClientWithResponses) DetachProjectReplicaWithResponse(ctx context.Context, id ProjectID, replicaId ReplicaID, body DetachProjectReplicaJSONRequestBody, reqEditors ...RequestEditorFn) (*DetachProjectReplicaResponse, error) {
+	rsp, err := c.DetachProjectReplica(ctx, id, replicaId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetachProjectReplicaResponse(rsp)
 }
 
 // ResetBranchWithBodyWithResponse Reset a branch from its parent
@@ -79450,6 +80269,138 @@ func ParseReclaimSpaceResponse(rsp *http.Response) (*ReclaimSpaceResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectReplicasResponse parses an HTTP response from a ListProjectReplicasWithResponse call
+func ParseListProjectReplicasResponse(rsp *http.Response) (*ListProjectReplicasResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectReplicasResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReplicaList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProjectReplicaResponse parses an HTTP response from a CreateProjectReplicaWithResponse call
+func ParseCreateProjectReplicaResponse(rsp *http.Response) (*CreateProjectReplicaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectReplicaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectReplicaResponse parses an HTTP response from a DeleteProjectReplicaWithResponse call
+func ParseDeleteProjectReplicaResponse(rsp *http.Response) (*DeleteProjectReplicaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectReplicaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDetachProjectReplicaResponse parses an HTTP response from a DetachProjectReplicaWithResponse call
+func ParseDetachProjectReplicaResponse(rsp *http.Response) (*DetachProjectReplicaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DetachProjectReplicaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ProjectCredentials
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

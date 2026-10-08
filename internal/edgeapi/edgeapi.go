@@ -86,6 +86,9 @@ type Settings struct {
 	// MaxQueryCost refuses data API reads whose estimated cost (EXPLAIN)
 	// is higher (V4 §3.6).
 	MaxQueryCost float64 `json:"max_query_cost"`
+	// ReplicaReads sends publishable-key GETs to the read replicas without
+	// a Read-Replica header (V4 §7).
+	ReplicaReads bool `json:"replica_reads,omitempty"`
 }
 
 // Project is one project's configuration on the edge.
@@ -99,11 +102,14 @@ type Project struct {
 	Seq       int64     `json:"seq"`
 	// Database is the pooler database name; the edge logs in as EdgeUser
 	// and SETs ROLE to AnonRole, UserRole or ServiceRole per request.
-	Database   string `json:"database,omitempty"`
-	EdgeUser   string `json:"edge_user,omitempty"`
-	Password   string `json:"password,omitempty"`
-	PoolerHost string `json:"pooler_host,omitempty"`
-	PoolerPort int    `json:"pooler_port,omitempty"`
+	Database string `json:"database,omitempty"`
+	// ReadDatabase is the pooler's read-only route across the project's
+	// read replicas (<db>_ro, V4 §7); empty without replicas.
+	ReadDatabase string `json:"read_database,omitempty"`
+	EdgeUser     string `json:"edge_user,omitempty"`
+	Password     string `json:"password,omitempty"`
+	PoolerHost   string `json:"pooler_host,omitempty"`
+	PoolerPort   int    `json:"pooler_port,omitempty"`
 	// SessionHost and SessionPort are a session-mode pooler, for realtime's
 	// LISTEN connection (V4 §6.2); empty without one.
 	SessionHost string `json:"session_host,omitempty"`

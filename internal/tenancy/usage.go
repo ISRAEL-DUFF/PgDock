@@ -49,6 +49,12 @@ const (
 	// Backend services' realtime (V4 §6, §11.1).
 	MetricRealtimeConnMinutes = "realtime_connection_minutes"
 	MetricRealtimeMessages    = "realtime_messages"
+	// Read replicas (V4 §7, §11.1): each bills like a dedicated instance
+	// of its size.
+	MetricReplicaHours = "replica_hours"
+	MetricReplicaCPU   = "replica_vcpu_hours"
+	MetricReplicaRAM   = "replica_ram_gb_hours"
+	MetricReplicaDisk  = "replica_disk_gb_hours"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -79,6 +85,10 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricImageTransforms, "transforms", "hour"},
 	{MetricRealtimeConnMinutes, "connection-minutes", "hour"},
 	{MetricRealtimeMessages, "messages", "hour"},
+	{MetricReplicaHours, "replica-hours", "hour"},
+	{MetricReplicaCPU, "vCPU-hours", "hour"},
+	{MetricReplicaRAM, "GB-RAM-hours", "hour"},
+	{MetricReplicaDisk, "GB-disk-hours", "hour"},
 }
 
 const (
@@ -234,6 +244,39 @@ func (s *Service) recordHours(ctx context.Context, from, to time.Time) error {
 		}
 		for metric, v := range vals {
 			if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, metric, "hour", r.PeriodStart, v); err != nil {
+				return err
+			}
+		}
+	}
+	// Read replicas, summed per project and hour.
+	reps, err := q.HourlyReplicas(ctx, store.HourlyReplicasParams{FromTs: from, LastHour: to.Add(-time.Hour)})
+	if err != nil {
+		return fmt.Errorf("read replicas: %w", err)
+	}
+	type hourKey struct {
+		project uuid.UUID
+		at      time.Time
+	}
+	sums := map[hourKey]map[string]float64{}
+	who := map[uuid.UUID]store.HourlyReplicasRow{}
+	var order []hourKey
+	for _, r := range reps {
+		f := max(0, min(1, r.Fraction))
+		k := hourKey{r.ProjectID, r.PeriodStart}
+		if sums[k] == nil {
+			sums[k] = map[string]float64{}
+			order = append(order, k)
+		}
+		who[r.ProjectID] = r
+		sums[k][MetricReplicaHours] += f
+		sums[k][MetricReplicaCPU] += r.Cpus * f
+		sums[k][MetricReplicaRAM] += float64(r.MemMb) / 1000 * f
+		sums[k][MetricReplicaDisk] += float64(r.DiskGb) * f
+	}
+	for _, k := range order {
+		r := who[k.project]
+		for metric, v := range sums[k] {
+			if err := s.upsertUsage(ctx, q, r.OrgID, k.project, r.PlanID, metric, "hour", k.at, v); err != nil {
 				return err
 			}
 		}

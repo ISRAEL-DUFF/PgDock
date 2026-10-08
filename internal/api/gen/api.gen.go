@@ -1979,6 +1979,39 @@ func (e PromotionEstimateCopyMode) Valid() bool {
 	}
 }
 
+// Defines values for ReadReplicaStatus.
+const (
+	ReadReplicaStatusCreating  ReadReplicaStatus = "creating"
+	ReadReplicaStatusDeleting  ReadReplicaStatus = "deleting"
+	ReadReplicaStatusDetaching ReadReplicaStatus = "detaching"
+	ReadReplicaStatusDown      ReadReplicaStatus = "down"
+	ReadReplicaStatusFailed    ReadReplicaStatus = "failed"
+	ReadReplicaStatusLagging   ReadReplicaStatus = "lagging"
+	ReadReplicaStatusStreaming ReadReplicaStatus = "streaming"
+)
+
+// Valid indicates whether the value is a known member of the ReadReplicaStatus enum.
+func (e ReadReplicaStatus) Valid() bool {
+	switch e {
+	case ReadReplicaStatusCreating:
+		return true
+	case ReadReplicaStatusDeleting:
+		return true
+	case ReadReplicaStatusDetaching:
+		return true
+	case ReadReplicaStatusDown:
+		return true
+	case ReadReplicaStatusFailed:
+		return true
+	case ReadReplicaStatusLagging:
+		return true
+	case ReadReplicaStatusStreaming:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReapedSessionKind.
 const (
 	IdleInTransaction ReapedSessionKind = "idle_in_transaction"
@@ -4439,6 +4472,9 @@ type BackendServicesSettings struct {
 
 	// RatePerKey Requests per minute with one key (0 for the default, 12000).
 	RatePerKey *int `json:"rate_per_key,omitempty"`
+
+	// ReplicaReads Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default.
+	ReplicaReads *bool `json:"replica_reads,omitempty"`
 
 	// StatementTimeoutMs Each request's statement timeout (0 for the default, 8000).
 	StatementTimeoutMs *int `json:"statement_timeout_ms,omitempty"`
@@ -7268,6 +7304,31 @@ type QuotaItem struct {
 	Used float32 `json:"used"`
 }
 
+// ReadReplica defines model for ReadReplica.
+type ReadReplica struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Error     *string            `json:"error,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// InRotation The read-only route sends reads to it.
+	InRotation bool   `json:"in_rotation"`
+	LagBytes   *int64 `json:"lag_bytes,omitempty"`
+
+	// LagMs How long ago the primary wrote what it has not replayed yet.
+	LagMs             *int64             `json:"lag_ms,omitempty"`
+	NodeId            openapi_types.UUID `json:"node_id"`
+	NodeName          string             `json:"node_name"`
+	Region            string             `json:"region"`
+	RotationChangedAt *time.Time         `json:"rotation_changed_at,omitempty"`
+
+	// Size The instance profile it runs with (the primary's).
+	Size   string            `json:"size"`
+	Status ReadReplicaStatus `json:"status"`
+}
+
+// ReadReplicaStatus defines model for ReadReplica.Status.
+type ReadReplicaStatus string
+
 // RealtimeOverview defines model for RealtimeOverview.
 type RealtimeOverview struct {
 	// ChangesPerSecond Database changes delivered per second before subscribers are told to resync
@@ -7459,6 +7520,35 @@ type ReplayRequest struct {
 // ReplayResult defines model for ReplayResult.
 type ReplayResult struct {
 	Queued int `json:"queued"`
+}
+
+// ReplicaCreateRequest defines model for ReplicaCreateRequest.
+type ReplicaCreateRequest struct {
+	// NodeId Where the replica goes (default the least loaded eligible node in the region).
+	NodeId *openapi_types.UUID `json:"node_id,omitempty"`
+
+	// Region The region it goes in (default the project's).
+	Region *string `json:"region,omitempty"`
+}
+
+// ReplicaDetachRequest defines model for ReplicaDetachRequest.
+type ReplicaDetachRequest struct {
+	// Name The new project's name.
+	Name string `json:"name"`
+}
+
+// ReplicaList defines model for ReplicaList.
+type ReplicaList struct {
+	// MaxLagMs A replica further behind leaves rotation until it catches up.
+	MaxLagMs    int64 `json:"max_lag_ms"`
+	MaxReplicas int   `json:"max_replicas"`
+
+	// ReadDatabase The pooler database name of the read-only route (<db>_ro); with no replica in rotation it reaches the primary, read-only.
+	ReadDatabase string `json:"read_database"`
+
+	// ReadUrl The read-only route's connection string, without a password.
+	ReadUrl  *string       `json:"read_url,omitempty"`
+	Replicas []ReadReplica `json:"replicas"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -8927,6 +9017,9 @@ type PriceBookVersion = int
 // ProjectID defines model for ProjectID.
 type ProjectID = openapi_types.UUID
 
+// ReplicaID defines model for ReplicaID.
+type ReplicaID = openapi_types.UUID
+
 // RequestID defines model for RequestID.
 type RequestID = openapi_types.UUID
 
@@ -9926,6 +10019,12 @@ type SetRealtimeTableJSONRequestBody SetRealtimeTableJSONBody
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
+
+// CreateProjectReplicaJSONRequestBody defines body for CreateProjectReplica for application/json ContentType.
+type CreateProjectReplicaJSONRequestBody = ReplicaCreateRequest
+
+// DetachProjectReplicaJSONRequestBody defines body for DetachProjectReplica for application/json ContentType.
+type DetachProjectReplicaJSONRequestBody = ReplicaDetachRequest
 
 // ResetBranchJSONRequestBody defines body for ResetBranch for application/json ContentType.
 type ResetBranchJSONRequestBody = BranchResetRequest
@@ -10940,6 +11039,18 @@ type ServerInterface interface {
 	// ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
 	// (POST /api/v1/projects/{id}/reclaim-space)
 	ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// ListProjectReplicas Read replicas of a dedicated project (V4 §7)
+	// (GET /api/v1/projects/{id}/replicas)
+	ListProjectReplicas(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// CreateProjectReplica Add a read replica
+	// (POST /api/v1/projects/{id}/replicas)
+	CreateProjectReplica(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// DeleteProjectReplica Remove a read replica
+	// (DELETE /api/v1/projects/{id}/replicas/{replica_id})
+	DeleteProjectReplica(w http.ResponseWriter, r *http.Request, id ProjectID, replicaId ReplicaID)
+	// DetachProjectReplica Promote a read replica into a standalone project
+	// (POST /api/v1/projects/{id}/replicas/{replica_id}/detach)
+	DetachProjectReplica(w http.ResponseWriter, r *http.Request, id ProjectID, replicaId ReplicaID)
 	// ResetBranch Reset a branch from its parent
 	// (POST /api/v1/projects/{id}/reset)
 	ResetBranch(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -12995,6 +13106,30 @@ func (_ Unimplemented) ListReapedSessions(w http.ResponseWriter, r *http.Request
 // ReclaimSpace Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table)
 // (POST /api/v1/projects/{id}/reclaim-space)
 func (_ Unimplemented) ReclaimSpace(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListProjectReplicas Read replicas of a dedicated project (V4 §7)
+// (GET /api/v1/projects/{id}/replicas)
+func (_ Unimplemented) ListProjectReplicas(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateProjectReplica Add a read replica
+// (POST /api/v1/projects/{id}/replicas)
+func (_ Unimplemented) CreateProjectReplica(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteProjectReplica Remove a read replica
+// (DELETE /api/v1/projects/{id}/replicas/{replica_id})
+func (_ Unimplemented) DeleteProjectReplica(w http.ResponseWriter, r *http.Request, id ProjectID, replicaId ReplicaID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DetachProjectReplica Promote a read replica into a standalone project
+// (POST /api/v1/projects/{id}/replicas/{replica_id}/detach)
+func (_ Unimplemented) DetachProjectReplica(w http.ResponseWriter, r *http.Request, id ProjectID, replicaId ReplicaID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21798,6 +21933,128 @@ func (siw *ServerInterfaceWrapper) ReclaimSpace(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjectReplicas operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectReplicas(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectReplicas(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProjectReplica operation middleware
+func (siw *ServerInterfaceWrapper) CreateProjectReplica(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProjectReplica(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProjectReplica operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProjectReplica(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "replica_id" -------------
+	var replicaId ReplicaID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "replica_id", chi.URLParam(r, "replica_id"), &replicaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "replica_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProjectReplica(w, r, id, replicaId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DetachProjectReplica operation middleware
+func (siw *ServerInterfaceWrapper) DetachProjectReplica(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "replica_id" -------------
+	var replicaId ReplicaID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "replica_id", chi.URLParam(r, "replica_id"), &replicaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "replica_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DetachProjectReplica(w, r, id, replicaId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ResetBranch operation middleware
 func (siw *ServerInterfaceWrapper) ResetBranch(w http.ResponseWriter, r *http.Request) {
 
@@ -24258,6 +24515,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/ha/etcd-move", wrapper.MoveProjectEtcd)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/replicas", wrapper.ListProjectReplicas)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/replicas", wrapper.CreateProjectReplica)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/projects/{id}/replicas/{replica_id}", wrapper.DeleteProjectReplica)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/replicas/{replica_id}/detach", wrapper.DetachProjectReplica)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/switchover", wrapper.SwitchoverProject)

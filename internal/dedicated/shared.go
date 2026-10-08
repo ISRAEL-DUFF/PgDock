@@ -33,6 +33,9 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 		KindHADisable:     {Handler: s.runHADisable, MaxAttempts: 3},
 		KindHASwitchover:  {Handler: s.runSwitchover, MaxAttempts: 1, Timeout: 5 * time.Minute},
 		KindHAEtcdMove:    {Handler: s.runHAEtcdMove, MaxAttempts: 2, Timeout: 24 * time.Hour},
+		KindCreateReplica: {Handler: s.runCreateReplica, OnFail: s.failCreateReplica, MaxAttempts: 2, Timeout: 24 * time.Hour},
+		KindDeleteReplica: {Handler: s.runDeleteReplica, MaxAttempts: 3},
+		KindDetachReplica: {Handler: s.runDetachReplica, OnFail: s.failDetachReplica, MaxAttempts: 2, Timeout: 6 * time.Hour},
 	}
 }
 

@@ -172,6 +172,11 @@ While HA is on, moving the project to another node, demoting it, a major
 upgrade, and stopping or restarting it from the Instance panel are refused
 (turn HA off first, or use a switchover).
 
+Read replicas (docs/read-replicas.md) are members of the same Patroni
+cluster tagged never to be promoted: turning HA off leaves them, a
+switchover never picks one, and they follow the new primary after a
+failover.
+
 ## Availability (the SLA)
 
 Each HA project has a probe login (`<database>_sla`) that can only connect

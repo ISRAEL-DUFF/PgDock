@@ -431,7 +431,7 @@ var specMatrix = map[authz.Action][]string{
 		// V2 §8 Project → Branches
 		"GET /api/v1/projects/{id}/branches",
 		// V3 §2.3: a project's moves between instances
-		"GET /api/v1/projects/{id}/ha", "GET /api/v1/projects/{id}/moves",
+		"GET /api/v1/projects/{id}/ha", "GET /api/v1/projects/{id}/replicas", "GET /api/v1/projects/{id}/moves",
 		// V4 §2.2 the API URL and keys (publishable keys are meant to be seen)
 		"GET /api/v1/projects/{id}/services",
 	},
@@ -528,6 +528,9 @@ var specMatrix = map[authz.Action][]string{
 		"DELETE /api/v1/projects/{id}/ha", "POST /api/v1/projects/{id}/switchover",
 		// V3.1 §3.3 moving its Patroni state to its region's etcd cluster
 		"POST /api/v1/projects/{id}/ha/etcd-move",
+		// V4 §7 read replicas: create, delete, detach into a project
+		"POST /api/v1/projects/{id}/replicas", "DELETE /api/v1/projects/{id}/replicas/{replica_id}",
+		"POST /api/v1/projects/{id}/replicas/{replica_id}/detach",
 	},
 	// "Delete project" (transfer also needs owner of both orgs, checked in the handler)
 	authz.ProjectDelete: {"DELETE /api/v1/projects/{id}", "POST /api/v1/projects/{id}/transfer"},

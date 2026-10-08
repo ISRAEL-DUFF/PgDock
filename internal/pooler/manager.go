@@ -298,6 +298,15 @@ func (m *Manager) Sync(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("pooler sync: load routes: %w", err)
 	}
+	// Read replicas (V4 §7), by project database.
+	repRows, err := q.PoolerReplicaRoutes(ctx)
+	if err != nil {
+		return fmt.Errorf("pooler sync: load read replicas: %w", err)
+	}
+	replicas := map[string][]store.PoolerReplicaRoutesRow{}
+	for _, r := range repRows {
+		replicas[r.DbName] = append(replicas[r.DbName], r)
+	}
 	wakerHost, wakerPort := m.waker()
 	for _, r := range rows {
 		s, err := store.DecodeProjectSettings(r.Settings)
@@ -312,7 +321,15 @@ func (m *Manager) Sync(ctx context.Context) error {
 		}
 		regs := served(r.Region, r.ForwardRegion, r.ForwardUntil)
 		mark(r.DbName, regs)
-		add(regs, func(cfg *Config) {
+		if _, ok := replicas[r.DbName]; ok {
+			mark(r.DbName+ReadOnlySuffix, regs)
+		}
+		addIn := func(regions []string, f func(cfg *Config, region string)) {
+			for _, rg := range regions {
+				add([]string{rg}, func(cfg *Config) { f(cfg, rg) })
+			}
+		}
+		addIn(regs, func(cfg *Config, region string) {
 			cfg.Routes = append(cfg.Routes, Route{
 				Database:         r.DbName,
 				Host:             host,
@@ -329,6 +346,18 @@ func (m *Manager) Sync(ctx context.Context) error {
 					Database: *r.AliasDbName, BackendDB: r.DbName, Host: host, Port: port,
 					PoolSize: s.PoolSize, MaxDBConnections: s.ConnectionLimit,
 				})
+			}
+			// A project with read replicas gets <db>_ro across those in
+			// rotation, or its primary when none is (V4 §7).
+			if reps, ok := replicas[r.DbName]; ok {
+				ro := Route{Database: r.DbName + ReadOnlySuffix, BackendDB: r.DbName, Host: host, Port: port,
+					PoolSize: s.PoolSize, MaxDBConnections: s.ConnectionLimit, ReadOnly: true}
+				if r.Lifecycle == "active" {
+					if hosts, p := replicaHosts(reps, region, poolerRegion); len(hosts) > 0 {
+						ro.Host, ro.MoreHosts, ro.Port = hosts[0], hosts[1:], p
+					}
+				}
+				cfg.Routes = append(cfg.Routes, ro)
 			}
 			// The V1 owner role during a switch to opaque credentials.
 			if r.LegacyOwnerRole != nil && r.LegacyScramVerifier != nil {
@@ -557,4 +586,31 @@ func (m *Manager) each(ctx context.Context, f func(*Admin) error) error {
 // KillUser drops user's client connections on every pooler.
 func (m *Manager) KillUser(ctx context.Context, user string) error {
 	return m.each(ctx, func(a *Admin) error { _, err := a.KillUser(ctx, user); return err })
+}
+
+// replicaHosts picks the read replicas a region's read-only route balances
+// across: those in rotation whose pooler region is this one, or, when none
+// is, every replica in rotation (still reads off the primary). PgBouncer
+// takes one port for a host list, so it is the largest group sharing a
+// port (replicas ask for the same one; see dedicated.replicaPort).
+func replicaHosts(reps []store.PoolerReplicaRoutesRow, region string, poolerRegion func(string) string) ([]string, int) {
+	pick := func(local bool) ([]string, int) {
+		byPort := map[int][]string{}
+		best := 0
+		for _, r := range reps {
+			if !r.InRotation || r.Port <= 0 || (local && poolerRegion(r.Region) != region) {
+				continue
+			}
+			p := int(r.Port)
+			byPort[p] = append(byPort[p], r.Host)
+			if best == 0 || len(byPort[p]) > len(byPort[best]) {
+				best = p
+			}
+		}
+		return byPort[best], best
+	}
+	if hosts, port := pick(true); len(hosts) > 0 {
+		return hosts, port
+	}
+	return pick(false)
 }

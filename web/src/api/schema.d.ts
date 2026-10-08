@@ -980,6 +980,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/replicas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read replicas of a dedicated project (V4 §7)
+         * @description Each replica's node, region, status, lag and whether the read-only route sends reads to it.
+         */
+        get: operations["listProjectReplicas"];
+        put?: never;
+        /**
+         * Add a read replica
+         * @description Queues a `create_replica` operation: a streaming standby, tagged never
+         *     to be promoted, on another node (in the project's region unless
+         *     another is named; a project with data residency stays in its
+         *     region). A project not yet under Patroni restarts under it first
+         *     (writes pause for a few seconds). Up to 2 per project.
+         */
+        post: operations["createProjectReplica"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/replicas/{replica_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a read replica */
+        delete: operations["deleteProjectReplica"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/replicas/{replica_id}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote a read replica into a standalone project
+         * @description The replica leaves the project's cluster, is promoted on its own data
+         *     and becomes a new dedicated project (its database, owner and password
+         *     are the new project's). The response carries the new project's
+         *     password once. The source project is not changed.
+         */
+        post: operations["detachProjectReplica"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/switchover": {
         parameters: {
             query?: never;
@@ -6451,6 +6519,58 @@ export interface components {
         HAUpdateRequest: {
             synchronous: boolean;
         };
+        ReplicaCreateRequest: {
+            /**
+             * Format: uuid
+             * @description Where the replica goes (default the least loaded eligible node in the region).
+             */
+            node_id?: string;
+            /** @description The region it goes in (default the project's). */
+            region?: string;
+        };
+        ReplicaDetachRequest: {
+            /** @description The new project's name. */
+            name: string;
+        };
+        ReadReplica: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            region: string;
+            /** @description The instance profile it runs with (the primary's). */
+            size: string;
+            /** @enum {string} */
+            status: "creating" | "streaming" | "lagging" | "down" | "deleting" | "detaching" | "failed";
+            /** @description The read-only route sends reads to it. */
+            in_rotation: boolean;
+            /** Format: int64 */
+            lag_bytes?: number;
+            /**
+             * Format: int64
+             * @description How long ago the primary wrote what it has not replayed yet.
+             */
+            lag_ms?: number;
+            error?: string;
+            /** Format: date-time */
+            rotation_changed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReplicaList: {
+            replicas: components["schemas"]["ReadReplica"][];
+            max_replicas: number;
+            /**
+             * Format: int64
+             * @description A replica further behind leaves rotation until it catches up.
+             */
+            max_lag_ms: number;
+            /** @description The pooler database name of the read-only route (<db>_ro); with no replica in rotation it reaches the primary, read-only. */
+            read_database: string;
+            /** @description The read-only route's connection string, without a password. */
+            read_url?: string;
+        };
         SwitchoverRequest: {
             /**
              * Format: uuid
@@ -6587,6 +6707,8 @@ export interface components {
             allow_secret_in_browser?: boolean;
             /** @description Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000). */
             max_query_cost?: number;
+            /** @description Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default. */
+            replica_reads?: boolean;
         };
         AuthSettings: {
             /** @description Where links go when a request names no redirect (and the base of allowed redirects). */
@@ -10112,6 +10234,7 @@ export interface components {
         IncidentID: string;
         NodeID: string;
         ProjectID: string;
+        ReplicaID: string;
         OperationID: string;
         BucketID: string;
         /** @description The file's path in the bucket */
@@ -11549,6 +11672,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectReplicas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The replicas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createProjectReplica: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteProjectReplica: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                replica_id: components["parameters"]["ReplicaID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    detachProjectReplica: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                replica_id: components["parameters"]["ReplicaID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaDetachRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
                 };
             };
             default: components["responses"]["Error"];

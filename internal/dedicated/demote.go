@@ -131,6 +131,9 @@ func (s *Service) DemotePreflight(ctx context.Context, p store.Project, o Demote
 	if inst, err := store.New(s.db).GetInstance(ctx, p.InstanceID); err == nil && inst.HaEnabled {
 		return DemotePlan{}, fmt.Errorf("%w: turn HA off before demoting this project", provision.ErrConflict)
 	}
+	if err := s.HasReplicas(ctx, store.New(s.db), p.ID); err != nil {
+		return DemotePlan{}, err
+	}
 	return s.preflight(ctx, p, o, nil)
 }
 

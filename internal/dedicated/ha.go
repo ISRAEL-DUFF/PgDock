@@ -119,6 +119,12 @@ func (s *Service) memberSpec(ctx context.Context, inst store.Instance, member uu
 		ReplicationUser: replicationUser, ReplicationPassword: sec.ReplicationPassword, RestPassword: sec.RestPassword,
 		Synchronous: inst.SyncReplication, PeerAllow: DefaultPeerAllow,
 	}
+	// A read replica (V4 §7) never leads and never holds up commits.
+	if m, err := store.New(s.db).GetInstanceMember(ctx, member); err == nil && m.Replica {
+		spec.Patroni.ReadReplica, spec.Patroni.PreferPort = true, replicaPort(inst.ID)
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return spec, err
+	}
 	return spec, nil
 }
 
@@ -239,11 +245,21 @@ type haParams struct {
 // standbyNode picks where the standby goes: a healthy dedicated-capable
 // node other than the primary's (V3 §2.2 "on different nodes"), in another
 // failure domain (V3.1 §2.2).
-func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid.UUID) (store.Node, error) {
+func (s *Service) standbyNode(ctx context.Context, inst store.Instance, want *uuid.UUID) (store.Node, error) {
 	q := store.New(s.db)
+	primary := inst.NodeID
 	ns, err := q.ListNodes(ctx)
 	if err != nil {
 		return store.Node{}, err
+	}
+	// Nor where a read replica of the instance is (one member per node).
+	members, err := q.ListInstanceMembers(ctx, inst.ID)
+	if err != nil {
+		return store.Node{}, err
+	}
+	taken := map[uuid.UUID]bool{}
+	for _, m := range members {
+		taken[m.NodeID] = true
 	}
 	// The standby stays in the primary's region (V3 §6.1).
 	var prim store.Node
@@ -257,7 +273,7 @@ func (s *Service) standbyNode(ctx context.Context, primary uuid.UUID, want *uuid
 	bestCount := 1 << 30
 	var together []store.Node // eligible, but in the primary's failure domain
 	for i, n := range ns {
-		if n.ID == primary || n.AgentCertFp == nil || n.Status != "healthy" || (n.Role != "dedicated" && n.Role != "both") || n.Region != region {
+		if n.ID == primary || taken[n.ID] || n.AgentCertFp == nil || n.Status != "healthy" || (n.Role != "dedicated" && n.Role != "both") || n.Region != region {
 			continue
 		}
 		// And in another failure domain from the primary (V3.1 §2.2).
@@ -323,8 +339,7 @@ func (s *Service) EnableHA(ctx context.Context, p HAParams) (store.Operation, er
 			if err := s.Etcd.Ready(ctx, region); err != nil {
 				return nil, err
 			}
-			primaryNode := inst.NodeID
-			n, err := s.standbyNode(ctx, primaryNode, p.NodeID)
+			n, err := s.standbyNode(ctx, inst, p.NodeID)
 			if err != nil {
 				return nil, err
 			}
@@ -624,7 +639,7 @@ func (s *Service) runHADisable(ctx context.Context, op store.Operation, log *job
 		return err
 	}
 	leader := leaderKey(inst)
-	for _, m := range members {
+	for _, m := range haMembers(members) {
 		if m.ID == leader {
 			continue
 		}

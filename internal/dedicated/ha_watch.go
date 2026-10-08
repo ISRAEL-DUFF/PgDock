@@ -40,8 +40,9 @@ type watchState struct {
 }
 
 type watcher struct {
-	mu     sync.Mutex
-	states map[uuid.UUID]*watchState
+	mu       sync.Mutex
+	states   map[uuid.UUID]*watchState
+	replicas map[uuid.UUID]*replicaState
 }
 
 func (w *watcher) state(id uuid.UUID) *watchState {
@@ -207,6 +208,10 @@ func (s *Service) watchOne(ctx context.Context, id uuid.UUID) error {
 		}
 		st.paused, st.misses, st.downSince, st.switchover = false, 0, time.Time{}, time.Time{}
 	}
+	// Read replicas' lag and rotation (V4 §7), against the leader.
+	if err := s.checkReplicas(ctx, inst, p); err != nil && ctx.Err() == nil {
+		s.log.Warn("HA watcher: read replicas", "instance", id, "err", err)
+	}
 	return nil
 }
 
@@ -342,8 +347,14 @@ func (s *Service) switchOver(ctx context.Context, inst store.Instance, p store.P
 		}
 		cand = nil
 		streaming := false
+		replicas := map[string]bool{}
+		for _, m := range members {
+			if isReplica(m) {
+				replicas[m.ID.String()] = true
+			}
+		}
 		for i, m := range c.Members {
-			if m.Name == leader.Name || (m.State != "streaming" && m.State != "running") {
+			if m.Name == leader.Name || (m.State != "streaming" && m.State != "running") || replicas[m.Name] {
 				continue
 			}
 			if candidate != nil && m.Name != candidate.String() {

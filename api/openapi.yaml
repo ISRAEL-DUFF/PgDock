@@ -1215,6 +1215,95 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/replicas:
+    get:
+      operationId: listProjectReplicas
+      summary: Read replicas of a dedicated project (V4 §7)
+      description: Each replica's node, region, status, lag and whether the read-only route sends reads to it.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The replicas.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplicaList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createProjectReplica
+      summary: Add a read replica
+      description: |
+        Queues a `create_replica` operation: a streaming standby, tagged never
+        to be promoted, on another node (in the project's region unless
+        another is named; a project with data residency stays in its
+        region). A project not yet under Patroni restarts under it first
+        (writes pause for a few seconds). Up to 2 per project.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplicaCreateRequest"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/replicas/{replica_id}:
+    delete:
+      operationId: deleteProjectReplica
+      summary: Remove a read replica
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/ReplicaID"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/replicas/{replica_id}/detach:
+    post:
+      operationId: detachProjectReplica
+      summary: Promote a read replica into a standalone project
+      description: |
+        The replica leaves the project's cluster, is promoted on its own data
+        and becomes a new dedicated project (its database, owner and password
+        are the new project's). The response carries the new project's
+        password once. The source project is not changed.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - $ref: "#/components/parameters/ReplicaID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplicaDetachRequest"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCredentials"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/switchover:
     post:
       operationId: switchoverProject
@@ -8073,6 +8162,13 @@ components:
       schema:
         type: string
         format: uuid
+    ReplicaID:
+      name: replica_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     OperationID:
       name: id
       in: path
@@ -9740,6 +9836,81 @@ components:
       properties:
         synchronous:
           type: boolean
+    ReplicaCreateRequest:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+          description: Where the replica goes (default the least loaded eligible node in the region).
+        region:
+          type: string
+          description: The region it goes in (default the project's).
+    ReplicaDetachRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: The new project's name.
+    ReadReplica:
+      type: object
+      required: [id, node_id, node_name, region, size, status, in_rotation, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        region:
+          type: string
+        size:
+          type: string
+          description: The instance profile it runs with (the primary's).
+        status:
+          type: string
+          enum: [creating, streaming, lagging, down, deleting, detaching, failed]
+        in_rotation:
+          type: boolean
+          description: The read-only route sends reads to it.
+        lag_bytes:
+          type: integer
+          format: int64
+        lag_ms:
+          type: integer
+          format: int64
+          description: How long ago the primary wrote what it has not replayed yet.
+        error:
+          type: string
+        rotation_changed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    ReplicaList:
+      type: object
+      required: [replicas, max_replicas, max_lag_ms, read_database]
+      properties:
+        replicas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReadReplica"
+        max_replicas:
+          type: integer
+        max_lag_ms:
+          type: integer
+          format: int64
+          description: A replica further behind leaves rotation until it catches up.
+        read_database:
+          type: string
+          description: The pooler database name of the read-only route (<db>_ro); with no replica in rotation it reaches the primary, read-only.
+        read_url:
+          type: string
+          description: The read-only route's connection string, without a password.
     SwitchoverRequest:
       type: object
       properties:
@@ -9988,6 +10159,9 @@ components:
         max_query_cost:
           type: integer
           description: Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
+        replica_reads:
+          type: boolean
+          description: Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default.
     AuthSettings:
       type: object
       properties:

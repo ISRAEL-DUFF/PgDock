@@ -37,7 +37,7 @@ func (e *Edge) runPGHook(ctx context.Context, p *project, fn string, event map[s
 	if !ok || p.cfg.HookRole == "" {
 		return nil, fmt.Errorf("%w: no hook role or function", errHookFailed)
 	}
-	pool, setRole, err := e.rolePool(ctx, p, p.cfg.HookRole)
+	pool, setRole, err := e.rolePool(ctx, p, p.cfg.HookRole, false)
 	if err != nil {
 		return nil, err
 	}

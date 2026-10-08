@@ -156,6 +156,7 @@ SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_sch
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
   s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
   s.realtime_max_connections, s.realtime_messages_blocked,
+  EXISTS (SELECT 1 FROM read_replicas r WHERE r.project_id = p.id AND r.deleted_at IS NULL)::boolean AS has_replicas,
   p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
 FROM project_services s JOIN projects p ON p.id = s.project_id JOIN organizations o ON o.id = p.org_id
 WHERE s.changed_seq > $1
@@ -185,6 +186,7 @@ type EdgeConfigChangesRow struct {
 	TransformsBlocked       bool
 	RealtimeMaxConnections  *int32
 	RealtimeMessagesBlocked bool
+	HasReplicas             bool
 	DbName                  string
 	Region                  string
 	DataResidency           bool
@@ -223,6 +225,7 @@ func (q *Queries) EdgeConfigChanges(ctx context.Context, arg EdgeConfigChangesPa
 			&i.TransformsBlocked,
 			&i.RealtimeMaxConnections,
 			&i.RealtimeMessagesBlocked,
+			&i.HasReplicas,
 			&i.DbName,
 			&i.Region,
 			&i.DataResidency,
