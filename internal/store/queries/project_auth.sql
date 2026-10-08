@@ -48,13 +48,14 @@ SELECT count(*) FROM auth_message_outbox WHERE project_id = @project_id AND reci
 -- tenant: system - a project the caller resolved.
 SELECT count(*) FROM auth_message_outbox WHERE project_id = @project_id AND channel = 'email' AND via = 'platform' AND created_at > @since;
 
--- name: DueAuthEmails :many
--- tenant: system - the auth email sender across all projects.
-SELECT * FROM auth_message_outbox
-WHERE sent_at IS NULL AND message_enc IS NOT NULL AND next_attempt_at <= now()
-ORDER BY next_attempt_at
-LIMIT @lim
-FOR UPDATE SKIP LOCKED;
+-- name: ClaimAuthEmails :many
+-- tenant: system - the auth email sender across all projects: due messages,
+-- leased for lease_secs so no other sender takes them while they're sent.
+UPDATE auth_message_outbox SET next_attempt_at = now() + make_interval(secs => @lease_secs::int)
+WHERE id IN (SELECT o.id FROM auth_message_outbox o
+  WHERE o.sent_at IS NULL AND o.message_enc IS NOT NULL AND o.next_attempt_at <= now()
+  ORDER BY o.next_attempt_at LIMIT @lim FOR UPDATE SKIP LOCKED)
+RETURNING *;
 
 -- name: MarkAuthEmailSent :exec
 -- tenant: system - the auth email sender.
@@ -89,10 +90,14 @@ INSERT INTO auth_alerts (project_id, kind, day, details) VALUES (@project_id, @k
 -- tenant: system - a hook event pgdock-edge sent, for the project it named.
 INSERT INTO auth_hook_outbox (id, project_id, event, payload) VALUES (@id, @project_id, @event, @payload);
 
--- name: DueAuthHooks :many
--- tenant: system - the auth hook sender across all projects.
-SELECT * FROM auth_hook_outbox WHERE delivered_at IS NULL AND failed_at IS NULL AND next_attempt_at <= now()
-ORDER BY next_attempt_at LIMIT @lim FOR UPDATE SKIP LOCKED;
+-- name: ClaimAuthHooks :many
+-- tenant: system - the auth hook sender across all projects: due events,
+-- leased for lease_secs so no other sender takes them while they're sent.
+UPDATE auth_hook_outbox SET next_attempt_at = now() + make_interval(secs => @lease_secs::int)
+WHERE id IN (SELECT o.id FROM auth_hook_outbox o
+  WHERE o.delivered_at IS NULL AND o.failed_at IS NULL AND o.next_attempt_at <= now()
+  ORDER BY o.next_attempt_at LIMIT @lim FOR UPDATE SKIP LOCKED)
+RETURNING *;
 
 -- name: MarkAuthHook :exec
 -- tenant: system - the auth hook sender.

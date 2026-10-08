@@ -14,6 +14,102 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimAuthEmails = `-- name: ClaimAuthEmails :many
+UPDATE auth_message_outbox SET next_attempt_at = now() + make_interval(secs => $1::int)
+WHERE id IN (SELECT o.id FROM auth_message_outbox o
+  WHERE o.sent_at IS NULL AND o.message_enc IS NOT NULL AND o.next_attempt_at <= now()
+  ORDER BY o.next_attempt_at LIMIT $2 FOR UPDATE SKIP LOCKED)
+RETURNING id, project_id, kind, via, message_enc, attempts, next_attempt_at, last_error, created_at, sent_at, channel, recipient_hash, country
+`
+
+type ClaimAuthEmailsParams struct {
+	LeaseSecs int32
+	Lim       int32
+}
+
+// tenant: system - the auth email sender across all projects: due messages,
+// leased for lease_secs so no other sender takes them while they're sent.
+func (q *Queries) ClaimAuthEmails(ctx context.Context, arg ClaimAuthEmailsParams) ([]AuthMessageOutbox, error) {
+	rows, err := q.db.Query(ctx, claimAuthEmails, arg.LeaseSecs, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuthMessageOutbox
+	for rows.Next() {
+		var i AuthMessageOutbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.Via,
+			&i.MessageEnc,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.LastError,
+			&i.CreatedAt,
+			&i.SentAt,
+			&i.Channel,
+			&i.RecipientHash,
+			&i.Country,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const claimAuthHooks = `-- name: ClaimAuthHooks :many
+UPDATE auth_hook_outbox SET next_attempt_at = now() + make_interval(secs => $1::int)
+WHERE id IN (SELECT o.id FROM auth_hook_outbox o
+  WHERE o.delivered_at IS NULL AND o.failed_at IS NULL AND o.next_attempt_at <= now()
+  ORDER BY o.next_attempt_at LIMIT $2 FOR UPDATE SKIP LOCKED)
+RETURNING id, project_id, event, payload, attempts, next_attempt_at, last_error, last_status, created_at, delivered_at, failed_at
+`
+
+type ClaimAuthHooksParams struct {
+	LeaseSecs int32
+	Lim       int32
+}
+
+// tenant: system - the auth hook sender across all projects: due events,
+// leased for lease_secs so no other sender takes them while they're sent.
+func (q *Queries) ClaimAuthHooks(ctx context.Context, arg ClaimAuthHooksParams) ([]AuthHookOutbox, error) {
+	rows, err := q.db.Query(ctx, claimAuthHooks, arg.LeaseSecs, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuthHookOutbox
+	for rows.Next() {
+		var i AuthHookOutbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Event,
+			&i.Payload,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.LastError,
+			&i.LastStatus,
+			&i.CreatedAt,
+			&i.DeliveredAt,
+			&i.FailedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countPhoneMessages = `-- name: CountPhoneMessages :one
 SELECT count(*) FROM auth_message_outbox WHERE project_id = $1 AND channel <> 'email' AND created_at > $2
 `
@@ -80,87 +176,6 @@ type DemoteActiveJWTKeyParams struct {
 func (q *Queries) DemoteActiveJWTKey(ctx context.Context, arg DemoteActiveJWTKeyParams) error {
 	_, err := q.db.Exec(ctx, demoteActiveJWTKey, arg.VerifyUntil, arg.ProjectID)
 	return err
-}
-
-const dueAuthEmails = `-- name: DueAuthEmails :many
-SELECT id, project_id, kind, via, message_enc, attempts, next_attempt_at, last_error, created_at, sent_at, channel, recipient_hash, country FROM auth_message_outbox
-WHERE sent_at IS NULL AND message_enc IS NOT NULL AND next_attempt_at <= now()
-ORDER BY next_attempt_at
-LIMIT $1
-FOR UPDATE SKIP LOCKED
-`
-
-// tenant: system - the auth email sender across all projects.
-func (q *Queries) DueAuthEmails(ctx context.Context, lim int32) ([]AuthMessageOutbox, error) {
-	rows, err := q.db.Query(ctx, dueAuthEmails, lim)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []AuthMessageOutbox
-	for rows.Next() {
-		var i AuthMessageOutbox
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Kind,
-			&i.Via,
-			&i.MessageEnc,
-			&i.Attempts,
-			&i.NextAttemptAt,
-			&i.LastError,
-			&i.CreatedAt,
-			&i.SentAt,
-			&i.Channel,
-			&i.RecipientHash,
-			&i.Country,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const dueAuthHooks = `-- name: DueAuthHooks :many
-SELECT id, project_id, event, payload, attempts, next_attempt_at, last_error, last_status, created_at, delivered_at, failed_at FROM auth_hook_outbox WHERE delivered_at IS NULL AND failed_at IS NULL AND next_attempt_at <= now()
-ORDER BY next_attempt_at LIMIT $1 FOR UPDATE SKIP LOCKED
-`
-
-// tenant: system - the auth hook sender across all projects.
-func (q *Queries) DueAuthHooks(ctx context.Context, lim int32) ([]AuthHookOutbox, error) {
-	rows, err := q.db.Query(ctx, dueAuthHooks, lim)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []AuthHookOutbox
-	for rows.Next() {
-		var i AuthHookOutbox
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Event,
-			&i.Payload,
-			&i.Attempts,
-			&i.NextAttemptAt,
-			&i.LastError,
-			&i.LastStatus,
-			&i.CreatedAt,
-			&i.DeliveredAt,
-			&i.FailedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const edgeAuthConfigs = `-- name: EdgeAuthConfigs :many

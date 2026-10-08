@@ -861,6 +861,10 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 	return bs, ns, nil
 }
 
+// defaultMaxConns is the metadata pool size unless PGDOCK_DATABASE_URL sets
+// pool_max_conns.
+const defaultMaxConns = 16
+
 func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pcfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -868,6 +872,12 @@ func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	}
 	if pcfg.ConnConfig.RuntimeParams["application_name"] == "" {
 		pcfg.ConnConfig.RuntimeParams["application_name"] = "pgdock-server"
+	}
+	// pgx's default (4 on a small box) is too few: the webhook and job
+	// schedulers each keep a connection for their lock, and a burst of
+	// requests and workers then queue behind each other.
+	if !strings.Contains(url, "pool_max_conns") {
+		pcfg.MaxConns = max(pcfg.MaxConns, defaultMaxConns)
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {

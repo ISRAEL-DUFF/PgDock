@@ -48,6 +48,9 @@ const (
 	messageBatch    = 20
 	messageMaxTries = 5
 	sendTimeout     = 30 * time.Second
+	// outboxLease is how long a claimed message or hook event is kept
+	// from other senders while it's sent.
+	outboxLease = 120
 )
 
 // PlatformPhone are the platform's SMS and WhatsApp providers and what a
@@ -353,31 +356,29 @@ func (s *Service) SendAuthEmails(ctx context.Context) error {
 	return s.sendAuthHooks(ctx)
 }
 
+// sendAuthMessages sends due messages: claimed under a lease, sent with no
+// connection held, then recorded.
 func (s *Service) sendAuthMessages(ctx context.Context) (int, error) {
-	n := 0
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		q := store.New(tx)
-		due, err := q.DueAuthEmails(ctx, messageBatch)
-		if err != nil {
-			return err
-		}
-		n = len(due)
-		for _, d := range due {
-			res, err := s.sendOne(ctx, d)
-			if err != nil {
+	due, err := store.New(s.db).ClaimAuthEmails(ctx, store.ClaimAuthEmailsParams{LeaseSecs: outboxLease, Lim: messageBatch})
+	if err != nil {
+		return 0, err
+	}
+	for _, d := range due {
+		res, sendErr := s.sendOne(ctx, d)
+		err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+			q := store.New(tx)
+			if sendErr != nil {
 				giveUp := d.Attempts+1 >= messageMaxTries
-				msg := err.Error()
+				msg := sendErr.Error()
 				if err := q.MarkAuthEmailFailed(ctx, store.MarkAuthEmailFailedParams{ID: d.ID, LastError: &msg,
 					NextAttemptAt: time.Now().Add(time.Duration(1<<min(d.Attempts, 6)) * 15 * time.Second), GiveUp: giveUp}); err != nil {
 					return err
 				}
-				if giveUp {
-					if err := q.InsertMessageSend(ctx, store.InsertMessageSendParams{ProjectID: d.ProjectID, Channel: d.Channel,
-						Provider: res.provider, Kind: d.Kind, Status: "failed", Country: d.Country}); err != nil {
-						return err
-					}
+				if !giveUp {
+					return nil
 				}
-				continue
+				return q.InsertMessageSend(ctx, store.InsertMessageSendParams{ProjectID: d.ProjectID, Channel: d.Channel,
+					Provider: res.provider, Kind: d.Kind, Status: "failed", Country: d.Country})
 			}
 			if err := q.MarkAuthEmailSent(ctx, d.ID); err != nil {
 				return err
@@ -387,14 +388,15 @@ func (s *Service) sendAuthMessages(ctx context.Context) (int, error) {
 				return err
 			}
 			if res.metric != "" {
-				if err := s.meterMessage(ctx, q, d.ProjectID, res.metric); err != nil {
-					return err
-				}
+				return s.meterMessage(ctx, q, d.ProjectID, res.metric)
 			}
+			return nil
+		})
+		if err != nil {
+			return len(due), err
 		}
-		return nil
-	})
-	return n, err
+	}
+	return len(due), nil
 }
 
 type sendResult struct {

@@ -66,6 +66,10 @@ bundle share one version (spec §11.5).
   `RESET ROLE` (an RPC function, an auth hook, or SQL injection in dynamic
   SQL) can no longer reach the edge's login, the auth tables or the service
   role. New migration 00039.
+- pgdock-server's metadata connection pool defaults to 16 connections
+  (it was pgx's 4 on a small box) unless `PGDOCK_DATABASE_URL` sets
+  `pool_max_conns`; the auth message and hook senders no longer hold a
+  connection while they send.
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a

@@ -134,28 +134,27 @@ func (s *Service) sendAuthHooks(ctx context.Context) error {
 	if s.Outbound == nil {
 		return nil
 	}
-	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		q := store.New(tx)
-		due, err := q.DueAuthHooks(ctx, hookBatch)
+	// Claimed under a lease and delivered with no connection held.
+	q := store.New(s.db)
+	due, err := q.ClaimAuthHooks(ctx, store.ClaimAuthHooksParams{LeaseSecs: outboxLease, Lim: hookBatch})
+	if err != nil {
+		return err
+	}
+	for _, d := range due {
+		status, err := s.deliverHook(ctx, d)
+		p := store.MarkAuthHookParams{ID: d.ID, LastStatus: status, Delivered: err == nil, NextAttemptAt: d.NextAttemptAt}
 		if err != nil {
+			msg := err.Error()
+			p.LastError = &msg
+			p.Failed = d.Attempts+1 >= hookMaxTries
+			p.NextAttemptAt = time.Now().Add(time.Duration(1<<min(d.Attempts, 8)) * 15 * time.Second)
+		}
+		if err := q.MarkAuthHook(ctx, p); err != nil {
 			return err
 		}
-		for _, d := range due {
-			status, err := s.deliverHook(ctx, d)
-			p := store.MarkAuthHookParams{ID: d.ID, LastStatus: status, Delivered: err == nil, NextAttemptAt: d.NextAttemptAt}
-			if err != nil {
-				msg := err.Error()
-				p.LastError = &msg
-				p.Failed = d.Attempts+1 >= hookMaxTries
-				p.NextAttemptAt = time.Now().Add(time.Duration(1<<min(d.Attempts, 8)) * 15 * time.Second)
-			}
-			if err := q.MarkAuthHook(ctx, p); err != nil {
-				return err
-			}
-		}
-		_, err = q.PruneAuthHooks(ctx, time.Now().Add(-hookKeep))
-		return err
-	})
+	}
+	_, err = q.PruneAuthHooks(ctx, time.Now().Add(-hookKeep))
+	return err
 }
 
 func (s *Service) deliverHook(ctx context.Context, d store.AuthHookOutbox) (*int32, error) {
