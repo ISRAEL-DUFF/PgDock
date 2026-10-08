@@ -698,6 +698,8 @@ Message provider interface; platform SMS and WhatsApp OTP with caps, country all
 
 `pgd_storage` schema and helpers; buckets; direct and multipart uploads with presigned URLs; downloads, signed URLs, public CDN; range requests; image transforms with caching; listing, move, copy, delete; reconciler; quotas and metering; storage dashboard. **Done when:** per-user avatar policies hold for upload, read, and delete; a 2 GB upload completes via multipart; transformed images are served from cache on the second request.
 
+*(As built: files are in the region's backup storage target under version-keyed names, not `projects/<ref>/<bucket>/<path>`; transforms are pure Go (WebP and AVIF through WebAssembly) instead of libvips; signed URLs are checked by the edge, not the store; quotas reach the edge from a 5-minute sweep; branches carry file rows without their bytes. See `docs/decisions.md`, V4-M33, and `docs/backend-services.md`.)*
+
 ### M34 — Realtime (Weeks 17–19)
 
 WebSocket server; database-change channels on the outbox with RLS group filtering; broadcast and presence; private channels via `channel_access` policies; heartbeats, reconnect, resync; multi-process fan-out; limits and metering. **Done when:** two users subscribed to the same table each receive only rows their policies allow, a rolled-back insert produces nothing, and 10k connections hold on one region in the load test.
