@@ -250,6 +250,15 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   CDN when a bucket goes private, set `PGDOCK_CDN_CLOUDFLARE_ZONE_ID` and
   `PGDOCK_CDN_CLOUDFLARE_TOKEN` on pgdock-server. Upgrade pgdock-server
   first, then the edges.
+- **Realtime** (migration 00041, project schema version 5): projects with
+  backend services get the `pgd_realtime` tables and functions within a
+  minute (nothing to run). pgdock-edge needs to reach each region's
+  session-mode pooler for realtime's `LISTEN` connections (the feed sends
+  its address; `PGDOCK_EDGE_SESSION_ADDR` overrides it); without one it
+  polls the outbox every second and broadcasts stay within one edge
+  process. If a load balancer sits in front of the edges, let WebSocket
+  upgrades through and give it an idle timeout over 25 seconds (the
+  clients' heartbeat). Upgrade pgdock-server first, then the edges.
 
 ## Rolling back
 

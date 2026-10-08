@@ -65,6 +65,7 @@ func run(args []string) error {
 		Region:        os.Getenv("PGDOCK_EDGE_REGION"),
 		Domain:        os.Getenv("PGDOCK_EDGE_DOMAIN"),
 		PoolerAddr:    os.Getenv("PGDOCK_EDGE_POOLER_ADDR"),
+		SessionAddr:   os.Getenv("PGDOCK_EDGE_SESSION_ADDR"),
 		PoolerSSLMode: env("PGDOCK_EDGE_POOLER_SSLMODE", "require"),
 	}
 	switch {

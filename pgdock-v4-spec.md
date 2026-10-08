@@ -704,6 +704,8 @@ Message provider interface; platform SMS and WhatsApp OTP with caps, country all
 
 WebSocket server; database-change channels on the outbox with RLS group filtering; broadcast and presence; private channels via `channel_access` policies; heartbeats, reconnect, resync; multi-process fan-out; limits and metering. **Done when:** two users subscribed to the same table each receive only rows their policies allow, a rolled-back insert produces nothing, and 10k connections hold on one region in the load test.
 
+*(As built: the outbox is read in transaction order by a per-project cursor over xid8 snapshots; edge processes relay broadcast and presence through NOTIFY on the project's own database, not the metadata DB; subscribers are grouped by role and all claims; the wire protocol is Supabase realtime's. See `docs/decisions.md`, V4-M34, and `docs/backend-services.md`.)*
+
 ### M35 — Read replicas (Week 20)
 
 Replica creation on another node or region; pooler read-only route with health and lag rotation; data API replica routing; failover behaviour; detach; billing. **Done when:** read traffic shifts to replicas, a lagging replica leaves rotation automatically, and replicas follow a new primary after an HA failover.
