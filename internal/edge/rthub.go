@@ -410,7 +410,9 @@ func (h *rtHub) serve(ctx context.Context, conn *pgx.Conn) error {
 				if conn != nil && conn.IsClosed() {
 					return err
 				}
-				h.e.cfg.Log.Warn("realtime outbox", "ref", h.ref, "err", err)
+				if ctx.Err() == nil {
+					h.e.cfg.Log.Warn("realtime outbox", "ref", h.ref, "err", err)
+				}
 			}
 			lastDrain = time.Now()
 		}

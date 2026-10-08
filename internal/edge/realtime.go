@@ -36,7 +36,7 @@ const (
 	rtMaxFrame = 256 << 10
 	// rtSendQueue is the messages queued to a slow client before it is
 	// disconnected (it refetches on reconnect).
-	rtSendQueue = 1024
+	rtSendQueue = 256
 	// rtTopicPrefix starts every channel topic.
 	rtTopicPrefix = "realtime:"
 )
