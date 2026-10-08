@@ -47,10 +47,12 @@ func Generate(kid string) (der []byte, jwk JWK, err error) {
 
 // PublicJWK is pub as a JWK.
 func PublicJWK(pub *ecdsa.PublicKey, kid string) JWK {
-	x, y := make([]byte, 32), make([]byte, 32)
-	pub.X.FillBytes(x)
-	pub.Y.FillBytes(y)
-	return JWK{Kty: "EC", Crv: "P-256", X: b64.EncodeToString(x), Y: b64.EncodeToString(y), Kid: kid, Alg: "ES256", Use: "sig"}
+	// The uncompressed point: 0x04, then X and Y, 32 bytes each.
+	b, err := pub.Bytes()
+	if err != nil || len(b) != 65 {
+		return JWK{}
+	}
+	return JWK{Kty: "EC", Crv: "P-256", X: b64.EncodeToString(b[1:33]), Y: b64.EncodeToString(b[33:]), Kid: kid, Alg: "ES256", Use: "sig"}
 }
 
 // Public decodes a JWK.
@@ -66,8 +68,18 @@ func (j JWK) Public() (*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	pub := &ecdsa.PublicKey{Curve: elliptic.P256(), X: new(big.Int).SetBytes(x), Y: new(big.Int).SetBytes(y)}
-	if !elliptic.P256().IsOnCurve(pub.X, pub.Y) { //nolint:staticcheck // the point check is the point
+	if len(x) > 32 || len(y) > 32 {
+		return nil, errors.New("jwtes: a P-256 coordinate is at most 32 bytes")
+	}
+	// The uncompressed point, coordinates left-padded (as big-endian
+	// integers, which a short encoding still is); parsing checks the point
+	// is on the curve.
+	point := make([]byte, 65)
+	point[0] = 4
+	copy(point[33-len(x):33], x)
+	copy(point[65-len(y):], y)
+	pub, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
+	if err != nil {
 		return nil, errors.New("jwtes: point not on the curve")
 	}
 	return pub, nil

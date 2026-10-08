@@ -105,6 +105,10 @@ bundle share one version (spec §11.5).
   See docs/read-replicas.md.
 - New migration 00042 (read replicas). HA standby billing no longer counts
   removed members.
+- Built with Go 1.26.9 (1.25 is out of support; html/template and net/http
+  fixes are only in 1.26), and linted with golangci-lint 2.14. ES256 keys
+  are encoded and parsed through `ecdsa.PublicKey.Bytes` and
+  `ParseUncompressedPublicKey` instead of the deprecated coordinates.
 - The Usage page lists file storage, downloads and image transforms (they
   were recorded but not shown).
 - pgdock-server's metadata connection pool defaults to 16 connections

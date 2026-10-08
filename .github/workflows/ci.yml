@@ -52,7 +52,7 @@ jobs:
       - name: Go lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.5
+          version: v2.14
 
       - name: Go tests (including Postgres-backed)
         run: make test-go

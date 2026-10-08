@@ -39,7 +39,7 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 
 ## Requirements
 
-- Go 1.25+
+- Go 1.26+
 - Node.js 22+ (only for building the UI; backend-only work compiles without it)
 - [`golangci-lint`](https://golangci-lint.run/) v2 for `make lint`
 - [`air`](https://github.com/air-verse/air) for `make dev`

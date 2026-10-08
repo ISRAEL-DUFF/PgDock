@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -123,14 +124,25 @@ func TestEtcdCluster(t *testing.T) {
 	if out, err := exec.Command("docker", "kill", "pgdock-etcd-"+ns[2].Id.String()).CombinedOutput(); err != nil {
 		t.Fatalf("kill member: %v %s", err, out)
 	}
-	e.Do("GET", "/api/v1/admin/etcd", nil, &c)
-	down := 0
-	for _, m := range c.Members {
-		if m.Status != gen.EtcdMemberStatusHealthy {
-			down++
+	// If it was the leader, the others answer "leader changed" until they
+	// elect a new one (a second or two).
+	for deadline := time.Now().Add(20 * time.Second); ; time.Sleep(500 * time.Millisecond) {
+		e.Do("GET", "/api/v1/admin/etcd", nil, &c)
+		down := 0
+		for _, m := range c.Members {
+			if m.Status != gen.EtcdMemberStatusHealthy {
+				down++
+			}
 		}
-	}
-	if !c.Ready || down != 1 {
-		t.Fatalf("with one member down: ready %v, %d unhealthy: %+v", c.Ready, down, c.Members)
+		if c.Ready && down == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			var desc []string
+			for _, m := range c.Members {
+				desc = append(desc, fmt.Sprintf("%s %s (%s)", m.NodeName, m.Status, deref(m.Error)))
+			}
+			t.Fatalf("with one member down: ready %v, %d unhealthy: %s", c.Ready, down, strings.Join(desc, "; "))
+		}
 	}
 }
