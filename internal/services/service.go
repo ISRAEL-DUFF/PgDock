@@ -770,6 +770,9 @@ func (s *Service) Run(ctx context.Context, every time.Duration) {
 			if err := s.StorageSweep(ctx); err != nil && ctx.Err() == nil {
 				s.log.Warn("storage sweep", "err", err)
 			}
+			if err := s.RealtimeSweep(ctx); err != nil && ctx.Err() == nil {
+				s.log.Warn("realtime sweep", "err", err)
+			}
 			swept = time.Now()
 		}
 		if time.Since(reconciled) >= ReconcileStorageEvery {

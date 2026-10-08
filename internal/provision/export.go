@@ -180,5 +180,16 @@ func (s *Service) PooledAddr(region string) string {
 	return s.cfg.SmokePooledAddr
 }
 
+// SessionAddr is host:port of a session-mode pooler serving region, as
+// pgdock-server reaches it.
+func (s *Service) SessionAddr(region string) string {
+	if s.pooler != nil {
+		if sp, _, ok := s.pooler.SmokeAddrs(region); ok {
+			return sp
+		}
+	}
+	return s.cfg.SmokeSessionAddr
+}
+
 // Keyring is the master keyring.
 func (s *Service) Keyring() *crypto.Keyring { return s.keyring }

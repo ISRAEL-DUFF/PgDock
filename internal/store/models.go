@@ -968,25 +968,27 @@ type ProjectMember struct {
 }
 
 type ProjectService struct {
-	ProjectID            uuid.UUID
-	Ref                  string
-	Enabled              bool
-	ExposedSchemas       []string
-	PublicTables         []string
-	CorsOrigins          []string
-	Settings             json.RawMessage
-	EdgeVerifier         *string
-	SchemaVersion        int32
-	RolesInstance        *uuid.UUID
-	ConfigVersion        int64
-	ChangedSeq           int64
-	EnabledAt            *time.Time
-	CreatedAt            time.Time
-	LoginVerifiers       json.RawMessage
-	StorageQuotaBytes    *int64
-	UploadMaxBytes       *int64
-	StorageEgressBlocked bool
-	TransformsBlocked    bool
+	ProjectID               uuid.UUID
+	Ref                     string
+	Enabled                 bool
+	ExposedSchemas          []string
+	PublicTables            []string
+	CorsOrigins             []string
+	Settings                json.RawMessage
+	EdgeVerifier            *string
+	SchemaVersion           int32
+	RolesInstance           *uuid.UUID
+	ConfigVersion           int64
+	ChangedSeq              int64
+	EnabledAt               *time.Time
+	CreatedAt               time.Time
+	LoginVerifiers          json.RawMessage
+	StorageQuotaBytes       *int64
+	UploadMaxBytes          *int64
+	StorageEgressBlocked    bool
+	TransformsBlocked       bool
+	RealtimeMaxConnections  *int32
+	RealtimeMessagesBlocked bool
 }
 
 type ProjectStorage struct {

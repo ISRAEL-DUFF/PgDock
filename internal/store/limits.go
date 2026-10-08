@@ -25,6 +25,9 @@ const (
 	LimitStorageEgressMBMo = "storage_egress_mb_per_month"
 	LimitImageTransformsMo = "image_transforms_per_month"
 	LimitUploadMaxMB       = "upload_max_mb"
+	// Realtime (V4 §10.1): concurrent connections, and the free plan's messages.
+	LimitRealtimeConnections = "realtime_connections"
+	LimitRealtimeMessagesMo  = "realtime_messages_per_month"
 )
 
 // LimitKeys are the known limits, in display order.
@@ -33,6 +36,7 @@ var LimitKeys = []string{
 	LimitBackupStorageMB, LimitWebhookPerMin, LimitScheduledJobs, LimitJobMinIntervalS,
 	LimitHTTPJobRunsPerHour, LimitConsoleQueries, LimitOperationsInFlight,
 	LimitFileStorageMB, LimitStorageEgressMBMo, LimitImageTransformsMo, LimitUploadMaxMB,
+	LimitRealtimeConnections, LimitRealtimeMessagesMo,
 }
 
 // Limits are an organisation's effective quotas: its plan's limits with its

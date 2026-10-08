@@ -323,6 +323,155 @@ var schemaVersions = []schemaVersion{
 		// (the pgd_* schemas stay the platform's).
 		`ALTER TABLE pgd_storage.objects OWNER TO {{owner}}`,
 	}},
+	{5, []string{
+		// Realtime (V4 §6): the tables whose changes are captured.
+		`CREATE TABLE IF NOT EXISTS pgd_realtime.tables (
+		  schema_name text NOT NULL,
+		  table_name  text NOT NULL,
+		  pk_columns  text[] NOT NULL,
+		  created_at  timestamptz NOT NULL DEFAULT now(),
+		  PRIMARY KEY (schema_name, table_name)
+		)`,
+		// Each captured change, written in the changing transaction so a
+		// rolled-back change never appears (§6.2). pgdock-edge reads it in
+		// transaction order (xid, id) once each transaction has committed;
+		// pgdock-server's sweep removes rows after a few minutes.
+		`CREATE TABLE IF NOT EXISTS pgd_realtime.outbox (
+		  id          bigserial PRIMARY KEY,
+		  xid         xid8 NOT NULL DEFAULT pg_current_xact_id(),
+		  schema_name text NOT NULL,
+		  table_name  text NOT NULL,
+		  op          text NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE')),
+		  record      jsonb,
+		  old_record  jsonb,
+		  at          timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS outbox_order ON pgd_realtime.outbox (xid, id)`,
+		`CREATE INDEX IF NOT EXISTS outbox_at ON pgd_realtime.outbox (at)`,
+		// The trigger's arguments are the table's primary key columns: an
+		// update's and a delete's old record carries only those.
+		`CREATE OR REPLACE FUNCTION pgd_realtime.capture() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+		  SET search_path = pg_catalog, pgd_realtime AS $$
+		DECLARE
+		  old_pk jsonb;
+		  r jsonb;
+		  c text;
+		BEGIN
+		  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+		    r := to_jsonb(OLD);
+		    old_pk := '{}';
+		    FOREACH c IN ARRAY TG_ARGV LOOP
+		      old_pk := old_pk || jsonb_build_object(c, r -> c);
+		    END LOOP;
+		  END IF;
+		  INSERT INTO pgd_realtime.outbox (schema_name, table_name, op, record, old_record)
+		  VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, TG_OP, CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE to_jsonb(NEW) END, old_pk);
+		  PERFORM pg_notify('pgd_realtime', '');
+		  RETURN NULL;
+		END $$`,
+		// enable and disable are for the project's owner (and the dashboard,
+		// as the platform): a table they own, with a primary key.
+		`CREATE OR REPLACE FUNCTION pgd_realtime.enable(tbl regclass) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+		  SET search_path = pg_catalog, pgd_realtime AS $$
+		DECLARE
+		  sch text;
+		  rel text;
+		  pk text[];
+		BEGIN
+		  SELECT n.nspname, c.relname INTO sch, rel FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+		  WHERE c.oid = tbl AND c.relkind IN ('r', 'p');
+		  IF sch IS NULL THEN
+		    RAISE EXCEPTION '% is not a table', tbl USING ERRCODE = '42809';
+		  END IF;
+		  IF sch LIKE 'pgd\_%' OR sch LIKE 'pg\_%' OR sch IN ('information_schema', 'pgdock') THEN
+		    RAISE EXCEPTION 'realtime can''t capture %', tbl USING ERRCODE = '42501';
+		  END IF;
+		  IF session_user <> current_user AND NOT pg_has_role(session_user, (SELECT relowner FROM pg_class WHERE oid = tbl), 'MEMBER') THEN
+		    RAISE EXCEPTION 'must own % to enable realtime on it', tbl USING ERRCODE = '42501';
+		  END IF;
+		  SELECT array_agg(a.attname ORDER BY k.ord) INTO pk FROM pg_index i
+		    CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord)
+		    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum
+		  WHERE i.indrelid = tbl AND i.indisprimary;
+		  IF pk IS NULL THEN
+		    RAISE EXCEPTION '% has no primary key; realtime needs one', tbl USING ERRCODE = '42P10';
+		  END IF;
+		  EXECUTE format('CREATE OR REPLACE TRIGGER pgd_realtime_capture AFTER INSERT OR UPDATE OR DELETE ON %I.%I
+		    FOR EACH ROW EXECUTE FUNCTION pgd_realtime.capture(%s)', sch, rel,
+		    (SELECT string_agg(quote_literal(x), ', ') FROM unnest(pk) AS x));
+		  INSERT INTO pgd_realtime.tables (schema_name, table_name, pk_columns) VALUES (sch, rel, pk)
+		  ON CONFLICT (schema_name, table_name) DO UPDATE SET pk_columns = EXCLUDED.pk_columns;
+		END $$`,
+		`CREATE OR REPLACE FUNCTION pgd_realtime.disable(tbl regclass) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+		  SET search_path = pg_catalog, pgd_realtime AS $$
+		DECLARE
+		  sch text;
+		  rel text;
+		BEGIN
+		  SELECT n.nspname, c.relname INTO sch, rel FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.oid = tbl;
+		  IF session_user <> current_user AND NOT pg_has_role(session_user, (SELECT relowner FROM pg_class WHERE oid = tbl), 'MEMBER') THEN
+		    RAISE EXCEPTION 'must own % to disable realtime on it', tbl USING ERRCODE = '42501';
+		  END IF;
+		  EXECUTE format('DROP TRIGGER IF EXISTS pgd_realtime_capture ON %I.%I', sch, rel);
+		  DELETE FROM pgd_realtime.tables WHERE schema_name = sch AND table_name = rel;
+		END $$`,
+		// Private channels (§6.1): joining and sending are decided by the
+		// owner's policies on channel_access. pgdock-edge probes them in a
+		// transaction it rolls back: probe() adds a row as the platform, the
+		// caller's SELECT policies decide whether they see it (may receive),
+		// and their INSERT policies whether they may add one (may send).
+		`CREATE TABLE IF NOT EXISTS pgd_realtime.channel_access (
+		  id         bigserial PRIMARY KEY,
+		  topic      text NOT NULL,
+		  extension  text NOT NULL CHECK (extension IN ('broadcast', 'presence')),
+		  created_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE OR REPLACE FUNCTION pgd_realtime.probe(topic text, extension text) RETURNS bigint LANGUAGE sql VOLATILE SECURITY DEFINER
+		  SET search_path = pg_catalog, pgd_realtime AS
+		$$ INSERT INTO pgd_realtime.channel_access (topic, extension) VALUES (topic, extension) RETURNING id $$`,
+		// Broadcasts kept for history (§6.4) on topics the owner lists, 7 days.
+		`CREATE TABLE IF NOT EXISTS pgd_realtime.persisted_topics (
+		  topic      text PRIMARY KEY,
+		  created_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS pgd_realtime.broadcast_history (
+		  id      bigserial PRIMARY KEY,
+		  topic   text NOT NULL,
+		  event   text NOT NULL,
+		  payload jsonb NOT NULL,
+		  sender  uuid,
+		  at      timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS broadcast_history_topic ON pgd_realtime.broadcast_history (topic, id)`,
+		`CREATE INDEX IF NOT EXISTS broadcast_history_at ON pgd_realtime.broadcast_history (at)`,
+		// Messages too large for a NOTIFY between pgdock-edge processes.
+		`CREATE TABLE IF NOT EXISTS pgd_realtime.relay (
+		  id   bigserial PRIMARY KEY,
+		  body text NOT NULL,
+		  at   timestamptz NOT NULL DEFAULT now()
+		)`,
+		`REVOKE ALL ON ALL TABLES IN SCHEMA pgd_realtime FROM PUBLIC`,
+		`REVOKE ALL ON FUNCTION pgd_realtime.capture(), pgd_realtime.enable(regclass), pgd_realtime.disable(regclass),
+		  pgd_realtime.probe(text, text) FROM PUBLIC`,
+		`GRANT USAGE ON SCHEMA pgd_realtime TO {{owner}}, {{anon}}, {{user}}, {{service}}, {{edge}}`,
+		`GRANT EXECUTE ON FUNCTION pgd_realtime.enable(regclass), pgd_realtime.disable(regclass) TO {{owner}}`,
+		`GRANT EXECUTE ON FUNCTION pgd_realtime.probe(text, text) TO {{anon}}, {{user}}, {{service}}`,
+		`GRANT SELECT ON pgd_realtime.tables TO {{owner}}, {{edge}}`,
+		`GRANT SELECT ON pgd_realtime.outbox TO {{edge}}`,
+		`GRANT SELECT, INSERT, DELETE ON pgd_realtime.persisted_topics TO {{owner}}`,
+		`GRANT SELECT ON pgd_realtime.persisted_topics TO {{edge}}`,
+		`GRANT SELECT, INSERT ON pgd_realtime.broadcast_history TO {{edge}}`,
+		`GRANT SELECT ON pgd_realtime.broadcast_history TO {{owner}}, {{service}}`,
+		`GRANT SELECT, INSERT ON pgd_realtime.relay TO {{edge}}`,
+		`GRANT USAGE ON ALL SEQUENCES IN SCHEMA pgd_realtime TO {{edge}}`,
+		`GRANT SELECT, INSERT ON pgd_realtime.channel_access TO {{anon}}, {{user}}, {{service}}`,
+		`GRANT USAGE ON SEQUENCE pgd_realtime.channel_access_id_seq TO {{anon}}, {{user}}, {{service}}`,
+		`ALTER TABLE pgd_realtime.channel_access ENABLE ROW LEVEL SECURITY`,
+		// probe() runs as the platform's admin, which adds the row.
+		`DROP POLICY IF EXISTS pgdock_probe ON pgd_realtime.channel_access`,
+		`CREATE POLICY pgdock_probe ON pgd_realtime.channel_access FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true)`,
+		`ALTER TABLE pgd_realtime.channel_access OWNER TO {{owner}}`,
+	}},
 }
 
 // exposureStmts let the request roles use what the owner makes in an

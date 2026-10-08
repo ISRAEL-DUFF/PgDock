@@ -99,11 +99,15 @@ type Project struct {
 	Seq       int64     `json:"seq"`
 	// Database is the pooler database name; the edge logs in as EdgeUser
 	// and SETs ROLE to AnonRole, UserRole or ServiceRole per request.
-	Database    string `json:"database,omitempty"`
-	EdgeUser    string `json:"edge_user,omitempty"`
-	Password    string `json:"password,omitempty"`
-	PoolerHost  string `json:"pooler_host,omitempty"`
-	PoolerPort  int    `json:"pooler_port,omitempty"`
+	Database   string `json:"database,omitempty"`
+	EdgeUser   string `json:"edge_user,omitempty"`
+	Password   string `json:"password,omitempty"`
+	PoolerHost string `json:"pooler_host,omitempty"`
+	PoolerPort int    `json:"pooler_port,omitempty"`
+	// SessionHost and SessionPort are a session-mode pooler, for realtime's
+	// LISTEN connection (V4 §6.2); empty without one.
+	SessionHost string `json:"session_host,omitempty"`
+	SessionPort int    `json:"session_port,omitempty"`
 	AnonRole    string `json:"anon_role,omitempty"`
 	UserRole    string `json:"user_role,omitempty"`
 	ServiceRole string `json:"service_role,omitempty"`
@@ -130,6 +134,23 @@ type Project struct {
 	// Storage is where the project's files are and what it may store
 	// (V4 §5); nil when its region has no object store.
 	Storage *StorageConfig `json:"storage,omitempty"`
+	// Realtime is what the project's realtime connections may do (V4 §6).
+	Realtime RealtimeConfig `json:"realtime"`
+}
+
+// RealtimeConfig is a project's realtime limits as the edge applies them.
+type RealtimeConfig struct {
+	// MaxConnections is concurrent WebSocket connections per edge process
+	// (0: unlimited).
+	MaxConnections int `json:"max_connections,omitempty"`
+	// MessagesBlocked refuses new connections and stops delivery: the
+	// month's messages are used up.
+	MessagesBlocked bool `json:"messages_blocked,omitempty"`
+	// MaxChangesPerSecond is the database changes delivered per second
+	// before they are coalesced into a resync signal; MaxGroups the
+	// distinct claims groups checked per change.
+	MaxChangesPerSecond int `json:"max_changes_per_second,omitempty"`
+	MaxGroups           int `json:"max_groups,omitempty"`
 }
 
 // StorageConfig is a project's file storage as the edge applies it.
@@ -296,6 +317,10 @@ type Usage struct {
 	// Transforms the image renders made (not served from cache).
 	StorageEgressBytes int64 `json:"storage_egress_bytes,omitempty"`
 	Transforms         int64 `json:"transforms,omitempty"`
+	// RealtimeConnectionSeconds are WebSocket connections' time and
+	// RealtimeMessages the messages sent to and received from clients.
+	RealtimeConnectionSeconds int64 `json:"realtime_connection_seconds,omitempty"`
+	RealtimeMessages          int64 `json:"realtime_messages,omitempty"`
 }
 
 // Log is one request.

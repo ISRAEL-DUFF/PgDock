@@ -46,6 +46,9 @@ const (
 	MetricStorageGBHours  = "storage_gb_hours"
 	MetricStorageEgress   = "storage_egress_gb"
 	MetricImageTransforms = "image_transforms"
+	// Backend services' realtime (V4 §6, §11.1).
+	MetricRealtimeConnMinutes = "realtime_connection_minutes"
+	MetricRealtimeMessages    = "realtime_messages"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -71,6 +74,11 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricAuthMAU, "users", "hour"},
 	{MetricMessagesSMS, "messages", "hour"},
 	{MetricMessagesWhatsApp, "messages", "hour"},
+	{MetricStorageGBHours, "GB-hours", "hour"},
+	{MetricStorageEgress, "GB", "hour"},
+	{MetricImageTransforms, "transforms", "hour"},
+	{MetricRealtimeConnMinutes, "connection-minutes", "hour"},
+	{MetricRealtimeMessages, "messages", "hour"},
 }
 
 const (

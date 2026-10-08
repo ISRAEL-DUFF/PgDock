@@ -136,6 +136,12 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		edge := store.EdgeRole(r.DbName)
 		p.Database, p.EdgeUser, p.Password = r.DbName, edge, s.edgePassword(edge)
 		p.PoolerHost, p.PoolerPort = host, port
+		if addr := s.projects.SessionAddr(r.Region); addr != "" {
+			if h, ps, err := net.SplitHostPort(addr); err == nil {
+				p.SessionHost = h
+				p.SessionPort, _ = strconv.Atoi(ps)
+			}
+		}
 		p.AnonRole, p.UserRole, p.ServiceRole = store.AnonRole(r.DbName), store.UserRole(r.DbName), store.ServiceRole(r.DbName)
 		p.HookRole = store.AuthHookRole(r.DbName)
 		p.Logins = map[string]string{}
@@ -154,6 +160,11 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 			RatePerIP: or(st.RatePerIP, DefaultRatePerIP), RatePerKey: or(st.RatePerKey, DefaultRatePerKey),
 			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost))}
 		p.Storage = s.storageConfig(ctx, r, targets)
+		p.Realtime = edgeapi.RealtimeConfig{MessagesBlocked: r.RealtimeMessagesBlocked,
+			MaxChangesPerSecond: DefaultRealtimeChangesPerSecond, MaxGroups: DefaultRealtimeGroups}
+		if r.RealtimeMaxConnections != nil {
+			p.Realtime.MaxConnections = int(*r.RealtimeMaxConnections)
+		}
 		out.Projects = append(out.Projects, p)
 	}
 	return out, nil
@@ -284,6 +295,18 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 					return err
 				}
 			}
+			if u.RealtimeConnectionSeconds > 0 {
+				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricRealtimeConnMinutes,
+					PeriodStart: hour, Quantity: minutesNumeric(u.RealtimeConnectionSeconds), PlanID: o.PlanID}); err != nil {
+					return err
+				}
+			}
+			if u.RealtimeMessages > 0 {
+				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricRealtimeMessages,
+					PeriodStart: hour, Quantity: intNumeric(u.RealtimeMessages), PlanID: o.PlanID}); err != nil {
+					return err
+				}
+			}
 			if u.Transforms > 0 {
 				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricImageTransforms,
 					PeriodStart: hour, Quantity: intNumeric(u.Transforms), PlanID: o.PlanID}); err != nil {
@@ -364,4 +387,9 @@ func strPtr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// minutesNumeric is seconds as minutes, to four decimal places.
+func minutesNumeric(seconds int64) pgtype.Numeric {
+	return pgtype.Numeric{Int: big.NewInt(seconds * 10000 / 60), Exp: -4, Valid: true}
 }
